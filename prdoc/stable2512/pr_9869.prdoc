@@ -1,0 +1,15 @@
+title: Removes legacy consensus code that was no longer used.
+doc:
+- audience: Node Dev
+  description: Removes the `ParachainConsensus` trait and legacy consensus code that was no longer used.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-client-consensus-common
+  bump: major
+- name: cumulus-client-consensus-relay-chain
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: none

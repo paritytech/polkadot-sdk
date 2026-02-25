@@ -1,0 +1,10 @@
+title: 'fix: support `paginationStartKey` parameter for `archive_v1_storage`'
+doc:
+- audience: Node Dev
+  description: |-
+    Fixes #10185
+
+    This PR is to add support for `paginationStartKey` parameter in `archive_v1_storage` JSON RPC API for query type: `descendantsValues` and `descendantsHashes` per [the latest specs](https://paritytech.github.io/json-rpc-interface-spec/api/archive_v1_storage.html).
+crates:
+- name: sc-rpc-spec-v2
+  bump: major

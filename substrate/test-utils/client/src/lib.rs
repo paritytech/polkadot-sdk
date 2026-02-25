@@ -27,9 +27,7 @@ pub use sc_client_db::{self, Backend, BlocksPruning};
 pub use sc_executor::{self, WasmExecutionMethod, WasmExecutor};
 pub use sc_service::{client, RpcHandlers};
 pub use sp_consensus;
-pub use sp_keyring::{
-	ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
-};
+pub use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 pub use sp_keystore::{Keystore, KeystorePtr};
 pub use sp_runtime::{Storage, StorageChild};
 
@@ -352,7 +350,7 @@ pub(crate) fn parse_rpc_result(
 
 	if let Some(error) = error {
 		return Err(serde_json::from_value(error.clone())
-			.expect("the JSONRPC result's error is always valid; qed"))
+			.expect("the JSONRPC result's error is always valid; qed"));
 	}
 
 	Ok(RpcTransactionOutput { result, receiver })
@@ -386,7 +384,7 @@ where
 				if notification.is_new_best {
 					blocks.insert(*notification.header.number());
 					if blocks.len() == count {
-						break
+						break;
 					}
 				}
 			}

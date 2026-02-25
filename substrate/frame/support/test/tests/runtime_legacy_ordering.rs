@@ -52,6 +52,7 @@ mod module1 {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
@@ -64,7 +65,9 @@ mod module1 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	#[scale_info(skip_type_params(I))]
 	pub struct Origin<T, I = ()>(pub PhantomData<(T, I)>);
 
@@ -90,6 +93,7 @@ mod module2 {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -108,7 +112,9 @@ mod module2 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	pub struct Origin;
 
 	#[pallet::event]
@@ -136,6 +142,7 @@ mod nested {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		}
@@ -155,7 +162,17 @@ mod nested {
 		}
 
 		#[pallet::origin]
-		#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+		#[derive(
+			Clone,
+			PartialEq,
+			Eq,
+			Debug,
+			Encode,
+			Decode,
+			DecodeWithMemTracking,
+			MaxEncodedLen,
+			TypeInfo,
+		)]
 		pub struct Origin;
 
 		#[pallet::event]
@@ -204,6 +221,7 @@ pub mod module3 {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -237,7 +255,9 @@ pub mod module3 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	pub struct Origin<T>(pub PhantomData<T>);
 
 	#[pallet::event]
@@ -296,7 +316,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 

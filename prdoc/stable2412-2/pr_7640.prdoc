@@ -1,0 +1,25 @@
+title: Bring the latest compatibility fixes via litep2p v0.9.1
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This release enhances compatibility between litep2p and libp2p by using the latest Yamux upstream version.
+      Additionally, it includes various improvements and fixes to boost the stability and performance of the WebSocket stream and the multistream-select protocol.
+
+crates:
+  - name: sc-network
+    bump: minor
+  - name: cumulus-client-cli
+    bump: minor
+  - name: sc-network-types
+    bump: minor
+  - name: sc-transaction-pool-api
+    bump: minor
+  - name: sc-transaction-pool
+    bump: minor
+  - name: polkadot-statement-distribution
+    bump: minor
+  - name: polkadot-dispute-distribution
+    bump: minor
+  - name: cumulus-relay-chain-rpc-interface
+    bump: minor

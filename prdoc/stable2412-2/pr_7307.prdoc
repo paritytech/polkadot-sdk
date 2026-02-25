@@ -1,0 +1,16 @@
+title: Bridges small nits/improvements
+doc:
+- audience: Runtime Dev
+  description: |
+      This PR introduces a new `expected_payload_type` parameter to the Bridges `assert_complete_bridge_types` macro.
+crates:
+- name: bridge-runtime-common
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: patch

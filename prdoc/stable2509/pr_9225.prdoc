@@ -1,0 +1,8 @@
+title: 'Add supported_version to pallet-xcm genesis config'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `supported_version` field to the pallet-xcm genesis config, which allows specifying versioned locations at genesis.
+crates:
+- name: pallet-xcm
+  bump: major

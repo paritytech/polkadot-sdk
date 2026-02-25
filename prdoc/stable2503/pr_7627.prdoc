@@ -1,0 +1,62 @@
+title: Derive `DecodeWithMemTracking` for cumulus pallets and for `polkadot-sdk` runtimes
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/7360
+
+    Derive `DecodeWithMemTracking` for the structures in the cumulus pallets and for the structures in the `polkadot-sdk` runtimes.
+
+    The PR contains no functional changes and no manual implementation. Just deriving `DecodeWithMemTracking`.
+crates:
+- name: pallet-assets-holder
+  bump: minor
+- name: pallet-mixnet
+  bump: minor
+- name: pallet-referenda
+  bump: minor
+- name: pallet-staking
+  bump: minor
+- name: snowbridge-pallet-system
+  bump: minor
+- name: cumulus-pallet-xcm
+  bump: minor
+- name: bridge-hub-common
+  bump: minor
+- name: cumulus-primitives-parachain-inherent
+  bump: minor
+- name: polkadot-core-primitives
+  bump: minor
+- name: polkadot-parachain-primitives
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: polkadot-runtime-common
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: sp-runtime
+  bump: minor
+- name: sp-trie
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: cumulus-primitives-core
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: pallet-conviction-voting
+  bump: minor

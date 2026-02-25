@@ -121,7 +121,7 @@ fn check_resource_usage(
 			))
 		}
 	} else {
-		Some(format!("The resource `{}` is not found", resource_name))
+		Some(format!("The resource `{resource_name}` is not found"))
 	}
 }
 

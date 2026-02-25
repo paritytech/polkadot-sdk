@@ -1,0 +1,12 @@
+title: Remove `#[no_mangle]` from the panic handler
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/8190
+
+    Remove useless `#[no_mangle]` from the panic handler which screws up the panic handling machinery on recent versions of Rust.
+crates:
+- name: substrate-wasm-builder
+  bump: patch
+- name: sp-io
+  bump: patch

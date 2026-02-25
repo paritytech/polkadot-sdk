@@ -74,6 +74,7 @@ impl pallet_assets::Config<Instance1> for Test {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
@@ -83,6 +84,7 @@ impl pallet_assets::Config<Instance1> for Test {
 	type MetadataDepositPerByte = ConstU128<1>;
 	type ApprovalDeposit = ConstU128<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
@@ -98,6 +100,7 @@ impl pallet_assets::Config<Instance2> for Test {
 	type RemoveItemsLimit = ConstU32<1000>;
 	type AssetId = u32;
 	type AssetIdParameter = u32;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, Self::AccountId>>;
@@ -108,6 +111,7 @@ impl pallet_assets::Config<Instance2> for Test {
 	type MetadataDepositPerByte = ConstU128<0>;
 	type ApprovalDeposit = ConstU128<0>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
@@ -162,6 +166,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10000), (2, 20000), (3, 30000), (4, 40000)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

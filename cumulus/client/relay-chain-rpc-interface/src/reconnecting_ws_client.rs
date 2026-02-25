@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::relay_chain::{
 	Block as RelayBlock, BlockNumber as RelayNumber, Hash as RelayHash, Header as RelayHeader,
@@ -66,7 +67,7 @@ fn url_to_string_with_port(url: Url) -> Option<String> {
 	// This is already validated on CLI side, just defensive here
 	if (url.scheme() != "ws" && url.scheme() != "wss") || url.host_str().is_none() {
 		tracing::warn!(target: LOG_TARGET, ?url, "Non-WebSocket URL or missing host.");
-		return None
+		return None;
 	}
 
 	// Either we have a user-supplied port or use the default for 'ws' or 'wss' here
@@ -152,7 +153,7 @@ async fn connect_next_available_rpc_server(
 impl ClientManager {
 	pub async fn new(urls: Vec<String>) -> Result<Self, ()> {
 		if urls.is_empty() {
-			return Err(())
+			return Err(());
 		}
 		let active_client = connect_next_available_rpc_server(&urls, 0).await?;
 		Ok(Self { urls, active_client: active_client.1, active_index: active_client.0 })
@@ -239,7 +240,7 @@ impl ClientManager {
 			// the websocket connection is dead and requires a restart.
 			// Other errors should be forwarded to the request caller.
 			if let Err(JsonRpseeError::RestartNeeded(_)) = resp {
-				return Err(RpcDispatcherMessage::Request(method, params, response_sender))
+				return Err(RpcDispatcherMessage::Request(method, params, response_sender));
 			}
 
 			if let Err(err) = response_sender.send(resp) {
@@ -301,7 +302,7 @@ impl ReconnectingWebsocketWorker {
 		}
 
 		if client_manager.connect_to_new_rpc_server().await.is_err() {
-			return Err("Unable to find valid external RPC server, shutting down.".to_string())
+			return Err("Unable to find valid external RPC server, shutting down.".to_string());
 		};
 
 		for item in requests_to_retry.into_iter() {
@@ -335,11 +336,11 @@ impl ReconnectingWebsocketWorker {
 		let urls = std::mem::take(&mut self.ws_urls);
 		let Ok(mut client_manager) = ClientManager::new(urls).await else {
 			tracing::error!(target: LOG_TARGET, "No valid RPC url found. Stopping RPC worker.");
-			return
+			return;
 		};
 		let Ok(mut subscriptions) = client_manager.get_subscriptions().await else {
 			tracing::error!(target: LOG_TARGET, "Unable to fetch subscriptions on initial connection.");
-			return
+			return;
 		};
 
 		let mut imported_blocks_cache = LruMap::new(ByLength::new(40));
@@ -365,7 +366,7 @@ impl ReconnectingWebsocketWorker {
 							message,
 							"Unable to reconnect, stopping worker."
 						);
-						return
+						return;
 					},
 				}
 				should_reconnect = ConnectionStatus::Connected;

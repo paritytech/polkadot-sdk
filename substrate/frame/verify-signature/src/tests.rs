@@ -25,12 +25,13 @@ use extension::VerifySignature;
 use frame_support::{
 	derive_impl,
 	dispatch::GetDispatchInfo,
-	pallet_prelude::{InvalidTransaction, TransactionValidityError},
+	pallet_prelude::{InvalidTransaction, TransactionSource, TransactionValidityError},
 	traits::OriginTrait,
 };
 use frame_system::Call as SystemCall;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
+	generic::ExtensionVersion,
 	testing::{TestSignature, UintAuthorityId},
 	traits::DispatchTransaction,
 };
@@ -80,13 +81,30 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 fn verification_works() {
 	let who = 0;
 	let call: RuntimeCall = SystemCall::remark { remark: vec![] }.into();
-	let sig = TestSignature(0, call.using_encoded(blake2_256).to_vec());
+	let ext_version: ExtensionVersion = 0;
+	let sig = TestSignature(0, (ext_version, &call).using_encoded(blake2_256).to_vec());
 	let info = call.get_dispatch_info();
 
 	let (_, _, origin) = VerifySignature::<Test>::new_with_signature(sig, who)
-		.validate_only(None.into(), &call, &info, 0)
+		.validate_only(None.into(), &call, &info, 0, TransactionSource::External, 0)
 		.unwrap();
 	assert_eq!(origin.as_signer().unwrap(), &who)
+}
+
+#[test]
+fn bad_inherited_implication() {
+	let who = 0;
+	let call: RuntimeCall = SystemCall::remark { remark: vec![] }.into();
+	// Inherited implication should include extension version byte.
+	let sig = TestSignature(0, call.using_encoded(blake2_256).to_vec());
+	let info = call.get_dispatch_info();
+
+	assert_eq!(
+		VerifySignature::<Test>::new_with_signature(sig, who)
+			.validate_only(None.into(), &call, &info, 0, TransactionSource::External, 0)
+			.unwrap_err(),
+		TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+	);
 }
 
 #[test]
@@ -98,7 +116,7 @@ fn bad_signature() {
 
 	assert_eq!(
 		VerifySignature::<Test>::new_with_signature(sig, who)
-			.validate_only(None.into(), &call, &info, 0)
+			.validate_only(None.into(), &call, &info, 0, TransactionSource::External, 0)
 			.unwrap_err(),
 		TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 	);
@@ -113,7 +131,7 @@ fn bad_starting_origin() {
 
 	assert_eq!(
 		VerifySignature::<Test>::new_with_signature(sig, who)
-			.validate_only(Some(42).into(), &call, &info, 0)
+			.validate_only(Some(42).into(), &call, &info, 0, TransactionSource::External, 0)
 			.unwrap_err(),
 		TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
 	);
@@ -126,7 +144,7 @@ fn disabled_extension_works() {
 	let info = call.get_dispatch_info();
 
 	let (_, _, origin) = VerifySignature::<Test>::new_disabled()
-		.validate_only(Some(who).into(), &call, &info, 0)
+		.validate_only(Some(who).into(), &call, &info, 0, TransactionSource::External, 0)
 		.unwrap();
 	assert_eq!(origin.as_signer().unwrap(), &who)
 }

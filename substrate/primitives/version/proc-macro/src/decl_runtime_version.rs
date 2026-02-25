@@ -88,8 +88,12 @@ impl ParseRuntimeVersion {
 	fn parse_expr(init_expr: &Expr) -> Result<(ParseRuntimeVersion, Vec<Warning>)> {
 		let init_expr = match init_expr {
 			Expr::Struct(ref e) => e,
-			_ =>
-				return Err(Error::new(init_expr.span(), "expected a struct initializer expression")),
+			_ => {
+				return Err(Error::new(
+					init_expr.span(),
+					"expected a struct initializer expression",
+				))
+			},
 		};
 
 		let mut parsed = ParseRuntimeVersion::default();
@@ -103,8 +107,9 @@ impl ParseRuntimeVersion {
 	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<Vec<Warning>> {
 		let field_name = match field_value.member {
 			syn::Member::Named(ref ident) => ident,
-			syn::Member::Unnamed(_) =>
-				return Err(Error::new(field_value.span(), "only named members must be used")),
+			syn::Member::Unnamed(_) => {
+				return Err(Error::new(field_value.span(), "only named members must be used"))
+			},
 		};
 
 		fn parse_once<T>(
@@ -151,7 +156,7 @@ impl ParseRuntimeVersion {
 			// the "runtime_version" custom section. `impl_runtime_apis` is responsible for
 			// generating a custom section with the supported runtime apis descriptor.
 		} else {
-			return Err(Error::new(field_name.span(), "unknown field"))
+			return Err(Error::new(field_name.span(), "unknown field"));
 		}
 
 		Ok(warnings)
@@ -160,11 +165,12 @@ impl ParseRuntimeVersion {
 	fn parse_num_literal(expr: &Expr) -> Result<u32> {
 		let lit = match *expr {
 			Expr::Lit(ExprLit { lit: Lit::Int(ref lit), .. }) => lit,
-			_ =>
+			_ => {
 				return Err(Error::new(
 					expr.span(),
 					"only numeric literals (e.g. `10`) are supported here",
-				)),
+				))
+			},
 		};
 		lit.base10_parse::<u32>()
 	}
@@ -172,31 +178,58 @@ impl ParseRuntimeVersion {
 	fn parse_num_literal_u8(expr: &Expr) -> Result<u8> {
 		let lit = match *expr {
 			Expr::Lit(ExprLit { lit: Lit::Int(ref lit), .. }) => lit,
-			_ =>
+			_ => {
 				return Err(Error::new(
 					expr.span(),
 					"only numeric literals (e.g. `10`) are supported here",
-				)),
+				))
+			},
 		};
 		lit.base10_parse::<u8>()
 	}
 
 	fn parse_str_literal(expr: &Expr) -> Result<String> {
-		let mac = match *expr {
-			Expr::Macro(syn::ExprMacro { ref mac, .. }) => mac,
-			_ => return Err(Error::new(expr.span(), "a macro expression is expected here")),
-		};
+		match expr {
+			// TODO: Remove this branch when `sp_runtime::create_runtime_str` is removed
+			Expr::Macro(syn::ExprMacro { mac, .. }) => {
+				let lit: ExprLit = mac.parse_body().map_err(|e| {
+					Error::new(
+						e.span(),
+						format!(
+							"a single literal argument is expected, but parsing is failed: {}",
+							e
+						),
+					)
+				})?;
 
-		let lit: ExprLit = mac.parse_body().map_err(|e| {
-			Error::new(
-				e.span(),
-				format!("a single literal argument is expected, but parsing is failed: {}", e),
-			)
-		})?;
+				match &lit.lit {
+					Lit::Str(lit) => Ok(lit.value()),
+					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
+				}
+			},
+			Expr::Call(call) => {
+				if call.args.len() != 1 {
+					return Err(Error::new(
+						expr.span(),
+						"a single literal argument is expected, but parsing is failed",
+					));
+				}
+				let Expr::Lit(lit) = call.args.first().expect("Length checked above; qed") else {
+					return Err(Error::new(
+						expr.span(),
+						"a single literal argument is expected, but parsing is failed",
+					));
+				};
 
-		match lit.lit {
-			Lit::Str(ref lit) => Ok(lit.value()),
-			_ => Err(Error::new(lit.span(), "only string literals are supported here")),
+				match &lit.lit {
+					Lit::Str(lit) => Ok(lit.value()),
+					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
+				}
+			},
+			_ => Err(Error::new(
+				expr.span(),
+				format!("a function call is expected here, instead of: {expr:?}"),
+			)),
 		}
 	}
 

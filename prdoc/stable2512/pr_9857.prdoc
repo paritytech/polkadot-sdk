@@ -1,0 +1,11 @@
+title: add RewardsPool trait
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add `trait RewardsPool` to frame-support and updated `pallet-asset-rewards` to implement it.
+    This allows other pallets to be able to use the `RewardsPool` trait to manage reward pools programmatically.
+crates:
+- name: pallet-asset-rewards
+  bump: minor
+- name: frame-support
+  bump: minor

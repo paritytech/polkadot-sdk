@@ -3,11 +3,8 @@
 use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
-use sc_consensus_grandpa::SharedVoterState;
-use sc_service::{
-	build_polkadot_syncing_strategy, error::Error as ServiceError, Configuration, TaskManager,
-	WarpSyncConfig,
-};
+use sc_consensus_grandpa::{GrandpaPruningFilter, SharedVoterState};
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
@@ -52,11 +49,13 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		.transpose()?;
 
 	let executor = sc_service::new_wasm_executor::<sp_io::SubstrateHostFunctions>(&config.executor);
+
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			vec![Arc::new(GrandpaPruningFilter)],
 		)?;
 	let client = Arc::new(client);
 
@@ -172,34 +171,23 @@ pub fn new_full<
 		Vec::default(),
 	));
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		Some(WarpSyncConfig::WithProvider(warp_sync)),
-		client.clone(),
-		&task_manager.spawn_handle(),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			syncing_strategy,
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
 
 	if config.offchain_worker.enabled {
-		task_manager.spawn_handle().spawn(
-			"offchain-workers-runner",
-			"offchain-worker",
+		let offchain_workers =
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				is_validator: config.role.is_authority(),
@@ -211,9 +199,11 @@ pub fn new_full<
 				network_provider: Arc::new(network.clone()),
 				enable_http_requests: true,
 				custom_extensions: |_| vec![],
-			})
-			.run(client.clone(), task_manager.spawn_handle())
-			.boxed(),
+			})?;
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-worker",
+			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
 		);
 	}
 
@@ -247,6 +237,7 @@ pub fn new_full<
 		sync_service: sync_service.clone(),
 		config,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: None,
 	})?;
 
 	if role.is_authority() {
@@ -342,6 +333,5 @@ pub fn new_full<
 		);
 	}
 
-	network_starter.start_network();
 	Ok(task_manager)
 }

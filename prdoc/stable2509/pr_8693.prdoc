@@ -1,0 +1,45 @@
+title: Add XCM Precompile to pallet-xcm
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      This PR adds the XCM precompile (with `xcmSend`, `xcmExecute` and `weighMessage` functionalities) to `pallet-xcm`.
+
+      This follows the discussion we had on a closed PR, which attempted to add the precompile to `pallet-revive`, but that approach would have introduced unwanted cyclic dependencies. That's why we decided to migrate the precompile to `pallet-xcm`, avoiding adding unnecessary dependencies to `pallet-revive`.
+
+      Follow up PR will add integration tests under `cumulus/parachains/integration-tests/emulated/tests`.
+  - audience: Runtime User
+    description: |-
+      This PR allows smart contract developers to call multiple XCM APIs from smart contracts/Ethereum tooling.
+
+crates:
+- name: pallet-xcm
+  bump: major
+- name: pallet-revive
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor

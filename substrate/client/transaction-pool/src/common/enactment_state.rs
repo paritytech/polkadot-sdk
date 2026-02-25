@@ -22,6 +22,7 @@ use crate::LOG_TARGET;
 use sc_transaction_pool_api::ChainEvent;
 use sp_blockchain::TreeRoute;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Saturating};
+use tracing::{debug, trace};
 
 /// The threshold since the last update where we will skip any maintenance for blocks.
 ///
@@ -106,48 +107,49 @@ where
 		// do not proceed with txpool maintain if block distance is too high
 		let skip_maintenance =
 			match (hash_to_number(new_hash), hash_to_number(self.recent_best_block)) {
-				(Ok(Some(new)), Ok(Some(current))) =>
-					new.saturating_sub(current) > SKIP_MAINTENANCE_THRESHOLD.into(),
+				(Ok(Some(new)), Ok(Some(current))) => {
+					new.saturating_sub(current) > SKIP_MAINTENANCE_THRESHOLD.into()
+				},
 				_ => true,
 			};
 
 		if skip_maintenance {
-			log::trace!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
+			debug!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
 			self.force_update(event);
-			return Ok(EnactmentAction::Skip)
+			return Ok(EnactmentAction::Skip);
 		}
 
 		// block was already finalized
 		if self.recent_finalized_block == new_hash {
-			log::trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
-			return Ok(EnactmentAction::Skip)
+			trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
+			return Ok(EnactmentAction::Skip);
 		}
 
 		// compute actual tree route from best_block to notified block, and use
 		// it instead of tree_route provided with event
 		let tree_route = tree_route(self.recent_best_block, new_hash)?;
-
-		log::trace!(
+		trace!(
 			target: LOG_TARGET,
-			"resolve hash: {new_hash:?} finalized: {finalized:?} \
-			 tree_route: (common {:?}, last {:?}) best_block: {:?} finalized_block:{:?}",
-			tree_route.common_block(),
-			tree_route.last(),
-			self.recent_best_block,
-			self.recent_finalized_block
+			?new_hash,
+			?finalized,
+			common_block = ?tree_route.common_block(),
+			last_block = ?tree_route.last(),
+			best_block = ?self.recent_best_block,
+			finalized_block = ?self.recent_finalized_block,
+			"resolve hash"
 		);
 
 		// check if recently finalized block is on retracted path. this could be
 		// happening if we first received a finalization event and then a new
 		// best event for some old stale best head.
 		if tree_route.retracted().iter().any(|x| x.hash == self.recent_finalized_block) {
-			log::trace!(
+			trace!(
 				target: LOG_TARGET,
-				"Recently finalized block {} would be retracted by ChainEvent {}, skipping",
-				self.recent_finalized_block,
-				new_hash
+				recent_finalized_block = ?self.recent_finalized_block,
+				?new_hash,
+				"Recently finalized block would be retracted by ChainEvent, skipping"
 			);
-			return Ok(EnactmentAction::Skip)
+			return Ok(EnactmentAction::Skip);
 		}
 
 		if finalized {
@@ -158,11 +160,8 @@ where
 			// case also covers best_block == new_hash), recent_best_block
 			// remains valid.
 			if tree_route.enacted().is_empty() {
-				log::trace!(
-					target: LOG_TARGET,
-					"handle_enactment: no newly enacted blocks since recent best block"
-				);
-				return Ok(EnactmentAction::HandleFinalization)
+				trace!(target: LOG_TARGET, "handle_enactment: no newly enacted blocks since recent best block");
+				return Ok(EnactmentAction::HandleFinalization);
 			}
 
 			// otherwise enacted finalized block becomes best block...
@@ -180,11 +179,11 @@ where
 			ChainEvent::NewBestBlock { hash, .. } => self.recent_best_block = *hash,
 			ChainEvent::Finalized { hash, .. } => self.recent_finalized_block = *hash,
 		};
-		log::trace!(
+		trace!(
 			target: LOG_TARGET,
-			"forced update: {:?}, {:?}",
-			self.recent_best_block,
-			self.recent_finalized_block,
+			recent_best_block = ?self.recent_best_block,
+			recent_finalized_block = ?self.recent_finalized_block,
+			"forced update"
 		);
 	}
 }

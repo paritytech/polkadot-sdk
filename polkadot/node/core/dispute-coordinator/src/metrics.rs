@@ -32,6 +32,8 @@ struct MetricsInner {
 	vote_cleanup_time: prometheus::Histogram,
 	/// Number of refrained participations.
 	refrained_participations: prometheus::Counter<prometheus::U64>,
+	/// Number of unactivated disputes.
+	unactivated: prometheus::Counter<prometheus::U64>,
 	/// Distribution of participation durations.
 	participation_durations: prometheus::Histogram,
 	/// Measures the duration of the full participation pipeline: From when
@@ -136,6 +138,12 @@ impl Metrics {
 			metrics.participation_best_effort_queue_size.set(size);
 		}
 	}
+
+	pub(crate) fn on_unactivated_dispute(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.unactivated.inc();
+		}
+	}
 }
 
 impl metrics::Metrics for Metrics {
@@ -222,13 +230,20 @@ impl metrics::Metrics for Metrics {
 				registry,
 			)?,
 			participation_priority_queue_size: prometheus::register(
-				prometheus::Gauge::new("polkadot_parachain_dispute_participation_priority_queue_size", 
+				prometheus::Gauge::new("polkadot_parachain_dispute_participation_priority_queue_size",
 				"Number of disputes waiting for local participation in the priority queue.")?,
 				registry,
 			)?,
 			participation_best_effort_queue_size: prometheus::register(
-				prometheus::Gauge::new("polkadot_parachain_dispute_participation_best_effort_queue_size", 
+				prometheus::Gauge::new("polkadot_parachain_dispute_participation_best_effort_queue_size",
 				"Number of disputes waiting for local participation in the best effort queue.")?,
+				registry,
+			)?,
+			unactivated: prometheus::register(
+				prometheus::Counter::with_opts(prometheus::Opts::new(
+					"polkadot_parachain_dispute_unactivated_total",
+					"Total number of disputes that were unactivated due to all raising parties being disabled.",
+				))?,
 				registry,
 			)?,
 		};

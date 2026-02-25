@@ -236,7 +236,7 @@ impl Collator {
 					if let Ok(res) = recv.await {
 						if !matches!(
 							res.statement.payload(),
-							Statement::Seconded(s) if s.descriptor.pov_hash == compressed_pov.hash(),
+							Statement::Seconded(s) if s.descriptor.pov_hash() == compressed_pov.hash(),
 						) {
 							log::error!(
 								"Seconded statement should match our collation: {:?}",
@@ -265,7 +265,7 @@ impl Collator {
 			let current_block = self.state.lock().unwrap().best_block;
 
 			if start_block + blocks <= current_block {
-				return
+				return;
 			}
 		}
 	}
@@ -281,7 +281,7 @@ impl Collator {
 			Delay::new(Duration::from_secs(1)).await;
 
 			if seconded <= seconded_collations.load(Ordering::Relaxed) {
-				return
+				return;
 			}
 		}
 	}

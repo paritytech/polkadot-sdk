@@ -32,7 +32,7 @@
 use crate::utils::{
 	create_exchangeable_host_function_ident, create_function_ident_with_version,
 	generate_crate_access, get_function_argument_names, get_function_arguments,
-	get_runtime_interface, RuntimeInterfaceFunction,
+	get_runtime_interface, host_inner_return_ty, pat_ty_to_host_inner, RuntimeInterfaceFunction,
 };
 
 use syn::{
@@ -90,16 +90,20 @@ fn function_for_method(
 	})
 }
 
-/// Generates the bare function implementation for `cfg(not(feature = "std"))`.
+/// Generates the bare function implementation for `cfg(substrate_runtime)`.
 fn function_no_std_impl(
 	method: &RuntimeInterfaceFunction,
 	is_wasm_only: bool,
 ) -> Result<TokenStream> {
+	let should_trap_on_return = method.should_trap_on_return();
+	let mut method = (*method).clone();
+	crate::utils::unpack_inner_types_in_signature(&mut method.sig);
+
 	let function_name = &method.sig.ident;
 	let host_function_name = create_exchangeable_host_function_ident(&method.sig.ident);
 	let args = get_function_arguments(&method.sig);
 	let arg_names = get_function_argument_names(&method.sig);
-	let return_value = if method.should_trap_on_return() {
+	let return_value = if should_trap_on_return {
 		syn::ReturnType::Type(
 			<Token![->]>::default(),
 			Box::new(syn::TypeNever { bang_token: <Token![!]>::default() }.into()),
@@ -107,7 +111,7 @@ fn function_no_std_impl(
 	} else {
 		method.sig.output.clone()
 	};
-	let maybe_unreachable = if method.should_trap_on_return() {
+	let maybe_unreachable = if should_trap_on_return {
 		quote! {
 			;
 			#[cfg(target_family = "wasm")]
@@ -130,7 +134,7 @@ fn function_no_std_impl(
 
 	Ok(quote! {
 		#cfg_wasm_only
-		#[cfg(not(feature = "std"))]
+		#[cfg(substrate_runtime)]
 		#( #attrs )*
 		pub fn #function_name( #( #args, )* ) #return_value {
 			// Call the host function
@@ -140,20 +144,20 @@ fn function_no_std_impl(
 	})
 }
 
-/// Generate call to latest function version for `cfg((feature = "std")`
+/// Generate call to latest function version for `cfg(not(substrate_runtime))`
 ///
 /// This should generate simple `fn func(..) { func_version_<latest_version>(..) }`.
 fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result<TokenStream> {
 	let function_name = &method.sig.ident;
-	let args = get_function_arguments(&method.sig).map(FnArg::Typed);
+	let args = get_function_arguments(&method.sig).map(pat_ty_to_host_inner).map(FnArg::Typed);
 	let arg_names = get_function_argument_names(&method.sig).collect::<Vec<_>>();
-	let return_value = &method.sig.output;
+	let return_value = host_inner_return_ty(&method.sig.output);
 	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
 	let latest_function_name =
 		create_function_ident_with_version(&method.sig.ident, latest_version);
 
 	Ok(quote_spanned! { method.span() =>
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		#( #attrs )*
 		pub fn #function_name( #( #args, )* ) #return_value {
 			#latest_function_name(
@@ -163,7 +167,7 @@ fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result
 	})
 }
 
-/// Generates the bare function implementation for `cfg(feature = "std")`.
+/// Generates the bare function implementation for `cfg(not(substrate_runtime))`.
 fn function_std_impl(
 	trait_name: &Ident,
 	method: &TraitItemFn,
@@ -175,20 +179,23 @@ fn function_std_impl(
 	let function_name_str = function_name.to_string();
 
 	let crate_ = generate_crate_access();
-	let args = get_function_arguments(&method.sig).map(FnArg::Typed).chain(
-		// Add the function context as last parameter when this is a wasm only interface.
-		iter::from_fn(|| {
-			if is_wasm_only {
-				Some(parse_quote!(
-					mut __function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext
-				))
-			} else {
-				None
-			}
-		})
-		.take(1),
-	);
-	let return_value = &method.sig.output;
+	let args = get_function_arguments(&method.sig)
+		.map(pat_ty_to_host_inner)
+		.map(FnArg::Typed)
+		.chain(
+			// Add the function context as last parameter when this is a wasm only interface.
+			iter::from_fn(|| {
+				if is_wasm_only {
+					Some(parse_quote!(
+						mut __function_context__: &mut dyn #crate_::sp_wasm_interface::FunctionContext
+					))
+				} else {
+					None
+				}
+			})
+			.take(1),
+		);
+	let return_value = host_inner_return_ty(&method.sig.output);
 	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
 	// Don't make the function public accessible when this is a wasm only interface.
 	let call_to_trait = generate_call_to_trait(trait_name, method, version, is_wasm_only);
@@ -203,7 +210,7 @@ fn function_std_impl(
 	};
 
 	Ok(quote_spanned! { method.span() =>
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		#( #attrs )*
 		fn #function_name( #( #args, )* ) #return_value {
 			#call_to_trait

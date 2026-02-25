@@ -18,7 +18,13 @@
 
 use crate::TelemetryPayload;
 use futures::{channel::mpsc, prelude::*};
-use libp2p::{core::transport::Transport, Multiaddr};
+use libp2p::{
+	core::{
+		transport::{DialOpts, PortUse, Transport},
+		Endpoint,
+	},
+	Multiaddr,
+};
 use rand::Rng as _;
 use std::{
 	fmt, mem,
@@ -124,7 +130,7 @@ where
 	) -> Poll<Result<(), TSinkErr>> {
 		while let Some(item) = conn.buf.pop() {
 			if let Err(e) = conn.sink.start_send_unpin(item) {
-				return Poll::Ready(Err(e))
+				return Poll::Ready(Err(e));
 			}
 			futures::ready!(conn.sink.poll_ready_unpin(cx))?;
 		}
@@ -157,11 +163,11 @@ where
 							},
 							Poll::Ready(Ok(())) => {
 								self.socket = NodeSocket::Connected(conn);
-								return Poll::Ready(Ok(()))
+								return Poll::Ready(Ok(()));
 							},
 							Poll::Pending => {
 								self.socket = NodeSocket::Connected(conn);
-								return Poll::Pending
+								return Poll::Pending;
 							},
 						}
 					},
@@ -171,7 +177,7 @@ where
 					},
 					Poll::Pending => {
 						self.socket = NodeSocket::Connected(conn);
-						return Poll::Pending
+						return Poll::Pending;
 					},
 				},
 				NodeSocket::Dialing(mut s) => match Future::poll(Pin::new(&mut s), cx) {
@@ -187,7 +193,7 @@ where
 										log::debug!(target: "telemetry", "Failed to send a telemetry connection notification: {}", error);
 									} else {
 										self.telemetry_connection_notifier.swap_remove(index);
-										continue
+										continue;
 									}
 								}
 								index += 1;
@@ -223,13 +229,16 @@ where
 					},
 					Poll::Pending => break NodeSocket::Dialing(s),
 					Poll::Ready(Err(err)) => {
-						log::warn!(target: "telemetry", "❌ Error while dialing {}: {:?}", self.addr, err);
+						log::debug!(target: "telemetry", "❌ Error while dialing {}: {:?}", self.addr, err);
 						socket = NodeSocket::wait_reconnect();
 					},
 				},
 				NodeSocket::ReconnectNow => {
 					let addr = self.addr.clone();
-					match self.transport.dial(addr) {
+					match self
+						.transport
+						.dial(addr, DialOpts { role: Endpoint::Dialer, port_use: PortUse::New })
+					{
 						Ok(d) => {
 							log::trace!(target: "telemetry", "Re-dialing {}", self.addr);
 							socket = NodeSocket::Dialing(d);
@@ -244,12 +253,12 @@ where
 					if Future::poll(Pin::new(&mut s), cx).is_ready() {
 						socket = NodeSocket::ReconnectNow;
 					} else {
-						break NodeSocket::WaitingReconnect(s)
+						break NodeSocket::WaitingReconnect(s);
 					}
 				},
 				NodeSocket::Poisoned => {
 					log::error!(target: "telemetry", "‼️ Poisoned connection with {}", self.addr);
-					break NodeSocket::Poisoned
+					break NodeSocket::Poisoned;
 				},
 			}
 		};

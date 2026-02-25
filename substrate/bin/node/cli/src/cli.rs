@@ -43,6 +43,21 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = 1)]
+	pub statement_network_workers: usize,
+
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = 50_000)]
+	pub statement_rate_limit: u32,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -59,6 +74,7 @@ pub enum Subcommand {
 	Inspect(node_inspect::cli::InspectCmd),
 
 	/// Sub-commands concerned with benchmarking.
+	///
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
@@ -77,7 +93,15 @@ pub enum Subcommand {
 	Sign(sc_cli::SignCmd),
 
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

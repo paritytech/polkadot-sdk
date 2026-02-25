@@ -22,7 +22,7 @@ async fn call_function_actually_work() {
 	let alice_config =
 		node_config(|| {}, tokio::runtime::Handle::current(), Alice, Vec::new(), true);
 
-	let alice = run_validator_node(alice_config, None);
+	let alice = run_validator_node(alice_config, None).await;
 
 	let function =
 		polkadot_test_runtime::RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {

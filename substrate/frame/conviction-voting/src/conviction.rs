@@ -17,11 +17,11 @@
 
 //! The conviction datatype.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Bounded, CheckedDiv, CheckedMul, Zero},
-	RuntimeDebug,
+	Debug,
 };
 
 use crate::types::Delegations;
@@ -30,13 +30,14 @@ use crate::types::Delegations;
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Copy,
 	Clone,
 	Eq,
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]

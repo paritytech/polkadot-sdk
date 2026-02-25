@@ -107,7 +107,7 @@ pub trait Verifier<B: BlockT>: Send + Sync {
 ///
 /// The `import_*` methods can be called in order to send elements for the import queue to verify.
 pub trait ImportQueueService<B: BlockT>: Send {
-	/// Import bunch of blocks, every next block must be an ancestor of the previous block in the
+	/// Import a bunch of blocks, every next block must be an ancestor of the previous block in the
 	/// list.
 	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>);
 
@@ -132,21 +132,34 @@ pub trait ImportQueue<B: BlockT>: Send {
 	/// This method should behave in a way similar to `Future::poll`. It can register the current
 	/// task and notify later when more actions are ready to be polled. To continue the comparison,
 	/// it is as if this method always returned `Poll::Pending`.
-	fn poll_actions(&mut self, cx: &mut futures::task::Context, link: &mut dyn Link<B>);
+	fn poll_actions(&mut self, cx: &mut futures::task::Context, link: &dyn Link<B>);
 
 	/// Start asynchronous runner for import queue.
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
 	/// influence the synchronization process.
-	async fn run(self, link: Box<dyn Link<B>>);
+	async fn run(self, link: &dyn Link<B>);
+}
+
+/// The result of importing a justification.
+#[derive(Debug, PartialEq)]
+pub enum JustificationImportResult {
+	/// Justification was imported successfully.
+	Success,
+
+	/// Justification was not imported successfully.
+	Failure,
+
+	/// Justification was not imported successfully, because it is outdated.
+	OutdatedJustification,
 }
 
 /// Hooks that the verification queue can use to influence the synchronization
 /// algorithm.
-pub trait Link<B: BlockT>: Send {
+pub trait Link<B: BlockT>: Send + Sync {
 	/// Batch of blocks imported, with or without error.
 	fn blocks_processed(
-		&mut self,
+		&self,
 		_imported: usize,
 		_count: usize,
 		_results: Vec<(BlockImportResult<B>, B::Hash)>,
@@ -155,16 +168,16 @@ pub trait Link<B: BlockT>: Send {
 
 	/// Justification import result.
 	fn justification_imported(
-		&mut self,
+		&self,
 		_who: RuntimeOrigin,
 		_hash: &B::Hash,
 		_number: NumberFor<B>,
-		_success: bool,
+		_import_result: JustificationImportResult,
 	) {
 	}
 
 	/// Request a justification for the given block.
-	fn request_justification(&mut self, _hash: &B::Hash, _number: NumberFor<B>) {}
+	fn request_justification(&self, _hash: &B::Hash, _number: NumberFor<B>) {}
 }
 
 /// Block import successful result.
@@ -229,8 +242,9 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 ) -> BlockImportResult<B> {
 	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
-		SingleBlockVerificationOutcome::Verified(import_parameters) =>
-			import_single_block_metered(import_handle, import_parameters, None).await,
+		SingleBlockVerificationOutcome::Verified(import_parameters) => {
+			import_single_block_metered(import_handle, import_parameters, None).await
+		},
 	}
 }
 
@@ -249,8 +263,9 @@ where
 			trace!(target: LOG_TARGET, "Block already in chain {}: {:?}", number, hash);
 			Ok(BlockImportStatus::ImportedKnown(number, block_origin))
 		},
-		Ok(ImportResult::Imported(aux)) =>
-			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin)),
+		Ok(ImportResult::Imported(aux)) => {
+			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin))
+		},
 		Ok(ImportResult::MissingState) => {
 			debug!(
 				target: LOG_TARGET,
@@ -307,14 +322,25 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		} else {
 			debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
 		}
-		return Err(BlockImportError::IncompleteHeader(peer))
+		return Err(BlockImportError::IncompleteHeader(peer));
 	};
-
-	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
 
 	let number = *header.number();
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
+
+	trace!(target: LOG_TARGET, "Block {number} ({hash}) has {:?} logs (origin: {:?})", header.digest().logs().len(), block_origin);
+
+	// Skip block verification for warp synced blocks.
+	// They have been verified within warp sync proof verification.
+	if matches!(block_origin, BlockOrigin::WarpSync) {
+		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+			import_block: BlockImportParams::new(block_origin, header),
+			hash: block.hash,
+			block_origin: peer,
+			verification_time: Duration::ZERO,
+		}));
+	}
 
 	match import_handler::<B>(
 		number,
@@ -335,7 +361,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		BlockImportStatus::ImportedUnknown { .. } => (),
 		r => {
 			// Any other successful result means that the block is already imported.
-			return Ok(SingleBlockVerificationOutcome::Imported(r))
+			return Ok(SingleBlockVerificationOutcome::Imported(r));
 		},
 	}
 

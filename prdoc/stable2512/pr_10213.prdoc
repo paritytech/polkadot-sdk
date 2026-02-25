@@ -1,0 +1,8 @@
+title: Increase the concurrency of retester in CI
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR bumps the commit hash of the revive differential tests repo allowing us to pull in some tests that needed to be fixed. Additionally, it increases the concurrency of retester to allow it to run the tests faster
+crates: []

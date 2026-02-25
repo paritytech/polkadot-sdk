@@ -23,14 +23,11 @@
 #![recursion_limit = "1024"]
 
 pub mod chain_ops;
+pub mod client;
 pub mod config;
 pub mod error;
 
 mod builder;
-#[cfg(feature = "test-helpers")]
-pub mod client;
-#[cfg(not(feature = "test-helpers"))]
-mod client;
 mod metrics;
 mod task_manager;
 
@@ -43,7 +40,7 @@ use std::{
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::{debug, error, warn};
+use log::{debug, error, trace, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
 	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
@@ -59,11 +56,13 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry, new_client,
-		new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
+		build_default_block_downloader, build_default_syncing_engine, build_network,
+		build_network_advanced, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry,
+		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
 		new_full_parts_with_genesis_builder, new_wasm_executor,
-		propagate_transaction_notifications, spawn_tasks, BuildNetworkParams, KeystoreContainer,
-		NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
+		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
+		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, SpawnTasksParams,
+		TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -84,6 +83,7 @@ pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
 	Properties,
 };
+pub use sc_client_db::PruningFilter;
 
 use crate::config::RpcConfiguration;
 use prometheus_endpoint::Registry;
@@ -98,7 +98,9 @@ pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
-pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+pub use task_manager::{
+	SpawnEssentialTaskHandle, SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME,
+};
 use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -210,7 +212,7 @@ async fn build_network_future<
 					// If this stream is shut down, that means the client has shut down, and the
 					// most appropriate thing to do for the network future is to shut down too.
 					None => {
-						debug!("Block import stream has terminated, shutting down the network future.");
+						warn!("Block import stream has terminated, shutting down the network future. Ignore if the node is stopping.");
 						return
 					},
 				};
@@ -234,7 +236,7 @@ async fn build_network_future<
 
 			// Drive the network. Shut down the network future if `NetworkWorker` has terminated.
 			_ = network_run => {
-				debug!("`NetworkWorker` has terminated, shutting down the network future.");
+				warn!("`NetworkWorker` has terminated, shutting down the network future. Ignore if the node is stopping.");
 				return
 			}
 		}
@@ -268,7 +270,7 @@ pub async fn build_system_rpc_future<
 		// Answer incoming RPC requests.
 		let Some(req) = rpc_rx.next().await else {
 			debug!("RPC requests stream has terminated, shutting down the system RPC future.");
-			return
+			return;
 		};
 
 		match req {
@@ -317,7 +319,7 @@ pub async fn build_system_rpc_future<
 						let _ = sender.send(network_state);
 					}
 				} else {
-					break
+					break;
 				}
 			},
 			sc_rpc::system::Request::NetworkAddReservedPeer(peer_addr, sender) => {
@@ -443,6 +445,7 @@ where
 		metrics,
 		id_provider: rpc_id_provider,
 		tokio_handle: tokio_handle.clone(),
+		request_logger_limit: rpc_configuration.request_logger_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
@@ -473,7 +476,7 @@ impl<C, P> TransactionPoolAdapter<C, P> {
 /// Get transactions for propagation.
 ///
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
-fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, B::Extrinsic)>
+fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, Arc<B::Extrinsic>)>
 where
 	Pool: TransactionPool<Block = B, Hash = H, Error = E>,
 	B: BlockT,
@@ -484,7 +487,7 @@ where
 		.filter(|t| t.is_propagable())
 		.map(|t| {
 			let hash = t.hash().clone();
-			let ex: B::Extrinsic = (**t.data()).clone();
+			let ex = t.data().clone();
 			(hash, ex)
 		})
 		.collect()
@@ -505,7 +508,7 @@ where
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)> {
 		transactions_to_propagate(&*self.pool)
 	}
 
@@ -518,27 +521,32 @@ where
 		let uxt = match Decode::decode(&mut &encoded[..]) {
 			Ok(uxt) => uxt,
 			Err(e) => {
-				debug!("Transaction invalid: {:?}", e);
-				return Box::pin(futures::future::ready(TransactionImport::Bad))
+				debug!(target: sc_transaction_pool::LOG_TARGET, "Transaction invalid: {:?}", e);
+				return Box::pin(futures::future::ready(TransactionImport::Bad));
 			},
 		};
 
 		let start = std::time::Instant::now();
-		let import_future = self.pool.submit_one(
-			self.client.info().best_hash,
-			sc_transaction_pool_api::TransactionSource::External,
-			uxt,
-		);
+		let pool = self.pool.clone();
+		let client = self.client.clone();
 		Box::pin(async move {
-			match import_future.await {
+			match pool
+				.submit_one(
+					client.info().best_hash,
+					sc_transaction_pool_api::TransactionSource::External,
+					uxt,
+				)
+				.await
+			{
 				Ok(_) => {
 					let elapsed = start.elapsed();
-					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
+					trace!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
 					TransactionImport::NewGood
 				},
 				Err(e) => match e.into_pool_error() {
-					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
-						TransactionImport::KnownGood,
+					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) => {
+						TransactionImport::KnownGood
+					},
 					Ok(_) => TransactionImport::Bad,
 					Err(_) => {
 						// it is not bad at least, just some internal node logic error, so peer is
@@ -554,10 +562,10 @@ where
 		self.pool.on_broadcasted(propagations)
 	}
 
-	fn transaction(&self, hash: &H) -> Option<B::Extrinsic> {
+	fn transaction(&self, hash: &H) -> Option<Arc<B::Extrinsic>> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
-			|tx| if tx.is_propagable() { Some((**tx.data()).clone()) } else { None },
+			|tx| tx.is_propagable().then(|| tx.data().clone()),
 		)
 	}
 }
@@ -591,8 +599,8 @@ mod tests {
 		let transaction = Transfer {
 			amount: 5,
 			nonce: 0,
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 		}
 		.into_unchecked_extrinsic();
 		block_on(pool.submit_one(best.hash(), source, transaction.clone())).unwrap();
@@ -609,6 +617,6 @@ mod tests {
 
 		// then
 		assert_eq!(transactions.len(), 1);
-		assert!(TransferData::try_from(&transactions[0].1).is_ok());
+		assert!(TransferData::try_from(&*transactions[0].1).is_ok());
 	}
 }

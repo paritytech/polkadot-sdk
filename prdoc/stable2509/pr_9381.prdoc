@@ -1,0 +1,8 @@
+title: Replace `log` with `tracing` on `pallet-bridge-relayers`
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on `pallet-bridge-relayers`
+    by providing structured logging.
+crates:
+- name: pallet-bridge-relayers
+  bump: minor

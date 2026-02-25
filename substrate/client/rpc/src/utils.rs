@@ -147,7 +147,7 @@ impl PendingSubscription {
 				Either::Right((Some(msg), f)) => {
 					if buf.push(msg).is_err() {
 						log::debug!(target: "rpc", "Subscription::accept buffer full for subscription={method} conn_id={conn_id}; dropping subscription");
-						return
+						return;
 					}
 					accept_fut = f;
 				},
@@ -229,9 +229,9 @@ impl Subscription {
 					closed = c;
 					next_item = stream.try_next();
 				},
-				// Error occured while processing the stream.
+				// Error occurred while processing the stream.
 				//
-				// terminate the stream.
+				// Terminate the stream.
 				Either::Right((Either::Right((Err(e), _)), _)) => return Err(e),
 				// Stream "finished".
 				//
@@ -261,7 +261,7 @@ impl Subscription {
 	}
 
 	/// Get the subscription id.
-	pub fn subscription_id(&self) -> SubscriptionId {
+	pub fn subscription_id(&self) -> SubscriptionId<'_> {
 		self.0.subscription_id()
 	}
 

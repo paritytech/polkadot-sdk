@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::PalletError;
 
 #[frame_support::pallet]
 #[allow(unused_imports)]
-mod pallet {
+pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
@@ -33,7 +33,7 @@ mod pallet {
 	}
 }
 
-#[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, PalletError, scale_info::TypeInfo)]
 pub enum MyError {
 	Foo,
 	Bar,
@@ -42,17 +42,17 @@ pub enum MyError {
 	Wrapper(Wrapper),
 }
 
-#[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, PalletError, scale_info::TypeInfo)]
 pub enum NestedError {
 	Quux,
 }
 
-#[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, PalletError, scale_info::TypeInfo)]
 pub struct MyStruct {
 	field: u8,
 }
 
-#[derive(Encode, Decode, PalletError, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, PalletError, scale_info::TypeInfo)]
 pub struct Wrapper(bool);
 
 fn main() {}

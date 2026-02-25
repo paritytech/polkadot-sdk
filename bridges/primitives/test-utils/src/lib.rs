@@ -110,7 +110,7 @@ pub fn make_justification_for_header<H: HeaderT>(
 	);
 
 	// Roughly, how many vote ancestries do we want per fork
-	let target_depth = (ancestors + forks - 1) / forks;
+	let target_depth = ancestors.div_ceil(forks);
 
 	let mut unsigned_precommits = vec![];
 	for i in 0..forks {

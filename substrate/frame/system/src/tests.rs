@@ -24,6 +24,7 @@ use frame_support::{
 use mock::{RuntimeOrigin, *};
 use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_runtime::{
+	generic::{Digest, DigestItem},
 	traits::{BlakeTwo256, Header},
 	DispatchError, DispatchErrorWithPostInfo,
 };
@@ -152,6 +153,14 @@ fn provider_ref_handover_to_self_sufficient_ref_works() {
 		// decreasing the sufficients should delete the account
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Reaped);
 		assert_eq!(System::account_nonce(&0), 0u64.into());
+	});
+}
+
+#[test]
+fn dec_sufficients_does_not_undeflow() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
+		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
 	});
 }
 
@@ -733,7 +742,7 @@ fn set_code_via_authorization_works() {
 		System::assert_has_event(
 			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
 		);
-		assert!(System::authorized_upgrade().is_some());
+		assert_eq!(System::authorized_upgrade().unwrap().code_hash(), &hash);
 
 		// Can't be sneaky
 		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
@@ -867,7 +876,7 @@ fn last_runtime_upgrade_spec_version_usage() {
 			// a runtime upgrade in the pipeline of being applied, you should use the spec version
 			// of this upgrade.
 			if System::last_runtime_upgrade_spec_version() > 1337 {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			// Do the migration.
@@ -890,5 +899,168 @@ fn test_default_account_nonce() {
 
 		Account::<Test>::remove(&1);
 		assert_eq!(System::account_nonce(&1), 5u64.into());
+	});
+}
+
+#[test]
+fn extrinsic_weight_refunded_is_cleaned() {
+	new_test_ext().execute_with(|| {
+		crate::ExtrinsicWeightReclaimed::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(1, 2));
+		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+
+		crate::ExtrinsicWeightReclaimed::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(1, 2));
+		System::note_applied_extrinsic(&Err(DispatchError::BadOrigin.into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}
+
+#[test]
+fn reclaim_works() {
+	new_test_ext().execute_with(|| {
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 200), ..Default::default() };
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(50, 100)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(50, 100));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(25, 200)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 100));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(300, 50)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(300, 300)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
+
+		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}
+
+#[test]
+#[should_panic(expected = "Block number must be strictly increasing.")]
+fn initialize_block_number_must_be_sequential() {
+	new_test_ext().execute_with(|| {
+		// Initialize block 1
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::finalize();
+
+		// Try to initialize block 3, skipping block 2 - this should panic
+		System::initialize(&3, &[0u8; 32].into(), &Default::default());
+	});
+}
+#[test]
+fn preinherent_digest_is_preserved() {
+	new_test_ext().execute_with(|| {
+		let data = vec![42u8; 100];
+		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
+
+		System::initialize(&1, &[0u8; 32].into(), &digest);
+
+		let stored_digest = <crate::Digest<Test>>::get();
+		assert_eq!(stored_digest.logs.len(), 1);
+
+		if let Some(DigestItem::PreRuntime(id, stored_data)) = stored_digest.logs.first() {
+			assert_eq!(id, b"test");
+			assert_eq!(stored_data, &data);
+		} else {
+			panic!("Expected PreRuntime digest item");
+		}
+
+		let header = System::finalize();
+		assert_eq!(header.digest().logs.len(), 1);
+
+		if let Some(DigestItem::PreRuntime(id, header_data)) = header.digest().logs.first() {
+			assert_eq!(id, b"test");
+			assert_eq!(header_data, &data);
+		} else {
+			panic!("Expected PreRuntime digest item in finalized header");
+		}
+	});
+}
+
+#[test]
+fn block_size_includes_digest_and_header_overhead() {
+	new_test_ext().execute_with(|| {
+		let data = vec![42u8; 100];
+		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
+
+		System::initialize(&1, &[0u8; 32].into(), &digest);
+
+		let block_size = System::block_size();
+
+		let digest_size = digest.encoded_size();
+		use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+		let empty_header = <<Test as Config>::Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			[0u8; 32].into(),
+			Default::default(),
+		);
+		let empty_header_size = empty_header.encoded_size();
+		let expected_overhead = digest_size + empty_header_size;
+
+		assert_eq!(block_size as usize, expected_overhead);
+		assert!(block_size > 100);
+	});
+}
+
+#[test]
+fn deposit_log_updates_block_size() {
+	new_test_ext().execute_with(|| {
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+
+		let initial_len = System::block_size();
+
+		let log_data = vec![42u8; 1000];
+		let log_item = DigestItem::Other(log_data.clone());
+		let log_size = log_item.encoded_size();
+
+		System::deposit_log(log_item);
+
+		let new_len = System::block_size();
+		assert_eq!(new_len, initial_len + log_size as u32);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Header size")]
+fn inherent_digest_exceeding_max_header_size_panics() {
+	new_test_ext().execute_with(|| {
+		let max_header_size = RuntimeBlockLength::get().max_header_size();
+		let large_data = vec![42u8; max_header_size as usize + 10];
+		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] };
+
+		System::initialize(&1, &[0u8; 32].into(), &digest);
 	});
 }

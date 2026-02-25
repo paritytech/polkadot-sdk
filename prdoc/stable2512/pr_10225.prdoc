@@ -1,0 +1,9 @@
+title: "pallet_revive: use real storage when building the eth genesis block"
+doc:
+- audience: Runtime Dev
+  description: |-
+    When building the eth genesis block, query the real storage items that store the timestamp and block number instead of using the zeroed items.
+    If the chainspec does not customise these, they will remain zeroed.
+crates: 
+- name: pallet-revive
+  bump: patch

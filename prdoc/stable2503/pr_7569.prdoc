@@ -1,0 +1,25 @@
+title: 'slot-based-collator: Allow multiple blocks per slot'
+doc:
+- audience: Node Operator
+  description:
+    Adds multiple blocks per slot support to the slot-based collator. This PR deprecates
+    the `--experimental-use-slot-based` flag in favor of `--authoring slot-based`. The deprecated flag will be removed
+    in the next release.
+
+    Parachain runtimes using the `FixedVelocityConsensusHook` now no longer support building blocks with slots
+    shorter than 6 seconds. We advise elastic-scaling chains to use the mechanisms introduced in this PR and produce
+    multiple blocks in a single slot.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-pallet-aura-ext
+  bump: major
+  validate: false
+- name: cumulus-pov-validator
+  bump: none
+  validate: false
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot
+  bump: none
+  validate: false

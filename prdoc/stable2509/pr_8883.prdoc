@@ -1,0 +1,18 @@
+title: '[pallet-revive] Make Runtime call dispatchable as eth transaction'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Make RuntimeCall dispatchable as eth transaction.
+
+    By sending a transaction to `0x6d6f646c70792f70616464720000000000000000`, using the encoded runtime call as input, the call will be executed by this given origin.
+
+    see https://github.com/paritytech/foundry-polkadot/issues/130
+
+    e.g sending a remark_with_event
+    ```
+    cast wallet import dev-account --private-key 5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133
+    cast send --account dev-account 0x6d6f646c70792f70616464720000000000000000 0x0007143132333435
+    ```
+crates:
+- name: pallet-revive
+  bump: patch

@@ -1,0 +1,112 @@
+[settings]
+timeout = 1500
+
+[relaychain]
+default_image = "parity/polkadot:latest"
+default_command = "polkadot"
+chain = "rococo-local"
+default_args = [
+	# "--network-backend litep2p",
+	"--pool-kbytes 2048000",
+	"--pool-limit 500000",
+	"--pool-type=fork-aware",
+	"--rpc-max-connections 15000",
+	"--rpc-max-response-size 150",
+	"--rpc-max-subscriptions-per-connection=128000",
+	"--state-pruning=1024",
+	"-ltxpool=trace",
+	"-lsync=trace",
+	"--out-peers=3",
+	"--in-peers=3",
+]
+[relaychain.genesis.runtimeGenesis.patch.balances]
+devAccounts = [
+	1000,
+	1000000000000000000,
+	"//Sender//{}",
+]
+
+[[relaychain.nodes]]
+name = "a00"
+rpc_port = 9944
+validator = true
+
+[[relaychain.nodes]]
+name = "b00"
+validator=true
+
+[[relaychain.nodes]]
+name = "b01"
+validator=true
+
+[[relaychain.nodes]]
+name = "b02"
+validator=true
+
+[[relaychain.nodes]]
+name = "b03"
+validator=true
+
+[[relaychain.nodes]]
+name = "b04"
+validator=true
+
+[[relaychain.nodes]]
+name = "b05"
+validator=true
+
+[[relaychain.nodes]]
+name = "b06"
+validator=true
+
+[[relaychain.nodes]]
+name = "b07"
+validator=true
+
+[[relaychain.nodes]]
+name = "b08"
+validator=true
+
+[[relaychain.nodes]]
+name = "b09"
+validator=true
+
+[[relaychain.nodes]]
+name = "b10"
+validator=true
+
+[[relaychain.nodes]]
+name = "b11"
+validator=true
+
+[[relaychain.nodes]]
+name = "b12"
+validator=true
+
+[[relaychain.nodes]]
+name = "b13"
+validator=true
+
+[[relaychain.nodes]]
+name = "b14"
+validator=true
+
+[[relaychain.nodes]]
+name = "b15"
+validator=true
+
+[[relaychain.nodes]]
+name = "b16"
+validator=true
+
+[[relaychain.nodes]]
+name = "b17"
+validator=true
+
+[[relaychain.nodes]]
+name = "b18"
+validator=true
+
+[[relaychain.nodes]]
+name = "b19"
+validator=true

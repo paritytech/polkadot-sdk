@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Relay chain state proof provides means for accessing part of relay chain storage for reads.
 
@@ -98,6 +98,10 @@ pub enum Error {
 	HrmpChannel(ParaId, ParaId, ReadEntryErr),
 	/// The latest included parachain head cannot be extracted.
 	ParaHead(ReadEntryErr),
+	/// The relay chain authorities cannot be extracted
+	Authorities(ReadEntryErr),
+	/// The relay chain authorities for the next epoch cannot be extracted
+	NextAuthorities(ReadEntryErr),
 }
 
 #[derive(Debug)]
@@ -168,7 +172,7 @@ impl RelayChainStateProof {
 	) -> Result<Self, Error> {
 		let db = proof.into_memory_db::<HashingFor<relay_chain::Block>>();
 		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
-			return Err(Error::RootMismatch)
+			return Err(Error::RootMismatch);
 		}
 		let trie_backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
 
@@ -293,6 +297,26 @@ impl RelayChainStateProof {
 			.map_err(Error::ParaHead)
 	}
 
+	/// Read relay chain authorities.
+	pub fn read_authorities(
+		&self,
+	) -> Result<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>, Error>
+	{
+		read_entry(&self.trie_backend, &relay_chain::well_known_keys::AUTHORITIES, None)
+			.map_err(Error::Authorities)
+	}
+
+	/// Read relay chain authorities for the next epoch.
+	pub fn read_next_authorities(
+		&self,
+	) -> Result<
+		Option<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>>,
+		Error,
+	> {
+		read_optional_entry(&self.trie_backend, &relay_chain::well_known_keys::NEXT_AUTHORITIES)
+			.map_err(Error::NextAuthorities)
+	}
+
 	/// Read the [`Slot`](relay_chain::Slot) from the relay chain state proof.
 	///
 	/// The slot is slot of the relay chain block this state proof was extracted from.
@@ -358,5 +382,21 @@ impl RelayChainStateProof {
 		T: Decode,
 	{
 		read_optional_entry(&self.trie_backend, key).map_err(Error::ReadOptionalEntry)
+	}
+
+	/// Read a value from a child trie in the relay chain state proof.
+	///
+	/// Returns `Ok(Some(value))` if the key exists in the child trie,
+	/// `Ok(None)` if the key doesn't exist,
+	/// or `Err` if there was a proof error.
+	pub fn read_child_storage(
+		&self,
+		child_info: &sp_core::storage::ChildInfo,
+		key: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		use sp_state_machine::Backend;
+		self.trie_backend
+			.child_storage(child_info, key)
+			.map_err(|_| Error::ReadEntry(ReadEntryErr::Proof))
 	}
 }

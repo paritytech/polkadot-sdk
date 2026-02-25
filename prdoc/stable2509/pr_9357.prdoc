@@ -1,0 +1,11 @@
+title: "Fix dust balance handling in ETH transfers"
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Fixed a bug in the eth-decimals implementation where ETH transfers were failing due to incorrect receiver dust balance handling. The condition for minting a new currency unit when transferring dust was checking `to_info.dust.saturating_add(dust) >= plank` which `to_info.dust` has been added twice, could lead to unexpected minting behavior.
+      This fix ensures that ETH transfers work correctly, enabling proper operation of DeFi protocols like Uniswap on PolkaVM.
+
+crates:
+  - name: pallet-revive
+    bump: patch

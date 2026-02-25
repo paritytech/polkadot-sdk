@@ -1,0 +1,11 @@
+title: 'staking-async: handle uninitialized state in try-runtime checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Handle the case where ActiveEra is None (uninitialized staking state) in the try-state checks.
+    This fixes try-runtime failures when deploying staking-async for the first time on chains without existing staking.
+
+crates:
+- name: pallet-staking-async
+  bump: patch

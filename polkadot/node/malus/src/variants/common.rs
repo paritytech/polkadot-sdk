@@ -24,8 +24,8 @@ use crate::{
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
-	PvfExecKind,
+	CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
+	CandidateReceiptV2 as CandidateReceipt, PersistedValidationData, PvfExecKind,
 };
 
 use futures::channel::oneshot;
@@ -67,8 +67,9 @@ impl FakeCandidateValidation {
 		use FakeCandidateValidation::*;
 
 		match *self {
-			BackingInvalid | BackingAndApprovalInvalid | BackingValid | BackingAndApprovalValid =>
-				true,
+			BackingInvalid | BackingAndApprovalInvalid | BackingValid | BackingAndApprovalValid => {
+				true
+			},
 			_ => false,
 		}
 	}
@@ -126,20 +127,23 @@ pub enum FakeCandidateValidationError {
 impl Into<InvalidCandidate> for FakeCandidateValidationError {
 	fn into(self) -> InvalidCandidate {
 		match self {
-			FakeCandidateValidationError::ExecutionError =>
-				InvalidCandidate::ExecutionError("Malus".into()),
+			FakeCandidateValidationError::ExecutionError => {
+				InvalidCandidate::ExecutionError("Malus".into())
+			},
 			FakeCandidateValidationError::InvalidOutputs => InvalidCandidate::InvalidOutputs,
 			FakeCandidateValidationError::Timeout => InvalidCandidate::Timeout,
 			FakeCandidateValidationError::ParamsTooLarge => InvalidCandidate::ParamsTooLarge(666),
 			FakeCandidateValidationError::CodeTooLarge => InvalidCandidate::CodeTooLarge(666),
-			FakeCandidateValidationError::POVDecompressionFailure =>
-				InvalidCandidate::PoVDecompressionFailure,
+			FakeCandidateValidationError::POVDecompressionFailure => {
+				InvalidCandidate::PoVDecompressionFailure
+			},
 			FakeCandidateValidationError::BadReturn => InvalidCandidate::BadReturn,
 			FakeCandidateValidationError::BadParent => InvalidCandidate::BadParent,
 			FakeCandidateValidationError::POVHashMismatch => InvalidCandidate::PoVHashMismatch,
 			FakeCandidateValidationError::BadSignature => InvalidCandidate::BadSignature,
-			FakeCandidateValidationError::ParaHeadHashMismatch =>
-				InvalidCandidate::ParaHeadHashMismatch,
+			FakeCandidateValidationError::ParaHeadHashMismatch => {
+				InvalidCandidate::ParaHeadHashMismatch
+			},
 			FakeCandidateValidationError::CodeHashMismatch => InvalidCandidate::CodeHashMismatch,
 		}
 	}
@@ -203,7 +207,7 @@ fn create_validation_response(
 
 	gum::debug!(
 		target: MALUS,
-		para_id = ?candidate_receipt.descriptor.para_id,
+		para_id = ?candidate_receipt.descriptor.para_id(),
 		candidate_hash = ?candidate_receipt.hash(),
 		"ValidationResult: {:?}",
 		&result
@@ -254,7 +258,7 @@ where
 									exec_kind,
 									response_sender,
 								},
-							})
+							});
 						}
 						// Create the fake response with probability `p` if the `PoV` is malicious,
 						// where 'p' defaults to 100% for suggest-garbage-candidate variant.
@@ -308,7 +312,7 @@ where
 								gum::info!(
 									target: MALUS,
 									?behave_maliciously,
-									para_id = ?candidate_receipt.descriptor.para_id,
+									para_id = ?candidate_receipt.descriptor.para_id(),
 									"😈 Maliciously sending invalid validation result: {:?}.",
 									&validation_result,
 								);

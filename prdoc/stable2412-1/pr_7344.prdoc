@@ -1,0 +1,14 @@
+title: '[sync] Let new subscribers know about already connected peers (backward-compatible)'
+doc:
+- audience: Node Dev
+  description: Revert https://github.com/paritytech/polkadot-sdk/pull/7011 and replace
+    it with a backward-compatible solution suitable for backporting to a release branch.
+crates:
+- name: sc-network-gossip
+  bump: patch
+- name: sc-network-statement
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: sc-network-transactions
+  bump: patch

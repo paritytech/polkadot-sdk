@@ -24,7 +24,6 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
-use strum::EnumIter;
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -43,9 +42,12 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	self,
+	async_backing::{self, Constraints},
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -65,7 +67,7 @@ pub use network_bridge_event::NetworkBridgeEvent;
 
 /// A request to the candidate backing subsystem to check whether
 /// we can second this candidate.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CanSecondRequest {
 	/// Para id of the candidate.
 	pub candidate_para_id: ParaId,
@@ -186,18 +188,16 @@ pub enum CandidateValidationMessage {
 
 /// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
 /// to separate and prioritize execution jobs by request type.
-/// The order is important, because we iterate through the values and assume it is going from higher
-/// to lowest priority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PvfExecKind {
 	/// For dispute requests
 	Dispute,
 	/// For approval requests
 	Approval,
-	/// For backing requests from system parachains.
-	BackingSystemParas,
-	/// For backing requests.
-	Backing,
+	/// For backing requests from system parachains. With relay parent hash
+	BackingSystemParas(Hash),
+	/// For backing requests. With relay parent hash
+	Backing(Hash),
 }
 
 impl PvfExecKind {
@@ -206,8 +206,8 @@ impl PvfExecKind {
 		match *self {
 			Self::Dispute => "dispute",
 			Self::Approval => "approval",
-			Self::BackingSystemParas => "backing_system_paras",
-			Self::Backing => "backing",
+			Self::BackingSystemParas(_) => "backing_system_paras",
+			Self::Backing(_) => "backing",
 		}
 	}
 }
@@ -217,8 +217,8 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 		match exec {
 			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
 			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
-			PvfExecKind::BackingSystemParas => RuntimePvfExecKind::Backing,
-			PvfExecKind::Backing => RuntimePvfExecKind::Backing,
+			PvfExecKind::BackingSystemParas(_) => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing(_) => RuntimePvfExecKind::Backing,
 		}
 	}
 }
@@ -250,9 +250,6 @@ pub enum CollatorProtocolMessage {
 		/// The core index where the candidate should be backed.
 		core_index: CoreIndex,
 	},
-	/// Report a collator as having provided an invalid collation. This should lead to disconnect
-	/// and blacklist of the collator.
-	ReportCollator(CollatorId),
 	/// Get a network bridge update.
 	#[from]
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>),
@@ -265,6 +262,12 @@ pub enum CollatorProtocolMessage {
 	///
 	/// The hash is the relay parent.
 	Seconded(Hash, SignedFullStatement),
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// pre-connect to backing groups at all allowed relay parents.
+	ConnectToBackingGroups,
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// disconnect from backing groups.
+	DisconnectFromBackingGroups,
 }
 
 impl Default for CollatorProtocolMessage {
@@ -308,7 +311,7 @@ pub enum DisputeCoordinatorMessage {
 		/// - we discarded the votes because
 		/// 		- they were ancient or otherwise invalid (result: `InvalidImport`)
 		/// 		- or we were not able to recover availability for an unknown candidate (result:
-		///		`InvalidImport`)
+		/// 		`InvalidImport`)
 		/// 		- or were known already (in that case the result will still be `ValidImport`)
 		/// - or we recorded them because (`ValidImport`)
 		/// 		- we cast our own vote already on that dispute
@@ -321,10 +324,10 @@ pub enum DisputeCoordinatorMessage {
 	/// Fetch a list of all recent disputes the coordinator is aware of.
 	/// These are disputes which have occurred any time in recent sessions,
 	/// and which may have already concluded.
-	RecentDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	RecentDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Fetch a list of all active disputes that the coordinator is aware of.
 	/// These disputes are either not yet concluded or recently concluded.
-	ActiveDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	ActiveDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Get candidate votes for a candidate.
 	QueryCandidateVotes(
 		Vec<(SessionIndex, CandidateHash)>,
@@ -412,8 +415,8 @@ pub enum NetworkBridgeTxMessage {
 	/// Report a peer for their actions.
 	ReportPeer(ReportPeerMessage),
 
-	/// Disconnect a peer from the given peer-set without affecting their reputation.
-	DisconnectPeer(PeerId, PeerSet),
+	/// Disconnect peers from the given peer-set without affecting their reputation.
+	DisconnectPeers(Vec<PeerId>, PeerSet),
 
 	/// Send a message to one or more peers on the validation peer-set.
 	SendValidationMessage(Vec<PeerId>, net_protocol::VersionedValidationProtocol),
@@ -742,7 +745,7 @@ pub enum RuntimeApiRequest {
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
 	/// `V5`
 	UnappliedSlashes(
-		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
 	),
 	/// Returns a merkle proof of a validator session key.
 	/// `V5`
@@ -775,6 +778,23 @@ pub enum RuntimeApiRequest {
 	/// Get the candidates pending availability for a particular parachain
 	/// `V11`
 	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
+	/// Get the backing constraints for a particular parachain.
+	/// `V12`
+	BackingConstraints(ParaId, RuntimeApiSender<Option<Constraints>>),
+	/// Get the lookahead from the scheduler params.
+	/// `V12`
+	SchedulingLookahead(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the maximum uncompressed code size.
+	/// `V12`
+	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the paraids at the relay parent.
+	/// `V14`
+	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
+	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
+	/// `V15`
+	UnappliedSlashesV2(
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -815,6 +835,21 @@ impl RuntimeApiRequest {
 
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `ValidationCodeBombLimit`
+	pub const VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT: u32 = 12;
+
+	/// `backing_constraints`
+	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `SchedulingLookahead`
+	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `ParaIds`
+	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
+
+	/// `UnappliedSlashesV2`
+	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 }
 
 /// A message to the Runtime API subsystem.
@@ -849,9 +884,6 @@ pub enum StatementDistributionMessage {
 pub enum ProvisionableData {
 	/// This bitfield indicates the availability of various candidate blocks.
 	Bitfield(Hash, SignedAvailabilityBitfield),
-	/// The Candidate Backing subsystem believes that this candidate is valid, pending
-	/// availability.
-	BackedCandidate(CandidateReceipt),
 	/// Misbehavior reports are self-contained proofs of validator misbehavior.
 	MisbehaviorReport(Hash, ValidatorIndex, Misbehavior),
 	/// Disputes trigger a broad dispute resolution process.
@@ -1021,10 +1053,12 @@ impl TryFrom<ApprovalVotingParallelMessage> for ApprovalVotingMessage {
 
 	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
 		match msg {
-			ApprovalVotingParallelMessage::ApprovedAncestor(hash, number, tx) =>
-				Ok(ApprovalVotingMessage::ApprovedAncestor(hash, number, tx)),
-			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(candidate, tx) =>
-				Ok(ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate, tx)),
+			ApprovalVotingParallelMessage::ApprovedAncestor(hash, number, tx) => {
+				Ok(ApprovalVotingMessage::ApprovedAncestor(hash, number, tx))
+			},
+			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(candidate, tx) => {
+				Ok(ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate, tx))
+			},
 			_ => Err(()),
 		}
 	}
@@ -1035,18 +1069,24 @@ impl TryFrom<ApprovalVotingParallelMessage> for ApprovalDistributionMessage {
 
 	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
 		match msg {
-			ApprovalVotingParallelMessage::NewBlocks(blocks) =>
-				Ok(ApprovalDistributionMessage::NewBlocks(blocks)),
-			ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed_cores) =>
-				Ok(ApprovalDistributionMessage::DistributeAssignment(assignment, claimed_cores)),
-			ApprovalVotingParallelMessage::DistributeApproval(vote) =>
-				Ok(ApprovalDistributionMessage::DistributeApproval(vote)),
-			ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg) =>
-				Ok(ApprovalDistributionMessage::NetworkBridgeUpdate(msg)),
-			ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx) =>
-				Ok(ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx)),
-			ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) =>
-				Ok(ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag)),
+			ApprovalVotingParallelMessage::NewBlocks(blocks) => {
+				Ok(ApprovalDistributionMessage::NewBlocks(blocks))
+			},
+			ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed_cores) => {
+				Ok(ApprovalDistributionMessage::DistributeAssignment(assignment, claimed_cores))
+			},
+			ApprovalVotingParallelMessage::DistributeApproval(vote) => {
+				Ok(ApprovalDistributionMessage::DistributeApproval(vote))
+			},
+			ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg) => {
+				Ok(ApprovalDistributionMessage::NetworkBridgeUpdate(msg))
+			},
+			ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx) => {
+				Ok(ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx))
+			},
+			ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) => {
+				Ok(ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag))
+			},
 			_ => Err(()),
 		}
 	}
@@ -1055,18 +1095,24 @@ impl TryFrom<ApprovalVotingParallelMessage> for ApprovalDistributionMessage {
 impl From<ApprovalDistributionMessage> for ApprovalVotingParallelMessage {
 	fn from(msg: ApprovalDistributionMessage) -> Self {
 		match msg {
-			ApprovalDistributionMessage::NewBlocks(blocks) =>
-				ApprovalVotingParallelMessage::NewBlocks(blocks),
-			ApprovalDistributionMessage::DistributeAssignment(cert, bitfield) =>
-				ApprovalVotingParallelMessage::DistributeAssignment(cert, bitfield),
-			ApprovalDistributionMessage::DistributeApproval(vote) =>
-				ApprovalVotingParallelMessage::DistributeApproval(vote),
-			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) =>
-				ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg),
-			ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx) =>
-				ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx),
-			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) =>
-				ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
+			ApprovalDistributionMessage::NewBlocks(blocks) => {
+				ApprovalVotingParallelMessage::NewBlocks(blocks)
+			},
+			ApprovalDistributionMessage::DistributeAssignment(cert, bitfield) => {
+				ApprovalVotingParallelMessage::DistributeAssignment(cert, bitfield)
+			},
+			ApprovalDistributionMessage::DistributeApproval(vote) => {
+				ApprovalVotingParallelMessage::DistributeApproval(vote)
+			},
+			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => {
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg)
+			},
+			ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx) => {
+				ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx)
+			},
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
+				ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag)
+			},
 		}
 	}
 }
@@ -1256,7 +1302,7 @@ impl HypotheticalCandidate {
 	/// Get the `ParaId` of the hypothetical candidate.
 	pub fn candidate_para(&self) -> ParaId {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } => receipt.descriptor().para_id,
+			HypotheticalCandidate::Complete { ref receipt, .. } => receipt.descriptor.para_id(),
 			HypotheticalCandidate::Incomplete { candidate_para, .. } => candidate_para,
 		}
 	}
@@ -1264,28 +1310,33 @@ impl HypotheticalCandidate {
 	/// Get parent head data hash of the hypothetical candidate.
 	pub fn parent_head_data_hash(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				persisted_validation_data.parent_head.hash(),
-			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } =>
-				parent_head_data_hash,
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } => {
+				persisted_validation_data.parent_head.hash()
+			},
+			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } => {
+				parent_head_data_hash
+			},
 		}
 	}
 
 	/// Get candidate's relay parent.
 	pub fn relay_parent(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				receipt.descriptor().relay_parent,
-			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } =>
-				candidate_relay_parent,
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				receipt.descriptor.relay_parent()
+			},
+			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } => {
+				candidate_relay_parent
+			},
 		}
 	}
 
 	/// Get the output head data hash, if the candidate is complete.
 	pub fn output_head_data_hash(&self) -> Option<Hash> {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(receipt.descriptor.para_head),
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				Some(receipt.descriptor.para_head())
+			},
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
@@ -1301,17 +1352,19 @@ impl HypotheticalCandidate {
 	/// Get the persisted validation data, if the candidate is complete.
 	pub fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
 		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				Some(persisted_validation_data),
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } => {
+				Some(persisted_validation_data)
+			},
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
 
 	/// Get the validation code hash, if the candidate is complete.
-	pub fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+	pub fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(&receipt.descriptor.validation_code_hash),
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				Some(receipt.descriptor.validation_code_hash())
+			},
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}

@@ -1,0 +1,52 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove usage of AccountKeyring"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Compared with AccountKeyring, Sr25519Keyring and Ed25519Keyring are more intuitive.
+      When both Sr25519Keyring and Ed25519Keyring are required, using AccountKeyring bring confusion.
+      There are two AccountKeyring definitions, it becomes more complex if export two AccountKeyring from frame.
+
+crates:
+  - name: frame-support
+    bump: patch
+  - name: sp-keyring
+    bump: major
+  - name: sc-service 
+    bump: patch
+  - name: sc-chain-spec
+    bump: patch
+  - name: sc-rpc
+    bump: patch
+  - name: sc-transaction-pool
+    bump: patch
+  - name: sc-rpc-spec-v2
+    bump: patch
+  - name: polkadot-node-metrics
+    bump: patch
+  - name: substrate-frame-rpc-system
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: polkadot-sdk-frame
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: sc-basic-authorship
+    bump: patch
+  - name: bridge-hub-test-utils
+    bump: patch
+  - name: sc-consensus-manual-seal
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch
+  - name: snowbridge-runtime-test-common
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  

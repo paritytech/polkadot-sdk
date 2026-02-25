@@ -165,8 +165,8 @@ where
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,
 				None => {
-					log::warn!("Failed to convert root origin into account id");
-					return
+					tracing::warn!(target: "xcm::on_unbalanced", "Failed to convert root origin into account id");
+					return;
 				},
 			};
 		let treasury_account: AccountIdOf<T> = TreasuryAccount::get();
@@ -187,7 +187,7 @@ where
 		);
 
 		if let Err(err) = result {
-			log::warn!("Failed to teleport slashed assets: {:?}", err);
+			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
 	}
 }
@@ -223,7 +223,9 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 

@@ -23,7 +23,8 @@ use frame_support::{
 		fungible::{self, NativeFromLeft, NativeOrWithId},
 		fungibles::Mutate,
 		tokens::imbalance::ResolveAssetTo,
-		AsEnsureOriginWithArg, Equals, Everything, Nothing, OriginTrait, PalletInfoAccess,
+		AsEnsureOriginWithArg, Disabled, Equals, Everything, Nothing, OriginTrait,
+		PalletInfoAccess,
 	},
 	PalletId,
 };
@@ -82,6 +83,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -97,6 +99,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type CallbackHandle = ();
 }
 
@@ -185,7 +188,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 		match location.unpack() {
 			(0, [PalletInstance(instance), GeneralIndex(index)])
 				if *instance == pallet_instance =>
-				Some(NativeOrWithId::WithId(*index as u32)),
+			{
+				Some(NativeOrWithId::WithId(*index as u32))
+			},
 			(0, []) => Some(NativeOrWithId::Native),
 			_ => None,
 		}
@@ -194,8 +199,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 	fn convert_back(asset_id: &NativeOrWithId<u32>) -> Option<Location> {
 		let pallet_instance = TrustBackedAssetsPalletIndex::get();
 		Some(match asset_id {
-			NativeOrWithId::WithId(id) =>
-				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())]),
+			NativeOrWithId::WithId(id) => {
+				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())])
+			},
 			NativeOrWithId::Native => Location::new(0, []),
 		})
 	}
@@ -218,6 +224,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
+	type XcmEventEmitter = ();
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
@@ -232,7 +239,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = PoolAssetsExchanger;
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -278,8 +284,9 @@ where
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
-			Ok(frame_system::RawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into()),
+			Ok(frame_system::RawOrigin::Signed(who)) => {
+				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into())
+			},
 			Ok(other) => Err(other.into()),
 			Err(other) => Err(other),
 		})
@@ -290,6 +297,8 @@ parameter_types! {
 	pub const NoNetwork: Option<NetworkId> = None;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId, NoNetwork>;
 
 impl pallet_xcm::Config for Runtime {
@@ -312,7 +321,7 @@ impl pallet_xcm::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 	// No version discovery needed
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 0;
-	type AdvertisedXcmVersion = frame_support::traits::ConstU32<3>;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	// No locking
 	type TrustedLockers = ();
@@ -330,6 +339,8 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 pub const INITIAL_BALANCE: Balance = 1_000_000_000;
@@ -339,6 +350,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(0, INITIAL_BALANCE), (1, INITIAL_BALANCE), (2, INITIAL_BALANCE)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

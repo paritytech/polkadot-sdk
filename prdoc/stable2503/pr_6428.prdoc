@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "FRAME: Meta Transaction"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces the meta-tx pallet that implements Meta Transactions.
+
+      The meta transaction follows a layout similar to that of a regular transaction and can
+      leverage the same extensions that implement the `TransactionExtension` trait. Once signed and
+      shared by the signer, it can be relayed by a relayer. The relayer then submits a regular
+      transaction with the `meta-tx::dispatch` call, passing the signed meta transaction as an
+      argument.
+
+      To see an example, refer to the mock setup and the `sign_and_execute_meta_tx` test case within
+      the pallet.
+
+crates:
+- name: pallet-meta-tx
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: major
+- name: polkadot-sdk
+  bump: major
+- name: pallet-verify-signature
+  bump: patch
+- name: pallet-example-authorization-tx-extension
+  bump: major

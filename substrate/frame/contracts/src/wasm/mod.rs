@@ -49,14 +49,14 @@ use crate::{
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
 use sp_core::Get;
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
@@ -106,7 +106,16 @@ pub struct CodeInfo<T: Config> {
 
 /// Defines the required determinism level of a wasm blob when either running or uploading code.
 #[derive(
-	Clone, Copy, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen, RuntimeDebug, PartialEq, Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+	Debug,
+	PartialEq,
+	Eq,
 )]
 pub enum Determinism {
 	/// The execution should be deterministic and hence no indeterministic instructions are
@@ -353,11 +362,11 @@ impl<T: Config> WasmBlob<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub fn bench_prepare_call<E: Ext<T = T>>(
+	pub fn bench_prepare_call<'a, E: Ext<T = T>>(
 		self,
-		ext: &mut E,
+		ext: &'a mut E,
 		input_data: Vec<u8>,
-	) -> (Func, Store<Runtime<E>>) {
+	) -> (Func, Store<Runtime<'a, E>>) {
 		use InstanceOrExecReturn::*;
 		match Self::prepare_execute(
 			self,
@@ -681,8 +690,9 @@ mod tests {
 			let entry = self.storage.entry(key.clone());
 			let result = match (entry, take_old) {
 				(Entry::Vacant(_), _) => WriteOutcome::New,
-				(Entry::Occupied(entry), false) =>
-					WriteOutcome::Overwritten(entry.remove().len() as u32),
+				(Entry::Occupied(entry), false) => {
+					WriteOutcome::Overwritten(entry.remove().len() as u32)
+				},
 				(Entry::Occupied(entry), true) => WriteOutcome::Taken(entry.remove()),
 			};
 			if let Some(value) = value {
@@ -1296,7 +1306,7 @@ mod tests {
 		)
 		.unwrap();
 
-		//value does not exist (wrong key length)
+		// value does not exist (wrong key length)
 		let input = (63, [1u8; 64]).encode();
 		let result = execute(CODE, input, &mut ext).unwrap();
 		// sentinel returned
@@ -2952,7 +2962,7 @@ mod tests {
 		// value cleared
 		assert_eq!(ext.storage.get(&[1u8; 64].to_vec()), None);
 
-		//value did not exist (wrong key length)
+		// value did not exist (wrong key length)
 		let input = (63, [1u8; 64]).encode();
 		let result = execute(CODE, input, &mut ext).unwrap();
 		// sentinel returned

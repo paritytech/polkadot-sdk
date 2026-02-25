@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix approval-voting canonicalize off by one
+
+doc:
+  - audience: Node Dev
+    description: |
+      The approval-voting canonicalize was off by one, which lead to blocks being
+      cleaned up every other 2 blocks. Normally, this is not an issue, but on restart
+      we might end up sending NewBlocks to approval-distribution with finalized blocks.
+      This would be problematic in the case were finalization was already lagging before
+      restart, so after restart approval-distribution will trigger aggression on the wrong
+      already finalized block.
+
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: minor

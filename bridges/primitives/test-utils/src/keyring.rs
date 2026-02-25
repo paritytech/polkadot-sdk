@@ -21,8 +21,8 @@ use codec::Encode;
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
+use Debug;
 
 /// Set of test accounts with friendly names: Alice.
 pub const ALICE: Account = Account(0);
@@ -38,7 +38,7 @@ pub const EVE: Account = Account(4);
 pub const FERDIE: Account = Account(5);
 
 /// A test account which can be used to sign messages.
-#[derive(RuntimeDebug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Account(pub u16);
 
 impl Account {

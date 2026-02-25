@@ -1,0 +1,15 @@
+title: "xcm-executor: take delivery fee from transferred assets if necessary"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      In asset transfers, as a last resort, XCM delivery fees are taken from
+      transferred assets rather than failing the transfer.
+
+crates:
+  - name: staging-xcm-executor
+    bump: patch
+  - name: snowbridge-router-primitives
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch

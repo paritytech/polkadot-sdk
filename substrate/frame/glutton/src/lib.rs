@@ -61,6 +61,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The admin origin that can set computational limits and initialize the pallet.
@@ -208,7 +209,7 @@ pub mod pallet {
 		fn on_idle(_: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(remaining_weight);
 			if meter.try_consume(T::WeightInfo::empty_on_idle()).is_err() {
-				return T::WeightInfo::empty_on_idle()
+				return T::WeightInfo::empty_on_idle();
 			}
 
 			let proof_size_limit =
@@ -426,7 +427,7 @@ pub mod pallet {
 			let base = T::WeightInfo::waste_ref_time_iter(0);
 			let slope = T::WeightInfo::waste_ref_time_iter(1).saturating_sub(base);
 			if !slope.proof_size().is_zero() || !base.proof_size().is_zero() {
-				return Err(())
+				return Err(());
 			}
 
 			match meter

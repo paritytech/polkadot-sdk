@@ -1,0 +1,5 @@
+error: view functions must return a value
+  --> tests/pallet_ui/view_function_no_return.rs:33:7
+   |
+33 |         pub fn get_value() {
+   |             ^^

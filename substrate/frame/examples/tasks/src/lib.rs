@@ -19,7 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use frame_system::offchain::CreateInherent;
+use frame_system::offchain::CreateBare;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
 // Re-export pallet items so that they can be accessed from the crate namespace.
@@ -77,7 +77,7 @@ pub mod pallet {
 				let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
 
 				// Submit the task as an unsigned transaction
-				let xt = <T as CreateInherent<frame_system::Call<T>>>::create_inherent(call.into());
+				let xt = <T as CreateBare<frame_system::Call<T>>>::create_bare(call.into());
 				let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_transaction(xt);
 				match res {
 					Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
@@ -91,7 +91,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: CreateInherent<frame_system::Call<Self>> + frame_system::Config {
+	pub trait Config: CreateBare<frame_system::Call<Self>> + frame_system::Config {
 		type RuntimeTask: frame_support::traits::Task
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
 			+ From<Task<Self>>;

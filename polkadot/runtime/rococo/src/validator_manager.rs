@@ -37,6 +37,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_session::Config {
 		/// The overreaching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Privileged origin that can add or remove validators.
@@ -102,7 +103,7 @@ pub mod pallet {
 impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 		if new_index <= 1 {
-			return None
+			return None;
 		}
 
 		let mut validators = Session::<T>::validators();

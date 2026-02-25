@@ -25,9 +25,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 const INPUT_BUF_SIZE: usize = 128;
 static INPUT_DATA: [u8; INPUT_BUF_SIZE] = [0xFF; INPUT_BUF_SIZE];
@@ -35,11 +35,11 @@ static INPUT_DATA: [u8; INPUT_BUF_SIZE] = [0xFF; INPUT_BUF_SIZE];
 const OUTPUT_BUF_SIZE: usize = INPUT_BUF_SIZE - 4;
 static OUTPUT_DATA: [u8; OUTPUT_BUF_SIZE] = [0xEE; OUTPUT_BUF_SIZE];
 
+/// Assert correct return data after calls and finally reset the return data.
 fn assert_return_data_after_call(input: &[u8]) {
 	assert_return_data_size_of(OUTPUT_BUF_SIZE as u64);
-	assert_plain_transfer_does_not_reset(OUTPUT_BUF_SIZE as u64);
 	assert_return_data_copy(&input[4..]);
-	reset_return_data();
+	assert_balance_transfer_does_reset();
 }
 
 /// Assert that what we get from [api::return_data_copy] matches `whole_return_data`,
@@ -73,34 +73,25 @@ fn recursion_guard() -> [u8; 20] {
 	own_address
 }
 
-/// Call ourselves recursively, which panics the callee and thus resets the return data.
-fn reset_return_data() {
-	api::call(
-		uapi::CallFlags::ALLOW_REENTRY,
-		&recursion_guard(),
-		0u64,
-		0u64,
-		None,
-		&[0u8; 32],
-		&[0u8; 32],
-		None,
-	)
-	.unwrap_err();
-	assert_return_data_size_of(0);
-}
-
 /// Assert [api::return_data_size] to match the `expected` value.
 fn assert_return_data_size_of(expected: u64) {
-	let mut return_data_size = [0xff; 32];
-	api::return_data_size(&mut return_data_size);
-	assert_eq!(return_data_size, u256_bytes(expected));
+	assert_eq!(api::return_data_size(), expected);
 }
 
-/// Assert [api::return_data_size] to match the `expected` value after a plain transfer
-/// (plain transfers don't issue a call and so should not reset the return data)
-fn assert_plain_transfer_does_not_reset(expected: u64) {
-	api::transfer(&[0; 20], &u256_bytes(128)).unwrap();
-	assert_return_data_size_of(expected);
+/// Assert the return data to be reset after a balance transfer.
+fn assert_balance_transfer_does_reset() {
+	api::call(
+		uapi::CallFlags::empty(),
+		&[0u8; 20],
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&u256_bytes(128_000_000),
+		&[],
+		None,
+	)
+	.unwrap();
+	assert_return_data_size_of(0);
 }
 
 #[no_mangle]
@@ -127,13 +118,16 @@ pub extern "C" fn call() {
 		input
 	};
 	let mut instantiate = |exit_flag| {
+		let input = construct_input(exit_flag);
+		let mut deploy_input = [0; 32 + INPUT_BUF_SIZE];
+		deploy_input[..32].copy_from_slice(code_hash);
+		deploy_input[32..].copy_from_slice(&input);
 		api::instantiate(
-			code_hash,
-			0u64,
-			0u64,
-			None,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
 			&[0; 32],
-			&construct_input(exit_flag),
+			&deploy_input,
 			Some(&mut address_buf),
 			None,
 			None,
@@ -143,9 +137,9 @@ pub extern "C" fn call() {
 		api::call(
 			uapi::CallFlags::empty(),
 			address_buf,
-			0u64,
-			0u64,
-			None,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
 			&[0; 32],
 			&construct_input(exit_flag),
 			None,

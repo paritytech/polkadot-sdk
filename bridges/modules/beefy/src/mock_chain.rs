@@ -80,11 +80,13 @@ struct BridgedMmrStorage {
 	nodes: HashMap<NodeIndex, TestBridgedMmrNode>,
 }
 
-impl mmr_lib::MMRStore<TestBridgedMmrNode> for BridgedMmrStorage {
+impl mmr_lib::MMRStoreReadOps<TestBridgedMmrNode> for BridgedMmrStorage {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<TestBridgedMmrNode>> {
 		Ok(self.nodes.get(&pos).cloned())
 	}
+}
 
+impl mmr_lib::MMRStoreWriteOps<TestBridgedMmrNode> for BridgedMmrStorage {
 	fn append(&mut self, pos: NodeIndex, elems: Vec<TestBridgedMmrNode>) -> mmr_lib::Result<()> {
 		for (i, elem) in elems.into_iter().enumerate() {
 			self.nodes.insert(pos + i as NodeIndex, elem);

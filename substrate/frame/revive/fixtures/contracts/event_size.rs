@@ -17,11 +17,11 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
-static BUFFER: [u8; 16 * 1024 + 1] = [0u8; 16 * 1024 + 1];
+static BUFFER: [u8; 64 * 1024 + 1] = [0u8; 64 * 1024 + 1];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

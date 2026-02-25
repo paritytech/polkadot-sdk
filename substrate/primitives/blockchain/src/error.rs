@@ -102,6 +102,9 @@ pub enum Error {
 	#[error("bad justification for header: {0}")]
 	BadJustification(String),
 
+	#[error("outdated justification")]
+	OutdatedJustification,
+
 	#[error("This method is not currently available when running in light client mode")]
 	NotAvailableOnLightClient,
 

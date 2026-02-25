@@ -53,13 +53,10 @@
 //!
 //! Pause specific all:
 #![doc = docify::embed!("src/tests.rs", can_pause_specific_call)]
-//!
 //! Unpause specific all:
 #![doc = docify::embed!("src/tests.rs", can_unpause_specific_call)]
-//!
 //! Pause all calls in a pallet:
 #![doc = docify::embed!("src/tests.rs", can_pause_all_calls_in_pallet_except_on_whitelist)]
-//!
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
@@ -78,15 +75,10 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{
-	dispatch::GetDispatchInfo,
-	pallet_prelude::*,
-	traits::{CallMetadata, Contains, GetCallMetadata, IsSubType, IsType},
-	DefaultNoBound,
+use frame::{
+	prelude::*,
+	traits::{TransactionPause, TransactionPauseError},
 };
-use frame_system::pallet_prelude::*;
-use sp_runtime::{traits::Dispatchable, DispatchResult};
-
 pub use pallet::*;
 pub use weights::*;
 
@@ -101,7 +93,7 @@ pub type PalletCallNameOf<T> = BoundedVec<u8, <T as Config>::MaxNameLen>;
 /// to partially or fully specify an item a variant of a  [`Config::RuntimeCall`].
 pub type RuntimeCallNameOf<T> = (PalletNameOf<T>, PalletCallNameOf<T>);
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -111,6 +103,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -239,7 +232,7 @@ impl<T: Config> Pallet<T> {
 	/// Return whether this call is paused.
 	pub fn is_paused(full_name: &RuntimeCallNameOf<T>) -> bool {
 		if T::WhitelistedCalls::contains(full_name) {
-			return false
+			return false;
 		}
 
 		<PausedCalls<T>>::contains_key(full_name)
@@ -260,14 +253,14 @@ impl<T: Config> Pallet<T> {
 	pub fn ensure_can_pause(full_name: &RuntimeCallNameOf<T>) -> Result<(), Error<T>> {
 		// SAFETY: The `TxPause` pallet can never pause itself.
 		if full_name.0.as_slice() == <Self as PalletInfoAccess>::name().as_bytes() {
-			return Err(Error::<T>::Unpausable)
+			return Err(Error::<T>::Unpausable);
 		}
 
 		if T::WhitelistedCalls::contains(&full_name) {
-			return Err(Error::<T>::Unpausable)
+			return Err(Error::<T>::Unpausable);
 		}
 		if Self::is_paused(&full_name) {
-			return Err(Error::<T>::IsPaused)
+			return Err(Error::<T>::IsPaused);
 		}
 		Ok(())
 	}
@@ -294,7 +287,7 @@ where
 	}
 }
 
-impl<T: Config> frame_support::traits::TransactionPause for Pallet<T> {
+impl<T: Config> TransactionPause for Pallet<T> {
 	type CallIdentifier = RuntimeCallNameOf<T>;
 
 	fn is_paused(full_name: Self::CallIdentifier) -> bool {
@@ -305,20 +298,16 @@ impl<T: Config> frame_support::traits::TransactionPause for Pallet<T> {
 		Self::ensure_can_pause(&full_name).is_ok()
 	}
 
-	fn pause(
-		full_name: Self::CallIdentifier,
-	) -> Result<(), frame_support::traits::TransactionPauseError> {
+	fn pause(full_name: Self::CallIdentifier) -> Result<(), TransactionPauseError> {
 		Self::do_pause(full_name).map_err(Into::into)
 	}
 
-	fn unpause(
-		full_name: Self::CallIdentifier,
-	) -> Result<(), frame_support::traits::TransactionPauseError> {
+	fn unpause(full_name: Self::CallIdentifier) -> Result<(), TransactionPauseError> {
 		Self::do_unpause(full_name).map_err(Into::into)
 	}
 }
 
-impl<T: Config> From<Error<T>> for frame_support::traits::TransactionPauseError {
+impl<T: Config> From<Error<T>> for TransactionPauseError {
 	fn from(err: Error<T>) -> Self {
 		match err {
 			Error::<T>::NotFound => Self::NotFound,

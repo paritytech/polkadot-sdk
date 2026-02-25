@@ -27,7 +27,7 @@ use sp_core::{
 	storage::{well_known_keys, StateVersion, Storage},
 	Pair,
 };
-use sp_keyring::{AccountKeyring, Sr25519Keyring};
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
 	BuildStorage,
@@ -60,11 +60,11 @@ impl Default for GenesisStorageBuilder {
 			],
 			(0..16_usize)
 				.into_iter()
-				.map(|i| AccountKeyring::numeric(i).public())
+				.map(|i| Sr25519Keyring::numeric(i).public())
 				.chain(vec![
-					AccountKeyring::Alice.into(),
-					AccountKeyring::Bob.into(),
-					AccountKeyring::Charlie.into(),
+					Sr25519Keyring::Alice.into(),
+					Sr25519Keyring::Bob.into(),
+					Sr25519Keyring::Charlie.into(),
 				])
 				.collect(),
 			1000 * currency::DOLLARS,
@@ -130,7 +130,10 @@ impl GenesisStorageBuilder {
 				authorities: authorities_sr25519.clone(),
 				..Default::default()
 			},
-			balances: pallet_balances::GenesisConfig { balances: self.balances.clone() },
+			balances: pallet_balances::GenesisConfig {
+				balances: self.balances.clone(),
+				..Default::default()
+			},
 		}
 	}
 

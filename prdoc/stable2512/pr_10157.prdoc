@@ -1,0 +1,9 @@
+title: 'pallet_revive: Improve logging'
+doc:
+- audience: Runtime Dev
+  description: Just added some more information to the log output during dry_run and
+    transaction creation. This was helpful when debugging if the correct gas was passed
+    in by the client.
+crates:
+- name: pallet-revive
+  bump: patch

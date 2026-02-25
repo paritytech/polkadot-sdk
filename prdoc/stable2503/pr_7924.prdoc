@@ -1,0 +1,8 @@
+title: 'sp-api: Support `mut` in `impl_runtime_apis!`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This brings support for declaring variables in parameters as `mut` inside of `impl_runtime_apis!`.
+crates:
+- name: sp-api-proc-macro
+  bump: patch

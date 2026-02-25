@@ -1,0 +1,62 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCMv5 - Better fee mechanism
+
+doc:
+  - audience:
+    - Runtime User
+    - Runtime Dev
+    description: |
+      In XCMv5, there's a new instruction, `PayFees`, which is meant to be a replacement for `BuyExecution`.
+      This instruction takes only one parameter, the `asset` that you are willing to use for fee payment.
+      There's no parameter for limiting the weight, the amount of the `asset` you put in is the limit of
+      how much you're willing to pay.
+      This instruction works much better with delivery fees.
+      `BuyExecution` will still be around to ensure backwards-compatibility, however, the benefits of the new
+      instruction are a good incentive to switch.
+      The proposed workflow is to estimate fees using the `XcmPaymentApi` and `DryRunApi`, then to put those
+      values in `PayFees` and watch your message go knowing you covered all the necessary fees.
+      You can add a little bit more just in case if you want.
+      `RefundSurplus` now gets back all of the assets that were destined for fee payment so you can deposit
+      them somewhere.
+      BEWARE, make sure you're not sending any other message after you call `RefundSurplus`, if not, it will
+      error.
+
+crates:
+  - name: staging-xcm-executor
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: staging-xcm
+    bump: major
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: xcm-emulator
+    bump: major
+  - name: people-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: emulated-integration-tests-common
+    bump: minor
+  - name: xcm-procedural
+    bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
+  - name: snowbridge-pallet-system
+    bump: patch

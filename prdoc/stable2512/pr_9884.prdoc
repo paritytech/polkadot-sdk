@@ -1,0 +1,14 @@
+title: Add criterion benches for statement-store
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Adds micro benches simulating concurrent work with the statement-store.
+
+    ## Integration
+
+    This PR does not not affect downstream projects.
+crates:
+- name: sc-statement-store
+  bump: none

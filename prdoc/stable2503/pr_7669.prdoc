@@ -1,0 +1,20 @@
+title: Introduce ark-ec-vrfs
+doc:
+- audience: Runtime Dev
+  description: |-
+    Superseeds `bandersnatch_vrfs` with [ark-vrf](https://crates.io/crates/ark-vrf)
+
+    - Same crypto as JAM
+    - With a spec: github.com/davxy/bandersnatch-vrf-spec
+    - Published on crates.io
+
+    https://github.com/paritytech/polkadot-sdk/pull/7670 follow up
+
+    NOTE: this crypto is under experimental feat
+crates:
+- name: sp-core
+  bump: major
+- name: sp-keystore
+  bump: major
+- name: sp-keyring
+  bump: major

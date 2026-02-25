@@ -1,0 +1,10 @@
+title: 'EPMB: ensure to have enough funds for benchmarking'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix `pallet_election_provider_multi_block_signed::register_eject` benchmark failing on KAHM due to `funded_account()` function not providing enough balance to cover the required deposits.
+
+    The fix ensures that benchmark accounts have sufficient funds to cover the worst-case deposit scenario (registration + all pages submission) with a consistent safety margin.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch

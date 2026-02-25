@@ -55,7 +55,6 @@
 //! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
 //! > node-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_dev.mmd")]
-//!
 //! ## Structure
 //!
 //! Substrate contains a large number of crates, therefore it is useful to have an overview of what
@@ -90,21 +89,14 @@
 //!
 //! In order to ensure that the WASM build is **deterministic**, the [Substrate Runtime Toolbox (srtool)](https://github.com/paritytech/srtool) can be used.
 //!
-//! ### Binaries
+//! #### Building individual crates
 //!
-//! Multiple binaries are shipped with substrate, the most important of which are located in the
-//! [`./bin`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin) folder.
+//! When building full runtimes, the WASM builder takes care of all required configuration.
+//! For individual crates, however, the `substrate_runtime` Rust flag is needed, e.g.:
 //!
-//! * [`node_cli`] is an extensive substrate node that contains the superset of all runtime and node
-//!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
-//!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
-//!   demonstration.
-//!     * [`chain_spec_builder`]: Utility to build more detailed chain-specs for the aforementioned
-//!       node. Other projects typically contain a `build-spec` subcommand that does the same.
-//! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node):
-//!   a template node that contains a minimal set of features and can act as a starting point of a
-//!   project.
-//! * [`subkey`]: Substrate's key management utility.
+//! ```bash
+//! RUSTFLAGS="--cfg substrate_runtime" cargo build -p sp-io --target=wasm32-unknown-unknown --no-default-features
+//! ```
 //!
 //! ### Anatomy of a Binary Crate
 //!

@@ -46,7 +46,7 @@ use std::collections::HashSet;
 pub use alloc::borrow::Cow;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeString;
+#[allow(deprecated)]
 pub use sp_runtime::{create_runtime_str, StateVersion};
 #[doc(hidden)]
 pub use sp_std;
@@ -72,12 +72,15 @@ pub mod embed;
 /// This macro accepts a const item like the following:
 ///
 /// ```rust
-/// use sp_version::{create_runtime_str, RuntimeVersion};
+/// extern crate alloc;
+///
+/// use alloc::borrow::Cow;
+/// use sp_version::RuntimeVersion;
 ///
 /// #[sp_version::runtime_version]
 /// pub const VERSION: RuntimeVersion = RuntimeVersion {
-/// 	spec_name: create_runtime_str!("test"),
-/// 	impl_name: create_runtime_str!("test"),
+/// 	spec_name: Cow::Borrowed("test"),
+/// 	impl_name: Cow::Borrowed("test"),
 /// 	authoring_version: 10,
 /// 	spec_version: 265,
 /// 	impl_version: 1,
@@ -159,19 +162,19 @@ macro_rules! create_apis_vec {
 /// In particular: bug fixes should result in an increment of `spec_version` and possibly
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
-#[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Default, Debug, TypeInfo)]
 pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
 	/// in node not attempting to sync or author blocks.
-	pub spec_name: RuntimeString,
+	pub spec_name: Cow<'static, str>,
 
 	/// Name of the implementation of the spec. This is of little consequence for the node
 	/// and serves only to differentiate code of different implementation teams. For this
 	/// codebase, it will be parity-polkadot. If there were a non-Rust implementation of the
 	/// Polkadot runtime (e.g. C++), then it would identify itself with an accordingly different
 	/// `impl_name`.
-	pub impl_name: RuntimeString,
+	pub impl_name: Cow<'static, str>,
 
 	/// `authoring_version` is the version of the authorship interface. An authoring node
 	/// will not attempt to author blocks unless this is equal to its native runtime.
@@ -373,43 +376,48 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 			{
 				let spec_name = match seq.next_element()? {
 					Some(spec_name) => spec_name,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							0usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let impl_name = match seq.next_element()? {
 					Some(impl_name) => impl_name,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							1usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let authoring_version = match seq.next_element()? {
 					Some(authoring_version) => authoring_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							2usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let spec_version = match seq.next_element()? {
 					Some(spec_version) => spec_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							3usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let impl_version = match seq.next_element()? {
 					Some(impl_version) => impl_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							4usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let apis = match {
 					struct DeserializeWith<'de> {
@@ -433,27 +441,30 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 					seq.next_element::<DeserializeWith<'de>>()?.map(|wrap| wrap.value)
 				} {
 					Some(apis) => apis,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							5usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let transaction_version = match seq.next_element()? {
 					Some(transaction_version) => transaction_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							6usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let system_version = match seq.next_element()? {
 					Some(system_version) => system_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							7usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				Ok(RuntimeVersion {
 					spec_name,
@@ -472,8 +483,8 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 			where
 				A: serde::de::MapAccess<'de>,
 			{
-				let mut spec_name: Option<RuntimeString> = None;
-				let mut impl_name: Option<RuntimeString> = None;
+				let mut spec_name: Option<Cow<'static, str>> = None;
+				let mut impl_name: Option<Cow<'static, str>> = None;
 				let mut authoring_version: Option<u32> = None;
 				let mut spec_version: Option<u32> = None;
 				let mut impl_version: Option<u32> = None;
@@ -525,7 +536,9 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 						},
 						Field::Apis => {
 							if apis.is_some() {
-								return Err(<A::Error as serde::de::Error>::duplicate_field("apis"));
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"apis",
+								));
 							}
 							apis = Some({
 								struct DeserializeWith<'de> {
@@ -555,7 +568,7 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 							}
 							transaction_version = Some(map.next_value()?);
 						},
-						Field::SystemVersion =>
+						Field::SystemVersion => {
 							if let Some(system_version) = system_version {
 								let new_value = map.next_value::<u8>()?;
 								if system_version != new_value {
@@ -569,9 +582,10 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 								}
 							} else {
 								system_version = Some(map.next_value()?);
-							},
+							}
+						},
 						_ => {
-							let _ = map.next_value::<serde::de::IgnoredAny>()?;
+							map.next_value::<serde::de::IgnoredAny>()?;
 						},
 					}
 				}

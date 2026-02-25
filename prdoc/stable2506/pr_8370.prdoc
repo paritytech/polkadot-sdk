@@ -1,0 +1,14 @@
+title: "fix unneeded collator connection issue"
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR fixes an issue where collators continued attempting to connect
+      to validators even after their core assignment was removed, leading to
+      unnecessary connections and log spam `An unneeded collator connected`.
+      The fix ensures collators only connect to validators if there are cores
+      assigned to the parachain.
+
+crates:
+  - name: polkadot-collator-protocol
+    bump: patch

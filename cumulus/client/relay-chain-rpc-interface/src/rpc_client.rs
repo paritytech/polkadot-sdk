@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::channel::{
 	mpsc::{Receiver, Sender},
@@ -32,13 +33,13 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		async_backing::{AsyncBackingParams, BackingState},
+		async_backing::{AsyncBackingParams, BackingState, Constraints},
 		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
-		CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
-		ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
-		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
-		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-		ValidatorId, ValidatorIndex, ValidatorSignature,
+		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash,
+		Header as RelayHeader, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -51,11 +52,7 @@ use sp_consensus_babe::Epoch;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 
-use crate::{
-	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
-	metrics::RelaychainRpcMetrics,
-	reconnecting_ws_client::ReconnectingWebsocketWorker,
-};
+use crate::{metrics::RelaychainRpcMetrics, reconnecting_ws_client::ReconnectingWebsocketWorker};
 pub use url::Url;
 
 const LOG_TARGET: &str = "relay-chain-rpc-client";
@@ -98,26 +95,6 @@ pub async fn create_client_and_start_worker(
 		.spawn("relay-chain-rpc-worker", None, worker.run());
 
 	let client = RelayChainRpcClient::new(sender, prometheus_registry);
-
-	Ok(client)
-}
-
-/// Entry point to create [`RelayChainRpcClient`] and start a worker that communicates
-/// with an embedded smoldot instance.
-pub async fn create_client_and_start_light_client_worker(
-	chain_spec: String,
-	task_manager: &mut TaskManager,
-) -> RelayChainResult<RelayChainRpcClient> {
-	let (client, chain_id, json_rpc_responses) =
-		build_smoldot_client(task_manager.spawn_handle(), &chain_spec).await?;
-	let (worker, sender) = LightClientRpcWorker::new(client, json_rpc_responses, chain_id);
-
-	task_manager
-		.spawn_essential_handle()
-		.spawn("relay-light-client-worker", None, worker.run());
-
-	// We'll not setup prometheus exporter metrics for the light client worker.
-	let client = RelayChainRpcClient::new(sender, None);
 
 	Ok(client)
 }
@@ -299,6 +276,17 @@ impl RelayChainRpcClient {
 		self.request("state_getReadProof", params).await
 	}
 
+	/// Get child trie read proof for `child_keys`
+	pub async fn state_get_child_read_proof(
+		&self,
+		child_storage_key: sp_core::storage::PrefixedStorageKey,
+		child_keys: Vec<StorageKey>,
+		at: Option<RelayHash>,
+	) -> Result<ReadProof<RelayHash>, RelayChainError> {
+		let params = rpc_params![child_storage_key, child_keys, at];
+		self.request("state_getChildReadProof", params).await
+	}
+
 	/// Retrieve storage item at `storage_key`
 	pub async fn state_get_storage(
 		&self,
@@ -447,8 +435,18 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_unapplied_slashes(
 		&self,
 		at: RelayHash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError>
+	{
 		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
+			.await
+	}
+
+	/// Returns a list of validators that lost a past session dispute and need to be slashed.
+	pub async fn parachain_host_unapplied_slashes_v2(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_unapplied_slashes_v2", at, None::<()>)
 			.await
 	}
 
@@ -701,6 +699,26 @@ impl RelayChainRpcClient {
 		.await
 	}
 
+	pub async fn parachain_host_scheduling_lookahead(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_scheduling_lookahead", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_validation_code_bomb_limit(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_bomb_limit",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn validation_code_hash(
 		&self,
 		at: RelayHash,
@@ -713,6 +731,15 @@ impl RelayChainRpcClient {
 			Some((para_id, occupied_core_assumption)),
 		)
 		.await
+	}
+
+	pub async fn parachain_host_backing_constraints(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Option<Constraints>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_backing_constraints", at, Some(para_id))
+			.await
 	}
 
 	fn send_register_message_to_worker(
@@ -748,6 +775,14 @@ impl RelayChainRpcClient {
 			tx,
 		))?;
 		Ok(rx)
+	}
+
+	pub async fn parachain_host_para_ids(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ParaId>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_para_ids", at, None::<()>)
+			.await
 	}
 }
 

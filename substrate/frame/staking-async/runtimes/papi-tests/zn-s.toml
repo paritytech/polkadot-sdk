@@ -1,0 +1,31 @@
+[relaychain]
+default_command = "polkadot"
+chain_spec_path = "./rc.json"
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+rpc_port = 9944
+args = [
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug,xcm=trace",
+]
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+rpc_port = 9945
+args = [
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
+]
+
+[[parachains]]
+id = 1100
+chain_spec_path = "./parachain.json"
+
+[parachains.collator]
+command = "polkadot-parachain"
+name = "charlie"
+rpc_port = 9946
+args = [
+	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug,xcm=debug,parachain-system=debug,runtime=info",
+]

@@ -18,11 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 http-body-util = { workspace = true }
 hyper = { features = ["http1", "server"], workspace = true }
-hyper-util = { features = ["server-auto", "tokio"], workspace = true }
+hyper-util = { features = ["server-auto", "server-graceful", "tokio"], workspace = true }
 log = { workspace = true, default-features = true }
 prometheus = { workspace = true }
 thiserror = { workspace = true }
-tokio = { features = ["parking_lot"], workspace = true, default-features = true }
+tokio = { features = ["net", "parking_lot"], workspace = true, default-features = true }
 
 [dev-dependencies]
 hyper-util = { features = ["client-legacy", "tokio"], workspace = true, default-features = true }

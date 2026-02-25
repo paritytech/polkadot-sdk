@@ -17,13 +17,16 @@
 
 use super::xcm_helpers;
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
+use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::Encode;
-use cumulus_primitives_core::XcmpMessageSource;
+use core::ops::Mul;
+use cumulus_primitives_core::{UpwardMessageSender, XcmpMessageSource};
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{
-		fungible::Mutate, fungibles::InspectEnumerable, Currency, Get, OnFinalize, OnInitialize,
-		OriginTrait,
+		fungible::Mutate,
+		fungibles::{Inspect, InspectEnumerable, Mutate as FungiblesMutate},
+		Currency, Get, OnFinalize, OnInitialize, OriginTrait,
 	},
 	weights::Weight,
 };
@@ -34,11 +37,17 @@ use parachains_runtimes_test_utils::{
 	CollatorSessionKeys, ExtBuilder, SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{
-	traits::{MaybeEquivalence, StaticLookup, Zero},
-	DispatchError, Saturating,
+	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
+	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedAssets};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
+use xcm_runtime_apis::fees::{
+	runtime_decl_for_xcm_payment_api::XcmPaymentApiV2, Error as XcmPaymentApiError,
+};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -85,17 +94,36 @@ pub fn teleports_for_native_asset_works<
 		From<<Runtime as frame_system::Config>::AccountId>,
 	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	XcmConfig: xcm_executor::Config,
-	CheckingAccount: Get<AccountIdOf<Runtime>>,
+	CheckingAccount: Get<Option<AccountIdOf<Runtime>>>,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
 {
-	ExtBuilder::<Runtime>::default()
+	let buy_execution_fee_amount_eta =
+		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 1024));
+	let native_asset_amount_unit = existential_deposit;
+	let native_asset_amount_received =
+		native_asset_amount_unit * 10.into() + buy_execution_fee_amount_eta.into();
+
+	let checking_account = if let Some(checking_account) = CheckingAccount::get() {
+		Some((checking_account, native_asset_amount_received))
+	} else {
+		None
+	};
+
+	let mut builder = ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_safe_xcm_version(XCM_VERSION)
 		.with_para_id(runtime_para_id.into())
-		.with_tracing()
+		.with_tracing();
+
+	if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+		builder =
+			builder.with_balances(vec![(checking_account.clone(), *initial_checking_account)]);
+	};
+
+	builder
 		.build()
 		.execute_with(|| {
 			let mut alice = [0u8; 32];
@@ -107,17 +135,14 @@ pub fn teleports_for_native_asset_works<
 			);
 			// check Balances before
 			assert_eq!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-				0.into()
-			);
+			if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+				assert_eq!(
+					<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+					*initial_checking_account
+				);
+			};
 
 			let native_asset_id = Location::parent();
-			let buy_execution_fee_amount_eta =
-				WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 1024));
-			let native_asset_amount_unit = existential_deposit;
-			let native_asset_amount_received =
-				native_asset_amount_unit * 10.into() + buy_execution_fee_amount_eta.into();
 
 			// 1. process received teleported assets from relaychain
 			let xcm = Xcm(vec![
@@ -160,13 +185,18 @@ pub fn teleports_for_native_asset_works<
 
 			// check Balances after
 			assert_ne!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-				0.into()
-			);
+			if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+				assert_eq!(
+					<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+					*initial_checking_account - native_asset_amount_received
+				);
+			}
 
+			let native_asset_to_teleport_away = native_asset_amount_unit * 3.into();
 			// 2. try to teleport asset back to the relaychain
 			{
+				<cumulus_pallet_parachain_system::Pallet<Runtime> as UpwardMessageSender>::ensure_successful_delivery();
+
 				let dest = Location::parent();
 				let mut dest_beneficiary = Location::parent()
 					.appended_with(AccountId32 {
@@ -178,7 +208,6 @@ pub fn teleports_for_native_asset_works<
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
-				let native_asset_to_teleport_away = native_asset_amount_unit * 3.into();
 				assert!(
 					native_asset_to_teleport_away <
 						target_account_balance_before_teleport - existential_deposit
@@ -215,10 +244,12 @@ pub fn teleports_for_native_asset_works<
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 					target_account_balance_before_teleport - native_asset_to_teleport_away
 				);
-				assert_eq!(
-					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-					0.into()
-				);
+				if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+					assert_eq!(
+						<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+						*initial_checking_account - native_asset_amount_received + native_asset_to_teleport_away
+					);
+				}
 
 				// check events
 				RuntimeHelper::<Runtime>::assert_pallet_xcm_event_outcome(
@@ -274,10 +305,12 @@ pub fn teleports_for_native_asset_works<
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 					target_account_balance_before_teleport
 				);
-				assert_eq!(
-					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-					0.into()
-				);
+				if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+					assert_eq!(
+						<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+						*initial_checking_account - native_asset_amount_received + native_asset_to_teleport_away
+					);
+				}
 			}
 		})
 }
@@ -288,7 +321,7 @@ macro_rules! include_teleports_for_native_asset_works(
 		$runtime:path,
 		$all_pallets_without_system:path,
 		$xcm_config:path,
-		$checking_account:path,
+		$checking_account:ty,
 		$weight_to_fee:path,
 		$hrmp_channel_opener:path,
 		$collator_session_key:expr,
@@ -351,7 +384,7 @@ pub fn teleports_for_foreign_assets_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_assets::Config<ForeignAssetsPalletInstance, ReserveData = ForeignAssetReserveData>
 		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
@@ -367,9 +400,9 @@ pub fn teleports_for_foreign_assets_works<
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
 	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<xcm::v4::Location> + Into<xcm::v4::Location>,
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<xcm::v4::Location> + Into<xcm::v4::Location>,
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
 	<Runtime as frame_system::Config>::AccountId:
@@ -381,13 +414,20 @@ pub fn teleports_for_foreign_assets_works<
 {
 	// foreign parachain with the same consensus currency as asset
 	let foreign_para_id = 2222;
-	let foreign_asset_id_location = xcm::v4::Location {
+	let foreign_asset_id_location = xcm::v5::Location {
 		parents: 1,
 		interior: [
-			xcm::v4::Junction::Parachain(foreign_para_id),
-			xcm::v4::Junction::GeneralIndex(1234567),
+			xcm::v5::Junction::Parachain(foreign_para_id),
+			xcm::v5::Junction::GeneralIndex(1234567),
 		]
 		.into(),
+	};
+	let foreign_asset_reserve_data = ForeignAssetReserveData {
+		reserve: xcm::v5::Location {
+			parents: 1,
+			interior: [xcm::v5::Junction::Parachain(foreign_para_id)].into(),
+		},
+		teleportable: true,
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
@@ -462,7 +502,7 @@ pub fn teleports_for_foreign_assets_works<
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime>::root_origin(),
 					foreign_asset_id_location.clone().into(),
-					asset_owner.into(),
+					asset_owner.clone().into(),
 					false,
 					asset_minimum_asset_balance.into()
 				)
@@ -472,6 +512,14 @@ pub fn teleports_for_foreign_assets_works<
 				AccountIdOf<Runtime>,
 			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
+			// mark the foreign asset as teleportable
+			assert_ok!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::set_reserves(
+					RuntimeHelper::<Runtime>::origin_of(asset_owner.into()),
+					foreign_asset_id_location.clone().into(),
+					vec![foreign_asset_reserve_data].try_into().unwrap(),
+				)
+			);
 
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![
@@ -482,7 +530,7 @@ pub fn teleports_for_foreign_assets_works<
 						id: AssetId(Location::parent()),
 						fun: Fungible(buy_execution_fee_amount),
 					},
-					weight_limit: Limited(Weight::from_parts(403531000, 65536)),
+					weight_limit: Unlimited,
 				},
 				// Process teleported asset
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {
@@ -1204,18 +1252,18 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					require_weight_at_most: Weight::from_parts(40_000_000_000, 8000),
 					call: foreign_asset_create.into(),
+					fallback_max_weight: None,
 				},
 				Transact {
 					origin_kind: OriginKind::SovereignAccount,
-					require_weight_at_most: Weight::from_parts(20_000_000_000, 8000),
 					call: foreign_asset_set_metadata.into(),
+					fallback_max_weight: None,
 				},
 				Transact {
 					origin_kind: OriginKind::SovereignAccount,
-					require_weight_at_most: Weight::from_parts(20_000_000_000, 8000),
 					call: foreign_asset_set_team.into(),
+					fallback_max_weight: None,
 				},
 				ExpectTransactStatus(MaybeErrorCode::Success),
 			]);
@@ -1323,8 +1371,8 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					require_weight_at_most: Weight::from_parts(20_000_000_000, 8000),
 					call: foreign_asset_create.into(),
+					fallback_max_weight: None,
 				},
 				ExpectTransactStatus(MaybeErrorCode::from(DispatchError::BadOrigin.encode())),
 			]);
@@ -1523,12 +1571,18 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				Asset { fun: Fungible(balance_to_transfer.into()), id: AssetId(native_asset) };
 
 			// pallet_xcm call reserve transfer
-			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::transfer_assets_using_type_and_then(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(dest.clone().into_versioned()),
-				Box::new(dest_beneficiary.clone().into_versioned()),
 				Box::new(VersionedAssets::from(Assets::from(asset_to_transfer))),
-				0,
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.deposit_asset(AllCounted(1), dest_beneficiary.clone())
+						.build()
+				)),
 				weight_limit,
 			));
 
@@ -1546,8 +1600,9 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				.into_iter()
 				.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 				.find_map(|e| match e {
-					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
-						Some(message_hash),
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => {
+						Some(message_hash)
+					},
 					_ => None,
 				});
 
@@ -1593,4 +1648,468 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				existential_deposit + balance_to_transfer.into()
 			);
 		})
+}
+
+pub fn xcm_payment_api_with_pools_works<Runtime, RuntimeCall, RuntimeOrigin, Block, WeightToFee>()
+where
+	Runtime: XcmPaymentApiV2<Block>
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config
+		+ pallet_assets::Config<
+			pallet_assets::Instance1,
+			AssetId = u32,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
+			AssetKind = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		>,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	Block: BlockT,
+	WeightToFee: frame_support::weights::WeightToFee,
+{
+	use xcm::prelude::*;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let test_account = AccountId::from([0u8; 32]);
+		let transfer_amount = 100u128;
+		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+			.withdraw_asset((Here, transfer_amount))
+			.buy_execution((Here, transfer_amount), Unlimited)
+			.deposit_asset(AllCounted(1), [1u8; 32])
+			.build();
+		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
+
+		let xcm_weight =
+			Runtime::query_xcm_weight(versioned_xcm_to_weigh).expect("xcm weight must be computed");
+
+		let expected_weight_native_fee: u128 =
+			WeightToFee::weight_to_fee(&xcm_weight).saturated_into();
+
+		let native_token: Location = Parent.into();
+		let native_token_versioned = VersionedAssetId::from(AssetId(native_token.clone()));
+		let execution_fees = Runtime::query_weight_to_asset_fee(xcm_weight, native_token_versioned)
+			.expect("weight must be converted to native fee");
+
+		assert_eq!(execution_fees, expected_weight_native_fee);
+
+		// We need some balance to create an asset.
+		assert_ok!(
+			pallet_balances::Pallet::<Runtime>::mint_into(&test_account, 3_000_000_000_000,)
+		);
+
+		// Now we try to use an asset that's not in a pool.
+		let asset_id = 1984u32; // USDT.
+		let usdt_token: Location = (PalletInstance(50), GeneralIndex(asset_id.into())).into();
+		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::create(
+			RuntimeOrigin::signed(test_account.clone()),
+			asset_id.into(),
+			test_account.clone().into(),
+			1000
+		));
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight, usdt_token.clone().into());
+		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
+
+		// We add it to a pool with native.
+		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
+			RuntimeOrigin::signed(test_account.clone()),
+			native_token.clone().try_into().unwrap(),
+			usdt_token.clone().try_into().unwrap()
+		));
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight, usdt_token.clone().into());
+		// Still not enough because it doesn't have any liquidity.
+		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
+
+		// We mint some of the asset...
+		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::mint(
+			RuntimeOrigin::signed(test_account.clone()),
+			asset_id.into(),
+			test_account.clone().into(),
+			3_000_000_000_000,
+		));
+		// ...so we can add liquidity to the pool.
+		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
+			RuntimeOrigin::signed(test_account.clone()),
+			native_token.clone().try_into().unwrap(),
+			usdt_token.clone().try_into().unwrap(),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			0,
+			0,
+			test_account
+		));
+
+		let expected_weight_usdt_fee: u128 =
+			pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+				usdt_token.clone(),
+				native_token,
+				expected_weight_native_fee,
+				true,
+			)
+			.expect("the quote price must work")
+			.saturated_into();
+
+		assert_ne!(expected_weight_usdt_fee, expected_weight_native_fee);
+
+		let execution_fees = Runtime::query_weight_to_asset_fee(xcm_weight, usdt_token.into())
+			.expect("weight must be converted to native fee");
+
+		assert_eq!(execution_fees, expected_weight_usdt_fee);
+	});
+}
+
+pub fn setup_pool_for_paying_fees_with_foreign_assets<Runtime, RuntimeOrigin>(
+	existential_deposit: Balance,
+	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
+		AccountId,
+		Location,
+		Balance,
+	),
+) where
+	Runtime: frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_assets::Config<
+			pallet_assets::Instance2,
+			AssetId = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
+			AssetKind = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+{
+	// setup a pool to pay fees with `foreign_asset_id_location` tokens
+	let pool_owner: AccountId = [14u8; 32].into();
+	let native_asset = Location::parent();
+	let pool_liquidity: Balance =
+		existential_deposit.max(foreign_asset_id_minimum_balance).mul(100_000);
+
+	let _ = pallet_balances::Pallet::<Runtime>::force_set_balance(
+		RuntimeOrigin::root(),
+		pool_owner.clone().into(),
+		(existential_deposit + pool_liquidity).mul(2).into(),
+	);
+
+	assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance2>::mint(
+		RuntimeOrigin::signed(foreign_asset_owner),
+		foreign_asset_id_location.clone().into(),
+		pool_owner.clone().into(),
+		(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
+	));
+
+	assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
+		RuntimeOrigin::signed(pool_owner.clone()),
+		Box::new(native_asset.clone().into()),
+		Box::new(foreign_asset_id_location.clone().into())
+	));
+
+	assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
+		RuntimeOrigin::signed(pool_owner.clone()),
+		Box::new(native_asset.into()),
+		Box::new(foreign_asset_id_location.into()),
+		pool_liquidity,
+		pool_liquidity,
+		1,
+		1,
+		pool_owner,
+	));
+}
+
+pub fn xcm_payment_api_foreign_asset_pool_works<
+	Runtime,
+	RuntimeCall,
+	RuntimeOrigin,
+	LocationToAccountId,
+	Block,
+	WeightToFee,
+>(
+	existential_deposit: Balance,
+	another_network_genesis_hash: [u8; 32],
+) where
+	Runtime: XcmPaymentApiV2<Block>
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config
+		+ pallet_assets::Config<
+			pallet_assets::Instance2,
+			AssetId = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
+			AssetKind = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	LocationToAccountId: ConvertLocation<AccountId>,
+	Block: BlockT,
+	WeightToFee: frame_support::weights::WeightToFee,
+{
+	use xcm::prelude::*;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let foreign_asset_owner =
+			LocationToAccountId::convert_location(&Location::parent()).unwrap();
+		let foreign_asset_id_location = Location::new(
+			2,
+			[Junction::GlobalConsensus(NetworkId::ByGenesis(another_network_genesis_hash))],
+		);
+		let native_asset_location = Location::parent();
+		let foreign_asset_id_minimum_balance = 1_000_000_000;
+
+		pallet_assets::Pallet::<Runtime, pallet_assets::Instance2>::force_create(
+			RuntimeHelper::<Runtime>::root_origin(),
+			foreign_asset_id_location.clone().into(),
+			foreign_asset_owner.clone().into(),
+			true, // is_sufficient=true
+			foreign_asset_id_minimum_balance.into(),
+		)
+		.unwrap();
+
+		setup_pool_for_paying_fees_with_foreign_assets::<Runtime, RuntimeOrigin>(
+			existential_deposit,
+			(
+				foreign_asset_owner,
+				foreign_asset_id_location.clone(),
+				foreign_asset_id_minimum_balance,
+			),
+		);
+
+		let transfer_amount = 100u128;
+		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+			.withdraw_asset((Here, transfer_amount))
+			.buy_execution((Here, transfer_amount), Unlimited)
+			.deposit_asset(AllCounted(1), [1u8; 32])
+			.build();
+		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.into());
+
+		let xcm_weight =
+			Runtime::query_xcm_weight(versioned_xcm_to_weigh).expect("xcm weight must be computed");
+
+		let weight_native_fee: u128 = WeightToFee::weight_to_fee(&xcm_weight).saturated_into();
+
+		let expected_weight_foreign_asset_fee: u128 =
+			pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+				foreign_asset_id_location.clone(),
+				native_asset_location,
+				weight_native_fee,
+				true,
+			)
+			.expect("the quote price must work")
+			.saturated_into();
+
+		assert_ne!(expected_weight_foreign_asset_fee, weight_native_fee);
+
+		let execution_fees = Runtime::query_weight_to_asset_fee(
+			xcm_weight,
+			foreign_asset_id_location.clone().into(),
+		)
+		.expect("weight must be converted to foreign asset fee");
+
+		assert_eq!(execution_fees, expected_weight_foreign_asset_fee);
+	});
+}
+
+pub fn exchange_asset_on_asset_hub_works<
+	Runtime,
+	RuntimeCall,
+	RuntimeOrigin,
+	Block,
+	ForeignAssetsPalletInstance,
+>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	account: AccountId,
+	native_asset_location: Location,
+	create_pool: bool,
+	give_amount: Balance,
+	want_amount: Balance,
+	expected_error: Option<xcm::v5::InstructionError>,
+) where
+	Runtime: XcmPaymentApiV2<Block>
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_assets::Config<
+			ForeignAssetsPalletInstance,
+			AssetId = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
+			AssetKind = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_session::Config
+		+ pallet_timestamp::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	Block: BlockT,
+	ForeignAssetsPalletInstance: 'static,
+{
+	const UNITS: Balance = 1_000_000_000_000;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			let native_asset_id = xcm::v5::AssetId(native_asset_location.clone());
+			let origin = RuntimeOrigin::signed(account.clone());
+			let asset_location: Location = Location::new(1, [Parachain(2001)]);
+			let asset_id = xcm::v5::AssetId(asset_location.clone());
+
+			let mut total_balance_needed = Balance::from(1_000 * UNITS);
+			if expected_error.is_none() {
+				total_balance_needed = total_balance_needed.saturating_add(Balance::from(give_amount));
+			} else if give_amount > 1_000_000_000_000u128 * 3 {
+				total_balance_needed = total_balance_needed
+					.saturating_add(Balance::from(give_amount).saturating_sub(Balance::from(give_amount / 2)));
+			} else {
+				total_balance_needed = total_balance_needed.saturating_add(Balance::from(give_amount));
+			}
+			assert_ok!(<pallet_balances::Pallet<Runtime> as Mutate<_>>::mint_into(
+				&account,
+				total_balance_needed
+			));
+
+			assert_ok!(pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::force_create(
+				RuntimeOrigin::root(),
+				asset_location.clone().into(),
+				<Runtime as frame_system::Config>::Lookup::unlookup(account.clone()),
+				true,
+				1
+			));
+
+			if create_pool {
+				assert_ok!(pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::mint_into(
+					asset_location.clone(),
+					&account,
+					10_000_000_000_000
+				));
+
+				let native_v5 = xcm::v5::Location::try_from(native_asset_location.clone())
+					.expect("conversion works");
+				let asset_v5 = xcm::v5::Location::try_from(asset_location.clone())
+					.expect("conversion works");
+
+				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
+					RuntimeOrigin::signed(account.clone()),
+					Box::new(native_v5.clone()),
+					Box::new(asset_v5.clone()),
+				));
+				assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
+					RuntimeOrigin::signed(account.clone()),
+					Box::new(native_v5.clone()),
+					Box::new(asset_v5.clone()),
+					1_000_000_000_000,
+					2_000_000_000_000,
+					0,
+					0,
+					account.clone(),
+				));
+			}
+
+			let foreign_balance_before = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.clone().into(), &account);
+			let native_balance_before = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+			let foreign_issuance_before = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::total_issuance(asset_location.clone());
+			let native_issuance_before = pallet_balances::Pallet::<Runtime>::total_issuance();
+
+			let want_amount_min = if create_pool && expected_error.is_none() {
+				let native_v5 = xcm::v5::Location::try_from(native_asset_location.clone())
+					.expect("conversion works");
+				let asset_v5 = xcm::v5::Location::try_from(asset_location.clone())
+					.expect("conversion works");
+				pallet_asset_conversion::Pallet::<Runtime>::quote_price_exact_tokens_for_tokens(
+					native_v5,
+					asset_v5,
+					give_amount,
+					true,
+				)
+				.map(|quoted| (quoted * 90) / 100)
+				.unwrap_or(want_amount)
+			} else {
+				want_amount
+			};
+
+			let give: Assets = (native_asset_id, give_amount).into();
+			let want: Assets = (asset_id, want_amount_min).into();
+			let xcm = Xcm(vec![
+				WithdrawAsset(give.clone().into()),
+				ExchangeAsset { give: give.into(), want: want.into(), maximal: true },
+				DepositAsset { assets: Wild(All), beneficiary: account.clone().into() },
+			]);
+
+			let result = pallet_xcm::Pallet::<Runtime>::execute(
+				origin,
+				xcm::VersionedXcm::from(xcm).into(),
+				Weight::MAX
+			);
+
+			let foreign_balance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::balance(asset_location.clone().into(), &account);
+			let native_balance_after = pallet_balances::Pallet::<Runtime>::total_balance(&account);
+
+			if let Some(xcm::v5::InstructionError { index, error }) = expected_error {
+				assert_err_ignore_postinfo!(
+					result,
+					pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {
+						index,
+						error: error.into()
+					}
+				);
+				assert_eq!(
+					foreign_balance_after, foreign_balance_before,
+					"Foreign balance changed unexpectedly: got {foreign_balance_after}, expected {foreign_balance_before}"
+				);
+				assert_eq!(
+					native_balance_after, native_balance_before,
+					"Native balance changed unexpectedly: got {native_balance_after}, expected {native_balance_before}"
+				);
+			} else {
+				assert_ok!(result);
+				assert!(
+					foreign_balance_after >= foreign_balance_before + want_amount_min,
+					"Expected foreign balance to increase by at least {want_amount_min} units, got {foreign_balance_after} from {foreign_balance_before}"
+				);
+				assert_eq!(
+					native_balance_after, native_balance_before - give_amount,
+					"Expected WND balance to decrease by {give_amount} units, got {native_balance_after} from {native_balance_before}"
+				);
+			}
+			let foreign_issuance_after = pallet_assets::Pallet::<Runtime, ForeignAssetsPalletInstance>::total_issuance(asset_location.into());
+			let native_issuance_after = pallet_balances::Pallet::<Runtime>::total_issuance();
+			assert_eq!(
+				foreign_issuance_before, foreign_issuance_after,
+				"Unexpected foreign total issuance change"
+			);
+			assert_eq!(
+				native_issuance_before, native_issuance_after,
+				"Unexpected native total issuance change"
+			);
+			assert!(native_issuance_after > 0);
+		});
 }

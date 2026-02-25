@@ -26,6 +26,7 @@ use crate::{
 
 use bp_relayers::{BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig};
 use bp_runtime::{Parachain, StaticStrProvider};
+use core::marker::PhantomData;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_grandpa::{
@@ -42,7 +43,6 @@ use sp_runtime::{
 	traits::{Dispatchable, Get},
 	transaction_validity::{TransactionPriority, TransactionValidityError},
 };
-use sp_std::marker::PhantomData;
 
 /// Adapter to be used in signed extension configuration, when bridging with remote parachains.
 pub struct WithParachainExtensionConfig<
@@ -122,14 +122,16 @@ where
 		let relay_finality_call =
 			calls.next().transpose()?.and_then(|c| c.submit_finality_proof_info());
 		Ok(match (total_calls, relay_finality_call, para_finality_call, msgs_call) {
-			(3, Some(relay_finality_call), Some(para_finality_call), Some(msgs_call)) =>
+			(3, Some(relay_finality_call), Some(para_finality_call), Some(msgs_call)) => {
 				Some(ExtensionCallInfo::AllFinalityAndMsgs(
 					relay_finality_call,
 					para_finality_call,
 					msgs_call,
-				)),
-			(2, None, Some(para_finality_call), Some(msgs_call)) =>
-				Some(ExtensionCallInfo::ParachainFinalityAndMsgs(para_finality_call, msgs_call)),
+				))
+			},
+			(2, None, Some(para_finality_call), Some(msgs_call)) => {
+				Some(ExtensionCallInfo::ParachainFinalityAndMsgs(para_finality_call, msgs_call))
+			},
 			(1, None, None, Some(msgs_call)) => Some(ExtensionCallInfo::Msgs(msgs_call)),
 			_ => None,
 		})
@@ -174,14 +176,14 @@ where
 
 	if !SubmitParachainHeadsHelper::<C::Runtime, PI>::was_successful(para_proof_info) {
 		// we only refund relayer if all calls have updated chain state
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: relayer {:?} has submitted invalid parachain finality proof",
-			C::IdProvider::STR,
-			call_info.messages_call_info().lane_id(),
-			relayer,
+			id_provider=%C::IdProvider::STR,
+			lane_id=?call_info.messages_call_info().lane_id(),
+			?relayer,
+			"Relayer has submitted invalid parachain finality proof"
 		);
-		return false
+		return false;
 	}
 
 	true

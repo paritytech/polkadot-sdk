@@ -88,20 +88,20 @@ impl SteppedMigrations for MockedMigrations {
 		log::debug!("MockedMigration: Step {count} vs max {steps}");
 		if count != steps || matches!(kind, TimeoutAfter) {
 			count += 1;
-			return Some(Ok(Some(count.encode())))
+			return Some(Ok(Some(count.encode())));
 		}
 
 		Some(match kind {
 			SucceedAfter => {
-				log::debug!("MockedMigration: Succeeded after {} steps", count);
+				log::debug!("MockedMigration: Succeeded after {count} steps");
 				Ok(None)
 			},
 			HighWeightAfter(required) => {
-				log::debug!("MockedMigration: Not enough weight after {} steps", count);
+				log::debug!("MockedMigration: Not enough weight after {count} steps");
 				Err(SteppedMigrationError::InsufficientWeight { required })
 			},
 			FailAfter => {
-				log::debug!("MockedMigration: Failed after {} steps", count);
+				log::debug!("MockedMigration: Failed after {count} steps");
 				Err(SteppedMigrationError::Failed)
 			},
 			TimeoutAfter => unreachable!(),
@@ -123,12 +123,18 @@ impl SteppedMigrations for MockedMigrations {
 		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
 	}
 
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
+		MIGRATIONS::get()
+			.get(n as usize)
+			.map(|(k, s)| Some(vec![mocked_id(*k, *s).into_inner()]))
+	}
+
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PreUpgradeFail = kind {
-			return Some(Err("Some pre-upgrade error".into()))
+			return Some(Err("Some pre-upgrade error".into()));
 		}
 
 		Some(Ok(vec![]))
@@ -142,7 +148,7 @@ impl SteppedMigrations for MockedMigrations {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PostUpgradeFail = kind {
-			return Some(Err("Some post-upgrade error".into()))
+			return Some(Err("Some post-upgrade error".into()));
 		}
 
 		Some(Ok(()))

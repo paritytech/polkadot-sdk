@@ -1,0 +1,8 @@
+title: 'relay-sproof-builder/test: Fix num of descendants'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR fixes a testing off-by-one error which causes the `sproof-builder` to build an extra descendant.
+crates:
+- name: cumulus-test-relay-sproof-builder
+  bump: patch

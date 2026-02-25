@@ -14,8 +14,6 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[lib]
-
 [dependencies]
 log = { workspace = true }
 sp-arithmetic = { workspace = true }

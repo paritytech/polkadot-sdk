@@ -21,7 +21,6 @@
 //! - [`cumulus_pallet_parachain_system`]
 //! - [`parachain_info`]
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", system_pallets)]
-//!
 //! Given that all Cumulus-based runtimes use a simple Aura-based consensus mechanism, the following
 //! pallets also need to be added:
 //!
@@ -29,15 +28,12 @@
 //! - [`pallet_aura`]
 //! - [`cumulus_pallet_aura_ext`]
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", consensus_pallets)]
-//!
-//!
 //! Finally, a separate macro, similar to
 //! [`impl_runtime_api`](frame::runtime::prelude::impl_runtime_apis), which creates the default set
 //! of runtime APIs, will generate the parachain runtime's validation runtime API, also known as
 //! parachain validation function (PVF). Without this API, the relay chain is unable to validate
 //! blocks produced by our parachain.
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", validate_block)]
-//!
 //! ---
 //!
 //! [FRAME]: crate::polkadot_sdk::frame_runtime
@@ -96,7 +92,7 @@ mod tests {
 				>;
 				type WeightInfo = ();
 				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
-				type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+				type RelayParentOffset = ConstU32<0>;
 			}
 
 			impl parachain_info::Config for Runtime {}

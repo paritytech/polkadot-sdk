@@ -270,6 +270,11 @@ impl InherentData {
 	pub fn len(&self) -> usize {
 		self.data.len()
 	}
+
+	/// Get the identifiers of stored inherent data
+	pub fn identifiers(&self) -> impl Iterator<Item = &InherentIdentifier> {
+		self.data.keys()
+	}
 }
 
 /// The result of checking inherents.
@@ -315,18 +320,17 @@ impl CheckInherentsResult {
 	) -> Result<(), Error> {
 		// Don't accept any other error
 		if self.fatal_error {
-			return Err(Error::FatalErrorReported)
+			return Err(Error::FatalErrorReported);
 		}
 
+		self.okay = false;
 		if error.is_fatal_error() {
+			self.fatal_error = true;
 			// remove the other errors.
 			self.errors.data.clear();
 		}
-
 		self.errors.put_data(identifier, error)?;
 
-		self.okay = false;
-		self.fatal_error = error.is_fatal_error();
 		Ok(())
 	}
 

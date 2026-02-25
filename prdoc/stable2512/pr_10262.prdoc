@@ -1,0 +1,18 @@
+title: Fix the issue with the blockhash tests
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR fixes an issue that we've been seeing with the blockhash tests in the MatterLabs test suite. It merges the fix from the differential tests repo that was made in PR [`#210`](https://github.com/paritytech/revive-differential-tests/pull/210). More information on the fix can be found in the PR's description, but I will also paste it here to make it easier:
+
+    > This PR fixes an issue that was causing the `blockhash.sol` tests to fail when ran through retester which is described in [`#210`](https://github.com/paritytech/contract-issues/issues/210). It was determined that the root cause of this failure was not an issue in revive but rather due to the eth-rpc pruning the blocks as the framework was running. This meant that by the time we attempted to retrieve the block hash from the eth-rpc it would've already been pruned since other blocks were mined and these blocks were pruned.
+    >
+    > This explains the indeterminism that we saw with these tests with them sometimes succeeding and sometimes failing. This can be explained away by the async task sometimes being scheduled to run right after the transaction was submitted and before other blocks were mined and therefore we succeed in getting the block hash and sometimes it takes a while to run and by the time it runs the block has already been pruned from the eth-rpc.
+    >
+    > We've increases the cache size and the number of indexed blocks to 1,000 which should hopefully give us enough room for async task scheduling to run and still be able to get the block hash.
+
+    We've bumped the commit hash of the revive-differential-tests framework to the commit hash that includes this fix.
+
+    In this PR we should observe that the `blockhash.sol` tests no longer fail. If they fail, then it means that this was an incorrect fix to the issue.
+crates: []

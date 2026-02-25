@@ -36,7 +36,6 @@
 //! until all migrations finish executing. Afterwards, the recorded historic migrations are
 //! checked and events are asserted.
 #![doc = docify::embed!("src/tests.rs", simple_works)]
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -145,6 +144,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migrations;
 mod mock;
 pub mod mock_helpers;
 mod tests;
@@ -156,7 +156,7 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
 	defensive, defensive_assert,
@@ -170,10 +170,20 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, *},
 	Pallet as System,
 };
-use sp_runtime::Saturating;
+use sp_runtime::{SaturatedConversion, Saturating};
 
 /// Points to the next migration to execute.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum MigrationCursor<Cursor, BlockNumber> {
 	/// Points to the currently active migration and its inner cursor.
 	Active(ActiveCursor<Cursor, BlockNumber>),
@@ -201,7 +211,17 @@ impl<Cursor, BlockNumber> From<ActiveCursor<Cursor, BlockNumber>>
 }
 
 /// Points to the currently active migration and its inner cursor.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct ActiveCursor<Cursor, BlockNumber> {
 	/// The index of the migration in the MBM tuple.
 	pub index: u32,
@@ -223,7 +243,9 @@ impl<Cursor, BlockNumber> ActiveCursor<Cursor, BlockNumber> {
 }
 
 /// How to clear the records of historic migrations.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo)]
+#[derive(
+	Debug, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, scale_info::TypeInfo,
+)]
 pub enum HistoricCleanupSelector<Id> {
 	/// Clear exactly these entries.
 	///
@@ -294,17 +316,61 @@ struct PreUpgradeBytesWrapper(pub Vec<u8>);
 type PreUpgradeBytes<T: Config> =
 	StorageMap<Pallet<T>, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
 
+/// The status of multi-block migrations.
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Eq)]
+pub enum MbmIsOngoing {
+	/// Migrations are ongoing.
+	Yes,
+	/// Migrations are not ongoing.
+	No,
+	/// Migrations are stuck.
+	Stuck,
+}
+
+/// The comprehensive status of multi-block migrations.
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Eq)]
+pub struct MbmStatus {
+	/// Whether migrations are ongoing.
+	pub ongoing: MbmIsOngoing,
+	/// Progress information about the current migration, if any.
+	pub progress: Option<MbmProgress>,
+	/// The storage prefixes that are affected by the current migration.
+	///
+	/// Can be empty if the migration does not know or there are no prefixes.
+	pub prefixes: Vec<Vec<u8>>,
+}
+
+/// Progress information for the current migration.
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Eq)]
+pub struct MbmProgress {
+	/// The index of the current migration.
+	pub current_migration: u32,
+	/// The total number of migrations.
+	pub total_migrations: u32,
+	/// The number of steps that the current migration has taken.
+	pub current_migration_steps: u32,
+	/// The maximum number of steps that the current migration can take.
+	///
+	/// Can be `None` if the migration does not know or there is no limit.
+	pub current_migration_max_steps: Option<u32>,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// All the multi-block migrations to run.
@@ -606,6 +672,63 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the ongoing status of migrations.
+		pub fn ongoing_status() -> MbmIsOngoing {
+			match Cursor::<T>::get() {
+				Some(MigrationCursor::Active(_)) => MbmIsOngoing::Yes,
+				Some(MigrationCursor::Stuck) => MbmIsOngoing::Stuck,
+				None => MbmIsOngoing::No,
+			}
+		}
+
+		/// Returns progress information about the current migration, if any.
+		///
+		/// This function provides detailed information about the current migration's progress,
+		/// including the number of steps completed and the maximum allowed steps.
+		pub fn progress() -> Option<MbmProgress> {
+			match Cursor::<T>::get() {
+				Some(MigrationCursor::Active(cursor)) => {
+					let blocks_elapsed =
+						System::<T>::block_number().saturating_sub(cursor.started_at);
+					let estimated_steps = blocks_elapsed.saturated_into::<u32>();
+
+					Some(MbmProgress {
+						current_migration: cursor.index,
+						total_migrations: T::Migrations::len(),
+						current_migration_steps: estimated_steps,
+						current_migration_max_steps: T::Migrations::nth_max_steps(cursor.index)?,
+					})
+				},
+				_ => None,
+			}
+		}
+
+		/// Returns the storage prefixes affected by the current migration.
+		///
+		/// Can be empty if the migration does not know or there are no prefixes.
+		pub fn affected_prefixes() -> Vec<Vec<u8>> {
+			match Cursor::<T>::get() {
+				Some(MigrationCursor::Active(cursor)) => {
+					T::Migrations::nth_migrating_prefixes(cursor.index)
+						.flatten()
+						.unwrap_or_default()
+				},
+				_ => Vec::new(),
+			}
+		}
+
+		/// Returns the comprehensive status of multi-block migrations.
+		pub fn status() -> MbmStatus {
+			let ongoing = Self::ongoing_status();
+			let progress = Self::progress();
+			let prefixes = Self::affected_prefixes();
+
+			MbmStatus { ongoing, progress, prefixes }
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -618,7 +741,7 @@ impl<T: Config> Pallet<T> {
 
 			let maybe_index = cursor.as_active().map(|c| c.index);
 			Self::upgrade_failed(maybe_index);
-			return T::WeightInfo::onboard_new_mbms()
+			return T::WeightInfo::onboard_new_mbms();
 		}
 
 		let migrations = T::Migrations::len();
@@ -649,7 +772,7 @@ impl<T: Config> Pallet<T> {
 		let mut cursor = match Cursor::<T>::get() {
 			None => {
 				log::trace!("[Block {n:?}] Waiting for cursor to become `Some`.");
-				return meter.consumed()
+				return meter.consumed();
 			},
 			Some(MigrationCursor::Active(cursor)) => {
 				log::debug!("Progressing MBM #{}", cursor.index);
@@ -657,7 +780,7 @@ impl<T: Config> Pallet<T> {
 			},
 			Some(MigrationCursor::Stuck) => {
 				log::error!("Migration stuck. Governance intervention required.");
-				return meter.consumed()
+				return meter.consumed();
 			},
 		};
 		debug_assert!(Self::ongoing());
@@ -673,7 +796,7 @@ impl<T: Config> Pallet<T> {
 				},
 				Some(ControlFlow::Break(last_cursor)) => {
 					cursor = last_cursor;
-					break
+					break;
 				},
 			}
 		}
@@ -698,7 +821,7 @@ impl<T: Config> Pallet<T> {
 		// only one step per block, we can just use the maximum instead of more precise accounting.
 		if meter.try_consume(Self::exec_migration_max_weight()).is_err() {
 			defensive_assert!(!is_first, "There should be enough weight to do this at least once");
-			return Some(ControlFlow::Break(cursor))
+			return Some(ControlFlow::Break(cursor));
 		}
 
 		if cursor.index >= T::Migrations::len() {
@@ -714,13 +837,13 @@ impl<T: Config> Pallet<T> {
 		let Some(Ok(bounded_id)): Option<Result<IdentifierOf<T>, _>> = id else {
 			defensive!("integrity_test ensures that all identifiers are present and bounde; qed.");
 			Self::upgrade_failed(Some(cursor.index));
-			return None
+			return None;
 		};
 
 		if Historic::<T>::contains_key(&bounded_id) {
 			Self::deposit_event(Event::MigrationSkipped { index: cursor.index });
 			cursor.goto_next_migration(System::<T>::block_number());
-			return Some(ControlFlow::Continue(cursor))
+			return Some(ControlFlow::Continue(cursor));
 		}
 
 		let max_steps = T::Migrations::nth_max_steps(cursor.index);
@@ -742,7 +865,7 @@ impl<T: Config> Pallet<T> {
 		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
 			defensive!("integrity_test ensures that the tuple is valid; qed");
 			Self::upgrade_failed(Some(cursor.index));
-			return None
+			return None;
 		};
 
 		let took = System::<T>::block_number().saturating_sub(cursor.started_at);
@@ -751,13 +874,13 @@ impl<T: Config> Pallet<T> {
 				let Ok(bound_next_cursor) = next_cursor.try_into() else {
 					defensive!("The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed");
 					Self::upgrade_failed(Some(cursor.index));
-					return None
+					return None;
 				};
 
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
 				cursor.inner_cursor = Some(bound_next_cursor);
 
-				if max_steps.map_or(false, |max| took > max.into()) {
+				if max_steps.is_some_and(|max| took > max.into()) {
 					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None
@@ -810,7 +933,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::UpgradeFailed);
 
 		if cfg!(feature = "try-runtime") {
-			panic!("Migration with index {:?} failed.", migration);
+			panic!("Migration with index {migration:?} failed.");
 		} else {
 			match T::FailedMigrationHandler::failed(migration) {
 				KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),

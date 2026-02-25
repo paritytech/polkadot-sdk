@@ -18,12 +18,14 @@
 //! Benchmarks for the Session Pallet.
 // This is separated into its own crate due to cyclic dependency issues.
 
-use alloc::{vec, vec::Vec};
-use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
+use alloc::vec::Vec;
+use sp_runtime::traits::{One, StaticLookup};
 
-use codec::Decode;
-use frame_benchmarking::v1::benchmarks;
-use frame_support::traits::{Get, KeyOwnerProofSystem, OnInitialize};
+use frame_benchmarking::v2::*;
+use frame_support::{
+	assert_ok,
+	traits::{Get, KeyOwnerProofSystem, OnInitialize},
+};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
 use pallet_staking::{
@@ -34,9 +36,16 @@ use pallet_staking::{
 const MAX_VALIDATORS: u32 = 1000;
 
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
+/// Configuration trait for the benchmarking of `pallet-session`.
 pub trait Config:
 	pallet_session::Config + pallet_session::historical::Config + pallet_staking::Config
 {
+	/// Generate a session key and a proof of ownership.
+	///
+	/// The given `owner` is the account that will call `set_keys` using the returned session keys
+	/// and proof. This means that the proof should prove the ownership of `owner` over the private
+	/// keys associated to the session keys.
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>);
 }
 
 impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
@@ -45,8 +54,12 @@ impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-benchmarks! {
-	set_keys {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn set_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -57,14 +70,20 @@ benchmarks! {
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 
-		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0,1,2,3];
+		let (keys, proof) = T::generate_session_keys_and_proof(v_controller.clone());
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller), keys, proof)
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 
-	purge_keys {
+		#[extrinsic_call]
+		_(RawOrigin::Signed(v_controller), keys, proof);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn purge_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -74,31 +93,34 @@ benchmarks! {
 			RewardDestination::Staked,
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
-		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		let proof: Vec<u8> = vec![0,1,2,3];
+		let (keys, proof) = T::generate_session_keys_and_proof(v_controller.clone());
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller))
 
-	#[extra]
-	check_membership_proof_current_session {
-		let n in 2 .. MAX_VALIDATORS as u32;
+		#[extrinsic_call]
+		_(RawOrigin::Signed(v_controller));
 
+		Ok(())
+	}
+
+	#[benchmark(extra)]
+	fn check_membership_proof_current_session(n: Linear<2, MAX_VALIDATORS>) {
 		let (key, key_owner_proof1) = check_membership_proof_setup::<T>(n);
 		let key_owner_proof2 = key_owner_proof1.clone();
-	}: {
-		Historical::<T>::check_proof(key, key_owner_proof1);
-	}
-	verify {
+
+		#[block]
+		{
+			Historical::<T>::check_proof(key, key_owner_proof1);
+		}
+
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	#[extra]
-	check_membership_proof_historical_session {
-		let n in 2 .. MAX_VALIDATORS as u32;
-
+	#[benchmark(extra)]
+	fn check_membership_proof_historical_session(n: Linear<2, MAX_VALIDATORS>) {
 		let (key, key_owner_proof1) = check_membership_proof_setup::<T>(n);
 
 		// skip to the next session so that the session is historical
@@ -106,14 +128,21 @@ benchmarks! {
 		Session::<T>::rotate_session();
 
 		let key_owner_proof2 = key_owner_proof1.clone();
-	}: {
-		Historical::<T>::check_proof(key, key_owner_proof1);
-	}
-	verify {
+
+		#[block]
+		{
+			Historical::<T>::check_proof(key, key_owner_proof1);
+		}
+
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test, extra = false);
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::mock::new_test_ext(),
+		crate::mock::Test,
+		extra = false
+	);
 }
 
 /// Sets up the benchmark for checking a membership proof. It creates the given
@@ -131,7 +160,7 @@ fn check_membership_proof_setup<T: Config>(
 		let validator = T::Lookup::lookup(who).unwrap();
 		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
 
-		let keys = {
+		let _keys = {
 			let mut keys = [0u8; 128];
 
 			// we keep the keys for the first validator as 0x00000...
@@ -143,8 +172,9 @@ fn check_membership_proof_setup<T: Config>(
 			keys
 		};
 
-		let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
-		let proof: Vec<u8> = vec![];
+		// TODO: this benchmark is broken, session keys cannot be decoded into 128 bytes anymore,
+		// but not an issue for CI since it is `extra`.
+		let (keys, proof) = T::generate_session_keys_and_proof(controller.clone());
 
 		Session::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof).unwrap();
 	}

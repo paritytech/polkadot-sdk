@@ -726,8 +726,26 @@ fn session_change_decreasing_number_of_cores() {
 			[assignment_b.clone()].into_iter().collect::<VecDeque<_>>()
 		);
 
-		// No more assignments now.
 		Scheduler::advance_claim_queue(&Default::default());
+		// No more assignments now.
+		assert_eq!(Scheduler::claim_queue_len(), 0);
+
+		// Retain number of cores to 1 but remove all validator groups. The claim queue length
+		// should be the minimum of these two.
+
+		// Add an assignment.
+		MockAssigner::add_test_assignment(assignment_b.clone());
+
+		run_to_block(4, |number| match number {
+			4 => Some(SessionChangeNotification {
+				new_config: new_config.clone(),
+				prev_config: new_config.clone(),
+				validators: vec![],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
 		assert_eq!(Scheduler::claim_queue_len(), 0);
 	});
 }

@@ -1,7 +1,7 @@
 //! # Polkadot SDK
 //!
 //! [Polkadot SDK](https://github.com/paritytech/polkadot-sdk) provides the main resources needed to
-//! start building on the [Polkadot network](https://polkadot.network), a scalable, multi-chain
+//! start building on the [Polkadot network](https://polkadot.com/), a scalable, multi-chain
 //! blockchain platform that enables different blockchains to securely interoperate.
 //!
 //! [![StackExchange](https://img.shields.io/badge/StackExchange-Polkadot%20and%20Substrate-222222?logo=stackexchange)](https://substrate.stackexchange.com/)
@@ -75,11 +75,30 @@
 //! runtimes are located under the
 //! [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository.
 //!
+//! ### Binaries
+//!
+//! The main binaries that are part of the Polkadot SDK are:
+
+//! * [`polkadot`]: The Polkadot relay chain node binary, as noted above.
+//! * [`polkadot-omni-node`]: A white-labeled parachain collator node. See more in
+//!   [`crate::reference_docs::omni_node`].
+//! * [`polkadot-parachain-bin`]: The collator node used to run collators for all Polkadot system
+//!   parachains.
+//! * [`frame-omni-bencher`]: a benchmarking tool for FRAME-based runtimes. Nodes typically contain
+//!   a
+//!  `benchmark` subcommand that does the same.
+//! * [`chain_spec_builder`]: Utility to build chain-specs Nodes  typically contain a `build-spec`
+//!   subcommand that does the same.
+//! * [`subkey`]: Substrate's key management utility.
+//! * [`substrate-node`](node_cli) is an extensive substrate node that contains the superset of all
+//!   runtime and node side features. The corresponding runtime, called [`kitchensink_runtime`]
+//!   contains all of the modules that are provided with `FRAME`. This node and runtime is only used
+//!   for testing and demonstration.
+//!
 //! ### Summary
 //!
 //! The following diagram summarizes how some of the components of Polkadot SDK work together:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_substrate.mmd")]
-//!
 //! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 //! runtime is the application logic of the blockchain, and the node is everything else.
 //! See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
@@ -93,7 +112,6 @@
 //! A parachain is a "special" Substrate-based chain, whereby both the node and the runtime
 //! components have became "Polkadot-aware" using Cumulus.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_parachain.mmd")]
-//!
 //! ## Notable Upstream Crates
 //!
 //! - [`parity-scale-codec`](https://github.com/paritytech/parity-scale-codec)
@@ -116,6 +134,9 @@
 //! [`cumulus`]: crate::polkadot_sdk::cumulus
 //! [`polkadot`]: crate::polkadot_sdk::polkadot
 //! [`xcm`]: crate::polkadot_sdk::xcm
+//! [`frame-omni-bencher`]: https://crates.io/crates/frame-omni-bencher
+//! [`polkadot-parachain-bin`]: https://crates.io/crates/polkadot-parachain-bin
+//! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 
 /// Learn about Cumulus, the framework that transforms [`substrate`]-based chains into
 /// [`polkadot`]-enabled parachains.

@@ -1,0 +1,13 @@
+title: '[pvf-worker] Refactor execute request handling'
+doc:
+- audience: Node Dev
+  description: |-
+    PVF execution worker communication was organized into a single ExecuteRequest struct. This should improve performance: one encode/decode operation instead of four. Also, no more chance of ordering mistakes.
+
+crates:
+- name: polkadot-node-core-pvf-common
+  bump: minor
+- name: polkadot-node-core-pvf-execute-worker
+  bump: patch
+- name: polkadot-node-core-pvf
+  bump: patch

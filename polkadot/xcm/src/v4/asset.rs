@@ -27,14 +27,21 @@
 //!   holding account.
 
 use super::{InteriorLocation, Location, Reanchorable};
-use crate::v3::{
-	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
-	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+use crate::{
+	v3::{
+		AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
+		MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
+		WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+	},
+	v5::{
+		Asset as NewAsset, AssetFilter as NewAssetFilter, AssetId as NewAssetId,
+		AssetInstance as NewAssetInstance, Assets as NewAssets, Fungibility as NewFungibility,
+		WildAsset as NewWildAsset, WildFungibility as NewWildFungibility,
+	},
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
-use codec::{self as codec, Decode, Encode, MaxEncodedLen};
+use codec::{self as codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use scale_info::TypeInfo;
 
@@ -48,6 +55,7 @@ use scale_info::TypeInfo;
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -79,6 +87,21 @@ impl TryFrom<OldAssetInstance> for AssetInstance {
 	type Error = ();
 	fn try_from(value: OldAssetInstance) -> Result<Self, Self::Error> {
 		use OldAssetInstance::*;
+		Ok(match value {
+			Undefined => Self::Undefined,
+			Index(n) => Self::Index(n),
+			Array4(n) => Self::Array4(n),
+			Array8(n) => Self::Array8(n),
+			Array16(n) => Self::Array16(n),
+			Array32(n) => Self::Array32(n),
+		})
+	}
+}
+
+impl TryFrom<NewAssetInstance> for AssetInstance {
+	type Error = ();
+	fn try_from(value: NewAssetInstance) -> Result<Self, Self::Error> {
+		use NewAssetInstance::*;
 		Ok(match value {
 			Undefined => Self::Undefined,
 			Index(n) => Self::Index(n),
@@ -244,6 +267,17 @@ impl TryFrom<AssetInstance> for u128 {
 	}
 }
 
+impl TryFrom<NewFungibility> for Fungibility {
+	type Error = ();
+	fn try_from(value: NewFungibility) -> Result<Self, Self::Error> {
+		use NewFungibility::*;
+		Ok(match value {
+			Fungible(n) => Self::Fungible(n),
+			NonFungible(i) => Self::NonFungible(i.try_into()?),
+		})
+	}
+}
+
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
 #[derive(
@@ -254,6 +288,7 @@ impl TryFrom<AssetInstance> for u128 {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -278,8 +313,9 @@ impl Decode for Fungibility {
 		match UncheckedFungibility::decode(input)? {
 			UncheckedFungibility::Fungible(a) if a != 0 => Ok(Self::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) => Ok(Self::NonFungible(i)),
-			UncheckedFungibility::Fungible(_) =>
-				Err("Fungible asset of zero amount is not allowed".into()),
+			UncheckedFungibility::Fungible(_) => {
+				Err("Fungible asset of zero amount is not allowed".into())
+			},
 		}
 	}
 }
@@ -334,6 +370,7 @@ impl TryFrom<OldFungibility> for Fungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -357,6 +394,17 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	}
 }
 
+impl TryFrom<NewWildFungibility> for WildFungibility {
+	type Error = ();
+	fn try_from(value: NewWildFungibility) -> Result<Self, Self::Error> {
+		use NewWildFungibility::*;
+		Ok(match value {
+			Fungible => Self::Fungible,
+			NonFungible => Self::NonFungible,
+		})
+	}
+}
+
 /// Location to identify an asset.
 #[derive(
 	Clone,
@@ -367,6 +415,7 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -388,6 +437,13 @@ impl TryFrom<OldAssetId> for AssetId {
 			Concrete(l) => Self(l.try_into()?),
 			Abstract(_) => return Err(()),
 		})
+	}
+}
+
+impl TryFrom<NewAssetId> for AssetId {
+	type Error = ();
+	fn try_from(new: NewAssetId) -> Result<Self, Self::Error> {
+		Ok(Self(new.0.try_into()?))
 	}
 }
 
@@ -437,6 +493,7 @@ impl Reanchorable for AssetId {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -526,6 +583,13 @@ impl TryFrom<OldAsset> for Asset {
 	}
 }
 
+impl TryFrom<NewAsset> for Asset {
+	type Error = ();
+	fn try_from(new: NewAsset) -> Result<Self, Self::Error> {
+		Ok(Self { id: new.id.try_into()?, fun: new.fun.try_into()? })
+	}
+}
+
 /// A `Vec` of `Asset`s.
 ///
 /// There are a number of invariants which the construction and mutation functions must ensure are
@@ -541,6 +605,7 @@ impl TryFrom<OldAsset> for Asset {
 	PartialOrd,
 	Debug,
 	Encode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	Default,
 	serde::Serialize,
@@ -548,8 +613,8 @@ impl TryFrom<OldAsset> for Asset {
 )]
 pub struct Assets(Vec<Asset>);
 
-/// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
-/// enforced, and just serves to provide a sensible `max_encoded_len` for `Assets`.
+/// Maximum number of items we expect in a single `Assets` value.
+/// This is enforced when decoding and provides a sensible `max_encoded_len` for `Assets`.
 pub const MAX_ITEMS_IN_ASSETS: usize = 20;
 
 impl MaxEncodedLen for Assets {
@@ -579,6 +644,18 @@ impl TryFrom<OldAssets> for Assets {
 	}
 }
 
+impl TryFrom<NewAssets> for Assets {
+	type Error = ();
+	fn try_from(new: NewAssets) -> Result<Self, Self::Error> {
+		let v = new
+			.into_inner()
+			.into_iter()
+			.map(Asset::try_from)
+			.collect::<Result<Vec<_>, ()>>()?;
+		Ok(Assets(v))
+	}
+}
+
 impl From<Vec<Asset>> for Assets {
 	fn from(mut assets: Vec<Asset>) -> Self {
 		let mut res = Vec::with_capacity(assets.len());
@@ -598,8 +675,9 @@ impl From<Vec<Asset>> for Assets {
 						(
 							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id },
 							Asset { fun: Fungibility::NonFungible(b_instance), id: b_id },
-						) if a_id == b_id && a_instance == b_instance =>
-							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id },
+						) if a_id == b_id && a_instance == b_instance => {
+							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id }
+						},
 						(to_push, to_remember) => {
 							res.push(to_push);
 							to_remember
@@ -633,7 +711,7 @@ impl Assets {
 	/// `From::<Vec<Asset>>::from` which is infallible.
 	pub fn from_sorted_and_deduplicated(r: Vec<Asset>) -> Result<Self, ()> {
 		if r.is_empty() {
-			return Ok(Self(Vec::new()))
+			return Ok(Self(Vec::new()));
 		}
 		r.iter().skip(1).try_fold(&r[0], |a, b| -> Result<&Asset, ()> {
 			if a.id < b.id || a < b && (a.is_non_fungible(None) || b.is_non_fungible(None)) {
@@ -675,11 +753,13 @@ impl Assets {
 			match (&a.fun, &mut asset.fun) {
 				(Fungibility::Fungible(amount), Fungibility::Fungible(balance)) => {
 					*balance = balance.saturating_add(*amount);
-					return
+					return;
 				},
 				(Fungibility::NonFungible(inst1), Fungibility::NonFungible(inst2))
 					if inst1 == inst2 =>
-					return,
+				{
+					return
+				},
 				_ => (),
 			}
 		}
@@ -758,6 +838,7 @@ impl Reanchorable for Assets {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -788,8 +869,24 @@ impl TryFrom<OldWildAsset> for WildAsset {
 		Ok(match old {
 			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
 			All => Self::All,
-			AllOfCounted { id, fun, count } =>
-				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			AllOfCounted { id, fun, count } => {
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count }
+			},
+			AllCounted(count) => Self::AllCounted(count),
+		})
+	}
+}
+
+impl TryFrom<NewWildAsset> for WildAsset {
+	type Error = ();
+	fn try_from(new: NewWildAsset) -> Result<Self, ()> {
+		use NewWildAsset::*;
+		Ok(match new {
+			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
+			AllOfCounted { id, fun, count } => {
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count }
+			},
+			All => Self::All,
 			AllCounted(count) => Self::AllCounted(count),
 		})
 	}
@@ -801,8 +898,9 @@ impl WildAsset {
 		use WildAsset::*;
 		match self {
 			AllOfCounted { count: 0, .. } | AllCounted(0) => false,
-			AllOf { fun, id } | AllOfCounted { id, fun, .. } =>
-				inner.fun.is_kind(*fun) && &inner.id == id,
+			AllOf { fun, id } | AllOfCounted { id, fun, .. } => {
+				inner.fun.is_kind(*fun) && &inner.id == id
+			},
 			All | AllCounted(_) => true,
 		}
 	}
@@ -821,8 +919,9 @@ impl WildAsset {
 	pub fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
 		use WildAsset::*;
 		match self {
-			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } =>
-				id.reanchor(target, context),
+			AllOf { ref mut id, .. } | AllOfCounted { ref mut id, .. } => {
+				id.reanchor(target, context)
+			},
 			All | AllCounted(_) => Ok(()),
 		}
 	}
@@ -868,6 +967,7 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildAsset {
 	Debug,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -941,6 +1041,17 @@ impl AssetFilter {
 			Definite(_) => None,
 			Wild(x) => x.limit(),
 		}
+	}
+}
+
+impl TryFrom<NewAssetFilter> for AssetFilter {
+	type Error = ();
+	fn try_from(new: NewAssetFilter) -> Result<AssetFilter, Self::Error> {
+		use NewAssetFilter::*;
+		Ok(match new {
+			Definite(x) => Self::Definite(x.try_into()?),
+			Wild(x) => Self::Wild(x.try_into()?),
+		})
 	}
 }
 

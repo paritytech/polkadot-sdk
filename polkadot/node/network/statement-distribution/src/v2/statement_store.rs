@@ -24,7 +24,7 @@
 //! groups, and views based on the validators themselves.
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use polkadot_node_network_protocol::v2::StatementFilter;
+use polkadot_node_network_protocol::v3::StatementFilter;
 use polkadot_primitives::{
 	CandidateHash, CompactStatement, GroupIndex, SignedStatement, ValidatorIndex,
 };
@@ -112,7 +112,7 @@ impl StatementStore {
 					e.get_mut().known_by_backing = true;
 				}
 
-				return Ok(false)
+				return Ok(false);
 			},
 			HEntry::Vacant(e) => {
 				e.insert(StoredStatement { statement, known_by_backing: origin.is_local() });
@@ -134,7 +134,7 @@ impl StatementStore {
 						"groups passed into `insert` differ from those used at store creation"
 					);
 
-					return Err(Error::ValidatorUnknown)
+					return Err(Error::ValidatorUnknown);
 				},
 			};
 
@@ -217,7 +217,7 @@ impl StatementStore {
 		&'a self,
 		validators: &'a [ValidatorIndex],
 		candidate_hash: CandidateHash,
-	) -> impl Iterator<Item = &SignedStatement> + 'a {
+	) -> impl Iterator<Item = &'a SignedStatement> + 'a {
 		let s_st = CompactStatement::Seconded(candidate_hash);
 		let v_st = CompactStatement::Valid(candidate_hash);
 

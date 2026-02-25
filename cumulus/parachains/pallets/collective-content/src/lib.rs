@@ -69,6 +69,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -197,7 +198,7 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::AnnouncementRemoved { cid });
 
 			if now >= expire_at {
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 			Ok(Pays::Yes.into())
 		}

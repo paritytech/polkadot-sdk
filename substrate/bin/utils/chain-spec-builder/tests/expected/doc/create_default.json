@@ -1,0 +1,37 @@
+{
+  "name": "Custom",
+  "id": "custom",
+  "chainType": "Live",
+  "bootNodes": [],
+  "telemetryEndpoints": null,
+  "protocolId": null,
+  "properties": {
+    "tokenDecimals": 12,
+    "tokenSymbol": "UNIT"
+  },
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "config": {
+        "babe": {
+          "authorities": [],
+          "epochConfig": {
+            "allowed_slots": "PrimaryAndSecondaryVRFSlots",
+            "c": [
+              1,
+              4
+            ]
+          }
+        },
+        "balances": {
+          "balances": [],
+          "devAccounts": null
+        },
+        "substrateTest": {
+          "authorities": []
+        },
+        "system": {}
+      }
+    }
+  }
+}

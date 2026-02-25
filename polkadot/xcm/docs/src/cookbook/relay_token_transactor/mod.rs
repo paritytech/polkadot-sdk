@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -21,7 +22,6 @@
 //! The first step is using the [`xcm_builder::FungibleAdapter`] to create an `AssetTransactor` that
 //! can handle the relay chain token.
 #![doc = docify::embed!("src/cookbook/relay_token_transactor/parachain/xcm_config.rs", asset_transactor)]
-//!
 //! The second step is to configure `IsReserve` to recognize the relay chain as a reserve for its
 //! own asset.
 //! With this, you'll be able to easily mint a derivative asset, backed one-to-one from the Relay
@@ -30,11 +30,9 @@
 //! The `IsReserve` type takes a type that implements `ContainsPair<MultiAsset, MultiLocation>`.
 //! In this case, we want a type that contains the pair `(relay_chain_native_token, relay_chain)`.
 #![doc = docify::embed!("src/cookbook/relay_token_transactor/parachain/xcm_config.rs", is_reserve)]
-//!
 //! With this setup, we are able to do a reserve asset transfer to and from the parachain and relay
 //! chain.
 #![doc = docify::embed!("src/cookbook/relay_token_transactor/tests.rs", reserve_asset_transfers_work)]
-//!
 //! For the rest of the code, be sure to check the contents of this module.
 
 /// The parachain runtime for this example

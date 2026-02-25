@@ -18,6 +18,7 @@ pub mod macros;
 pub mod xcm_helpers;
 
 pub use xcm_emulator;
+pub use xcm_simulator;
 
 // Substrate
 use frame_support::parameter_types;
@@ -29,7 +30,7 @@ use sp_core::storage::Storage;
 use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 
-// Polakdot
+// Polkadot
 use parachains_common::BlockNumber;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
@@ -41,6 +42,7 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
 pub const XCM_V4: u32 = 4;
+pub const XCM_V5: u32 = 5;
 pub const REF_TIME_THRESHOLD: u64 = 33;
 pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 
@@ -55,26 +57,32 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 // USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
 pub const USDT_ID: u32 = 1984;
 
-pub const PENPAL_ID: u32 = 2000;
+pub const PENPAL_A_ID: u32 = 2000;
 pub const PENPAL_B_ID: u32 = 2001;
+pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
+pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
-	pub PenpalTeleportableAssetLocation: xcm::v4::Location
-		= xcm::v4::Location::new(1, [
-				xcm::v4::Junction::Parachain(PENPAL_ID),
-				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalALocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_A_ID)]);
+	pub PenpalBLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_B_ID)]);
+	pub PenpalATeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_A_ID),
+				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
-	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
-	pub PenpalBTeleportableAssetLocation: xcm::v4::Location
-		= xcm::v4::Location::new(1, [
-				xcm::v4::Junction::Parachain(PENPAL_B_ID),
-				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalBTeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_B_ID),
+				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
+	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
 }
 
@@ -123,8 +131,8 @@ pub mod collators {
 
 	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
 		vec![
-			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+			(Sr25519Keyring::Dave.to_account_id(), Sr25519Keyring::Dave.public().into()),
+			(Sr25519Keyring::Eve.to_account_id(), Sr25519Keyring::Eve.public().into()),
 		]
 	}
 }
@@ -155,4 +163,14 @@ pub mod validators {
 			BeefyId::from(Keyring::<BeefyId>::Alice.public()),
 		)]
 	}
+}
+
+pub mod snowbridge {
+	use hex_literal::hex;
+	// Address of WETH ERC20 token contract on remote Ethereum network
+	pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
+	// The Ethereum network chain ID. In this case, Sepolia testnet's chain ID.
+	pub const SEPOLIA_ID: u64 = 11155111;
+	// The minimum balance for ether assets pre-registered in emulated tests.
+	pub const ETHER_MIN_BALANCE: u128 = 1000;
 }

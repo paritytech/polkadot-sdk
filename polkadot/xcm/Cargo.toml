@@ -1,10 +1,12 @@
 [package]
 name = "staging-xcm"
 description = "The basic XCM datastructures."
-version = "7.0.0"
+version = "7.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -12,22 +14,22 @@ workspace = true
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 bounded-collections = { features = ["serde"], workspace = true }
-derivative = { features = ["use_core"], workspace = true }
-impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+derive-where = { workspace = true }
+environmental = { workspace = true }
+frame-support = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
+schemars = { default-features = true, optional = true, workspace = true }
+serde = { features = ["alloc", "derive", "rc"], workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { features = ["serde"], workspace = true }
-serde = { features = ["alloc", "derive", "rc"], workspace = true }
-schemars = { default-features = true, optional = true, workspace = true }
+tracing = { workspace = true }
 xcm-procedural = { workspace = true, default-features = true }
-environmental = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
-hex = { workspace = true, default-features = true }
-hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -36,14 +38,19 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"environmental/std",
-	"log/std",
+	"frame-support/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-runtime/std",
 	"sp-weights/std",
+	"tracing/std",
 ]
 json-schema = [
 	"bounded-collections/json-schema",
 	"dep:schemars",
 	"sp-weights/json-schema",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]

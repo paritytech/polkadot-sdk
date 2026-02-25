@@ -13,7 +13,7 @@ module and the final goal is to hand message to the message dispatch mechanism.
 
 ## Overview
 
-Message lane is an unidirectional channel, where messages are sent from source chain to the target chain. At the same
+Message lane is a unidirectional channel, where messages are sent from source chain to the target chain. At the same
 time, a single instance of messages module supports both outbound lanes and inbound lanes. So the chain where the module
 is deployed (this chain), may act as a source chain for outbound messages (heading to a bridged chain) and as a target
 chain for inbound messages (coming from a bridged chain).

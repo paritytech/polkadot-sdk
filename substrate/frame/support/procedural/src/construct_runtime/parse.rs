@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::str::FromStr;
 use frame_support_procedural_tools::syn_ext as ext;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -95,22 +96,25 @@ impl Parse for RuntimeDeclaration {
 		let pallets_token = pallets.token;
 
 		match convert_pallets(pallets.content.inner.into_iter().collect())? {
-			PalletsConversion::Implicit(pallets) =>
-				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets })),
-			PalletsConversion::Explicit(pallets) =>
+			PalletsConversion::Implicit(pallets) => {
+				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets }))
+			},
+			PalletsConversion::Explicit(pallets) => {
 				Ok(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
 					where_section,
 					pallets,
 					pallets_token,
-				})),
-			PalletsConversion::ExplicitExpanded(pallets) =>
+				}))
+			},
+			PalletsConversion::ExplicitExpanded(pallets) => {
 				Ok(RuntimeDeclaration::ExplicitExpanded(ExplicitRuntimeDeclaration {
 					name,
 					where_section,
 					pallets,
 					pallets_token,
-				})),
+				}))
+			},
 		}
 	}
 }
@@ -609,6 +613,18 @@ impl Pallet {
 	pub fn exists_part(&self, name: &str) -> bool {
 		self.find_part(name).is_some()
 	}
+
+	// Get runtime attributes for the pallet, mostly used for macros
+	pub fn get_attributes(&self) -> TokenStream {
+		self.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
+			let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
+				.expect("was successfully parsed before; qed");
+			quote::quote! {
+				#acc
+				#attr
+			}
+		})
+	}
 }
 
 /// Result of a conversion of a declaration of pallets.
@@ -696,7 +712,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 
 			// Check parts are correctly specified
 			match &pallet.specified_parts {
-				SpecifiedParts::Exclude(parts) | SpecifiedParts::Use(parts) =>
+				SpecifiedParts::Exclude(parts) | SpecifiedParts::Use(parts) => {
 					for part in parts {
 						if !available_parts.contains(part.keyword.name()) {
 							let msg = format!(
@@ -714,7 +730,8 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 							);
 							return Err(syn::Error::new(part.keyword.span(), msg));
 						}
-					},
+					}
+				},
 				SpecifiedParts::All => (),
 			}
 

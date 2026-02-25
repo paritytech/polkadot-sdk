@@ -42,10 +42,11 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 parameter_types! {
-	pub const HeapSize: u32 = 24;
+	pub const HeapSize: u32 = 40;
 	pub const MaxStale: u32 = 2;
 	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = MockedWeightInfo;
@@ -121,6 +122,12 @@ impl crate::weights::WeightInfo for MockedWeightInfo {
 			.copied()
 			.unwrap_or(DefaultWeightForCall::get())
 	}
+	fn set_service_head() -> Weight {
+		WeightForCall::get()
+			.get("set_service_head")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
+	}
 	fn service_page_item() -> Weight {
 		WeightForCall::get()
 			.get("service_page_item")
@@ -172,7 +179,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 				if (b'0'..=b'9').contains(&c) {
 					w = w * 10 + (c - b'0') as u64;
 				} else {
-					break
+					break;
 				}
 			}
 			w
@@ -185,11 +192,11 @@ impl ProcessMessage for RecordingMessageProcessor {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
 				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
-					return Err(ProcessMessageError::Corrupt)
+					return Err(ProcessMessageError::Corrupt);
 				}
 
 				if s.contains("000") {
-					return Ok(false)
+					return Ok(false);
 				}
 			}
 
@@ -212,7 +219,7 @@ parameter_types! {
 /// `yield` will fail with an error respectively.
 fn processing_message(msg: &[u8], origin: &MessageOrigin) -> Result<(), ProcessMessageError> {
 	if YieldingQueues::get().contains(&origin) {
-		return Err(ProcessMessageError::Yield)
+		return Err(ProcessMessageError::Yield);
 	}
 
 	let msg = String::from_utf8_lossy(msg);
@@ -252,7 +259,7 @@ impl ProcessMessage for CountingMessageProcessor {
 	) -> Result<bool, ProcessMessageError> {
 		if let Err(e) = processing_message(message, &origin) {
 			NumMessagesErrored::set(NumMessagesErrored::get() + 1);
-			return Err(e)
+			return Err(e);
 		}
 		let required = Weight::from_parts(1, 1);
 
@@ -260,9 +267,10 @@ impl ProcessMessage for CountingMessageProcessor {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
 				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
-					return Err(ProcessMessageError::Corrupt)
+					return Err(ProcessMessageError::Corrupt);
 				}
 			}
+
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -319,7 +327,8 @@ where
 {
 	new_test_ext::<T>().execute_with(|| {
 		test();
-		MessageQueue::do_try_state().expect("All invariants must hold after a test");
+		pallet_message_queue::Pallet::<T>::do_try_state()
+			.expect("All invariants must hold after a test");
 	});
 }
 

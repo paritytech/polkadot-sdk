@@ -19,8 +19,16 @@
 #![allow(deprecated)]
 
 use super::MintLocation;
-use core::{marker::PhantomData, result};
-use frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
+use alloc::boxed::Box;
+use core::{fmt::Debug, marker::PhantomData, result};
+use frame_support::{
+	defensive_assert,
+	traits::{
+		tokens::imbalance::{ImbalanceAccounting, UnsafeManualAccounting},
+		ExistenceRequirement::AllowDeath,
+		Get, Imbalance as ImbalanceT, WithdrawReasons,
+	},
+};
 use sp_runtime::traits::CheckedSub;
 use xcm::latest::{Asset, Error as XcmError, Location, Result, XcmContext};
 use xcm_executor::{
@@ -113,7 +121,10 @@ impl<
 			WithdrawReasons::TRANSFER,
 			new_balance,
 		)
-		.map_err(|_| XcmError::NotWithdrawable)
+		.map_err(|error| {
+			tracing::debug!(target: "xcm::currency_adapter", ?error, "Failed to ensure can withdraw");
+			XcmError::NotWithdrawable
+		})
 	}
 	fn accrue_checked(checked_account: AccountId, amount: Currency::Balance) {
 		let _ = Currency::deposit_creating(&checked_account, amount);
@@ -134,73 +145,100 @@ impl<
 }
 
 impl<
-		Currency: frame_support::traits::Currency<AccountId>,
+		Currency: frame_support::traits::Currency<
+			AccountId,
+			NegativeImbalance: ImbalanceAccounting<u128> + 'static,
+		>,
 		Matcher: MatchesFungible<Currency::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Debug, // can't get away without it since Currency is generic over it.
 		CheckedAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for CurrencyAdapter<Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount>
 {
-	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		log::trace!(target: "xcm::currency_adapter", "can_check_in origin: {:?}, what: {:?}", _origin, what);
+	fn can_check_in(origin: &Location, what: &Asset, _context: &XcmContext) -> Result {
+		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "can_check_in origin");
 		// Check we handle this asset.
 		let amount: Currency::Balance =
 			Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
-			Some((checked_account, MintLocation::Local)) =>
-				Self::can_reduce_checked(checked_account, amount),
-			Some((checked_account, MintLocation::NonLocal)) =>
-				Self::can_accrue_checked(checked_account, amount),
+			Some((checked_account, MintLocation::Local)) => {
+				Self::can_reduce_checked(checked_account, amount)
+			},
+			Some((checked_account, MintLocation::NonLocal)) => {
+				Self::can_accrue_checked(checked_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
 
-	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
-		log::trace!(target: "xcm::currency_adapter", "check_in origin: {:?}, what: {:?}", _origin, what);
+	fn check_in(origin: &Location, what: &Asset, _context: &XcmContext) {
+		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "check_in origin");
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
-				Some((checked_account, MintLocation::Local)) =>
-					Self::reduce_checked(checked_account, amount),
-				Some((checked_account, MintLocation::NonLocal)) =>
-					Self::accrue_checked(checked_account, amount),
+				Some((checked_account, MintLocation::Local)) => {
+					Self::reduce_checked(checked_account, amount)
+				},
+				Some((checked_account, MintLocation::NonLocal)) => {
+					Self::accrue_checked(checked_account, amount)
+				},
 				None => (),
 			}
 		}
 	}
 
-	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		log::trace!(target: "xcm::currency_adapter", "can_check_out dest: {:?}, what: {:?}", _dest, what);
+	fn can_check_out(dest: &Location, what: &Asset, _context: &XcmContext) -> Result {
+		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "can_check_out");
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
-			Some((checked_account, MintLocation::Local)) =>
-				Self::can_accrue_checked(checked_account, amount),
-			Some((checked_account, MintLocation::NonLocal)) =>
-				Self::can_reduce_checked(checked_account, amount),
+			Some((checked_account, MintLocation::Local)) => {
+				Self::can_accrue_checked(checked_account, amount)
+			},
+			Some((checked_account, MintLocation::NonLocal)) => {
+				Self::can_reduce_checked(checked_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
 
-	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
-		log::trace!(target: "xcm::currency_adapter", "check_out dest: {:?}, what: {:?}", _dest, what);
+	fn check_out(dest: &Location, what: &Asset, _context: &XcmContext) {
+		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "check_out");
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
-				Some((checked_account, MintLocation::Local)) =>
-					Self::accrue_checked(checked_account, amount),
-				Some((checked_account, MintLocation::NonLocal)) =>
-					Self::reduce_checked(checked_account, amount),
+				Some((checked_account, MintLocation::Local)) => {
+					Self::accrue_checked(checked_account, amount)
+				},
+				Some((checked_account, MintLocation::NonLocal)) => {
+					Self::reduce_checked(checked_account, amount)
+				},
 				None => (),
 			}
 		}
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> Result {
-		log::trace!(target: "xcm::currency_adapter", "deposit_asset what: {:?}, who: {:?}", what, who);
+	fn deposit_asset(
+		mut what: AssetsInHolding,
+		who: &Location,
+		_context: Option<&XcmContext>,
+	) -> result::Result<(), (AssetsInHolding, XcmError)> {
+		tracing::trace!(target: "xcm::currency_adapter", ?what, ?who, "deposit_asset");
+		defensive_assert!(what.len() == 1, "Trying to deposit more than one asset!");
 		// Check we handle this asset.
-		let amount = Matcher::matches_fungible(&what).ok_or(Error::AssetNotHandled)?;
-		let who =
-			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
-		let _imbalance = Currency::deposit_creating(&who, amount);
+		let maybe = what
+			.fungible_assets_iter()
+			.next()
+			.and_then(|asset| Matcher::matches_fungible(&asset).map(|_| asset.id));
+		let Some(asset_id) = maybe else { return Err((what, Error::AssetNotHandled.into())) };
+		let Some(who) = AccountIdConverter::convert_location(who) else {
+			return Err((what, Error::AccountIdConversionFailed.into()));
+		};
+		let Some(imbalance) = what.fungible.remove(&asset_id) else {
+			return Err((what, Error::AssetNotHandled.into()));
+		};
+		// "manually" build the concrete credit and move the imbalance there.
+		let mut credit = Currency::NegativeImbalance::zero();
+		credit.saturating_subsume(imbalance);
+		Currency::resolve_creating(&who, credit);
 		Ok(())
 	}
 
@@ -209,14 +247,18 @@ impl<
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
 	) -> result::Result<AssetsInHolding, XcmError> {
-		log::trace!(target: "xcm::currency_adapter", "withdraw_asset what: {:?}, who: {:?}", what, who);
+		tracing::trace!(target: "xcm::currency_adapter", ?what, ?who, "withdraw_asset");
 		// Check we handle this asset.
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		let who =
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
-		let _ = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
-		Ok(what.clone().into())
+		let credit = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath).map_err(
+			|error| {
+				tracing::debug!(target: "xcm::currency_adapter", ?error, ?who, ?amount, "Failed to withdraw asset");
+				XcmError::FailedToTransactAsset(error.into())
+			},
+		)?;
+		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(credit)))
 	}
 
 	fn internal_transfer_asset(
@@ -224,15 +266,25 @@ impl<
 		from: &Location,
 		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<AssetsInHolding, XcmError> {
-		log::trace!(target: "xcm::currency_adapter", "internal_transfer_asset asset: {:?}, from: {:?}, to: {:?}", asset, from, to);
+	) -> result::Result<Asset, XcmError> {
+		tracing::trace!(target: "xcm::currency_adapter", ?asset, ?from, ?to, "internal_transfer_asset");
 		let amount = Matcher::matches_fungible(asset).ok_or(Error::AssetNotHandled)?;
 		let from =
 			AccountIdConverter::convert_location(from).ok_or(Error::AccountIdConversionFailed)?;
 		let to =
 			AccountIdConverter::convert_location(to).ok_or(Error::AccountIdConversionFailed)?;
-		Currency::transfer(&from, &to, amount, AllowDeath)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
-		Ok(asset.clone().into())
+		Currency::transfer(&from, &to, amount, AllowDeath).map_err(|error| {
+			tracing::debug!(target: "xcm::currency_adapter", ?error, ?from, ?to, ?amount, "Failed to transfer asset");
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
+		Ok(asset.clone())
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> result::Result<AssetsInHolding, XcmError> {
+		tracing::trace!(target: "xcm::currency_adapter", ?what, ?context, "mint_asset");
+		// Check we handle this asset.
+		let amount = Matcher::matches_fungible(&what).ok_or(Error::AssetNotHandled)?;
+		let credit = Currency::issue(amount);
+		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(credit)))
 	}
 }

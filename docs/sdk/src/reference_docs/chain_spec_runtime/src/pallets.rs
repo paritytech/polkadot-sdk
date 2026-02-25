@@ -118,7 +118,7 @@ pub mod pallet_foo {
 		pub some_enum: FooEnum,
 		pub some_struct: FooStruct,
 		#[serde(skip)]
-		_phantom: PhantomData<T>,
+		pub _phantom: PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

@@ -17,10 +17,8 @@
 //! XCM `MultiLocation` datatype.
 
 use super::{Junction, Junctions};
-use crate::{
-	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
-};
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{v4::Location as NewMultiLocation, VersionedLocation};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
 
@@ -55,6 +53,7 @@ use scale_info::TypeInfo;
 	Clone,
 	Decode,
 	Encode,
+	DecodeWithMemTracking,
 	Eq,
 	PartialEq,
 	Ord,
@@ -230,7 +229,7 @@ impl MultiLocation {
 	pub fn at(&self, i: usize) -> Option<&Junction> {
 		let num_parents = self.parents as usize;
 		if i < num_parents {
-			return None
+			return None;
 		}
 		self.interior.at(i - num_parents)
 	}
@@ -240,7 +239,7 @@ impl MultiLocation {
 	pub fn at_mut(&mut self, i: usize) -> Option<&mut Junction> {
 		let num_parents = self.parents as usize;
 		if i < num_parents {
-			return None
+			return None;
 		}
 		self.interior.at_mut(i - num_parents)
 	}
@@ -278,7 +277,7 @@ impl MultiLocation {
 	/// ```
 	pub fn match_and_split(&self, prefix: &MultiLocation) -> Option<&Junction> {
 		if self.parents != prefix.parents {
-			return None
+			return None;
 		}
 		self.interior.match_and_split(&prefix.interior)
 	}
@@ -342,12 +341,12 @@ impl MultiLocation {
 		let prepend_interior = prefix.interior.len().saturating_sub(self.parents as usize);
 		let final_interior = self.interior.len().saturating_add(prepend_interior);
 		if final_interior > super::junctions::MAX_JUNCTIONS {
-			return Err(prefix)
+			return Err(prefix);
 		}
 		let suffix_parents = (self.parents as usize).saturating_sub(prefix.interior.len());
 		let final_parents = (prefix.parents as usize).saturating_add(suffix_parents);
 		if final_parents > 255 {
-			return Err(prefix)
+			return Err(prefix);
 		}
 
 		// cancel out the final item on the prefix interior for one of the suffix's parents.
@@ -434,7 +433,7 @@ impl MultiLocation {
 	pub fn simplify(&mut self, context: &Junctions) {
 		if context.len() < self.parents as usize {
 			// Not enough context
-			return
+			return;
 		}
 		while self.parents > 0 {
 			let maybe = context.at(context.len() - (self.parents as usize));
@@ -455,19 +454,12 @@ impl MultiLocation {
 		while let Some(j) = clone.last() {
 			if matches!(j, Junction::Parachain(_) | Junction::GlobalConsensus(_)) {
 				// return chain subsection
-				return clone
+				return clone;
 			} else {
 				(clone, _) = clone.split_last_interior();
 			}
 		}
 		MultiLocation::new(clone.parents, Junctions::Here)
-	}
-}
-
-impl TryFrom<OldMultiLocation> for MultiLocation {
-	type Error = ();
-	fn try_from(x: OldMultiLocation) -> result::Result<Self, ()> {
-		Ok(MultiLocation { parents: x.parents, interior: x.interior.try_into()? })
 	}
 }
 
@@ -537,10 +529,10 @@ mod tests {
 	fn conversion_works() {
 		let x: MultiLocation = Parent.into();
 		assert_eq!(x, MultiLocation { parents: 1, interior: Here });
-		//		let x: MultiLocation = (Parent,).into();
-		//		assert_eq!(x, MultiLocation { parents: 1, interior: Here });
-		//		let x: MultiLocation = (Parent, Parent).into();
-		//		assert_eq!(x, MultiLocation { parents: 2, interior: Here });
+		// 		let x: MultiLocation = (Parent,).into();
+		// 		assert_eq!(x, MultiLocation { parents: 1, interior: Here });
+		// 		let x: MultiLocation = (Parent, Parent).into();
+		// 		assert_eq!(x, MultiLocation { parents: 2, interior: Here });
 		let x: MultiLocation = (Parent, Parent, OnlyChild).into();
 		assert_eq!(x, MultiLocation { parents: 2, interior: OnlyChild.into() });
 		let x: MultiLocation = OnlyChild.into();
@@ -758,38 +750,5 @@ mod tests {
 		);
 		let expected = MultiLocation::new(2, (GlobalConsensus(Kusama), Parachain(42)));
 		assert_eq!(para_to_remote_para.chain_location(), expected);
-	}
-
-	#[test]
-	fn conversion_from_other_types_works() {
-		use crate::v2;
-
-		fn takes_multilocation<Arg: Into<MultiLocation>>(_arg: Arg) {}
-
-		takes_multilocation(Parent);
-		takes_multilocation(Here);
-		takes_multilocation(X1(Parachain(42)));
-		takes_multilocation((Ancestor(255), PalletInstance(8)));
-		takes_multilocation((Ancestor(5), Parachain(1), PalletInstance(3)));
-		takes_multilocation((Ancestor(2), Here));
-		takes_multilocation(AncestorThen(
-			3,
-			X2(Parachain(43), AccountIndex64 { network: None, index: 155 }),
-		));
-		takes_multilocation((Parent, AccountId32 { network: None, id: [0; 32] }));
-		takes_multilocation((Parent, Here));
-		takes_multilocation(ParentThen(X1(Parachain(75))));
-		takes_multilocation([Parachain(100), PalletInstance(3)]);
-
-		assert_eq!(
-			v2::MultiLocation::from(v2::Junctions::Here).try_into(),
-			Ok(MultiLocation::here())
-		);
-		assert_eq!(v2::MultiLocation::from(v2::Parent).try_into(), Ok(MultiLocation::parent()));
-		assert_eq!(
-			v2::MultiLocation::from((v2::Parent, v2::Parent, v2::Junction::GeneralIndex(42u128),))
-				.try_into(),
-			Ok(MultiLocation { parents: 2, interior: X1(GeneralIndex(42u128)) }),
-		);
 	}
 }

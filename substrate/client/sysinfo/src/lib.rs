@@ -23,6 +23,8 @@ use futures::prelude::*;
 use std::time::Duration;
 
 mod sysinfo;
+#[cfg(target_os = "freebsd")]
+mod sysinfo_freebsd;
 #[cfg(target_os = "linux")]
 mod sysinfo_linux;
 

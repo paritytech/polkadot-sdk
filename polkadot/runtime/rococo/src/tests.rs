@@ -22,7 +22,7 @@ use std::collections::HashSet;
 use crate::xcm_config::LocationConverter;
 use frame_support::traits::WhitelistedStorageKeys;
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
-use sp_keyring::AccountKeyring::Alice;
+use sp_keyring::Sr25519Keyring::Alice;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 #[test]

@@ -1,0 +1,12 @@
+title: 'pallet_revive_dev_node: Always increment the timestamp by at least one second'
+doc:
+- audience: Runtime User
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/191
+
+    The instant seal introduces a race condition. Blocks can be build faster than the timestamp resolution of Ethereum. Eth timestamps are only one second granularity. If we build blocks faster it can happen that the timestamp delta between them is zero. This is not allowed. We have to make sure that in instant seal two blocks don't return the same timestamp.
+
+    This PR does that by always incrementing the timestamp by at least one second. Note that this is a dev-node only change. Production chains won't have this problem as long as the block time is larger than 1 second.
+
+    Yes, it will produce timestamps in the future. But this seems to be the lesser evil for this dev node. Time is subjective. But the rule to not return duplicate timestamps is dependent on.
+crates: []

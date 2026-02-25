@@ -1,0 +1,12 @@
+title: track authorities from aura digests
+doc:
+- audience: Node Operator
+  description: |-
+    Closes https://github.com/paritytech/polkadot-sdk/issues/9064.
+
+    Tracks AURA authorities in a `ForkTree`. The fork tree is updated whenever there is an authorities change log in the digest. If the fork tree doesn't contain the authorities, they are fetched for the runtime (should only happen at startup, or if something weird is going on with forks maybe).
+crates:
+- name: cumulus-client-consensus-aura
+  bump: minor
+- name: sc-consensus-aura
+  bump: minor

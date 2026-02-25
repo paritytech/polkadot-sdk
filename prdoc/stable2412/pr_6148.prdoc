@@ -1,0 +1,17 @@
+title: Fix migrations for pallet-xcm
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-xcm` stores some operational data that uses `Versioned*` XCM types. When we add a new XCM version (XV), we deprecate XV-2 and remove XV-3.
+    This PR extends the existing `MigrateToLatestXcmVersion` to include migration for the `Queries`, `LockedFungibles`, and `RemoteLockedFungibles` storage types.
+    Additionally, more checks were added to `try_state` for these types.
+
+crates:
+- name: westend-runtime
+  bump: patch
+- name: staging-xcm-builder
+  bump: none
+- name: xcm-runtime-apis
+  bump: none
+- name: pallet-xcm
+  bump: patch

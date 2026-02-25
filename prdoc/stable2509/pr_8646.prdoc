@@ -1,0 +1,8 @@
+title: emit sparse debug info in unoptimized builds
+doc:
+- audience: Node Dev
+  description: |-
+    See [here](https://kobzol.github.io/rust/rustc/2025/05/20/disable-debuginfo-to-improve-rust-compile-times.html) for more details.
+
+    I found that on my host, this reduces `cargo build` (after `cargo clean`) from 19m 35s to 17m 50s, or about 10%.
+crates: []

@@ -16,12 +16,14 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, ApprovalVotingParams, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::{self, Constraints},
+	runtime_api::ParachainHost,
+	slashing, ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -195,7 +197,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn on_chain_votes(&self, at: Hash)
 		-> Result<Option<ScrapedOnChainVotes<Hash>>, ApiError>;
 
-	/***** Added in v2 **** */
+	/// *** Added in v2 ****
 
 	/// Get the session info for the given session, if stored.
 	///
@@ -232,26 +234,21 @@ pub trait RuntimeApiSubsystemClient {
 		assumption: OccupiedCoreAssumption,
 	) -> Result<Option<ValidationCodeHash>, ApiError>;
 
-	/***** Added in v3 **** */
+	/// *** Added in v3 ****
 
 	/// Returns all onchain disputes.
-	/// This is a staging method! Do not use on production runtimes!
 	async fn disputes(
 		&self,
 		at: Hash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>, ApiError>;
 
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
-	///
-	/// WARNING: This is a staging method! Do not use on production runtimes!
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
-	///
-	/// WARNING: This is a staging method! Do not use on production runtimes!
 	async fn key_ownership_proof(
 		&self,
 		at: Hash,
@@ -260,8 +257,6 @@ pub trait RuntimeApiSubsystemClient {
 
 	/// Submits an unsigned extrinsic to slash validators who lost a dispute about
 	/// a candidate of a past session.
-	///
-	/// WARNING: This is a staging method! Do not use on production runtimes!
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
@@ -341,6 +336,34 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
+
+	// == v12 ==
+	/// Get the constraints on the actions that can be taken by a new parachain
+	/// block.
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError>;
+
+	// === v12 ===
+	/// Fetch the scheduling lookahead value
+	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError>;
+
+	// === v12 ===
+	/// Fetch the maximum uncompressed code size.
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError>;
+
+	// == v14 ==
+	/// Fetch the list of all parachain IDs registered in the relay chain.
+	async fn para_ids(&self, at: Hash) -> Result<Vec<Id>, ApiError>;
+
+	// == v15 ==
+	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
+	async fn unapplied_slashes_v2(
+		&self,
+		at: Hash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -380,10 +403,7 @@ where
 		&self,
 		at: Hash,
 	) -> Result<Vec<CoreState<Hash, BlockNumber>>, ApiError> {
-		self.client
-			.runtime_api()
-			.availability_cores(at)
-			.map(|cores| cores.into_iter().map(|core| core.into()).collect::<Vec<_>>())
+		self.client.runtime_api().availability_cores(at)
 	}
 
 	async fn persisted_validation_data(
@@ -436,10 +456,7 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.candidate_pending_availability(at, para_id)
-			.map(|maybe_candidate| maybe_candidate.map(|candidate| candidate.into()))
+		self.client.runtime_api().candidate_pending_availability(at, para_id)
 	}
 
 	async fn candidates_pending_availability(
@@ -447,19 +464,11 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.candidates_pending_availability(at, para_id)
-			.map(|candidates| {
-				candidates.into_iter().map(|candidate| candidate.into()).collect::<Vec<_>>()
-			})
+		self.client.runtime_api().candidates_pending_availability(at, para_id)
 	}
 
 	async fn candidate_events(&self, at: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.candidate_events(at)
-			.map(|events| events.into_iter().map(|event| event.into()).collect::<Vec<_>>())
+		self.client.runtime_api().candidate_events(at)
 	}
 
 	async fn dmq_contents(
@@ -490,10 +499,7 @@ where
 		&self,
 		at: Hash,
 	) -> Result<Option<ScrapedOnChainVotes<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.on_chain_votes(at)
-			.map(|maybe_votes| maybe_votes.map(|votes| votes.into()))
+		self.client.runtime_api().on_chain_votes(at)
 	}
 
 	async fn session_executor_params(
@@ -565,8 +571,15 @@ where
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
 		self.client.runtime_api().unapplied_slashes(at)
+	}
+
+	async fn unapplied_slashes_v2(
+		&self,
+		at: Hash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+		self.client.runtime_api().unapplied_slashes_v2(at)
 	}
 
 	async fn key_ownership_proof(
@@ -605,12 +618,7 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<async_backing::BackingState>, ApiError> {
-		self.client
-			.runtime_api()
-			.para_backing_state(at, para_id)
-			.map(|maybe_backing_state| {
-				maybe_backing_state.map(|backing_state| backing_state.into())
-			})
+		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 
 	async fn async_backing_params(
@@ -639,6 +647,26 @@ where
 
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
 		self.client.runtime_api().claim_queue(at)
+	}
+
+	async fn backing_constraints(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Option<Constraints>, ApiError> {
+		self.client.runtime_api().backing_constraints(at, para_id)
+	}
+
+	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, ApiError> {
+		self.client.runtime_api().scheduling_lookahead(at)
+	}
+
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError> {
+		self.client.runtime_api().validation_code_bomb_limit(at)
+	}
+
+	async fn para_ids(&self, at: Hash) -> Result<Vec<Id>, ApiError> {
+		self.client.runtime_api().para_ids(at)
 	}
 }
 

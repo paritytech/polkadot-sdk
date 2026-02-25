@@ -1,0 +1,25 @@
+title: add block hashes to the randomness used by hashmaps and friends in validation
+  context
+doc:
+- audience: Node Dev
+  description: |-
+    https://github.com/paritytech/polkadot-sdk/pull/8606 https://github.com/paritytech/trie/pull/221 replaced the usage of BTreeMap with HashMaps in validation context. The keys are already derived with a cryptographic hash function from user data, so users should not be able to manipulate it.
+
+    To be on safe side this PR also modifies the TrieCache, TrieRecorder and MemoryDB to use a hasher that on top of the default generated randomness also adds randomness generated from the hash of the relaychain and that of the parachain blocks, which is not something users can control or guess ahead of time.
+crates:
+- name: bridge-runtime-common
+  bump: minor
+- name: pallet-bridge-messages
+  bump: minor
+- name: bp-test-utils
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: minor
+- name: sp-state-machine
+  bump: minor
+- name: sp-trie
+  bump: minor
+- name: pallet-session
+  bump: minor
+- name: sp-runtime
+  bump: minor

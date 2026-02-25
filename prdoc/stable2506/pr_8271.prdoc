@@ -1,0 +1,26 @@
+title: Snowbridge - Message reward topups
+doc:
+- audience: Runtime Dev
+  description: |-
+     This PR enables the ability to add a tip to an Inbound or Outbound message, in case the relayer reward is too low
+     and not profitable to process. The tip is added to the relayer reward when processing a message.
+
+crates:
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: minor
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: minor
+- name: snowbridge-pallet-system-frontend
+  bump: major
+- name: snowbridge-pallet-system-v2
+  bump: major
+- name: snowbridge-core
+  bump: minor
+- name: snowbridge-test-utils
+  bump: minor
+- name: bridge-hub-westend-integration-tests
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor

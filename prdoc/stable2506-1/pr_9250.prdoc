@@ -1,0 +1,7 @@
+title: implement InspectMessageQueues for UnpaidRemoteExporter
+doc:
+- audience: Runtime Dev
+  description: Add missing implementation of `InspectMessageQueues` for `UnpaidRemoteExporter`
+crates:
+- name: staging-xcm-builder
+  bump: patch

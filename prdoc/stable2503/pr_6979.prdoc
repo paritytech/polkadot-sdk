@@ -1,0 +1,8 @@
+title: Update prometheus binding failure logging format
+doc:
+- audience: Node Dev
+  description: |-
+    Using `{:#?}` for the error details is a bit annoying, this change makes a more consistent formatting style for error messages.
+crates:
+- name: substrate-prometheus-endpoint
+  bump: patch

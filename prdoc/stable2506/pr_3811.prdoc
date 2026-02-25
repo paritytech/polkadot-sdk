@@ -1,0 +1,11 @@
+title: "Implicit chill when full unbounding in [pallet_staking]"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Modifies the `unbond` extrinsic to forcefully chill stash when unbonding
+      if the value to be unbonded is the total of what is bonded
+
+crates:
+  - name: pallet-staking
+    bump: minor

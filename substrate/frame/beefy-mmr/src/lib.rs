@@ -192,22 +192,16 @@ where
 	type Proof = AncestryProof<MerkleRootOf<T>>;
 	type ValidationContext = MerkleRootOf<T>;
 
-	fn generate_proof(
-		prev_block_number: BlockNumberFor<T>,
-		best_known_block_number: Option<BlockNumberFor<T>>,
-	) -> Option<Self::Proof> {
-		pallet_mmr::Pallet::<T>::generate_ancestry_proof(prev_block_number, best_known_block_number)
-			.map_err(|e| {
-				log::error!(
-					target: "runtime::beefy",
-					"Failed to generate ancestry proof for block {:?} at {:?}: {:?}",
-					prev_block_number,
-					best_known_block_number,
-					e
-				);
-				e
-			})
-			.ok()
+	fn is_proof_optimal(proof: &Self::Proof) -> bool {
+		let is_proof_optimal = pallet_mmr::Pallet::<T>::is_ancestry_proof_optimal(proof);
+
+		// We don't check the proof size when running benchmarks, since we use mock proofs
+		// which would cause the test to fail.
+		if cfg!(feature = "runtime-benchmarks") {
+			return true;
+		}
+
+		is_proof_optimal
 	}
 
 	fn extract_validation_context(header: HeaderFor<T>) -> Option<Self::ValidationContext> {
@@ -238,7 +232,7 @@ where
 				Err(_) => {
 					// We can't prove that the commitment is non-canonical if the
 					// `commitment.block_number` is invalid.
-					return false
+					return false;
 				},
 			};
 		if commitment_leaf_count != proof.prev_leaf_count {
@@ -254,7 +248,7 @@ where
 				Err(_) => {
 					// Can't prove that the commitment is non-canonical if the proof
 					// is invalid.
-					return false
+					return false;
 				},
 			};
 
@@ -292,6 +286,10 @@ impl<T: Config> AncestryHelperWeightInfo<HeaderFor<T>> for Pallet<T>
 where
 	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
 {
+	fn is_proof_optimal(proof: &<Self as AncestryHelper<HeaderFor<T>>>::Proof) -> Weight {
+		<T as Config>::WeightInfo::n_leafs_proof_is_optimal(proof.leaf_count.saturated_into())
+	}
+
 	fn extract_validation_context() -> Weight {
 		<T as Config>::WeightInfo::extract_validation_context()
 	}

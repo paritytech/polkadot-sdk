@@ -1,4 +1,4 @@
-FROM docker.io/parity/base-bin
+FROM docker.io/paritytech/base-bin
 
 # metadata
 ARG VCS_REF

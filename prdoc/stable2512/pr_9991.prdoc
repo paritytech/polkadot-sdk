@@ -1,0 +1,9 @@
+title: '[pallet-revive] fix exp overflow'
+doc:
+- audience: Runtime Dev
+  description: Update arithmetic tests, and fix potential overflow
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch

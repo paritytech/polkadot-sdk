@@ -33,24 +33,21 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{EnqueueMessage, Footprint, QueueFootprint},
+	traits::{EnqueueMessage, Footprint, QueueFootprint, QueueFootprintQuery},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold,
-	vstaging::{
-		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, HeadData,
+	effective_minimum_backing_votes, skip_ump_signals, supermajority_threshold, well_known_keys,
+	BackedCandidate, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
 	ValidatorIndex, ValidityAttestation,
 };
@@ -197,6 +194,11 @@ pub trait RewardValidators {
 	fn reward_bitfields(validators: impl IntoIterator<Item = ValidatorIndex>);
 }
 
+impl RewardValidators for () {
+	fn reward_backing(_: impl IntoIterator<Item = ValidatorIndex>) {}
+	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
+}
+
 /// Reads the footprint of queues for a specific origin type.
 pub trait QueueFootprinter {
 	type Origin;
@@ -216,7 +218,9 @@ impl QueueFootprinter for () {
 ///
 /// Can be extended to serve further use-cases besides just UMP. Is stored in storage, so any change
 /// to existing values will require a migration.
-#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, MaxEncodedLen, Eq, PartialEq, Debug, TypeInfo,
+)]
 pub enum AggregateMessageOrigin {
 	/// Inbound upward message.
 	#[codec(index = 0)]
@@ -227,7 +231,9 @@ pub enum AggregateMessageOrigin {
 ///
 /// It is written in verbose form since future variants like `Here` and `Bridged` are already
 /// foreseeable.
-#[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, MaxEncodedLen, Eq, PartialEq, Debug, TypeInfo,
+)]
 pub enum UmpQueueId {
 	/// The message originated from this parachain.
 	#[codec(index = 0)]
@@ -266,6 +272,7 @@ pub mod pallet {
 		+ configuration::Config
 		+ scheduler::Config
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type DisputesHandler: disputes::DisputesHandler<BlockNumberFor<Self>>;
 		type RewardValidators: RewardValidators;
@@ -275,7 +282,8 @@ pub mod pallet {
 		/// The message queue provides general queueing and processing functionality. Currently it
 		/// replaces the old `UMP` dispatch queue. Other use-cases can be implemented as well by
 		/// adding new variants to `AggregateMessageOrigin`.
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>
+			+ QueueFootprintQuery<AggregateMessageOrigin, MaxMessageLen = MaxUmpMessageLenOf<Self>>;
 
 		/// Weight info for the calls of this pallet.
 		type WeightInfo: WeightInfo;
@@ -412,11 +420,6 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	TotalSizeExceeded { total_size: u64, limit: u64 },
 	/// A para-chain cannot send UMP messages while it is offboarding.
 	IsOffboarding,
-	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
-	/// Currenly only one such message is allowed.
-	TooManyUMPSignals { count: u32 },
-	/// The UMP queue contains an invalid `UMPSignal`
-	NoUmpSignal,
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -444,12 +447,6 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			),
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
-			},
-			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
-				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
-			},
-			UmpAcceptanceCheckErr::NoUmpSignal => {
-				write!(fmt, "Required UMP signal not found")
 			},
 		}
 	}
@@ -604,8 +601,12 @@ impl<T: Config> Pallet<T> {
 				}
 			});
 		}
-
-		(weight, freed_cores)
+		// For relay chain blocks, we're (ab)using the proof size
+		// to limit the raw transaction size of `ParaInherent` and
+		// there's no state proof (aka PoV) associated with it.
+		// Since we already accounted for bitfields size, we should
+		// not include `enact_candidate` PoV impact here.
+		(weight.set_proof_size(0), freed_cores)
 	}
 
 	/// Process candidates that have been backed. Provide a set of
@@ -619,7 +620,6 @@ impl<T: Config> Pallet<T> {
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
-		core_index_enabled: bool,
 	) -> Result<
 		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
 		DispatchError,
@@ -628,7 +628,7 @@ impl<T: Config> Pallet<T> {
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		if candidates.is_empty() {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -642,7 +642,7 @@ impl<T: Config> Pallet<T> {
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
 				None => {
 					defensive!("Latest included head data for paraid {:?} is None", para_id);
-					continue
+					continue;
 				},
 				Some(latest_head_data) => latest_head_data,
 			};
@@ -679,12 +679,8 @@ impl<T: Config> Pallet<T> {
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
 				// Check backing vote count and validity.
-				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
-					candidate,
-					&validators,
-					group_vals,
-					core_index_enabled,
-				)?;
+				let (backers, backer_idx_and_attestation) =
+					Self::check_backing_votes(candidate, &validators, group_vals)?;
 
 				// Found a valid candidate.
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
@@ -751,7 +747,6 @@ impl<T: Config> Pallet<T> {
 		backed_candidate: &BackedCandidate<T::Hash>,
 		validators: &[ValidatorId],
 		group_vals: Vec<ValidatorIndex>,
-		core_index_enabled: bool,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
 		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
@@ -761,8 +756,7 @@ impl<T: Config> Pallet<T> {
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
-		let (validator_indices, _) =
-			backed_candidate.validator_indices_and_core_index(core_index_enabled);
+		let (validator_indices, _) = backed_candidate.validator_indices_and_core_index();
 
 		// check the signatures in the backing and that it is a majority.
 		let maybe_amount_validated = polkadot_primitives::check_candidate_backing(
@@ -925,25 +919,7 @@ impl<T: Config> Pallet<T> {
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Filter any pending UMP signals and the separator.
-		let upward_messages = if let Some(separator_index) =
-			upward_messages.iter().position(|message| message.is_empty())
-		{
-			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
-
-			if ump_signals.len() > 2 {
-				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
-					count: ump_signals.len() as u32,
-				})
-			}
-
-			if ump_signals.len() == 1 {
-				return Err(UmpAcceptanceCheckErr::NoUmpSignal)
-			}
-
-			upward_messages
-		} else {
-			upward_messages
-		};
+		let upward_messages = skip_ump_signals(upward_messages.iter()).collect::<Vec<_>>();
 
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
@@ -955,7 +931,7 @@ impl<T: Config> Pallet<T> {
 			return Err(UmpAcceptanceCheckErr::MoreMessagesThanPermitted {
 				sent: additional_msgs,
 				permitted: config.max_upward_message_num_per_candidate,
-			})
+			});
 		}
 
 		let (para_queue_count, mut para_queue_size) = Self::relay_dispatch_queue_size(para);
@@ -964,7 +940,7 @@ impl<T: Config> Pallet<T> {
 			return Err(UmpAcceptanceCheckErr::CapacityExceeded {
 				count: para_queue_count.saturating_add(additional_msgs).into(),
 				limit: config.max_upward_queue_count.into(),
-			})
+			});
 		}
 
 		for (idx, msg) in upward_messages.into_iter().enumerate() {
@@ -974,7 +950,7 @@ impl<T: Config> Pallet<T> {
 					idx: idx as u32,
 					msg_size,
 					max_size: config.max_upward_message_size,
-				})
+				});
 			}
 			// make sure that the queue is not overfilled.
 			// we do it here only once since returning false invalidates the whole relay-chain
@@ -983,7 +959,7 @@ impl<T: Config> Pallet<T> {
 				return Err(UmpAcceptanceCheckErr::TotalSizeExceeded {
 					total_size: para_queue_size.saturating_add(msg_size).into(),
 					limit: config.max_upward_queue_size.into(),
-				})
+				});
 			}
 			para_queue_size.saturating_accrue(msg_size);
 		}
@@ -997,10 +973,7 @@ impl<T: Config> Pallet<T> {
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
 	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
-		let bounded = upward_messages
-			.iter()
-			// Stop once we hit the `UMPSignal` separator.
-			.take_while(|message| !message.is_empty())
+		let bounded = skip_ump_signals(upward_messages.iter())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
 					.inspect_err(|_| {
@@ -1019,7 +992,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		let count = messages.len() as u32;
 		if count == 0 {
-			return
+			return;
 		}
 
 		T::MessageQueue::enqueue_messages(
@@ -1338,19 +1311,23 @@ impl<T: Config> CandidateCheckContext<T> {
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
 	) -> Result<(), AcceptanceCheckErr> {
-		ensure!(
-			head_data.0.len() <= self.config.max_head_data_size as _,
-			AcceptanceCheckErr::HeadDataTooLarge,
-		);
+		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
+		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
+			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
+		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
+			// Safe convertions when `self.config.max_code_size` is in bounds of `usize` type.
+			let max_code_size = usize::try_from(self.config.max_code_size)
+				.map_err(|_| AcceptanceCheckErr::NewCodeTooLarge)?;
+
 			ensure!(
 				paras::Pallet::<T>::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			ensure!(
-				new_validation_code.0.len() <= self.config.max_code_size as _,
+				new_validation_code.0.len() <= max_code_size,
 				AcceptanceCheckErr::NewCodeTooLarge,
 			);
 		}

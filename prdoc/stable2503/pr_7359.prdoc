@@ -1,0 +1,7 @@
+title: Improve `set_validation_data` error message.
+doc:
+- audience: Runtime Dev
+  description: Adds a more elaborate error message to the error that appears when `set_validation_data` is missing in a parachain block.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch

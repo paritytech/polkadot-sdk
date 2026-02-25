@@ -1,0 +1,9 @@
+title: 'RawIter: stop iterating on incomplete DB only with `stop_on_incomplete_database` '
+doc:
+- audience: Node Dev
+  description: 'On RawIter there is an argument `stop_on_incomplete_database`. In
+    contrast to what it is saying, the Iterator was always stopping on incomplete
+    DB. '
+crates:
+- name: sp-state-machine
+  bump: patch

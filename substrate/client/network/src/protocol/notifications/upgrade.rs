@@ -21,6 +21,8 @@ pub(crate) use self::notifications::{
 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
 };
 
+pub(crate) use notifications::NotificationsOutError;
+
 pub use self::{
 	collec::UpgradeCollec,
 	notifications::{

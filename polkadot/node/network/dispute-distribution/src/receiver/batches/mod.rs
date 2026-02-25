@@ -22,7 +22,7 @@ use std::{
 use futures::future::pending;
 
 use polkadot_node_network_protocol::request_response::DISPUTE_REQUEST_TIMEOUT;
-use polkadot_primitives::{CandidateHash, CandidateReceipt};
+use polkadot_primitives::{CandidateHash, CandidateReceiptV2 as CandidateReceipt};
 
 use crate::{
 	receiver::batches::{batch::TickResult, waiting_queue::PendingWake},
@@ -97,9 +97,9 @@ impl Batches {
 		&mut self,
 		candidate_hash: CandidateHash,
 		candidate_receipt: CandidateReceipt,
-	) -> JfyiResult<FoundBatch> {
+	) -> JfyiResult<FoundBatch<'_>> {
 		if self.batches.len() >= MAX_BATCHES {
-			return Err(JfyiError::MaxBatchLimitReached)
+			return Err(JfyiError::MaxBatchLimitReached);
 		}
 		debug_assert!(candidate_hash == candidate_receipt.hash());
 		let result = match self.batches.entry(candidate_hash) {

@@ -1,0 +1,9 @@
+title: '`fatxpool`: handling limits and priorities improvements'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR provides a number of improvements and fixes around handling limits and priorities in the fork-aware transaction pool.
+
+crates:
+- name: sc-transaction-pool
+  bump: major

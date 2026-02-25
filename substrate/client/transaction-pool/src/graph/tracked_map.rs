@@ -72,12 +72,12 @@ impl<K, V> TrackedMap<K, V> {
 	}
 
 	/// Lock map for read.
-	pub fn read(&self) -> TrackedMapReadAccess<K, V> {
+	pub fn read(&self) -> TrackedMapReadAccess<'_, K, V> {
 		TrackedMapReadAccess { inner_guard: self.index.read() }
 	}
 
 	/// Lock map for write.
-	pub fn write(&self) -> TrackedMapWriteAccess<K, V> {
+	pub fn write(&self) -> TrackedMapWriteAccess<'_, K, V> {
 		TrackedMapWriteAccess {
 			inner_guard: self.index.write(),
 			bytes: &self.bytes,
@@ -101,18 +101,18 @@ impl<'a, K, V> TrackedMapReadAccess<'a, K, V>
 where
 	K: Eq + std::hash::Hash,
 {
-	/// Returns true if map contains key.
+	/// Returns true if the map contains given key.
 	pub fn contains_key(&self, key: &K) -> bool {
 		self.inner_guard.contains_key(key)
 	}
 
-	/// Returns reference to the contained value by key, if exists.
+	/// Returns the reference to the contained value by key, if exists.
 	pub fn get(&self, key: &K) -> Option<&V> {
 		self.inner_guard.get(key)
 	}
 
-	/// Returns iterator over all values.
-	pub fn values(&self) -> std::collections::hash_map::Values<K, V> {
+	/// Returns an iterator over all values.
+	pub fn values(&self) -> std::collections::hash_map::Values<'_, K, V> {
 		self.inner_guard.values()
 	}
 }

@@ -1,0 +1,11 @@
+title: Migrate pallet-nis benchmark to v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Refactor to use the `frame` crate.
+    - Use procedural macro version `construct_runtime` in mock.
+    - Expose `PalletId` to `frame::pallet_prelude`.
+    - Part of #6202.
+crates:
+- name: pallet-nis
+  bump: patch

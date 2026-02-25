@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,29 +9,30 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
 use async_trait::async_trait;
 use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
-	OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
+	ChildInfo, OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
 };
 use cumulus_test_service::runtime::{Block, Hash, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
-	CommittedCandidateReceipt, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
+	BlockNumber, CandidateCommitments, CandidateDescriptorV2, CandidateEvent, CollatorPair,
+	CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
 	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
 	SigningContext, ValidationCodeHash, ValidatorId,
 };
+use polkadot_primitives_test_helpers::{CandidateDescriptor, CommittedCandidateReceipt};
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
 	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
@@ -60,22 +62,19 @@ fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceErro
 	}
 }
 
-fn dummy_candidate() -> CommittedCandidateReceipt {
-	CommittedCandidateReceipt {
-		descriptor: CandidateDescriptor {
-			para_head: polkadot_parachain_primitives::primitives::HeadData(
-				default_header().encode(),
-			)
-			.hash(),
-			para_id: 0u32.into(),
-			relay_parent: PHash::random(),
-			collator: CollatorPair::generate().0.public(),
-			persisted_validation_data_hash: PHash::random(),
-			pov_hash: PHash::random(),
-			erasure_root: PHash::random(),
-			signature: sp_core::sr25519::Signature::default().into(),
-			validation_code_hash: ValidationCodeHash::from(PHash::random()),
-		},
+fn dummy_candidate() -> CommittedCandidateReceiptV2 {
+	CommittedCandidateReceiptV2 {
+		descriptor: CandidateDescriptorV2::new(
+			0u32.into(),
+			PHash::random(),
+			0.into(),
+			1,
+			PHash::random(),
+			PHash::random(),
+			PHash::random(),
+			polkadot_parachain_primitives::primitives::HeadData(default_header().encode()).hash(),
+			ValidationCodeHash::from(PHash::random()),
+		),
 		commitments: CandidateCommitments {
 			upward_messages: Default::default(),
 			horizontal_messages: Default::default(),
@@ -166,7 +165,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		&self,
 		_: PHash,
 		_: ParaId,
-	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
+	) -> RelayChainResult<Option<CommittedCandidateReceiptV2>> {
 		if self.data.lock().runtime_version >=
 			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
@@ -184,7 +183,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		&self,
 		_: PHash,
 		_: ParaId,
-	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+	) -> RelayChainResult<Vec<CommittedCandidateReceiptV2>> {
 		if self.data.lock().runtime_version <
 			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
@@ -246,6 +245,15 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		unimplemented!("Not needed for test")
 	}
 
+	async fn prove_child_read(
+		&self,
+		_: PHash,
+		_: &ChildInfo,
+		_: &[Vec<u8>],
+	) -> RelayChainResult<sc_client_api::StorageProof> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
 		let mut listener = match check_block_in_chain(
 			self.relay_backend.clone(),
@@ -290,12 +298,13 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.relay_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
-				},
+					return Ok(None);
+				}
+			},
 		};
 		let header = self.relay_client.header(hash)?;
 
@@ -320,8 +329,8 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		.to_vec();
 
 		Ok(RuntimeVersion {
-			spec_name: sp_version::create_runtime_str!("test"),
-			impl_name: sp_version::create_runtime_str!("test"),
+			spec_name: Cow::Borrowed("test"),
+			impl_name: Cow::Borrowed("test"),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 0,
@@ -344,6 +353,14 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		_hash: PHash,
 		_payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		unimplemented!("Not needed for test")
 	}
 }
@@ -412,7 +429,7 @@ async fn make_gossip_message_and_header(
 			validation_code_hash: ValidationCodeHash::from(PHash::random()),
 		},
 	};
-	let statement = Statement::Seconded(candidate_receipt);
+	let statement = Statement::Seconded(candidate_receipt.into());
 	let signed = SignedFullStatement::sign(
 		&keystore,
 		statement,
@@ -525,7 +542,7 @@ fn legacy_block_announce_data_handling() {
 
 	let block_data =
 		BlockAnnounceData::decode(&mut &data[..]).expect("Decoding works from legacy works");
-	assert_eq!(receipt.descriptor.relay_parent, block_data.relay_parent);
+	assert_eq!(receipt.descriptor.relay_parent(), block_data.relay_parent);
 
 	let data = block_data.encode();
 	LegacyBlockAnnounceData::decode(&mut &data[..]).expect("Decoding works");
@@ -600,7 +617,8 @@ async fn check_statement_seconded() {
 				erasure_root: PHash::random(),
 				signature: sp_core::sr25519::Signature::default().into(),
 				validation_code_hash: ValidationCodeHash::from(PHash::random()),
-			},
+			}
+			.into(),
 		},
 		statement: signed_statement.convert_payload().into(),
 		relay_parent,

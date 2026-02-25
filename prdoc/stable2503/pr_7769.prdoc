@@ -1,0 +1,10 @@
+title: Ensure Logs Are Captured for Assertions and Printed During Tests
+doc:
+- audience: Runtime Dev
+  description: |-
+      This PR enhances test_log_capture, ensuring logs are captured for assertions and printed to the console during test execution.
+crates:
+- name: sp-tracing
+  bump: minor
+- name: xcm-simulator-example
+  bump: patch

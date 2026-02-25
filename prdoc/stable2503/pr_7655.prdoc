@@ -1,0 +1,73 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: derive `DecodeWithMemTracking` for `Block`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds `DecodeWithMemTracking` as a trait bound for `Header`, `Block` and `TransactionExtension` and
+      derives it for all the types that implement these traits in `polkadot-sdk`.
+      All the external types that implement these traits will need to implement `DecodeWithMemTracking` as well.
+
+crates:
+  - name: sp-runtime
+    bump: major
+  - name: sp-staking
+    bump: minor
+  - name: bp-runtime
+    bump: major
+  - name: bridge-runtime-common
+    bump: patch
+  - name: frame-executive
+    bump: patch
+  - name: frame-support
+    bump: major
+  - name: frame-system
+    bump: minor
+  - name: pallet-balances
+    bump: minor
+  - name: pallet-verify-signature
+    bump: minor
+  - name: pallet-transaction-payment
+    bump: minor
+  - name: pallet-sudo
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: minor
+  - name: cumulus-pallet-weight-reclaim
+    bump: minor
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: minor
+  - name: frame-benchmarking-cli
+    bump: patch
+  - name: frame-metadata-hash-extension
+    bump: minor
+  - name: pallet-assets
+    bump: minor
+  - name: pallet-assets-freezer
+    bump: minor
+  - name: pallet-asset-tx-payment
+    bump: minor
+  - name: pallet-bridge-relayers
+    bump: minor
+  - name: pallet-bridge-messages
+    bump: minor
+  - name: pallet-asset-conversion-tx-payment
+    bump: minor
+  - name: pallet-referenda
+    bump: minor
+  - name: pallet-revive
+    bump: minor
+  - name: pallet-skip-feeless-payment
+    bump: minor
+  - name: pallet-staking
+    bump: minor
+  - name: staging-xcm-builder
+    bump: patch
+  - name: staging-xcm-executor
+    bump: patch
+  - name: bp-polkadot-bulletin
+    bump: minor
+  - name: frame-system-benchmarking
+    bump: patch

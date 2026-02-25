@@ -325,7 +325,9 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 		&self.voting_oracle
 	}
 
-	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B, AuthorityId>, Error> {
+	pub(crate) fn gossip_filter_config(
+		&self,
+	) -> Result<GossipFilterCfg<'_, B, AuthorityId>, Error> {
 		let (start, end) = self.voting_oracle.accepted_interval()?;
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
@@ -361,7 +363,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 				target: LOG_TARGET,
 				"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
 				you must generate valid session keys \
-				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+				(https://docs.polkadot.com/infrastructure/running-a-validator/onboarding-and-offboarding/key-management/#set-session-keys)",
 				new_session_start,
 			);
 			metric_inc!(metrics, beefy_no_authority_found_in_store);
@@ -461,7 +463,7 @@ where
 		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
 			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
 				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
-				return Err(Error::ConsensusReset)
+				return Err(Error::ConsensusReset);
 			},
 			Ok(_) => {},
 			Err(api_error) => {
@@ -524,7 +526,7 @@ where
 	{
 		let block_num = vote.commitment.block_number;
 		match self.voting_oracle().triage_round(block_num)? {
-			RoundAction::Process =>
+			RoundAction::Process => {
 				if let Some(finality_proof) = self.handle_vote(vote)? {
 					let gossip_proof =
 						GossipMessage::<B, AuthorityId>::FinalityProof(finality_proof);
@@ -534,7 +536,8 @@ where
 						encoded_proof,
 						true,
 					);
-				},
+				}
+			},
 			RoundAction::Drop => metric_inc!(self.metrics, beefy_stale_votes),
 			RoundAction::Enqueue => error!(target: LOG_TARGET, "🥩 unexpected vote: {:?}.", vote),
 		};

@@ -1,0 +1,7 @@
+title: Unify Import verifier usage across parachain template and omninode
+doc:
+- audience: Node Dev
+  description: |-
+    In polkadot-omni-node block import pipeline it uses default aura verifier without checking equivocation,
+    This Pr replaces the check with full verification with equivocation like in parachain template block import 
+crates: []

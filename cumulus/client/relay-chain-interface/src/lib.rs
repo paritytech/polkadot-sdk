@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -30,17 +31,18 @@ use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::{BlockId, Hash as RelayHash};
+use cumulus_primitives_core::relay_chain::{BlockId, CandidateEvent, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		BlockNumber, CommittedCandidateReceipt, CoreIndex, CoreState, Hash as PHash,
-		Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 pub use polkadot_overseer::Handle as OverseerHandle;
 pub use sp_state_machine::StorageValue;
+pub use sp_storage::ChildInfo;
 
 pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
@@ -212,6 +214,14 @@ pub trait RelayChainInterface: Send + Sync {
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
 
+	/// Generate a child trie storage read proof.
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof>;
+
 	/// Returns the validation code hash for the given `para_id` using the given
 	/// `occupied_core_assumption`.
 	async fn validation_code_hash(
@@ -244,6 +254,11 @@ pub trait RelayChainInterface: Send + Sync {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>>;
+
+	/// Fetch the scheduling lookahead value.
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
+
+	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>>;
 }
 
 #[async_trait]
@@ -348,6 +363,15 @@ where
 		(**self).prove_read(relay_parent, relevant_keys).await
 	}
 
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		(**self).prove_child_read(relay_parent, child_info, child_keys).await
+	}
+
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {
 		(**self).wait_for_block(hash).await
 	}
@@ -397,6 +421,14 @@ where
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		(**self).claim_queue(relay_parent).await
+	}
+
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32> {
+		(**self).scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		(**self).candidate_events(at).await
 	}
 }
 

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Pallet for stuff specific to parachains' usage of XCM. Right now that's just the origin
 //! used by parachains when receiving `Transact` messages from other parachains or the Relay chain
@@ -24,7 +24,7 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_runtime::{traits::BadOrigin, RuntimeDebug};
+use sp_runtime::traits::BadOrigin;
 use xcm::latest::{ExecuteXcm, Outcome};
 
 #[frame_support::pallet]
@@ -39,6 +39,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
@@ -58,7 +59,9 @@ pub mod pallet {
 	}
 
 	/// Origin for the parachains module.
-	#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+	#[derive(
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, MaxEncodedLen,
+	)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// It comes from the (parent) relay chain.

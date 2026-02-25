@@ -1,0 +1,12 @@
+title: 'dispute-coordinator: increase lru_observed_blocks_capacity'
+doc:
+- audience: Node Dev
+  description: |-
+    Under increase load with finality lagging behind there is a risk for blocks to arrive late or out of sequence in that case we will end up scrapping from the received block un till last finalized block and then process all the dispute in-between.
+
+    This couple with other inefficiencies like https://github.com/paritytech/polkadot-sdk/issues/8823 will increase unnecessarily the load on dispute-coordinator.
+
+    Decided to make this super large to err on the cautious side, the Hash size is only 32 bytes, so this will make the LRU grow up to 65k, which I don't think is a significant increase.
+crates:
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch

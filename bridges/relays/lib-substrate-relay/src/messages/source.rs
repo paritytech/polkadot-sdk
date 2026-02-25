@@ -289,20 +289,20 @@ where
 					P::TargetChain::NAME,
 					in_msgs_details.len(),
 					msgs_to_refine_batch.len(),
-				)))
+				)));
 			}
 			for ((_, out_msg_details), in_msg_details) in
 				msgs_to_refine_batch.iter_mut().zip(in_msgs_details)
 			{
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"Refined weight of {}->{} message {:?}/{}: at-source: {}, at-target: {}",
-					P::SourceChain::NAME,
-					P::TargetChain::NAME,
-					self.lane_id,
-					out_msg_details.nonce,
-					out_msg_details.dispatch_weight,
-					in_msg_details.dispatch_weight,
+					source=%P::SourceChain::NAME,
+					target=%P::TargetChain::NAME,
+					lane_id=?self.lane_id,
+					nonce=%out_msg_details.nonce,
+					at_source=%out_msg_details.dispatch_weight,
+					at_target=%in_msg_details.dispatch_weight,
+					"Refined weight of source->target message"
 				);
 				out_msg_details.dispatch_weight = in_msg_details.dispatch_weight;
 			}
@@ -400,7 +400,7 @@ where
 			if let Some(batch_tx) =
 				BatchProofTransaction::new(target_to_source_headers_relay.clone(), id.0).await?
 			{
-				return Ok(Some(batch_tx))
+				return Ok(Some(batch_tx));
 			}
 
 			target_to_source_headers_relay.require_more_headers(id.0).await;
@@ -523,12 +523,12 @@ fn validate_out_msgs_details<C: Chain>(
 	if out_msgs_details.len() > nonces.clone().count() {
 		return Err(SubstrateError::Custom(
 			"More messages than requested returned by the message_details call.".into(),
-		))
+		));
 	}
 
 	// Check if last nonce is missing. The loop below is not checking this.
 	if out_msgs_details.is_empty() && !nonces.is_empty() {
-		return make_missing_nonce_error(*nonces.end())
+		return make_missing_nonce_error(*nonces.end());
 	}
 
 	let mut nonces_iter = nonces.clone().rev().peekable();
@@ -538,7 +538,7 @@ fn validate_out_msgs_details<C: Chain>(
 		nonces_iter.next();
 		if out_msg_details.nonce != nonce {
 			// Some nonces are missing from the middle/tail of the range. This is critical error.
-			return make_missing_nonce_error(nonce)
+			return make_missing_nonce_error(nonce);
 		}
 	}
 
@@ -546,11 +546,11 @@ fn validate_out_msgs_details<C: Chain>(
 	// some messages were already pruned from the source node. This is not a critical error
 	// and will be auto-resolved by messages lane (and target node).
 	if nonces_iter.peek().is_some() {
-		log::info!(
+		tracing::info!(
 			target: "bridge",
-			"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
-			C::NAME,
-			nonces_iter.rev().collect::<Vec<_>>(),
+			node=%C::NAME,
+			missing=?nonces_iter.rev().collect::<Vec<_>>(),
+			"Some messages are missing. Target node may be out of sync?"
 		);
 	}
 
@@ -575,7 +575,7 @@ fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain, LaneId
 					Source::FROM_CHAIN_MESSAGE_DETAILS_METHOD,
 					Target::NAME,
 					Target::max_extrinsic_size(),
-				)))
+				)));
 			}
 
 			if let Some(msg) = current_msgs_batch.pop() {

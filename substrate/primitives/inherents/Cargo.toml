@@ -19,10 +19,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 async-trait = { optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
-thiserror = { optional = true, workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { optional = true, workspace = true }
+thiserror = { optional = true, workspace = true }
 
 [dev-dependencies]
 futures = { workspace = true }

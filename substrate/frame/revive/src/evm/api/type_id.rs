@@ -16,7 +16,9 @@
 // limitations under the License.
 //! Ethereum Typed Transaction types
 use super::Byte;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use paste::paste;
+use rlp::Decodable;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -25,10 +27,21 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 macro_rules! transaction_type {
 	($name:ident, $value:literal) => {
 		#[doc = concat!("Transaction type identifier: ", $value)]
-		#[derive(Clone, Default, Debug, Eq, PartialEq)]
+		#[derive(Clone, Default, Debug, Eq, PartialEq, DecodeWithMemTracking)]
 		pub struct $name;
 
+		// upper case const name
+		paste! {
+			#[doc = concat!("Transaction value for type identifier: ", $value)]
+			pub const [<$name:snake:upper>]: u8 = $value;
+		}
+
 		impl $name {
+			/// Convert to u8
+			pub fn value(&self) -> u8 {
+				$value
+			}
+
 			/// Convert to Byte
 			pub fn as_byte(&self) -> Byte {
 				Byte::from($value)
@@ -36,10 +49,17 @@ macro_rules! transaction_type {
 
 			/// Try to convert from Byte
 			pub fn try_from_byte(byte: Byte) -> Result<Self, Byte> {
-				if byte.0 == $value {
+				if byte.0 == $value { Ok(Self {}) } else { Err(byte) }
+			}
+		}
+
+		impl Decodable for $name {
+			fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+				let value: u8 = rlp.as_val()?;
+				if value == $value {
 					Ok(Self {})
 				} else {
-					Err(byte)
+					Err(rlp::DecoderError::Custom(concat!("expected ", $value)))
 				}
 			}
 		}
@@ -90,6 +110,13 @@ macro_rules! transaction_type {
 	};
 }
 
-transaction_type!(Type0, 0);
-transaction_type!(Type1, 1);
-transaction_type!(Type2, 2);
+transaction_type!(TypeLegacy, 0);
+transaction_type!(TypeEip2930, 1);
+transaction_type!(TypeEip1559, 2);
+transaction_type!(TypeEip4844, 3);
+transaction_type!(TypeEip7702, 4);
+
+#[test]
+fn transaction_type() {
+	assert_eq!(TYPE_EIP2930, 1u8);
+}

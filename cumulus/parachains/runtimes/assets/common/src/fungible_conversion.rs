@@ -117,7 +117,7 @@ impl<
 		for_tuples!( #(
 			match Tuple::contains(location) { o @ true => return o, _ => () }
 		)* );
-		log::trace!(target: "xcm::contains", "did not match location: {:?}", &location);
+		tracing::trace!(target: "xcm::contains", ?location, "MatchesLocation: no match");
 		false
 	}
 }

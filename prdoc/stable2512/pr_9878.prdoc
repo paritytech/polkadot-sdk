@@ -1,0 +1,9 @@
+title: 'pallet-revive: add custom addr recovery logic in `ReceiptExtractor`'
+doc:
+- audience: Node Dev
+  description: |-
+    Add ability to customize pallet-revive-eth-rpc's `ReceiptExtractor` ethereum address recovery logic, used when parsing through blocks' transactions.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

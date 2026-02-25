@@ -1,0 +1,10 @@
+title: EIP-3607 added check to make sure a contract account cannot transfer funds
+  as an EOA account
+doc:
+- audience: Runtime Dev
+  description: fixes https://github.com/paritytech/polkadot-sdk/issues/9570
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-assets
+  bump: patch

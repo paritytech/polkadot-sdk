@@ -65,7 +65,7 @@ pub mod frame_system {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config(with_default)]
+	#[pallet::config(with_default, frame_system_config)]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: 'static {
 		#[pallet::no_default]
@@ -105,11 +105,11 @@ pub mod frame_system {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			if let Err(_err) = task.run() {
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			Ok(().into())
@@ -234,7 +234,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 

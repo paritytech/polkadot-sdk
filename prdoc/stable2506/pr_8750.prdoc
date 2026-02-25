@@ -1,0 +1,27 @@
+title: Move Transaction depth limit checks
+doc:
+- audience: Runtime Dev
+  description: |
+    This moves the check of the transaction depth limit to `frame-executive`
+    instead of having it hidden in the `sp-api` macros.
+
+    If you have used `MAX_EXTRINSIC_DEPTH` from the `sp-api` crate, the constant was moved to `frame-support`:
+    ```diff
+    -sp_api::MAX_EXTRINSIC_DEPTH
+    +frame_support::MAX_EXTRINSIC_DEPTH
+    ```
+crates:
+- name: frame-executive
+  bump: patch
+- name: frame-support
+  bump: minor
+- name: sp-api-proc-macro
+  bump: patch
+- name: sp-api
+  bump: major
+- name: pallet-whitelist
+  bump: patch
+- name: sc-chain-spec
+  bump: none
+- name: staging-chain-spec-builder
+  bump: none

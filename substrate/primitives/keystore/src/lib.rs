@@ -322,6 +322,22 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<bls381::Signature>, Error>;
 
+	/// Generate a bls381 Proof of Possession for a given public key
+	///
+	/// Receives ['KeyTypeId'] and a ['bls381::Public'] key to be able to map
+	/// them to a private key that exists in the keystore
+	///
+	/// Returns an ['bls381::Signature'] or 'None' in case the given 'key_type'
+	/// and 'public' combination doesn't exist in the keystore.
+	/// An 'Err' will be returned if generating the proof of possession itself failed.
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		owner: &[u8],
+	) -> Result<Option<bls381::ProofOfPossession>, Error>;
+
 	/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
 	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
@@ -621,6 +637,16 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		owner: &[u8],
+	) -> Result<Option<bls381::ProofOfPossession>, Error> {
+		(**self).bls381_generate_proof_of_possession(key_type, public, owner)
+	}
+
+	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -650,6 +676,16 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 
 	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
 		(**self).has_keys(public_keys)
+	}
+
+	fn sign_with(
+		&self,
+		id: KeyTypeId,
+		crypto_id: CryptoTypeId,
+		public: &[u8],
+		msg: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		(**self).sign_with(id, crypto_id, public, msg)
 	}
 }
 

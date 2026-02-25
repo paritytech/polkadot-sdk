@@ -54,7 +54,7 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 					// so if relayer slots are released, then message slots are also
 					// released
 					return post_occupation.free_message_slots >
-						info.unrewarded_relayers.free_message_slots
+						info.unrewarded_relayers.free_message_slots;
 				}
 
 				inbound_lane_data.last_delivered_nonce() == *info.base.bundled_range.end()
@@ -131,7 +131,7 @@ impl<
 					best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
 				},
 				unrewarded_relayers: unrewarded_relayers_occupation::<T, I>(&inbound_lane_data),
-			})
+			});
 		}
 
 		None
@@ -157,7 +157,7 @@ impl<
 				bundled_range: outbound_lane_data.latest_received_nonce + 1..=
 					relayers_state.last_delivered_nonce,
 				best_stored_nonce: outbound_lane_data.latest_received_nonce,
-			}))
+			}));
 		}
 
 		None
@@ -165,11 +165,11 @@ impl<
 
 	fn call_info(&self) -> Option<MessagesCallInfo<T::LaneId>> {
 		if let Some(info) = self.receive_messages_proof_info() {
-			return Some(MessagesCallInfo::ReceiveMessagesProof(info))
+			return Some(MessagesCallInfo::ReceiveMessagesProof(info));
 		}
 
 		if let Some(info) = self.receive_messages_delivery_proof_info() {
-			return Some(MessagesCallInfo::ReceiveMessagesDeliveryProof(info))
+			return Some(MessagesCallInfo::ReceiveMessagesDeliveryProof(info));
 		}
 
 		None
@@ -189,36 +189,36 @@ impl<
 		let is_pallet_halted = Pallet::<T, I>::ensure_not_halted().is_err();
 		match self.call_info() {
 			Some(proof_info) if is_pallet_halted => {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Rejecting messages transaction on halted pallet: {:?}",
-					proof_info
+					?proof_info,
+					"Rejecting messages transaction on halted pallet"
 				);
 
-				return sp_runtime::transaction_validity::InvalidTransaction::Call.into()
+				return sp_runtime::transaction_validity::InvalidTransaction::Call.into();
 			},
 			Some(MessagesCallInfo::ReceiveMessagesProof(proof_info))
 				if proof_info
 					.is_obsolete(T::MessageDispatch::is_active(proof_info.base.lane_id)) =>
 			{
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Rejecting obsolete messages delivery transaction: {:?}",
-					proof_info
+					?proof_info,
+					"Rejecting obsolete messages delivery transaction"
 				);
 
-				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
+				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into();
 			},
 			Some(MessagesCallInfo::ReceiveMessagesDeliveryProof(proof_info))
 				if proof_info.is_obsolete() =>
 			{
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Rejecting obsolete messages confirmation transaction: {:?}",
-					proof_info,
+					?proof_info,
+					"Rejecting obsolete messages confirmation transaction"
 				);
 
-				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into()
+				return sp_runtime::transaction_validity::InvalidTransaction::Stale.into();
 			},
 			_ => {},
 		}

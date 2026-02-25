@@ -57,11 +57,11 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 		move |mut subscription| async move {
 			loop {
 				let log_error = |err| {
-					log::error!(
+					tracing::error!(
 						target: "bridge",
-						"Failed to read justification target from the {} justifications stream: {:?}",
-						P::SourceChain::NAME,
-						err,
+						error=?err,
+						source=%P::SourceChain::NAME,
+						"Failed to read justification target from the justifications stream"
 					);
 				};
 
@@ -76,11 +76,11 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 					Ok(j) => j,
 					Err(err) => {
 						log_error(format!("decode failed with error {err:?}"));
-						continue
+						continue;
 					},
 				};
 
-				return Some((justification, subscription))
+				return Some((justification, subscription));
 			}
 		},
 	)

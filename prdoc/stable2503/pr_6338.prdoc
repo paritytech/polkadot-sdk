@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update Referenda to Support Block Number Provider
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR makes the referenda pallet uses the relay chain as a block provider for a parachain on a regular schedule.
+      To migrate existing referenda implementations, simply add `type BlockNumberProvider = System` to have the same behavior as before.
+
+crates:
+- name: pallet-referenda
+  bump: major

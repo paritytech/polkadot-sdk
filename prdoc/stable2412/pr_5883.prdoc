@@ -1,0 +1,15 @@
+title: 'statement-distribution RFC103 implementation'
+
+doc:
+  - audience: Node Dev
+    description: |
+       Introduces checks for the new candidate descriptor fields: `core_index` and `session_index`.
+
+crates:
+  - name: polkadot-statement-distribution
+    bump: minor
+  - name: polkadot-primitives
+    bump: major
+  - name: polkadot-primitives-test-helpers
+    bump: major
+

@@ -11,7 +11,7 @@ pub mod configs;
 extern crate alloc;
 use alloc::vec::Vec;
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
 	MultiAddress, MultiSignature,
 };
@@ -61,8 +61,8 @@ impl_opaque_keys! {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("solochain-template-runtime"),
-	impl_name: create_runtime_str!("solochain-template-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("solochain-template-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("solochain-template-runtime"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
@@ -146,8 +146,9 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 
-/// The `TransactionExtension`` to the basic transaction logic.
+/// The `TransactionExtension` to the basic transaction logic.
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Runtime>,
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -157,6 +158,7 @@ pub type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -166,12 +168,6 @@ pub type UncheckedExtrinsic =
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
-/// All migrations of the runtime, aside from the ones declared in the pallets.
-///
-/// This can be a tuple of types, each implementing `OnRuntimeUpgrade`.
-#[allow(unused_parens)]
-type Migrations = ();
-
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -179,7 +175,6 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	Migrations,
 >;
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -195,7 +190,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 

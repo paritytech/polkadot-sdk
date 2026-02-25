@@ -21,14 +21,14 @@
 fn ui() {
 	// Only run the ui tests when `RUN_UI_TESTS` is set.
 	if std::env::var("RUN_UI_TESTS").is_err() {
-		return
+		return;
 	}
 
 	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
 	std::env::set_var("SKIP_WASM_BUILD", "1");
 
 	// Warnings are part of our UI.
-	std::env::set_var("RUSTFLAGS", "--deny warnings");
+	std::env::set_var("CARGO_ENCODED_RUSTFLAGS", "--deny=warnings");
 
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/ui/*.rs");

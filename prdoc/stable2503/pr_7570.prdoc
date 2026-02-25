@@ -1,0 +1,7 @@
+title: '[pallet-revive] fix subxt version'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Cargo.lock change to subxt were rollback
+    Fixing it and updating it in Cargo.toml so it does not happen again
+crates: []

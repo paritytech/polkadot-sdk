@@ -5,6 +5,8 @@ authors.workspace = true
 description = "Parachain PoV recovery"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -19,10 +21,11 @@ tracing = { workspace = true, default-features = true }
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 # Polkadot
@@ -32,24 +35,18 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
+async-trait = { workspace = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
-async-trait = { workspace = true }
+cumulus-relay-chain-streams = { workspace = true, default-features = true }
 
 [dev-dependencies]
-rstest = { workspace = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
-portpicker = { workspace = true }
-sp-blockchain = { workspace = true, default-features = true }
-cumulus-test-client = { workspace = true }
-sc-utils = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+rstest = { workspace = true }
+sc-utils = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Cumulus
-cumulus-test-service = { workspace = true }
-
-# Substrate
-sc-cli = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-substrate-test-utils = { workspace = true }
+cumulus-test-client = { workspace = true }

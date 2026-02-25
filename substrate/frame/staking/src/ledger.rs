@@ -32,6 +32,7 @@
 //! state consistency.
 
 use frame_support::{defensive, ensure, traits::Defensive};
+use sp_runtime::DispatchResult;
 use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
@@ -85,8 +86,9 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn paired_account(account: StakingAccount<T::AccountId>) -> Option<T::AccountId> {
 		match account {
 			StakingAccount::Stash(stash) => <Bonded<T>>::get(stash),
-			StakingAccount::Controller(controller) =>
-				<Ledger<T>>::get(&controller).map(|ledger| ledger.stash),
+			StakingAccount::Controller(controller) => {
+				<Ledger<T>>::get(&controller).map(|ledger| ledger.stash)
+			},
 		}
 	}
 
@@ -108,8 +110,9 @@ impl<T: Config> StakingLedger<T> {
 	/// stash has a controller which is bonding a ledger associated with another stash.
 	pub(crate) fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		let (stash, controller) = match account.clone() {
-			StakingAccount::Stash(stash) =>
-				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?),
+			StakingAccount::Stash(stash) => {
+				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?)
+			},
 			StakingAccount::Controller(controller) => (
 				Ledger::<T>::get(&controller)
 					.map(|l| l.stash)
@@ -147,8 +150,9 @@ impl<T: Config> StakingLedger<T> {
 	) -> Option<RewardDestination<T::AccountId>> {
 		let stash = match account {
 			StakingAccount::Stash(stash) => Some(stash),
-			StakingAccount::Controller(controller) =>
-				Self::paired_account(StakingAccount::Controller(controller)),
+			StakingAccount::Controller(controller) => {
+				Self::paired_account(StakingAccount::Controller(controller))
+			},
 		};
 
 		if let Some(stash) = stash {
@@ -165,7 +169,7 @@ impl<T: Config> StakingLedger<T> {
 	/// controller is not set in `self`, which most likely means that self was fetched directly from
 	/// [`Ledger`] instead of through the methods exposed in [`StakingLedger`]. If the ledger does
 	/// not exist in storage, it returns `None`.
-	pub(crate) fn controller(&self) -> Option<T::AccountId> {
+	pub fn controller(&self) -> Option<T::AccountId> {
 		self.controller.clone().or_else(|| {
 			defensive!("fetched a controller on a ledger instance without it.");
 			Self::paired_account(StakingAccount::Stash(self.stash.clone()))
@@ -181,13 +185,14 @@ impl<T: Config> StakingLedger<T> {
 	/// this helper function.
 	pub(crate) fn update(self) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			return Err(Error::<T>::NotStash)
+			return Err(Error::<T>::NotStash);
 		}
 
 		// We skip locking virtual stakers.
 		if !Pallet::<T>::is_virtual_staker(&self.stash) {
 			// for direct stakers, update lock on stash based on ledger.
-			asset::update_stake::<T>(&self.stash, self.total);
+			asset::update_stake::<T>(&self.stash, self.total)
+				.map_err(|_| Error::<T>::NotEnoughFunds)?;
 		}
 
 		Ledger::<T>::insert(
@@ -206,7 +211,7 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			return Err(Error::<T>::AlreadyBonded)
+			return Err(Error::<T>::AlreadyBonded);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);
@@ -217,7 +222,7 @@ impl<T: Config> StakingLedger<T> {
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			return Err(Error::<T>::NotStash)
+			return Err(Error::<T>::NotStash);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);
@@ -250,7 +255,7 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
-	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
+	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
@@ -259,9 +264,9 @@ impl<T: Config> StakingLedger<T> {
 			<Payee<T>>::remove(&stash);
 
 			// kill virtual staker if it exists.
-			if <VirtualStakers<T>>::take(&stash).is_none() {
+			if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
 				// if not virtual staker, clear locks.
-				asset::kill_stake::<T>(&ledger.stash);
+				asset::kill_stake::<T>(&ledger.stash)?;
 			}
 
 			Ok(())

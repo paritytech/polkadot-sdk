@@ -25,7 +25,15 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
@@ -79,7 +87,7 @@ pub struct RunCmd {
 
 	/// Disable the BEEFY gadget.
 	///
-	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
+	/// Currently enabled by default.
 	#[arg(long)]
 	pub no_beefy: bool,
 
@@ -146,12 +154,29 @@ pub struct RunCmd {
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
 
-	/// Enable approval-voting message processing in parallel.
-	///
-	///**Dangerous!** This is an experimental feature and should not be used in production, unless
-	/// explicitly advised to.
+	/// How long finalized data should be kept in the availability store (in hours).
+	/// Only used for testnets. If not specified, set to 1 hour. Always set to 25 hours for live
+	/// networks.
 	#[arg(long)]
-	pub enable_approval_voting_parallel: bool,
+	pub keep_finalized_for: Option<u32>,
+
+	/// Overrides `HOLD_OFF_DURATION` in collator_protocol/validator_side. The value is in
+	/// milliseconds.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long, hide = true)]
+	pub collator_protocol_hold_off: Option<u64>,
+
+	/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
+	#[arg(long, hide = true, default_value = "false")]
+	pub experimental_collator_protocol: bool,
+
+	/// Collator reputation persistence interval in seconds.
+	/// If not specified, defaults to 600 seconds (10 minutes).
+	/// This should be used only with experimental_collator_protocol
+	/// and only on validators.
+	#[arg(long, requires = "experimental_collator_protocol", requires = "validator")]
+	pub collator_reputation_persist_interval: Option<u64>,
 }
 
 #[allow(missing_docs)]

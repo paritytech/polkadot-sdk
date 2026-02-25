@@ -3,7 +3,7 @@
 pub use crate::mock::*;
 use crate::{
 	config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER_HISTORICAL_ROOT},
-	functions::compute_period,
+	functions::{compute_epoch, compute_period},
 	mock::{
 		get_message_verification_payload, load_checkpoint_update_fixture,
 		load_finalized_header_update_fixture, load_next_finalized_header_update_fixture,
@@ -16,9 +16,11 @@ use crate::{
 use frame_support::{assert_err, assert_noop, assert_ok, pallet_prelude::Pays};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
-	types::deneb, Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
+	merkle_proof::{generalized_index_length, subtree_index},
+	types::deneb,
+	Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
 };
-use snowbridge_core::inbound::{VerificationError, Verifier};
+use snowbridge_verification_primitives::{VerificationError, Verifier};
 use sp_core::H256;
 use sp_runtime::DispatchError;
 
@@ -26,7 +28,7 @@ use sp_runtime::DispatchError;
 const TEST_HASH: [u8; 32] =
 	hex!["5f6f02af29218292d21a69b64a794a7c0873b3e0f54611972863706e8cbdf371"];
 
-/* UNIT TESTS */
+// UNIT TESTS
 
 #[test]
 pub fn sum_sync_committee_participation() {
@@ -173,8 +175,8 @@ pub fn verify_merkle_branch_for_finalized_root() {
 				hex!("d2dc4ba9fd4edff6716984136831e70a6b2e74fca27b8097a820cbbaa5a6e3c3").into(),
 				hex!("91f77a19d8afa4a08e81164bb2e570ecd10477b3b65c305566a6d2be88510584").into(),
 			],
-			crate::config::FINALIZED_ROOT_INDEX,
-			crate::config::FINALIZED_ROOT_DEPTH,
+			subtree_index(crate::config::altair::FINALIZED_ROOT_INDEX),
+			generalized_index_length(crate::config::altair::FINALIZED_ROOT_INDEX),
 			hex!("e46559327592741956f6beaa0f52e49625eb85dce037a0bd2eff333c743b287f").into()
 		));
 	});
@@ -190,8 +192,8 @@ pub fn verify_merkle_branch_fails_if_depth_and_branch_dont_match() {
 				hex!("5f6f02af29218292d21a69b64a794a7c0873b3e0f54611972863706e8cbdf371").into(),
 				hex!("e7125ff9ab5a840c44bedb4731f440a405b44e15f2d1a89e27341b432fabe13d").into(),
 			],
-			crate::config::FINALIZED_ROOT_INDEX,
-			crate::config::FINALIZED_ROOT_DEPTH,
+			subtree_index(crate::config::altair::FINALIZED_ROOT_INDEX),
+			generalized_index_length(crate::config::altair::FINALIZED_ROOT_INDEX),
 			hex!("e46559327592741956f6beaa0f52e49625eb85dce037a0bd2eff333c743b287f").into()
 		));
 	});
@@ -210,26 +212,7 @@ pub fn sync_committee_participation_is_supermajority() {
 #[test]
 pub fn sync_committee_participation_is_supermajority_errors_when_not_supermajority() {
 	new_tester().execute_with(|| {
-		let participation: [u8; 512] = [
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-			1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0,
-			1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-			1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1,
-			0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
-		];
+		let participation = hex!("0000000000000000000000000000000000000001010100010100000000000000000000000101010101000100010101010101010101010101010101010100010101000000000001010101010100010101000000000000000000000000000101000101010101010001010101010100010101010101010101010101000101010101010100010101010100000000010101010100000000000000000001010101010101010101010101010101010100010101010101010001010101010101010101010101010101000101010101010101010101010100010101010101010101010101010101010101010101010101010101010101010001010100010101010101010101000101010101010101010001010101010101010101000101010100010101010101010101010100010000000000000000000100000000000001010100000001000100010101010100000000000000000000000000000000000000010101010101010100010101010101010101010100010101010001010101010101010101010101010100000000000000000101010101000000000001000000000000000000010000000000000000000101010101010100010001010101010101000101010101010101010101010101010101000101010101010101010101010101010001010101010101010001010001000000000000000000000000000001000000000000");
 
 		assert_err!(
 			EthereumBeaconClient::sync_committee_participation_is_supermajority(&participation),
@@ -246,6 +229,8 @@ fn compute_fork_version() {
 		bellatrix: Fork { version: [0, 0, 0, 2], epoch: 20 },
 		capella: Fork { version: [0, 0, 0, 3], epoch: 30 },
 		deneb: Fork { version: [0, 0, 0, 4], epoch: 40 },
+		electra: Fork { version: [0, 0, 0, 5], epoch: 50 },
+		fulu: Fork { version: [0, 0, 0, 6], epoch: 60 },
 	};
 	new_tester().execute_with(|| {
 		assert_eq!(EthereumBeaconClient::select_fork_version(&mock_fork_versions, 0), [0, 0, 0, 0]);
@@ -266,15 +251,21 @@ fn compute_fork_version() {
 			EthereumBeaconClient::select_fork_version(&mock_fork_versions, 32),
 			[0, 0, 0, 3]
 		);
+		assert_eq!(
+			EthereumBeaconClient::select_fork_version(&mock_fork_versions, 40),
+			[0, 0, 0, 4]
+		);
+		assert_eq!(
+			EthereumBeaconClient::select_fork_version(&mock_fork_versions, 50),
+			[0, 0, 0, 5]
+		);
 	});
 }
 
 #[test]
 fn find_absent_keys() {
-	let participation: [u8; 32] = [
-		0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1,
-	];
+	let participation: [u8; 32] =
+		hex!("0001010101010100010101010101010101010101010101010101010101010101").into();
 	let update = load_sync_committee_update_fixture();
 	let sync_committee_prepared: SyncCommitteePrepared =
 		(&update.next_sync_committee_update.unwrap().next_sync_committee)
@@ -295,10 +286,8 @@ fn find_absent_keys() {
 
 #[test]
 fn find_present_keys() {
-	let participation: [u8; 32] = [
-		0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-		1, 0,
-	];
+	let participation: [u8; 32] =
+		hex!("0001000000000000010000000000000000000000000000000000010000000100").into();
 	let update = load_sync_committee_update_fixture();
 	let sync_committee_prepared: SyncCommitteePrepared =
 		(&update.next_sync_committee_update.unwrap().next_sync_committee)
@@ -319,7 +308,7 @@ fn find_present_keys() {
 	});
 }
 
-/* SYNC PROCESS TESTS */
+// SYNC PROCESS TESTS
 
 #[test]
 fn process_initial_checkpoint() {
@@ -763,7 +752,7 @@ fn sync_committee_update_for_sync_committee_already_imported_are_not_free() {
 	});
 }
 
-/* IMPLS */
+// IMPLS
 
 #[test]
 fn verify_message() {
@@ -778,7 +767,7 @@ fn verify_message() {
 #[test]
 fn verify_message_invalid_proof() {
 	let (event_log, mut proof) = get_message_verification_payload();
-	proof.receipt_proof.1[0] = TEST_HASH.into();
+	proof.receipt_proof[0] = TEST_HASH.into();
 
 	new_tester().execute_with(|| {
 		assert_ok!(initialize_storage());
@@ -815,7 +804,7 @@ fn verify_message_invalid_log() {
 		assert_ok!(initialize_storage());
 		assert_err!(
 			EthereumBeaconClient::verify(&event_log, &proof),
-			VerificationError::InvalidLog
+			VerificationError::LogNotFound
 		);
 	});
 }
@@ -968,5 +957,100 @@ fn verify_execution_proof_not_finalized() {
 			EthereumBeaconClient::verify_execution_proof(&update),
 			Error::<Test>::HeaderNotFinalized
 		);
+	});
+}
+
+#[test]
+fn verify_message_invalid_topic() {
+	let (event_log, proof) = get_message_verification_payload();
+	let mut event_log_muted = event_log.clone();
+	event_log_muted.topics[0] = H256::default();
+
+	new_tester().execute_with(|| {
+		assert_ok!(initialize_storage());
+		assert_err!(
+			EthereumBeaconClient::verify(&event_log_muted, &proof),
+			VerificationError::LogNotFound
+		);
+	});
+}
+
+#[test]
+fn signing_root_uses_previous_slot_for_fork_version() {
+	new_tester().execute_with(|| {
+		// Use a signature_slot at a fork boundary (first slot of the fulu epoch).
+		// In mock.rs: electra.epoch = 0, fulu.epoch = 100000000
+		let fulu_epoch = ChainForkVersions::get().fulu.epoch;
+		let signature_slot: u64 = fulu_epoch * (SLOTS_PER_EPOCH as u64);
+
+		// Verify this is the first slot of the epoch
+		assert_eq!(signature_slot % (SLOTS_PER_EPOCH as u64), 0);
+
+		let header = BeaconHeader {
+			slot: signature_slot - 1,
+			proposer_index: 0,
+			parent_root: H256::repeat_byte(0x11),
+			state_root: H256::repeat_byte(0x22),
+			body_root: H256::repeat_byte(0x33),
+		};
+
+		let validators_root = H256::repeat_byte(0x44);
+
+		// Get fork versions for comparison
+		let fork_version_at_signature_slot = EthereumBeaconClient::compute_fork_version(
+			compute_epoch(signature_slot, SLOTS_PER_EPOCH as u64),
+		);
+		let fork_version_at_previous_slot = EthereumBeaconClient::compute_fork_version(
+			compute_epoch(signature_slot.saturating_sub(1), SLOTS_PER_EPOCH as u64),
+		);
+
+		// At the fork boundary, these should differ
+		assert_ne!(
+			fork_version_at_signature_slot, fork_version_at_previous_slot,
+			"Test setup error: fork versions should differ at fork boundary"
+		);
+
+		// Compute signing roots using both fork versions
+		let domain_type = crate::config::DOMAIN_SYNC_COMMITTEE.to_vec();
+
+		let domain_with_previous_slot = EthereumBeaconClient::compute_domain(
+			domain_type.clone(),
+			fork_version_at_previous_slot,
+			validators_root,
+		)
+		.unwrap();
+
+		let signing_root_with_previous_slot =
+			EthereumBeaconClient::compute_signing_root(&header, domain_with_previous_slot).unwrap();
+
+		// The pallet's signing_root should use the previous slot's fork version (per spec)
+		let pallet_signing_root =
+			EthereumBeaconClient::signing_root(&header, validators_root, signature_slot).unwrap();
+
+		assert_eq!(
+			pallet_signing_root, signing_root_with_previous_slot,
+			"signing_root should use fork version from signature_slot - 1"
+		);
+	});
+}
+
+#[test]
+fn signing_root_handles_signature_slot_zero() {
+	// Per spec: fork_version_slot = max(signature_slot, 1) - 1
+	// When signature_slot = 0, saturating_sub(1) = 0, which matches max(0, 1) - 1 = 0
+	new_tester().execute_with(|| {
+		let header = BeaconHeader {
+			slot: 0,
+			proposer_index: 0,
+			parent_root: H256::repeat_byte(0x11),
+			state_root: H256::repeat_byte(0x22),
+			body_root: H256::repeat_byte(0x33),
+		};
+
+		let validators_root = H256::repeat_byte(0x44);
+
+		// Should not panic and should use epoch 0 fork version
+		let result = EthereumBeaconClient::signing_root(&header, validators_root, 0);
+		assert!(result.is_ok(), "signing_root should handle signature_slot = 0");
 	});
 }

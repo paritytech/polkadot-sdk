@@ -78,20 +78,20 @@ impl<S: Stream<Item = StdResult<T, E>> + Unpin, T: DeserializeOwned, E: Debug> S
 				Some(Ok(item)) => Some(item),
 				Some(Err(e)) => {
 					self.stream.take();
-					log::debug!(
+					tracing::debug!(
 						target: "bridge",
-						"{} has returned error: {:?}. It may need to be restarted",
-						self.desc.get(),
-						e,
+						error=?e,
+						desc=%self.desc.get(),
+						"Returned with error. It may need to be restarted"
 					);
 					None
 				},
 				None => {
 					self.stream.take();
-					log::debug!(
+					tracing::debug!(
 						target: "bridge",
-						"{} has returned `None`. It may need to be restarted",
-						self.desc.get()
+						desc=%self.desc.get(),
+						"Returned `None`. It may need to be restarted"
 					);
 					None
 				},
@@ -113,7 +113,7 @@ impl<T: 'static + Clone + DeserializeOwned + Send> SubscriptionBroadcaster<T> {
 	pub fn new(subscription: Subscription<T>) -> StdResult<Self, Subscription<T>> {
 		// It doesn't make sense to further broadcast a broadcasted subscription.
 		if subscription.is_broadcasted {
-			return Err(subscription)
+			return Err(subscription);
 		}
 
 		let desc = subscription.desc().clone();
@@ -183,11 +183,11 @@ async fn background_worker<T: 'static + Clone + DeserializeOwned + Send>(
 	mut subscribers_receiver: Receiver<Sender<T>>,
 ) {
 	fn log_task_exit(desc: &StreamDescription, reason: &str) {
-		log::debug!(
+		tracing::debug!(
 			target: "bridge",
-			"Background task of subscription broadcaster for {} has stopped: {}",
-			desc.get(),
-			reason,
+			desc=%desc.get(),
+			%reason,
+			"Background task of subscription broadcaster has stopped"
 		);
 	}
 
@@ -197,7 +197,7 @@ async fn background_worker<T: 'static + Clone + DeserializeOwned + Send>(
 		None => {
 			// it means that the last subscriber/factory has been dropped, so we need to
 			// exit too
-			return log_task_exit(subscription.desc(), "client has stopped")
+			return log_task_exit(subscription.desc(), "client has stopped");
 		},
 	};
 

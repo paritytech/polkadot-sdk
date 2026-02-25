@@ -18,7 +18,6 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use std::str::FromStr;
 use syn::{Generics, Ident};
 
 /// Represents the types supported for creating an outer enum.
@@ -114,7 +113,7 @@ pub fn expand_outer_enum(
 					be constructed: pallet `{}` must have generic `{}`",
 				enum_name_str, pallet_name, enum_name_str,
 			);
-			return Err(syn::Error::new(pallet_name.span(), msg))
+			return Err(syn::Error::new(pallet_name.span(), msg));
 		}
 
 		let part_is_generic = !generics.params.is_empty();
@@ -160,8 +159,9 @@ pub fn expand_outer_enum(
 			#event_custom_derives
 			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
+			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 		)]
 		#[allow(non_camel_case_types)]
 		pub enum #enum_name_ident {
@@ -185,14 +185,7 @@ fn expand_enum_variant(
 	let path = &pallet.path;
 	let variant_name = &pallet.name;
 	let part_is_generic = !generics.params.is_empty();
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	match instance {
 		Some(inst) if part_is_generic => quote! {
@@ -224,17 +217,11 @@ fn expand_enum_conversion(
 	enum_name_ident: &Ident,
 ) -> TokenStream {
 	let variant_name = &pallet.name;
-	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-			.expect("was successfully parsed before; qed");
-		quote! {
-			#acc
-			#attr
-		}
-	});
+	let attr = pallet.get_attributes();
 
 	quote! {
 		#attr
+		#[allow(deprecated)]
 		impl From<#pallet_enum> for #enum_name_ident {
 			fn from(x: #pallet_enum) -> Self {
 				#enum_name_ident
@@ -242,6 +229,7 @@ fn expand_enum_conversion(
 			}
 		}
 		#attr
+		#[allow(deprecated)]
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 
@@ -258,7 +246,7 @@ fn expand_enum_conversion(
 fn generate_error_impl(scrate: &TokenStream, enum_ty: OuterEnumType) -> TokenStream {
 	// Implementation is specific to `Error`s.
 	if enum_ty == OuterEnumType::Event {
-		return quote! {}
+		return quote! {};
 	}
 
 	let enum_name_ident = Ident::new(enum_ty.struct_name(), Span::call_site());

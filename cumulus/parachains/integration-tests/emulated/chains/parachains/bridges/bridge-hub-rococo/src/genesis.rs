@@ -22,7 +22,7 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 
 pub const ASSETHUB_PARA_ID: u32 = 1000;
 pub const PARA_ID: u32 = 1013;
@@ -33,6 +33,7 @@ pub fn genesis() -> Storage {
 		system: bridge_hub_rococo_runtime::SystemConfig::default(),
 		balances: bridge_hub_rococo_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: bridge_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -73,7 +74,7 @@ pub fn genesis() -> Storage {
 				// open AHR -> AHW bridge
 				(
 					Location::new(1, [Parachain(1000)]),
-					Junctions::from([Westend.into(), Parachain(1000)]),
+					Junctions::from([ByGenesis(WESTEND_GENESIS_HASH).into(), Parachain(1000)]),
 					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 				),
 			],

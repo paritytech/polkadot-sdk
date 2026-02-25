@@ -109,7 +109,7 @@ pub(crate) mod v0 {
 	use frame_support::storage_alias;
 
 	/// A vote by a member on a candidate application.
-	#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+	#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo)]
 	pub enum Vote {
 		/// The member has been chosen to be skeptic and has not yet taken any action.
 		Skeptic,
@@ -170,7 +170,7 @@ pub(crate) mod v0 {
 		Pallet<T, I>,
 		Twox64Concat,
 		<T as frame_system::Config>::AccountId,
-		Vec<(frame_system::pallet_prelude::BlockNumberFor<T>, BalanceOf<T, I>)>,
+		Vec<(BlockNumberFor<T, I>, BalanceOf<T, I>)>,
 		ValueQuery,
 	>;
 	#[storage_alias]

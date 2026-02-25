@@ -43,11 +43,13 @@ pub mod cleanup_proposals {
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut approval_index = BTreeSet::new();
+			#[allow(deprecated)]
 			for approval in Approvals::<T, I>::get().iter() {
 				approval_index.insert(*approval);
 			}
 
 			let mut proposals_processed = 0;
+			#[allow(deprecated)]
 			for (proposal_index, p) in Proposals::<T, I>::iter() {
 				if !approval_index.contains(&proposal_index) {
 					let err_amount = T::Currency::unreserve(&p.proposer, p.bond);

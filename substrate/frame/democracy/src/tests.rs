@@ -106,6 +106,7 @@ impl pallet_scheduler::Config for Test {
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -169,6 +170,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

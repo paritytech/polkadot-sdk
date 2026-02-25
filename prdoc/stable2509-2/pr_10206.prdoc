@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add rpm build for polkadot node
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR adds an rpm build for the polkadot node. The rpm package was tested on Rocky Linux 10 and Alma Linux 10 distributions
+
+crates:
+  - name: polkadot
+    bump: none

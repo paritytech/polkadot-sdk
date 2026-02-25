@@ -13,13 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		*,
-	},
-};
+use crate::{imports::*, tests::*};
 
 const XCM_FEE: u128 = 40_000_000_000;
 
@@ -30,7 +24,7 @@ fn register_westend_asset_on_rah_from_wah() {
 	let bridged_asset_at_rah = Location::new(
 		2,
 		[
-			GlobalConsensus(Westend),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 			Parachain(AssetHubWestend::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
@@ -44,11 +38,12 @@ fn register_westend_asset_on_rah_from_wah() {
 #[test]
 fn register_ethereum_asset_on_rah_from_wah() {
 	// Ethereum asset when bridged to Rococo Asset Hub.
+	let token_id = H160::random();
 	let bridged_asset_at_rah = Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
-			AccountKey20 { network: None, key: WETH },
+			GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID }),
+			AccountKey20 { network: None, key: token_id.into() },
 		],
 	);
 	// Register above asset on Rococo AH from Westend AH.
@@ -57,7 +52,7 @@ fn register_ethereum_asset_on_rah_from_wah() {
 
 fn register_asset_on_rah_from_wah(bridged_asset_at_rah: Location) {
 	let sa_of_wah_on_rah = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		AssetHubWestend::para_id(),
 	);
 
@@ -82,7 +77,7 @@ fn register_asset_on_rah_from_wah(bridged_asset_at_rah: Location) {
 
 	let destination = asset_hub_rococo_location();
 
-	// fund the WAH's SA on WBH for paying bridge transport fees
+	// fund the WAH's SA on WBH for paying bridge delivery fees
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 
 	// set XCM versions
@@ -108,8 +103,8 @@ fn register_asset_on_rah_from_wah(bridged_asset_at_rah: Location) {
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
-				// Burned the fee
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+				// Withdrawn the fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 					who: *who == sa_of_wah_on_rah.clone(),
 					amount: *amount == fee_amount,
 				},
@@ -119,8 +114,8 @@ fn register_asset_on_rah_from_wah(bridged_asset_at_rah: Location) {
 					creator: *creator == sa_of_wah_on_rah.clone(),
 					owner: *owner == sa_of_wah_on_rah,
 				},
-				// Unspent fee minted to origin
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				// Unspent fee deposited to origin
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == sa_of_wah_on_rah.clone(),
 				},
 			]

@@ -1,0 +1,16 @@
+title: 'sync: Send already connected peers to new subscribers'
+doc:
+- audience: Node Dev
+  description: |-
+    Introduce `SyncEvent::InitialPeers` message sent to new subscribers to allow them correctly tracking sync peers. This resolves a race condition described in https://github.com/paritytech/polkadot-sdk/issues/6573#issuecomment-2563091343.
+
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/6573.
+crates:
+- name: sc-network-gossip
+  bump: major
+- name: sc-network-statement
+  bump: patch
+- name: sc-network-sync
+  bump: major
+- name: sc-network-transactions
+  bump: patch

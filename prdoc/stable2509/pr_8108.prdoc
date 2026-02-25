@@ -1,0 +1,16 @@
+title: "Fix `reserve` and `can_reserve` methods in `pallet-balances` to properly handle reserved balances"
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes a bug in `pallet-balances` where the `reserve` and `can_reserve` methods were incorrectly 
+    preventing new reserves when an account's free balance was lower than its frozen balance, 
+    even if the usable balance was sufficient after accounting for the reserved balance.
+- audience: Runtime User
+  description: |-
+    Fixes a bug that was causing unexpected `LiquidityRestrictions` errors when attempting to 
+    reserve funds.
+
+crates: 
+- name: pallet-balances
+  bump: patch

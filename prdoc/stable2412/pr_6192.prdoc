@@ -1,0 +1,7 @@
+title: '[pallet-revive] fix hardcoded gas in tests'
+doc:
+- audience: Runtime Dev
+  description: Fix hardcoded gas limits in tests
+crates:
+- name: pallet-revive
+  bump: patch

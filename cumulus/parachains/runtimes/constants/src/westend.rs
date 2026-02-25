@@ -170,11 +170,15 @@ pub mod time {
 }
 
 pub mod snowbridge {
+	use cumulus_primitives_core::ParaId;
 	use frame_support::parameter_types;
 	use xcm::prelude::{Location, NetworkId};
 
 	/// The pallet index of the Ethereum inbound queue pallet in the bridge hub runtime.
-	pub const INBOUND_QUEUE_PALLET_INDEX: u8 = 80;
+	pub const INBOUND_QUEUE_PALLET_INDEX_V1: u8 = 80;
+	pub const INBOUND_QUEUE_PALLET_INDEX_V2: u8 = 91;
+
+	pub const FRONTEND_PALLET_INDEX: u8 = 36;
 
 	parameter_types! {
 		/// Network and location for the Ethereum chain. On Westend, the Ethereum chain bridged
@@ -183,10 +187,25 @@ pub mod snowbridge {
 		/// <https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version>
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 		pub EthereumLocation: Location = Location::new(2, EthereumNetwork::get());
+		pub AssetHubParaId: ParaId = ParaId::from(westend_runtime_constants::system_parachain::ASSET_HUB_ID);
 	}
 }
 
 pub mod xcm_version {
 	/// The default XCM version to set in genesis config.
 	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+}
+
+pub mod locations {
+	use frame_support::parameter_types;
+	pub use westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
+	use xcm::latest::prelude::{Location, Parachain};
+
+	parameter_types! {
+		pub AssetHubLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
+		pub PeopleLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID));
+	}
+
+	/// The governance on the AssetHub.
+	pub type GovernanceLocation = AssetHubLocation;
 }

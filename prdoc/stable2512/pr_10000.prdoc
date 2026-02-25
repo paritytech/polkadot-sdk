@@ -1,0 +1,8 @@
+title: try state hook for alliance pallet
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces the try_state hook to pallet-alliance to verify key storage invariants.
+crates:
+- name: pallet-alliance
+  bump: minor

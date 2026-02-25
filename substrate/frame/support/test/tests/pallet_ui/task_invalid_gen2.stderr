@@ -1,0 +1,13 @@
+error: Invalid type def generics: expected `T` or `T: Config` or `T, I = ()` or `T: Config<I>, I: 'static = ()`
+  --> tests/pallet_ui/task_invalid_gen2.rs:32:11
+   |
+32 |     pub enum Task {}
+   |              ^^^^
+
+error: unexpected end of input, expected `T`
+  --> tests/pallet_ui/task_invalid_gen2.rs:18:1
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,13 +1,8 @@
 [settings]
 timeout = 1000
 
-[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
-  max_candidate_depth = 3
-  allowed_ancestry_len = 2
-
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 1
-  lookahead = 2
   num_cores = 4
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]

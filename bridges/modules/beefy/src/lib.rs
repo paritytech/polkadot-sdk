@@ -58,8 +58,6 @@ pub type BridgedBlockHash<T, I> = bp_runtime::HashOf<BridgedChain<T, I>>;
 /// Pallet initialization data.
 pub type InitializationDataOf<T, I> =
 	InitializationData<BridgedBlockNumber<T, I>, bp_beefy::MmrHashOf<BridgedChain<T, I>>>;
-/// BEEFY commitment hasher, used by configured bridged chain.
-pub type BridgedBeefyCommitmentHasher<T, I> = bp_beefy::BeefyCommitmentHasher<BridgedChain<T, I>>;
 /// BEEFY validator id, used by configured bridged chain.
 pub type BridgedBeefyAuthorityId<T, I> = bp_beefy::BeefyAuthorityIdOf<BridgedChain<T, I>>;
 /// BEEFY validator set, used by configured bridged chain.
@@ -164,7 +162,7 @@ pub mod pallet {
 			let is_initialized = <ImportedCommitmentsInfo<T, I>>::exists();
 			ensure!(!is_initialized, <Error<T, I>>::AlreadyInitialized);
 
-			log::info!(target: LOG_TARGET, "Initializing bridge BEEFY pallet: {:?}", init_data);
+			tracing::info!(target: LOG_TARGET, ?init_data, "Initializing bridge BEEFY pallet");
 			Ok(initialize::<T, I>(init_data)?)
 		}
 
@@ -257,18 +255,18 @@ pub mod pallet {
 				next_block_number_index: (block_number_index + 1) % T::CommitmentsToKeep::get(),
 			});
 			if let Ok(old_block_number) = to_prune {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Pruning commitment for old block: {:?}.",
-					old_block_number
+					?old_block_number,
+					"Pruning commitment for old block."
 				);
 				ImportedCommitments::<T, I>::remove(old_block_number);
 			}
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Successfully imported commitment for block {:?}",
-				commitment.commitment.block_number,
+				block=?commitment.commitment.block_number,
+				"Successfully imported commitment for block",
 			);
 
 			Ok(())
@@ -283,7 +281,6 @@ pub mod pallet {
 	/// The `RequestCount` is decreased by one at the beginning of every block. This is to ensure
 	/// that the pallet can always make progress.
 	#[pallet::storage]
-	#[pallet::getter(fn request_count)]
 	pub type RequestCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
 	/// High level info about the imported commitments.
@@ -392,7 +389,7 @@ pub mod pallet {
 		init_data: InitializationDataOf<T, I>,
 	) -> Result<(), Error<T, I>> {
 		if init_data.authority_set.len == 0 {
-			return Err(Error::<T, I>::InvalidInitialAuthoritySet)
+			return Err(Error::<T, I>::InvalidInitialAuthoritySet);
 		}
 		CurrentAuthoritySetInfo::<T, I>::put(init_data.authority_set);
 
@@ -403,6 +400,13 @@ pub mod pallet {
 		});
 
 		Ok(())
+	}
+
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// The current number of requests which have written to storage.
+		pub fn request_count() -> u32 {
+			RequestCount::<T, I>::get()
+		}
 	}
 }
 

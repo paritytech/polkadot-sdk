@@ -1,0 +1,8 @@
+title: Accept only one block in `validate_block` when upgrading a runtime
+doc:
+- audience: Node Dev
+  description: |-
+    As the validation is running the entire time using the same validation code, we can not accept any other blocks after a runtime upgrade was applied.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch

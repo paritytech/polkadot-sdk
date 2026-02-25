@@ -1,0 +1,7 @@
+title: '[pallet-revive] fix bn128 benchmark'
+doc:
+- audience: Runtime Dev
+  description: Update bn128 benchmarks
+crates:
+- name: pallet-revive
+  bump: patch

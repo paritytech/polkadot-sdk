@@ -17,16 +17,21 @@
 //! Adapters to work with [`frame_support::traits::fungible`] through XCM.
 
 use super::MintLocation;
-use core::{marker::PhantomData, result};
-use frame_support::traits::{
-	tokens::{
-		fungible,
-		Fortitude::Polite,
-		Precision::Exact,
-		Preservation::{Expendable, Preserve},
-		Provenance::Minted,
+use alloc::boxed::Box;
+use core::{fmt::Debug, marker::PhantomData, result};
+use frame_support::{
+	defensive_assert,
+	traits::{
+		tokens::{
+			fungible,
+			imbalance::{ImbalanceAccounting, UnsafeManualAccounting},
+			Fortitude::Polite,
+			Precision::Exact,
+			Preservation::Expendable,
+			Provenance::Minted,
+		},
+		Get, Imbalance as ImbalanceT,
 	},
-	Get,
 };
 use xcm::latest::prelude::*;
 use xcm_executor::{
@@ -44,7 +49,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 	> TransactAsset for FungibleTransferAdapter<Fungible, Matcher, AccountIdConverter, AccountId>
 {
 	fn internal_transfer_asset(
@@ -52,11 +57,11 @@ impl<
 		from: &Location,
 		to: &Location,
 		_context: &XcmContext,
-	) -> result::Result<AssetsInHolding, XcmError> {
-		log::trace!(
+	) -> result::Result<Asset, XcmError> {
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"internal_transfer_asset what: {:?}, from: {:?}, to: {:?}",
-			what, from, to
+			?what, ?from, ?to,
+			"internal_transfer_asset",
 		);
 		// Check we handle the asset
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
@@ -64,9 +69,14 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::transfer(&source, &dest, amount, Preserve)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
-		Ok(what.clone().into())
+		Fungible::transfer(&source, &dest, amount, Expendable).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter", ?error, ?source, ?dest, ?amount,
+				"Failed to transfer asset",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
+		Ok(what.clone())
 	}
 }
 
@@ -81,20 +91,32 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
 {
 	fn can_accrue_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_deposit(&checking_account, amount, Minted)
 			.into_result()
-			.map_err(|_| XcmError::NotDepositable)
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter", ?error, ?checking_account, ?amount,
+					"Failed to deposit funds into account",
+				);
+				XcmError::NotDepositable
+			})
 	}
 
 	fn can_reduce_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_withdraw(&checking_account, amount)
 			.into_result(false)
-			.map_err(|_| XcmError::NotWithdrawable)
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter", ?error, ?checking_account, ?amount,
+					"Failed to withdraw funds from account",
+				);
+				XcmError::NotWithdrawable
+			})
 			.map(|_| ())
 	}
 
@@ -110,94 +132,134 @@ impl<
 }
 
 impl<
-		Fungible: fungible::Mutate<AccountId>,
+		Fungible: fungible::Inspect<AccountId, Balance: 'static>
+			+ fungible::Mutate<AccountId>
+			+ fungible::Balanced<AccountId, OnDropCredit: 'static, OnDropDebt: 'static>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	fungible::Imbalance<
+		<Fungible as fungible::Inspect<AccountId>>::Balance,
+		<Fungible as fungible::Balanced<AccountId>>::OnDropCredit,
+		<Fungible as fungible::Balanced<AccountId>>::OnDropDebt,
+	>: ImbalanceAccounting<u128>,
 {
-	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
-		log::trace!(
+	fn can_check_in(origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"can_check_in origin: {:?}, what: {:?}",
-			_origin, what
+			?origin, ?what,
+			"can_check_in origin",
 		);
 		// Check we handle this asset
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_reduce_checked(checking_account, amount),
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_accrue_checked(checking_account, amount),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_reduce_checked(checking_account, amount)
+			},
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_accrue_checked(checking_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
 
-	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
-		log::trace!(
+	fn check_in(origin: &Location, what: &Asset, _context: &XcmContext) {
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"check_in origin: {:?}, what: {:?}",
-			_origin, what
+			?origin, ?what,
+			"check_in origin",
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
-				Some((checking_account, MintLocation::Local)) =>
-					Self::reduce_checked(checking_account, amount),
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::accrue_checked(checking_account, amount),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::reduce_checked(checking_account, amount)
+				},
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::accrue_checked(checking_account, amount)
+				},
 				None => (),
 			}
 		}
 	}
 
-	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
-		log::trace!(
+	fn can_check_out(dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"can_check_out dest: {:?}, what: {:?}",
-			_dest,
-			what
+			?dest,
+			?what,
+			"can_check_out",
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_accrue_checked(checking_account, amount),
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_reduce_checked(checking_account, amount),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_accrue_checked(checking_account, amount)
+			},
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_reduce_checked(checking_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
 
-	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
-		log::trace!(
+	fn check_out(dest: &Location, what: &Asset, _context: &XcmContext) {
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"check_out dest: {:?}, what: {:?}",
-			_dest,
-			what
+			?dest,
+			?what,
+			"check_out",
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
-				Some((checking_account, MintLocation::Local)) =>
-					Self::accrue_checked(checking_account, amount),
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::reduce_checked(checking_account, amount),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::accrue_checked(checking_account, amount)
+				},
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::reduce_checked(checking_account, amount)
+				},
 				None => (),
 			}
 		}
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> XcmResult {
-		log::trace!(
+	fn deposit_asset(
+		mut what: AssetsInHolding,
+		who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"deposit_asset what: {:?}, who: {:?}",
-			what, who,
+			?what, ?who,
+			"deposit_asset",
 		);
-		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
-		let who = AccountIdConverter::convert_location(who)
-			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::mint_into(&who, amount)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+		defensive_assert!(what.len() == 1, "Trying to deposit more than one asset!");
+		// Check we handle this asset.
+		let maybe = what
+			.fungible_assets_iter()
+			.next()
+			.and_then(|asset| Matcher::matches_fungible(&asset).map(|amount| (asset.id, amount)));
+		let Some((asset_id, amount)) = maybe else {
+			return Err((what, MatchError::AssetNotHandled.into()));
+		};
+		let Some(who) = AccountIdConverter::convert_location(who) else {
+			return Err((what, MatchError::AccountIdConversionFailed.into()));
+		};
+		let Some(imbalance) = what.fungible.remove(&asset_id) else {
+			return Err((what, MatchError::AssetNotHandled.into()));
+		};
+		// "manually" build the concrete credit and move the imbalance there.
+		let mut credit = fungible::Credit::<AccountId, Fungible>::zero();
+		credit.saturating_subsume(imbalance);
+		Fungible::resolve(&who, credit).map_err(|unspent| {
+			tracing::debug!(target: "xcm::fungible_adapter", ?asset_id, ?who, ?amount, "Failed to deposit asset");
+			(
+				AssetsInHolding::new_from_fungible_credit(asset_id, Box::new(unspent)),
+				XcmError::FailedToTransactAsset("")
+			)
+		})?;
 		Ok(())
 	}
 
@@ -206,17 +268,30 @@ impl<
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> result::Result<AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"withdraw_asset what: {:?}, who: {:?}",
-			what, who,
+			?what, ?who,
+			"withdraw_asset",
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::burn_from(&who, amount, Expendable, Exact, Polite)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
-		Ok(what.clone().into())
+		let credit = Fungible::withdraw(&who, amount, Exact, Expendable, Polite).map_err(|error| {
+			tracing::debug!(target: "xcm::fungibles_adapter", ?error, ?who, ?amount, "Failed to withdraw asset");
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
+		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(credit)))
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		tracing::trace!(
+			target: "xcm::fungible_adapter",
+			?what, ?context,
+			"mint_asset",
+		);
+		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
+		let credit = Fungible::issue(amount);
+		Ok(AssetsInHolding::new_from_fungible_credit(what.id.clone(), Box::new(credit)))
 	}
 }
 
@@ -227,13 +302,21 @@ pub struct FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, Che
 	PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>,
 );
 impl<
-		Fungible: fungible::Mutate<AccountId>,
+		Fungible: fungible::Inspect<AccountId, Balance: 'static>
+			+ fungible::Mutate<AccountId>
+			+ fungible::Balanced<AccountId, OnDropCredit: 'static, OnDropDebt: 'static>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	fungible::Imbalance<
+		<Fungible as fungible::Inspect<AccountId>>::Balance,
+		<Fungible as fungible::Balanced<AccountId>>::OnDropCredit,
+		<Fungible as fungible::Balanced<AccountId>>::OnDropDebt,
+	>: ImbalanceAccounting<u128>,
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		FungibleMutateAdapter::<
@@ -275,7 +358,11 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		what: AssetsInHolding,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		FungibleMutateAdapter::<
 			Fungible,
 			Matcher,
@@ -304,9 +391,21 @@ impl<
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<AssetsInHolding, XcmError> {
+	) -> result::Result<Asset, XcmError> {
 		FungibleTransferAdapter::<Fungible, Matcher, AccountIdConverter, AccountId>::internal_transfer_asset(
 			what, from, to, context
+		)
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> result::Result<AssetsInHolding, XcmError> {
+		FungibleMutateAdapter::<
+			Fungible,
+			Matcher,
+			AccountIdConverter,
+			AccountId,
+			CheckingAccount,
+		>::mint_asset(
+			what, context,
 		)
 	}
 }

@@ -16,7 +16,7 @@
 
 use frame_support::{
 	parameter_types,
-	traits::{Everything, Get, Nothing},
+	traits::{Disabled, Everything, Get, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -90,17 +90,24 @@ pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 pub struct DummyAssetTransactor;
 impl TransactAsset for DummyAssetTransactor {
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		_what: AssetsInHolding,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		Ok(())
 	}
 
 	fn withdraw_asset(
-		_what: &Asset,
-		_who: &Location,
-		_maybe_context: Option<&XcmContext>,
+		what: &Asset,
+		_: &Location,
+		_: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
-		let asset: Asset = (Parent, 100_000).into();
-		Ok(asset.into())
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 
@@ -116,8 +123,8 @@ impl WeightTrader for DummyWeightTrader {
 		_weight: Weight,
 		_payment: AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
+		Ok(AssetsInHolding::new())
 	}
 }
 
@@ -130,6 +137,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = super::RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = super::Xcm;
 	type AssetTransactor = DummyAssetTransactor;
 	type OriginConverter = OriginConverter;
 	type IsReserve = ();
@@ -142,7 +150,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = super::Xcm;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = super::Xcm;
 	type SubscriptionService = super::Xcm;
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -185,4 +192,6 @@ impl pallet_xcm::Config for crate::Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<crate::AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }

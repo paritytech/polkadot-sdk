@@ -19,13 +19,13 @@
 use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Decode, Encode},
-	RuntimeDebug,
+	Debug,
 };
 
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 /// Assignment (ParaId -> CoreIndex).
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Debug, Clone, PartialEq)]
 pub enum Assignment {
 	/// A pool assignment.
 	Pool {

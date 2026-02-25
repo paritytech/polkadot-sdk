@@ -24,6 +24,17 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"babeslot";
 
 /// The type of the BABE inherent.
 pub type InherentType = sp_consensus_slots::Slot;
+
+/// Create inherent data providers for BABE with timestamp.
+#[cfg(feature = "std")]
+pub type BabeCreateInherentDataProviders<Block> = std::sync::Arc<
+	dyn sp_inherents::CreateInherentDataProviders<
+		Block,
+		(),
+		InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
+	>,
+>;
+
 /// Auxiliary trait to extract BABE inherent data.
 pub trait BabeInherentData {
 	/// Get BABE inherent data.

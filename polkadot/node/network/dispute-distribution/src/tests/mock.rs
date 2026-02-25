@@ -33,10 +33,10 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_primitives::{DisputeMessage, SignedDisputeStatement};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, Hash, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::dummy_candidate_descriptor;
+use polkadot_primitives_test_helpers::dummy_candidate_descriptor_v2;
 
 use crate::LOG_TARGET;
 
@@ -116,7 +116,7 @@ pub static MOCK_NEXT_SESSION_INFO: LazyLock<SessionInfo> = LazyLock::new(|| Sess
 
 pub fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
 	CandidateReceipt {
-		descriptor: dummy_candidate_descriptor(relay_parent),
+		descriptor: dummy_candidate_descriptor_v2(relay_parent),
 		commitments_hash: Hash::random(),
 	}
 }
@@ -221,7 +221,7 @@ impl AuthorityDiscovery for MockAuthorityDiscovery {
 					?result,
 					"Returning authority ids for peer id"
 				);
-				return Some(result)
+				return Some(result);
 			}
 		}
 

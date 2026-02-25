@@ -1,0 +1,7 @@
+title: Deny parameters for pallet macros that do not support parameters
+doc:
+- audience: Runtime Dev
+  description: "E.g. `pallet::constant`.\r\n"
+crates:
+- name: frame-support-procedural
+  bump: patch

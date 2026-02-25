@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_parachains, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -30,7 +30,9 @@ use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
-	assert_ok, derive_impl, parameter_types,
+	assert_ok, derive_impl,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -38,7 +40,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_support_test::TestRandomness;
-use frame_system::limits;
+use frame_system::{limits, EnsureRoot};
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
@@ -56,7 +58,7 @@ use std::{
 };
 use xcm::{
 	prelude::XcmVersion,
-	v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	v5::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
 	IntoVersion, VersionedXcm, WrapVersion,
 };
 
@@ -76,7 +78,6 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
-		ParachainsAssigner: assigner_parachains,
 		OnDemand: on_demand,
 		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
@@ -98,11 +99,11 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -112,7 +113,12 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
 		);
-	pub static BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(u32::MAX, Perbill::from_percent(75));
+	pub static BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(u32::MAX)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = Perbill::from_percent(75) * u32::MAX
+		})
+		.build();
 }
 
 pub type AccountId = u64;
@@ -246,6 +252,9 @@ impl crate::paras::Config for Test {
 	type NextSessionRotation = TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
 impl crate::dmp::Config for Test {}
@@ -261,7 +270,7 @@ thread_local! {
 /// versions in the `VERSION_WRAPPER`.
 pub struct TestUsesOnlyStoredVersionWrapper;
 impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -367,6 +376,9 @@ impl pallet_message_queue::WeightInfo for TestMessageQueueWeight {
 	fn service_page_item() -> Weight {
 		Weight::zero()
 	}
+	fn set_service_head() -> Weight {
+		Weight::zero()
+	}
 	fn bump_service_head() -> Weight {
 		Weight::zero()
 	}
@@ -398,8 +410,6 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = ();
 }
-
-impl assigner_parachains::Config for Test {}
 
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
@@ -435,7 +445,6 @@ impl Get<InteriorLocation> for BrokerPot {
 impl coretime::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Test>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
@@ -647,7 +656,7 @@ impl ProcessMessage for TestProcessMessage {
 			Err(_) => return Err(ProcessMessageError::Corrupt), // same as the real `ProcessMessage`
 		};
 		if meter.try_consume(required).is_err() {
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(required));
 		}
 
 		let mut processed = Processed::get();

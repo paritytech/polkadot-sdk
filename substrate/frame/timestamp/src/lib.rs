@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp)
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -120,7 +120,6 @@
 //!
 //! 2. If a timestamp is set more than once per block:
 #![doc = docify::embed!("src/tests.rs", double_timestamp_should_fail)]
-//!
 //! 3. If a timestamp is set before the [`Config::MinimumPeriod`] is elapsed:
 #![doc = docify::embed!("src/tests.rs", block_period_minimum_enforced)]
 #![deny(missing_docs)]
@@ -161,7 +160,7 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			type Moment = u64;
 			type OnTimestampSet = ();
-			type MinimumPeriod = frame_support::traits::ConstU64<1>;
+			type MinimumPeriod = ConstUint<1>;
 			type WeightInfo = ();
 		}
 	}

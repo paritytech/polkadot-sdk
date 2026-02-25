@@ -127,3 +127,67 @@ impl CheckSuspension for Tuple {
 		false
 	}
 }
+
+/// Trait to determine whether the execution engine should not execute a given XCM.
+///
+/// Can be amalgamated into a tuple to have multiple traits. If any of the tuple elements returns
+/// `Err(ProcessMessageError)`, the execution stops. Else, `Ok(())` is returned if all elements
+/// accept the message.
+pub trait DenyExecution {
+	/// Returns `Ok(())` if there is no reason to deny execution,
+	/// while `Err(ProcessMessageError)` indicates there is a reason to deny execution.
+	///
+	/// - `origin`: The origin (sender) of the message.
+	/// - `instructions`: The message itself.
+	/// - `max_weight`: The (possibly over-) estimation of the weight of execution of the message.
+	/// - `properties`: Various pre-established properties of the message which may be mutated by
+	///   this API.
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl DenyExecution for Tuple {
+	fn deny_execution<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		for_tuples!( #(
+            let barrier = core::any::type_name::<Tuple>();
+            match Tuple::deny_execution(origin, instructions, max_weight, properties) {
+                Err(error) => {
+                    tracing::error!(
+                        target: "xcm::deny_execution",
+                        ?origin,
+                        ?instructions,
+                        ?max_weight,
+                        ?properties,
+                        ?error,
+                        %barrier,
+                        "did not pass barrier",
+                    );
+                    return Err(error);
+                },
+				  Ok(())  => {
+                    tracing::trace!(
+                        target: "xcm::deny_execution",
+                        ?origin,
+                        ?instructions,
+                        ?max_weight,
+                        ?properties,
+                        %barrier,
+                        "pass barrier",
+                    );
+                },
+            }
+        )* );
+
+		Ok(())
+	}
+}

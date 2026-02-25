@@ -1,0 +1,7 @@
+title: '[pallet-revive] rpc - gas used fixes '
+doc:
+- audience: Runtime Dev
+  description: '#7463 follow up with RPC fixes'
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

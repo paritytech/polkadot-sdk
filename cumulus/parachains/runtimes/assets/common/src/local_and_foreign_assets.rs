@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use sp_runtime::{
@@ -21,6 +22,33 @@ use sp_runtime::{
 	Either::{Left, Right},
 };
 use xcm::latest::Location;
+
+/// Information about reserve locations for Foreign Assets.
+#[derive(
+	Clone,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct ForeignAssetReserveData {
+	/// A location acting as trusted reserve.
+	pub reserve: Location,
+	/// Whether asset is teleportable between local chain and `reserve`.
+	pub teleportable: bool,
+}
+
+impl From<(Location, bool)> for ForeignAssetReserveData {
+	fn from((reserve, teleportable): (Location, bool)) -> Self {
+		ForeignAssetReserveData { reserve, teleportable }
+	}
+}
 
 /// Converts a given [`Location`] to [`Either::Left`] when equal to `Target`, or
 /// [`Either::Right`] otherwise.

@@ -74,9 +74,8 @@ Subsystem](../disputes/dispute-coordinator.md). Misbehavior reports are currentl
 subsystem](../backing/candidate-backing.md) and contain the following misbehaviors:
 
 1. `Misbehavior::ValidityDoubleVote`
-2. `Misbehavior::MultipleCandidates`
-3. `Misbehavior::UnauthorizedStatement`
-4. `Misbehavior::DoubleSign`
+2. `Misbehavior::UnauthorizedStatement`
+3. `Misbehavior::DoubleSign`
 
 But we choose not to punish these forms of misbehavior for the time being. Risks from misbehavior are sufficiently
 mitigated at the protocol level via reputation changes. Punitive actions here may become desirable enough to dedicate

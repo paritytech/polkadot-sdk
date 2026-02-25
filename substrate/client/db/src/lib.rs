@@ -44,6 +44,7 @@ mod utils;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
+use prometheus_endpoint::Registry;
 use std::{
 	collections::{HashMap, HashSet},
 	io,
@@ -55,7 +56,7 @@ use crate::{
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
-	utils::{meta_keys, read_db, read_meta, DatabaseType, Meta},
+	utils::{meta_keys, read_db, read_meta, remove_from_db, DatabaseType, Meta},
 };
 use codec::{Decode, Encode};
 use hash_db::Prefix;
@@ -64,7 +65,7 @@ use sc_client_api::{
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
-	IoInfo, MemoryInfo, MemorySize, UsageInfo,
+	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
@@ -99,6 +100,26 @@ pub use sc_state_db::PruningMode;
 pub use sp_database::Database;
 
 pub use bench::BenchmarkingState;
+
+/// Filter to determine if a block should be excluded from pruning.
+///
+/// Note: This filter only affects **block body** (and future header) pruning.
+/// It does **not** affect state pruning, which is configured separately.
+pub trait PruningFilter: Send + Sync {
+	/// Check if a block with the given justifications should be preserved.
+	///
+	/// Returns `true` to preserve the block, `false` to allow pruning.
+	fn should_retain(&self, justifications: &Justifications) -> bool;
+}
+
+impl<F> PruningFilter for F
+where
+	F: Fn(&Justifications) -> bool + Send + Sync,
+{
+	fn should_retain(&self, justifications: &Justifications) -> bool {
+		(self)(justifications)
+	}
+}
 
 const CACHE_HEADERS: usize = 8;
 
@@ -312,6 +333,14 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
+	/// Filters to exclude blocks from pruning.
+	///
+	/// If any filter returns `true` for a block's justifications, the block body
+	/// (and in the future, the header) will be preserved even when it falls
+	/// outside the pruning window. Does not affect state pruning.
+	pub pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	/// Prometheus metrics registry.
+	pub metrics_registry: Option<Registry>,
 }
 
 /// Block pruning settings.
@@ -594,10 +623,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		)? {
 			Some(justifications) => match Decode::decode(&mut &justifications[..]) {
 				Ok(justifications) => Ok(Some(justifications)),
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding justifications: {err}"
-					))),
+					)))
+				},
 			},
 			None => Ok(None),
 		}
@@ -610,8 +640,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			// Plain body
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
-				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+				Err(err) => {
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					)))
+				},
 			}
 		}
 
@@ -640,10 +673,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 										)?;
 										body.push(ex);
 									},
-									None =>
+									None => {
 										return Err(sp_blockchain::Error::Backend(format!(
 											"Missing indexed transaction {hash:?}"
-										))),
+										)))
+									},
 								};
 							},
 							DbExtrinsic::Full(ex) => {
@@ -653,10 +687,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 					}
 					return Ok(Some(body));
 				},
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(None)
@@ -771,17 +806,19 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 					if let DbExtrinsic::Indexed { hash, .. } = ex {
 						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
 							Some(t) => transactions.push(t),
-							None =>
+							None => {
 								return Err(sp_blockchain::Error::Backend(format!(
 									"Missing indexed transaction {hash:?}",
-								))),
+								)))
+							},
 						}
 					}
 				}
 				Ok(Some(transactions))
 			},
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
+			},
 		}
 	}
 }
@@ -835,6 +872,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	set_head: Option<Block::Hash>,
 	commit_state: bool,
 	create_gap: bool,
+	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
 }
 
@@ -845,8 +883,9 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 			count += 1;
 			let key = crate::offchain::concatenate_prefix_and_key(&prefix, &key);
 			match value_operation {
-				OffchainOverlayedChange::SetValue(val) =>
-					transaction.set_from_vec(columns::OFFCHAIN, &key, val),
+				OffchainOverlayedChange::SetValue(val) => {
+					transaction.set_from_vec(columns::OFFCHAIN, &key, val)
+				},
 				OffchainOverlayedChange::Remove => transaction.remove(columns::OFFCHAIN, &key),
 			}
 		}
@@ -930,6 +969,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	) -> ClientResult<Block::Hash> {
 		let root = self.apply_new_state(storage, state_version)?;
 		self.commit_state = true;
+		self.reset_storage = true;
 		Ok(root)
 	}
 
@@ -1088,13 +1128,14 @@ impl<T: Clone> FrozenForDuration<T> {
 	{
 		let mut lock = self.value.lock();
 		let now = std::time::Instant::now();
-		if now.saturating_duration_since(lock.at) > self.duration || lock.value.is_none() {
-			let new_value = f();
-			lock.at = now;
-			lock.value = Some(new_value.clone());
-			new_value
-		} else {
-			lock.value.as_ref().expect("Checked with in branch above; qed").clone()
+		match lock.value.as_ref() {
+			Some(value) if now.saturating_duration_since(lock.at) <= self.duration => value.clone(),
+			_ => {
+				let new_value = f();
+				lock.at = now;
+				lock.value = Some(new_value.clone());
+				new_value
+			},
 		}
 	}
 }
@@ -1115,6 +1156,7 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+	pruning_filters: Vec<Arc<dyn PruningFilter>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1153,11 +1195,39 @@ impl<Block: BlockT> Backend<Block> {
 		Self::new_test_with_tx_storage(BlocksPruning::Some(blocks_pruning), canonicalization_delay)
 	}
 
+	/// Create new memory-backed client backend for tests with custom pruning filters.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_pruning_filters(
+		blocks_pruning: u32,
+		canonicalization_delay: u64,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	) -> Self {
+		Self::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(blocks_pruning),
+			canonicalization_delay,
+			pruning_filters,
+		)
+	}
+
 	/// Create new memory-backed client backend for tests.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_test_with_tx_storage(
 		blocks_pruning: BlocksPruning,
 		canonicalization_delay: u64,
+	) -> Self {
+		Self::new_test_with_tx_storage_and_filters(
+			blocks_pruning,
+			canonicalization_delay,
+			Default::default(),
+		)
+	}
+
+	/// Create new memory-backed client backend for tests with custom pruning filters.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_and_filters(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
 	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
@@ -1171,6 +1241,8 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			pruning_filters,
+			metrics_registry: None,
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
@@ -1180,7 +1252,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// The second argument is the Column that stores the State.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_db(&self) -> (Arc<dyn sp_database::Database<DbHash>>, sp_database::ColumnId) {
 		(self.storage.db.clone(), columns::STATE)
 	}
@@ -1188,9 +1260,19 @@ impl<Block: BlockT> Backend<Block> {
 	/// Expose the Storage that is used by this backend.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
+	}
+
+	/// Expose the shared trie cache that is used by this backend.
+	///
+	/// Should only be needed for benchmarking.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn expose_shared_trie_cache(
+		&self,
+	) -> Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>> {
+		self.shared_trie_cache.clone()
 	}
 
 	fn from_database(
@@ -1224,6 +1306,22 @@ impl<Block: BlockT> Backend<Block> {
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
+		let shared_trie_cache = config.trie_cache_maximum_size.map(|maximum_size| {
+			let system_memory = sysinfo::System::new_all();
+			let used_memory = system_memory.used_memory();
+			let total_memory = system_memory.total_memory();
+
+			debug!("Initializing shared trie cache with size {} bytes, {}% of total memory", maximum_size, (maximum_size as f64 / total_memory as f64 * 100.0));
+			if maximum_size as u64 > total_memory - used_memory {
+				warn!(
+					"Not enough memory to initialize shared trie cache. Cache size: {} bytes. System memory: used {} bytes, total {} bytes",
+					maximum_size, used_memory, total_memory,
+				);
+			}
+
+			SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref())
+		});
+
 		let backend = Backend {
 			storage: Arc::new(storage_db),
 			offchain_storage,
@@ -1235,9 +1333,8 @@ impl<Block: BlockT> Backend<Block> {
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
-			shared_trie_cache: config.trie_cache_maximum_size.map(|maximum_size| {
-				SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size))
-			}),
+			shared_trie_cache,
+			pruning_filters: config.pruning_filters.clone(),
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -1485,7 +1582,13 @@ impl<Block: BlockT> Backend<Block> {
 				.highest_leaf()
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
-			let existing_header = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			let header_exists_in_db =
+				number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			// Body in DB (not incoming block) - needed to update gap when adding body to existing
+			// header.
+			let body_exists_in_db = self.blockchain.body(hash)?.is_some();
+			// Incoming block has body - used for fast sync gap handling.
+			let incoming_has_body = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
 			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
@@ -1620,9 +1723,9 @@ impl<Block: BlockT> Backend<Block> {
 
 			let header = &pending_block.header;
 			let is_best = pending_block.leaf_state.is_best();
-			debug!(
+			trace!(
 				target: "db",
-				"DB Commit {hash:?} ({number}), best={is_best}, state={}, existing={existing_header}, finalized={finalized}",
+				"DB Commit {hash:?} ({number}), best={is_best}, state={}, header_in_db={header_exists_in_db} body_in_db={body_exists_in_db} incoming_body={incoming_has_body}, finalized={finalized}",
 				operation.commit_state,
 			);
 
@@ -1649,7 +1752,7 @@ impl<Block: BlockT> Backend<Block> {
 				self.force_delayed_canonicalize(&mut transaction)?
 			}
 
-			if !existing_header {
+			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
 				if number > last_finalized_num || last_finalized_num.is_zero() {
 					let mut leaves = self.blockchain.leaves.write();
@@ -1677,12 +1780,46 @@ impl<Block: BlockT> Backend<Block> {
 						children,
 					);
 				}
+			}
+
+			let should_check_block_gap = !header_exists_in_db || !body_exists_in_db;
+			debug!(
+				target: "db",
+				"should_check_block_gap = {should_check_block_gap}",
+			);
+
+			if should_check_block_gap {
+				let update_gap =
+					|transaction: &mut Transaction<DbHash>,
+					 new_gap: BlockGap<NumberFor<Block>>,
+					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
+						transaction.set(columns::META, meta_keys::BLOCK_GAP, &new_gap.encode());
+						transaction.set(
+							columns::META,
+							meta_keys::BLOCK_GAP_VERSION,
+							&BLOCK_GAP_CURRENT_VERSION.encode(),
+						);
+						block_gap.replace(new_gap);
+						debug!(target: "db", "Update block gap. {block_gap:?}");
+					};
+
+				let remove_gap =
+					|transaction: &mut Transaction<DbHash>,
+					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+						*block_gap = None;
+						debug!(target: "db", "Removed block gap.");
+					};
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
-						BlockGapType::MissingHeaderAndBody =>
+						BlockGapType::MissingHeaderAndBody => {
+							// Handle blocks at gap start or immediately following (possibly
+							// indicating blocks already imported during warp sync where
+							// start was not updated).
 							if number == gap.start {
-								gap.start += One::one();
+								gap.start = number + One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
 									columns::KEY_LOOKUP,
@@ -1690,48 +1827,62 @@ impl<Block: BlockT> Backend<Block> {
 									hash,
 								)?;
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									block_gap = Some(gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP,
-										&gap.encode(),
-									);
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP_VERSION,
-										&BLOCK_GAP_CURRENT_VERSION.encode(),
-									);
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
-							},
+							}
+						},
 						BlockGapType::MissingBody => {
-							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
+							// Gap increased when syncing the header chain during fast sync.
+							if number == gap.end + One::one() && !incoming_has_body {
+								gap.end += One::one();
+								utils::insert_number_to_key_mapping(
+									&mut transaction,
+									columns::KEY_LOOKUP,
+									number,
+									hash,
+								)?;
+								update_gap(&mut transaction, gap, &mut block_gap);
+								block_gap_updated = true;
+							// Gap decreased when downloading the full blocks.
+							} else if number == gap.start && incoming_has_body {
+								gap.start += One::one();
+								if gap.start > gap.end {
+									remove_gap(&mut transaction, &mut block_gap);
+								} else {
+									update_gap(&mut transaction, gap, &mut block_gap);
+								}
+								block_gap_updated = true;
+							}
 						},
 					}
-				} else if operation.create_gap &&
-					number > best_num + One::one() &&
-					self.blockchain.header(parent_hash)?.is_none()
-				{
-					let gap = BlockGap {
-						start: best_num + One::one(),
-						end: number - One::one(),
-						gap_type: BlockGapType::MissingHeaderAndBody,
-					};
-					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
-					transaction.set(
-						columns::META,
-						meta_keys::BLOCK_GAP_VERSION,
-						&BLOCK_GAP_CURRENT_VERSION.encode(),
-					);
-					block_gap = Some(gap);
-					block_gap_updated = true;
-					debug!(target: "db", "Detected block gap {block_gap:?}");
+				} else if operation.create_gap {
+					if number > best_num + One::one() &&
+						self.blockchain.header(parent_hash)?.is_none()
+					{
+						let gap = BlockGap {
+							start: best_num + One::one(),
+							end: number - One::one(),
+							gap_type: BlockGapType::MissingHeaderAndBody,
+						};
+						update_gap(&mut transaction, gap, &mut block_gap);
+						block_gap_updated = true;
+						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
+					} else if number == best_num + One::one() &&
+						self.blockchain.header(parent_hash)?.is_some() &&
+						!incoming_has_body
+					{
+						let gap = BlockGap {
+							start: number,
+							end: number,
+							gap_type: BlockGapType::MissingBody,
+						};
+						update_gap(&mut transaction, gap, &mut block_gap);
+						block_gap_updated = true;
+						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
+					}
 				}
 			}
 
@@ -1771,6 +1922,14 @@ impl<Block: BlockT> Backend<Block> {
 		}
 
 		self.storage.db.commit(transaction)?;
+
+		// `reset_storage == true` means the entire state got replaced.
+		// In this case we optimize the `STATE` column to improve read performance.
+		if operation.reset_storage {
+			if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
+				warn!(target: "db", "Failed to optimize database after state import: {e:?}");
+			}
+		}
 
 		// Apply all in-memory state changes.
 		// Code beyond this point can't fail.
@@ -1829,7 +1988,11 @@ impl<Block: BlockT> Backend<Block> {
 		}
 
 		if remove_displaced {
-			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+			let new_displaced = self.blockchain.displaced_leaves_after_finalizing(
+				f_hash,
+				f_num,
+				*f_header.parent_hash(),
+			)?;
 
 			self.blockchain.leaves.write().remove_displaced_leaves(FinalizationOutcome::new(
 				new_displaced.displaced_leaves.iter().copied(),
@@ -1859,6 +2022,30 @@ impl<Block: BlockT> Backend<Block> {
 
 				// Before we prune a block, check if it is pinned
 				if let Some(hash) = self.blockchain.hash(number)? {
+					// Check if any pruning filter wants to preserve this block.
+					// We need to check both the current transaction justifications (not yet in DB)
+					// and the DB itself (for justifications from previous transactions).
+					if !self.pruning_filters.is_empty() {
+						let justifications = match current_transaction_justifications.get(&hash) {
+							Some(j) => Some(Justifications::from(j.clone())),
+							None => self.blockchain.justifications(hash)?,
+						};
+
+						let should_retain = justifications
+							.map(|j| self.pruning_filters.iter().any(|f| f.should_retain(&j)))
+							.unwrap_or(false);
+
+						// We can just return here, pinning can be ignored since the block will
+						// remain in the DB.
+						if should_retain {
+							debug!(
+								target: "db",
+								"Preserving block #{number} ({hash}) due to keep predicate match"
+							);
+							return Ok(());
+						}
+					}
+
 					self.blockchain.insert_persisted_body_if_pinned(hash)?;
 
 					// If the block was finalized in this transaction, it will not be in the db
@@ -1920,16 +2107,18 @@ impl<Block: BlockT> Backend<Block> {
 				id,
 			)?;
 			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
-				Ok(index) =>
+				Ok(index) => {
 					for ex in index {
 						if let DbExtrinsic::Indexed { hash, .. } = ex {
 							transaction.release(columns::TRANSACTION, hash);
 						}
-					},
-				Err(err) =>
+					}
+				},
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(())
@@ -1938,7 +2127,7 @@ impl<Block: BlockT> Backend<Block> {
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
 		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
+			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache_untrusted()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 		RecordStatsState::new(state, None, self.state_usage.clone())
@@ -2079,6 +2268,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			set_head: None,
 			commit_state: false,
 			create_gap: true,
+			reset_storage: false,
 			index_ops: Default::default(),
 		})
 	}
@@ -2091,7 +2281,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if block == Default::default() {
 			operation.old_state = self.empty_state();
 		} else {
-			operation.old_state = self.state_at(block)?;
+			operation.old_state = self.state_at(block, TrieCacheContext::Untrusted)?;
 		}
 
 		operation.commit_state = true;
@@ -2257,7 +2447,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						"Error reverting to {hash_to_revert}. Block header not found.",
 					))
 				})?;
-				let removed_hash = removed.hash();
+				let removed_hash = hash_to_revert;
 
 				let prev_number = number_to_revert.saturating_sub(One::one());
 				let prev_hash =
@@ -2291,12 +2481,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
 									if !number_to_revert.is_zero() &&
-										self.have_state_at(
-											prev_hash,
-											number_to_revert - One::one(),
-										) {
+										self.have_state_at(prev_hash, prev_number)
+									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
-											number_to_revert - One::one(),
+											prev_number,
 											prev_hash,
 										)?;
 										transaction.set_from_vec(
@@ -2311,15 +2499,28 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 								}
 							}
 						}
+
 						transaction.set_from_vec(columns::META, meta_keys::BEST_BLOCK, key);
-						transaction.remove(columns::KEY_LOOKUP, removed.hash().as_ref());
+						transaction.remove(columns::KEY_LOOKUP, removed_hash.as_ref());
 						children::remove_children(
 							&mut transaction,
 							columns::META,
 							meta_keys::CHILDREN_PREFIX,
 							hash_to_revert,
 						);
+						self.prune_block(&mut transaction, BlockId::Hash(removed_hash))?;
+						remove_from_db::<Block>(
+							&mut transaction,
+							&*self.storage.db,
+							columns::KEY_LOOKUP,
+							columns::HEADER,
+							BlockId::Hash(removed_hash),
+						)?;
+
 						self.storage.db.commit(transaction)?;
+
+						// Clean the cache
+						self.blockchain.remove_header_metadata(removed_hash);
 
 						let is_best = number_to_revert < best_number;
 
@@ -2344,7 +2545,23 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			let mut transaction = Transaction::new();
 			let mut leaves = self.blockchain.leaves.write();
 
-			leaves.revert(hash_to_revert, number_to_revert);
+			leaves.revert(hash_to_revert, number_to_revert).into_iter().try_for_each(
+				|(h, _)| {
+					self.blockchain.remove_header_metadata(h);
+					transaction.remove(columns::KEY_LOOKUP, h.as_ref());
+
+					self.prune_block(&mut transaction, BlockId::Hash(h))?;
+					remove_from_db::<Block>(
+						&mut transaction,
+						&*self.storage.db,
+						columns::KEY_LOOKUP,
+						columns::HEADER,
+						BlockId::Hash(h),
+					)?;
+
+					Ok::<_, ClientError>(())
+				},
+			)?;
 			leaves.prepare_transaction(&mut transaction, columns::META, meta_keys::LEAF_PREFIX);
 			self.storage.db.commit(transaction)?;
 
@@ -2424,15 +2641,23 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		&self.blockchain
 	}
 
-	fn state_at(&self, hash: Block::Hash) -> ClientResult<Self::State> {
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		trie_cache_context: TrieCacheContext,
+	) -> ClientResult<Self::State> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
 				let db_state =
 					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
-						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-						)
+						.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+							if matches!(trie_cache_context, TrieCacheContext::Trusted) {
+								c.local_cache_trusted()
+							} else {
+								c.local_cache_untrusted()
+							}
+						}))
 						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
@@ -2454,9 +2679,13 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					let root = hdr.state_root;
 					let db_state =
 						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
-							.with_optional_cache(
-								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-							)
+							.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| {
+								if matches!(trie_cache_context, TrieCacheContext::Trusted) {
+									c.local_cache_trusted()
+								} else {
+									c.local_cache_untrusted()
+								}
+							}))
 							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
@@ -2558,7 +2787,7 @@ impl<Block: BlockT> sc_client_api::backend::LocalBackend<Block> for Backend<Bloc
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::columns;
+	use crate::{columns, utils::number_and_hash_to_lookup_key};
 	use hash_db::{HashDB, EMPTY_PREFIX};
 	use sc_client_api::{
 		backend::{Backend as BTrait, BlockImportOperation as Op},
@@ -2670,7 +2899,7 @@ pub(crate) mod tests {
 		let mut op = backend.begin_operation().unwrap();
 
 		let root = backend
-			.state_at(parent_hash)
+			.state_at(parent_hash, TrieCacheContext::Untrusted)
 			.unwrap_or_else(|_| {
 				if parent_hash == Default::default() {
 					backend.empty_state()
@@ -2732,6 +2961,8 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				pruning_filters: Default::default(),
+				metrics_registry: None,
 			},
 			0,
 		)
@@ -2781,7 +3012,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(hash).unwrap();
+			let state = db.state_at(hash, TrieCacheContext::Untrusted).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), Some(vec![2, 4, 6]));
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -2816,7 +3047,7 @@ pub(crate) mod tests {
 
 			db.commit_operation(op).unwrap();
 
-			let state = db.state_at(header.hash()).unwrap();
+			let state = db.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap();
 
 			assert_eq!(state.storage(&[1, 3, 5]).unwrap(), None);
 			assert_eq!(state.storage(&[1, 2, 3]).unwrap(), Some(vec![9, 9, 9]));
@@ -3180,16 +3411,18 @@ pub(crate) mod tests {
 		let a4_hash =
 			insert_disconnected_header(&backend, a4_number, a3_hash, H256::from([2; 32]), true);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([200; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, genesis_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(genesis_number, genesis_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3206,8 +3439,9 @@ pub(crate) mod tests {
 			false,
 		);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3225,8 +3459,9 @@ pub(crate) mod tests {
 			false,
 		);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![a4_hash, a1_hash, b1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3249,8 +3484,9 @@ pub(crate) mod tests {
 		let b5_hash =
 			insert_disconnected_header(&backend, b5_number, b4_hash, H256::from([43; 32]), false);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, H256::from([2; 32]))
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
@@ -3265,8 +3501,9 @@ pub(crate) mod tests {
 		let c4_hash =
 			insert_disconnected_header(&backend, c4_number, a3_hash, H256::from([44; 32]), false);
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(a4_hash, a4_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(a4_hash, a4_number, a3_hash)
+				.unwrap();
 			assert_eq!(blockchain.leaves().unwrap(), vec![b5_hash, a4_hash, c4_hash, a1_hash]);
 			assert_eq!(displaced.displaced_leaves, vec![(c4_number, c4_hash)]);
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
@@ -3295,24 +3532,27 @@ pub(crate) mod tests {
 
 		{
 			let displaced = blockchain
-				.displaced_leaves_after_finalizing(genesis_hash, genesis_number)
+				.displaced_leaves_after_finalizing(genesis_hash, genesis_number, Default::default())
 				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
 		{
-			let displaced_a1 =
-				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			let displaced_a1 = blockchain
+				.displaced_leaves_after_finalizing(a1_hash, a1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, vec![]);
 			assert_eq!(displaced_a1.displaced_blocks, vec![]);
 
-			let displaced_a2 =
-				blockchain.displaced_leaves_after_finalizing(a2_hash, a3_number).unwrap();
+			let displaced_a2 = blockchain
+				.displaced_leaves_after_finalizing(a2_hash, a2_number, a1_hash)
+				.unwrap();
 			assert_eq!(displaced_a2.displaced_leaves, vec![]);
 			assert_eq!(displaced_a2.displaced_blocks, vec![]);
 
-			let displaced_a3 =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced_a3 = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, a2_hash)
+				.unwrap();
 			assert_eq!(displaced_a3.displaced_leaves, vec![]);
 			assert_eq!(displaced_a3.displaced_blocks, vec![]);
 		}
@@ -3320,8 +3560,9 @@ pub(crate) mod tests {
 			// Finalized block is above leaves and not imported yet.
 			// We will not be able to make a connection,
 			// nothing can be marked as displaced.
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(H256::from([57; 32]), 10).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(H256::from([57; 32]), 10, H256::from([56; 32]))
+				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![]);
 			assert_eq!(displaced.displaced_blocks, vec![]);
 		}
@@ -3345,8 +3586,9 @@ pub(crate) mod tests {
 		let d2_hash = insert_header(&backend, d2_number, d1_hash, None, Default::default());
 
 		{
-			let displaced_a1 =
-				blockchain.displaced_leaves_after_finalizing(a1_hash, a1_number).unwrap();
+			let displaced_a1 = blockchain
+				.displaced_leaves_after_finalizing(a1_hash, a1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(
 				displaced_a1.displaced_leaves,
 				vec![(c2_number, c2_hash), (d2_number, d2_hash)]
@@ -3355,27 +3597,31 @@ pub(crate) mod tests {
 			displaced_blocks.sort();
 			assert_eq!(displaced_a1.displaced_blocks, displaced_blocks);
 
-			let displaced_a2 =
-				blockchain.displaced_leaves_after_finalizing(a2_hash, a2_number).unwrap();
+			let displaced_a2 = blockchain
+				.displaced_leaves_after_finalizing(a2_hash, a2_number, a1_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, displaced_a2.displaced_leaves);
 			assert_eq!(displaced_a1.displaced_blocks, displaced_a2.displaced_blocks);
 
-			let displaced_a3 =
-				blockchain.displaced_leaves_after_finalizing(a3_hash, a3_number).unwrap();
+			let displaced_a3 = blockchain
+				.displaced_leaves_after_finalizing(a3_hash, a3_number, a2_hash)
+				.unwrap();
 			assert_eq!(displaced_a1.displaced_leaves, displaced_a3.displaced_leaves);
 			assert_eq!(displaced_a1.displaced_blocks, displaced_a3.displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(b1_hash, b1_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(b1_hash, b1_number, genesis_hash)
+				.unwrap();
 			assert_eq!(displaced.displaced_leaves, vec![(a3_number, a3_hash)]);
 			let mut displaced_blocks = vec![a1_hash, a2_hash, a3_hash];
 			displaced_blocks.sort();
 			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(b2_hash, b2_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(b2_hash, b2_number, b1_hash)
+				.unwrap();
 			assert_eq!(
 				displaced.displaced_leaves,
 				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
@@ -3385,8 +3631,9 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, displaced_blocks);
 		}
 		{
-			let displaced =
-				blockchain.displaced_leaves_after_finalizing(c2_hash, c2_number).unwrap();
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(c2_hash, c2_number, c1_hash)
+				.unwrap();
 			assert_eq!(
 				displaced.displaced_leaves,
 				vec![(a3_number, a3_hash), (d2_number, d2_hash)]
@@ -3606,7 +3853,11 @@ pub(crate) mod tests {
 			hash
 		};
 
-		let block0_hash = backend.state_at(hash0).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block0_hash = backend
+			.state_at(hash0, TrieCacheContext::Untrusted)
+			.unwrap()
+			.storage_hash(&b"test"[..])
+			.unwrap();
 
 		let hash1 = {
 			let mut op = backend.begin_operation().unwrap();
@@ -3645,7 +3896,11 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		let block1_hash = backend.state_at(hash1).unwrap().storage_hash(&b"test"[..]).unwrap();
+		let block1_hash = backend
+			.state_at(hash1, TrieCacheContext::Untrusted)
+			.unwrap()
+			.storage_hash(&b"test"[..])
+			.unwrap();
 
 		assert_ne!(block0_hash, block1_hash);
 	}
@@ -3830,9 +4085,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_blocks_on_finalize_and_reorg() {
-		//	0 - 1b
-		//	\ - 1a - 2a - 3a
-		//	     \ - 2b
+		// 	0 - 1b
+		// 	\ - 1a - 2a - 3a
+		// 	     \ - 2b
 
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 
@@ -4268,10 +4523,34 @@ pub(crate) mod tests {
 		assert_eq!(3, backend.revert(1, false).unwrap().0);
 
 		assert!(backend.have_state_at(block1, 1));
-		assert!(!backend.have_state_at(block2, 2));
-		assert!(!backend.have_state_at(block3, 3));
-		assert!(!backend.have_state_at(block4, 4));
-		assert!(!backend.have_state_at(block3_fork, 3));
+
+		let ensure_pruned = |hash, number: u32| {
+			assert_eq!(
+				backend.blockchain.status(hash).unwrap(),
+				sc_client_api::blockchain::BlockStatus::Unknown
+			);
+			assert!(
+				backend
+					.blockchain
+					.db
+					.get(columns::BODY, &number_and_hash_to_lookup_key(number, hash).unwrap())
+					.is_none(),
+				"{number}"
+			);
+			assert!(
+				backend
+					.blockchain
+					.db
+					.get(columns::HEADER, &number_and_hash_to_lookup_key(number, hash).unwrap())
+					.is_none(),
+				"{number}"
+			);
+		};
+
+		ensure_pruned(block2, 2);
+		ensure_pruned(block3, 3);
+		ensure_pruned(block4, 4);
+		ensure_pruned(block3_fork, 3);
 
 		assert_eq!(backend.blockchain.leaves().unwrap(), vec![block1]);
 		assert_eq!(1, backend.blockchain.leaves.read().highest_leaf().unwrap().0);
@@ -4842,5 +5121,190 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn prune_blocks_with_empty_predicates_prunes_all() {
+		// Test backward compatibility: empty predicates means all blocks are pruned
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(2),
+			0,
+			vec![], // Empty predicates
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// Justification - but no predicate to preserve it
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+
+		// Finalize blocks, adding justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// All blocks outside pruning window should be pruned, even with justification
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert_eq!(None, bc.body(blocks[1]).unwrap()); // Has justification but no predicate
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_multiple_filters_or_logic() {
+		// Test that multiple filters use OR logic: if ANY filter matches, block is kept
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(2),
+			0,
+			vec![
+				Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some()),
+				Arc::new(|j: &Justifications| j.get(CONS1_ENGINE_ID).is_some()),
+			],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 7 blocks
+		for i in 0..7 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let cons0_justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		let cons1_justification = (CONS1_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks with different justification patterns
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[6]).unwrap();
+			// Block 1: CONS0 only - should be preserved
+			op.mark_finalized(blocks[1], Some(cons0_justification.clone())).unwrap();
+			// Block 2: CONS1 only - should be preserved
+			op.mark_finalized(blocks[2], Some(cons1_justification.clone())).unwrap();
+			// Block 3: No justification - should be pruned
+			op.mark_finalized(blocks[3], None).unwrap();
+			// Block 4: Random/unknown engine ID - should be pruned
+			op.mark_finalized(blocks[4], Some(([9, 9, 9, 9], vec![7, 8, 9]))).unwrap();
+			op.mark_finalized(blocks[5], None).unwrap();
+			op.mark_finalized(blocks[6], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should be preserved (has CONS0 justification)
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+
+		// Block 2 should be preserved (has CONS1 justification)
+		assert!(bc.body(blocks[2]).unwrap().is_some());
+
+		// Block 3 should be pruned (no justification)
+		assert_eq!(None, bc.body(blocks[3]).unwrap());
+
+		// Block 4 should be pruned (unknown engine ID)
+		assert_eq!(None, bc.body(blocks[4]).unwrap());
+
+		// Blocks 5 and 6 are within the pruning window
+		assert!(bc.body(blocks[5]).unwrap().is_some());
+		assert!(bc.body(blocks[6]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_filter_only_matches_specific_engine() {
+		// Test that a filter for one engine ID does NOT preserve blocks with a different engine ID
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some())],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let cons1_justification = (CONS1_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks, adding CONS1 justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			// Block 1 gets CONS1 justification - should NOT be preserved by CONS0 filter
+			op.mark_finalized(blocks[1], Some(cons1_justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should also be pruned (CONS1 justification, but only CONS0 filter)
+		assert_eq!(None, bc.body(blocks[1]).unwrap());
+
+		// Block 2 should be pruned
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
 	}
 }

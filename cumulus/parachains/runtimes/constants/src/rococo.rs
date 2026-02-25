@@ -167,3 +167,14 @@ pub mod xcm_version {
 	/// The default XCM version to set in genesis config.
 	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 }
+
+pub mod locations {
+	use frame_support::parameter_types;
+	pub use rococo_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
+	use xcm::latest::prelude::{Location, Parachain};
+
+	parameter_types! {
+		pub AssetHubLocation: Location = Location::new(1, Parachain(rococo_runtime_constants::system_parachain::ASSET_HUB_ID));
+		pub PeopleLocation: Location = Location::new(1, Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID));
+	}
+}

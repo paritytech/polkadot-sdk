@@ -17,7 +17,7 @@
 //! Various implementations for `ConvertOrigin`.
 
 use core::marker::PhantomData;
-use frame_support::traits::{EnsureOrigin, Get, GetBacking, OriginTrait};
+use frame_support::traits::{Contains, EnsureOrigin, Get, GetBacking, OriginTrait};
 use frame_system::RawOrigin as SystemRawOrigin;
 use polkadot_parachain_primitives::primitives::IsSystem;
 use sp_runtime::traits::TryConvert;
@@ -39,10 +39,10 @@ where
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SovereignSignedViaLocation origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SovereignSignedViaLocation",
 		);
 		if let OriginKind::SovereignAccount = kind {
 			let location = LocationConverter::convert_location(&origin).ok_or(origin)?;
@@ -60,7 +60,7 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin> for ParentAsSuperu
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "ParentAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ParentAsSuperuser",);
 		if kind == OriginKind::Superuser && origin.contains_parents_only(1) {
 			Ok(RuntimeOrigin::root())
 		} else {
@@ -80,11 +80,13 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "ChildSystemParachainAsSuperuser origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ChildSystemParachainAsSuperuser",);
 		match (kind, origin.unpack()) {
 			(OriginKind::Superuser, (0, [Junction::Parachain(id)]))
 				if ParaId::from(*id).is_system() =>
-				Ok(RuntimeOrigin::root()),
+			{
+				Ok(RuntimeOrigin::root())
+			},
 			_ => Err(origin),
 		}
 	}
@@ -101,15 +103,17 @@ impl<ParaId: IsSystem + From<u32>, RuntimeOrigin: OriginTrait> ConvertOrigin<Run
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SiblingSystemParachainAsSuperuser origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SiblingSystemParachainAsSuperuser",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Superuser, (1, [Junction::Parachain(id)]))
 				if ParaId::from(*id).is_system() =>
-				Ok(RuntimeOrigin::root()),
+			{
+				Ok(RuntimeOrigin::root())
+			},
 			_ => Err(origin),
 		}
 	}
@@ -126,10 +130,11 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "ChildParachainAsNative origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "ChildParachainAsNative");
 		match (kind, origin.unpack()) {
-			(OriginKind::Native, (0, [Junction::Parachain(id)])) =>
-				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
+			(OriginKind::Native, (0, [Junction::Parachain(id)])) => {
+				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id)))
+			},
 			_ => Err(origin),
 		}
 	}
@@ -146,14 +151,15 @@ impl<ParachainOrigin: From<u32>, RuntimeOrigin: From<ParachainOrigin>> ConvertOr
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SiblingParachainAsNative origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SiblingParachainAsNative",
 		);
 		match (kind, origin.unpack()) {
-			(OriginKind::Native, (1, [Junction::Parachain(id)])) =>
-				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id))),
+			(OriginKind::Native, (1, [Junction::Parachain(id)])) => {
+				Ok(RuntimeOrigin::from(ParachainOrigin::from(*id)))
+			},
 			_ => Err(origin),
 		}
 	}
@@ -171,7 +177,7 @@ impl<RelayOrigin: Get<RuntimeOrigin>, RuntimeOrigin> ConvertOrigin<RuntimeOrigin
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(target: "xcm::origin_conversion", "RelayChainAsNative origin: {:?}, kind: {:?}", origin, kind);
+		tracing::trace!(target: "xcm::origin_conversion", ?origin, ?kind, "RelayChainAsNative");
 		if kind == OriginKind::Native && origin.contains_parents_only(1) {
 			Ok(RelayOrigin::get())
 		} else {
@@ -191,15 +197,17 @@ where
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SignedAccountId32AsNative origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SignedAccountId32AsNative",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::AccountId32 { id, network }]))
 				if matches!(network, None) || *network == Network::get() =>
-				Ok(RuntimeOrigin::signed((*id).into())),
+			{
+				Ok(RuntimeOrigin::signed((*id).into()))
+			},
 			_ => Err(origin),
 		}
 	}
@@ -218,15 +226,17 @@ where
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::origin_conversion",
-			"SignedAccountKey20AsNative origin: {:?}, kind: {:?}",
-			origin, kind,
+			?origin, ?kind,
+			"SignedAccountKey20AsNative",
 		);
 		match (kind, origin.unpack()) {
 			(OriginKind::Native, (0, [Junction::AccountKey20 { key, network }]))
 				if (matches!(network, None) || *network == Network::get()) =>
-				Ok(RuntimeOrigin::signed((*key).into())),
+			{
+				Ok(RuntimeOrigin::signed((*key).into()))
+			},
 			_ => Err(origin),
 		}
 	}
@@ -279,8 +289,9 @@ where
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
-			Ok(SystemRawOrigin::Signed(who)) =>
-				Ok(Junction::AccountId32 { network: Network::get(), id: who.into() }.into()),
+			Ok(SystemRawOrigin::Signed(who)) => {
+				Ok(Junction::AccountId32 { network: Network::get(), id: who.into() }.into())
+			},
 			Ok(other) => Err(other.into()),
 			Err(other) => Err(other),
 		})
@@ -330,5 +341,125 @@ impl<RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin<RuntimeOrigin>, Body: 
 			Ok(_) => Ok(Junction::Plurality { id: Body::get(), part: BodyPart::Voice }.into()),
 			Err(o) => Err(o),
 		}
+	}
+}
+
+/// Converter that allows specific `Location`s to act as a superuser (`RuntimeOrigin::root()`)
+/// if it matches the predefined `WhitelistedSuperuserLocations` filter and `OriginKind::Superuser`.
+pub struct LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>(
+	PhantomData<(WhitelistedSuperuserLocations, RuntimeOrigin)>,
+);
+impl<WhitelistedSuperuserLocations: Contains<Location>, RuntimeOrigin: OriginTrait>
+	ConvertOrigin<RuntimeOrigin>
+	for LocationAsSuperuser<WhitelistedSuperuserLocations, RuntimeOrigin>
+{
+	fn convert_origin(
+		origin: impl Into<Location>,
+		kind: OriginKind,
+	) -> Result<RuntimeOrigin, Location> {
+		let origin = origin.into();
+		tracing::trace!(
+			target: "xcm::origin_conversion",
+			?origin, ?kind,
+			"LocationAsSuperuser",
+		);
+		match (kind, &origin) {
+			(OriginKind::Superuser, loc) if WhitelistedSuperuserLocations::contains(loc) => {
+				Ok(RuntimeOrigin::root())
+			},
+			_ => Err(origin),
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::{construct_runtime, derive_impl, parameter_types, traits::Equals};
+	use xcm::latest::{Junction::*, OriginKind};
+
+	type Block = frame_system::mocking::MockBlock<Test>;
+
+	construct_runtime!(
+		pub enum Test
+		{
+			System: frame_system,
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for Test {
+		type Block = Block;
+	}
+
+	parameter_types! {
+		pub SuperuserLocation: Location = Location::new(0, Parachain(1));
+	}
+
+	#[test]
+	fn superuser_location_works() {
+		let test_conversion = |loc, kind| {
+			LocationAsSuperuser::<Equals<SuperuserLocation>, RuntimeOrigin>::convert_origin(
+				loc, kind,
+			)
+		};
+
+		// Location that was set as SuperUserLocation should result in success conversion to Root
+		assert!(matches!(test_conversion(SuperuserLocation::get(), OriginKind::Superuser), Ok(..)));
+		// Same Location as SuperUserLocation::get()
+		assert!(matches!(
+			test_conversion(Location::new(0, Parachain(1)), OriginKind::Superuser),
+			Ok(..)
+		));
+
+		// Same Location but different origin kind
+		assert!(matches!(test_conversion(SuperuserLocation::get(), OriginKind::Native), Err(..)));
+		assert!(matches!(
+			test_conversion(SuperuserLocation::get(), OriginKind::SovereignAccount),
+			Err(..)
+		));
+		assert!(matches!(test_conversion(SuperuserLocation::get(), OriginKind::Xcm), Err(..)));
+
+		// No other location should result in successful conversion to Root
+		// thus expecting Err in all cases below
+		//
+		// Non-matching parachain number
+		assert!(matches!(
+			test_conversion(Location::new(0, Parachain(2)), OriginKind::Superuser),
+			Err(..)
+		));
+		// Non-matching parents count
+		assert!(matches!(
+			test_conversion(Location::new(1, Parachain(1)), OriginKind::Superuser),
+			Err(..)
+		));
+		// Child location of SuperUserLocation
+		assert!(matches!(
+			test_conversion(
+				Location::new(1, [Parachain(1), GeneralIndex(0)]),
+				OriginKind::Superuser
+			),
+			Err(..)
+		));
+		// Here
+		assert!(matches!(test_conversion(Location::new(0, Here), OriginKind::Superuser), Err(..)));
+		// Parent
+		assert!(matches!(test_conversion(Location::new(1, Here), OriginKind::Superuser), Err(..)));
+		// Some random account
+		assert!(matches!(
+			test_conversion(
+				Location::new(0, AccountId32 { network: None, id: [0u8; 32] }),
+				OriginKind::Superuser
+			),
+			Err(..)
+		));
+		// Child location of SuperUserLocation
+		assert!(matches!(
+			test_conversion(
+				Location::new(0, [Parachain(1), AccountId32 { network: None, id: [1u8; 32] }]),
+				OriginKind::Superuser
+			),
+			Err(..)
+		));
 	}
 }

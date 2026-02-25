@@ -22,11 +22,14 @@ use xcm::latest::{prelude::*, Weight};
 pub trait WeightBounds<RuntimeCall> {
 	/// Return the maximum amount of weight that an attempted execution of this message could
 	/// consume.
-	fn weight(message: &mut Xcm<RuntimeCall>) -> Result<Weight, ()>;
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError>;
 
 	/// Return the maximum amount of weight that an attempted execution of this instruction could
 	/// consume.
-	fn instr_weight(instruction: &Instruction<RuntimeCall>) -> Result<Weight, ()>;
+	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError>;
 }
 
 /// Charge for weight in order to execute XCM.
@@ -47,14 +50,25 @@ pub trait WeightTrader: Sized {
 		weight: Weight,
 		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError>;
+	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)>;
 
 	/// Attempt a refund of `weight` into some asset. The caller does not guarantee that the weight
 	/// was purchased using `buy_weight`.
 	///
 	/// Default implementation refunds nothing.
-	fn refund_weight(&mut self, _weight: Weight, _context: &XcmContext) -> Option<Asset> {
+	fn refund_weight(&mut self, _weight: Weight, _context: &XcmContext) -> Option<AssetsInHolding> {
 		None
+	}
+
+	/// Quote `weight` price in `given` asset id. Returns the full `Asset` that would be charged for
+	/// given `weight`.
+	fn quote_weight(
+		&mut self,
+		_weight: Weight,
+		_given: AssetId,
+		_context: &XcmContext,
+	) -> Result<Asset, XcmError> {
+		Err(XcmError::TooExpensive)
 	}
 }
 
@@ -67,32 +81,33 @@ impl WeightTrader for Tuple {
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: AssetsInHolding,
+		mut payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
 		let mut too_expensive_error_found = false;
 		let mut last_error = None;
 		for_tuples!( #(
 			let weight_trader = core::any::type_name::<Tuple>();
 
-			match Tuple.buy_weight(weight, payment.clone(), context) {
+			match Tuple.buy_weight(weight, payment, context) {
 				Ok(assets) => {
 					tracing::trace!(
-						target: "xcm::buy_weight", 
+						target: "xcm::buy_weight",
 						%weight_trader,
 						"Buy weight succeeded",
 					);
 
 					return Ok(assets)
 				},
-				Err(error) => {
+				Err((unused, error)) => {
+					payment = unused;
 					if let XcmError::TooExpensive = error {
 						too_expensive_error_found = true;
 					}
 					last_error = Some(error);
 
 					tracing::trace!(
-						target: "xcm::buy_weight", 
+						target: "xcm::buy_weight",
 						?error,
 						%weight_trader,
 						"Weight trader failed",
@@ -108,19 +123,36 @@ impl WeightTrader for Tuple {
 
 		// if we have multiple traders, and first one returns `TooExpensive` and others fail e.g.
 		// `AssetNotFound` then it is more accurate to return `TooExpensive` then `AssetNotFound`
-		Err(if too_expensive_error_found {
-			XcmError::TooExpensive
-		} else {
-			last_error.unwrap_or(XcmError::TooExpensive)
-		})
+		Err((
+			payment,
+			if too_expensive_error_found {
+				XcmError::TooExpensive
+			} else {
+				last_error.unwrap_or(XcmError::TooExpensive)
+			},
+		))
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<AssetsInHolding> {
 		for_tuples!( #(
 			if let Some(asset) = Tuple.refund_weight(weight, context) {
 				return Some(asset);
 			}
 		)* );
 		None
+	}
+
+	fn quote_weight(
+		&mut self,
+		weight: Weight,
+		given: AssetId,
+		context: &XcmContext,
+	) -> Result<Asset, XcmError> {
+		for_tuples!( #(
+			if let Ok(asset) = Tuple.quote_weight(weight, given.clone(), context) {
+				return Ok(asset);
+			}
+		)* );
+		Err(XcmError::TooExpensive)
 	}
 }

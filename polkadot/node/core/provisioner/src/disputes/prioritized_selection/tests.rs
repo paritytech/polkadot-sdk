@@ -26,11 +26,10 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 use polkadot_primitives::{
-	CandidateHash, DisputeState, InvalidDisputeStatementKind, SessionIndex,
-	ValidDisputeStatementKind, ValidatorSignature,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeState,
+	InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind, ValidatorSignature,
 };
 
-//
 // Unit tests for various functions
 //
 #[test]
@@ -81,7 +80,7 @@ fn should_keep_vote_behaves() {
 		true
 	);
 
-	//double voting - onchain knows
+	// double voting - onchain knows
 	let local_double_vote_onchain_knows =
 		(ValidatorIndex(4), InvalidDisputeStatementKind::Explicit);
 	assert_eq!(
@@ -93,7 +92,7 @@ fn should_keep_vote_behaves() {
 		false
 	);
 
-	//double voting - onchain doesn't know
+	// double voting - onchain doesn't know
 	let local_double_vote_onchain_doesnt_knows =
 		(ValidatorIndex(0), InvalidDisputeStatementKind::Explicit);
 	assert_eq!(
@@ -124,26 +123,24 @@ fn should_keep_vote_behaves() {
 
 #[test]
 fn partitioning_happy_case() {
-	let mut input = Vec::<(SessionIndex, CandidateHash, DisputeStatus)>::new();
+	let mut input = BTreeMap::<(SessionIndex, CandidateHash), DisputeStatus>::new();
 	let mut onchain = HashMap::<(u32, CandidateHash), DisputeState>::new();
 	let time_now = secs_since_epoch();
 
 	// Create one dispute for each partition
 	let inactive_unknown_onchain = (
-		0,
-		CandidateHash(Hash::random()),
+		(0, CandidateHash(Hash::random())),
 		DisputeStatus::ConcludedFor(time_now - ACTIVE_DURATION_SECS * 2),
 	);
-	input.push(inactive_unknown_onchain);
+	input.insert(inactive_unknown_onchain.0, inactive_unknown_onchain.1);
 
 	let inactive_unconcluded_onchain = (
-		1,
-		CandidateHash(Hash::random()),
+		(1, CandidateHash(Hash::random())),
 		DisputeStatus::ConcludedFor(time_now - ACTIVE_DURATION_SECS * 2),
 	);
-	input.push(inactive_unconcluded_onchain);
+	input.insert(inactive_unconcluded_onchain.0, inactive_unconcluded_onchain.1);
 	onchain.insert(
-		(inactive_unconcluded_onchain.0, inactive_unconcluded_onchain.1),
+		inactive_unconcluded_onchain.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 0, 0, 0, 0, 0, 0],
 			validators_against: bitvec![u8, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -152,13 +149,13 @@ fn partitioning_happy_case() {
 		},
 	);
 
-	let active_unknown_onchain = (2, CandidateHash(Hash::random()), DisputeStatus::Active);
-	input.push(active_unknown_onchain);
+	let active_unknown_onchain = ((2, CandidateHash(Hash::random())), DisputeStatus::Active);
+	input.insert(active_unknown_onchain.0, active_unknown_onchain.1);
 
-	let active_unconcluded_onchain = (3, CandidateHash(Hash::random()), DisputeStatus::Active);
-	input.push(active_unconcluded_onchain);
+	let active_unconcluded_onchain = ((3, CandidateHash(Hash::random())), DisputeStatus::Active);
+	input.insert(active_unconcluded_onchain.0, active_unconcluded_onchain.1);
 	onchain.insert(
-		(active_unconcluded_onchain.0, active_unconcluded_onchain.1),
+		active_unconcluded_onchain.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 0, 0, 0, 0, 0, 0],
 			validators_against: bitvec![u8, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -167,10 +164,10 @@ fn partitioning_happy_case() {
 		},
 	);
 
-	let active_concluded_onchain = (4, CandidateHash(Hash::random()), DisputeStatus::Active);
-	input.push(active_concluded_onchain);
+	let active_concluded_onchain = ((4, CandidateHash(Hash::random())), DisputeStatus::Active);
+	input.insert(active_concluded_onchain.0, active_concluded_onchain.1);
 	onchain.insert(
-		(active_concluded_onchain.0, active_concluded_onchain.1),
+		active_concluded_onchain.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 1, 1, 1, 0],
 			validators_against: bitvec![u8, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -180,13 +177,12 @@ fn partitioning_happy_case() {
 	);
 
 	let inactive_concluded_onchain = (
-		5,
-		CandidateHash(Hash::random()),
+		(5, CandidateHash(Hash::random())),
 		DisputeStatus::ConcludedFor(time_now - ACTIVE_DURATION_SECS * 2),
 	);
-	input.push(inactive_concluded_onchain);
+	input.insert(inactive_concluded_onchain.0, inactive_concluded_onchain.1);
 	onchain.insert(
-		(inactive_concluded_onchain.0, inactive_concluded_onchain.1),
+		inactive_concluded_onchain.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 1, 1, 0, 0],
 			validators_against: bitvec![u8, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -199,40 +195,25 @@ fn partitioning_happy_case() {
 
 	// Check results
 	assert_eq!(result.inactive_unknown_onchain.len(), 1);
-	assert_eq!(
-		result.inactive_unknown_onchain.get(0).unwrap(),
-		&(inactive_unknown_onchain.0, inactive_unknown_onchain.1)
-	);
+	assert_eq!(result.inactive_unknown_onchain.get(0).unwrap(), &inactive_unknown_onchain.0);
 
 	assert_eq!(result.inactive_unconcluded_onchain.len(), 1);
 	assert_eq!(
 		result.inactive_unconcluded_onchain.get(0).unwrap(),
-		&(inactive_unconcluded_onchain.0, inactive_unconcluded_onchain.1)
+		&inactive_unconcluded_onchain.0
 	);
 
 	assert_eq!(result.active_unknown_onchain.len(), 1);
-	assert_eq!(
-		result.active_unknown_onchain.get(0).unwrap(),
-		&(active_unknown_onchain.0, active_unknown_onchain.1)
-	);
+	assert_eq!(result.active_unknown_onchain.get(0).unwrap(), &active_unknown_onchain.0);
 
 	assert_eq!(result.active_unconcluded_onchain.len(), 1);
-	assert_eq!(
-		result.active_unconcluded_onchain.get(0).unwrap(),
-		&(active_unconcluded_onchain.0, active_unconcluded_onchain.1)
-	);
+	assert_eq!(result.active_unconcluded_onchain.get(0).unwrap(), &active_unconcluded_onchain.0);
 
 	assert_eq!(result.active_concluded_onchain.len(), 1);
-	assert_eq!(
-		result.active_concluded_onchain.get(0).unwrap(),
-		&(active_concluded_onchain.0, active_concluded_onchain.1)
-	);
+	assert_eq!(result.active_concluded_onchain.get(0).unwrap(), &active_concluded_onchain.0);
 
 	assert_eq!(result.inactive_concluded_onchain.len(), 1);
-	assert_eq!(
-		result.inactive_concluded_onchain.get(0).unwrap(),
-		&(inactive_concluded_onchain.0, inactive_concluded_onchain.1)
-	);
+	assert_eq!(result.inactive_concluded_onchain.get(0).unwrap(), &inactive_concluded_onchain.0);
 }
 
 // This test verifies the double voting behavior. Currently we don't care if a supermajority is
@@ -242,20 +223,20 @@ fn partitioning_happy_case() {
 // in the future. Link to the PR with the discussions: https://github.com/paritytech/polkadot/pull/5567
 #[test]
 fn partitioning_doubled_onchain_vote() {
-	let mut input = Vec::<(SessionIndex, CandidateHash, DisputeStatus)>::new();
+	let mut input = BTreeMap::<(SessionIndex, CandidateHash), DisputeStatus>::new();
 	let mut onchain = HashMap::<(u32, CandidateHash), DisputeState>::new();
 
 	// Dispute A relies on a 'double onchain vote' to conclude. Validator with index 0 has voted
 	// both `for` and `against`. Despite that this dispute should be considered 'can conclude
 	// onchain'.
-	let dispute_a = (3, CandidateHash(Hash::random()), DisputeStatus::Active);
+	let dispute_a = ((3, CandidateHash(Hash::random())), DisputeStatus::Active);
 	// Dispute B has supermajority + 1 votes, so the doubled onchain vote doesn't affect it. It
 	// should be considered as 'can conclude onchain'.
-	let dispute_b = (4, CandidateHash(Hash::random()), DisputeStatus::Active);
-	input.push(dispute_a);
-	input.push(dispute_b);
+	let dispute_b = ((4, CandidateHash(Hash::random())), DisputeStatus::Active);
+	input.insert(dispute_a.0, dispute_a.1);
+	input.insert(dispute_b.0, dispute_b.1);
 	onchain.insert(
-		(dispute_a.0, dispute_a.1),
+		dispute_a.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 1, 1, 0, 0],
 			validators_against: bitvec![u8, Lsb0; 1, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -264,7 +245,7 @@ fn partitioning_doubled_onchain_vote() {
 		},
 	);
 	onchain.insert(
-		(dispute_b.0, dispute_b.1),
+		dispute_b.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 1, 1, 1, 1, 1, 0],
 			validators_against: bitvec![u8, Lsb0; 1, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -281,14 +262,14 @@ fn partitioning_doubled_onchain_vote() {
 
 #[test]
 fn partitioning_duplicated_dispute() {
-	let mut input = Vec::<(SessionIndex, CandidateHash, DisputeStatus)>::new();
+	let mut input = BTreeMap::<(SessionIndex, CandidateHash), DisputeStatus>::new();
 	let mut onchain = HashMap::<(u32, CandidateHash), DisputeState>::new();
 
-	let some_dispute = (3, CandidateHash(Hash::random()), DisputeStatus::Active);
-	input.push(some_dispute);
-	input.push(some_dispute);
+	let some_dispute = ((3, CandidateHash(Hash::random())), DisputeStatus::Active);
+	input.insert(some_dispute.0, some_dispute.1);
+	input.insert(some_dispute.0, some_dispute.1);
 	onchain.insert(
-		(some_dispute.0, some_dispute.1),
+		some_dispute.0,
 		DisputeState {
 			validators_for: bitvec![u8, Lsb0; 1, 1, 1, 0, 0, 0, 0, 0, 0],
 			validators_against: bitvec![u8, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -300,13 +281,9 @@ fn partitioning_duplicated_dispute() {
 	let result = partition_recent_disputes(input, &onchain);
 
 	assert_eq!(result.active_unconcluded_onchain.len(), 1);
-	assert_eq!(
-		result.active_unconcluded_onchain.get(0).unwrap(),
-		&(some_dispute.0, some_dispute.1)
-	);
+	assert_eq!(result.active_unconcluded_onchain.get(0).unwrap(), &some_dispute.0);
 }
 
-//
 // end-to-end tests for select_disputes()
 //
 
@@ -355,7 +332,7 @@ fn leaf() -> ActivatedLeaf {
 }
 
 struct TestDisputes {
-	pub local_disputes: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+	pub local_disputes: BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>,
 	pub votes_db: HashMap<(SessionIndex, CandidateHash), CandidateVotes>,
 	pub onchain_disputes: HashMap<(u32, CandidateHash), DisputeState>,
 	validators_count: usize,
@@ -364,7 +341,7 @@ struct TestDisputes {
 impl TestDisputes {
 	pub fn new(validators_count: usize) -> TestDisputes {
 		TestDisputes {
-			local_disputes: Vec::<(SessionIndex, CandidateHash, DisputeStatus)>::new(),
+			local_disputes: BTreeMap::<(SessionIndex, CandidateHash), DisputeStatus>::new(),
 			votes_db: HashMap::<(SessionIndex, CandidateHash), CandidateVotes>::new(),
 			onchain_disputes: HashMap::<(u32, CandidateHash), DisputeState>::new(),
 			validators_count,
@@ -378,7 +355,7 @@ impl TestDisputes {
 		local_votes_count: usize,
 		dummy_receipt: CandidateReceipt,
 	) {
-		self.local_disputes.push(dispute);
+		self.local_disputes.insert((dispute.0, dispute.1), dispute.2);
 		self.votes_db.insert(
 			(dispute.0, dispute.1),
 			CandidateVotes {
@@ -427,7 +404,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 80 / 100;
 		let session_idx = 0;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -445,7 +422,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 40 / 100;
 		let session_idx = 1;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -462,7 +439,7 @@ impl TestDisputes {
 		let local_votes_count = self.validators_count * 90 / 100;
 		let session_idx = 2;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Confirmed);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -478,7 +455,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 75 / 100;
 		let session_idx = 3;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::ConcludedFor(0));
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -494,7 +471,7 @@ impl TestDisputes {
 		let local_votes_count = self.validators_count * 90 / 100;
 		let session_idx = 4;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::ConcludedFor(0));
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -510,7 +487,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 10 / 100;
 		let session_idx = 5;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -527,7 +504,7 @@ impl TestDisputes {
 		let local_votes_count = self.validators_count * 10 / 100;
 		let session_idx = 6;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -584,7 +561,7 @@ fn normal_flow() {
 	let (first_idx, first_votes) =
 		input.add_unconfirmed_disputes_unconcluded_onchain(DISPUTES_PER_BATCH);
 
-	//concluded disputes unknown onchain
+	// concluded disputes unknown onchain
 	let (fifth_idx, fifth_votes) = input.add_concluded_disputes_unknown_onchain(DISPUTES_PER_BATCH);
 
 	// concluded disputes known onchain - these should be ignored
@@ -665,7 +642,7 @@ fn many_batches() {
 	// active which can't conclude onchain
 	input.add_unconfirmed_disputes_unconcluded_onchain(DISPUTES_PER_PARTITION);
 
-	//concluded disputes unknown onchain
+	// concluded disputes unknown onchain
 	input.add_concluded_disputes_unknown_onchain(DISPUTES_PER_PARTITION);
 
 	// concluded disputes known onchain
@@ -719,7 +696,7 @@ fn votes_above_limit() {
 	let (_, first_votes) =
 		input.add_unconfirmed_disputes_unconcluded_onchain(DISPUTES_PER_PARTITION);
 
-	//concluded disputes unknown onchain
+	// concluded disputes unknown onchain
 	let (_, third_votes) = input.add_concluded_disputes_unknown_onchain(DISPUTES_PER_PARTITION);
 
 	assert!(

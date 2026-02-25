@@ -1,0 +1,30 @@
+title: Deprecate ParaBackingState API
+doc:
+- audience: [ Runtime Dev, Node Dev ]
+  description: |-
+    Deprecates the `para_backing_state` API. Introduces and new `backing_constraints` API that can be used 
+    together with existing `candidates_pending_availability` to retrieve the same information provided by 
+    `para_backing_state`.
+
+crates:
+- name: polkadot-primitives
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: cumulus-relay-chain-rpc-interface
+  bump: minor
+- name: polkadot-node-core-prospective-parachains
+  bump: patch
+- name: polkadot-node-core-runtime-api
+  bump: minor
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot-node-subsystem-util
+  bump: major
+- name: cumulus-relay-chain-minimal-node
+  bump: minor
+

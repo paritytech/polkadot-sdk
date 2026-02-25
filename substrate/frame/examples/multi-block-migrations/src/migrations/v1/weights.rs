@@ -33,7 +33,7 @@
 // --pallet
 // pallet_example_mbm
 // --extrinsic
-// 
+//
 // --template
 // substrate/.maintain/frame-weight-template.hbs
 // --output

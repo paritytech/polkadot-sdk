@@ -1,0 +1,8 @@
+title: 'omni-node: Enable storage monitor'
+doc:
+- audience: Node Operator
+  description: |-
+    The storage monitor shuts down the node when the available DB space is falling below a configured minimum (1GB by default). This prevents that a database gets corrupted when a disk is filling up.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch

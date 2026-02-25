@@ -96,11 +96,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub(crate) fn do_update_mint_settings(
 		maybe_check_origin: Option<T::AccountId>,
 		collection: T::CollectionId,
-		mint_settings: MintSettings<
-			BalanceOf<T, I>,
-			frame_system::pallet_prelude::BlockNumberFor<T>,
-			T::CollectionId,
-		>,
+		mint_settings: MintSettings<BalanceOf<T, I>, BlockNumberFor<T, I>, T::CollectionId>,
 	) -> DispatchResult {
 		if let Some(check_origin) = &maybe_check_origin {
 			ensure!(
@@ -173,6 +169,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// otherwise it returns `false`.
 	pub(crate) fn is_pallet_feature_enabled(feature: PalletFeature) -> bool {
 		let features = T::Features::get();
-		return features.is_enabled(feature)
+		return features.is_enabled(feature);
 	}
 }

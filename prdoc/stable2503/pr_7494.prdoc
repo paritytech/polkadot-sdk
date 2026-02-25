@@ -1,0 +1,18 @@
+title: Enhance libp2p logging targets for granular control
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR modifies the libp2p networking-specific log targets for granular control (e.g., just enabling trace for req-resp).
+
+      Previously, all logs were outputted to `sub-libp2p` target, flooding the log messages on busy validators.
+        - Discovery: `sub-libp2p::discovery`;
+        - Notification/behaviour: `sub-libp2p::notification::behaviour`;
+        - Notification/handler: `sub-libp2p::notification::handler`;
+        - Notification/service: `sub-libp2p::notification::service`;
+        - Notification/upgrade: `sub-libp2p::notification::upgrade`;
+        - Request response: `sub-libp2p::request-response`.
+
+crates:
+  - name: sc-network
+    bump: patch

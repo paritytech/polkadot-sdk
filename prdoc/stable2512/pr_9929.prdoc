@@ -1,0 +1,18 @@
+title: Pre-connect to backers before own slot
+doc:
+- audience: Node Dev
+  description: |-
+    Implements a mechanism to pre-connect to backers, see https://github.com/paritytech/polkadot-sdk/issues/9767#issuecomment-3306292493.
+    Improve backing group connectivity.
+
+crates:
+- name: cumulus-client-service
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: minor

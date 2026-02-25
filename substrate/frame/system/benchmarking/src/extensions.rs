@@ -23,12 +23,13 @@ use alloc::vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+	pallet_prelude::Zero,
 	weights::Weight,
 };
 use frame_system::{
 	pallet_prelude::*, CheckGenesis, CheckMortality, CheckNonZeroSender, CheckNonce,
 	CheckSpecVersion, CheckTxVersion, CheckWeight, Config, ExtensionsWeightInfo, Pallet as System,
-	RawOrigin,
+	RawOrigin, WeightReclaim,
 };
 use sp_runtime::{
 	generic::Era,
@@ -42,8 +43,8 @@ pub struct Pallet<T: Config>(System<T>);
 #[benchmarks(where
 	T: Send + Sync,
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone)
-]
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -53,11 +54,14 @@ mod benchmarks {
 		let caller = account("caller", 0, 0);
 		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
+		);
 
 		#[block]
 		{
 			CheckGenesis::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -81,10 +85,13 @@ mod benchmarks {
 			..Default::default()
 		};
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(prev_block).into(),
+		);
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -109,10 +116,13 @@ mod benchmarks {
 			..Default::default()
 		};
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
+		);
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -129,7 +139,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -151,7 +161,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len, |_| {
+			ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len, 0, |_| {
 				Ok(().into())
 			})
 			.unwrap()
@@ -173,7 +183,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckSpecVersion::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -190,7 +200,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckTxVersion::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -230,7 +240,51 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(post_info))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
+				.unwrap()
+				.unwrap();
+		}
+
+		assert_eq!(
+			System::<T>::block_weight().total(),
+			initial_block_weight +
+				base_extrinsic +
+				post_info.actual_weight.unwrap().saturating_add(extension_weight),
+		);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn weight_reclaim() -> Result<(), BenchmarkError> {
+		let caller = account("caller", 0, 0);
+		let base_extrinsic = <T as frame_system::Config>::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.base_extrinsic;
+		let extension_weight = <T as frame_system::Config>::ExtensionsWeightInfo::weight_reclaim();
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
+			extension_weight,
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(base_extrinsic.ref_time() * 2, 0)),
+			pays_fee: Default::default(),
+		};
+		let len = 0_usize;
+		let ext = WeightReclaim::<T>::new();
+
+		let initial_block_weight = Weight::from_parts(base_extrinsic.ref_time() * 2, 0);
+		frame_system::BlockWeight::<T>::mutate(|current_weight| {
+			current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+			current_weight.set(initial_block_weight, DispatchClass::Normal);
+			current_weight.accrue(base_extrinsic + info.total_weight(), DispatchClass::Normal);
+		});
+
+		#[block]
+		{
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Unset SKIP_WASM_BUILD=1 for aarch64 binaries release 
+
+doc:
+  - audience: [ Node Dev, Runtime Dev]
+    description:
+      Fix the release pipeline environment by unsetting SKIP_WASM_BUILD=1
+      so that aarch64 binaries are built so that they contain runtimes
+      accordingly.
+
+crates: [ ]

@@ -1,0 +1,16 @@
+title: '[pallet-revive] ecrecover'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add ECrecover 0x1 precompile and remove the unstable equivalent host function.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

@@ -1,0 +1,8 @@
+title: 'pallet-bags-list: Emit `ScoreUpdated` event only if it has changed'
+doc:
+- audience: Runtime Dev
+  description: |-
+    follow-up to https://github.com/paritytech/polkadot-sdk/pull/8684, ensuring all blocks don't have x events when auto-rebag feature is enabled.
+crates:
+- name: pallet-bags-list
+  bump: patch

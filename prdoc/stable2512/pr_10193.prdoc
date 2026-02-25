@@ -1,0 +1,11 @@
+title: '[v2] pallet-revive: support uploading EVM bytecode via upload_code'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/182
+
+    Add support for EVM bytecode to the upload_code extrinsic.
+    Tests in issue https://github.com/paritytech/contract-issues/issues/182 send hardhat_setCode, which uses revive's upload_code API; this change makes that flow accept and store the EVM bytecode using upload_code extrinsic.
+crates:
+- name: pallet-revive
+  bump: patch

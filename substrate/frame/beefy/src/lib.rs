@@ -70,8 +70,7 @@ pub mod pallet {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
-			// todo: use custom signature hashing type instead of hardcoded `Keccak256`
-			+ BeefyAuthorityId<sp_runtime::traits::Keccak256>
+			+ BeefyAuthorityId
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
@@ -201,6 +200,8 @@ pub mod pallet {
 		InvalidFutureBlockVotingProof,
 		/// The session of the equivocation proof is invalid
 		InvalidEquivocationProofSession,
+		/// The session of the equivocation proof is not in the mapping (anymore)
+		InvalidEquivocationProofSessionMember,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
 		/// Submitted configuration is invalid.
@@ -437,16 +438,18 @@ pub mod pallet {
 	impl<T: Config> Call<T> {
 		pub fn to_equivocation_evidence_for(&self) -> Option<EquivocationEvidenceFor<T>> {
 			match self {
-				Call::report_double_voting_unsigned { equivocation_proof, key_owner_proof } =>
+				Call::report_double_voting_unsigned { equivocation_proof, key_owner_proof } => {
 					Some(EquivocationEvidenceFor::<T>::DoubleVotingProof(
 						*equivocation_proof.clone(),
 						key_owner_proof.clone(),
-					)),
-				Call::report_fork_voting_unsigned { equivocation_proof, key_owner_proof } =>
+					))
+				},
+				Call::report_fork_voting_unsigned { equivocation_proof, key_owner_proof } => {
 					Some(EquivocationEvidenceFor::<T>::ForkVotingProof(
 						*equivocation_proof.clone(),
 						key_owner_proof.clone(),
-					)),
+					))
+				},
 				_ => None,
 			}
 		}
@@ -455,16 +458,18 @@ pub mod pallet {
 	impl<T: Config> From<EquivocationEvidenceFor<T>> for Call<T> {
 		fn from(evidence: EquivocationEvidenceFor<T>) -> Self {
 			match evidence {
-				EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, key_owner_proof) =>
+				EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, key_owner_proof) => {
 					Call::report_double_voting_unsigned {
 						equivocation_proof: Box::new(equivocation_proof),
 						key_owner_proof,
-					},
-				EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, key_owner_proof) =>
+					}
+				},
+				EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, key_owner_proof) => {
 					Call::report_fork_voting_unsigned {
 						equivocation_proof: Box::new(equivocation_proof),
 						key_owner_proof,
-					},
+					}
+				},
 				EquivocationEvidenceFor::FutureBlockVotingProof(
 					equivocation_proof,
 					key_owner_proof,
@@ -618,11 +623,11 @@ impl<T: Config> Pallet<T> {
 
 	fn initialize(authorities: &Vec<T::BeefyId>) -> Result<(), ()> {
 		if authorities.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		if !Authorities::<T>::get().is_empty() {
-			return Err(())
+			return Err(());
 		}
 
 		let bounded_authorities =
@@ -755,7 +760,8 @@ pub(crate) trait WeightInfoExt: WeightInfo {
 		max_nominators_per_validator: u32,
 		ancestry_proof: &<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
 	) -> Weight {
-		let _weight = <T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context()
+		<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_proof_optimal(&ancestry_proof)
+			.saturating_add(<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context())
 			.saturating_add(
 				<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_non_canonical(
 					ancestry_proof,
@@ -765,12 +771,7 @@ pub(crate) trait WeightInfoExt: WeightInfo {
 				1,
 				validator_count,
 				max_nominators_per_validator,
-			));
-
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/4523 - return `_weight` here.
-		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
-		// We need to check that the proof is optimal.
-		Weight::MAX
+			))
 	}
 
 	fn report_future_block_voting(

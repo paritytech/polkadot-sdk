@@ -93,8 +93,9 @@ impl Check {
 	pub fn is_approved(&self, max_assignment_tick: Tick) -> bool {
 		match *self {
 			Check::Unapproved => false,
-			Check::Approved(_, last_assignment_tick) =>
-				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick),
+			Check::Approved(_, last_assignment_tick) => {
+				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick)
+			},
 			Check::ApprovedOneThird => true,
 		}
 	}
@@ -118,7 +119,7 @@ pub fn check_approval(
 	// honest node approves, the candidate should be approved.
 	let approvals = candidate.approvals();
 	if 3 * approvals.count_ones() > approvals.len() {
-		return Check::ApprovedOneThird
+		return Check::ApprovedOneThird;
 	}
 
 	match required {
@@ -208,7 +209,7 @@ impl State {
 				required_tranches: RequiredTranches::All,
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// If we have enough assignments and all no-shows are covered, we have reached the number
@@ -223,7 +224,7 @@ impl State {
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// We're pending more assignments and should look at more tranches.
@@ -387,7 +388,7 @@ fn count_no_shows(
 			let has_approved = if let Some(approved) = approvals.get(v_index.0 as usize) {
 				*approved
 			} else {
-				return false
+				return false;
 			};
 
 			let is_no_show = !has_approved && no_show_at <= drifted_tick_now;
@@ -509,13 +510,13 @@ mod tests {
 	use crate::{approval_db, BTreeMap};
 	use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0, vec::BitVec};
 	use polkadot_primitives::GroupIndex;
-	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 
 	#[test]
 	fn pending_is_not_approved() {
 		let candidate = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: BitVec::default(),
@@ -550,7 +551,7 @@ mod tests {
 	fn exact_takes_only_assignments_up_to() {
 		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
@@ -624,7 +625,7 @@ mod tests {
 	fn one_honest_node_always_approves() {
 		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
@@ -712,13 +713,13 @@ mod tests {
 		}
 		.into();
 
-		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick);
-		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, false);
+		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick, false);
 
-		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick + 1);
-		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick + 1);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick + 1, false);
+		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick + 1, false);
 
-		approval_entry.import_assignment(2, ValidatorIndex(4), block_tick + 2);
+		approval_entry.import_assignment(2, ValidatorIndex(4), block_tick + 2, false);
 
 		let approvals = bitvec![u8, BitOrderLsb0; 1; 5];
 
@@ -757,8 +758,10 @@ mod tests {
 		}
 		.into();
 
-		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick);
-		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, false);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, true);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick, false);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick, true);
 
 		let approvals = bitvec![u8, BitOrderLsb0; 0; 10];
 
@@ -798,10 +801,10 @@ mod tests {
 		}
 		.into();
 
-		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick);
-		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, false);
+		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick, false);
 
-		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick, false);
 
 		let mut approvals = bitvec![u8, BitOrderLsb0; 0; 10];
 		approvals.set(0, true);
@@ -844,11 +847,11 @@ mod tests {
 		}
 		.into();
 
-		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick);
-		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, false);
+		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick, false);
 
-		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick);
-		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick, false);
+		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick, false);
 
 		let mut approvals = bitvec![u8, BitOrderLsb0; 0; n_validators];
 		approvals.set(0, true);
@@ -913,14 +916,24 @@ mod tests {
 		}
 		.into();
 
-		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick);
-		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, false);
+		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick, false);
 
-		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick + 1);
-		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick + 1);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick + 1, false);
+		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick + 1, false);
 
-		approval_entry.import_assignment(2, ValidatorIndex(4), block_tick + no_show_duration + 2);
-		approval_entry.import_assignment(2, ValidatorIndex(5), block_tick + no_show_duration + 2);
+		approval_entry.import_assignment(
+			2,
+			ValidatorIndex(4),
+			block_tick + no_show_duration + 2,
+			false,
+		);
+		approval_entry.import_assignment(
+			2,
+			ValidatorIndex(5),
+			block_tick + no_show_duration + 2,
+			false,
+		);
 
 		let mut approvals = bitvec![u8, BitOrderLsb0; 0; n_validators];
 		approvals.set(0, true);
@@ -1007,14 +1020,24 @@ mod tests {
 		}
 		.into();
 
-		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick);
-		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick);
+		approval_entry.import_assignment(0, ValidatorIndex(0), block_tick, false);
+		approval_entry.import_assignment(0, ValidatorIndex(1), block_tick, false);
 
-		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick + 1);
-		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick + 1);
+		approval_entry.import_assignment(1, ValidatorIndex(2), block_tick + 1, false);
+		approval_entry.import_assignment(1, ValidatorIndex(3), block_tick + 1, false);
 
-		approval_entry.import_assignment(2, ValidatorIndex(4), block_tick + no_show_duration + 2);
-		approval_entry.import_assignment(2, ValidatorIndex(5), block_tick + no_show_duration + 2);
+		approval_entry.import_assignment(
+			2,
+			ValidatorIndex(4),
+			block_tick + no_show_duration + 2,
+			false,
+		);
+		approval_entry.import_assignment(
+			2,
+			ValidatorIndex(5),
+			block_tick + no_show_duration + 2,
+			false,
+		);
 
 		let mut approvals = bitvec![u8, BitOrderLsb0; 0; n_validators];
 		approvals.set(0, true);
@@ -1066,7 +1089,7 @@ mod tests {
 			},
 		);
 
-		approval_entry.import_assignment(3, ValidatorIndex(6), block_tick);
+		approval_entry.import_assignment(3, ValidatorIndex(6), block_tick, false);
 		approvals.set(6, true);
 
 		let tranche_now = no_show_duration as DelayTranche + 3;
@@ -1097,7 +1120,7 @@ mod tests {
 
 		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: bitvec![u8, BitOrderLsb0; 0; 3],
@@ -1176,7 +1199,7 @@ mod tests {
 			// Populate the requested tranches. The assignments aren't inspected in
 			// this test.
 			for &t in &test_tranche {
-				approval_entry.import_assignment(t, ValidatorIndex(0), 0)
+				approval_entry.import_assignment(t, ValidatorIndex(0), 0, false);
 			}
 
 			let filled_tranches = filled_tranche_iterator(approval_entry.tranches());

@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, NativeOrWithId},
 		fungibles::{Inspect as FungiblesInspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
+		tokens::{Fortitude, Precision, Preservation, WithdrawConsequence},
 		OriginTrait,
 	},
 	weights::Weight,
@@ -86,6 +86,7 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -168,7 +169,7 @@ fn transaction_payment_in_native_possible() {
 			let mut info = info_from_weight(WEIGHT_5);
 			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
 			info.extension_weight = ext.weight(CALL);
-			let (pre, _) = ext.validate_and_prepare(Some(1).into(), CALL, &info, len).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(1).into(), CALL, &info, len, 0).unwrap();
 			let initial_balance = 10 * balance_factor;
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 15 - 10);
 
@@ -185,7 +186,7 @@ fn transaction_payment_in_native_possible() {
 			let ext = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None);
 			let extension_weight = ext.weight(CALL);
 			info.extension_weight = extension_weight;
-			let (pre, _) = ext.validate_and_prepare(Some(2).into(), CALL, &info, len).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(2).into(), CALL, &info, len, 0).unwrap();
 			let initial_balance_for_2 = 20 * balance_factor;
 
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 15 - 5);
@@ -224,8 +225,8 @@ fn transaction_payment_in_asset_possible() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -255,7 +256,13 @@ fn transaction_payment_in_asset_possible() {
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				)
 				.unwrap();
 			// assert that native balance is not used
 			assert_eq!(Balances::free_balance(caller), 10 * balance_factor);
@@ -298,8 +305,8 @@ fn transaction_payment_in_asset_fails_if_no_pool_for_that_asset() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -313,7 +320,13 @@ fn transaction_payment_in_asset_fails_if_no_pool_for_that_asset() {
 
 			let len = 10;
 			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len);
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				);
 
 			// As there is no pool in the dex set up for this asset, conversion should fail.
 			assert!(pre.is_err());
@@ -339,8 +352,8 @@ fn transaction_payment_without_fee() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -364,7 +377,13 @@ fn transaction_payment_without_fee() {
 
 			let fee_in_asset = input_quote.unwrap();
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				)
 				.unwrap();
 
 			// assert that native balance is not used
@@ -412,8 +431,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -445,7 +464,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let mut info = info_from_weight(WEIGHT_100);
 			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()));
 			info.extension_weight = ext.weight(CALL);
-			let (pre, _) = ext.validate_and_prepare(Some(caller).into(), CALL, &info, len).unwrap();
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let final_weight = 50;
@@ -508,8 +528,8 @@ fn payment_from_account_with_only_assets() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -539,7 +559,13 @@ fn payment_from_account_with_only_assets() {
 			assert_eq!(fee_in_asset, 201);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				)
 				.unwrap();
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -574,8 +600,8 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -595,7 +621,13 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			// there will be no conversion when the fee is zero
 			{
 				let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-					.validate_and_prepare(Some(caller).into(), CALL, &info_from_pays(Pays::No), len)
+					.validate_and_prepare(
+						Some(caller).into(),
+						CALL,
+						&info_from_pays(Pays::No),
+						len,
+						0,
+					)
 					.unwrap();
 				// `Pays::No` implies there are no fees
 				assert_eq!(Assets::balance(asset_id, caller), balance);
@@ -626,6 +658,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					CALL,
 					&info_from_weight(Weight::from_parts(weight, 0)),
 					len,
+					0,
 				)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -655,8 +688,8 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -676,7 +709,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			assert!(fee > 0);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_pays(Pays::No), len)
+				.validate_and_prepare(Some(caller).into(), CALL, &info_from_pays(Pays::No), len, 0)
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees
 
@@ -730,7 +763,8 @@ fn fee_with_native_asset_passed_with_id() {
 
 			let mut info = info_from_weight(WEIGHT_100);
 			info.extension_weight = extension_weight;
-			let (pre, _) = ext.validate_and_prepare(Some(caller).into(), CALL, &info, len).unwrap();
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
 			assert_eq!(Balances::free_balance(caller), caller_balance - initial_fee);
 
 			let final_weight = 50;
@@ -774,8 +808,8 @@ fn transfer_add_and_remove_account() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -809,7 +843,7 @@ fn transfer_add_and_remove_account() {
 			let mut info = info_from_weight(WEIGHT_100);
 			info.extension_weight = extension_weight;
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info, len)
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0)
 				.unwrap();
 
 			assert_eq!(Assets::balance(asset_id, &caller), balance - fee_in_asset);
@@ -869,7 +903,7 @@ fn no_fee_and_no_weight_for_other_origins() {
 		let len = CALL.encoded_size();
 
 		let origin = frame_system::RawOrigin::Root.into();
-		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 		assert!(origin.as_system_ref().unwrap().is_root());
 
@@ -890,4 +924,129 @@ fn no_fee_and_no_weight_for_other_origins() {
 
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
+}
+
+/// Tests that validation rejects transactions that would result in `ReducedToZero` for native
+/// assets.
+#[test]
+fn transaction_payment_rejects_reduced_to_zero_in_native_asset() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let ed = Balances::minimum_balance();
+			let len = 10;
+			let weight = 5;
+			let tip = 5;
+
+			let asset_id = NativeOrWithId::Native;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.clone().into()));
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+
+			// Calculate the actual fee
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, tip);
+
+			// Set balance to cause ReducedToZero
+			let balance = ed + fee - 1;
+			let caller = 1;
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), caller, balance));
+
+			// Verify that can_withdraw returns ReducedToZero
+			let consequence = Balances::can_withdraw(&caller, fee);
+			assert!(
+				matches!(consequence, WithdrawConsequence::ReducedToZero(_)),
+				"can_withdraw should return ReducedToZero, got: {:?}",
+				consequence
+			);
+
+			let result = ext.validate_only(
+				Some(caller).into(),
+				CALL,
+				&info,
+				len,
+				sp_runtime::transaction_validity::TransactionSource::External,
+				0,
+			);
+
+			// ReducedToZero should be rejected during validation
+			assert!(result.is_err(), "Validation should reject ReducedToZero.");
+		});
+}
+
+/// Tests that validation rejects transactions that would result in `ReducedToZero` for assets.
+#[test]
+fn transaction_payment_rejects_reduced_to_zero_in_asset() {
+	let base_weight = 5;
+	let balance_factor = 100;
+	ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+
+			// create the asset
+			let asset_id = 1;
+			let min_balance = 2;
+			assert_ok!(Assets::force_create(
+				RuntimeOrigin::root(),
+				asset_id.into(),
+				42,   // owner
+				true, // is_sufficient
+				min_balance
+			));
+
+			setup_lp(asset_id, balance_factor);
+
+			let caller = 999;
+			let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+			let len = 10;
+			let weight = 5;
+			let tip = 5;
+
+			// Calculate the actual fee
+			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()));
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+
+			let fee_in_native =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, tip);
+
+			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
+				fee_in_native,
+				true,
+			)
+			.unwrap();
+
+			// Set asset balance to cause ReducedToZero
+			let asset_balance = min_balance + fee_in_asset - 1;
+			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, asset_balance));
+
+			// Verify that can_withdraw returns ReducedToZero
+			let consequence = Assets::can_withdraw(asset_id, &caller, fee_in_asset);
+			assert!(
+				matches!(consequence, WithdrawConsequence::ReducedToZero(_)),
+				"can_withdraw should return ReducedToZero, got: {:?}",
+				consequence
+			);
+
+			let result = ext.validate_only(
+				Some(caller).into(),
+				CALL,
+				&info,
+				len,
+				sp_runtime::transaction_validity::TransactionSource::External,
+				0,
+			);
+
+			// ReducedToZero should be rejected during validation
+			assert!(result.is_err(), "Validation should reject ReducedToZero.");
+		});
 }

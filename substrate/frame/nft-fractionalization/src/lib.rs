@@ -47,50 +47,39 @@ mod tests;
 
 pub mod weights;
 
+use frame::prelude::*;
 use frame_system::Config as SystemConfig;
 pub use pallet::*;
-pub use scale_info::Type;
 pub use types::*;
 pub use weights::WeightInfo;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 	use core::fmt::Display;
-	use frame_support::{
-		dispatch::DispatchResult,
-		ensure,
-		pallet_prelude::*,
-		sp_runtime::traits::{AccountIdConversion, StaticLookup},
-		traits::{
-			fungible::{
-				hold::Mutate as HoldMutateFungible, Inspect as InspectFungible,
-				Mutate as MutateFungible,
-			},
-			fungibles::{
-				metadata::{MetadataDeposit, Mutate as MutateMetadata},
-				Create, Destroy, Inspect, Mutate,
-			},
-			tokens::{
-				nonfungibles_v2::{Inspect as NonFungiblesInspect, Transfer},
-				AssetId, Balance as AssetBalance,
-				Fortitude::Polite,
-				Precision::{BestEffort, Exact},
-				Preservation::{Expendable, Preserve},
-			},
-		},
-		BoundedVec, PalletId,
+	use fungible::{
+		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible, Mutate as MutateFungible,
 	};
-	use frame_system::pallet_prelude::*;
+	use fungibles::{
+		metadata::{MetadataDeposit, Mutate as MutateMetadata},
+		Create, Destroy, Inspect, Mutate,
+	};
+	use nonfungibles_v2::{Inspect as NonFungiblesInspect, Transfer};
 	use scale_info::prelude::{format, string::String};
-	use sp_runtime::traits::{One, Zero};
 
+	use tokens::{
+		AssetId, Balance as AssetBalance,
+		Fortitude::Polite,
+		Precision::{BestEffort, Exact},
+		Preservation::{Expendable, Preserve},
+	};
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency mechanism, used for paying for deposits.
@@ -159,7 +148,6 @@ pub mod pallet {
 
 	/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
 	#[pallet::storage]
-	#[pallet::getter(fn nft_to_asset)]
 	pub type NftToAsset<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -336,6 +324,13 @@ pub mod pallet {
 		/// the value and only call this once.
 		fn get_pallet_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
+		pub fn nft_to_asset(
+			key: (T::NftCollectionId, T::NftId),
+		) -> Option<Details<AssetIdOf<T>, AssetBalanceOf<T>, DepositOf<T>, T::AccountId>> {
+			NftToAsset::<T>::get(key)
 		}
 
 		/// Prevent further transferring of NFT.

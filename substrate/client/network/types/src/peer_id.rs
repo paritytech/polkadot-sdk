@@ -21,6 +21,7 @@ use crate::{
 	multihash::{Code, Error, Multihash},
 };
 use rand::Rng;
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 
 use std::{fmt, hash::Hash, str::FromStr};
 
@@ -32,7 +33,9 @@ const MAX_INLINE_KEY_LENGTH: usize = 42;
 ///
 /// The data is a CIDv0 compatible multihash of the protobuf encoded public key of the peer
 /// as specified in [specs/peer-ids](https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md).
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(
+	Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd, SerializeDisplay, DeserializeFromStr,
+)]
 pub struct PeerId {
 	multihash: Multihash,
 }
@@ -74,8 +77,9 @@ impl PeerId {
 	pub fn from_multihash(multihash: Multihash) -> Result<PeerId, Multihash> {
 		match Code::try_from(multihash.code()) {
 			Ok(Code::Sha2_256) => Ok(PeerId { multihash }),
-			Ok(Code::Identity) if multihash.digest().len() <= MAX_INLINE_KEY_LENGTH =>
-				Ok(PeerId { multihash }),
+			Ok(Code::Identity) if multihash.digest().len() <= MAX_INLINE_KEY_LENGTH => {
+				Ok(PeerId { multihash })
+			},
 			_ => Err(multihash),
 		}
 	}
@@ -102,7 +106,7 @@ impl PeerId {
 		// https://www.ietf.org/archive/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
 		if hash.code() != 0 {
 			// Hash is not identity
-			return None
+			return None;
 		}
 
 		let public = libp2p_identity::PublicKey::try_decode_protobuf(hash.digest()).ok()?;

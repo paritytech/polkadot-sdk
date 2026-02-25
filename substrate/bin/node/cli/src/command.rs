@@ -61,17 +61,19 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		let spec = match id {
-			"" =>
+			"" => {
 				return Err(
 					"Please specify which chain you want to run, e.g. --dev or --chain=local"
 						.into(),
-				),
+				)
+			},
 			"dev" => Box::new(chain_spec::development_config()),
 			"local" => Box::new(chain_spec::local_testnet_config()),
 			"fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
 			"staging" => Box::new(chain_spec::staging_testnet_config()),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => {
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
 		};
 		Ok(spec)
 	}
@@ -92,6 +94,10 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 
 			runner.sync_run(|config| cmd.run::<Block, RuntimeApi>(config))
+		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			let chain_spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(chain_spec)
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -127,8 +133,9 @@ pub fn run() -> Result<()> {
 						let partial = new_partial(&config, None)?;
 						let db = partial.backend.expose_db();
 						let storage = partial.backend.expose_storage();
+						let shared_trie_cache = partial.backend.expose_shared_trie_cache();
 
-						cmd.run(config, partial.client, db, storage)
+						cmd.run(config, partial.client, db, storage, shared_trie_cache)
 					},
 					BenchmarkCmd::Overhead(cmd) => {
 						// ensure that we keep the task manager alive
@@ -136,11 +143,12 @@ pub fn run() -> Result<()> {
 						let ext_builder = RemarkBuilder::new(partial.client.clone());
 
 						cmd.run(
-							config,
+							config.chain_spec.name().into(),
 							partial.client,
 							inherent_benchmark_data()?,
 							Vec::new(),
 							&ext_builder,
+							false,
 						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {
@@ -172,6 +180,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Sign(cmd)) => cmd.run(),
 		Some(Subcommand::Verify(cmd)) => cmd.run(),
 		Some(Subcommand::Vanity(cmd)) => cmd.run(),
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))

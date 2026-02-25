@@ -19,20 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use scale_info::TypeInfo;
-use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{Perbill, RuntimeDebug};
-
-use frame_support::{
-	defensive,
-	dispatch::DispatchResultWithPostInfo,
-	ensure,
-	traits::{
-		tokens::{GetSalary, Pay, PaymentStatus},
-		RankedMembers, RankedMembersSwapHandler,
-	},
+use frame::{
+	prelude::*,
+	traits::tokens::{GetSalary, Pay, PaymentStatus},
 };
 
 #[cfg(test)]
@@ -49,7 +39,7 @@ pub use weights::WeightInfo;
 pub type Cycle = u32;
 
 /// The status of the pallet instance.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 	/// The index of the "current cycle" (i.e. the last cycle being processed).
 	cycle_index: CycleIndex,
@@ -64,7 +54,7 @@ pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 }
 
 /// The state of a specific payment claim.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub enum ClaimState<Balance, Id> {
 	/// No claim recorded.
 	Nothing,
@@ -77,7 +67,7 @@ pub enum ClaimState<Balance, Id> {
 use ClaimState::*;
 
 /// The status of a single payee/claimant.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 	/// The most recent cycle in which the claimant was active.
 	last_active: CycleIndex,
@@ -85,12 +75,9 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 	status: ClaimState<Balance, Id>,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
-
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
@@ -100,6 +87,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -149,12 +137,11 @@ pub mod pallet {
 
 	/// The overall status of the system.
 	#[pallet::storage]
-	pub(super) type Status<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, StatusOf<T, I>, OptionQuery>;
+	pub type Status<T: Config<I>, I: 'static = ()> = StorageValue<_, StatusOf<T, I>, OptionQuery>;
 
 	/// The status of a claimant.
 	#[pallet::storage]
-	pub(super) type Claimant<T: Config<I>, I: 'static = ()> =
+	pub type Claimant<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimantStatusOf<T, I>, OptionQuery>;
 
 	#[pallet::event]
@@ -217,7 +204,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::init())]
 		#[pallet::call_index(0)]
 		pub fn init(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			ensure!(!Status::<T, I>::exists(), Error::<T, I>::AlreadyStarted);
 			let status = StatusType {
@@ -239,7 +226,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::bump())]
 		#[pallet::call_index(1)]
 		pub fn bump(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let now = frame_system::Pallet::<T>::block_number();
 			let cycle_period = Self::cycle_period();
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
@@ -261,7 +248,7 @@ pub mod pallet {
 		pub fn induct(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let cycle_index = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?.cycle_index;
-			let _ = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
+			T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
 			ensure!(!Claimant::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 
 			Claimant::<T, I>::insert(
@@ -415,8 +402,11 @@ pub mod pallet {
 					};
 					(payout, Some(unpaid))
 				},
-				Nothing | Attempted { .. } if claimant.last_active < status.cycle_index => {
-					// Not registered for this cycle. Pay from whatever is left.
+				Nothing | Attempted { .. } | Registered(_)
+					if claimant.last_active < status.cycle_index =>
+				{
+					// Not registered for this cycle (or stale registration from previous cycle).
+					// Pay from whatever is left.
 					let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
 					let ideal_payout = T::Salary::get_salary(rank, &who);
 
@@ -460,15 +450,15 @@ impl<T: Config<I>, I: 'static>
 	) {
 		if who == new_who {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if Claimant::<T, I>::contains_key(new_who) {
 			defensive!("Should not try to overwrite existing claimant");
-			return
+			return;
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {
-			frame_support::defensive!("Claimant should exist when swapping");
+			defensive!("Claimant should exist when swapping");
 			return;
 		};
 

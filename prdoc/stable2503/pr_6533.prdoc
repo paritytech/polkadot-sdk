@@ -1,0 +1,20 @@
+title: "Migrate executor into PolkaVM 0.18.0"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Bump `polkavm` to 0.18.0, and update `sc-polkavm-executor` to be
+      compatible with the API changes. In addition, bump also `polkavm-derive`
+      and `polkavm-linker` in order to make sure that the all parts of the
+      Polkadot SDK use the exact same ABI for `.polkavm` binaries.
+
+      Purely relying on RV32E/RV64E ABI is not possible, as PolkaVM uses a
+      RISCV-V alike ISA, which is derived from RV32E/RV64E but it is still its
+      own microarchitecture, i.e. not fully binary compatible.
+
+crates:
+  - name: sc-executor-common
+    bump: major
+  - name: sc-executor-polkavm
+    bump: minor
+  - name: substrate-wasm-builder
+    bump: minor

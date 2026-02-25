@@ -1,0 +1,22 @@
+title: 'statement-store: New RPC result types'
+doc:
+- audience: Node Dev
+  description: |-
+    Moved submission failures from JSON-RPC errors into structured result types:
+    - Internal submission result type changed to hold more information for clients.
+    - The "statement_submit" method now returns enum with clear status variants (New, Known, Invalid, Rejected).
+    - NetworkPriority removed as we never used it.
+    - Updated and simplified the reputation system.
+    - Runtime API wasn't changed.
+
+crates:
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: sp-statement-store
+  bump: major

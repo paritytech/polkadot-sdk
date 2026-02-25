@@ -1,0 +1,9 @@
+title: XCMv5 asset exchange test scenarios
+doc:
+- audience: Runtime Dev
+  description: |-
+    Emulated test scenarios added to cover asset exchanging via Transact or ExchangeAsset instruction using XCMv5 capabilities
+
+crates:
+- name: staging-xcm-executor
+  bump: patch

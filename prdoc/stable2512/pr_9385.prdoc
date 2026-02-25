@@ -1,0 +1,16 @@
+title: Rve/revm instructions bitwise WIP
+doc:
+- audience: Runtime Dev
+  description: |
+   Extend EVM support for pallet_revive with the follow instructions:
+   - arithmetic
+   - bitwise
+   - control
+   - host
+   - memory
+   - stack
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: major

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::AssetsInHolding;
+use crate::{AssetsInHolding, Weight};
 use core::result::Result;
 use xcm::latest::{Asset, Error as XcmError, Location, Result as XcmResult, XcmContext};
 
@@ -76,15 +76,32 @@ pub trait TransactAsset {
 	/// type-items.
 	fn check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) {}
 
-	/// Deposit the `what` asset into the account of `who`.
+	/// Deposit the `what` asset in holding into the account of `who`.
 	///
 	/// Implementations should return `XcmError::FailedToTransactAsset` if deposit failed.
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
-		Err(XcmError::Unimplemented)
+	fn deposit_asset(
+		what: AssetsInHolding,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
+		Err((what, XcmError::Unimplemented))
 	}
 
-	/// Withdraw the given asset from the consensus system. Return the actual asset(s) withdrawn,
-	/// which should always be equal to `_what`.
+	/// Identical to `deposit_asset` but returning the surplus, if any.
+	///
+	/// Return the difference between the worst-case weight and the actual weight consumed.
+	/// This can be zero most of the time unless there's some metering involved.
+	fn deposit_asset_with_surplus(
+		what: AssetsInHolding,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<Weight, (AssetsInHolding, XcmError)> {
+		Self::deposit_asset(what, who, context).map(|()| Weight::zero())
+	}
+
+	/// Withdraw the given asset from the consensus system.
+	///
+	/// Return the actual asset(s) withdrawn, which should always be equal to `_what`.
 	///
 	/// The XCM `_maybe_context` parameter may be `None` when the caller of `withdraw_asset` is
 	/// outside of the context of a currently-executing XCM. An example will be the `charge_fees`
@@ -97,6 +114,18 @@ pub trait TransactAsset {
 		_maybe_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
 		Err(XcmError::Unimplemented)
+	}
+
+	/// Withdraw assets returning surplus.
+	///
+	/// The surplus is the difference between the worst-case weight and the actual weight consumed.
+	/// This can be zero most of the time unless there's some metering involved.
+	fn withdraw_asset_with_surplus(
+		what: &Asset,
+		who: &Location,
+		maybe_context: Option<&XcmContext>,
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
+		Self::withdraw_asset(what, who, maybe_context).map(|assets| (assets, Weight::zero()))
 	}
 
 	/// Move an `asset` `from` one location in `to` another location.
@@ -113,8 +142,22 @@ pub trait TransactAsset {
 		_from: &Location,
 		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<Asset, XcmError> {
 		Err(XcmError::Unimplemented)
+	}
+
+	/// Identical to `internal_transfer_asset` but returning the surplus, if any.
+	///
+	/// The surplus is the difference between the worst-case weight and the actual
+	/// consumed weight.
+	/// This can be zero usually if there's no metering involved.
+	fn internal_transfer_asset_with_surplus(
+		asset: &Asset,
+		from: &Location,
+		to: &Location,
+		context: &XcmContext,
+	) -> Result<(Asset, Weight), XcmError> {
+		Self::internal_transfer_asset(asset, from, to, context).map(|asset| (asset, Weight::zero()))
 	}
 
 	/// Move an `asset` `from` one location in `to` another location.
@@ -126,16 +169,55 @@ pub trait TransactAsset {
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<Asset, XcmError> {
 		match Self::internal_transfer_asset(asset, from, to, context) {
 			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
-				let assets = Self::withdraw_asset(asset, from, Some(context))?;
-				// Not a very forgiving attitude; once we implement roll-backs then it'll be nicer.
-				Self::deposit_asset(asset, to, Some(context))?;
-				Ok(assets)
+				let credit = Self::withdraw_asset(asset, from, Some(context))?;
+				Self::deposit_asset(credit, to, Some(context)).map_err(|(unspent, error)| {
+					// best effort try to return the assets to original owner
+					let _ = Self::deposit_asset(unspent, from, Some(context));
+					error
+				})?;
+				Ok(asset.clone())
 			},
 			result => result,
 		}
+	}
+
+	/// Identical to `transfer_asset` but returning the surplus, if any.
+	///
+	/// The surplus is the difference between the worst-case weight and the actual
+	/// consumed weight.
+	/// This can be zero usually if there's no metering involved.
+	fn transfer_asset_with_surplus(
+		asset: &Asset,
+		from: &Location,
+		to: &Location,
+		context: &XcmContext,
+	) -> Result<(Asset, Weight), XcmError> {
+		match Self::internal_transfer_asset_with_surplus(asset, from, to, context) {
+			Err(XcmError::AssetNotFound | XcmError::Unimplemented) => {
+				let (credit, withdraw_surplus) =
+					Self::withdraw_asset_with_surplus(asset, from, Some(context))?;
+				let deposit_surplus = Self::deposit_asset_with_surplus(credit, to, Some(context))
+					.map_err(|(unspent, error)| {
+					// best effort try to return the assets to original owner
+					let _ = Self::deposit_asset(unspent, from, Some(context));
+					error
+				})?;
+				let total_surplus = withdraw_surplus.saturating_add(deposit_surplus);
+				Ok((asset.clone(), total_surplus))
+			},
+			result => result,
+		}
+	}
+
+	/// An asset has been minted and the imbalance returned into holding. This should do whatever
+	/// housekeeping is needed.
+	///
+	/// When composed as a tuple, all type-items are called and at least one must result in `Ok`.
+	fn mint_asset(_what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Err(XcmError::Unimplemented)
 	}
 }
 
@@ -187,10 +269,17 @@ impl TransactAsset for Tuple {
 		)* );
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		mut what: AssetsInHolding,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		for_tuples!( #(
 			match Tuple::deposit_asset(what, who, context) {
-				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
+				Err((unspent, XcmError::AssetNotFound)) | Err((unspent, XcmError::Unimplemented)) => {
+					what = unspent;
+					// continue
+				},
 				r => return r,
 			}
 		)* );
@@ -201,7 +290,31 @@ impl TransactAsset for Tuple {
 			?context,
 			"did not deposit asset",
 		);
-		Err(XcmError::AssetNotFound)
+		Err((what, XcmError::AssetNotFound))
+	}
+
+	fn deposit_asset_with_surplus(
+		mut what: AssetsInHolding,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<Weight, (AssetsInHolding, XcmError)> {
+		for_tuples!( #(
+			match Tuple::deposit_asset_with_surplus(what, who, context) {
+				Err((unspent, XcmError::AssetNotFound)) | Err((unspent, XcmError::Unimplemented)) => {
+					what = unspent;
+					// continue
+				},
+				r => return r,
+			}
+		)* );
+		tracing::trace!(
+			target: "xcm::TransactAsset::deposit_asset_with_surplus",
+			?what,
+			?who,
+			?context,
+			"did not deposit asset",
+		);
+		Err((what, XcmError::AssetNotFound))
 	}
 
 	fn withdraw_asset(
@@ -225,12 +338,33 @@ impl TransactAsset for Tuple {
 		Err(XcmError::AssetNotFound)
 	}
 
+	fn withdraw_asset_with_surplus(
+		what: &Asset,
+		who: &Location,
+		maybe_context: Option<&XcmContext>,
+	) -> Result<(AssetsInHolding, Weight), XcmError> {
+		for_tuples!( #(
+			match Tuple::withdraw_asset_with_surplus(what, who, maybe_context) {
+				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
+				r => return r,
+			}
+		)* );
+		tracing::trace!(
+			target: "xcm::TransactAsset::withdraw_asset_with_surplus",
+			?what,
+			?who,
+			?maybe_context,
+			"did not withdraw asset",
+		);
+		Err(XcmError::AssetNotFound)
+	}
+
 	fn internal_transfer_asset(
 		what: &Asset,
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<Asset, XcmError> {
 		for_tuples!( #(
 			match Tuple::internal_transfer_asset(what, from, to, context) {
 				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
@@ -247,12 +381,51 @@ impl TransactAsset for Tuple {
 		);
 		Err(XcmError::AssetNotFound)
 	}
+
+	fn internal_transfer_asset_with_surplus(
+		what: &Asset,
+		from: &Location,
+		to: &Location,
+		context: &XcmContext,
+	) -> Result<(Asset, Weight), XcmError> {
+		for_tuples!( #(
+			match Tuple::internal_transfer_asset_with_surplus(what, from, to, context) {
+				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
+				r => return r,
+			}
+		)* );
+		tracing::trace!(
+			target: "xcm::TransactAsset::internal_transfer_asset_with_surplus",
+			?what,
+			?from,
+			?to,
+			?context,
+			"did not transfer asset",
+		);
+		Err(XcmError::AssetNotFound)
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		for_tuples!( #(
+			match Tuple::mint_asset(what, context) {
+				Err(XcmError::AssetNotFound) | Err(XcmError::Unimplemented) => (),
+				r => return r,
+			}
+		)* );
+		tracing::trace!(
+			target: "xcm::TransactAsset::mint_asset",
+			?what,
+			?context,
+			"no match. did not mint asset",
+		);
+		Err(XcmError::AssetNotFound)
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use xcm::latest::Junctions::Here;
+	use xcm::latest::{AssetId, Junctions::Here};
 
 	pub struct UnimplementedTransactor;
 	impl TransactAsset for UnimplementedTransactor {}
@@ -268,11 +441,11 @@ mod tests {
 		}
 
 		fn deposit_asset(
-			_what: &Asset,
+			what: AssetsInHolding,
 			_who: &Location,
 			_context: Option<&XcmContext>,
-		) -> XcmResult {
-			Err(XcmError::AssetNotFound)
+		) -> Result<(), (AssetsInHolding, XcmError)> {
+			Err((what, XcmError::AssetNotFound))
 		}
 
 		fn withdraw_asset(
@@ -288,7 +461,11 @@ mod tests {
 			_from: &Location,
 			_to: &Location,
 			_context: &XcmContext,
-		) -> Result<AssetsInHolding, XcmError> {
+		) -> Result<Asset, XcmError> {
+			Err(XcmError::AssetNotFound)
+		}
+
+		fn mint_asset(_: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
 			Err(XcmError::AssetNotFound)
 		}
 	}
@@ -304,11 +481,11 @@ mod tests {
 		}
 
 		fn deposit_asset(
-			_what: &Asset,
+			what: AssetsInHolding,
 			_who: &Location,
 			_context: Option<&XcmContext>,
-		) -> XcmResult {
-			Err(XcmError::Overflow)
+		) -> Result<(), (AssetsInHolding, XcmError)> {
+			Err((what, XcmError::Overflow))
 		}
 
 		fn withdraw_asset(
@@ -324,7 +501,11 @@ mod tests {
 			_from: &Location,
 			_to: &Location,
 			_context: &XcmContext,
-		) -> Result<AssetsInHolding, XcmError> {
+		) -> Result<Asset, XcmError> {
+			Err(XcmError::Overflow)
+		}
+
+		fn mint_asset(_: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
 			Err(XcmError::Overflow)
 		}
 	}
@@ -340,19 +521,23 @@ mod tests {
 		}
 
 		fn deposit_asset(
-			_what: &Asset,
+			_what: AssetsInHolding,
 			_who: &Location,
 			_context: Option<&XcmContext>,
-		) -> XcmResult {
+		) -> Result<(), (AssetsInHolding, XcmError)> {
 			Ok(())
 		}
 
 		fn withdraw_asset(
-			_what: &Asset,
+			what: &Asset,
 			_who: &Location,
 			_context: Option<&XcmContext>,
 		) -> Result<AssetsInHolding, XcmError> {
-			Ok(AssetsInHolding::default())
+			Ok(asset_to_holding(what.clone()))
+		}
+
+		fn mint_asset(what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+			Ok(asset_to_holding(what.clone()))
 		}
 
 		fn internal_transfer_asset(
@@ -360,9 +545,14 @@ mod tests {
 			_from: &Location,
 			_to: &Location,
 			_context: &XcmContext,
-		) -> Result<AssetsInHolding, XcmError> {
-			Ok(AssetsInHolding::default())
+		) -> Result<Asset, XcmError> {
+			Ok(Asset::from((AssetId(Location::here()), 42u128)))
 		}
+	}
+
+	/// Helper to convert a single Asset into AssetsInHolding for tests
+	fn asset_to_holding(asset: Asset) -> AssetsInHolding {
+		crate::test_helpers::mock_asset_to_holding(asset)
 	}
 
 	#[test]
@@ -370,12 +560,15 @@ mod tests {
 		type MultiTransactor =
 			(UnimplementedTransactor, NotFoundTransactor, UnimplementedTransactor);
 
+		let asset: Asset = (Here, 1u128).into();
+		let assets_in_holding: AssetsInHolding = asset_to_holding(asset);
 		assert_eq!(
 			MultiTransactor::deposit_asset(
-				&(Here, 1u128).into(),
+				assets_in_holding,
 				&Here.into(),
 				Some(&XcmContext::with_message_id([0; 32])),
-			),
+			)
+			.map_err(|(_, e)| e),
 			Err(XcmError::AssetNotFound)
 		);
 	}
@@ -384,9 +577,11 @@ mod tests {
 	fn unimplemented_and_not_found_continue_iteration() {
 		type MultiTransactor = (UnimplementedTransactor, NotFoundTransactor, SuccessfulTransactor);
 
+		let asset: Asset = (Here, 1u128).into();
+		let assets_in_holding: AssetsInHolding = asset_to_holding(asset);
 		assert_eq!(
 			MultiTransactor::deposit_asset(
-				&(Here, 1u128).into(),
+				assets_in_holding,
 				&Here.into(),
 				Some(&XcmContext::with_message_id([0; 32])),
 			),
@@ -398,12 +593,15 @@ mod tests {
 	fn unexpected_error_stops_iteration() {
 		type MultiTransactor = (OverflowTransactor, SuccessfulTransactor);
 
+		let asset: Asset = (Here, 1u128).into();
+		let assets_in_holding: AssetsInHolding = asset_to_holding(asset);
 		assert_eq!(
 			MultiTransactor::deposit_asset(
-				&(Here, 1u128).into(),
+				assets_in_holding,
 				&Here.into(),
 				Some(&XcmContext::with_message_id([0; 32])),
-			),
+			)
+			.map_err(|(_, e)| e),
 			Err(XcmError::Overflow)
 		);
 	}
@@ -412,9 +610,11 @@ mod tests {
 	fn success_stops_iteration() {
 		type MultiTransactor = (SuccessfulTransactor, OverflowTransactor);
 
+		let asset: Asset = (Here, 1u128).into();
+		let assets_in_holding: AssetsInHolding = asset_to_holding(asset);
 		assert_eq!(
 			MultiTransactor::deposit_asset(
-				&(Here, 1u128).into(),
+				assets_in_holding,
 				&Here.into(),
 				Some(&XcmContext::with_message_id([0; 32])),
 			),

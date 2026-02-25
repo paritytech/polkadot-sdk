@@ -406,7 +406,7 @@ Some(core_index), response_sender)`
     * Construct a `IndirectSignedApprovalVote` using the information about the vote.
     * Dispatch `ApprovalDistributionMessage::DistributeApproval`.
   * ELSE
-    * Re-arm the timer with latest tick we have the send a the vote.
+    * Re-arm the timer with latest tick we have then send the vote.
 
 ### Determining Approval of Candidate
 

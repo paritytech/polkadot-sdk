@@ -89,13 +89,12 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 		weight_credit: Weight,
 	) -> Outcome {
-		let pre = match Self::prepare(message) {
-			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
+		let Ok(pre) = Self::prepare(message) else {
+			return Outcome::Error { error: Error::WeightNotComputable };
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) };
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}
@@ -289,13 +288,13 @@ impl SendXcm for Tuple {
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 pub fn validate_send<T: SendXcm>(dest: Location, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 ///
 /// Returns either `Ok` with the price of the delivery, or `Err` with the reason why the message
 /// could not be sent.

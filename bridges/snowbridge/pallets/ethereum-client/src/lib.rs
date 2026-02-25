@@ -40,8 +40,10 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
-	fast_aggregate_verify, verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError,
-	CompactBeaconState, ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
+	fast_aggregate_verify,
+	merkle_proof::{generalized_index_length, subtree_index},
+	verify_merkle_branch, BeaconHeader, BlsError, CompactBeaconState, ForkData, ForkVersion,
+	ForkVersions, PublicKeyPrepared, SigningData,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -82,6 +84,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type ForkVersions: Get<ForkVersions>;
@@ -245,13 +248,18 @@ pub mod pallet {
 				.hash_tree_root()
 				.map_err(|_| Error::<T>::SyncCommitteeHashTreeRootFailed)?;
 
+			let fork_versions = T::ForkVersions::get();
+			let sync_committee_gindex = Self::current_sync_committee_gindex_at_slot(
+				update.header.slot,
+				fork_versions.clone(),
+			);
 			// Verifies the sync committee in the Beacon state.
 			ensure!(
 				verify_merkle_branch(
 					sync_committee_root,
 					&update.current_sync_committee_branch,
-					config::CURRENT_SYNC_COMMITTEE_SUBTREE_INDEX,
-					config::CURRENT_SYNC_COMMITTEE_DEPTH,
+					subtree_index(sync_committee_gindex),
+					generalized_index_length(sync_committee_gindex),
 					update.header.state_root
 				),
 				Error::<T>::InvalidSyncCommitteeMerkleProof
@@ -265,12 +273,14 @@ pub mod pallet {
 			// This is used for ancestry proofs in ExecutionHeader updates. This verifies the
 			// BeaconState: the beacon state root is the tree root; the `block_roots` hash is the
 			// tree leaf.
+			let block_roots_gindex =
+				Self::block_roots_gindex_at_slot(update.header.slot, fork_versions);
 			ensure!(
 				verify_merkle_branch(
 					update.block_roots_root,
 					&update.block_roots_branch,
-					config::BLOCK_ROOTS_SUBTREE_INDEX,
-					config::BLOCK_ROOTS_DEPTH,
+					subtree_index(block_roots_gindex),
+					generalized_index_length(block_roots_gindex),
 					update.header.state_root
 				),
 				Error::<T>::InvalidBlockRootsRootMerkleProof
@@ -294,7 +304,7 @@ pub mod pallet {
 			Self::apply_update(update)
 		}
 
-		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
+		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
 		/// Verifies that provided next sync committee is valid through a series of checks
 		/// (including checking that a sync committee period isn't skipped and that the header is
 		/// signed by the current sync committee.
@@ -348,6 +358,11 @@ pub mod pallet {
 				Error::<T>::InvalidFinalizedHeaderGap
 			);
 
+			let fork_versions = T::ForkVersions::get();
+			let finalized_root_gindex = Self::finalized_root_gindex_at_slot(
+				update.attested_header.slot,
+				fork_versions.clone(),
+			);
 			// Verify that the `finality_branch`, if present, confirms `finalized_header` to match
 			// the finalized checkpoint root saved in the state of `attested_header`.
 			let finalized_block_root: H256 = update
@@ -358,8 +373,8 @@ pub mod pallet {
 				verify_merkle_branch(
 					finalized_block_root,
 					&update.finality_branch,
-					config::FINALIZED_ROOT_SUBTREE_INDEX,
-					config::FINALIZED_ROOT_DEPTH,
+					subtree_index(finalized_root_gindex),
+					generalized_index_length(finalized_root_gindex),
 					update.attested_header.state_root
 				),
 				Error::<T>::InvalidHeaderMerkleProof
@@ -368,12 +383,16 @@ pub mod pallet {
 			// Though following check does not belong to ALC spec we verify block_roots_root to
 			// match the finalized checkpoint root saved in the state of `finalized_header` so to
 			// cache it for later use in `verify_ancestry_proof`.
+			let block_roots_gindex = Self::block_roots_gindex_at_slot(
+				update.finalized_header.slot,
+				fork_versions.clone(),
+			);
 			ensure!(
 				verify_merkle_branch(
 					update.block_roots_root,
 					&update.block_roots_branch,
-					config::BLOCK_ROOTS_SUBTREE_INDEX,
-					config::BLOCK_ROOTS_DEPTH,
+					subtree_index(block_roots_gindex),
+					generalized_index_length(block_roots_gindex),
 					update.finalized_header.state_root
 				),
 				Error::<T>::InvalidBlockRootsRootMerkleProof
@@ -393,12 +412,16 @@ pub mod pallet {
 						Error::<T>::InvalidSyncCommitteeUpdate
 					);
 				}
+				let next_sync_committee_gindex = Self::next_sync_committee_gindex_at_slot(
+					update.attested_header.slot,
+					fork_versions,
+				);
 				ensure!(
 					verify_merkle_branch(
 						sync_committee_root,
 						&next_sync_committee_update.next_sync_committee_branch,
-						config::NEXT_SYNC_COMMITTEE_SUBTREE_INDEX,
-						config::NEXT_SYNC_COMMITTEE_DEPTH,
+						subtree_index(next_sync_committee_gindex),
+						generalized_index_length(next_sync_committee_gindex),
 						update.attested_header.state_root
 					),
 					Error::<T>::InvalidSyncCommitteeMerkleProof
@@ -437,7 +460,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#apply_light_client_update>
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
 		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
@@ -471,10 +494,10 @@ pub mod pallet {
 					<CurrentSyncCommittee<T>>::set(<NextSyncCommittee<T>>::get());
 					<NextSyncCommittee<T>>::set(sync_committee_prepared);
 				}
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
-					"💫 SyncCommitteeUpdated at period {}.",
-					update_finalized_period
+					period=%update_finalized_period,
+					"💫 SyncCommitteeUpdated."
 				);
 				<LatestSyncCommitteeUpdatePeriod<T>>::set(update_finalized_period);
 				Self::deposit_event(Event::SyncCommitteeUpdated {
@@ -525,11 +548,11 @@ pub mod pallet {
 			);
 			<LatestFinalizedBlockRoot<T>>::set(header_root);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"💫 Updated latest finalized block root {} at slot {}.",
-				header_root,
-				slot
+				root=%header_root,
+				%slot,
+				"💫 Updated latest finalized block."
 			);
 
 			Self::deposit_event(Event::BeaconHeaderImported { block_hash: header_root, slot });
@@ -604,17 +627,23 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.fulu.epoch {
+				return fork_versions.fulu.version;
+			}
+			if epoch >= fork_versions.electra.epoch {
+				return fork_versions.electra.version;
+			}
 			if epoch >= fork_versions.deneb.epoch {
-				return fork_versions.deneb.version
+				return fork_versions.deneb.version;
 			}
 			if epoch >= fork_versions.capella.epoch {
-				return fork_versions.capella.version
+				return fork_versions.capella.version;
 			}
 			if epoch >= fork_versions.bellatrix.epoch {
-				return fork_versions.bellatrix.version
+				return fork_versions.bellatrix.version;
 			}
 			if epoch >= fork_versions.altair.epoch {
-				return fork_versions.altair.version
+				return fork_versions.altair.version;
 			}
 			fork_versions.genesis.version
 		}
@@ -646,8 +675,11 @@ pub mod pallet {
 			validators_root: H256,
 			signature_slot: u64,
 		) -> Result<H256, DispatchError> {
+			// Per Ethereum Altair light-client spec, fork version is derived from signature_slot -
+			// 1. See: https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+			// In validate_light_client_update: fork_version_slot = max(signature_slot, 1) - 1
 			let fork_version = Self::compute_fork_version(compute_epoch(
-				signature_slot,
+				signature_slot.saturating_sub(1),
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
@@ -683,6 +715,53 @@ pub mod pallet {
 			}
 
 			Pays::Yes
+		}
+
+		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::FINALIZED_ROOT_INDEX;
+			}
+
+			config::altair::FINALIZED_ROOT_INDEX
+		}
+
+		pub fn current_sync_committee_gindex_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
+			}
+
+			config::altair::CURRENT_SYNC_COMMITTEE_INDEX
+		}
+
+		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
+			}
+
+			config::altair::NEXT_SYNC_COMMITTEE_INDEX
+		}
+
+		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::BLOCK_ROOTS_INDEX;
+			}
+
+			config::altair::BLOCK_ROOTS_INDEX
+		}
+
+		pub fn execution_header_gindex() -> usize {
+			config::altair::EXECUTION_HEADER_INDEX
 		}
 	}
 }

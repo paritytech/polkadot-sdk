@@ -1,0 +1,12 @@
+title: Reject litep2p inbound requests from banned peers
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR rejects inbound requests from banned peers (reputation is below the banned threshold).
+      This mirrors the request-response implementation from the libp2p side.
+      While at it, have registered a new inbound failure metric to have visibility into this.
+
+crates:
+- name: sc-network
+  bump: patch

@@ -1,0 +1,30 @@
+title: Introduce pallet-asset-rewards
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        Introduce pallet-asset-rewards, which allows accounts to be rewarded for freezing fungible 
+        tokens. The motivation for creating this pallet is to allow incentivising LPs.
+        See the pallet docs for more info about the pallet.
+
+crates:
+  - name: pallet-asset-rewards
+    bump: major
+  - name: polkadot-sdk
+    bump: minor
+  - name: kitchensink-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: assets-common
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: patch
+  - name: frame-support
+    bump: minor
+  - name: emulated-integration-tests-common
+    bump: minor

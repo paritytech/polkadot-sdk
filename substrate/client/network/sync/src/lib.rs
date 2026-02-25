@@ -18,6 +18,7 @@
 
 //! Blockchain syncing implementation in Substrate.
 
+pub use schema::v1::*;
 pub use service::syncing_service::SyncingService;
 pub use strategy::warp::{WarpSyncConfig, WarpSyncPhase, WarpSyncProgress};
 pub use types::{SyncEvent, SyncEventStream, SyncState, SyncStatus, SyncStatusProvider};

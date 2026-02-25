@@ -22,7 +22,7 @@ const XCM_FEE: u128 = 4_000_000_000_000;
 fn register_rococo_asset_on_wah_from_rah() {
 	let sa_of_rah_on_wah =
 		AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			AssetHubRococo::para_id(),
 		);
 
@@ -30,7 +30,7 @@ fn register_rococo_asset_on_wah_from_rah() {
 	let bridged_asset_at_wah = Location::new(
 		2,
 		[
-			GlobalConsensus(Rococo),
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			Parachain(AssetHubRococo::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
@@ -58,7 +58,7 @@ fn register_rococo_asset_on_wah_from_rah() {
 
 	let destination = asset_hub_westend_location();
 
-	// fund the RAH's SA on RBH for paying bridge transport fees
+	// fund the RAH's SA on RBH for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 
 	// set XCM versions
@@ -84,8 +84,8 @@ fn register_rococo_asset_on_wah_from_rah() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				// Burned the fee
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+				// Withdrawn the fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 					who: *who == sa_of_rah_on_wah.clone(),
 					amount: *amount == fee_amount,
 				},
@@ -95,8 +95,8 @@ fn register_rococo_asset_on_wah_from_rah() {
 					creator: *creator == sa_of_rah_on_wah.clone(),
 					owner: *owner == sa_of_rah_on_wah,
 				},
-				// Unspent fee minted to origin
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				// Unspent fee deposited to origin
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == sa_of_rah_on_wah.clone(),
 				},
 			]

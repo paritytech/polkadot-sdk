@@ -1,0 +1,18 @@
+title: Remove warning log from frame-omni-bencher CLI
+doc:
+- audience: Node Operator
+  description: |-
+    # Description
+
+    This PR removes the outdated warning message from the `frame-omni-bencher` CLI that states the tool is "not yet battle tested". Fixes #7019
+
+    ## Integration
+
+    No integration steps are required.
+
+    ## Review Notes
+
+    The functionality of the tool remains unchanged. Removes the warning message from the CLI output.
+crates:
+- name: frame-omni-bencher
+  bump: patch

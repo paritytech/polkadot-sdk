@@ -1,0 +1,13 @@
+title: Ensure sync event is processed on unknown peer roles
+
+doc:
+  - audience: Node Dev
+    description: |
+      The GossipEngine::poll_next implementation polls both the notification_service and the sync_event_stream.
+      This PR ensures both events are processed gracefully.
+
+crates:
+  - name: sc-network-gossip
+    bump: patch
+  - name: sc-network-sync
+    bump: patch

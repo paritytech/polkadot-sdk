@@ -25,7 +25,9 @@
 
 // Substrate and Polkadot dependencies
 use frame_support::{
-	derive_impl, parameter_types,
+	derive_impl,
+	dispatch::DispatchClass,
+	parameter_types,
 	traits::{ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, VariantCountOf},
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
@@ -56,9 +58,18 @@ parameter_types! {
 		Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		NORMAL_DISPATCH_RATIO,
 	);
-	pub RuntimeBlockLength: BlockLength = BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| *m = NORMAL_DISPATCH_RATIO * *m)
+		.build();
 	pub const SS58Prefix: u8 = 42;
 }
+
+/// All migrations of the runtime, aside from the ones declared in the pallets.
+///
+/// This can be a tuple of types, each implementing `OnRuntimeUpgrade`.
+#[allow(unused_parens)]
+type SingleBlockMigrations = ();
 
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
 /// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
@@ -88,6 +99,7 @@ impl frame_system::Config for Runtime {
 	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type SingleBlockMigrations = SingleBlockMigrations;
 }
 
 impl pallet_aura::Config for Runtime {

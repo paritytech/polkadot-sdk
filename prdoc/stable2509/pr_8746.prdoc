@@ -1,0 +1,14 @@
+title: '[pallet-revive] dev-node'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This adds a dev-node that is essentially the minimal template with the addition of pallet-revive
+
+
+    can be launched with
+
+    ```
+    RUST_LOG="error,sc_rpc_server=info,runtime::revive=debug"
+    cargo run -p revive-dev-node -- --no-prometheus --log="$RUST_LOG" --dev
+    ```
+crates: []

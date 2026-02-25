@@ -36,7 +36,7 @@ where
 
 	let all_stakers = Ledger::<T>::iter().map(|(ctrl, l)| (ctrl, l.stash)).collect::<BTreeSet<_>>();
 	let mut all_exposed = BTreeSet::new();
-	ErasStakers::<T>::iter().for_each(|(_, val, expo)| {
+	ErasStakersPaged::<T>::iter().for_each(|((_era, val, _page), expo)| {
 		all_exposed.insert(val);
 		all_exposed.extend(expo.others.iter().map(|ie| ie.who.clone()))
 	});
@@ -81,12 +81,13 @@ where
 				maybe_fast_unstake_event
 			})
 			.for_each(|e: pallet_fast_unstake::Event<T>| match e {
-				pallet_fast_unstake::Event::<T>::Unstaked { result, .. } =>
+				pallet_fast_unstake::Event::<T>::Unstaked { result, .. } => {
 					if result.is_ok() {
 						unstaked_ok += 1;
 					} else {
 						unstaked_err += 1
-					},
+					}
+				},
 				pallet_fast_unstake::Event::<T>::Slashed { .. } => unstaked_slashed += 1,
 				pallet_fast_unstake::Event::<T>::InternalError => unreachable!(),
 				_ => {},

@@ -1,0 +1,9 @@
+title: Remove debug message about pruning active leaves
+doc:
+- audience: Node Dev
+  description: |-
+    Removed useless debug message
+crates:
+- name: polkadot-node-core-pvf
+  validate: false
+  bump: none

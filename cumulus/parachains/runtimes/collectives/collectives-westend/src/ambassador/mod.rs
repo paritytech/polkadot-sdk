@@ -154,6 +154,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -222,7 +223,7 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	type PromoteOrigin = PromoteOrigin;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 pub type AmbassadorSalaryInstance = pallet_salary::Instance2;
@@ -236,7 +237,7 @@ parameter_types! {
 /// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.
 pub type AmbassadorSalaryPaymaster = PayOverXcm<
 	AmbassadorSalaryLocation,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,

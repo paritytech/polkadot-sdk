@@ -13,45 +13,91 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+#![cfg(feature = "runtime-benchmarks")]
 
 use crate::configuration::*;
-use frame_benchmarking::{benchmarks, BenchmarkError, BenchmarkResult};
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 use sp_runtime::traits::One;
 
-benchmarks! {
-	set_config_with_block_number {}: set_code_retention_period(RawOrigin::Root, One::one())
+#[benchmarks]
+mod benchmarks {
+	use super::*;
 
-	set_config_with_u32 {}: set_max_code_size(RawOrigin::Root, 100)
-
-	set_config_with_option_u32 {}: set_max_validators(RawOrigin::Root, Some(10))
-
-	set_hrmp_open_request_ttl {}: {
-		Err(BenchmarkError::Override(
-			BenchmarkResult::from_weight(T::BlockWeights::get().max_block)
-		))?;
+	#[benchmark]
+	fn set_config_with_block_number() {
+		#[extrinsic_call]
+		set_code_retention_period(RawOrigin::Root, One::one());
 	}
 
-	set_config_with_balance {}: set_hrmp_sender_deposit(RawOrigin::Root, 100_000_000_000)
+	#[benchmark]
+	fn set_config_with_u32() {
+		#[extrinsic_call]
+		set_max_code_size(RawOrigin::Root, 100);
+	}
 
-	set_config_with_executor_params {}: set_executor_params(RawOrigin::Root, ExecutorParams::from(&[
-		ExecutorParam::MaxMemoryPages(2080),
-		ExecutorParam::StackLogicalMax(65536),
-		ExecutorParam::StackNativeMax(256 * 1024 * 1024),
-		ExecutorParam::WasmExtBulkMemory,
-		ExecutorParam::PrecheckingMaxMemory(2 * 1024 * 1024 * 1024),
-		ExecutorParam::PvfPrepTimeout(PvfPrepKind::Precheck, 60_000),
-		ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 360_000),
-		ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2_000),
-		ExecutorParam::PvfExecTimeout(PvfExecKind::Approval, 12_000),
-	][..]))
+	#[benchmark]
+	fn set_config_with_option_u32() {
+		#[extrinsic_call]
+		set_max_validators(RawOrigin::Root, Some(10));
+	}
 
-	set_config_with_perbill {}: set_on_demand_fee_variability(RawOrigin::Root, Perbill::from_percent(100))
+	#[benchmark]
+	fn set_hrmp_open_request_ttl() -> Result<(), BenchmarkError> {
+		#[block]
+		{
+			Err(BenchmarkError::Override(BenchmarkResult::from_weight(
+				T::BlockWeights::get().max_block,
+			)))?;
+		}
+		Ok(())
+	}
 
-	set_node_feature{}: set_node_feature(RawOrigin::Root, 255, true)
+	#[benchmark]
+	fn set_config_with_balance() {
+		#[extrinsic_call]
+		set_hrmp_sender_deposit(RawOrigin::Root, 100_000_000_000);
+	}
 
-	set_config_with_scheduler_params {} : set_scheduler_params(RawOrigin::Root, SchedulerParams::default())
+	#[benchmark]
+	fn set_config_with_executor_params() {
+		#[extrinsic_call]
+		set_executor_params(
+			RawOrigin::Root,
+			ExecutorParams::from(
+				&[
+					ExecutorParam::MaxMemoryPages(2080),
+					ExecutorParam::StackLogicalMax(65536),
+					ExecutorParam::StackNativeMax(256 * 1024 * 1024),
+					ExecutorParam::WasmExtBulkMemory,
+					ExecutorParam::PrecheckingMaxMemory(2 * 1024 * 1024 * 1024),
+					ExecutorParam::PvfPrepTimeout(PvfPrepKind::Precheck, 60_000),
+					ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 360_000),
+					ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2_000),
+					ExecutorParam::PvfExecTimeout(PvfExecKind::Approval, 12_000),
+				][..],
+			),
+		);
+	}
+
+	#[benchmark]
+	fn set_config_with_perbill() {
+		#[extrinsic_call]
+		set_on_demand_fee_variability(RawOrigin::Root, Perbill::from_percent(100));
+	}
+
+	#[benchmark]
+	fn set_node_feature() {
+		#[extrinsic_call]
+		set_node_feature(RawOrigin::Root, 255, true);
+	}
+
+	#[benchmark]
+	fn set_config_with_scheduler_params() {
+		#[extrinsic_call]
+		set_scheduler_params(RawOrigin::Root, SchedulerParams::default());
+	}
 
 	impl_benchmark_test_suite!(
 		Pallet,

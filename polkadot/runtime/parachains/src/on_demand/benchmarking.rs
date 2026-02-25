@@ -91,6 +91,20 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
 	}
 
+	#[benchmark]
+	fn place_order_with_credits(s: Linear<1, MAX_FILL_BENCH>) {
+		// Setup
+		let caller: T::AccountId = whitelisted_caller();
+		let para_id = ParaId::from(111u32);
+		init_parathread::<T>(para_id);
+		Credits::<T>::insert(&caller, BalanceOf::<T>::max_value());
+
+		Pallet::<T>::populate_queue(para_id, s);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.into()), BalanceOf::<T>::max_value(), para_id)
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(

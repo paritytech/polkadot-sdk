@@ -1,0 +1,16 @@
+title: '`pallet-xcm`: extract precompiles to a separate crate'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR extracts the XCM precompile from `pallet-xcm` into a new standalone crate `pallet-xcm-precompiles` to resolve an unwanted dependency issue. Previously, the XCM precompile was implemented directly in `pallet-xcm/src/precompiles.rs`, which required `pallet-xcm` to depend on `pallet-revive`, introducing it as a transitive dependency for all parachains using `pallet-xcm`.
+
+    Closes #9955
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-xcm
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: minor
+- name: polkadot-sdk
+  bump: minor

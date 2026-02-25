@@ -21,7 +21,7 @@ use derive_syn_parse::Parse;
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
 	parse::{Nothing, ParseStream},
 	parse_quote,
@@ -30,7 +30,7 @@ use syn::{
 	token::{Comma, Gt, Lt, PathSep},
 	Attribute, Error, Expr, ExprBlock, ExprCall, ExprPath, FnArg, Item, ItemFn, ItemMod, Pat, Path,
 	PathArguments, PathSegment, Result, ReturnType, Signature, Stmt, Token, Type, TypePath,
-	Visibility, WhereClause,
+	Visibility, WhereClause, WherePredicate,
 };
 
 mod keywords {
@@ -166,15 +166,15 @@ impl syn::parse::Parse for PovEstimationMode {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::MaxEncodedLen) {
 			let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
-			return Ok(PovEstimationMode::MaxEncodedLen)
+			return Ok(PovEstimationMode::MaxEncodedLen);
 		} else if lookahead.peek(keywords::Measured) {
 			let _measured: keywords::Measured = input.parse()?;
-			return Ok(PovEstimationMode::Measured)
+			return Ok(PovEstimationMode::Measured);
 		} else if lookahead.peek(keywords::Ignored) {
 			let _ignored: keywords::Ignored = input.parse()?;
-			return Ok(PovEstimationMode::Ignored)
+			return Ok(PovEstimationMode::Ignored);
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		}
 	}
 }
@@ -210,19 +210,19 @@ impl syn::parse::Parse for BenchmarkAttrs {
 			match arg {
 				BenchmarkAttr::Extra => {
 					if extra {
-						return Err(input.error("`extra` can only be specified once"))
+						return Err(input.error("`extra` can only be specified once"));
 					}
 					extra = true;
 				},
 				BenchmarkAttr::SkipMeta => {
 					if skip_meta {
-						return Err(input.error("`skip_meta` can only be specified once"))
+						return Err(input.error("`skip_meta` can only be specified once"));
 					}
 					skip_meta = true;
 				},
 				BenchmarkAttr::PoV(mode) => {
 					if pov_mode.is_some() {
-						return Err(input.error("`pov_mode` can only be specified once"))
+						return Err(input.error("`pov_mode` can only be specified once"));
 					}
 					pov_mode = Some(mode);
 				},
@@ -281,7 +281,7 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 			return Err(Error::new(
 					typ.span(),
 					"Only `Result<(), BenchmarkError>` or a blank return type is allowed on benchmark function definitions",
-				))
+				));
 		};
 		let seg = path
 			.segments
@@ -291,7 +291,7 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 		// ensure T in Result<T, E> is ()
 		let Type::Tuple(tup) = res.unit else { return non_unit(res.unit.span()) };
 		if !tup.elems.is_empty() {
-			return non_unit(tup.span())
+			return non_unit(tup.span());
 		}
 		let TypePath { path, qself: _ } = res.e_type;
 		let seg = path
@@ -329,7 +329,7 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 			return Err(Error::new(
 				span,
 				"Invalid benchmark function param. A valid example would be `x: Linear<5, 10>`.",
-			))
+			));
 		};
 
 		let FnArg::Typed(arg) = arg else { return invalid_param(arg.span()) };
@@ -345,11 +345,11 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 		};
 		let name = ident.ident.to_token_stream().to_string();
 		if name.len() > 1 {
-			return invalid_param_name()
+			return invalid_param_name();
 		};
 		let Some(name_char) = name.chars().next() else { return invalid_param_name() };
 		if !name_char.is_alphabetic() || !name_char.is_lowercase() {
-			return invalid_param_name()
+			return invalid_param_name();
 		}
 
 		// parse type
@@ -414,11 +414,12 @@ fn parse_call_def(item_fn: &ItemFn) -> Result<(usize, BenchmarkCallDef)> {
 	Ok(match &call_defs[..] {
 		[(i, call_def)] => (*i, call_def.clone()), // = 1
 		[] => return missing_call(item_fn),
-		_ =>
+		_ => {
 			return Err(Error::new(
 				call_defs[1].1.attr_span(),
 				"Only one #[extrinsic_call] or #[block] attribute is allowed per benchmark.",
-			)),
+			))
+		},
 	})
 }
 
@@ -432,7 +433,9 @@ impl BenchmarkDef {
 		let (verify_stmts, last_stmt) = match item_fn.sig.output {
 			ReturnType::Default =>
 			// no return type, last_stmt should be None
-				(Vec::from(&item_fn.block.stmts[(i + 1)..item_fn.block.stmts.len()]), None),
+			{
+				(Vec::from(&item_fn.block.stmts[(i + 1)..item_fn.block.stmts.len()]), None)
+			},
 			ReturnType::Type(_, _) => {
 				// defined return type, last_stmt should be Result<(), BenchmarkError>
 				// compatible and should not be included in verify_stmts
@@ -444,7 +447,7 @@ impl BenchmarkDef {
 						defined a return type. You should return something compatible \
 						with Result<(), BenchmarkError> (i.e. `Ok(())`) as the last statement \
 						or change your signature to a blank return type.",
-					))
+					));
 				}
 				let Some(stmt) = item_fn.block.stmts.last() else { return missing_call(item_fn) };
 				(
@@ -481,8 +484,26 @@ pub fn benchmarks(
 	let module: ItemMod = syn::parse(tokens)?;
 	let mod_span = module.span();
 	let where_clause = match syn::parse::<Nothing>(attrs.clone()) {
-		Ok(_) => quote!(),
-		Err(_) => syn::parse::<WhereClause>(attrs)?.predicates.to_token_stream(),
+		Ok(_) => {
+			if instance {
+				quote!(T: Config<I>, I: 'static)
+			} else {
+				quote!(T: Config)
+			}
+		},
+		Err(_) => {
+			let mut where_clause_predicates = syn::parse::<WhereClause>(attrs)?.predicates;
+
+			// Ensure the where clause contains the Config trait bound
+			if instance {
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("T: Config<I>")?);
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("I:'static")?);
+			} else {
+				where_clause_predicates.push(syn::parse_str::<WherePredicate>("T: Config")?);
+			}
+
+			where_clause_predicates.to_token_stream()
+		},
 	};
 	let mod_vis = module.vis;
 	let mod_name = module.ident;
@@ -568,10 +589,6 @@ pub fn benchmarks(
 		false => quote!(T),
 		true => quote!(T, I),
 	};
-	let type_impl_generics = match instance {
-		false => quote!(T: Config),
-		true => quote!(T: Config<I>, I: 'static),
-	};
 
 	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 
@@ -640,7 +657,7 @@ pub fn benchmarks(
 				*
 			}
 
-			impl<#type_impl_generics> #krate::BenchmarkingSetup<#type_use_generics> for SelectedBenchmark where #where_clause {
+			impl<#type_use_generics> #krate::BenchmarkingSetup<#type_use_generics> for SelectedBenchmark where #where_clause {
 				fn components(&self) -> #krate::__private::Vec<(#krate::BenchmarkParameter, u32, u32)> {
 					match self {
 						#(
@@ -671,8 +688,8 @@ pub fn benchmarks(
 				}
 			}
 			#[cfg(any(feature = "runtime-benchmarks", test))]
-			impl<#type_impl_generics> #krate::Benchmarking for Pallet<#type_use_generics>
-			where T: #frame_system::Config, #where_clause
+			impl<#type_use_generics> #krate::Benchmarking for Pallet<#type_use_generics>
+			where T: #frame_system::Config,#where_clause
 			{
 				fn benchmarks(
 					extra: bool,
@@ -723,6 +740,7 @@ pub fn benchmarks(
 					verify: bool,
 					internal_repeats: u32,
 				) -> Result<#krate::__private::Vec<#krate::BenchmarkResult>, #krate::BenchmarkError> {
+					#krate::benchmarking::wipe_db();
 					let extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|_| "`extrinsic` is not a valid utf-8 string!")?;
 					let selected_benchmark = match extrinsic {
 						#(#selected_benchmark_mappings),
@@ -807,9 +825,9 @@ pub fn benchmarks(
 						);
 
 						// Time the storage root recalculation.
-						let start_storage_root = #krate::benchmarking::current_time();
+						let start_storage_root = #krate::current_time();
 						#krate::__private::storage_root(#krate::__private::StateVersion::V1);
-						let finish_storage_root = #krate::benchmarking::current_time();
+						let finish_storage_root = #krate::current_time();
 						let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 						let skip_meta = [ #(#skip_meta_benchmark_names_str),* ];
@@ -837,7 +855,7 @@ pub fn benchmarks(
 			}
 
 			#[cfg(test)]
-			impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
+			impl<#type_use_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 				/// Test a particular benchmark by name.
 				///
 				/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
@@ -930,11 +948,6 @@ fn expand_benchmark(
 		true => quote!(T, I),
 	};
 
-	let type_impl_generics = match is_instance {
-		false => quote!(T: Config),
-		true => quote!(T: Config<I>, I: 'static),
-	};
-
 	// used in the benchmarking impls
 	let (pre_call, post_call, fn_call_body) = match &benchmark_def.call_def {
 		BenchmarkCallDef::ExtrinsicCall { origin, expr_call, attr_span: _ } => {
@@ -951,12 +964,12 @@ fn expand_benchmark(
 			let origin = match origin {
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
-					quote! {
+					quote_spanned! { origin.span() =>
 						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
-				_ => quote! {
-					#origin.into();
+				_ => quote_spanned! { origin.span() =>
+					Into::<<T as #frame_system::Config>::RuntimeOrigin>::into(#origin);
 				},
 			};
 
@@ -1000,6 +1013,7 @@ fn expand_benchmark(
 				let __call_decoded = <Call<#type_use_generics> as #codec::Decode>
 					::decode(&mut &__benchmarked_call_encoded[..])
 					.expect("call is encoded above, encoding must be correct");
+				#[allow(clippy::useless_conversion)]
 				let __origin = #origin;
 				<Call<#type_use_generics> as #traits::UnfilteredDispatchable>::dispatch_bypass_filter(
 					__call_decoded,
@@ -1016,8 +1030,9 @@ fn expand_benchmark(
 				},
 			)
 		},
-		BenchmarkCallDef::Block { block, attr_span: _ } =>
-			(quote!(), quote!(#block), quote!(#block)),
+		BenchmarkCallDef::Block { block, attr_span: _ } => {
+			(quote!(), quote!(#block), quote!(#block))
+		},
 	};
 
 	let vis = benchmark_def.fn_vis;
@@ -1030,13 +1045,11 @@ fn expand_benchmark(
 
 	// modify signature generics, ident, and inputs, e.g:
 	// before: `fn bench(u: Linear<1, 100>) -> Result<(), BenchmarkError>`
-	// after: `fn _bench <T: Config<I>, I: 'static>(u: u32, verify: bool) -> Result<(),
+	// after: `fn _bench <T, I>(u: u32, verify: bool) where T: Config<I>, I: 'static -> Result<(),
 	// BenchmarkError>`
 	let mut sig = benchmark_def.fn_sig;
-	sig.generics = parse_quote!(<#type_impl_generics>);
-	if !where_clause.is_empty() {
-		sig.generics.where_clause = parse_quote!(where #where_clause);
-	}
+	sig.generics = parse_quote!(<#type_use_generics>);
+	sig.generics.where_clause = parse_quote!(where #where_clause);
 	sig.ident =
 		Ident::new(format!("_{}", name.to_token_stream().to_string()).as_str(), Span::call_site());
 	let mut fn_param_inputs: Vec<TokenStream2> =
@@ -1081,7 +1094,7 @@ fn expand_benchmark(
 		struct #name;
 
 		#[allow(unused_variables)]
-		impl<#type_impl_generics> #krate::BenchmarkingSetup<#type_use_generics>
+		impl<#type_use_generics> #krate::BenchmarkingSetup<#type_use_generics>
 		for #name where #where_clause {
 			fn components(&self) -> #krate::__private::Vec<(#krate::BenchmarkParameter, u32, u32)> {
 				#krate::__private::vec! [
@@ -1123,7 +1136,7 @@ fn expand_benchmark(
 		}
 
 		#[cfg(test)]
-		impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
+		impl<#type_use_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
 			#[allow(unused)]
 			fn #test_ident() -> Result<(), #krate::BenchmarkError> {
 				let selected_benchmark = SelectedBenchmark::#name;

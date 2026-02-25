@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Helper for handling (i.e. answering) block requests from a remote peer via the
 //! `crate::request_responses::RequestResponsesBehaviour`.
@@ -59,7 +60,6 @@ use std::{
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
-const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
 mod rep {
@@ -359,7 +359,7 @@ where
 		let client_header_from_block_id =
 			|block_id: BlockId<B>| -> Result<Option<B::Header>, HandleRequestError> {
 				if let Some(hash) = self.client.block_hash_from_id(&block_id)? {
-					return self.client.header(hash).map_err(Into::into)
+					return self.client.header(hash).map_err(Into::into);
 				}
 				Ok(None)
 			};
@@ -399,11 +399,12 @@ where
 
 			let body = if get_body {
 				match self.client.block_body(hash)? {
-					Some(mut extrinsics) =>
-						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
+					Some(mut extrinsics) => {
+						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+					},
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
-						break
+						break;
 					},
 				}
 			} else {
@@ -440,13 +441,19 @@ where
 				indexed_body,
 			};
 
-			let new_total_size = total_size +
-				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() +
-				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
+			let new_total_size = total_size + block_data.encoded_len();
 
-			// Send at least one block, but make sure to not exceed the limit.
-			if !blocks.is_empty() && new_total_size > MAX_BODY_BYTES {
-				break
+			// Reserve 20 KiB for protocol overhead (length prefixes of `BlockData` + the final
+			// encoding in `BlockResponse`)
+			if new_total_size > (MAX_RESPONSE_SIZE as usize - 20 * 1024) {
+				if blocks.is_empty() {
+					log::error!(
+						target: LOG_TARGET,
+						"Single block response is bigger than the max allowed response size! This is a bug!"
+					);
+				}
+
+				break;
 			}
 
 			total_size = new_total_size;
@@ -454,14 +461,14 @@ where
 			blocks.push(block_data);
 
 			if blocks.len() >= max_blocks as usize {
-				break
+				break;
 			}
 
 			match direction {
 				Direction::Ascending => block_id = BlockId::Number(number + One::one()),
 				Direction::Descending => {
 					if number.is_zero() {
-						break
+						break;
 					}
 					block_id = BlockId::Hash(parent_hash)
 				},
@@ -502,6 +509,7 @@ enum HandleRequestError {
 }
 
 /// The full block downloader implementation of [`BlockDownloader].
+#[derive(Debug)]
 pub struct FullBlockDownloader {
 	protocol_name: ProtocolName,
 	network: NetworkServiceHandle,
@@ -576,6 +584,10 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
 	async fn download_blocks(
 		&self,
 		who: PeerId,

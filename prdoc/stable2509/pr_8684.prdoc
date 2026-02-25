@@ -1,0 +1,27 @@
+title: Add optional auto-rebag within on-idle
+doc:
+- audience: Runtime Dev
+  description: Introduced an optional `on_idle` hook for automatic account rebagging,
+    improving the incremental correction of account positions within the bags-list
+    during block execution's idle phase. This feature leverages new storage and
+    configurable constants, alongside enhanced logging and internal helpers.
+    Setting `MaxAutoRebagPerBlock` to `0` (e.g., `type MaxAutoRebagPerBlock = ();`)
+    disables this functionality, preserving pre-upgrade pallet behavior.
+    make sure that after setting value of `MaxAutoRebagPerBlock` you regenerate weight for your runtime.
+crates:
+- name: pallet-bags-list
+  bump: major
+- name: westend-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: pallet-staking
+  bump: minor
+- name: pallet-nomination-pools-benchmarking
+  bump: minor
+- name: pallet-staking-async
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor

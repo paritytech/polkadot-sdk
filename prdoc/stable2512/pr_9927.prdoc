@@ -1,0 +1,13 @@
+title: 'Log: log `candidate_hash` nor the `pov_hash` when collations expire'
+doc:
+- audience: Node Dev
+  description: |-
+    When collations expire we do not log the `candidate_hash` nor the `pov_hash`, making it hard to map the
+    logged entries about Candidate generated and Candidate expired together.
+
+    This PR adds `pov_hash` and `candidate_hash` to the CollationStats struct and use these fields when we 
+    log "Collation expired".
+    
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

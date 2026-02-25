@@ -1,0 +1,16 @@
+title: '`polkadot-parachain`:  fixes and changes related to GetParachainInfo'
+doc:
+- audience: Node Dev 
+  description: |-
+    - Provides some updated to the asset-hub-westend-local chain specification, by adding appropriate genesis patch for parachainInfo.
+    - refactors the logic related to fetching `para_id` with the node, so that when failing to use `GetParachainInfo::parachain_id` we also get a log with the error (before defaulting to `para_id` extracted from chain spec).
+    - removes comments/deprecation notices throughout the code that introduce para-id flag removal (from chain-spec-builder and support for parsing it from chain specifications)
+crates:
+- name: polkadot-parachain-bin
+  bump: patch 
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-omni-node
+  bump: patch
+- name: staging-chain-spec-builder
+  bump: patch

@@ -25,30 +25,24 @@
 //! Every frame pallet may have its initial state which is defined by the `GenesisConfig` internal
 //! struct. It is a regular Rust struct, annotated with the [`pallet::genesis_config`] attribute.
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_bar_GenesisConfig)]
-//!
 //! The struct shall be defined within the pallet `mod`, as in the following code:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_bar)]
-//!
 //! The initial state conveyed in  the `GenesisConfig` struct is transformed into state storage
 //! items by means of the [`BuildGenesisConfig`] trait, which shall be implemented for the pallet's
 //! `GenesisConfig` struct. The [`pallet::genesis_build`] attribute shall be attached to the `impl`
 //! block:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_bar_build)]
-//!
 //! `GenesisConfig` may also contain more complicated types, including nested structs or enums, as
 //! in the example for `pallet_foo`:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_foo_GenesisConfig)]
-//!
 //! Note that [`serde`] attributes can be used to control how the data
 //! structures are stored into JSON. In the following example, the [`sp_core::bytes`] function is
 //! used to serialize the `values` field.
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", SomeFooData2)]
-//!
 //! Please note that fields of `GenesisConfig` may not be directly mapped to storage items. In the
 //! following example, the initial struct fields are used to compute (sum) the value that will be
 //! stored in the state as `ProcessedEnumValue`:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/pallets.rs", pallet_foo_build)]
-//!
 //! # `GenesisConfig` for `runtimes`
 //!
 //! The runtime genesis config struct consists of configs for every pallet. For the [_demonstration
@@ -85,13 +79,11 @@
 //! [`build_state`], [`get_preset`].
 //! A typical implementation of [`sp_genesis_builder::GenesisBuilder`] looks as follows:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/runtime.rs", runtime_impl)]
-//!
 //! Please note that two functions are customized: `preset_names` and `get_preset`. The first one
 //! just provides a `Vec` of the names of supported presets, while the latter delegates the call
 //! to a function that maps the name to an actual preset:
 //! [`chain_spec_guide_runtime::presets::get_builtin_preset`]
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", get_builtin_preset)]
-//!
 //! ## Genesis state presets for runtime
 //!
 //! The runtime may provide many flavors of initial genesis state. This may be useful for predefined
@@ -100,18 +92,20 @@
 //! others useful for testing.
 //!
 //! Internally, presets can be provided in a number of ways:
+//! - using [`build_struct_json_patch`] macro (**recommended**):
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_2)]
+//! - JSON using runtime types to serialize values:
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_3)]
 //! - JSON in string form:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_1)]
-//! - JSON using runtime types to serialize values:
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_2)]
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_3)]
 //! It is worth noting that a preset does not have to be the full `RuntimeGenesisConfig`, in that
 //! sense that it does not have to contain all the keys of the struct. The preset is actually a JSON
 //! patch that will be merged with the default value of `RuntimeGenesisConfig`. This approach should
 //! simplify maintenance of built-in presets. The following example illustrates a runtime genesis
-//! config patch:
+//! config patch with a single key built using [`build_struct_json_patch`] macro:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_4)]
-//!
+//! This results in the following JSON blob:
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", preset_4_json)]
 //! ## Note on the importance of testing presets
 //!
 //! It is recommended to always test presets by adding tests that convert the preset into the
@@ -119,17 +113,19 @@
 //! which enforces the verification of the preset. The following code shows one of the approaches
 //! that can be taken for testing:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", check_presets)]
-//!
 //! ## Note on the importance of using the `deny_unknown_fields` attribute
 //!
-//! It is worth noting that it is easy to make a hard-to-spot mistake, as in the following example
-//! ([`FooStruct`] does not contain `fieldC`):
+//! It is worth noting that when manually building preset JSON blobs it is easy to make a
+//! hard-to-spot mistake, as in the following example ([`FooStruct`] does not contain `fieldC`):
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_invalid)]
 //! Even though `preset_invalid` contains a key that does not exist, the deserialization of the JSON
 //! blob does not fail. The misspelling is silently ignored due to the lack of the
 //! [`deny_unknown_fields`] attribute on the [`FooStruct`] struct, which is internally used in
 //! `GenesisConfig`.
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", invalid_preset_works)]
+//! To avoid this problem [`build_struct_json_patch`] macro shall be used whenever possible (it
+//! internally instantiates the struct before serializang it JSON blob, so all unknown fields shall
+//! be caught at compilation time).
 //!
 //! ## Runtime `GenesisConfig` raw format
 //!
@@ -152,24 +148,26 @@
 //! presets and build the chain specification file. It is possible to use the tool with the
 //! [_demonstration runtime_][`chain_spec_guide_runtime`]. To build the required packages, just run
 //! the following command:
+//!
 //! ```ignore
 //! cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release
 //! ```
+//!
 //! The `chain-spec-builder` util can also be installed with `cargo install`:
+//!
 //! ```ignore
 //! cargo install staging-chain-spec-builder
 //! cargo build -p chain-spec-guide-runtime --release
 //! ```
 //! Here are some examples in the form of rust tests:
 //! ## Listing available preset names:
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", list_presets)]
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", cmd_list_presets)]
 //! ## Displaying preset with given name
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", get_preset)]
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", cmd_get_preset)]
 //! ## Building a solo chain-spec (the default) using given preset
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", generate_chain_spec)]
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", cmd_generate_chain_spec)]
 //! ## Building a parachain chain-spec using given preset
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", generate_para_chain_spec)]
-//!
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", cmd_generate_para_chain_spec)]
 //! [`RuntimeGenesisConfig`]:
 //!     chain_spec_guide_runtime::runtime::RuntimeGenesisConfig
 //! [`FooStruct`]:
@@ -179,6 +177,7 @@
 //! [`get_preset`]: frame_support::genesis_builder_helper::get_preset
 //! [`pallet::genesis_build`]: frame_support::pallet_macros::genesis_build
 //! [`pallet::genesis_config`]: frame_support::pallet_macros::genesis_config
+//! [`build_struct_json_patch`]: frame_support::build_struct_json_patch
 //! [`BuildGenesisConfig`]: frame_support::traits::BuildGenesisConfig
 //! [`serde`]: https://serde.rs/field-attrs.html
 //! [`get_storage_for_patch`]: sc_chain_spec::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch

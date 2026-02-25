@@ -38,8 +38,8 @@ when building the code.
 ## Update examples and tutorials
 
 Make sure that the rust docs are updated.
-We also need [https://docs.substrate.io/](https://docs.substrate.io/) to be updated accordingly. The repo behind it is
-[https://github.com/substrate-developer-hub/substrate-docs](https://github.com/substrate-developer-hub/substrate-docs).
+We also need [https://docs.polkadot.com/](https://docs.polkadot.com/) to be updated accordingly. The repo behind it is
+[https://github.com/polkadot-developers/polkadot-docs](https://github.com/polkadot-developers/polkadot-docs).
 
 ## Announce the deprecation and removal
 

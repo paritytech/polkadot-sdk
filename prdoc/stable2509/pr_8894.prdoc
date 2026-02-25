@@ -1,0 +1,19 @@
+title: remove enable_approval_voting_parallel cli flag
+doc:
+- audience: Node Dev
+  description: This has been running on polkadot since https://github.com/paritytech/polkadot-sdk/pull/7504,
+    so it is time to remove the flag that allowed us to run either with approval-voting-parallel
+    or with approval-distribution and approval-voting subsystems.
+crates:
+- name: cumulus-relay-chain-inprocess-interface
+  bump: major
+- name: polkadot-cli
+  bump: major
+- name: polkadot-node-core-dispute-coordinator
+  bump: major
+- name: polkadot-network-bridge
+  bump: major
+- name: polkadot-overseer
+  bump: major
+- name: polkadot-service
+  bump: major

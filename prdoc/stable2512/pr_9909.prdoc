@@ -1,0 +1,16 @@
+title: 'pallet-revive: add interface to implement mocks and pranks'
+doc:
+- audience: Node Dev
+  description: |-
+    Needed for: https://github.com/paritytech/foundry-polkadot/pull/334.
+
+    In foundry-polkadot we need the ability to be able to manipulate the `msg.sender` and the `tx.origin` that a solidity contract sees cheatcode documentation, plus the ability to mock calls and functions.
+
+     Currently all create/call methods use the `bare_instantiate`/`bare_call` to run things in pallet-revive,  the caller then normally gets set automatically, based on what is the call stack, but for `forge test` we need to be able to manipulate, so that we can set it to custom values.
+
+    Additionally, for delegate_call, bare_call is used, so there is no way to specify we are dealing with a delegate call, so the call is not working correcly.
+
+    For both this paths, we need a way to inject this information into the execution environment, hence I added an optional hooks interface that we implement from foundry cheatcodes for prank and mock functionality.
+crates:
+- name: pallet-revive
+  bump: major

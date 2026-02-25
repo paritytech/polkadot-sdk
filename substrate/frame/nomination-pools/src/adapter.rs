@@ -16,12 +16,13 @@
 // limitations under the License.
 
 use crate::*;
+use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable};
 use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
 ///
 /// Useful for determining current staking strategy of a runtime and enforce integrity tests.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq)]
 pub enum StakeStrategyType {
 	/// Member funds are transferred to pool account and staked.
 	///
@@ -89,12 +90,18 @@ pub trait StakeStrategy {
 	/// The type of staking strategy of the current adapter.
 	fn strategy_type() -> StakeStrategyType;
 
-	/// See [`StakingInterface::bonding_duration`].
+	/// See [`StakingInterface::nominator_bonding_duration`].
+	///
+	/// Pool accounts are nominators, so they use the nominator bonding duration which can be
+	/// shorter than the validator bonding duration when nominators are not slashable.
 	fn bonding_duration() -> EraIndex {
-		Self::CoreStaking::bonding_duration()
+		Self::CoreStaking::nominator_bonding_duration()
 	}
 
 	/// See [`StakingInterface::current_era`].
+	///
+	/// Note: Named current_era for legacy interface compatibility. Returns active era which
+	/// should be used for all non-election staking logic.
 	fn current_era() -> EraIndex {
 		Self::CoreStaking::current_era()
 	}
@@ -245,8 +252,10 @@ pub trait StakeStrategy {
 /// strategy in an existing runtime, storage migration is required. See
 /// [`migration::unversioned::DelegationStakeMigration`]. For new runtimes, it is highly recommended
 /// to use the [`DelegateStake`] strategy.
+#[deprecated = "consider migrating to DelegateStake"]
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
+#[allow(deprecated)]
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
 	StakeStrategy for TransferStake<T, Staking>
 {
@@ -262,7 +271,8 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		pool_account: Pool<Self::AccountId>,
 		_: Member<Self::AccountId>,
 	) -> BalanceOf<T> {
-		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(pool_account))
+		// free/liquid balance of the pool account.
+		T::Currency::reducible_balance(&pool_account.get(), Expendable, Polite)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {

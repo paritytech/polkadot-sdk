@@ -16,7 +16,7 @@
 
 //! Primitives that may be used for creating signed extensions for indirect runtimes.
 
-use codec::{Compact, Decode, Encode};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
@@ -29,7 +29,7 @@ use sp_std::{fmt::Debug, marker::PhantomData};
 /// Trait that describes some properties of a `TransactionExtension` that are needed in order to
 /// send a transaction to the chain.
 pub trait TransactionExtensionSchema:
-	Encode + Decode + Debug + Eq + Clone + StaticTypeInfo
+	Encode + Decode + DecodeWithMemTracking + Debug + Eq + Clone + StaticTypeInfo
 {
 	/// A type of the data encoded as part of the transaction.
 	type Payload: Encode + Decode + Debug + Eq + Clone + StaticTypeInfo;
@@ -44,7 +44,7 @@ impl TransactionExtensionSchema for () {
 }
 
 /// An implementation of `TransactionExtensionSchema` using generic params.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq, TypeInfo)]
 pub struct GenericTransactionExtensionSchema<P, S>(PhantomData<(P, S)>);
 
 impl<P, S> TransactionExtensionSchema for GenericTransactionExtensionSchema<P, S>
@@ -104,7 +104,7 @@ impl TransactionExtensionSchema for Tuple {
 
 /// A simplified version of signed extensions meant for producing signed transactions
 /// and signed payloads in the client code.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct GenericTransactionExtension<S: TransactionExtensionSchema> {
 	/// A payload that is included in the transaction.
 	pub payload: S::Payload,
@@ -127,7 +127,7 @@ impl<S, C> TransactionExtension<C> for GenericTransactionExtension<S>
 where
 	C: Dispatchable,
 	S: TransactionExtensionSchema,
-	S::Payload: Send + Sync,
+	S::Payload: DecodeWithMemTracking + Send + Sync,
 	S::Implicit: Send + Sync,
 {
 	const IDENTIFIER: &'static str = "Not needed.";

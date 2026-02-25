@@ -1,0 +1,5 @@
+title: '[pallet-revive] update rpc md'
+doc:
+- audience: Runtime Dev
+  description: Update eth-rpc metadata files
+crates: []

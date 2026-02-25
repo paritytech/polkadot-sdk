@@ -1,0 +1,90 @@
+title: Lazy decode block extrinsics
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/issues/4255
+
+    Addresses https://github.com/paritytech/polkadot-sdk/pull/7902#pullrequestreview-3079855302
+
+    This PR enables us to lazily decode the block extrinsics when needed.
+
+    The PR changes the signature of the `execute_block` and `check_inherents` runtime APIs in order to receive
+    a `LazyBlock` instead of a `Block`. However `LazyBlock` and `Block` encode to the same byte sequence.
+    If some tools are using metadata, the type may appear as `LazyBlock` instead of `Block`.
+    But the underlying type is the same.
+crates:
+- name: sp-runtime
+  bump: major
+- name: frame-executive
+  bump: major
+- name: cumulus-primitives-core
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: frame-benchmarking-cli
+  bump: patch
+- name: sc-rpc
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: sc-tracing
+  bump: patch
+- name: sp-api
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: sc-basic-authorship
+  bump: patch
+- name: frame-support
+  bump: major
+- name: sp-api-proc-macro
+  bump: major
+- name: frame-try-runtime
+  bump: patch
+- name: sp-block-builder
+  bump: patch
+- name: frame-support-procedural
+  bump: major
+- name: cumulus-pallet-aura-ext
+  bump: patch
+- name: cumulus-client-service
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: rococo-parachain-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: revive-dev-runtime
+  bump: patch
+

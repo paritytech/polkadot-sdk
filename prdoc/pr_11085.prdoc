@@ -1,0 +1,10 @@
+title: 'Sync: Gracefully handle blocks from an unknown fork'
+doc:
+- audience: Node Dev
+  description: |-
+    There is the possibility that node A connects to node B. Both are at the same best block (20). Shortly after this, node B announces a block 21 that is from a completely different fork (started at e.g. block 15). Right now this leads to node A downloading this block 21 and then failing to import it because it doesn't have the parent block.
+
+    This pull request solves this situation by putting the peer into ancestry search when it detects a fork that is "unknown".
+crates:
+- name: sc-network-sync
+  bump: patch
