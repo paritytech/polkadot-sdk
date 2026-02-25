@@ -173,7 +173,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_021_001,
+	spec_version: 1_021_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -549,7 +549,7 @@ impl Get<u32> for MaybeSignedPhase {
 	fn get() -> u32 {
 		// 1 day = 4 eras -> 1 week = 28 eras. We want to disable signed phase once a week to test
 		// the fallback unsigned phase is able to compute elections on Westend.
-		if pallet_staking::CurrentEra::<Runtime>::get().unwrap_or(1) % 28 == 0 {
+		if pallet_staking::CurrentEra::<Runtime>::get().unwrap_or(1).is_multiple_of(28) {
 			0
 		} else {
 			SignedPhase::get()

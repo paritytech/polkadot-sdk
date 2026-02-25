@@ -1112,6 +1112,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
 	type MaxValidatorSet = T::MaxValidatorSet;
 
 	/// When we receive a session report from the relay chain, it kicks off the next session.
@@ -1345,6 +1346,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn is_validator(who: &Self::AccountId) -> bool {
 		Validators::<T>::contains_key(who)
 	}
+
+	fn active_stake(who: &Self::AccountId) -> Option<BalanceOf<T>> {
+		Self::ledger(StakingAccount::Stash(who.clone())).ok().map(|l| l.active)
+	}
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
@@ -1397,7 +1402,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 /// A simple sorted list implementation that does not require any additional pallets. Note, this
 /// does not provide validators in sorted order. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list`].
+/// a look at `pallet-bags-list`.
 pub struct UseValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	type Score = BalanceOf<T>;
@@ -1465,7 +1470,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
 /// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list].
+/// a look at `pallet-bags-list`.
 pub struct UseNominatorsAndValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
 	type Error = ();

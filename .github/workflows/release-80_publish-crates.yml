@@ -30,13 +30,20 @@ permissions:
   contents: write
 
 jobs:
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
+
   set-image:
+    needs: [ check-synchronization ]
+    if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
@@ -62,8 +69,10 @@ jobs:
 
       - name: Derive stable branch from release name
         id: derive_branch
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
-          RELEASE_NAME="${{ inputs.release_name }}"
           echo "Release name: $RELEASE_NAME"
 
           # Extract stable branch by removing the last -N suffix
@@ -81,7 +90,7 @@ jobs:
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Checkout stable branch
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
           fetch-depth: 0
@@ -105,8 +114,10 @@ jobs:
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Create or switch to release branch
+        shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
         run: |
-          CRATES_RELEASE_BRANCH="${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}"
 
           if git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
             echo "Branch $CRATES_RELEASE_BRANCH already exists, switching to it"
@@ -118,6 +129,7 @@ jobs:
           echo "On branch $CRATES_RELEASE_BRANCH"
 
       - name: Install Rust 1.93
+        shell: bash
         run: |
           rustup install 1.93
           rustup default 1.93
@@ -131,7 +143,9 @@ jobs:
           cache-on-failure: true
 
       - name: Install parity-publish
-        run: cargo install parity-publish@0.10.6 --locked -q
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          cargo install parity-publish@0.10.10 --locked -q
 
       - name: Run parity-publish plan
         run: |
@@ -140,8 +154,9 @@ jobs:
 
       - name: Save Plan.toml diff
         if: inputs.is_patch
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
-          RELEASE_NAME="${{ inputs.release_name }}"
           mkdir -p release-artifacts
 
           echo "Saving Plan.toml diff..."
@@ -152,8 +167,10 @@ jobs:
 
       - name: Parse crate names for release notes
         if: inputs.is_patch
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
-          RELEASE_NAME="${{ inputs.release_name }}"
 
           echo "Parsing crate names..."
           python3 scripts/release/parse-crates-names.py \
@@ -165,16 +182,19 @@ jobs:
 
       - name: Commit Plan.toml and crates list
         shell: bash
+        env:
+          IS_PATCH: ${{ inputs.is_patch }}
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
           git add Plan.toml
-          if [ "${{ inputs.is_patch }}" = true ]; then
+          if [ "$IS_PATCH" = true ]; then
             git add scripts/release/templates/crates_list.md.tera
           fi
 
           if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: update Plan.toml and crates list for ${{ inputs.release_name }}"
+            commit_with_message "chore: update Plan.toml and crates list for $RELEASE_NAME"
             echo "Committed Plan.toml and crates list"
           else
             echo "No changes to commit"
@@ -193,28 +213,33 @@ jobs:
 
       - name: Commit version bumps
         shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
           git add -A
 
           if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: apply version bumps for ${{ inputs.release_name }}"
+            commit_with_message "chore: apply version bumps for $RELEASE_NAME"
             echo "Committed version bumps"
           else
             echo "No changes to commit"
           fi
 
       - name: Push release branch
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
         run: |
-          CRATES_RELEASE_BRANCH="${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}"
           echo "Pushing branch $CRATES_RELEASE_BRANCH..."
           git push origin "$CRATES_RELEASE_BRANCH"
           echo "Successfully pushed $CRATES_RELEASE_BRANCH"
 
       - name: Configure cargo registry
+        shell: bash
+        env:
+          REGISTRY: ${{ inputs.registry }}
         run: |
-          REGISTRY="${{ inputs.registry }}"
           echo "Configuring cargo for $REGISTRY..."
           mkdir -p ~/.cargo
 
@@ -231,11 +256,12 @@ jobs:
           cat ~/.cargo/config.toml || echo "(using defaults)"
 
       - name: Publish crates
+        shell: bash
         env:
           PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          REGISTRY: ${{ inputs.registry }}
         run: |
-          DRY_RUN="${{ inputs.dry_run }}"
-          REGISTRY="${{ inputs.registry }}"
 
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
