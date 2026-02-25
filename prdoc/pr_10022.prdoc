@@ -1,0 +1,63 @@
+title: Feature/`slot_duration` migration
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nThis PR addresses the problem of censoring a parachain\
+    \ node, where several collators of the same parachain can isolate a particular\
+    \ collator and stop sending it messages. The collator that has been isolated must\
+    \ then obtain the up-to-date state from availability. That requires additional\
+    \ time, so it must be possible to increase the slot duration. This PR allows increasing\
+    \ the slot duration during a parachain runtime upgrade. It contains migration\
+    \ code `CurrentSlot`, whose job is to recalculate and store the `CurrentSlot`\
+    \ value with the new slot duration. The PR also includes an additional zombienet\
+    \ test which:\n\n1. spins up a test network of 4 validators and 1 collator;\n\
+    2. waits until the parachain starts producing blocks;\n3. performs a parachain\
+    \ runtime upgrade that increases the slot duration;\n4. verifies that the parachain\
+    \ and the relay chain continue producing blocks.\n\n## Integration\n\nTo run test\
+    \ natively, you should execute(add `---features fast-runtime` to run with short\
+    \ epochs):\n```\ncd ~/polkadot-sdk\ncargo build --release -p cumulus-test-service\
+    \ --bin test-parachain\ncargo build --release -p polkadot --bin polkadot\ncp target/release/wbuild/cumulus-test-runtime/wasm_binary_slot_duration_18s.rs.compact.compressed.wasm\
+    \ /tmp/\nZOMBIE_PROVIDER=native cargo test --release -p polkadot-zombienet-sdk-tests\
+    \ --features zombie-ci parachain_runtime_upgrade_test -- --nocapture\n```\n\n\
+    ## Review Notes\n\n*In depth notes about the **implementation** details of your\
+    \ PR. This should be the main guide for reviewers to\nunderstand your approach\
+    \ and effectively review it. If too long, use\n[`<details>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details)*.\n\
+    \n*Imagine that someone who is depending on the old code wants to integrate your\
+    \ new code and the only information that\nthey get is this section. It helps to\
+    \ include example usage and default value here, with a `diff` code-block to show\n\
+    possibly integration.*\n\n*Include your leftover TODOs, if any, here.*\n\n# Checklist\n\
+    \n* [ ] My PR includes a detailed description as outlined in the \"Description\"\
+    \ and its two subsections above.\n* [ ] My PR follows the [labeling requirements](\n\
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
+    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ ask maintainers to put the right label on your PR.\n* [ ] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [ ] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)\n\nYou can\
+    \ remove the \"Checklist\" section once all have been checked. Thank you for your\
+    \ contribution!\n\n\u2704 -----------------------------------------------------------------------------"
+crates:
+- name: pallet-aura
+  bump: patch
+- name: cumulus-pallet-aura-ext
+  bump: patch
+- name: pallet-collator-selection
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
