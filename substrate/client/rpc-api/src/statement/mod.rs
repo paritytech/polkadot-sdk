@@ -20,7 +20,7 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
-use sp_statement_store::{SubmitResult, TopicFilter};
+use sp_statement_store::{StatementEvent, SubmitResult, TopicFilter};
 
 pub mod error;
 
@@ -37,14 +37,22 @@ pub trait StatementApi {
 	///
 	/// # Returns
 	///
-	/// Returns a stream of SCALE-encoded statements as `Bytes`.
-	/// When a subscription is initiated the endpoint will immediately return the matching
-	/// statements already in the store. Subsequent matching statements will be pushed to the client
-	/// as they are added to the store.
+	/// Returns a stream of `StatementEvent` values.
+	/// When a subscription is initiated the endpoint will first return all matching statements
+	/// already in the store in batches as `StatementEvent::NewStatements`.
+	///
+	/// NewStatements includes an Optional field `remaining` which indicates how many more
+	/// statements are left to be sent in the initial batch of existing statements. The field
+	/// guarantees to the client that it will receive at least this many more statements in the
+	/// subscription stream, but it may receive more if new statements are added to the store that
+	/// match the filter.
+	///
+	///  If there are no statements in the store matching the filter, an empty batch of statements
+	/// is sent.
 	#[subscription(
 		name = "statement_subscribeStatement" => "statement_statement",
 		unsubscribe = "statement_unsubscribeStatement",
-		item = Bytes,
+		item = StatementEvent,
 		with_extensions,
 	)]
 	fn subscribe_statement(&self, topic_filter: TopicFilter);
