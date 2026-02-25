@@ -2162,7 +2162,7 @@ where
 
 		match import_result {
 			ImportResult::Import(hash, header, state, body, justifications) => {
-				let origin = BlockOrigin::StateSync { is_verified: !self.skip_execution() };
+				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
 					hash,
 					header: Some(header),
