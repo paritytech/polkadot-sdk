@@ -22,10 +22,12 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	traits::Get,
 	weights::{Weight, WeightMeter},
 };
 
 const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
+const LOG_TARGET: &str = "runtime::MigrateForeignAssetPrecompileMappings";
 
 /// Progressive states of the precompile mappings migration.
 #[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
@@ -102,7 +104,7 @@ where
 			// Check if we're already finished
 			if let Some(MigrationState::Finished) = &cursor {
 				log::info!(
-					target: "runtime::MigrateForeignAssetPrecompileMappings",
+					target: LOG_TARGET,
 					"migration finished"
 				);
 				return Ok(None);
@@ -120,7 +122,7 @@ where
 			let next_asset = Self::peek_next_asset(maybe_last_key);
 
 			// Calculate the weight required based on the actual operation
-			let (required, already_mapped) = match &next_asset {
+			let (operation_weight, already_mapped) = match &next_asset {
 				None => (W::migrate_asset_step_finished(), false),
 				Some(asset_id) => {
 					if pallet::Pallet::<T>::asset_index_of(asset_id).is_some() {
@@ -130,6 +132,11 @@ where
 					}
 				},
 			};
+
+			// Account for the `peek_next_asset` storage iterator read performed
+			// above, which is not covered by the operation-specific benchmarks.
+			let required =
+				operation_weight.saturating_add(T::DbWeight::get().reads(1));
 
 			// Try to consume the weight for this specific operation
 			if meter.try_consume(required).is_err() {
@@ -163,7 +170,7 @@ where
 		}
 
 		log::info!(
-			target: "runtime::MigrateForeignAssetPrecompileMappings::pre_upgrade",
+			target: LOG_TARGET,
 			"Found {} foreign assets needing migration",
 			unmapped_assets.len()
 		);
@@ -199,7 +206,7 @@ where
 				},
 				None => {
 					log::error!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
+						target: LOG_TARGET,
 						"Asset {:?} not migrated",
 						asset_id
 					);
@@ -209,7 +216,7 @@ where
 		}
 
 		log::info!(
-			target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
+			target: LOG_TARGET,
 			"Verified {} foreign asset mappings",
 			migrated
 		);
@@ -253,15 +260,15 @@ where
 				match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
 					Ok(asset_index) => {
 						log::debug!(
-							target: "runtime::MigrateForeignAssetPrecompileMappings",
+							target: LOG_TARGET,
 							"Migrated asset {:?} to index {:?}",
 							asset_id,
 							asset_index
 						);
 					},
 					Err(()) => {
-						log::warn!(
-							target: "runtime::MigrateForeignAssetPrecompileMappings",
+						log::error!(
+							target: LOG_TARGET,
 							"Failed to migrate asset {:?}",
 							asset_id
 						);
@@ -269,7 +276,7 @@ where
 				}
 			} else {
 				log::debug!(
-					target: "runtime::MigrateForeignAssetPrecompileMappings",
+					target: LOG_TARGET,
 					"Skipping already-mapped asset {:?}",
 					asset_id
 				);
