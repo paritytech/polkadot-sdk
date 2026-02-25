@@ -135,8 +135,7 @@ where
 
 			// Account for the `peek_next_asset` storage iterator read performed
 			// above, which is not covered by the operation-specific benchmarks.
-			let required =
-				operation_weight.saturating_add(T::DbWeight::get().reads(1));
+			let required = operation_weight.saturating_add(T::DbWeight::get().reads(1));
 
 			// Try to consume the weight for this specific operation
 			if meter.try_consume(required).is_err() {
