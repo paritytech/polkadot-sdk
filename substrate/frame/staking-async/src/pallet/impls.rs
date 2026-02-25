@@ -593,8 +593,8 @@ impl<T: Config> Pallet<T> {
 	/// Determine the payout account from a reward destination.
 	///
 	/// Returns the account that should receive the payout based on the reward destination.
-	/// Returns None if the destination is RewardDestination::None or if the controller
-	/// cannot be found for deprecated RewardDestination::Controller.
+	/// Returns None if the destination is `RewardDestination::None` or if the controller
+	/// cannot be found for deprecated `RewardDestination::Controller`.
 	fn payout_account_for_dest(
 		stash: &T::AccountId,
 		dest: &RewardDestination<T::AccountId>,
@@ -625,13 +625,10 @@ impl<T: Config> Pallet<T> {
 		let dest = match Self::payee(Stash(stash.clone())) {
 			Some(d) => d,
 			None => {
-				// Staker not properly bonded or has unbonded - skip payout
-				log!(
-					debug,
-					"Skipping payout for stash {:?} in era {:?}: no payee set",
-					stash,
-					era
-				);
+				defensive!("Staker missing payee");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorMissingPayee { era },
+				));
 				return None;
 			},
 		};
