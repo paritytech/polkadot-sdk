@@ -1705,8 +1705,6 @@ where
 		} else if !self.status().state.is_major_syncing() {
 			// Normal operation: receiving new blocks
 			BlockOrigin::NetworkBroadcast
-		} else if gap {
-			BlockOrigin::GapSync
 		} else {
 			// Initial sync: catching up with the chain
 			BlockOrigin::NetworkInitialSync
