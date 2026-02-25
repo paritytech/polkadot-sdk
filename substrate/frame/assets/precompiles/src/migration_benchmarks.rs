@@ -43,6 +43,7 @@ mod benchmarks {
 
 		#[block]
 		{
+			let _ = Pallet::<T>::asset_index_of(&asset_id);
 			let _ = Pallet::<T>::insert_asset_mapping(&asset_id);
 		}
 

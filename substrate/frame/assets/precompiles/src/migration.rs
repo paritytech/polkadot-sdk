@@ -122,7 +122,7 @@ where
 			let next_asset = Self::peek_next_asset(maybe_last_key);
 
 			// Calculate the weight required based on the actual operation
-			let (operation_weight, already_mapped) = match &next_asset {
+			let (required, already_mapped) = match &next_asset {
 				None => (W::migrate_asset_step_finished(), false),
 				Some(asset_id) => {
 					if pallet::Pallet::<T>::asset_index_of(asset_id).is_some() {
@@ -132,10 +132,6 @@ where
 					}
 				},
 			};
-
-			// Account for the `peek_next_asset` storage iterator read performed
-			// above, which is not covered by the operation-specific benchmarks.
-			let required = operation_weight.saturating_add(T::DbWeight::get().reads(1));
 
 			// Try to consume the weight for this specific operation
 			if meter.try_consume(required).is_err() {
