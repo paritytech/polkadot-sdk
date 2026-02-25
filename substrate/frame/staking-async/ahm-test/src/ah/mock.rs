@@ -473,6 +473,10 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 	}
 }
 
+parameter_types! {
+	pub static MinSetKeysBond: Balance = 0;
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
@@ -481,7 +485,11 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
 	type Balance = Balance;
+<<<<<<< HEAD:substrate/frame/staking-async/ahm-test/src/ah/mock.rs
 	type MaxSessionKeysLength = ConstU32<256>;
+=======
+	type MinSetKeysBond = MinSetKeysBond;
+>>>>>>> 79bc8a96 (Add MinSetKeysBond check in rc_client::set_keys (#11168)):substrate/frame/staking-async/integration-tests/src/ah/mock.rs
 	type WeightInfo = ();
 }
 
