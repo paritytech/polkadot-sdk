@@ -197,6 +197,15 @@ pub mod pallet {
 		KeepVotes(Error),
 	}
 
+	#[pallet::origin]                                                                                                                                                                                                        
+	#[derive(                                                                                                                                                                                                                
+		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
+	)]
+	pub enum Origin {
+		/// Full admin: can register/deregister assets and manage endpoints.
+		Admin,
+	}
+
 	/// Interface to be implemented by the tally algorithm that we intend to use here.
 	pub trait Tally {
 		/// The asset-id type.
@@ -311,6 +320,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: super::WeightInfo;
+
+		/// Origin for the oracle pallet.
+		type OracleOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Origin>;
 	}
 
 	#[pallet::event]
@@ -868,7 +880,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			endpoints: Vec<Endpoint>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::OracleOrigin::ensure_origin(origin)?;
 
 			let bounded_endpoints = BoundedVec::<_, T::MaxEndpointsPerAsset>::try_from(endpoints)
 				.map_err(|_| Error::<T>::TooManyEndpoints)?;
@@ -881,7 +893,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight({(1000, DispatchClass::Operational)})]
 		pub fn deregister_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
-			ensure_root(origin)?;
+			T::OracleOrigin::ensure_origin(origin)?;
 
 			StorageManager::<T>::deregister_asset(asset_id)?;
 			Self::deposit_event(Event::<T>::AssetDeregistered { asset_id });
@@ -896,7 +908,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			endpoint: Endpoint,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::OracleOrigin::ensure_origin(origin)?;
 
 			offchain::OracleOffchainWorker::<T>::validate_endpoint(&endpoint).map_err(|_| Error::<T>::InvalidEndpoint)?;
 			StorageManager::<T>::add_endpoint(asset_id, endpoint.clone())?;
@@ -912,7 +924,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			index: u32,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::OracleOrigin::ensure_origin(origin)?;
 
 			StorageManager::<T>::remove_endpoint_at(asset_id, index as usize)?;
 			Self::deposit_event(Event::<T>::EndpointRemoved { asset_id, index });
