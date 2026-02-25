@@ -328,6 +328,9 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
 	type Balance = Balance;
+	// Hardcoded anti-spam threshold: 10k WND active bond to set session keys.
+	// Prevents unbounded relay chain storage growth via bond-validate-setkeys-chill loops.
+	type MinSetKeysBond = ConstU128<{ 10_000 * UNITS }>;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
