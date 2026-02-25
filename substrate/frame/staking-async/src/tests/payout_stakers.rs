@@ -77,27 +77,23 @@ fn rewards_with_nominator_should_work() {
 			mock::staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Account(11),
 					amount: 3999
 				},
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 101,
 					dest: RewardDestination::Account(101),
 					amount: 1000
 				},
 				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 21,
 					dest: RewardDestination::Account(21),
 					amount: 1999
 				},
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 101,
 					dest: RewardDestination::Account(101),
 					amount: 500
@@ -204,15 +200,13 @@ fn rewards_no_nominator_should_work() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Staked,
 					amount: 3750
 				},
 				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 21,
 					dest: RewardDestination::Staked,
 					amount: 3750
@@ -288,15 +282,13 @@ fn nominating_and_rewards_should_work() {
 				staking_events_since_last_call(),
 				vec![
 					Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-					Event::RewardedFromProvider {
-						era: 1,
+					Event::Rewarded {
 						stash: 21,
 						dest: RewardDestination::Staked,
 						amount: 3750
 					},
 					Event::PayoutStarted { era_index: 1, validator_stash: 41, page: 0, next: None },
-					Event::RewardedFromProvider {
-						era: 1,
+					Event::Rewarded {
 						stash: 41,
 						dest: RewardDestination::Staked,
 						amount: 3750
@@ -316,33 +308,28 @@ fn nominating_and_rewards_should_work() {
 				staking_events_since_last_call(),
 				vec![
 					Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
-					Event::RewardedFromProvider {
-						era: 2,
+					Event::Rewarded {
 						stash: 11,
 						dest: RewardDestination::Staked,
 						amount: 499
 					},
-					Event::RewardedFromProvider {
-						era: 2,
+					Event::Rewarded {
 						stash: 1,
 						dest: RewardDestination::Stash,
 						amount: 750
 					},
-					Event::RewardedFromProvider {
-						era: 2,
+					Event::Rewarded {
 						stash: 3,
 						dest: RewardDestination::Account(333),
 						amount: 2500
 					},
 					Event::PayoutStarted { era_index: 2, validator_stash: 41, page: 0, next: None },
-					Event::RewardedFromProvider {
-						era: 2,
+					Event::Rewarded {
 						stash: 41,
 						dest: RewardDestination::Staked,
 						amount: 1999
 					},
-					Event::RewardedFromProvider {
-						era: 2,
+					Event::Rewarded {
 						stash: 1,
 						dest: RewardDestination::Stash,
 						amount: 1751
@@ -381,8 +368,7 @@ fn reward_destination_staked() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Staked,
 					amount: 7500
@@ -496,8 +482,7 @@ fn reward_destination_stash() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Stash,
 					amount: 7500
@@ -549,8 +534,7 @@ fn reward_destination_account() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Account(7),
 					amount: 7500
@@ -587,14 +571,12 @@ fn validator_prefs_no_commission() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Staked,
 					amount: 6000
 				},
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 101,
 					dest: RewardDestination::Staked,
 					amount: 1500
@@ -620,8 +602,7 @@ fn validator_prefs_100_commission() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Staked,
 					amount: 7500
@@ -647,14 +628,12 @@ fn validator_payment_some_commission_prefs_work() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Staked,
 					amount: 6600
 				},
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 101,
 					dest: RewardDestination::Staked,
 					amount: 900
@@ -834,14 +813,12 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Account(11),
 					amount: 6000
 				},
-				Event::RewardedFromProvider {
-					era: 1,
+				Event::Rewarded {
 					stash: 101,
 					dest: RewardDestination::Account(101),
 					amount: 1500
@@ -854,14 +831,12 @@ fn claim_reward_at_the_last_era_and_no_double_claim_and_invalid_claim() {
 			staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
-				Event::RewardedFromProvider {
-					era: 2,
+				Event::Rewarded {
 					stash: 11,
 					dest: RewardDestination::Account(11),
 					amount: 6000
 				},
-				Event::RewardedFromProvider {
-					era: 2,
+				Event::Rewarded {
 					stash: 101,
 					dest: RewardDestination::Account(101),
 					amount: 1500
@@ -1028,14 +1003,12 @@ fn test_multi_page_payout_stakers_by_page() {
 			&[
 				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: Some(1) },
 				..,
-				Event::RewardedFromProvider {
-					era: 2,
+				Event::Rewarded {
 					stash: 1063,
 					dest: RewardDestination::Stash,
 					amount: _
 				},
-				Event::RewardedFromProvider {
-					era: 2,
+				Event::Rewarded {
 					stash: 1064,
 					dest: RewardDestination::Stash,
 					amount: _
@@ -1059,14 +1032,12 @@ fn test_multi_page_payout_stakers_by_page() {
 			events.as_slice(),
 			&[
 				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 1, next: None },
-				Event::RewardedFromProvider {
-					era: 2,
+				Event::Rewarded {
 					stash: 1065,
 					dest: RewardDestination::Stash,
 					amount: _
 				},
-				Event::RewardedFromProvider {
-					era: 2,
+				Event::Rewarded {
 					stash: 1066,
 					dest: RewardDestination::Stash,
 					amount: _

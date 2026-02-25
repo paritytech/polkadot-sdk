@@ -1214,10 +1214,8 @@ pub mod pallet {
 			validator_payout: BalanceOf<T>,
 			remainder: BalanceOf<T>,
 		},
-		/// The nominator has been rewarded by this amount to this destination.
+		/// The staker has been rewarded by this amount to this destination.
 		///
-		/// NOTE: This event is emitted for legacy payouts (old eras where staking used to mint
-		/// rewards). For new eras that are paid via provider, see `RewardedFromProvider`.
 		Rewarded {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
@@ -1353,17 +1351,9 @@ pub mod pallet {
 		EraPruned {
 			index: EraIndex,
 		},
-		/// The staker has been rewarded from a pre-allocated reward provider pot.
-		// This is essentially `RewardedV2`.
-		RewardedFromProvider {
-			era: EraIndex,
-			stash: T::AccountId,
-			dest: RewardDestination<T::AccountId>,
-			amount: BalanceOf<T>,
-		},
 		/// The validator has been paid their self-stake incentive bonus.
 		///
-		/// This is separate from staker rewards (`RewardedFromProvider`) and represents
+		/// This is separate from staker rewards (`Rewarded`) and represents
 		/// an additional bonus paid from the validator incentive pot based on the validator's
 		/// self-stake weight.
 		ValidatorIncentivePaid {

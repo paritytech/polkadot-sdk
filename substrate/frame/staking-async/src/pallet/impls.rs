@@ -498,12 +498,7 @@ impl<T: Config> Pallet<T> {
 		// Payout validator
 		if let Some((amount, dest)) = Self::make_payout_from_provider(era, &stash, validator_payout)
 		{
-			Self::deposit_event(Event::<T>::RewardedFromProvider {
-				era,
-				stash: stash.clone(),
-				dest,
-				amount,
-			});
+			Self::deposit_event(Event::<T>::Rewarded { stash: stash.clone(), dest, amount });
 		}
 
 		// Payout nominators
@@ -521,8 +516,7 @@ impl<T: Config> Pallet<T> {
 				Self::make_payout_from_provider(era, &nominator.who, nominator_reward)
 			{
 				nominator_payout_count += 1;
-				Self::deposit_event(Event::<T>::RewardedFromProvider {
-					era,
+				Self::deposit_event(Event::<T>::Rewarded {
 					stash: nominator.who.clone(),
 					dest,
 					amount,
@@ -596,6 +590,25 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Determine the payout account from a reward destination.
+	///
+	/// Returns the account that should receive the payout based on the reward destination.
+	/// Returns None if the destination is RewardDestination::None or if the controller
+	/// cannot be found for deprecated RewardDestination::Controller.
+	fn payout_account_for_dest(
+		stash: &T::AccountId,
+		dest: &RewardDestination<T::AccountId>,
+	) -> Option<T::AccountId> {
+		match dest {
+			RewardDestination::Stash => Some(stash.clone()),
+			RewardDestination::Staked => Some(stash.clone()),
+			RewardDestination::Account(ref dest_account) => Some(dest_account.clone()),
+			RewardDestination::None => None,
+			#[allow(deprecated)]
+			RewardDestination::Controller => Self::bonded(stash),
+		}
+	}
+
 	/// Make a payment to a staker from a reward provider pot.
 	///
 	/// For eras with pre-allocated reward pots (managed by RewardProvider), this transfers
@@ -612,22 +625,18 @@ impl<T: Config> Pallet<T> {
 		let dest = match Self::payee(Stash(stash.clone())) {
 			Some(d) => d,
 			None => {
-				defensive!("Staker missing payee");
-				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorMissingPayee { era },
-				));
+				// Staker not properly bonded or has unbonded - skip payout
+				log!(
+					debug,
+					"Skipping payout for stash {:?} in era {:?}: no payee set",
+					stash,
+					era
+				);
 				return None;
 			},
 		};
 
-		let payout_account = match &dest {
-			RewardDestination::Stash => stash.clone(),
-			RewardDestination::Staked => stash.clone(),
-			RewardDestination::Account(ref dest_account) => dest_account.clone(),
-			RewardDestination::None => return None,
-			#[allow(deprecated)]
-			RewardDestination::Controller => Self::bonded(stash)?,
-		};
+		let payout_account = Self::payout_account_for_dest(stash, &dest)?;
 
 		// Transfer from staker rewards pot to destination.
 		// This pot holds rewards for both nominators and the validator's staked amount.
@@ -783,16 +792,12 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let payout_account = match &dest {
-			RewardDestination::Stash => stash.clone(),
-			RewardDestination::Staked => stash.clone(),
-			RewardDestination::Account(ref dest_account) => dest_account.clone(),
-			RewardDestination::None => {
-				defensive!("Unreachable: None already filtered above");
+		let payout_account = match Self::payout_account_for_dest(stash, &dest) {
+			Some(account) => account,
+			None => {
+				defensive!("Unable to determine payout account for destination");
 				return Zero::zero();
 			},
-			#[allow(deprecated)]
-			RewardDestination::Controller => Self::bonded(stash).unwrap_or_else(|| stash.clone()),
 		};
 
 		let validator_incentive_pot_account =
