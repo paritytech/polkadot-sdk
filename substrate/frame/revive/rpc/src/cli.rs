@@ -40,16 +40,10 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
 
-const MAX_PRUNE_BLOCKS: usize = 100_000;
+// At moderate activity (~10-20 txs/block), 500K blocks ≈ 10 GB of in-memory SQLite.
+const MAX_PRUNE_BLOCKS: usize = 500_000;
 
-/// The type of database to use for storing Ethereum transaction data.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-pub enum DatabaseType {
-	/// In-memory SQLite database. Data is lost on restart.
-	Temporary,
-	/// Persistent on-disk SQLite database at {base-path}/{database-name}.
-	Persistent,
-}
+const DEFAULT_DATABASE_NAME: &str = "receipts.db";
 
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
@@ -60,9 +54,8 @@ pub struct CliCommand {
 	pub node_rpc_url: String,
 
 	/// Keep only the latest N blocks in the in-memory database.
-	/// Only applies to --database-type=temporary. Maximum: 100000.
-	/// Default: 256.
-	#[clap(long)]
+	/// When omitted, a persistent on-disk SQLite database is used instead.
+	#[clap(long, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=MAX_PRUNE_BLOCKS as u64))]
 	pub prune: Option<usize>,
 
 	/// Earliest block number to consider when searching for transaction receipts.
@@ -73,20 +66,14 @@ pub struct CliCommand {
 	#[clap(long)]
 	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
 
-	/// Database storage type: `temporary` uses an in-memory SQLite database,
-	/// `persistent` uses an on-disk SQLite database at `{base-path}/{database-name}`.
-	#[clap(long, value_enum, default_value_t = DatabaseType::Temporary)]
-	pub database_type: DatabaseType,
-
 	/// Database filename, created under the resolved base path.
-	/// Only used when `--database-type=persistent`.
-	#[clap(long, default_value = "receipts.db")]
-	pub database_name: String,
+	#[clap(long, default_value = DEFAULT_DATABASE_NAME, conflicts_with = "prune",
+		value_parser = parse_database_name)]
+	pub database_name: Option<String>,
 
 	/// Sync all historical blocks from the latest finalized block down to the first EVM block
 	/// or --earliest-receipt-block, whichever is higher.
-	/// Requires --database-type=persistent.
-	#[clap(long)]
+	#[clap(long, conflicts_with = "prune")]
 	pub sync: bool,
 
 	#[allow(missing_docs)]
@@ -106,6 +93,23 @@ pub struct CliCommand {
 	/// instruct the RPC to ignore this check.
 	#[arg(long)]
 	pub allow_unprotected_txs: bool,
+}
+
+/// Parse and validate that `--database-name` is a plain filename (no path separators).
+fn parse_database_name(database_name: &str) -> Result<String, String> {
+	if database_name.is_empty() {
+		return Err("must not be empty".into());
+	}
+	if database_name.contains(['/', '\\']) {
+		return Err(format!("must not contain path separators, got: {database_name}"));
+	}
+	let mut components = std::path::Path::new(database_name).components();
+	if !matches!(components.next(), Some(std::path::Component::Normal(_))) ||
+		components.next().is_some()
+	{
+		return Err(format!("must be a plain filename, got: {database_name}"));
+	}
+	Ok(database_name.to_string())
 }
 
 /// Initialize the logger
@@ -148,67 +152,25 @@ fn resolve_db_dir(base_path: Option<BasePath>, chain_id: &str) -> PathBuf {
 
 /// Resolve SQLite connection options from CLI arguments.
 ///
-/// - `Temporary`: returns in-memory SQLite options.
-/// - `Persistent`: resolves the base path, creates the directory, and returns file-based options.
+/// - If `is_in_memory` is true: returns in-memory SQLite options.
+/// - Otherwise: resolves the base path, creates the directory, and returns file-based options.
 fn resolve_db_options(
-	database_type: DatabaseType,
+	is_in_memory: bool,
 	base_path: Option<BasePath>,
 	database_name: &str,
 	chain_id: &str,
 ) -> anyhow::Result<SqliteConnectOptions> {
-	match database_type {
-		DatabaseType::Temporary => Ok(SqliteConnectOptions::new().in_memory(true)),
-		DatabaseType::Persistent => {
-			let db_dir = resolve_db_dir(base_path, chain_id);
-			std::fs::create_dir_all(&db_dir).map_err(|e| {
-				anyhow::anyhow!("Failed to create database directory {}: {e}", db_dir.display())
-			})?;
-			let db_path = db_dir.join(database_name);
-			log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
-			Ok(SqliteConnectOptions::new().filename(&db_path).create_if_missing(true))
-		},
+	if is_in_memory {
+		Ok(SqliteConnectOptions::new().in_memory(true))
+	} else {
+		let db_dir = resolve_db_dir(base_path, chain_id);
+		std::fs::create_dir_all(&db_dir).map_err(|e| {
+			anyhow::anyhow!("Failed to create database directory {}: {e}", db_dir.display())
+		})?;
+		let db_path = db_dir.join(database_name);
+		log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
+		Ok(SqliteConnectOptions::new().filename(&db_path).create_if_missing(true))
 	}
-}
-
-/// Validate that `--sync` is only used with `--database-type=persistent`.
-fn validate_sync_args(sync: bool, database_type: DatabaseType) -> anyhow::Result<()> {
-	if sync && database_type == DatabaseType::Temporary {
-		anyhow::bail!("--sync requires --database-type=persistent");
-	}
-	Ok(())
-}
-
-/// Validate that `--database-name` is a plain filename (no path separators).
-fn validate_database_name(database_name: &str) -> anyhow::Result<()> {
-	if database_name.is_empty() {
-		anyhow::bail!("--database-name must not be empty");
-	}
-	if database_name.contains(['/', '\\']) {
-		anyhow::bail!("--database-name must not contain path separators, got: {database_name}");
-	}
-	let mut components = std::path::Path::new(database_name).components();
-	if !matches!(components.next(), Some(std::path::Component::Normal(_))) ||
-		components.next().is_some()
-	{
-		anyhow::bail!("--database-name must be a plain filename, got: {database_name}");
-	}
-	Ok(())
-}
-
-/// Validate `--prune` constraints: only with temporary, and within the upper bound.
-fn validate_prune_args(prune: Option<usize>, database_type: DatabaseType) -> anyhow::Result<()> {
-	if let Some(n) = prune {
-		if database_type == DatabaseType::Persistent {
-			anyhow::bail!("--prune cannot be used with --database-type=persistent");
-		}
-		if n == 0 {
-			anyhow::bail!("--prune=0 is invalid, must be at least 1");
-		}
-		if n > MAX_PRUNE_BLOCKS {
-			anyhow::bail!("--prune={n} exceeds maximum of {MAX_PRUNE_BLOCKS}");
-		}
-	}
-	Ok(())
 }
 
 /// Validate that earliest-receipt-block is not beyond the current chain head.
@@ -294,7 +256,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		prometheus_params,
 		node_rpc_url,
 		prune,
-		database_type,
 		database_name,
 		earliest_receipt_block,
 		sync,
@@ -308,12 +269,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let is_dev = shared_params.dev;
 	let base_path = shared_params.base_path()?;
 	let chain_id = shared_params.chain_id(is_dev);
-	validate_sync_args(sync, database_type)?;
-	validate_prune_args(prune, database_type)?;
-	validate_database_name(&database_name)?;
+	let database_name = database_name.unwrap_or_else(|| DEFAULT_DATABASE_NAME.into());
 
-	let is_in_memory_db = database_type == DatabaseType::Temporary;
-	let db_options = resolve_db_options(database_type, base_path, &database_name, &chain_id)?;
+	// When --prune is set, use an in-memory database; otherwise, use persistent storage.
+	let is_in_memory_db = prune.is_some();
+	let db_options = resolve_db_options(is_in_memory_db, base_path, &database_name, &chain_id)?;
 
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
@@ -444,8 +404,8 @@ mod tests {
 	use tempfile::TempDir;
 
 	#[test]
-	fn temporary_returns_in_memory_options() {
-		let opts = resolve_db_options(DatabaseType::Temporary, None, "receipts.db", "").unwrap();
+	fn in_memory_returns_memory_options() {
+		let opts = resolve_db_options(true, None, DEFAULT_DATABASE_NAME, "").unwrap();
 		// In-memory options produce `:memory:` filename.
 		let filename = opts.get_filename();
 		assert_eq!(filename, std::path::Path::new(":memory:"));
@@ -455,9 +415,8 @@ mod tests {
 	fn persistent_with_explicit_base_path() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let opts =
-			resolve_db_options(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
-		assert_eq!(opts.get_filename(), tmp.path().join("receipts.db"));
+		let opts = resolve_db_options(false, Some(base), DEFAULT_DATABASE_NAME, "").unwrap();
+		assert_eq!(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
 		assert!(tmp.path().exists());
 	}
 
@@ -465,27 +424,25 @@ mod tests {
 	fn persistent_with_custom_database_name() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let opts =
-			resolve_db_options(DatabaseType::Persistent, Some(base), "custom.db", "").unwrap();
+		let opts = resolve_db_options(false, Some(base), "custom.db", "").unwrap();
 		assert_eq!(opts.get_filename(), tmp.path().join("custom.db"));
 	}
 
 	#[test]
 	fn persistent_default_path_with_chain_id() {
-		let opts =
-			resolve_db_options(DatabaseType::Persistent, None, "receipts.db", "westend").unwrap();
+		let opts = resolve_db_options(false, None, DEFAULT_DATABASE_NAME, "westend").unwrap();
 		let filename = opts.get_filename().to_string_lossy().to_string();
 		assert!(filename.contains("eth-rpc"));
 		assert!(filename.contains("westend"));
-		assert!(filename.contains("receipts.db"));
+		assert!(filename.contains(DEFAULT_DATABASE_NAME));
 	}
 
 	#[test]
 	fn persistent_default_path_without_chain_id() {
-		let opts = resolve_db_options(DatabaseType::Persistent, None, "receipts.db", "").unwrap();
+		let opts = resolve_db_options(false, None, DEFAULT_DATABASE_NAME, "").unwrap();
 		let filename = opts.get_filename().to_string_lossy().to_string();
 		assert!(filename.contains("eth-rpc"));
-		assert!(filename.contains("receipts.db"));
+		assert!(filename.contains(DEFAULT_DATABASE_NAME));
 	}
 
 	#[test]
@@ -493,7 +450,7 @@ mod tests {
 		let tmp = TempDir::new().unwrap();
 		let nested = tmp.path().join("a").join("b");
 		let base = BasePath::new(&nested);
-		resolve_db_options(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
+		resolve_db_options(false, Some(base), DEFAULT_DATABASE_NAME, "").unwrap();
 		assert!(nested.exists());
 	}
 
@@ -522,57 +479,23 @@ mod tests {
 	}
 
 	#[test]
-	fn sync_with_temporary_is_rejected() {
-		let err = validate_sync_args(true, DatabaseType::Temporary).unwrap_err();
-		assert!(err.to_string().contains("--sync requires --database-type=persistent"));
-	}
-
-	#[test]
-	fn sync_with_persistent_is_accepted() {
-		validate_sync_args(true, DatabaseType::Persistent).unwrap();
-	}
-
-	#[test]
-	fn prune_with_persistent_is_rejected() {
-		let err = validate_prune_args(Some(100), DatabaseType::Persistent).unwrap_err();
-		assert!(err.to_string().contains("persistent"));
-	}
-
-	#[test]
-	fn prune_zero_is_rejected() {
-		let err = validate_prune_args(Some(0), DatabaseType::Temporary).unwrap_err();
-		assert!(err.to_string().contains("invalid"));
-	}
-
-	#[test]
-	fn prune_exceeding_max_is_rejected() {
-		let err = validate_prune_args(Some(100_001), DatabaseType::Temporary).unwrap_err();
-		assert!(err.to_string().contains("exceeds maximum"));
-	}
-
-	#[test]
-	fn prune_at_max_is_accepted() {
-		validate_prune_args(Some(100_000), DatabaseType::Temporary).unwrap();
-	}
-
-	#[test]
 	fn database_name_plain_filename_is_accepted() {
-		validate_database_name("receipts.db").unwrap();
+		parse_database_name(DEFAULT_DATABASE_NAME).unwrap();
 	}
 
 	#[test]
 	fn database_name_empty_is_rejected() {
-		validate_database_name("").unwrap_err();
+		parse_database_name("").unwrap_err();
 	}
 
 	#[test]
 	fn database_name_with_path_traversal_is_rejected() {
-		validate_database_name("../../etc/evil.db").unwrap_err();
+		parse_database_name("../../etc/evil.db").unwrap_err();
 	}
 
 	#[test]
 	fn database_name_absolute_path_is_rejected() {
-		validate_database_name("/tmp/receipts.db").unwrap_err();
+		parse_database_name("/tmp/receipts.db").unwrap_err();
 	}
 
 	#[test]
@@ -588,6 +511,6 @@ mod tests {
 
 	#[test]
 	fn database_name_with_backslash_is_rejected() {
-		validate_database_name("sub\\dir").unwrap_err();
+		parse_database_name("sub\\dir").unwrap_err();
 	}
 }
