@@ -968,7 +968,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 /// - version 2 descriptors are not allowed
 /// - the core index in descriptor doesn't match the one computed from the commitments
 /// - the `SelectCore` signal does not refer to a core at the top of claim queue
-fn sanitize_backed_candidate_v2_v3<T: crate::inclusion::Config>(
+fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	v3_enabled: bool,
@@ -1001,6 +1001,11 @@ fn sanitize_backed_candidate_v2_v3<T: crate::inclusion::Config>(
 	// Check scheduling_parent exists in allowed relay parents (scheduling context).
 	// For V1/V2: scheduling_parent() returns relay_parent (duplicate check, but cheap).
 	// For V3: scheduling_parent() returns the actual scheduling_parent field.
+	//
+	// Note: we do not check that scheduling_parents advance between candidates. Backwards
+	// movement of scheduling_parent is primarily a censorship resistance concern, handled
+	// by the collator protocol's active leaf check. The relay chain only requires validity
+	// (i.e., the scheduling_parent is in allowed relay parents).
 	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
 	let Some((sp_info, _)) = allowed_relay_parents.acquire_info(scheduling_parent, None) else {
 		log::debug!(
@@ -1112,7 +1117,8 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
 	for candidate in backed_candidates {
-		if !sanitize_backed_candidate_v2_v3::<T>(&candidate, allowed_relay_parents, v3_enabled) {
+		if !check_descriptor_version_and_signals::<T>(&candidate, allowed_relay_parents, v3_enabled)
+		{
 			continue;
 		}
 

@@ -1423,6 +1423,15 @@ impl FragmentChain {
 						return None; // relay parent moved backwards.
 					}
 
+					// Note: we intentionally do NOT check that scheduling_parent
+					// advances between candidates. Scheduling_parent backwards
+					// movement is primarily a censorship resistance concern, which
+					// is handled by the collator protocol's active leaf check
+					// (validators reject advertisements where the scheduling_parent
+					// is not an active leaf). From the relay chain's perspective, we
+					// only require that the scheduling_parent is valid (i.e., within
+					// allowed scheduling parents).
+
 					// don't add candidates if they're already present in the chain.
 					// this can never happen, as candidates can only be duplicated if there's a
 					// cycle and we shouldn't have allowed for a cycle to be chained.

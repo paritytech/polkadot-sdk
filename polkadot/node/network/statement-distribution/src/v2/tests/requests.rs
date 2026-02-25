@@ -29,9 +29,12 @@ use sc_network::config::{
 use polkadot_primitives::{
 	ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
 };
+use rstest::rstest;
 
-#[test]
-fn cluster_peer_allowed_to_send_incomplete_statements() {
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn cluster_peer_allowed_to_send_incomplete_statements(#[case] use_v3_descriptor: bool) {
 	let group_size = 3;
 	let config =
 		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
@@ -57,6 +60,10 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 			Hash::repeat_byte(42).into(),
 		);
 		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		if use_v3_descriptor {
+			candidate.descriptor.set_version(1);
+			candidate.descriptor.set_scheduling_parent(relay_parent);
+		}
 
 		let candidate_hash = candidate.hash();
 

@@ -55,8 +55,10 @@ use polkadot_node_core_pvf_common::{
 	worker_dir,
 };
 use polkadot_node_primitives::{BlockData, POV_BOMB_LIMIT};
-use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::ExecutorParams;
+use polkadot_parachain_primitives::primitives::{
+	TrailingOption, ValidationParamsExtension, ValidationResult,
+};
+use polkadot_primitives::{CandidateDescriptorVersion, ExecutorParams};
 use std::{
 	io::{self, Read},
 	os::{
@@ -254,11 +256,6 @@ pub fn worker_entrypoint(
 				// 1. ValidationParams is not embedded in any larger struct
 				// 2. The extension bytes are the ONLY thing after ValidationParams
 				// 3. The PVF will decode ValidationParams + optional extension as the entire input
-				use polkadot_parachain_primitives::primitives::{
-					TrailingOption, ValidationParamsExtension,
-				};
-				use polkadot_primitives::CandidateDescriptorVersion;
-
 				let extension: TrailingOption<ValidationParamsExtension> =
 					match request.descriptor_version {
 						CandidateDescriptorVersion::V3 => {

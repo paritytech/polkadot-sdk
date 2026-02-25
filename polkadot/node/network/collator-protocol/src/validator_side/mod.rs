@@ -1366,10 +1366,11 @@ impl AdvertisementError {
 	fn reputation_changes(&self) -> Option<Rep> {
 		use AdvertisementError::*;
 		match self {
-			ProtocolMisuse | SchedulingParentNotActiveLeaf => Some(COST_PROTOCOL_MISUSE),
-			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
-				Some(COST_UNEXPECTED_MESSAGE)
-			},
+			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
+			SchedulingParentNotActiveLeaf |
+			SchedulingParentUnknown |
+			UndeclaredCollator |
+			Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
 			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
 		}
 	}

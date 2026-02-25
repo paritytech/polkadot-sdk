@@ -1070,6 +1070,108 @@ fn v3_descriptor_validation() {
 			))
 		);
 	}
+
+	// Test 4: V3 descriptor with scheduling_session_offset > 0, mismatched expected
+	// scheduling session => InvalidSessionIndex
+	{
+		let mut desc = descriptor.clone();
+		// session_index=1, offset=1 => scheduling_session=2
+		desc.set_scheduling_session_offset(1);
+
+		let candidate_receipt = CandidateReceipt {
+			descriptor: desc,
+			commitments_hash: commitments_with_signals.hash(),
+		};
+
+		// Pass expected_scheduling_session_index=1, but descriptor claims 2
+		let result = executor::block_on(validate_candidate_exhaustive(
+			1,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(
+				validation_result_with_signals.clone()
+			)),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt,
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			PvfExecKind::Backing(dummy_hash()),
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			true,
+			VALIDATION_CODE_BOMB_LIMIT,
+		))
+		.unwrap();
+
+		assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+	}
+
+	// Test 5: V3 descriptor with scheduling_session_offset > 0, correct expected
+	// scheduling session => Valid
+	{
+		let mut desc = descriptor.clone();
+		// session_index=1, offset=1 => scheduling_session=2
+		desc.set_scheduling_session_offset(1);
+
+		let candidate_receipt = CandidateReceipt {
+			descriptor: desc,
+			commitments_hash: commitments_with_signals.hash(),
+		};
+
+		// Pass expected_scheduling_session_index=2 matching descriptor's claim
+		let result = executor::block_on(validate_candidate_exhaustive(
+			2,
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(
+				validation_result_with_signals.clone()
+			)),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt,
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			PvfExecKind::Backing(dummy_hash()),
+			&Default::default(),
+			Some(ClaimQueueSnapshot(cq.clone())),
+			true,
+			VALIDATION_CODE_BOMB_LIMIT,
+		))
+		.unwrap();
+
+		assert_matches!(result, ValidationResult::Valid(_, _));
+	}
+
+	// Test 6: Scheduling session check is skipped for approvals/disputes
+	{
+		let mut desc = descriptor.clone();
+		// session_index=1, offset=1 => scheduling_session=2, but expected=1
+		desc.set_scheduling_session_offset(1);
+
+		let candidate_receipt = CandidateReceipt {
+			descriptor: desc,
+			commitments_hash: commitments_with_signals.hash(),
+		};
+
+		for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
+			let result = executor::block_on(validate_candidate_exhaustive(
+				1, // mismatched, but should be ignored for non-backing
+				MockValidateCandidateBackend::with_hardcoded_result(Ok(
+					validation_result_with_signals.clone(),
+				)),
+				validation_data.clone(),
+				validation_code.clone(),
+				candidate_receipt.clone(),
+				Arc::new(pov.clone()),
+				ExecutorParams::default(),
+				exec_kind,
+				&Default::default(),
+				Some(ClaimQueueSnapshot(cq.clone())),
+				true,
+				VALIDATION_CODE_BOMB_LIMIT,
+			))
+			.unwrap();
+
+			assert_matches!(result, ValidationResult::Valid(_, _));
+		}
+	}
 }
 
 #[test]

@@ -648,6 +648,11 @@ async fn distribute_collation<Context>(
 		.map(|(id, _)| id);
 
 	// Make sure already connected peers get collations:
+	let is_active_leaf = state
+		.implicit_view
+		.as_ref()
+		.map_or(false, |iv| iv.leaves().any(|l| *l == scheduling_parent));
+
 	for peer_id in interested {
 		// Get the peer's protocol version. The peer should exist in peer_data
 		// since we iterated over it to build `interested`.
@@ -663,6 +668,7 @@ async fn distribute_collation<Context>(
 			&state.peer_ids,
 			&mut state.advertisement_timeouts,
 			&state.metrics,
+			is_active_leaf,
 		)
 		.await;
 	}
@@ -906,7 +912,21 @@ async fn advertise_collation<Context>(
 	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	advertisement_timeouts: &mut FuturesUnordered<ResetInterestTimeout>,
 	metrics: &Metrics,
+	is_active_leaf: bool,
 ) {
+	// Skip advertising to V3 peers if the scheduling parent is not an active
+	// leaf and v3 is enabled — V3 validators will reject (and penalize) such
+	// advertisements.
+	if peer_version == CollationVersion::V3 && per_scheduling_parent.v3_enabled && !is_active_leaf {
+		gum::debug!(
+			target: LOG_TARGET,
+			?scheduling_parent,
+			peer_id = %peer,
+			"Skipping V3 advertisement: scheduling parent is not an active leaf",
+		);
+		return;
+	}
+
 	for (candidate_hash, collation_and_core) in per_scheduling_parent.collations.iter_mut() {
 		let core_index = *collation_and_core.core_index();
 		let collation = collation_and_core.collation_mut();
@@ -1388,34 +1408,40 @@ async fn handle_incoming_request<Context>(
 	Ok(())
 }
 
-/// Advertises collations for the given relay parents to the specified peer.
+/// Advertises collations for the given scheduling parents to the specified peer.
 ///
-/// Returns a list of unknown relay parents.
+/// Returns a list of unknown scheduling parents.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn advertise_collations_for_relay_parents<Context>(
+async fn advertise_collations_for_scheduling_parents<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer_id: &PeerId,
-	relay_parents: impl IntoIterator<Item = Hash>,
+	scheduling_parents: impl IntoIterator<Item = Hash>,
 ) -> Vec<Hash> {
-	let mut unknown_relay_parents = Vec::new();
+	let mut unknown_scheduling_parents = Vec::new();
 
 	let peer_version = match state.peer_data.get(peer_id) {
 		Some(peer) => peer.version,
-		None => return unknown_relay_parents,
+		None => return unknown_scheduling_parents,
 	};
 
-	for relay_parent in relay_parents {
-		let block_hashes = match state.per_scheduling_parent.contains_key(&relay_parent) {
+	let active_leaves: HashSet<Hash> = state
+		.implicit_view
+		.as_ref()
+		.map(|iv| iv.leaves().copied().collect())
+		.unwrap_or_default();
+
+	for scheduling_parent in scheduling_parents {
+		let block_hashes = match state.per_scheduling_parent.contains_key(&scheduling_parent) {
 			true => state
 				.implicit_view
 				.as_ref()
 				.and_then(|implicit_view| {
-					implicit_view.known_allowed_relay_parents_under(&relay_parent)
+					implicit_view.known_allowed_relay_parents_under(&scheduling_parent)
 				})
 				.unwrap_or_default(),
 			false => {
-				unknown_relay_parents.push(relay_parent);
+				unknown_scheduling_parents.push(scheduling_parent);
 				continue;
 			},
 		};
@@ -1431,16 +1457,17 @@ async fn advertise_collations_for_relay_parents<Context>(
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
+					active_leaves.contains(block_hash),
 				)
 				.await;
 			}
 		}
 	}
 
-	unknown_relay_parents
+	unknown_scheduling_parents
 }
 
-/// Peer's view has changed. Send advertisements for new relay parents
+/// Peer's view has changed. Send advertisements for new scheduling parents
 /// if there're any.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn handle_peer_view_change<Context>(
@@ -1457,19 +1484,19 @@ async fn handle_peer_view_change<Context>(
 		return;
 	};
 
-	let unknown_relay_parents =
-		advertise_collations_for_relay_parents(ctx, state, &peer_id, added).await;
+	let unknown_scheduling_parents =
+		advertise_collations_for_scheduling_parents(ctx, state, &peer_id, added).await;
 
-	if !unknown_relay_parents.is_empty() {
+	if !unknown_scheduling_parents.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
 			?peer_id,
-			new_leaves = ?unknown_relay_parents,
+			new_leaves = ?unknown_scheduling_parents,
 			"New leaves in peer's view are unknown",
 		);
 
 		if let Some(PeerData { unknown_heads, .. }) = state.peer_data.get_mut(&peer_id) {
-			for unknown in unknown_relay_parents {
+			for unknown in unknown_scheduling_parents {
 				unknown_heads.insert(unknown, ());
 			}
 		}
@@ -1594,21 +1621,21 @@ async fn handle_network_msg<Context>(
 					declare(ctx, state, &peer_id, CollationVersion::V2).await;
 				} else {
 					// Authority IDs changed for an existing peer. Re-advertise collations
-					// for relay parents already in their view, as the previous authority IDs
-					// may not have matched our validator groups.
-					let relay_parents_in_view: Vec<_> = state
+					// for scheduling parents already in their view, as the previous
+					// authority IDs may not have matched our validator groups.
+					let scheduling_parents_in_view: Vec<_> = state
 						.peer_data
 						.get(&peer_id)
 						.map(|data| data.view.iter().cloned().collect())
 						.unwrap_or_default();
 
-					// Unknown relay parents are ignored because they were
+					// Unknown scheduling parents are ignored because they were
 					// handled when the peer's view was first processed.
-					let _ = advertise_collations_for_relay_parents(
+					let _ = advertise_collations_for_scheduling_parents(
 						ctx,
 						state,
 						&peer_id,
-						relay_parents_in_view,
+						scheduling_parents_in_view,
 					)
 					.await;
 				}
@@ -1781,6 +1808,7 @@ async fn handle_our_view_change<Context>(
 					continue;
 				};
 
+				let is_active_leaf = implicit_view.leaves().any(|l| l == block_hash);
 				advertise_collation(
 					ctx,
 					*block_hash,
@@ -1790,6 +1818,7 @@ async fn handle_our_view_change<Context>(
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
+					is_active_leaf,
 				)
 				.await;
 			}

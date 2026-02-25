@@ -1833,9 +1833,6 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 	}
 }
 
-/// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy)]
-pub struct InternalVersion(pub u8);
 /// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum CandidateDescriptorVersion {
@@ -1966,6 +1963,9 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	}
 
 	fn v2_version(&self) -> CandidateDescriptorVersion {
+		// V1 detected using the pre-v3 (stricter) check: all reserved and new
+		// fields must be zero. Once v3 is enabled, the v1 check is relaxed in
+		// `v3_version()` to free up more bytes for future use.
 		let old_v1_detected = self.reserved2 != [0u8; 32] ||
 			self.reserved1 != [0u8; 24] ||
 			self.scheduling_session_offset != 0 ||
@@ -2140,7 +2140,7 @@ where
 	H: core::fmt::Debug,
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		// A bit impresize, but should not matter in practice for debug output. (Keeps trait bounds
+		// A bit imprecise, but should not matter in practice for debug output. (Keeps trait bounds
 		// sane.)
 		match self.v3_version() {
 			CandidateDescriptorVersion::V1 => f
@@ -2319,6 +2319,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_reserved2(&mut self, reserved2: [u8; 32]);
 	/// Set the scheduling parent of the descriptor.
 	fn set_scheduling_parent(&mut self, scheduling_parent: H);
+	/// Set the scheduling session offset of the descriptor.
+	fn set_scheduling_session_offset(&mut self, offset: u8);
 }
 
 #[cfg(feature = "test")]
@@ -2369,6 +2371,10 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_scheduling_parent(&mut self, scheduling_parent: H) {
 		self.scheduling_parent = scheduling_parent;
+	}
+
+	fn set_scheduling_session_offset(&mut self, offset: u8) {
+		self.scheduling_session_offset = offset;
 	}
 }
 

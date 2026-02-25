@@ -697,7 +697,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							CandidateDescriptorVersionConfig::V1 |
 							CandidateDescriptorVersionConfig::V2 => {
 								// V1 and V2 use the same constructor (new()).
-								// They differ only in whether UMP signals are added to commitments.
+								// They differ in whether UMP signals are added to commitments
+								// and in the collator_id/collator_signature fields (real in V1,
+								// zeroed out in V2).
 								CandidateDescriptorV2::new(
 									para_id,
 									relay_parent,

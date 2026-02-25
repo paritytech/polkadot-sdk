@@ -107,8 +107,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateDescriptorV2,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, ExecutorParams,
 	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
 	PersistedValidationData, SessionIndex, SigningContext, ValidationCode, ValidatorId,
@@ -497,11 +497,11 @@ async fn run_iteration<Context>(
 	loop {
 		futures::select!(
 			validated_command = background_validation_rx.next().fuse() => {
-				if let Some((relay_parent, command)) = validated_command {
+				if let Some((scheduling_parent, command)) = validated_command {
 					handle_validated_candidate_command(
 						&mut *ctx,
 						state,
-						relay_parent,
+						scheduling_parent,
 						command,
 						metrics,
 					).await?;
@@ -784,7 +784,10 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	sender: S,
 	tx_command: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	candidate: CandidateReceipt,
-	relay_parent: Hash,
+	/// The scheduling parent hash. Used as context for runtime API queries and as
+	/// the key for `per_scheduling_parent` lookup when sending results back.
+	/// For V1/V2, this equals the candidate's relay_parent.
+	scheduling_parent: Hash,
 	node_features: NodeFeatures,
 	executor_params: Arc<ExecutorParams>,
 	persisted_validation_data: PersistedValidationData,
@@ -804,7 +807,7 @@ async fn validate_and_make_available(
 		mut sender,
 		mut tx_command,
 		candidate,
-		relay_parent,
+		scheduling_parent,
 		node_features,
 		executor_params,
 		persisted_validation_data,
@@ -818,7 +821,7 @@ async fn validate_and_make_available(
 		let (tx, rx) = oneshot::channel();
 		sender
 			.send_message(RuntimeApiMessage::Request(
-				relay_parent,
+				scheduling_parent,
 				RuntimeApiRequest::ValidationCodeByHash(validation_code_hash, tx),
 			))
 			.await;
@@ -836,7 +839,7 @@ async fn validate_and_make_available(
 		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } => {
 			match request_pov(
 				&mut sender,
-				relay_parent,
+				scheduling_parent,
 				from_validator,
 				candidate.descriptor.para_id(),
 				candidate_hash,
@@ -847,7 +850,7 @@ async fn validate_and_make_available(
 				Err(Error::FetchPoV) => {
 					tx_command
 						.send((
-							relay_parent,
+							scheduling_parent,
 							ValidatedCandidateCommand::AttestNoPoV(candidate.hash()),
 						))
 						.await
@@ -931,7 +934,10 @@ async fn validate_and_make_available(
 		},
 	};
 
-	tx_command.send((relay_parent, make_command(res))).await.map_err(Into::into)
+	tx_command
+		.send((scheduling_parent, make_command(res)))
+		.await
+		.map_err(Into::into)
 }
 
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
@@ -1354,15 +1360,33 @@ async fn handle_can_second_request<Context>(
 	let _ = tx.send(response);
 }
 
+/// Determine the session for executor_params lookup and fetch executor_params.
+///
+/// For V2/V3, session_index is in the descriptor. For V1, scheduling_parent ==
+/// relay_parent, so `sp_state.session_index` is the relay_parent's session.
+async fn get_executor_params(
+	per_session_cache: &mut PerSessionCache,
+	descriptor: &CandidateDescriptorV2,
+	sp_state: &PerSchedulingParentState,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<Arc<ExecutorParams>, Error> {
+	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
+	let session = descriptor.session_index(v3_enabled).unwrap_or(sp_state.session_index);
+	per_session_cache
+		.executor_params(session, descriptor.relay_parent(), sender)
+		.await
+		.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))
+}
+
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn handle_validated_candidate_command<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	command: ValidatedCandidateCommand,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
-	match state.per_scheduling_parent.get_mut(&relay_parent) {
+	match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(sp_state) => {
 			let candidate_hash = command.candidate_hash();
 			sp_state.awaiting_validation.remove(&candidate_hash);
@@ -1505,26 +1529,13 @@ async fn handle_validated_candidate_command<Context>(
 								.get(&candidate_hash)
 								.map(|pc| pc.persisted_validation_data.clone())
 							{
-								// Determine session for executor_params lookup.
-								// For V2/V3, session_index is in the descriptor.
-								// For V1, scheduling_parent == relay_parent, so
-								// sp_state.session_index is the relay_parent's session.
-								let v3_enabled = FeatureIndex::CandidateReceiptV3
-									.is_set(&sp_state.node_features);
-								let session = attesting
-									.candidate
-									.descriptor()
-									.session_index(v3_enabled)
-									.unwrap_or(sp_state.session_index);
-								let executor_params = state
-									.per_session_cache
-									.executor_params(
-										session,
-										attesting.candidate.descriptor().relay_parent(),
-										ctx.sender(),
-									)
-									.await
-									.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))?;
+								let executor_params = get_executor_params(
+									&mut state.per_session_cache,
+									attesting.candidate.descriptor(),
+									sp_state,
+									ctx.sender(),
+								)
+								.await?;
 
 								kick_off_validation_work(
 									ctx,
@@ -1557,12 +1568,12 @@ async fn handle_validated_candidate_command<Context>(
 }
 
 fn sign_statement(
-	rp_state: &PerSchedulingParentState,
+	sp_state: &PerSchedulingParentState,
 	statement: StatementWithPVD,
 	keystore: KeystorePtr,
 	metrics: &Metrics,
 ) -> Option<SignedFullStatementWithPVD> {
-	let signed = rp_state
+	let signed = sp_state
 		.table_context
 		.validator
 		.as_ref()?
@@ -1660,26 +1671,26 @@ async fn import_statement<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn post_import_statement_actions<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerSchedulingParentState,
+	sp_state: &mut PerSchedulingParentState,
 	summary: Option<&TableSummary>,
 ) {
 	if let Some(attested) = summary.as_ref().and_then(|s| {
-		rp_state.table.attested_candidate(
+		sp_state.table.attested_candidate(
 			&s.candidate,
-			&rp_state.table_context,
-			rp_state.minimum_backing_votes,
+			&sp_state.table_context,
+			sp_state.minimum_backing_votes,
 		)
 	}) {
 		let candidate_hash = attested.candidate.hash();
 
 		// `HashSet::insert` returns true if the thing wasn't in there already.
-		if rp_state.backed.insert(candidate_hash) {
-			if let Some(backed) = table_attested_to_backed(attested, &rp_state.table_context) {
+		if sp_state.backed.insert(candidate_hash) {
+			if let Some(backed) = table_attested_to_backed(attested, &sp_state.table_context) {
 				let para_id = backed.candidate().descriptor.para_id();
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
-					relay_parent = ?rp_state.parent,
+					scheduling_parent = ?sp_state.parent,
 					%para_id,
 					"Candidate backed",
 				);
@@ -1703,7 +1714,7 @@ async fn post_import_statement_actions<Context>(
 		gum::debug!(target: LOG_TARGET, "No attested candidate");
 	}
 
-	issue_new_misbehaviors(ctx, rp_state.parent, &mut rp_state.table);
+	issue_new_misbehaviors(ctx, sp_state.parent, &mut sp_state.table);
 }
 
 /// Check if there have happened any new misbehaviors and issue necessary messages.
@@ -1732,21 +1743,21 @@ fn issue_new_misbehaviors<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn sign_import_and_distribute_statement<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerSchedulingParentState,
+	sp_state: &mut PerSchedulingParentState,
 	per_candidate: &mut HashMap<CandidateHash, PerCandidateState>,
 	statement: StatementWithPVD,
 	keystore: KeystorePtr,
 	metrics: &Metrics,
 ) -> Result<Option<SignedFullStatementWithPVD>, Error> {
-	if let Some(signed_statement) = sign_statement(&*rp_state, statement, keystore, metrics) {
-		let summary = import_statement(ctx, rp_state, per_candidate, &signed_statement).await?;
+	if let Some(signed_statement) = sign_statement(&*sp_state, statement, keystore, metrics) {
+		let summary = import_statement(ctx, sp_state, per_candidate, &signed_statement).await?;
 
 		// `Share` must always be sent before `Backed`. We send the latter in
 		// `post_import_statement_action` below.
-		let smsg = StatementDistributionMessage::Share(rp_state.parent, signed_statement.clone());
+		let smsg = StatementDistributionMessage::Share(sp_state.parent, signed_statement.clone());
 		ctx.send_unbounded_message(smsg);
 
-		post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
+		post_import_statement_actions(ctx, sp_state, summary.as_ref()).await;
 
 		Ok(Some(signed_statement))
 	} else {
@@ -1757,15 +1768,15 @@ async fn sign_import_and_distribute_statement<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn background_validate_and_make_available<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerSchedulingParentState,
+	sp_state: &mut PerSchedulingParentState,
 	params: BackgroundValidationParams<
 		impl overseer::CandidateBackingSenderTrait,
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Send + 'static + Sync,
 	>,
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
-	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
-	if rp_state.awaiting_validation.insert(candidate_hash) {
+	let Some(core_index) = sp_state.assigned_core else { return Ok(()) };
+	if sp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
 			if let Err(error) = validate_and_make_available(params, core_index).await {
@@ -1835,8 +1846,9 @@ async fn kick_off_validation_work<Context>(
 		candidate_hash,
 		pov_hash: attesting.pov_hash,
 	};
+	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
+	let scheduling_parent = attesting.candidate.descriptor().scheduling_parent(v3_enabled);
 
-	let relay_parent = attesting.candidate.descriptor().relay_parent();
 	background_validate_and_make_available(
 		ctx,
 		sp_state,
@@ -1844,7 +1856,7 @@ async fn kick_off_validation_work<Context>(
 			sender: bg_sender,
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
-			relay_parent,
+			scheduling_parent,
 			node_features: sp_state.node_features.clone(),
 			executor_params,
 			persisted_validation_data,
@@ -1861,16 +1873,16 @@ async fn kick_off_validation_work<Context>(
 async fn maybe_validate_and_import<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 ) -> Result<(), Error> {
-	let sp_state = match state.per_scheduling_parent.get_mut(&relay_parent) {
+	let sp_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(r) => r,
 		None => {
 			gum::trace!(
 				target: LOG_TARGET,
-				?relay_parent,
-				"Received statement for unknown relay-parent"
+				?scheduling_parent,
+				"Received statement for unknown scheduling parent"
 			);
 
 			return Ok(());
@@ -1894,7 +1906,7 @@ async fn maybe_validate_and_import<Context>(
 	if let Err(Error::RejectedByProspectiveParachains) = res {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?scheduling_parent,
 			"Statement rejected by prospective parachains."
 		);
 
@@ -1967,25 +1979,13 @@ async fn maybe_validate_and_import<Context>(
 			.get(&candidate_hash)
 			.map(|pc| pc.persisted_validation_data.clone())
 		{
-			// Determine session for executor_params lookup.
-			// For V2/V3, session_index is in the descriptor.
-			// For V1, scheduling_parent == relay_parent, so rp_state.session_index
-			// is the relay_parent's session.
-			let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-			let session = attesting
-				.candidate
-				.descriptor()
-				.session_index(v3_enabled)
-				.unwrap_or(sp_state.session_index);
-			let executor_params = state
-				.per_session_cache
-				.executor_params(
-					session,
-					attesting.candidate.descriptor().relay_parent(),
-					ctx.sender(),
-				)
-				.await
-				.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))?;
+			let executor_params = get_executor_params(
+				&mut state.per_session_cache,
+				attesting.candidate.descriptor(),
+				sp_state,
+				ctx.sender(),
+			)
+			.await?;
 
 			kick_off_validation_work(
 				ctx,
@@ -2005,7 +2005,7 @@ async fn maybe_validate_and_import<Context>(
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn validate_and_second<Context>(
 	ctx: &mut Context,
-	rp_state: &mut PerSchedulingParentState,
+	sp_state: &mut PerSchedulingParentState,
 	persisted_validation_data: PersistedValidationData,
 	candidate: &CandidateReceipt,
 	pov: Arc<PoV>,
@@ -2022,19 +2022,21 @@ async fn validate_and_second<Context>(
 	);
 
 	let bg_sender = ctx.sender().clone();
+	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
+	let scheduling_parent = candidate.descriptor.scheduling_parent(v3_enabled);
 	background_validate_and_make_available(
 		ctx,
-		rp_state,
+		sp_state,
 		BackgroundValidationParams {
 			sender: bg_sender,
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
-			relay_parent: rp_state.parent,
-			node_features: rp_state.node_features.clone(),
+			scheduling_parent,
+			node_features: sp_state.node_features.clone(),
 			executor_params,
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
-			n_validators: rp_state.table_context.validators.len(),
+			n_validators: sp_state.table_context.validators.len(),
 			make_command: ValidatedCandidateCommand::Second,
 		},
 	)
@@ -2081,7 +2083,7 @@ async fn handle_second_message<Context>(
 	let v3_enabled = state
 		.per_scheduling_parent
 		.get(&relay_parent)
-		.map(|rp_state| FeatureIndex::CandidateReceiptV3.is_set(&rp_state.node_features))
+		.map(|sp_state| FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features))
 		.unwrap_or(false);
 
 	// The signing context should use scheduling_parent (for V1/V2, this equals relay_parent)
@@ -2146,20 +2148,13 @@ async fn handle_second_message<Context>(
 	if !sp_state.issued_statements.contains(&candidate_hash) {
 		let pov = Arc::new(pov);
 
-		// Determine session for executor_params lookup.
-		// For V2/V3, session_index is in the descriptor.
-		// For V1, scheduling_parent == relay_parent, so rp_state.session_index
-		// is the relay_parent's session.
-		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-		let session = candidate
-			.descriptor()
-			.session_index(v3_enabled)
-			.unwrap_or(sp_state.session_index);
-		let executor_params = state
-			.per_session_cache
-			.executor_params(session, candidate.descriptor().relay_parent(), ctx.sender())
-			.await
-			.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))?;
+		let executor_params = get_executor_params(
+			&mut state.per_session_cache,
+			candidate.descriptor(),
+			sp_state,
+			ctx.sender(),
+		)
+		.await?;
 
 		validate_and_second(
 			ctx,
@@ -2180,14 +2175,14 @@ async fn handle_second_message<Context>(
 async fn handle_statement_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
 	let _timer = metrics.time_process_statement();
 
 	// Validator disabling is handled in `maybe_validate_and_import`
-	match maybe_validate_and_import(ctx, state, relay_parent, statement).await {
+	match maybe_validate_and_import(ctx, state, scheduling_parent, statement).await {
 		Err(Error::ValidationFailed(_)) => Ok(()),
 		Err(e) => Err(e),
 		Ok(()) => Ok(()),
@@ -2210,7 +2205,7 @@ fn handle_get_backable_candidates_message(
 			let scheduling_parent = candidate_ref.scheduling_parent;
 
 			let sp_state = match state.per_scheduling_parent.get(&scheduling_parent) {
-				Some(rp_state) => rp_state,
+				Some(sp_state) => sp_state,
 				None => {
 					gum::debug!(
 						target: LOG_TARGET,

@@ -194,7 +194,6 @@ where
 			let _timer = metrics.time_validate_from_exhaustive();
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
 			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
 				let error = "cannot fetch session index from the runtime";
 				gum::warn!(
@@ -263,8 +262,35 @@ where
 				return;
 			};
 
+			// Claim queue is scheduling context — fetch it from the scheduling_parent.
+			// For V1/V2, scheduling_parent() returns relay_parent.
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+			let maybe_claim_queue = claim_queue(scheduling_parent, &mut sender).await;
+
+			// Fetch the scheduling session index for validating the descriptor's
+			// scheduling_session claim. For V1/V2 scheduling_parent ==
+			// relay_parent so we reuse session_index.
+			let scheduling_session_index = if scheduling_parent == relay_parent {
+				session_index
+			} else {
+				match get_session_index(&mut sender, scheduling_parent).await {
+					Some(idx) => idx,
+					None => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?scheduling_parent,
+							"Cannot fetch scheduling session index from the runtime",
+						);
+						let _ = response_sender.send(Err(ValidationFailed(
+							"Scheduling session index not found".to_string(),
+						)));
+						return;
+					},
+				}
+			};
+
 			let res = validate_candidate_exhaustive(
-				session_index,
+				scheduling_session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -885,7 +911,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
-	expected_session_index: SessionIndex,
+	expected_scheduling_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -912,10 +938,16 @@ async fn validate_candidate_exhaustive(
 		"About to validate a candidate.",
 	);
 
-	// We only check the session index for backing.
-	match (exec_kind, candidate_receipt.descriptor.session_index(v3_enabled)) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
-			if session_index != expected_session_index {
+	// Validate the scheduling session during backing. The relay parent session
+	// check is left for later when we actually can: https://github.com/paritytech/polkadot-sdk/issues/11182
+	// TODO: Properly check session index in the runtime:
+	// https://github.com/paritytech/polkadot-sdk/issues/11033
+	match (exec_kind, candidate_receipt.descriptor.scheduling_session(v3_enabled)) {
+		(
+			PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
+			Some(scheduling_session),
+		) => {
+			if scheduling_session != expected_scheduling_session_index {
 				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
 			}
 		},
