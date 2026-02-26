@@ -509,14 +509,13 @@ impl EthRpcServer for EthRpcServerImpl {
 			Box<dyn Stream<Item = Result<SubscriptionItem, BroadcastStreamRecvError>> + Send>,
 		> = match subscription_parameters {
 			SubscriptionParameters::NewBlockHeaders => Box::pin(
-				BroadcastStream::new(self.client.get_block_subscription_rx()).map(|value| {
-					value.map(|block| SubscriptionItem::BlockHeader(BlockHeader::from(block)))
-				}),
+				BroadcastStream::new(self.client.get_block_subscription_rx())
+					.map_ok(|block| SubscriptionItem::BlockHeader(BlockHeader::from(block))),
 			) as _,
 			SubscriptionParameters::Logs(filter) => Box::pin(
 				BroadcastStream::new(self.client.get_log_subscription_rx())
 					.try_filter(move |log| futures::future::ready(filter.matches(log)))
-					.map(|value| value.map(|log| SubscriptionItem::Log(log))),
+					.map_ok(SubscriptionItem::Log),
 			) as _,
 		};
 		let _ = tokio::spawn(Self::handle_subscription_forwarding(sink, stream));

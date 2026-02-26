@@ -443,6 +443,16 @@ impl Client {
 				let _ = self.block_subscription_tx.send(evm_block);
 			}
 
+			// Broadcast the logs, we require a finalized subscription for this so that all of the
+			// events we broadcast are finalized and not prone to reorgs.
+			if let SubscriptionType::FinalizedBlocks = subscription_type &&
+				self.log_subscription_tx.receiver_count() > 0
+			{
+				receipts.iter().flat_map(|receipt| receipt.logs.iter()).for_each(|log| {
+					let _ = self.log_subscription_tx.send(log.clone());
+				});
+			}
+
 			Ok(())
 		})
 		.await
@@ -469,54 +479,6 @@ impl Client {
 		.await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
-		Ok(())
-	}
-
-	/// Subscribes to new logs found in the blocks.
-	pub async fn subscribe_new_logs(&self) -> Result<(), ClientError> {
-		log::info!(target: LOG_TARGET, "🔌 Subscribing to new logs");
-		let mut block_rx = self.block_subscription_tx.subscribe();
-
-		loop {
-			match block_rx.recv().await {
-				Ok(block) => {
-					if self.log_subscription_tx.receiver_count() == 0 {
-						continue;
-					}
-
-					let block_hash = block.hash;
-					let filter = Filter { block_hash: Some(block_hash), ..Default::default() };
-
-					match self.receipt_provider.logs(Some(filter)).await {
-						Ok(logs) => {
-							for log in logs {
-								let _ = self.log_subscription_tx.send(log);
-							}
-						},
-						Err(err) => {
-							log::error!(
-								target: LOG_TARGET,
-								"Failed to fetch logs for block {block_hash:?}: {err:?}"
-							);
-						},
-					}
-				},
-				Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"Log subscription lagged, skipped {count} blocks"
-					);
-				},
-				Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-					log::info!(
-						target: LOG_TARGET,
-						"Block subscription channel closed, stopping log subscription"
-					);
-					break;
-				},
-			}
-		}
-
 		Ok(())
 	}
 
