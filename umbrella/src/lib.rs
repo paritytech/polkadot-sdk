@@ -1460,6 +1460,10 @@ pub use sp_version;
 #[cfg(feature = "sp-version-proc-macro")]
 pub use sp_version_proc_macro;
 
+/// Virtualization
+#[cfg(feature = "sp-virtualization")]
+pub use sp_virtualization;
+
 /// Types and traits for interfacing between the host and the wasm runtime.
 #[cfg(feature = "sp-wasm-interface")]
 pub use sp_wasm_interface;

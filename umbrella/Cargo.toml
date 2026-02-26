@@ -225,6 +225,7 @@ std = [
 	"sp-transaction-storage-proof?/std",
 	"sp-trie?/std",
 	"sp-version?/std",
+	"sp-virtualization?/std",
 	"sp-wasm-interface?/std",
 	"sp-weights?/std",
 	"staging-parachain-info?/std",
@@ -783,6 +784,7 @@ runtime-full = [
 	"sp-trie",
 	"sp-version",
 	"sp-version-proc-macro",
+	"sp-virtualization",
 	"sp-wasm-interface",
 	"sp-weights",
 	"staging-parachain-info",
@@ -2846,6 +2848,11 @@ path = "../substrate/primitives/panic-handler"
 default-features = false
 optional = true
 path = "../substrate/primitives/rpc"
+
+[dependencies.sp-virtualization]
+default-features = false
+optional = true
+path = "../substrate/primitives/virtualization"
 
 [dependencies.staging-chain-spec-builder]
 default-features = false
