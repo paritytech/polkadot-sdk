@@ -285,7 +285,7 @@ impl Client {
 			)
 			.await?;
 		} else {
-			log::info!(target: LOG_TARGET, "🗄️ No backward gap to fill");
+			log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
 		}
 
 		Ok(())
@@ -341,7 +341,7 @@ impl Client {
 			"⬇️ Backward sync: #{upper} down to #{lower}");
 
 		if upper < lower {
-			log::warn!(target: LOG_TARGET,
+			log::debug!(target: LOG_TARGET,
 				"⬇️ Backward sync: upper < lower, nothing to sync");
 			return Ok(());
 		}
@@ -394,7 +394,7 @@ impl Client {
 					}
 
 					if at_checkpoint(blocks_synced) {
-						log::info!(target: LOG_TARGET,
+						log::debug!(target: LOG_TARGET,
 							"⬇️ Backward sync progress: #{block_number} \
 								({blocks_synced} blocks synced)");
 

@@ -40,10 +40,7 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
 
-// At moderate activity (~10-20 txs/block), 500K blocks ≈ 10 GB of in-memory SQLite.
-const MAX_PRUNE_BLOCKS: usize = 500_000;
-
-const DEFAULT_DATABASE_NAME: &str = "receipts.db";
+const DEFAULT_DATABASE_NAME: &str = "eth-rpc.db";
 
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
@@ -55,7 +52,7 @@ pub struct CliCommand {
 
 	/// Keep only the latest N blocks in the in-memory database.
 	/// When omitted, a persistent on-disk SQLite database is used instead.
-	#[clap(long, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..=MAX_PRUNE_BLOCKS as u64))]
+	#[clap(long, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..))]
 	pub prune: Option<usize>,
 
 	/// Earliest block number to consider when searching for transaction receipts.
@@ -65,11 +62,6 @@ pub struct CliCommand {
 	/// remain in the database but are not served by RPC.
 	#[clap(long)]
 	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
-
-	/// Database filename, created under the resolved base path.
-	#[clap(long, default_value = DEFAULT_DATABASE_NAME, conflicts_with = "prune",
-		value_parser = parse_database_name)]
-	pub database_name: Option<String>,
 
 	/// Sync all historical blocks from the latest finalized block down to the first EVM block
 	/// or --earliest-receipt-block, whichever is higher.
@@ -93,23 +85,6 @@ pub struct CliCommand {
 	/// instruct the RPC to ignore this check.
 	#[arg(long)]
 	pub allow_unprotected_txs: bool,
-}
-
-/// Parse and validate that `--database-name` is a plain filename (no path separators).
-fn parse_database_name(database_name: &str) -> Result<String, String> {
-	if database_name.is_empty() {
-		return Err("must not be empty".into());
-	}
-	if database_name.contains(['/', '\\']) {
-		return Err(format!("must not contain path separators, got: {database_name}"));
-	}
-	let mut components = std::path::Path::new(database_name).components();
-	if !matches!(components.next(), Some(std::path::Component::Normal(_))) ||
-		components.next().is_some()
-	{
-		return Err(format!("must be a plain filename, got: {database_name}"));
-	}
-	Ok(database_name.to_string())
 }
 
 /// Initialize the logger
@@ -137,16 +112,13 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 ///
 /// - If `base_path` is `Some` (explicit `--base-path` or `--dev` temp dir), use it directly.
 /// - If `base_path` is `None`, use the platform default:
-///   - macOS: `~/Library/Application Support/eth-rpc/<chain-id>/`
-///   - Linux: `~/.local/share/eth-rpc/<chain-id>/`
-///   - Windows: `%APPDATA%\eth-rpc\<chain-id>\`
-fn resolve_db_dir(base_path: Option<BasePath>, chain_id: &str) -> PathBuf {
+///   - macOS: `~/Library/Application Support/eth-rpc/`
+///   - Linux: `~/.local/share/eth-rpc/`
+///   - Windows: `%APPDATA%\eth-rpc\`
+fn resolve_db_dir(base_path: Option<BasePath>) -> PathBuf {
 	match base_path {
 		Some(path) => path.path().to_path_buf(),
-		None => {
-			let base = BasePath::from_project("", "", "eth-rpc");
-			if chain_id.is_empty() { base.path().to_path_buf() } else { base.path().join(chain_id) }
-		},
+		None => BasePath::from_project("", "", "eth-rpc").path().to_path_buf(),
 	}
 }
 
@@ -157,17 +129,15 @@ fn resolve_db_dir(base_path: Option<BasePath>, chain_id: &str) -> PathBuf {
 fn resolve_db_options(
 	is_in_memory: bool,
 	base_path: Option<BasePath>,
-	database_name: &str,
-	chain_id: &str,
 ) -> anyhow::Result<SqliteConnectOptions> {
 	if is_in_memory {
 		Ok(SqliteConnectOptions::new().in_memory(true))
 	} else {
-		let db_dir = resolve_db_dir(base_path, chain_id);
+		let db_dir = resolve_db_dir(base_path);
 		std::fs::create_dir_all(&db_dir).map_err(|e| {
 			anyhow::anyhow!("Failed to create database directory {}: {e}", db_dir.display())
 		})?;
-		let db_path = db_dir.join(database_name);
+		let db_path = db_dir.join(DEFAULT_DATABASE_NAME);
 		log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
 		Ok(SqliteConnectOptions::new().filename(&db_path).create_if_missing(true))
 	}
@@ -256,7 +226,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		prometheus_params,
 		node_rpc_url,
 		prune,
-		database_name,
 		earliest_receipt_block,
 		sync,
 		shared_params,
@@ -268,12 +237,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	init_logger(&shared_params)?;
 	let is_dev = shared_params.dev;
 	let base_path = shared_params.base_path()?;
-	let chain_id = shared_params.chain_id(is_dev);
-	let database_name = database_name.unwrap_or_else(|| DEFAULT_DATABASE_NAME.into());
 
 	// When --prune is set, use an in-memory database; otherwise, use persistent storage.
 	let is_in_memory_db = prune.is_some();
-	let db_options = resolve_db_options(is_in_memory_db, base_path, &database_name, &chain_id)?;
+	let db_options = resolve_db_options(is_in_memory_db, base_path)?;
 
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
@@ -405,7 +372,7 @@ mod tests {
 
 	#[test]
 	fn in_memory_returns_memory_options() {
-		let opts = resolve_db_options(true, None, DEFAULT_DATABASE_NAME, "").unwrap();
+		let opts = resolve_db_options(true, None).unwrap();
 		// In-memory options produce `:memory:` filename.
 		let filename = opts.get_filename();
 		assert_eq!(filename, std::path::Path::new(":memory:"));
@@ -415,31 +382,14 @@ mod tests {
 	fn persistent_with_explicit_base_path() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let opts = resolve_db_options(false, Some(base), DEFAULT_DATABASE_NAME, "").unwrap();
+		let opts = resolve_db_options(false, Some(base)).unwrap();
 		assert_eq!(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
 		assert!(tmp.path().exists());
 	}
 
 	#[test]
-	fn persistent_with_custom_database_name() {
-		let tmp = TempDir::new().unwrap();
-		let base = BasePath::new(tmp.path());
-		let opts = resolve_db_options(false, Some(base), "custom.db", "").unwrap();
-		assert_eq!(opts.get_filename(), tmp.path().join("custom.db"));
-	}
-
-	#[test]
-	fn persistent_default_path_with_chain_id() {
-		let opts = resolve_db_options(false, None, DEFAULT_DATABASE_NAME, "westend").unwrap();
-		let filename = opts.get_filename().to_string_lossy().to_string();
-		assert!(filename.contains("eth-rpc"));
-		assert!(filename.contains("westend"));
-		assert!(filename.contains(DEFAULT_DATABASE_NAME));
-	}
-
-	#[test]
-	fn persistent_default_path_without_chain_id() {
-		let opts = resolve_db_options(false, None, DEFAULT_DATABASE_NAME, "").unwrap();
+	fn persistent_default_path() {
+		let opts = resolve_db_options(false, None).unwrap();
 		let filename = opts.get_filename().to_string_lossy().to_string();
 		assert!(filename.contains("eth-rpc"));
 		assert!(filename.contains(DEFAULT_DATABASE_NAME));
@@ -450,52 +400,23 @@ mod tests {
 		let tmp = TempDir::new().unwrap();
 		let nested = tmp.path().join("a").join("b");
 		let base = BasePath::new(&nested);
-		resolve_db_options(false, Some(base), DEFAULT_DATABASE_NAME, "").unwrap();
+		resolve_db_options(false, Some(base)).unwrap();
 		assert!(nested.exists());
 	}
 
 	#[test]
-	fn resolve_db_dir_with_base_path_ignores_chain_id() {
+	fn resolve_db_dir_with_explicit_base_path() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let dir = resolve_db_dir(Some(base), "some-chain");
+		let dir = resolve_db_dir(Some(base));
 		assert_eq!(dir, tmp.path());
 	}
 
 	#[test]
-	fn resolve_db_dir_platform_default_includes_chain_id() {
-		let dir = resolve_db_dir(None, "westend");
+	fn resolve_db_dir_platform_default() {
+		let dir = resolve_db_dir(None);
 		let dir_str = dir.to_string_lossy();
 		assert!(dir_str.contains("eth-rpc"));
-		assert!(dir_str.ends_with("westend"));
-	}
-
-	#[test]
-	fn resolve_db_dir_platform_default_no_chain_id() {
-		let dir = resolve_db_dir(None, "");
-		let dir_str = dir.to_string_lossy();
-		assert!(dir_str.contains("eth-rpc"));
-		assert!(!dir_str.ends_with('/'));
-	}
-
-	#[test]
-	fn database_name_plain_filename_is_accepted() {
-		parse_database_name(DEFAULT_DATABASE_NAME).unwrap();
-	}
-
-	#[test]
-	fn database_name_empty_is_rejected() {
-		parse_database_name("").unwrap_err();
-	}
-
-	#[test]
-	fn database_name_with_path_traversal_is_rejected() {
-		parse_database_name("../../etc/evil.db").unwrap_err();
-	}
-
-	#[test]
-	fn database_name_absolute_path_is_rejected() {
-		parse_database_name("/tmp/receipts.db").unwrap_err();
 	}
 
 	#[test]
@@ -507,10 +428,5 @@ mod tests {
 	fn earliest_receipt_block_beyond_head_is_rejected() {
 		let err = validate_earliest_receipt_block_argument(Some(101), 100).unwrap_err();
 		assert!(err.to_string().contains("beyond the current chain head"));
-	}
-
-	#[test]
-	fn database_name_with_backslash_is_rejected() {
-		parse_database_name("sub\\dir").unwrap_err();
 	}
 }
