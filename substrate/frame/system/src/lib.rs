@@ -1595,33 +1595,28 @@ impl<T: Config> Pallet<T> {
 		match T::Version::get().system_version {
 			0..=2 => {
 				storage::unhashed::put_raw(well_known_keys::CODE, code);
-				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-				Self::deposit_event(Event::CodeUpdated);
 			},
 			_ => {
 				BlocksTillUpgrade::<T>::put(2u8);
 				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
-				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 			},
 		}
+		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+		Self::deposit_event(Event::CodeUpdated);
 	}
 
 	/// Replace code with pending code if scheduled to enact in this block and in that case emit
 	/// related events and digest items.
 	///
 	/// This method is expected to be called in `on_finalize`.
-	///
-	/// Returns `true` if the pending code upgrade was applied.
-	pub fn maybe_apply_pending_code_upgrade() -> bool {
-		let Some(remaining) = BlocksTillUpgrade::<T>::get() else {
-			return false;
-		};
+	pub fn maybe_apply_pending_code_upgrade() {
+		let Some(remaining) = BlocksTillUpgrade::<T>::get() else { return };
 
 		let remaining = remaining.saturating_sub(1);
 
 		if remaining > 0 {
 			BlocksTillUpgrade::<T>::put(remaining);
-			return false;
+			return;
 		}
 
 		BlocksTillUpgrade::<T>::kill();
@@ -1629,15 +1624,11 @@ impl<T: Config> Pallet<T> {
 		let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
 			// should never happen
 			defensive!("BlocksTillUpgrade is set but no pending code found");
-			return false;
+			return;
 		};
 
 		storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
 		storage::unhashed::kill(well_known_keys::PENDING_CODE);
-
-		Self::deposit_event(Event::CodeUpdated);
-
-		true
 	}
 
 	/// Whether all inherents have been applied.

@@ -407,6 +407,16 @@ pub enum TryPendingCode {
 	Yes,
 }
 
+#[cfg(feature = "std")]
+impl From<sp_core::traits::CallContext> for TryPendingCode {
+	fn from(context: sp_core::traits::CallContext) -> Self {
+		match context {
+			sp_core::traits::CallContext::Onchain => TryPendingCode::Yes,
+			sp_core::traits::CallContext::Offchain => TryPendingCode::No,
+		}
+	}
+}
+
 /// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].
 #[cfg(feature = "std")]
 pub struct BackendRuntimeCode<'a, B, H> {

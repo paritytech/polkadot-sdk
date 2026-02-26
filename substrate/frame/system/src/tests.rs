@@ -1011,13 +1011,13 @@ fn set_code_version_3_schedules_and_applies_pending_code() {
 			.iter()
 			.all(|e| !matches!(e.event, RuntimeEvent::System(SysEvent::CodeUpdated))));
 		// First on_finalize (block N): counter goes 2 -> 1, no apply yet
-		assert!(!crate::Pallet::<Test>::maybe_apply_pending_code_upgrade());
+		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
 		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(1u8));
 		// Code still not updated
 		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
 		assert_ne!(current, code.clone());
 		// Second on_finalize (block N+1): counter goes 1 -> 0, apply
-		assert!(crate::Pallet::<Test>::maybe_apply_pending_code_upgrade());
+		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
 		// Code should now be updated
 		let updated =
 			storage::unhashed::get_raw(well_known_keys::CODE).expect("Code should be updated");

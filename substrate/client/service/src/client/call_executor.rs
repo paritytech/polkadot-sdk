@@ -107,12 +107,8 @@ where
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
 		let state = self.backend.state_at(at_hash, context.into())?;
 
-		let try_pending_code = match context {
-			CallContext::Onchain => TryPendingCode::Yes,
-			CallContext::Offchain => TryPendingCode::No,
-		};
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, context.into());
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
@@ -149,15 +145,11 @@ where
 
 		let changes = &mut *changes.borrow_mut();
 
-		let try_pending_code = match call_context {
-			CallContext::Onchain => TryPendingCode::Yes,
-			CallContext::Offchain => TryPendingCode::No,
-		};
 		// It is important to extract the runtime code here before we create the proof
 		// recorder to not record it. We also need to fetch the runtime code from `state` to
 		// make sure we use the caching layers.
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, call_context.into());
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -209,12 +201,8 @@ where
 		call_context: CallContext,
 	) -> sp_blockchain::Result<RuntimeVersion> {
 		let state = self.backend.state_at(at_hash, backend::TrieCacheContext::Untrusted)?;
-		let try_pending_code = match call_context {
-			CallContext::Onchain => TryPendingCode::Yes,
-			CallContext::Offchain => TryPendingCode::No,
-		};
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, call_context.into());
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
