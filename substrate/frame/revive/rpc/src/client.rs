@@ -171,6 +171,10 @@ pub enum ClientError {
 	/// Transaction submission timeout.
 	#[error("Transaction submission timeout")]
 	Timeout,
+	/// All of the estimation methods `eth_estimate`, `eth_transact_with_config`, and
+	/// `eth_transact` were not found and therefore none of the estimation methods succeeded.
+	#[error("None of the estimation methods were found")]
+	NoEstimationMethodSucceeded,
 }
 const LOG_TARGET: &str = "eth-rpc::client";
 
