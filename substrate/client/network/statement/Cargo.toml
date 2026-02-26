@@ -21,6 +21,7 @@ test-helpers = []
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
+bloomfilter = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 governor = { workspace = true }

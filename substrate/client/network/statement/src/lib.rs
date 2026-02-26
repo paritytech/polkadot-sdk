@@ -28,6 +28,7 @@
 
 use crate::config::*;
 
+use bloomfilter::Bloom;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 #[cfg(any(test, feature = "test-helpers"))]
 use futures::future::pending;
@@ -72,6 +73,75 @@ pub mod config;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
+
+/// The protocol version that was negotiated with a peer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PeerProtocolVersion {
+	/// V1: messages are encoded as `Vec<Statement>` (the legacy format).
+	V1,
+	/// V2: messages are encoded as `StatementMessage` enum (supports topic affinity).
+	V2,
+}
+
+#[derive(Encode, Decode)]
+enum StatementMessage {
+	Statements(Vec<Statement>),
+	/// Bloom filter bytes representing the topics this peer is interested in.
+	ExplicitTopicAffinity(AffinityFilter),
+}
+
+impl StatementMessage {
+	/// Encode a slice of statement references as a `StatementMessage::Statements`
+	/// without cloning the statements.
+	fn encode_statement_refs(statements: &[&Statement]) -> Vec<u8> {
+		let mut out = Vec::new();
+		// Variant index for `Statements`.
+		0u8.encode_to(&mut out);
+		statements.encode_to(&mut out);
+		out
+	}
+}
+
+pub struct AffinityFilter {
+	/// Bloom filter bytes representing the topics this peer is interested in.
+	bloom: Bloom<[u8; 32]>,
+}
+
+impl std::fmt::Debug for AffinityFilter {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("AffinityFilter").finish_non_exhaustive()
+	}
+}
+
+impl AffinityFilter {
+	/// Check if a statement matches this affinity filter.
+	///
+	/// A statement matches if any of its topics is present in the bloom filter.
+	/// Statements with no topics always match (they are broadcast statements).
+	fn matches_statement(&self, statement: &Statement) -> bool {
+		let topics = statement.topics();
+		if topics.is_empty() {
+			return true;
+		}
+		topics.iter().any(|topic| self.bloom.check(topic))
+	}
+}
+
+impl Encode for AffinityFilter {
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
+		self.bloom.to_bytes().encode_to(dest);
+	}
+}
+
+impl Decode for AffinityFilter {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let bytes = Vec::<u8>::decode(input)?;
+		let bloom =
+			Bloom::from_bytes(bytes).map_err(|_| codec::Error::from("invalid bloom filter"))?;
+		Ok(AffinityFilter { bloom })
+	}
+}
+
 /// Future resolving to statement import result.
 pub type StatementImportFuture = oneshot::Receiver<SubmitResult>;
 
@@ -267,14 +337,18 @@ impl StatementHandlerPrototype {
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
-		let protocol_name = if let Some(fork_id) = fork_id {
-			format!("/{}/{}/statement/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
+		let hex = array_bytes::bytes2hex("", genesis_hash);
+		let (protocol_name, fallback_name) = if let Some(fork_id) = fork_id {
+			(
+				format!("/{}/{}/statement/2", hex, fork_id),
+				format!("/{}/{}/statement/1", hex, fork_id),
+			)
 		} else {
-			format!("/{}/statement/1", array_bytes::bytes2hex("", genesis_hash))
+			(format!("/{}/statement/2", hex), format!("/{}/statement/1", hex))
 		};
 		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone().into(),
-			Vec::new(),
+			vec![fallback_name.into()],
 			MAX_STATEMENT_NOTIFICATION_SIZE,
 			None,
 			SetConfig {
@@ -461,6 +535,11 @@ pub struct Peer {
 	known_statements: LruHashSet<Hash>,
 	/// Rate limiter for statement flooding protection.
 	rate_limiter: PeerRateLimiter,
+	/// Protocol version negotiated with this peer.
+	protocol_version: PeerProtocolVersion,
+	/// Topic affinity filter received from a v2 peer.
+	/// When set, only statements matching this filter should be propagated to the peer.
+	topic_affinity: Option<AffinityFilter>,
 }
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
@@ -489,25 +568,34 @@ enum SendChunkResult {
 	Failed,
 }
 
-/// Returns the maximum payload size for statement notifications.
-///
-/// This reserves space for encoding the length of the vector (Compact<u32>),
-/// ensuring the final encoded message fits within MAX_STATEMENT_NOTIFICATION_SIZE.
-fn max_statement_payload_size() -> usize {
-	MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len()
+/// Encoding overhead for V1: just the `Compact<u32>` vec length prefix (max 5 bytes).
+const V1_ENVELOPE_OVERHEAD: usize = 5;
+
+/// Encoding overhead for V2: 1 byte enum discriminant + `Compact<u32>` vec length prefix.
+const V2_ENVELOPE_OVERHEAD: usize = 1 + V1_ENVELOPE_OVERHEAD;
+
+/// Returns the maximum payload size for statement notifications given the
+/// protocol envelope overhead.
+fn max_statement_payload_size(envelope_overhead: usize) -> usize {
+	debug_assert_eq!(
+		V1_ENVELOPE_OVERHEAD,
+		Compact::<u32>::max_encoded_len(),
+		"V1_ENVELOPE_OVERHEAD must equal Compact::<u32>::max_encoded_len()"
+	);
+	MAX_STATEMENT_NOTIFICATION_SIZE as usize - envelope_overhead
 }
 
 /// Find the largest chunk of statements starting from the beginning that fits
-/// within MAX_STATEMENT_NOTIFICATION_SIZE.
+/// within MAX_STATEMENT_NOTIFICATION_SIZE minus the given `envelope_overhead`.
 ///
 /// Uses an incremental approach: adds statements one by one until the limit is reached.
 /// This is efficient because we only compute sizes for statements we'll actually send
 /// in this chunk, rather than computing sizes for all statements upfront.
-fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
+fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> ChunkResult {
 	if statements.is_empty() {
 		return ChunkResult::Send(0);
 	}
-	let max_size = max_statement_payload_size();
+	let max_size = max_statement_payload_size(envelope_overhead);
 
 	// Incrementally add statements until we exceed the limit.
 	// This is efficient because we only compute sizes for statements in this chunk.
@@ -545,7 +633,12 @@ impl Peer {
 		statements_per_second: NonZeroU32,
 		burst: NonZeroU32,
 	) -> Self {
-		Self { known_statements, rate_limiter: PeerRateLimiter::new(statements_per_second, burst) }
+		Self {
+			known_statements,
+			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
+			protocol_version: PeerProtocolVersion::V1,
+			topic_affinity: None,
+		}
 	}
 }
 
@@ -643,16 +736,33 @@ where
 	}
 
 	/// Send a single chunk of statements to a peer.
+	///
+	/// Encodes the chunk according to the peer's protocol version:
+	/// - V1: raw `Vec<Statement>` encoding
+	/// - V2: `StatementMessage::Statements(...)` encoding
 	async fn send_statement_chunk(
 		&mut self,
 		peer: &PeerId,
 		statements: &[&Statement],
 	) -> SendChunkResult {
-		match find_sendable_chunk(statements) {
+		let peer_version = self
+			.peers
+			.get(peer)
+			.map(|p| p.protocol_version)
+			.unwrap_or(PeerProtocolVersion::V1);
+		let envelope_overhead = match peer_version {
+			PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
+			PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
+		};
+		match find_sendable_chunk(statements, envelope_overhead) {
 			ChunkResult::Send(0) => SendChunkResult::Empty,
 			ChunkResult::Send(chunk_end) => {
 				let chunk = &statements[..chunk_end];
-				let encoded = chunk.encode();
+				let encoded = match peer_version {
+					PeerProtocolVersion::V1 => chunk.encode(),
+					PeerProtocolVersion::V2 =>
+						StatementMessage::encode_statement_refs(chunk),
+				};
 				let bytes_to_send = encoded.len() as u64;
 
 				let sent_latency_timer =
@@ -722,7 +832,18 @@ where
 					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
 				let _ = result_tx.send(result);
 			},
-			NotificationEvent::NotificationStreamOpened { peer, .. } => {
+			NotificationEvent::NotificationStreamOpened { peer, negotiated_fallback, .. } => {
+				// If negotiated_fallback is Some, the peer connected on a fallback protocol
+				// (v1). If None, the peer connected on the main protocol (v2).
+				let protocol_version = if negotiated_fallback.is_some() {
+					PeerProtocolVersion::V1
+				} else {
+					PeerProtocolVersion::V2
+				};
+				log::debug!(
+					target: LOG_TARGET,
+					"Peer {peer} connected with statement protocol {protocol_version:?}"
+				);
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
@@ -737,6 +858,8 @@ where
 							)
 							.expect("burst capacity is nonzero"),
 						),
+						protocol_version,
+						topic_affinity: None,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -790,10 +913,50 @@ where
 					return;
 				}
 
-				if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) {
-					self.on_statements(peer, statements);
-				} else {
-					log::debug!(target: LOG_TARGET, "Failed to decode statement list from {peer}");
+				let peer_version = self
+					.peers
+					.get(&peer)
+					.map(|p| p.protocol_version)
+					.unwrap_or(PeerProtocolVersion::V1);
+
+				match peer_version {
+					PeerProtocolVersion::V1 => {
+						// V1 peers send raw Vec<Statement>.
+						if let Ok(statements) =
+							<Statements as Decode>::decode(&mut notification.as_ref())
+						{
+							self.on_statements(peer, statements);
+						} else {
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to decode v1 statement list from {peer}"
+							);
+						}
+					},
+					PeerProtocolVersion::V2 => {
+						// V2 peers send StatementMessage enum.
+						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
+							match message {
+								StatementMessage::Statements(statements) => {
+									self.on_statements(peer, statements)
+								},
+								StatementMessage::ExplicitTopicAffinity(filter) => {
+									log::debug!(
+										target: LOG_TARGET,
+										"Received topic affinity filter from {peer}"
+									);
+									if let Some(peer_data) = self.peers.get_mut(&peer) {
+										peer_data.topic_affinity = Some(filter);
+									}
+								},
+							}
+						} else {
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to decode v2 statement message from {peer}"
+							);
+						}
+					},
 				}
 			},
 		}
@@ -936,6 +1099,7 @@ where
 	/// Propagate the given `statements` to the given `peer`.
 	///
 	/// Internally filters `statements` to only send unknown statements to the peer.
+	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
 		let Some(peer) = self.peers.get_mut(who) else {
 			return;
@@ -943,7 +1107,18 @@ where
 
 		let to_send: Vec<_> = statements
 			.iter()
-			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
+			.filter_map(|(hash, stmt)| {
+				if !peer.known_statements.insert(*hash) {
+					return None;
+				}
+				// For v2 peers with topic affinity, filter by topic match.
+				if let Some(ref affinity) = peer.topic_affinity {
+					if !affinity.matches_statement(stmt) {
+						return None;
+					}
+				}
+				Some(stmt)
+			})
 			.collect();
 
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
@@ -1029,8 +1204,16 @@ where
 			return;
 		}
 
-		// Fetch statements up to max_statement_payload_size (reserves space for vec encoding)
-		let max_size = max_statement_payload_size();
+		// Fetch statements up to max_statement_payload_size (reserves space for envelope encoding)
+		let envelope_overhead = self
+			.peers
+			.get(&peer_id)
+			.map(|p| match p.protocol_version {
+				PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
+				PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
+			})
+			.unwrap_or(V1_ENVELOPE_OVERHEAD);
+		let max_size = max_statement_payload_size(envelope_overhead);
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
@@ -1467,6 +1650,8 @@ mod tests {
 					)
 					.expect("burst capacity is nonzero"),
 				),
+				protocol_version: PeerProtocolVersion::V1,
+				topic_affinity: None,
 			},
 		);
 
@@ -1733,7 +1918,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: None,
+				negotiated_fallback: Some("/statement/1".into()),
 			})
 			.await;
 
@@ -1818,7 +2003,7 @@ mod tests {
 					peer,
 					direction: sc_network::service::traits::Direction::Inbound,
 					handshake: vec![],
-					negotiated_fallback: None,
+					negotiated_fallback: Some("/statement/1".into()),
 				})
 				.await;
 		}
@@ -2008,7 +2193,8 @@ mod tests {
 		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
-		let payload_limit = max_statement_payload_size();
+		// This peer connects as V1 (see negotiated_fallback below).
+		let payload_limit = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
 
 		// Create first statement that's just over half the payload limit
 		let first_stmt_data_size = payload_limit / 2 + 10;
@@ -2048,7 +2234,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: None,
+				negotiated_fallback: Some("/statement/1".into()),
 			})
 			.await;
 
@@ -2325,5 +2511,418 @@ mod tests {
 		);
 
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+	}
+
+	#[tokio::test]
+	async fn test_v2_peer_detected_when_no_fallback() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// No negotiated_fallback means the peer connected on the main protocol (v2).
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert_eq!(
+			handler.peers.get(&peer_id).unwrap().protocol_version,
+			PeerProtocolVersion::V2,
+			"Peer should be detected as v2 when no fallback is negotiated"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_v1_peer_detected_when_fallback_negotiated() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// negotiated_fallback is Some means the peer fell back to v1.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some("/statement/1".into()),
+			})
+			.await;
+
+		assert_eq!(
+			handler.peers.get(&peer_id).unwrap().protocol_version,
+			PeerProtocolVersion::V1,
+			"Peer should be detected as v1 when fallback is negotiated"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_v1_peer_decodes_raw_statements() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+		let (queue_sender, queue_receiver) = async_channel::bounded(10);
+		handler.queue_sender = queue_sender;
+
+		// Connect peer as v1 (with fallback).
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some("/statement/1".into()),
+			})
+			.await;
+
+		// V1 peer sends raw Vec<Statement>.
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"v1 statement".to_vec());
+		let hash = statement.hash();
+		let raw_encoded = vec![statement].encode();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: raw_encoded.into(),
+			})
+			.await;
+
+		let (received, _) = queue_receiver.try_recv().unwrap();
+		assert_eq!(received.hash(), hash, "V1 peer's raw statement should be decoded correctly");
+	}
+
+	#[tokio::test]
+	async fn test_v2_peer_decodes_statement_message() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+		let (queue_sender, queue_receiver) = async_channel::bounded(10);
+		handler.queue_sender = queue_sender;
+
+		// Connect peer as v2 (no fallback).
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// V2 peer sends StatementMessage::Statements.
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"v2 statement".to_vec());
+		let hash = statement.hash();
+		let msg = StatementMessage::Statements(vec![statement]);
+		let encoded = msg.encode();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		let (received, _) = queue_receiver.try_recv().unwrap();
+		assert_eq!(received.hash(), hash, "V2 peer's StatementMessage should be decoded correctly");
+	}
+
+	#[tokio::test]
+	async fn test_v2_peer_topic_affinity_stored() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// Connect peer as v2.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(
+			handler.peers.get(&peer_id).unwrap().topic_affinity.is_none(),
+			"Topic affinity should be None initially"
+		);
+
+		// Send ExplicitTopicAffinity message.
+		let topic: [u8; 32] = [0xAA; 32];
+		let mut bloom = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		bloom.set(&topic);
+		let filter = AffinityFilter { bloom };
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		let peer_data = handler.peers.get(&peer_id).unwrap();
+		assert!(
+			peer_data.topic_affinity.is_some(),
+			"Topic affinity should be set after receiving ExplicitTopicAffinity"
+		);
+		// The filter should match the topic we inserted.
+		assert!(
+			peer_data.topic_affinity.as_ref().unwrap().bloom.check(&topic),
+			"Stored affinity filter should match the topic"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_topic_affinity_filters_propagation() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// Connect peer as v2.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Set up topic affinity: peer is interested in topic 0xAA only.
+		let topic_aa: [u8; 32] = [0xAA; 32];
+		let topic_bb: [u8; 32] = [0xBB; 32];
+		let mut bloom = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		bloom.set(&topic_aa);
+		let filter = AffinityFilter { bloom };
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		// Create statements: one matching, one not matching, one with no topics.
+		let mut stmt_matching = Statement::new();
+		stmt_matching.set_plain_data(b"matching".to_vec());
+		stmt_matching.set_topic(0, topic_aa.into());
+		let hash_matching = stmt_matching.hash();
+
+		let mut stmt_not_matching = Statement::new();
+		stmt_not_matching.set_plain_data(b"not matching".to_vec());
+		stmt_not_matching.set_topic(0, topic_bb.into());
+		let hash_not_matching = stmt_not_matching.hash();
+
+		let mut stmt_no_topic = Statement::new();
+		stmt_no_topic.set_plain_data(b"no topic".to_vec());
+		let hash_no_topic = stmt_no_topic.hash();
+
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_matching, stmt_matching);
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_not_matching, stmt_not_matching);
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_no_topic, stmt_no_topic);
+
+		handler.propagate_statements().await;
+
+		let sent = notification_service.get_sent_notifications();
+		let mut sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				// V2 peer gets StatementMessage encoding.
+				match StatementMessage::decode(&mut notification.as_slice()).unwrap() {
+					StatementMessage::Statements(stmts) => stmts,
+					_ => panic!("Expected StatementMessage::Statements"),
+				}
+			})
+			.map(|s| s.hash())
+			.collect();
+		sent_hashes.sort();
+
+		// Matching and no-topic statements should be sent; non-matching should be filtered.
+		assert!(
+			sent_hashes.contains(&hash_matching),
+			"Statement matching topic affinity should be propagated"
+		);
+		assert!(
+			sent_hashes.contains(&hash_no_topic),
+			"Statement with no topics should be propagated (broadcast)"
+		);
+		assert!(
+			!sent_hashes.contains(&hash_not_matching),
+			"Statement NOT matching topic affinity should be filtered out"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_v1_peer_no_topic_filtering() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// Connect peer as v1 (with fallback).
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some("/statement/1".into()),
+			})
+			.await;
+
+		// V1 peers have no topic affinity - all statements should be propagated.
+		let topic_aa: [u8; 32] = [0xAA; 32];
+		let mut stmt_with_topic = Statement::new();
+		stmt_with_topic.set_plain_data(b"with topic".to_vec());
+		stmt_with_topic.set_topic(0, topic_aa.into());
+		let hash_with_topic = stmt_with_topic.hash();
+
+		let mut stmt_no_topic = Statement::new();
+		stmt_no_topic.set_plain_data(b"no topic".to_vec());
+		let hash_no_topic = stmt_no_topic.hash();
+
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_with_topic, stmt_with_topic);
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(hash_no_topic, stmt_no_topic);
+
+		handler.propagate_statements().await;
+
+		let sent = notification_service.get_sent_notifications();
+		let sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+
+		assert_eq!(
+			sent_hashes.len(),
+			2,
+			"V1 peer should receive all statements regardless of topics"
+		);
+		assert!(sent_hashes.contains(&hash_with_topic));
+		assert!(sent_hashes.contains(&hash_no_topic));
+	}
+
+	#[test]
+	fn affinity_filter_encode_decode_roundtrip() {
+		const TOTAL: usize = 100_000;
+		const SET_COUNT: usize = TOTAL / 10; // 10% inserted
+
+		// Generate 100k unique [u8; 32] items from their index.
+		let items: Vec<[u8; 32]> = (0..TOTAL)
+			.map(|i| {
+				let mut key = [0u8; 32];
+				key[..8].copy_from_slice(&(i as u64).to_le_bytes());
+				key
+			})
+			.collect();
+
+		let mut bloom = Bloom::new_for_fp_rate(SET_COUNT, 0.01).expect("valid bloom parameters");
+
+		// Insert first 10% of items.
+		for item in &items[..SET_COUNT] {
+			bloom.set(item);
+		}
+
+		// Record expected check result for every item before serialization.
+		let expected: Vec<bool> = items.iter().map(|item| bloom.check(item)).collect();
+
+		// Inserted items must always be present.
+		for i in 0..SET_COUNT {
+			assert!(expected[i], "inserted item {i} must be present");
+		}
+
+		let filter = AffinityFilter { bloom };
+		let encoded = filter.encode();
+		let decoded =
+			AffinityFilter::decode(&mut encoded.as_slice()).expect("decoding should succeed");
+
+		// Every item must give the same answer as before serialization.
+		for (i, item) in items.iter().enumerate() {
+			assert_eq!(decoded.bloom.check(item), expected[i], "mismatch for item {i}");
+		}
+
+		// Re-encoding must produce identical bytes.
+		assert_eq!(encoded, decoded.encode(), "re-encoding should produce identical bytes");
+	}
+
+	/// Snapshot test for AffinityFilter wire format.
+	///
+	/// This guards against accidental changes to the bloomfilter crate's
+	/// `to_bytes`/`from_bytes` serialisation.  If the encoding ever changes
+	/// (e.g. after a crate upgrade), this test will fail, alerting us that
+	/// old nodes would be unable to decode filters produced by new nodes and
+	/// vice-versa.
+	#[test]
+	fn affinity_filter_encoding_snapshot() {
+		// Deterministic seed so the bloom filter is reproducible.
+		let seed = [42u8; 32];
+		let mut bloom =
+			Bloom::new_for_fp_rate_with_seed(10, 0.01, &seed).expect("valid bloom params");
+
+		let topic_a: [u8; 32] = [0xAA; 32];
+		let topic_b: [u8; 32] = [0xBB; 32];
+		let topic_c: [u8; 32] = [0xCC; 32];
+		bloom.set(&topic_a);
+		bloom.set(&topic_b);
+		bloom.set(&topic_c);
+
+		let filter = AffinityFilter { bloom };
+		let encoded = filter.encode();
+
+		// If this snapshot changes, the wire format has changed and cross-version
+		// compatibility is broken.  Do NOT simply update the bytes — investigate
+		// why the format changed and whether a migration is needed.
+		let expected: &[u8] = &[
+			228, 1, 12, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+			42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+			42, 42, 128, 56, 10, 166, 36, 2, 0, 0, 0, 144, 4, 24,
+		];
+		assert_eq!(
+			encoded, expected,
+			"AffinityFilter wire format has changed! This breaks cross-version compatibility."
+		);
+
+		// Verify the snapshot decodes correctly and the topics round-trip.
+		let decoded =
+			AffinityFilter::decode(&mut &expected[..]).expect("snapshot must decode");
+		assert!(decoded.bloom.check(&topic_a), "topic_a must be present after decoding");
+		assert!(decoded.bloom.check(&topic_b), "topic_b must be present after decoding");
+		assert!(decoded.bloom.check(&topic_c), "topic_c must be present after decoding");
+		let topic_absent: [u8; 32] = [0xDD; 32];
+		assert!(!decoded.bloom.check(&topic_absent), "absent topic must not match");
 	}
 }
