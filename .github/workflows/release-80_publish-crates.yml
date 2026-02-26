@@ -144,7 +144,7 @@ jobs:
 
       - name: Install parity-publish
         run: |
-          apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
           cargo install parity-publish@0.10.10 --locked -q
 
       - name: Run parity-publish plan
