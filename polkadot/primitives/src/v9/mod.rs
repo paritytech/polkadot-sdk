@@ -469,10 +469,8 @@ pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
 
 /// Maximum for maximum queue size.
 ///
-/// Setting `on_demand_queue_max_size` to a value higher than this is unsound. This is more a
-/// theoretical limit, just below enough what the target type supports, so comparisons are possible
-/// even with indices that are overflowing the underyling type.
-pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
+/// We use this value for benchmarking.
+pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 10_000;
 
 /// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.

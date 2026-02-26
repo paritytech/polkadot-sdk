@@ -31,6 +31,9 @@ sc-executor-common = { workspace = true, default-features = true }
 frame-support = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-test-runtime = { workspace = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
 rstest = { workspace = true }
 

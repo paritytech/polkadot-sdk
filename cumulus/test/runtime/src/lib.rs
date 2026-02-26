@@ -66,6 +66,11 @@ pub mod async_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
 
+pub mod slot_duration_18s {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
+}
+
 mod genesis_config_presets;
 pub mod test_pallet;
 
@@ -170,9 +175,18 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 #[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
 
-#[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
+#[cfg(feature = "slot-duration-18s")]
+pub const SLOT_DURATION: u64 = 18000;
+#[cfg(all(
+	any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"),
+	not(feature = "slot-duration-18s")
+))]
 pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot")))]
+#[cfg(not(any(
+	feature = "sync-backing",
+	feature = "elastic-scaling-12s-slot",
+	feature = "slot-duration-18s"
+)))]
 pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
@@ -504,10 +518,13 @@ pub type Executive = frame_executive::Executive<
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
-pub struct SingleBlockMigrations;
+/// Migration to verify that runtime upgrade hooks are working correctly.
+///
+/// This checks that the test_pallet runtime upgrade key was set in genesis.
+pub struct VerifyRuntimeUpgrade;
 
-impl OnRuntimeUpgrade for SingleBlockMigrations {
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+impl OnRuntimeUpgrade for VerifyRuntimeUpgrade {
+	fn on_runtime_upgrade() -> Weight {
 		assert_eq!(
 			sp_io::storage::get(test_pallet::TEST_RUNTIME_UPGRADE_KEY),
 			Some(vec![1, 2, 3, 4].into())
@@ -515,6 +532,15 @@ impl OnRuntimeUpgrade for SingleBlockMigrations {
 		Weight::from_parts(1, 0)
 	}
 }
+
+/// Single-block migrations for the test runtime.
+///
+/// These migrations execute immediately and entirely at the beginning of the block following
+/// a runtime upgrade. They must be lightweight enough to complete within a single block.
+pub type SingleBlockMigrations = (
+	// Verify that runtime upgrade hooks are working correctly.
+	VerifyRuntimeUpgrade,
+);
 
 decl_runtime_apis! {
 	pub trait GetLastTimestamp {
