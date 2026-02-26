@@ -1215,7 +1215,6 @@ pub mod pallet {
 			remainder: BalanceOf<T>,
 		},
 		/// The staker has been rewarded by this amount to this destination.
-		///
 		Rewarded {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
