@@ -136,11 +136,6 @@ where
 						Err(()) => {
 							// qed: we already checked that the index does *not* exist
 							defensive!("insert_asset_mapping failed during migration; this should be unreachable unless NextAssetIndex overflowed u32::MAX");
-							log::error!(
-								target: LOG_TARGET,
-								"Failed to migrate asset {:?}",
-								asset_id
-							);
 						},
 					}
 				} else {
