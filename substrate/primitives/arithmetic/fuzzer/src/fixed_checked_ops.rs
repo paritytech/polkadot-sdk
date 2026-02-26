@@ -30,6 +30,7 @@
 
 use honggfuzz::fuzz;
 use num_bigint::BigInt;
+use num_traits::Signed;
 use sp_arithmetic::{
 	traits::{Bounded, CheckedDiv, CheckedMul, One, Zero},
 	FixedI128, FixedI64, FixedPointNumber, FixedU128, FixedU64,
