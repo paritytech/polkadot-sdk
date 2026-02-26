@@ -175,6 +175,16 @@ pub trait BlockImportOperation<Block: BlockT> {
 	fn state(&self) -> sp_blockchain::Result<Option<&Self::State>>;
 
 	/// Append block data to the transaction.
+	///
+	/// - `header`: The block header.
+	/// - `body`: The block body (extrinsics), if available.
+	/// - `indexed_body`: Raw extrinsic data to be stored in the transaction index, keyed by their
+	///   hash.
+	/// - `justifications`: Block justifications, e.g. finality proofs.
+	/// - `state`: Whether this is a normal block, the new best block, or a newly finalized block.
+	/// - `register_as_leaf`: Whether to add the block to the leaf set. Blocks imported during warp
+	///   sync are stored in the database but should not be registered as leaves, since they are
+	///   historical blocks and not candidates for chain progression.
 	fn set_block_data(
 		&mut self,
 		header: Block::Header,
