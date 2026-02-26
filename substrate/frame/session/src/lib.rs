@@ -1209,6 +1209,13 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		let old_keys = Self::inner_set_keys(&who, keys)?;
 		if old_keys.is_none() {
 			ExternallySetKeys::<T>::insert(account, ());
+		} else {
+			// Release any key deposit from a prior local registration.
+			let _ = T::Currency::release_all(
+				&HoldReason::Keys.into(),
+				account,
+				frame_support::traits::tokens::Precision::BestEffort,
+			);
 		}
 		Ok(())
 	}
@@ -1222,6 +1229,12 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
+		// Release any key deposit from a prior local registration.
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
 		ExternallySetKeys::<T>::remove(account);
 		Ok(())
 	}
