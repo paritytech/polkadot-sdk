@@ -28,8 +28,9 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
+use codec::Decode;
 use sp_core::{hashing::blake2_256, Bytes, H256};
-use sp_runtime::{traits::Block as BlockT, SaturatedConversion};
+use sp_runtime::{traits::Block as BlockT, MultiSigner, SaturatedConversion};
 use std::{marker::PhantomData, sync::Arc};
 
 /// Trait for verifying personhood ring proofs.
@@ -59,7 +60,7 @@ pub trait HopApi<BlockHash> {
 	///
 	/// # Arguments
 	/// * `data`: The data to store, in bytes
-	/// * `recipients`: List of ephemeral ed25519 public keys (32 bytes each)
+	/// * `recipients`: List of SCALE-encoded `MultiSigner` (ed25519, sr25519, or ecdsa)
 	/// * `proof`: Personhood ring proof bytes (can be empty when using NoopVerifier)
 	///
 	/// # Returns
@@ -69,12 +70,12 @@ pub trait HopApi<BlockHash> {
 
 	/// Claim data from the data pool by hash
 	///
-	/// Requires a signature over the hash using the ephemeral private key
-	/// corresponding to one of the recipient public keys.
+	/// Requires a SCALE-encoded `MultiSignature` over the hash using the ephemeral
+	/// private key corresponding to one of the recipient public keys.
 	///
 	/// # Arguments
 	/// * `hash`: The hash of the data, in bytes (32 bytes)
-	/// * `signature`: Ed25519 signature over the hash (64 bytes)
+	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
 	///
 	/// # Returns
 	/// The data if the signature matches an unclaimed recipient
@@ -124,14 +125,13 @@ where
 	V: PersonhoodVerifier,
 {
 	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult> {
-		// Parse and validate recipient keys
-		let recipient_keys: Vec<[u8; 32]> = recipients
+		// SCALE-decode each recipient as MultiSigner
+		let recipient_keys: Vec<MultiSigner> = recipients
 			.into_iter()
 			.map(|r| {
-				let bytes: [u8; 32] = r.0.as_slice().try_into().map_err(|_| {
-					ErrorObjectOwned::from(HopError::InvalidRecipientKey(r.0.len()))
-				})?;
-				Ok(bytes)
+				MultiSigner::decode(&mut &r.0[..]).map_err(|_| {
+					ErrorObjectOwned::from(HopError::InvalidRecipientKey)
+				})
 			})
 			.collect::<RpcResult<Vec<_>>>()?;
 
