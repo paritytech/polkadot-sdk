@@ -20,7 +20,7 @@ For example, to allow an account to store 10 statements and a maximum of 20k you
 
 
 ### How do I obtain a local statement-store node for development?
-
+> This starts standalone substrate node with StatementStore turned on, and quota is set directly in the storage in the previous step, without individuallity runtime
 1. Build substrate-node
 
 ```bash
