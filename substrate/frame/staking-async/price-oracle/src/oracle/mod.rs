@@ -435,6 +435,8 @@ pub mod pallet {
 
 		/// Add an endpoint to an already tracked asset.
 		fn add_endpoint(asset_id: T::AssetId, endpoint: Endpoint) -> DispatchResult {
+			offchain::OracleOffchainWorker::<T>::validate_endpoint(&endpoint)
+				.map_err(|_| Error::<T>::InvalidEndpoint)?;
 			let mut stored = Endpoints::<T>::get(&asset_id).ok_or(Error::<T>::AssetNotTracked)?;
 			stored.try_push(endpoint).map_err(|_| Error::<T>::TooManyEndpoints)?;
 			Endpoints::<T>::insert(asset_id, stored);
@@ -910,8 +912,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::OracleOrigin::ensure_origin(origin)?;
 
-			offchain::OracleOffchainWorker::<T>::validate_endpoint(&endpoint)
-				.map_err(|_| Error::<T>::InvalidEndpoint)?;
 			StorageManager::<T>::add_endpoint(asset_id, endpoint.clone())?;
 			Self::deposit_event(Event::<T>::EndpointAdded { asset_id, endpoint });
 

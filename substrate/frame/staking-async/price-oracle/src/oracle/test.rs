@@ -911,7 +911,7 @@ mod asset_management {
 	}
 
 	#[test]
-	fn rejects_non_root_register_asset() {
+	fn rejects_invalid_signer_register_asset() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_noop!(
 				PriceOracle::register_asset(RuntimeOrigin::signed(1), 1, vec![Endpoint::default()]),
@@ -921,7 +921,7 @@ mod asset_management {
 	}
 
 	#[test]
-	fn rejects_non_root_deregister_asset() {
+	fn rejects_invalid_signer_deregister_asset() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_noop!(
 				PriceOracle::deregister_asset(RuntimeOrigin::signed(1), 1),
@@ -931,7 +931,7 @@ mod asset_management {
 	}
 
 	#[test]
-	fn rejects_non_root_add_endpoint() {
+	fn rejects_invalid_signer_add_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_noop!(
 				PriceOracle::add_endpoint(RuntimeOrigin::signed(1), 1, Endpoint::default()),
@@ -941,7 +941,7 @@ mod asset_management {
 	}
 
 	#[test]
-	fn rejects_non_root_remove_endpoint() {
+	fn rejects_invalid_signer_remove_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_noop!(
 				PriceOracle::remove_endpoint(RuntimeOrigin::signed(1), 1, 0),
