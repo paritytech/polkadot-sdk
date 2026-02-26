@@ -80,6 +80,13 @@ pub enum MigrationState<A> {
 ///
 /// - Non-destructive: Does not modify any asset data, only adds mappings
 /// - Sequential indices: Each migrated asset gets the next available index
+///
+/// NB: If the SCALE encoding of `AssetId` (e.g. `xcm::v5::Location`) ever changes,
+/// the keys in `ForeignAssetIdToAssetIndex` must be migrated **in-place** (decode old
+/// encoding → re-encode with new encoding → reinsert with the same index). Simply
+/// clearing and repopulating would reassign indices, breaking EVM contracts that
+/// cached precompile addresses derived from those indices.
+
 pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<(T, I, W)>);
 
 impl<T, I, W> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I, W>
