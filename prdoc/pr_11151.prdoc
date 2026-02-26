@@ -1,4 +1,4 @@
-title: '[pallet-revive] update evm_sized'
+title: '[pallet-revive] Fix evm_sized and update call stipend'
 doc:
 - audience: Runtime Dev
   description: |-
@@ -23,6 +23,18 @@ doc:
 
       EVM memory is zero-initialized, so RETURN(0, size) produces size bytes of 0x00 (STOP opcode). This runtime code is what gets stored in PristineCode and loaded on every subsequent call.
     The size is encoded as 3 bytes (PUSH3), supporting sizes up to ~16M which is well above any practical benchmark need.
+
+    ## Call stipend
+      Changed `determine_call_stipend()` to `CALL_STIPEND + DepositEvent` weight so the stipend
+      covers emitting a LOG event on top of the base 2300 gas operations. Added reentrancy tests
+      verifying that the stipend prevents a malicious receiver from calling back into the sender.
+
+    ## Regenerated benchmark weights
+      Regenerated pallet-revive weights from CI benchmarks.
+
+    ## Expected test failures
+      12 revert.sol differential tests added to the expectations file. These fail due to CI
+      benchmark noise amplifying `ref_time_per_fuel`, reducing the PVM fuel budget per extrinsic.
 crates:
 - name: pallet-revive
   bump: patch

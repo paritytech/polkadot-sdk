@@ -42,11 +42,12 @@ contract ComplexReceiver {
  */
 contract ReentrancyAttacker {
     receive() external payable {
-        // Classic reentrancy: try to drain more ETH from the sender
-        (bool success, ) = msg.sender.call(
+        // Classic reentrancy: try to drain more ETH from the sender.
+        // We intentionally don't revert on failure so the outer transfer
+        // succeeds and the test can check the balance invariant.
+        msg.sender.call(
             abi.encodeWithSignature("attemptTransfer(address,uint256)", address(this), msg.value)
         );
-        require(!success, "reentrancy must not succeed");
     }
 }
 
@@ -173,6 +174,8 @@ contract StipendTest {
         uint256 amount = msg.value / 4;
         uint256 balanceBefore = address(reentrancyAttacker).balance;
 
+        // The attacker's receive() attempts an external call which exhausts
+        // the stipend, causing receive() to revert with out-of-gas.
         bool failed = false;
         try this.attemptTransfer(payable(address(reentrancyAttacker)), amount) {
             failed = false;
@@ -180,7 +183,7 @@ contract StipendTest {
             failed = true;
         }
         require(failed, "Transfer to reentrancy attacker should have failed");
-        require(address(reentrancyAttacker).balance <= balanceBefore + amount, "Attacker drained more than sent");
+        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
     }
 
     // Test that the send stipend prevents reentrancy.
@@ -190,7 +193,7 @@ contract StipendTest {
 
         bool success = payable(address(reentrancyAttacker)).send(amount);
         require(!success, "Send to reentrancy attacker should have failed");
-        require(address(reentrancyAttacker).balance <= balanceBefore + amount, "Attacker drained more than sent");
+        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
     }
 
     receive() external payable {}
