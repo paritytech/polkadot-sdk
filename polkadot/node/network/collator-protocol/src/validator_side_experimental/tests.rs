@@ -354,29 +354,23 @@ impl TestState {
 					)))
 					.unwrap();
 				},
-				AllMessages::ProspectiveParachains(
-					ProspectiveParachainsMessage::GetMinimumRelayParents(rp, tx),
-				) => {
-					assert!(active_leaves.contains(&rp));
-					let rp_info = self.rp_info.get(&rp).unwrap();
-					let session_info = self.session_info.get(&rp_info.session_index).unwrap();
-					tx.send(
-						rp_info
-							.claim_queue
-							.get(&rp_info.assigned_core)
-							.unwrap()
-							.iter()
-							.map(|para| {
-								(
-									*para,
-									rp_info
-										.number
-										.saturating_sub(session_info.scheduling_lookahead - 1),
-								)
-							})
-							.collect(),
-					)
-					.unwrap();
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_rp,
+					RuntimeApiRequest::SchedulingLookahead(session_index, tx),
+				)) => {
+					let session_info = self.session_info.get(&session_index).unwrap();
+					tx.send(Ok(session_info.scheduling_lookahead)).unwrap();
+				},
+				AllMessages::ChainApi(ChainApiMessage::Ancestors { hash, k, response_channel }) => {
+					let rp_info = self.rp_info.get(&hash).unwrap();
+					let ancestors: Vec<Hash> = (1..=k as u32)
+						.map(|i| rp_info.number.saturating_sub(i))
+						.take_while(|n| *n > 0)
+						.filter_map(|n| {
+							self.rp_info.iter().find(|(_, info)| info.number == n).map(|(h, _)| *h)
+						})
+						.collect();
+					response_channel.send(Ok(ancestors)).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,

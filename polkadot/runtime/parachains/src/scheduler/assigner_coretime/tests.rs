@@ -14,17 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
+use super::{mock_helpers::GenesisConfigBuilder, *};
 
 use crate::{
-	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
 	initializer::SessionChangeNotification,
-	mock::{
-		new_test_ext, CoretimeAssigner, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler,
-		System, Test,
-	},
+	mock::{new_test_ext, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test},
 	paras::{ParaGenesisArgs, ParaKind},
-	scheduler::common::Assignment,
+	scheduler::{CoreDescriptors, CoreSchedules},
 };
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*};
 use pallet_broker::TaskId;
@@ -77,7 +73,7 @@ fn run_to_block(
 		OnDemand::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::advance_claim_queue(&Default::default());
+		Scheduler::advance_claim_queue(|_| false);
 	}
 }
 
@@ -98,7 +94,7 @@ fn assign_core_works_with_no_prior_schedule() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign_core
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(),
@@ -113,14 +109,21 @@ fn assign_core_works_with_no_prior_schedule() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx)
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.queue
 				.as_ref()
 				.and_then(|q| Some(q.first)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)),
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.last)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 	});
@@ -133,7 +136,7 @@ fn end_hint_is_properly_honored() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			vec![(CoreAssignment::Task(1), PartsOf57600::FULL)],
@@ -141,34 +144,34 @@ fn end_hint_is_properly_honored() {
 		));
 
 		assert!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx).is_none(),
+			advance_assignments::<Test, _>(|_| false).get(&core_idx).is_none(),
 			"No assignment yet in effect"
 		);
 
 		run_to_block(11, |_| None);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(1.into())),
+			advance_assignments::<Test, _>(|_| false).get(&core_idx),
+			Some(&1.into()),
 			"Assignment should now be present"
 		);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(1.into())),
+			advance_assignments::<Test, _>(|_| false).get(&core_idx),
+			Some(&1.into()),
 			"Nothing changed, assignment should still be present"
 		);
 
 		run_to_block(15, |_| None);
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			advance_assignments::<Test, _>(|_| false).get(&core_idx),
 			None,
 			"Assignment should now be gone"
 		);
 
 		// Insert assignment that is already dead:
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			vec![(CoreAssignment::Task(1), PartsOf57600::FULL)],
@@ -177,7 +180,7 @@ fn end_hint_is_properly_honored() {
 
 		// Core should still be empty:
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			advance_assignments::<Test, _>(|_| false).get(&core_idx),
 			None,
 			"Assignment should now be gone"
 		);
@@ -195,14 +198,14 @@ fn assign_core_works_with_prior_schedule() {
 			Schedule { next_schedule: Some(15u32), ..default_test_schedule() };
 
 		// Call assign_core twice
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
 			default_test_assignments(),
@@ -221,14 +224,21 @@ fn assign_core_works_with_prior_schedule() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx)
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.queue
 				.as_ref()
 				.and_then(|q| Some(q.first)),
 			Some(BlockNumberFor::<Test>::from(11u32))
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)),
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.last)),
 			Some(BlockNumberFor::<Test>::from(15u32))
 		);
 	});
@@ -242,14 +252,14 @@ fn assign_core_enforces_higher_or_equal_block_number() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign core twice to establish some schedules
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(12u32),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
 			vec![(CoreAssignment::Idle, PartsOf57600(28800))],
@@ -258,29 +268,29 @@ fn assign_core_enforces_higher_or_equal_block_number() {
 
 		// Call assign core with block number before QueueDescriptor first, expecting an error
 		assert_noop!(
-			CoretimeAssigner::assign_core(
+			assign_core::<Test>(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				default_test_assignments(),
 				None,
 			),
-			Error::<Test>::DisallowedInsert
+			Error::DisallowedInsert
 		);
 
 		// Call assign core with block number between already scheduled assignments, expecting an
 		// error
 		assert_noop!(
-			CoretimeAssigner::assign_core(
+			assign_core::<Test>(
 				core_idx,
 				BlockNumberFor::<Test>::from(13u32),
 				default_test_assignments(),
 				None,
 			),
-			Error::<Test>::DisallowedInsert
+			Error::DisallowedInsert
 		);
 		// Call assign core again on last entry should work:
 		assert_eq!(
-			CoretimeAssigner::assign_core(
+			assign_core::<Test>(
 				core_idx,
 				BlockNumberFor::<Test>::from(15u32),
 				vec![(CoreAssignment::Pool, PartsOf57600(28800))],
@@ -303,13 +313,13 @@ fn assign_core_enforces_well_formed_schedule() {
 		// Attempting assign_core with malformed assignments such that all error cases
 		// are tested
 		assert_noop!(
-			CoretimeAssigner::assign_core(
+			assign_core::<Test>(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				empty_assignments,
 				None,
 			),
-			Error::<Test>::AssignmentsEmpty
+			Error::AssignmentsEmpty
 		);
 	});
 }
@@ -340,42 +350,42 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		};
 
 		// Call assign_core for each of five schedules
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_1),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_2),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_3),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_4),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_5),
 			vec![(CoreAssignment::Pool, PartsOf57600(28800))],
 			None,
 		));
 		// Test updating last entry once more:
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_5),
 			vec![(CoreAssignment::Idle, PartsOf57600(28800))],
@@ -384,9 +394,9 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 
 		// Rotate through the first two schedules
 		run_to_block(start_1, |n| if n == start_1 { Some(Default::default()) } else { None });
-		CoretimeAssigner::pop_assignment_for_core(core_idx);
+		advance_assignments::<Test, _>(|_| false);
 		run_to_block(start_2, |n| if n == start_2 { Some(Default::default()) } else { None });
-		CoretimeAssigner::pop_assignment_for_core(core_idx);
+		advance_assignments::<Test, _>(|_| false);
 
 		// Use saved starting block numbers to check that schedules chain
 		// together correctly
@@ -405,14 +415,21 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 
 		// Check QueueDescriptor
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx)
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.queue
 				.as_ref()
 				.and_then(|q| Some(q.first)),
 			Some(start_3)
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx).queue.as_ref().and_then(|q| Some(q.last)),
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
+				.queue
+				.as_ref()
+				.and_then(|q| Some(q.last)),
 			Some(start_5)
 		);
 	});
@@ -448,12 +465,12 @@ fn ensure_workload_works() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Case 1: No new schedule in CoreSchedules for core
-		CoretimeAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
+		ensure_workload::<Test>(10u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
 		assert_eq!(core_descriptor, empty_descriptor);
 
 		// Case 2: New schedule exists in CoreSchedules for core, but new
 		// schedule start is not yet reached.
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
@@ -462,21 +479,22 @@ fn ensure_workload_works() {
 
 		// Propagate changes from storage to Core_Descriptor handle. Normally
 		// pop_assignment_for_core would handle this.
-		core_descriptor = CoreDescriptors::<Test>::get(core_idx);
+		let mut descriptors = CoreDescriptors::<Test>::get();
+		let mut core_descriptor = descriptors.entry(core_idx).or_default();
 
-		CoretimeAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, assignments_queued_descriptor);
+		ensure_workload::<Test>(10u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
+		assert_eq!(core_descriptor, &assignments_queued_descriptor);
 
 		// Case 3: Next schedule exists in CoreSchedules for core. Next starting
 		// block has been reached. Swaps new WorkState into CoreDescriptors from
 		// CoreSchedules.
-		CoretimeAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, assignments_active_descriptor);
+		ensure_workload::<Test>(11u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
+		assert_eq!(core_descriptor, &assignments_active_descriptor);
 
 		// Case 4: end_hint reached but new schedule start not yet reached. WorkState in
 		// CoreDescriptor is cleared
-		CoretimeAssigner::ensure_workload(15u32, core_idx, &mut core_descriptor);
-		assert_eq!(core_descriptor, empty_descriptor);
+		ensure_workload::<Test>(15u32, core_idx, &mut core_descriptor, &AccessMode::Pop);
+		assert_eq!(core_descriptor, &empty_descriptor);
 	});
 }
 
@@ -499,45 +517,53 @@ fn pop_assignment_for_core_works() {
 		assert_ok!(OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), amt, para_id));
 
 		// Case 1: Assignment idle
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(), // Default is Idle
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		// Run to block 10, then peek at block 11
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		assert_eq!(CoretimeAssigner::pop_assignment_for_core(core_idx), None);
+		// Case 1: For idle assignment, nothing should be scheduled
+		assert_eq!(peek_next_block::<Test>(1).get(&core_idx), None);
 
 		// Case 2: Assignment pool
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(21u32),
 			assignments_pool,
 			None,
 		));
 
-		run_to_block(21, |n| if n == 21 { Some(Default::default()) } else { None });
+		// Run to block 19, then peek at block 20 to verify pool assignment (duplication should have
+		// happened to position 0)
+		run_to_block(19, |n| if n == 20 { Some(Default::default()) } else { None });
 
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Pool { para_id, core_index: 0.into() })
-		);
+		assert_eq!(peek_next_block::<Test>(2).get(&core_idx), Some(&[para_id, para_id].into()));
+
+		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
+
+		// Still one left:
+		assert_eq!(peek_next_block::<Test>(1).get(&core_idx), Some(&[para_id].into()));
 
 		// Case 3: Assignment task
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(31u32),
 			assignments_task,
 			None,
 		));
 
-		run_to_block(31, |n| if n == 31 { Some(Default::default()) } else { None });
+		// Run to block 29, then peek at block 30 to verify task assignment (duplication happened to
+		// one block before)
+		run_to_block(29, |n| if n == 30 { Some(Default::default()) } else { None });
 
 		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(para_id))
+			peek_next_block::<Test>(3).get(&core_idx),
+			Some(&[para_id, para_id, para_id].into())
 		);
 	});
 }
@@ -557,24 +583,27 @@ fn assignment_proportions_in_core_state_work() {
 			(CoreAssignment::Task(task_2), PartsOf57600::FULL / 3),
 		];
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		run_to_block(10, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Case 1: Current assignment remaining >= step after pop
 		{
 			assert_eq!(
-				CoretimeAssigner::pop_assignment_for_core(core_idx),
-				Some(Assignment::Bulk(task_1.into()))
+				peek_next_block::<Test>(1).get(&CoreIndex(0)).and_then(|q| q.front()),
+				Some(&task_1.into())
 			);
+			run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx)
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.pos)),
@@ -582,7 +611,9 @@ fn assignment_proportions_in_core_state_work() {
 			);
 			// Consumed step should be 1/3 of core parts, leaving 1/3 remaining
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx)
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.assignments[0].1.remaining)),
@@ -593,12 +624,15 @@ fn assignment_proportions_in_core_state_work() {
 		// Case 2: Current assignment remaining < step after pop
 		{
 			assert_eq!(
-				CoretimeAssigner::pop_assignment_for_core(core_idx),
-				Some(Assignment::Bulk(task_1.into()))
+				peek_next_block::<Test>(1).get(&CoreIndex(0)).and_then(|q| q.front()),
+				Some(&task_1.into())
 			);
+			run_to_block(12, |n| if n == 11 { Some(Default::default()) } else { None });
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx)
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.pos)),
@@ -607,7 +641,9 @@ fn assignment_proportions_in_core_state_work() {
 			// Remaining should have started at 1/3 of core work parts. We then subtract
 			// step (1/3) and add back ratio (2/3), leaving us with 2/3 of core work parts.
 			assert_eq!(
-				CoreDescriptors::<Test>::get(core_idx)
+				CoreDescriptors::<Test>::get()
+					.entry(core_idx)
+					.or_default()
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.assignments[0].1.remaining)),
@@ -616,10 +652,7 @@ fn assignment_proportions_in_core_state_work() {
 		}
 
 		// Final check, task 2's turn to be served
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 	});
 }
 
@@ -638,45 +671,25 @@ fn equal_assignments_served_equally() {
 			(CoreAssignment::Task(task_2), PartsOf57600::FULL / 2),
 		];
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		// Run to block 10, then peek ahead to verify alternating pattern
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		// Test that popped assignments alternate between tasks 1 and 2
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
-		);
+		// Peek 6 blocks ahead to verify tasks alternate: task1, task2, task1, task2, task1, task2
+		let peeked = peek_next_block::<Test>(6).get(&core_idx).cloned().unwrap();
+		assert_eq!(peeked.len(), 6);
+		assert_eq!(peeked[0], task_1.into());
+		assert_eq!(peeked[1], task_2.into());
+		assert_eq!(peeked[2], task_1.into());
+		assert_eq!(peeked[3], task_2.into());
+		assert_eq!(peeked[4], task_1.into());
+		assert_eq!(peeked[5], task_2.into());
 	});
 }
 
@@ -698,53 +711,45 @@ fn assignment_proportions_indivisible_by_step_work() {
 		let test_assignments =
 			vec![(CoreAssignment::Task(task_1), ratio_1), (CoreAssignment::Task(task_2), ratio_2)];
 
-		assert_ok!(CoretimeAssigner::assign_core(
+		assert_ok!(assign_core::<Test>(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
 			None,
 		));
 
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		// Run to block 10, then peek ahead to verify ordering pattern
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 
-		// Pop 5 assignments. Should Result in the the following work ordering:
+		// Pop 5 assignments. Should result in the following work ordering:
 		// 1, 2, 1, 1, 2. The remaining parts for each assignment should be same
 		// at the end as in the beginning.
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
-		);
+		// Peek 5 blocks ahead to verify the ordering
+		let peeked = peek_next_block::<Test>(5).get(&core_idx).cloned().unwrap();
+		assert_eq!(peeked.len(), 5);
+		assert_eq!(peeked[0], task_1.into());
+		assert_eq!(peeked[1], task_2.into());
+		assert_eq!(peeked[2], task_1.into());
+		assert_eq!(peeked[3], task_1.into());
+		assert_eq!(peeked[4], task_2.into());
 
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_1.into()))
-		);
-
-		assert_eq!(
-			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Bulk(task_2.into()))
-		);
+		// Now actually advance 5 times by running to block 15
+		run_to_block(15, |_| None);
 
 		// Remaining should equal ratio for both assignments.
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx)
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.current_work
 				.as_ref()
 				.and_then(|w| Some(w.assignments[0].1.remaining)),
 			Some(ratio_1)
 		);
 		assert_eq!(
-			CoreDescriptors::<Test>::get(core_idx)
+			CoreDescriptors::<Test>::get()
+				.entry(core_idx)
+				.or_default()
 				.current_work
 				.as_ref()
 				.and_then(|w| Some(w.assignments[1].1.remaining)),
