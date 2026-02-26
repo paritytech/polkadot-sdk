@@ -480,14 +480,17 @@ impl Client {
 		loop {
 			match block_rx.recv().await {
 				Ok(block) => {
+					if self.log_subscription_tx.receiver_count() == 0 {
+						continue;
+					}
+
 					let block_hash = block.hash;
 					let filter = Filter { block_hash: Some(block_hash), ..Default::default() };
+
 					match self.receipt_provider.logs(Some(filter)).await {
 						Ok(logs) => {
 							for log in logs {
-								if self.log_subscription_tx.receiver_count() > 0 {
-									let _ = self.log_subscription_tx.send(log);
-								}
+								let _ = self.log_subscription_tx.send(log);
 							}
 						},
 						Err(err) => {
