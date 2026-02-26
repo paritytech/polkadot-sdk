@@ -24,11 +24,14 @@ use assert_matches::assert_matches;
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_account};
 use frame_support::{
 	dispatch::RawOrigin,
+	migrations::SteppedMigration,
 	traits::{
-		fungible,
+		fungible::{self, Mutate as FungibleMutate},
 		tokens::{Fortitude::Polite, Preservation::Expendable},
-		Currency, Get,
+		Get, LockableCurrency, WithdrawReasons,
 	},
+	weights::WeightMeter,
+	BoundedVec,
 };
 use sp_runtime::traits::Bounded;
 
@@ -55,7 +58,7 @@ fn fill_voting<T: Config<I>, I: 'static>(
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+	T::Fungible::set_balance(&caller, BalanceOf::<T, I>::max_value());
 	caller
 }
 
@@ -66,7 +69,12 @@ fn account_vote<T: Config<I>, I: 'static>(b: BalanceOf<T, I>) -> AccountVote<Bal
 }
 
 benchmarks_instance_pallet! {
-	where_clause {  where T::MaxVotes: core::fmt::Debug }
+	where_clause {
+		where
+			T::MaxVotes: core::fmt::Debug,
+			T: pallet_balances::Config,
+			pallet_balances::Pallet<T>: LockableCurrency<T::AccountId, Balance = BalanceOf<T, I>>,
+	}
 
 	vote_new {
 		let caller = funded_account::<T, I>("caller", 0);
@@ -256,8 +264,8 @@ benchmarks_instance_pallet! {
 		let caller = funded_account::<T, I>("caller", 0);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		whitelist_account!(caller);
-		let normal_account_vote = account_vote::<T, I>(T::Currency::free_balance(&caller) - 100u32.into());
-		let big_account_vote = account_vote::<T, I>(T::Currency::free_balance(&caller));
+		let normal_account_vote = account_vote::<T, I>(<T::Fungible as fungible::Inspect<T::AccountId>>::balance(&caller) - 100u32.into());
+		let big_account_vote = account_vote::<T, I>(<T::Fungible as fungible::Inspect<T::AccountId>>::balance(&caller));
 
 		// Fill everything up to the max by filling all classes with votes and voting on them all.
 		let (class, all_polls) = fill_voting::<T, I>();
@@ -269,13 +277,13 @@ benchmarks_instance_pallet! {
 			}
 		}
 
-		let orig_usable = <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
+		let orig_usable = <T::Fungible as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
 		let polls = &all_polls[&class];
 
 		// Vote big on the class with the most ongoing votes of them to bump the lock and make it
 		// hard to recompute when removed.
 		ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), polls[0], big_account_vote)?;
-		let now_usable = <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
+		let now_usable = <T::Fungible as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
 		assert_eq!(orig_usable - now_usable, 100u32.into());
 
 		// Remove the vote
@@ -284,7 +292,44 @@ benchmarks_instance_pallet! {
 		// We can now unlock on `class` from 200 to 100...
 	}: _(RawOrigin::Signed(caller.clone()), class, caller_lookup)
 	verify {
-		assert_eq!(orig_usable, <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite));
+		assert_eq!(orig_usable, <T::Fungible as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite));
+	}
+
+	v1_migration_step {
+		let caller = funded_account::<T, I>("caller", 0);
+		let class = T::Polls::classes().into_iter().next().unwrap();
+		let lock_amount: BalanceOf<T, I> = 100u32.into();
+
+		// Set up pre-migration state: insert a ClassLocksFor entry and set an old Currency lock.
+		ClassLocksFor::<T, I>::insert(&caller, BoundedVec::try_from(
+			alloc::vec![(class.clone(), lock_amount)]
+		).expect("single entry fits bound"));
+		<pallet_balances::Pallet<T> as LockableCurrency<T::AccountId>>::set_lock(
+			migrations::CONVICTION_VOTING_ID,
+			&caller,
+			lock_amount,
+			WithdrawReasons::all(),
+		);
+
+		let mut meter = WeightMeter::new();
+	}: {
+		migrations::v1::LazyMigrationV0ToV1::<T, I, pallet_balances::Pallet<T>>::step(
+			None,
+			&mut meter,
+		).unwrap();
+	}
+	verify {
+		use frame_support::traits::fungible::InspectFreeze;
+		let frozen = T::Fungible::balance_frozen(
+			&crate::pallet::FreezeReason::ConvictionVoting.into(),
+			&caller,
+		);
+		assert_eq!(frozen, lock_amount);
+		assert!(
+			pallet_balances::Locks::<T>::get(&caller)
+				.iter()
+				.all(|l| l.id != migrations::CONVICTION_VOTING_ID)
+		);
 	}
 
 	impl_benchmark_test_suite!(

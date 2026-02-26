@@ -1,0 +1,14 @@
+title: Migrate pallet-conviction-voting to using fungible traits
+doc:
+- audience: Runtime Dev
+  description: |-
+    Migrate pallet-conviction-voting from Currency/LockableCurrency traits to fungible traits (freezes).
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-conviction-voting
+  bump: major

@@ -21,7 +21,7 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
+	traits::{ConstU32, ConstU64, Contains, Polling, VariantCountOf, VoteTally},
 };
 use sp_runtime::BuildStorage;
 
@@ -57,6 +57,8 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -150,7 +152,8 @@ impl Polling<TallyOf<Test>> for TestPolls {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Self>;
+	type Fungible = pallet_balances::Pallet<Self>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type VoteLockingPeriod = ConstU64<3>;
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();

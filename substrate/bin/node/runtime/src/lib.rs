@@ -1016,7 +1016,8 @@ parameter_types! {
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Fungible = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type VoteLockingPeriod = VoteLockingPeriod;
 	type MaxVotes = ConstU32<512>;
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;

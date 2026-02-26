@@ -32,9 +32,10 @@ extern crate alloc;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
+	pallet_prelude::StorageVersion,
 	traits::{
-		fungible, Currency, Get, LockIdentifier, LockableCurrency, PollStatus, Polling,
-		ReservableCurrency, WithdrawReasons,
+		fungible::{self, Inspect as FungibleInspect, MutateFreeze},
+		Get, PollStatus, Polling,
 	},
 };
 use sp_runtime::{
@@ -43,6 +44,7 @@ use sp_runtime::{
 };
 
 mod conviction;
+pub mod migrations;
 mod traits;
 mod types;
 mod vote;
@@ -64,14 +66,13 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
-
 pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T, I = ()> = <<T as Config<I>>::Fungible as fungible::Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 pub type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
@@ -102,8 +103,19 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 	use sp_runtime::BoundedVec;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
+
+	#[pallet::composite_enum]
+	pub enum FreezeReason<I: 'static = ()> {
+		/// Funds are locked for conviction voting.
+		#[codec(index = 0)]
+		ConvictionVoting,
+	}
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + Sized {
@@ -113,10 +125,12 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-		/// Currency type with which voting happens.
-		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
-			+ fungible::Inspect<Self::AccountId>;
+		/// Fungible type with which voting happens.
+		type Fungible: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason<I>>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
@@ -344,7 +358,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::update_lock(&class, &target);
+			Self::update_lock(&class, &target)?;
 			Self::deposit_event(Event::VoteUnlocked { who: target, class });
 			Ok(())
 		}
@@ -430,7 +444,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		vote: AccountVote<BalanceOf<T, I>>,
 	) -> DispatchResult {
 		ensure!(
-			vote.balance() <= T::Currency::total_balance(who),
+			vote.balance() <= T::Fungible::total_balance(who),
 			Error::<T, I>::InsufficientFunds
 		);
 		// Call on_vote hook
@@ -465,7 +479,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(who, &class, vote.balance());
+				Self::extend_lock(who, &class, vote.balance())?;
 				Self::deposit_event(Event::Voted { who: who.clone(), vote, poll_index });
 				Ok(())
 			})
@@ -631,7 +645,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<u32, DispatchError> {
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
-		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
+		ensure!(balance <= T::Fungible::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let votes =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				let old = core::mem::replace(
@@ -659,7 +673,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
-				Self::extend_lock(&who, &class, balance);
+				Self::extend_lock(&who, &class, balance)?;
 				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
@@ -705,7 +719,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
-	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
+	fn extend_lock(
+		who: &T::AccountId,
+		class: &ClassOf<T, I>,
+		amount: BalanceOf<T, I>,
+	) -> DispatchResult {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
 				Some(i) => locks[i].1 = locks[i].1.max(amount),
@@ -720,17 +738,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			}
 		});
-		T::Currency::extend_lock(
-			CONVICTION_VOTING_ID,
-			who,
-			amount,
-			WithdrawReasons::except(WithdrawReasons::RESERVE),
-		);
+		T::Fungible::extend_freeze(&FreezeReason::ConvictionVoting.into(), who, amount)
 	}
 
 	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
-	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
+	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
 		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(T::BlockNumberProvider::current_block_number());
 			voting.locked_balance()
@@ -749,14 +762,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
 		if lock_needed.is_zero() {
-			T::Currency::remove_lock(CONVICTION_VOTING_ID, who);
+			T::Fungible::thaw(&FreezeReason::ConvictionVoting.into(), who)
 		} else {
-			T::Currency::set_lock(
-				CONVICTION_VOTING_ID,
-				who,
-				lock_needed,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			T::Fungible::set_freeze(&FreezeReason::ConvictionVoting.into(), who, lock_needed)
 		}
 	}
 }
