@@ -176,7 +176,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_command("malus")
 				.with_subcommand("dispute-finalized-candidates")
 				.with_args(vec![
-					"--alice".into(),
 					"-lparachain=debug,MALUS=trace".into(),
 					"--dispute-offset=3".into(),
 					"--insecure-validator-i-know-what-i-do".into(),
