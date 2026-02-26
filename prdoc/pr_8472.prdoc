@@ -14,10 +14,12 @@ doc:
       `overflow_prune_mul`, `rational_mul_correction`, `saturating_reciprocal_mul`,
       `saturating_reciprocal_mul_floor`, `saturating_reciprocal_mul_ceil`, and
       `from_rational_with_rounding` to the `PerThing` trait. Added `checked_int_div` and
-      `checked_div_with_rounding`. Fixed `checked_rational_mul_correction` error semantics.
+      `checked_div_with_rounding`. Fixed `checked_rational_mul_correction` error semantics
+      and `PerU16` debug display.
     - `fixed_point.rs`: Added `try_into_perbill` and checked `from_rational_with_rounding`.
       Migrated `checked_from_rational`, `checked_mul_int`, `checked_div_int` from
       `Option<T>` to `Result<T, ArithmeticError>` with `DivisionByZero`/`Overflow`/`Underflow`.
+      Updated to use `multiply_by_rational_with_rounding`.
     - `traits.rs`: Simplified `EnsureFixedPointNumber` wrappers (`ensure_from_rational`,
       `ensure_mul_int`, `ensure_div_int`) to directly delegate to the now-Result-returning
       checked methods.
