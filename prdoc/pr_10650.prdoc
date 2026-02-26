@@ -42,5 +42,7 @@ crates:
     bump: patch
   - name: polkadot-node-subsystem-types
     bump: major
+    validate: false
   - name: polkadot-node-subsystem-util
     bump: major
+    validate: false
