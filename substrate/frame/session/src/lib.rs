@@ -627,8 +627,9 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, (KeyTypeId, Vec<u8>), T::ValidatorId, OptionQuery>;
 
 	/// Accounts whose keys were set via `SessionInterface` (external path) without
-	/// incrementing the consumer reference. `do_purge_keys` only decrements
-	/// consumers for accounts that were registered through the local session pallet.
+	/// incrementing the consumer reference or placing a key deposit. `do_purge_keys`
+	/// only decrements consumers for accounts that were registered through the local
+	/// session pallet.
 	#[pallet::storage]
 	pub type ExternallySetKeys<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
