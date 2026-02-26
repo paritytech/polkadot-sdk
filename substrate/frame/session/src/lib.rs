@@ -626,6 +626,13 @@ pub mod pallet {
 	pub type KeyOwner<T: Config> =
 		StorageMap<_, Twox64Concat, (KeyTypeId, Vec<u8>), T::ValidatorId, OptionQuery>;
 
+	/// Accounts whose keys were set via `SessionInterface` (external path) without
+	/// incrementing the consumer reference. `do_purge_keys` only decrements
+	/// consumers for accounts that were registered through the local session pallet.
+	#[pallet::storage]
+	pub type ExternallySetKeys<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -996,7 +1003,10 @@ impl<T: Config> Pallet<T> {
 			frame_support::traits::tokens::Precision::BestEffort,
 		);
 
-		frame_system::Pallet::<T>::dec_consumers(account);
+		if ExternallySetKeys::<T>::take(account).is_none() {
+			// Consumer was incremented locally via `do_set_keys`, so decrement it.
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
 
 		Ok(())
 	}
@@ -1196,7 +1206,10 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
-		Self::inner_set_keys(&who, keys)?;
+		let old_keys = Self::inner_set_keys(&who, keys)?;
+		if old_keys.is_none() {
+			ExternallySetKeys::<T>::insert(account, ());
+		}
 		Ok(())
 	}
 
@@ -1209,6 +1222,7 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
+		ExternallySetKeys::<T>::remove(account);
 		Ok(())
 	}
 

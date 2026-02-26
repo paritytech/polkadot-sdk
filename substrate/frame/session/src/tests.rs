@@ -627,6 +627,89 @@ fn existing_validators_without_hold_are_except() {
 	});
 }
 
+#[cfg(feature = "historical")]
+mod externally_set_keys_consumer_tracking {
+	use super::*;
+
+	fn setup_account(account_id: u64) {
+		frame_system::Pallet::<Test>::inc_providers(&account_id);
+		ValidatorAccounts::mutate(|m| {
+			m.insert(account_id, account_id);
+		});
+	}
+
+	#[test]
+	fn purge_skips_dec_consumers_for_externally_set_keys() {
+		// GIVEN: keys set externally (no inc_consumers)
+		// WHEN: purge locally (with or without intermediate local update)
+		// THEN: consumer count unchanged — external origin preserved across updates
+		let account_id = 1000;
+		new_test_ext().execute_with(|| {
+			setup_account(account_id);
+			let consumers_before = System::consumers(&account_id);
+
+			<Session as SessionInterface>::set_keys(
+				&account_id,
+				UintAuthorityId(account_id).into(),
+			)
+			.unwrap();
+			assert!(ExternallySetKeys::<Test>::contains_key(&account_id));
+			assert_eq!(System::consumers(&account_id), consumers_before);
+
+			// Purge directly
+			frame_support::hypothetically!({
+				assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
+				assert_eq!(System::consumers(&account_id), consumers_before);
+				assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
+			});
+
+			// Update locally first, then purge
+			let new_keys = UintAuthorityId(70).into();
+			let proof = create_set_keys_proof(account_id, &UintAuthorityId(70));
+			assert_ok!(Session::set_keys(RuntimeOrigin::signed(account_id), new_keys, proof));
+			assert!(ExternallySetKeys::<Test>::contains_key(&account_id));
+			assert_eq!(System::consumers(&account_id), consumers_before);
+
+			assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
+			assert_eq!(System::consumers(&account_id), consumers_before);
+		});
+	}
+
+	#[test]
+	fn purge_decrements_consumers_for_locally_set_keys() {
+		// GIVEN: keys set locally (inc_consumers + hold)
+		// WHEN: purge locally (with or without intermediate external update)
+		// THEN: consumer count returns to baseline — local origin preserved across updates
+		let account_id = 1000;
+		new_test_ext().execute_with(|| {
+			setup_account(account_id);
+			let consumers_before = System::consumers(&account_id);
+
+			let keys = UintAuthorityId(account_id).into();
+			let proof = create_set_keys_proof(account_id, &UintAuthorityId(account_id));
+			assert_ok!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, proof));
+			assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
+			let consumers_after_set = System::consumers(&account_id);
+			assert!(consumers_after_set > consumers_before);
+
+			// Purge directly
+			frame_support::hypothetically!({
+				assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
+				assert_eq!(System::consumers(&account_id), consumers_before);
+			});
+
+			// Update externally first, then purge
+			<Session as SessionInterface>::set_keys(&account_id, UintAuthorityId(70).into())
+				.unwrap();
+			assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
+			assert_eq!(System::consumers(&account_id), consumers_after_set);
+
+			assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
+			assert_eq!(System::consumers(&account_id), consumers_before);
+		});
+	}
+}
+
 mod disabling_byzantine_threshold {
 	use super::*;
 	use crate::disabling::{DisablingStrategy, UpToLimitDisablingStrategy};
