@@ -36,7 +36,7 @@ use sp_runtime::traits::StaticLookup;
 
 #[benchmarks(
 	where
-		T: pallet_assets::Config<AssetId = <T as Config>::ForeignAssetId>,
+		T: pallet_assets::Config<T::AssetsInstance, AssetId = <T as Config>::ForeignAssetId>,
 		T::ForeignAssetId: From<u32>,
 )]
 mod benchmarks {
@@ -46,15 +46,16 @@ mod benchmarks {
 	fn migrate_foreign_asset_step() {
 		// Clear any pre-existing assets from genesis so that only our
 		// benchmark asset is present during the migration step.
-		let _ = pallet_assets::Asset::<T>::clear(u32::MAX, None);
+		let _ = pallet_assets::Asset::<T, T::AssetsInstance>::clear(u32::MAX, None);
 
 		// Create one asset in pallet_assets storage.
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = <T as frame_system::Config>::Lookup::unlookup(caller);
-		let asset_id: <T as pallet_assets::Config>::AssetId = 42u32.into();
-		let asset_id_param: <T as pallet_assets::Config>::AssetIdParameter = asset_id.into();
+		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId = 42u32.into();
+		let asset_id_param: <T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter =
+			asset_id.into();
 
-		pallet_assets::Pallet::<T>::force_create(
+		pallet_assets::Pallet::<T, T::AssetsInstance>::force_create(
 			frame_system::RawOrigin::Root.into(),
 			asset_id_param,
 			caller_lookup,
@@ -71,7 +72,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			MigrateForeignAssetPrecompileMappings::<T, (), ()>::step(None, &mut meter).unwrap();
+			MigrateForeignAssetPrecompileMappings::<T, T::AssetsInstance, ()>::step(
+				None,
+				&mut meter,
+			)
+			.unwrap();
 		}
 
 		// Verify the asset was migrated.

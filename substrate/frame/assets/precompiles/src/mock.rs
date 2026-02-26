@@ -69,6 +69,8 @@ impl pallet_assets::Config for Test {
 
 impl foreign_assets::pallet::Config for Test {
 	type ForeignAssetId = u32;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = ();
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]

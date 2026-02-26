@@ -1465,6 +1465,8 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 
 impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 	type ForeignAssetId = u32;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = Instance1;
 }
 
 impl pallet_tips::Config for Runtime {

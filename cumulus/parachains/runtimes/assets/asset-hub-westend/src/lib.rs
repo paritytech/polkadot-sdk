@@ -593,6 +593,8 @@ parameter_types! {
 impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 	// must match the AssetId type used by the `ForeignAssets` instance
 	type ForeignAssetId = <Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = ForeignAssetsInstance;
 }
 
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as

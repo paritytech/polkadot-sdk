@@ -48,6 +48,11 @@ pub mod pallet {
 		/// The foreign asset ID type. This must match the `AssetId` type used by the
 		/// `pallet_assets` instance for foreign assets.
 		type ForeignAssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+
+		/// The `pallet_assets` instance that holds foreign assets.
+		/// Used by benchmarks to interact with the correct assets instance.
+		#[cfg(feature = "runtime-benchmarks")]
+		type AssetsInstance: 'static;
 	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
