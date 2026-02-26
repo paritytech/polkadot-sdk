@@ -70,7 +70,7 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 			Coretime(assign_core { core: 0, begin: 0, assignment: ((Task(PARA_A), 57600)), end_hint: None() })
 		}],
 	);
-	let events_a = relay_client
+	relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(&assign_core_a, &alice)
 		.await?
@@ -80,7 +80,7 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	// Determine the boundary dynamically based on the current chain height.
 	// `assign_core()` auto-adjusts `begin` forward if it falls within the current claim queue
 	// window (block_number + 1 + lookahead). We place the boundary well beyond that window.
-	let current_block = events_a.block_ref().number();
+	let current_block = relay_client.blocks().at_latest().await?.number();
 	let boundary = current_block + 1 + LOOKAHEAD + BOUNDARY_MARGIN;
 
 	log::info!(
@@ -121,10 +121,7 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 
 	// Block before transition window: all A
 	let pre_transition = boundary - LOOKAHEAD - 1;
-	expected_transitions.insert(
-		pre_transition,
-		vec![ParaId::from(PARA_A); LOOKAHEAD as usize],
-	);
+	expected_transitions.insert(pre_transition, vec![ParaId::from(PARA_A); LOOKAHEAD as usize]);
 
 	// Transition blocks: B gradually replaces A from the end
 	for i in 0..LOOKAHEAD {
@@ -137,15 +134,9 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	}
 
 	// After boundary: all B
-	expected_transitions.insert(
-		boundary + 4,
-		vec![ParaId::from(PARA_B); LOOKAHEAD as usize],
-	);
+	expected_transitions.insert(boundary + 4, vec![ParaId::from(PARA_B); LOOKAHEAD as usize]);
 
-	log::info!(
-		"Monitoring claim queue transitions around boundary (block {})...",
-		boundary
-	);
+	log::info!("Monitoring claim queue transitions around boundary (block {})...", boundary);
 	for (block, expected) in expected_transitions.iter() {
 		log::debug!("  Expected at block {}: {:?}", block, expected);
 	}
