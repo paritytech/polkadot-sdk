@@ -141,9 +141,9 @@ where
 
 		// We need the current block number to know when the timeout is reached.
 		let current_block = self.client.info().best_number.saturated_into::<u32>();
-		let hash = self.pool.insert(data.0, current_block, recipient_keys, alias)?;
+		let _hash = self.pool.insert(data.0, current_block, recipient_keys, alias)?;
 		let pool_status = self.pool.status();
-		Ok(SubmitResult { hash: Bytes(hash.0.to_vec()), pool_status })
+		Ok(SubmitResult { pool_status })
 	}
 
 	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
