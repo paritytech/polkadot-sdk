@@ -1,5 +1,4 @@
-title: 'pallet-session: track consumer refs and release deposits for externally set
-  keys'
+title: 'pallet-session: track consumer refs and release deposits for externally set keys'
 doc:
 - audience: Runtime Dev
   description: |-
