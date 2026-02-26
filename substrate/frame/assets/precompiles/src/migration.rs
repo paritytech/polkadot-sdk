@@ -18,7 +18,6 @@
 //! Migrations for `pallet-assets-precompiles`.
 
 use crate::{foreign_assets::pallet, weights::WeightInfo};
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	defensive,
@@ -28,13 +27,6 @@ use frame_support::{
 
 const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
 const LOG_TARGET: &str = "runtime::MigrateForeignAssetPrecompileMappings";
-
-/// Progressive states of the precompile mappings migration.
-#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
-pub enum MigrationState<A> {
-	Asset(A),
-	Finished,
-}
 
 /// Migration to backfill foreign asset precompile mappings for existing assets.
 ///
@@ -96,7 +88,7 @@ where
 	I: 'static,
 	W: WeightInfo,
 {
-	type Cursor = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
+	type Cursor = <T as pallet_assets::Config<I>>::AssetId;
 	type Identifier = MigrationId<32>;
 
 	fn id() -> Self::Identifier {
@@ -107,22 +99,12 @@ where
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		// Handle a Finished cursor defensively.
-		if let Some(MigrationState::Finished) = &cursor {
-			log::info!(target: LOG_TARGET, "migration finished");
-			return Ok(None);
-		}
-
 		let required = W::migrate_foreign_asset_step();
 		if meter.remaining().any_lt(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		let mut last_key = match &cursor {
-			None => None,
-			Some(MigrationState::Asset(last_asset)) => Some(last_asset.clone()),
-			Some(MigrationState::Finished) => unreachable!("handled above"),
-		};
+		let mut last_key = cursor;
 
 		loop {
 			if meter.try_consume(required).is_err() {
@@ -159,7 +141,7 @@ where
 			}
 		}
 
-		Ok(last_key.map(MigrationState::Asset))
+		Ok(last_key)
 	}
 
 	#[cfg(feature = "try-runtime")]

@@ -52,7 +52,7 @@ mod mock;
 mod tests;
 
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
-pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
+pub use migration::MigrateForeignAssetPrecompileMappings;
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
