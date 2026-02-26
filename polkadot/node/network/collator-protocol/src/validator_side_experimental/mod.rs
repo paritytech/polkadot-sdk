@@ -14,37 +14,55 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#![allow(unused)]
-
-// See reasoning in Cargo.toml why this temporary useless import is needed.
-use tokio as _;
-
+mod collation_manager;
 mod common;
 mod error;
-mod metrics;
 mod peer_manager;
 mod state;
+#[cfg(test)]
+mod tests;
 
-use std::collections::VecDeque;
-
-use common::MAX_STORED_SCORES_PER_PARA;
+use crate::{
+	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
+	LOG_TARGET,
+};
+use collation_manager::CollationManager;
+use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
-use fatality::Split;
-use peer_manager::{Db, PeerManager};
+use futures::{future::Fuse, select, FutureExt, StreamExt};
+use futures_timer::Delay;
+use polkadot_node_network_protocol::{
+	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
+	CollationProtocols, PeerId,
+};
 use polkadot_node_subsystem::{
+	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
 	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
-use polkadot_node_subsystem_util::{
-	find_validator_group, request_claim_queue, request_validator_groups, request_validators,
-	runtime::recv_runtime, signing_key_and_index,
-};
-use polkadot_primitives::{Hash, Id as ParaId};
+use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
+use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
+
+#[cfg(test)]
+use peer_manager::Db;
+use peer_manager::PeerManager;
+
 use state::State;
 
-pub use metrics::Metrics;
+pub use crate::validator_side_metrics::Metrics;
 
-use crate::LOG_TARGET;
+/// Default interval for persisting the reputation database to disk (in seconds).
+const DEFAULT_PERSIST_INTERVAL_SECS: u64 = 600;
+
+/// Configuration for the reputation db.
+#[derive(Debug, Clone, Copy)]
+pub struct ReputationConfig {
+	/// The data column in the store to use for reputation data.
+	pub col_reputation_data: u32,
+	/// How often to persist the reputation database to disk.
+	/// If None, defaults to DEFAULT_PERSIST_INTERVAL_SECS seconds.
+	pub persist_interval: Option<Duration>,
+}
 
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -52,9 +70,19 @@ pub(crate) async fn run<Context>(
 	mut ctx: Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
+	db: Arc<dyn Database>,
+	reputation_config: ReputationConfig,
 ) -> FatalResult<()> {
-	if let Some(_state) = initialize(&mut ctx, keystore, metrics).await? {
-		// run_inner(state);
+	let persist_interval = reputation_config
+		.persist_interval
+		.unwrap_or(Duration::from_secs(DEFAULT_PERSIST_INTERVAL_SECS));
+	gum::info!(
+		LOG_TARGET,
+		persist_interval_secs = persist_interval.as_secs(),
+		"Running experimental collator protocol"
+	);
+	if let Some(state) = initialize(&mut ctx, keystore, metrics, db, reputation_config).await? {
+		run_inner(ctx, state, persist_interval).await?;
 	}
 
 	Ok(())
@@ -65,31 +93,62 @@ async fn initialize<Context>(
 	ctx: &mut Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
-) -> FatalResult<Option<State<Db>>> {
+	db: Arc<dyn Database>,
+	reputation_config: ReputationConfig,
+) -> FatalResult<Option<State<PersistentDb>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
-			Some(activated_leaf) => activated_leaf,
+			Some(activated_leaf) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					number = activated_leaf.number,
+					hash = ?activated_leaf.hash,
+					"Got the first active leaf notification, trying to initialize subsystem."
+				);
+				activated_leaf
+			},
 			None => return Ok(None),
 		};
 
-		let scheduled_paras = match scheduled_paras(ctx.sender(), first_leaf.hash, &keystore).await
+		let collation_manager =
+			CollationManager::new(ctx.sender(), keystore.clone(), first_leaf).await?;
+
+		let scheduled_paras = collation_manager.assignments();
+
+		// Create PersistentDb with disk persistence
+		let (backend, task) = match PersistentDb::new(
+			db.clone(),
+			reputation_config,
+			MAX_STORED_SCORES_PER_PARA,
+		)
+		.await
 		{
-			Ok(paras) => paras,
-			Err(err) => {
-				log_error(Err(err))?;
-				continue
+			Ok(result) => result,
+			Err(e) => {
+				gum::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to initialize persistent reputation DB"
+				);
+				return Err(FatalError::ReputationDbInit(e));
 			},
 		};
 
-		let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+		// Background task for async writes
+		ctx.spawn_blocking("collator-reputation-persistence-task", task)
+			.map_err(|e| FatalError::SpawnTask(e.to_string()))?;
+
+		gum::trace!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
 		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
 			.await
 		{
-			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
+			Ok(peer_manager) => {
+				return Ok(Some(State::new(peer_manager, collation_manager, metrics)))
+			},
 			Err(err) => {
 				log_error(Err(err))?;
-				continue
+				continue;
 			},
 		}
 	}
@@ -103,42 +162,280 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
-					return Ok(Some(activated))
+					return Ok(Some(activated));
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
 			FromOrchestra::Communication { msg } => {
-				// TODO: we should actually disconnect peers connected on collation protocol while
-				// we're still bootstrapping. OR buffer these messages until we've bootstrapped.
-				gum::warn!(
-					target: LOG_TARGET,
-					?msg,
-					"Received msg before first active leaves update. This is not expected - message will be dropped."
-				)
+				// Disconnect peers that connect before the subsystem is initialized.
+				// They will reconnect later when we're ready.
+				match msg {
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerConnected(peer_id, ..),
+					) => {
+						gum::info!(
+							target: LOG_TARGET,
+							?peer_id,
+							"Disconnecting peer that connected before subsystem initialization",
+						);
+						ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+							vec![peer_id],
+							PeerSet::Collation,
+						))
+						.await;
+					},
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerMessage(peer_id, ..),
+					) => {
+						gum::info!(
+							target: LOG_TARGET,
+							?peer_id,
+							"Disconnecting peer that sent message before subsystem initialization",
+						);
+						ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+							vec![peer_id],
+							PeerSet::Collation,
+						))
+						.await;
+					},
+					msg => {
+						gum::trace!(
+							target: LOG_TARGET,
+							?msg,
+							"Received msg before first active leaves update, dropping.",
+						);
+					},
+				}
 			},
 		}
 	}
 }
 
-async fn scheduled_paras<Sender: CollatorProtocolSenderTrait>(
-	sender: &mut Sender,
-	hash: Hash,
-	keystore: &KeystorePtr,
-) -> Result<VecDeque<ParaId>> {
-	let validators = recv_runtime(request_validators(hash, sender).await).await?;
-
-	let (groups, rotation_info) =
-		recv_runtime(request_validator_groups(hash, sender).await).await?;
-
-	let core_now = if let Some(group) = signing_key_and_index(&validators, keystore)
-		.and_then(|(_, index)| find_validator_group(&groups, index))
-	{
-		rotation_info.core_for_group(group, groups.len())
-	} else {
-		gum::trace!(target: LOG_TARGET, ?hash, "Not a validator");
-		return Ok(VecDeque::new())
+fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+	let timer: Pin<Box<dyn Future<Output = ()> + Send>> = match maybe_delay {
+		Some(delay) => Box::pin(Delay::new(delay)),
+		None => Box::pin(future::pending::<()>()),
 	};
 
-	let mut claim_queue = recv_runtime(request_claim_queue(hash, sender).await).await?;
-	Ok(claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new()))
+	timer.fuse()
+}
+
+/// Create the persistence timer that fires after the given interval.
+fn create_persistence_timer(interval: Duration) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+	let delay: Pin<Box<dyn Future<Output = ()> + Send>> = Box::pin(Delay::new(interval));
+	delay.fuse()
+}
+
+#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
+async fn run_inner<Context>(
+	mut ctx: Context,
+	mut state: State<PersistentDb>,
+	persist_interval: Duration,
+) -> FatalResult<()> {
+	let mut timer = create_timer(None);
+	let mut persistence_timer = create_persistence_timer(persist_interval);
+
+	loop {
+		select! {
+			// Calling `fuse()` here is useless, because the termination state of the resulting
+			// fused future is discarded after each iteration. But we need to do it in order to
+			// make the compiler happy.
+			// However, we actually need `ctx.recv()` to poll for received messages/signals during
+			// each loop iteration, so the resulting behavior is the desired one.
+			res = ctx.recv().fuse() => {
+				match res {
+					Ok(FromOrchestra::Communication { msg }) => {
+						gum::trace!(target: LOG_TARGET, msg = ?msg, "received a message");
+						process_msg(
+							ctx.sender(),
+							&mut state,
+							msg,
+						).await;
+					}
+					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
+						// Persist to disk before shutdown
+						state.persist_reputations().await;
+						break
+					},
+					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, number))) => {
+						state.handle_finalized_block(ctx.sender(), hash, number).await?;
+					},
+					Ok(FromOrchestra::Signal(_)) => continue,
+				}
+			},
+			resp = state.collation_response_stream().select_next_some() => {
+				state.handle_fetched_collation(ctx.sender(), resp).await;
+			},
+			_ = &mut timer => {
+				// We don't need to do anything specific here.
+				// If the timer expires, we only need to trigger the advertisement fetching logic.
+			},
+			_ = &mut persistence_timer => {
+				// Periodic persistence - write reputation DB to disk
+				state.background_persist_reputations();
+				// Reset the timer for the next interval
+				persistence_timer = create_persistence_timer(persist_interval);
+			},
+		}
+
+		// Now try triggering advertisement fetching, if we have room in any of the active leaves
+		// (any of them are in Waiting state).
+		// We could optimise to not always re-run this code (have the other functions return
+		// whether we should attempt launching fetch requests) However, most messages could
+		// indeed trigger a new legitimate request.
+		// Also, it takes constant time to run because we only try launching new requests for
+		// unfulfilled claims. It's probably not worth optimising.
+		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
+		timer = create_timer(maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)));
+	}
+
+	Ok(())
+}
+
+/// The main message receiver switch.
+async fn process_msg<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	state: &mut State<PersistentDb>,
+	msg: CollatorProtocolMessage,
+) {
+	use CollatorProtocolMessage::*;
+
+	let _timer = state.metrics().time_process_msg();
+
+	match msg {
+		CollateOn(id) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				para_id = %id,
+				"CollateOn message is not expected on the validator side of the protocol",
+			);
+		},
+		DistributeCollation { .. } => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"DistributeCollation message is not expected on the validator side of the protocol",
+			);
+		},
+		NetworkBridgeUpdate(event) => {
+			if let Err(e) = handle_network_msg(sender, state, event).await {
+				gum::warn!(
+					target: LOG_TARGET,
+					err = ?e,
+					"Failed to handle incoming network message",
+				);
+			}
+		},
+		Seconded(_parent, stmt) => {
+			state.handle_seconded_collation(sender, stmt).await;
+		},
+		Invalid(_parent, candidate_receipt) => {
+			state.handle_invalid_collation(candidate_receipt).await;
+		},
+		ConnectToBackingGroups => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"ConnectToBackingGroups message is not expected on the validator side of the protocol",
+			);
+		},
+		DisconnectFromBackingGroups => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"DisconnectFromBackingGroups message is not expected on the validator side of the protocol",
+			);
+		},
+	}
+}
+
+/// Bridge event switch.
+async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	state: &mut State<PersistentDb>,
+	bridge_message: NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>,
+) -> Result<()> {
+	use NetworkBridgeEvent::*;
+
+	match bridge_message {
+		PeerConnected(peer_id, observed_role, protocol_version, _) => {
+			let version = match protocol_version.try_into() {
+				Ok(version) => version,
+				Err(err) => {
+					// Network bridge is expected to handle this.
+					gum::error!(
+						target: LOG_TARGET,
+						?peer_id,
+						?observed_role,
+						?err,
+						"Unsupported protocol version"
+					);
+					return Ok(());
+				},
+			};
+			state.handle_peer_connected(sender, peer_id, version).await;
+		},
+		PeerDisconnected(peer_id) => {
+			state.handle_peer_disconnected(peer_id).await;
+		},
+		NewGossipTopology { .. } => {
+			// impossible!
+		},
+		PeerViewChange(_, _) => {
+			// We don't really care about a peer's view.
+		},
+		OurViewChange(view) => {
+			state.handle_our_view_change(sender, view).await?;
+		},
+		PeerMessage(remote, msg) => {
+			process_incoming_peer_message(sender, state, remote, msg).await;
+		},
+		UpdatedAuthorityIds { .. } => {
+			// The validator side doesn't deal with `AuthorityDiscoveryId`s.
+		},
+	}
+
+	Ok(())
+}
+
+async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	state: &mut State<PersistentDb>,
+	origin: PeerId,
+	msg: CollationProtocols<
+		protocol_v1::CollatorProtocolMessage,
+		protocol_v2::CollatorProtocolMessage,
+	>,
+) {
+	use protocol_v1::CollatorProtocolMessage as V1;
+	use protocol_v2::CollatorProtocolMessage as V2;
+
+	match msg {
+		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
+		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) => {
+			state.handle_declare(sender, origin, para_id).await;
+		},
+		CollationProtocols::V1(V1::CollationSeconded(..)) |
+		CollationProtocols::V2(V2::CollationSeconded(..)) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				peer_id = ?origin,
+				"Unexpected `CollationSeconded` message",
+			);
+		},
+		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
+			state.handle_advertisement(sender, origin, relay_parent, None).await;
+		},
+		CollationProtocols::V2(V2::AdvertiseCollation {
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
+		}) => {
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					relay_parent,
+					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+				)
+				.await;
+		},
+	}
 }
