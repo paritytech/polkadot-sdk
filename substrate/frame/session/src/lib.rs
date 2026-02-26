@@ -928,9 +928,12 @@ impl<T: Config> Pallet<T> {
 
 		let old_keys = Self::inner_set_keys(&who, keys)?;
 
-		// Place deposit on hold if this is a new registration (i.e. old_keys is None).
-		// The hold call itself will return an error if funds are insufficient.
-		if old_keys.is_none() {
+		// Place deposit and increment consumer if this is a new local registration,
+		// or if transitioning from external to local management.
+		// We also clear `ExternallySetKeys` if set.
+		let needs_local_setup =
+			old_keys.is_none() || ExternallySetKeys::<T>::take(account).is_some();
+		if needs_local_setup {
 			let deposit = T::KeyDeposit::get();
 			if !deposit.is_zero() {
 				T::Currency::hold(&HoldReason::Keys.into(), account, deposit)?;
@@ -1208,16 +1211,16 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 		let old_keys = Self::inner_set_keys(&who, keys)?;
-		if old_keys.is_none() {
-			ExternallySetKeys::<T>::insert(account, ());
-		} else {
-			// Release any key deposit from a prior local registration.
+		// Transitioning from local to external: clean up deposit and consumer ref.
+		if old_keys.is_some() && !ExternallySetKeys::<T>::contains_key(account) {
 			let _ = T::Currency::release_all(
 				&HoldReason::Keys.into(),
 				account,
 				frame_support::traits::tokens::Precision::BestEffort,
 			);
+			frame_system::Pallet::<T>::dec_consumers(account);
 		}
+		ExternallySetKeys::<T>::insert(account, ());
 		Ok(())
 	}
 
@@ -1230,13 +1233,14 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
-		// Release any key deposit from a prior local registration.
 		let _ = T::Currency::release_all(
 			&HoldReason::Keys.into(),
 			account,
 			frame_support::traits::tokens::Precision::BestEffort,
 		);
-		ExternallySetKeys::<T>::remove(account);
+		if ExternallySetKeys::<T>::take(account).is_none() {
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
 		Ok(())
 	}
 

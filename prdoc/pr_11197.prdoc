@@ -3,11 +3,7 @@ title: 'pallet-session: track consumer refs and release deposits for externally 
 doc:
 - audience: Runtime Dev
   description: |-
-    When session keys are set via `SessionInterface` (external path, e.g. from AH),  pallet-session now:
-      - skips `inc_consumers/dec_consumers` for externally-set keys, tracked via `ExternallySetKeys` storage map
-      - releases any existing key deposit (`HoldReason::Keys`) when the external path takes over from a prior local registration
-
-    This ensures deposits and consumer refs are correctly managed when validators transition between local and external key management.
+    Tracks whether session keys were set externally (via `SessionInterface`, e.g. from AH) or locally. Transitions between the two paths correctly manage the key deposit and consumer ref in both directions.
 crates:
 - name: pallet-session
-  bump: minor
+  bump: major
