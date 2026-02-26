@@ -258,3 +258,7 @@
   runner-type: "default"
   use-zombienet-sdk: true
 
+- job-name: "zombienet-polkadot-coretime-partitioning"
+  test-filter: "functional::coretime_partitioning::coretime_assignment_boundary_test"
+  runner-type: "default"
+  use-zombienet-sdk: true
