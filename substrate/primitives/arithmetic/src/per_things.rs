@@ -897,7 +897,7 @@ macro_rules! implement_per_thing {
 			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
-					let pc = (self.0 as f64) / (self.0 as f64) * 100f64;
+					let pc = (self.0 as f64) / ($max as f64) * 100f64;
 					write!(fmt, "{:.2}% ({}/{})", pc, self.0, $max)
 				} else {
 					// A power of ten: calculate exact percent
@@ -2347,6 +2347,29 @@ macro_rules! implement_per_thing_with_perthousand {
 			#[allow(unused)]
 			fn const_fns_work() {
 				const C1: $name = $name::from_perthousand(500);
+			}
+
+			#[test]
+			fn debug_fmt_shows_correct_percentage() {
+				// PerU16's Debug impl previously divided self.0 by self.0 instead of
+				// $max, causing all non-zero values to display as 100.00%.
+				if $max == <$type>::max_value() {
+					let half = $name::from_percent(50);
+					let dbg = format!("{:?}", half);
+					assert!(
+						dbg.starts_with("49.") || dbg.starts_with("50."),
+						"PerU16 50% debug should show ~50%, got: {}",
+						dbg
+					);
+
+					let zero = $name::zero();
+					let dbg = format!("{:?}", zero);
+					assert!(
+						dbg.starts_with("0.00%"),
+						"PerU16 zero debug should show 0.00%, got: {}",
+						dbg
+					);
+				}
 			}
 		}
 	}

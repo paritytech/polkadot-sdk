@@ -1112,7 +1112,12 @@ macro_rules! implement_fixed {
 						quotient
 							.checked_mul(div_u128)
 							.and_then(|base| {
-								let remainder_scaled = (remainder * div_u128) / scale_factor;
+								let remainder_scaled = multiply_by_rational_with_rounding(
+									remainder,
+									div_u128,
+									scale_factor,
+									Rounding::Down,
+								)?;
 								base.checked_add(remainder_scaled)
 							})
 							.ok_or("fractional part overflow")?
@@ -2441,6 +2446,15 @@ macro_rules! implement_fixed {
 					assert!($name::from_str("-1.0").is_err());
 					assert!($name::from_str("-0.5").is_err());
 					assert!($name::from_str("-123.456").is_err());
+				}
+
+				// Test intermediate overflow in in previousy unchecked remainder * div_u128.
+				if $name::accuracy() >= 1_000_000_000_000_000_000 {
+					let val = $name::from_str("0.999999999999999999999").unwrap();
+					assert_eq!(val.into_inner() as u128, 999999999999999999u128);
+				} else {
+					let val = $name::from_str("0.999999999999999999999999999999").unwrap();
+					assert_eq!(val.into_inner() as u128, 999999999u128);
 				}
 
 				// Test error cases
