@@ -113,8 +113,6 @@ pub struct PoolStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubmitResult {
-	/// The content hash of the submitted data
-	pub hash: sp_core::Bytes,
 	/// Current pool status after the submission
 	pub pool_status: PoolStatus,
 }
