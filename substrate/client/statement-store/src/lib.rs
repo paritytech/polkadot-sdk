@@ -58,15 +58,13 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
 use sp_blockchain::HeaderBackend;
-use sp_core::{
-	crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Bytes, Decode, Encode,
-};
+use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
 	OptimizedTopicFilter, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
-	StatementAllowance, SubmitResult, Topic,
+	StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
@@ -249,7 +247,13 @@ impl Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		is_recent: bool,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -264,7 +268,9 @@ impl Index {
 		}
 		let expiry = Expiry(statement.expiry());
 		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		self.recent.insert(hash);
+		if is_recent {
+			self.recent.insert(hash);
+		}
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -571,7 +577,7 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, true);
 		Ok(evicted)
 	}
 }
@@ -705,7 +711,7 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement);
+							index.insert_new(hash, account_id, &statement, false);
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
@@ -1335,7 +1341,8 @@ impl StatementStoreSubscriptionApi for Store {
 	fn subscribe_statement(
 		&self,
 		topic_filter: OptimizedTopicFilter,
-	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)> {
+	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
+	{
 		// Keep the index read lock until after we have subscribed to avoid missing statements.
 		let mut existing_statements = Vec::new();
 		let index = self.index.read();
@@ -1348,6 +1355,14 @@ impl StatementStoreSubscriptionApi for Store {
 		)?;
 		let (subscription_sender, subscription_stream) =
 			self.subscription_manager.subscribe(topic_filter);
+		if existing_statements.is_empty() {
+			subscription_sender
+				.send_blocking(StatementEvent::NewStatements {
+					statements: vec![],
+					remaining: Some(0),
+				})
+				.ok();
+		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
 	}
 }
