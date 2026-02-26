@@ -463,31 +463,27 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		let total_claimed = pot_snapshot - remaining;
 		let expected_total = alice_expected_share + bob_expected_share;
 
-		// CLAUDE: We always round down reward right? So total claimed should never be
-		// greater than expected total.
-		let diff = if total_claimed > expected_total {
-			total_claimed - expected_total
-		} else {
-			expected_total - total_claimed
-		};
+		// Rewards are always rounded down, so total_claimed <= expected_total
 		assert!(
-			diff < 5,
-			"Total claimed ({}) vs expected ({}), diff: {}",
+			total_claimed <= expected_total,
+			"Total claimed ({}) should not exceed expected ({})",
 			total_claimed,
-			expected_total,
-			diff
+			expected_total
 		);
+		let diff = expected_total - total_claimed;
+		assert!(diff < 5, "Rounding dust too large: {}", diff);
 	});
 }
 
 #[test]
-// CLAUDE: we should check this together in one of the above test, don't think we need a separate
-// one for it. Wdyt? Remove if you agree.
-fn validator_incentive_only_paid_to_validators() {
+fn validator_incentive_prorated_across_pages() {
+	// Verifies that validator incentive is prorated across multiple pages:
+	// - ValidatorIncentivePaid event is emitted once per page
+	// - Each page receives page_stake_part * validator_total_incentive
+	// - Sum of all page incentives equals the validator's total share from the pot
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Validator with nominator, incentive budget enabled
-		let alice = 11;
-		let bob = 101;
+		// GIVEN: Validator with incentive enabled
+		let alice = 11; // validator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -512,14 +508,13 @@ fn validator_incentive_only_paid_to_validators() {
 		let total_weight = ErasTotalValidatorWeight::<Test>::get(2);
 		let pot_allocation = ErasValidatorIncentiveAllocation::<Test>::get(2);
 		let validator_share = Perbill::from_rational(validator_weight, total_weight);
-		let expected_incentive = validator_share.mul_floor(pot_allocation);
+		let expected_total_incentive = validator_share.mul_floor(pot_allocation);
 
 		// WHEN: All pages paid out
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: Validator receives exactly ONE ValidatorIncentivePaid event
-		// (regardless of how many pages of Rewarded events there are)
+		// THEN: Validator receives ValidatorIncentivePaid events (one per page)
 		let incentive_events: Vec<Balance> = events
 			.iter()
 			.filter_map(|e| match e {
@@ -532,8 +527,16 @@ fn validator_incentive_only_paid_to_validators() {
 			})
 			.collect();
 
-		assert_eq!(incentive_events.len(), 1, "Should have exactly 1 ValidatorIncentivePaid event");
-		assert_eq!(incentive_events[0], expected_incentive);
+		// Sum of all page incentives should equal expected total (within rounding error)
+		let total_incentive_paid: Balance = incentive_events.iter().sum();
+		assert!(
+			total_incentive_paid <= expected_total_incentive,
+			"Total incentive paid ({}) should not exceed expected ({})",
+			total_incentive_paid,
+			expected_total_incentive
+		);
+		let diff = expected_total_incentive - total_incentive_paid;
+		assert!(diff < 5, "Rounding dust too large: {}", diff);
 	});
 }
 
