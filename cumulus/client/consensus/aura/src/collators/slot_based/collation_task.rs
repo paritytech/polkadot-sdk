@@ -81,7 +81,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 {
 	let Ok(mut overseer_handle) = relay_client.overseer_handle() else {
 		tracing::error!(target: LOG_TARGET, "Failed to get overseer handle.");
-		return
+		return;
 	};
 
 	cumulus_client_collator::initialize_collator_subsystems(

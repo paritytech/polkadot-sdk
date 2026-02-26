@@ -78,7 +78,7 @@ where
 		len: usize,
 	) -> Result<u32, TransactionValidityError> {
 		let length_limit = T::BlockLength::get();
-		let current_len = Pallet::<T>::all_extrinsics_len();
+		let current_len = Pallet::<T>::block_size();
 		let added_len = len as u32;
 		let next_len = current_len.saturating_add(added_len);
 		if next_len > *length_limit.max.get(info.class) {
@@ -133,7 +133,7 @@ where
 			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info, len)?;
 		// Extrinsic weight already checked in `validate`.
 
-		crate::AllExtrinsicsLen::<T>::put(next_len);
+		crate::BlockSize::<T>::put(next_len);
 		crate::BlockWeight::<T>::put(next_weight);
 		Ok(())
 	}
@@ -226,7 +226,7 @@ where
 	const IDENTIFIER: &'static str = "CheckWeight";
 	type Implicit = ();
 	type Pre = ();
-	type Val = u32; /* next block length */
+	type Val = u32; // next block length
 
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
@@ -311,7 +311,7 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::{new_test_ext, RuntimeBlockWeights, System, Test, CALL},
-		AllExtrinsicsLen, BlockWeight, DispatchClass,
+		BlockSize, BlockWeight, DispatchClass,
 	};
 	use core::marker::PhantomData;
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
@@ -550,7 +550,7 @@ mod tests {
 
 			// likewise for length limit.
 			let len = 100_usize;
-			AllExtrinsicsLen::<Test>::put(normal_length_limit());
+			BlockSize::<Test>::put(normal_length_limit());
 			assert_eq!(
 				CheckWeight::<Test>(PhantomData)
 					.validate_and_prepare(Some(1).into(), CALL, &normal, len, 0)
@@ -571,9 +571,9 @@ mod tests {
 	fn signed_ext_check_weight_block_size_works() {
 		new_test_ext().execute_with(|| {
 			let normal = DispatchInfo::default();
-			let normal_limit = normal_weight_limit().ref_time() as usize;
+			let normal_len_limit = normal_length_limit() as usize;
 			let reset_check_weight = |tx, s, f| {
-				AllExtrinsicsLen::<Test>::put(0);
+				BlockSize::<Test>::put(0);
 				let r = CheckWeight::<Test>(PhantomData).validate_and_prepare(
 					Some(1).into(),
 					CALL,
@@ -588,9 +588,9 @@ mod tests {
 				}
 			};
 
-			reset_check_weight(&normal, normal_limit - 1, false);
-			reset_check_weight(&normal, normal_limit, false);
-			reset_check_weight(&normal, normal_limit + 1, true);
+			reset_check_weight(&normal, normal_len_limit - 1, false);
+			reset_check_weight(&normal, normal_len_limit, false);
+			reset_check_weight(&normal, normal_len_limit + 1, true);
 
 			// Operational ones don't have this limit.
 			let op = DispatchInfo {
@@ -599,10 +599,12 @@ mod tests {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
-			reset_check_weight(&op, normal_limit, false);
-			reset_check_weight(&op, normal_limit + 100, false);
-			reset_check_weight(&op, 1024, false);
-			reset_check_weight(&op, 1025, true);
+			let operational_limit =
+				*<Test as Config>::BlockLength::get().max.get(DispatchClass::Operational) as usize;
+			reset_check_weight(&op, normal_len_limit, false);
+			reset_check_weight(&op, normal_len_limit + 100, false);
+			reset_check_weight(&op, operational_limit, false);
+			reset_check_weight(&op, operational_limit + 1, true);
 		})
 	}
 

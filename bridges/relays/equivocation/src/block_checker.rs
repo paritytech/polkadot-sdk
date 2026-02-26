@@ -39,8 +39,9 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 		target_client: &mut TC,
 	) -> Result<ReadContext<P>, Self> {
 		match target_client.synced_headers_finality_info(self.target_block_num).await {
-			Ok(synced_headers) =>
-				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers }),
+			Ok(synced_headers) => {
+				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers })
+			},
 			Err(e) => {
 				tracing::error!(
 					target: "bridge",
@@ -127,13 +128,14 @@ impl<P: EquivocationDetectionPipeline> FindEquivocations<P> {
 				&synced_header.finality_proof,
 				finality_proofs_buf.buf().as_slice(),
 			) {
-				Ok(equivocations) =>
+				Ok(equivocations) => {
 					if !equivocations.is_empty() {
 						result.push(ReportEquivocations {
 							source_block_hash: self.context.synced_header_hash,
 							equivocations,
 						})
-					},
+					}
+				},
 				Err(e) => {
 					tracing::error!(
 						target: "bridge",
@@ -195,7 +197,7 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 
 		self.equivocations = unprocessed_equivocations;
 		if !self.equivocations.is_empty() {
-			return Err(self)
+			return Err(self);
 		}
 
 		Ok(())
@@ -253,7 +255,7 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 					}
 
 					if !failures.is_empty() {
-						return Err(Self::ReportEquivocations(failures))
+						return Err(Self::ReportEquivocations(failures));
 					}
 
 					Ok(())

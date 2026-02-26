@@ -1,13 +1,13 @@
 error[E0369]: binary operation `!=` cannot be applied to type `NoStorageVersionSet`
-  --> tests/pallet_ui/compare_unset_storage_version.rs:32:39
-   |
-32 |             if Self::in_code_storage_version() != Self::on_chain_storage_version() {
-   |                ------------------------------- ^^ -------------------------------- StorageVersion
-   |                |
-   |                NoStorageVersionSet
-   |
-note: the foreign item type `NoStorageVersionSet` doesn't implement `PartialEq<StorageVersion>`
-  --> $WORKSPACE/substrate/frame/support/src/traits/metadata.rs
-   |
-   | pub struct NoStorageVersionSet;
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not implement `PartialEq<StorageVersion>`
+ --> tests/pallet_ui/compare_unset_storage_version.rs:32:39
+  |
+ 32 |             if Self::in_code_storage_version() != Self::on_chain_storage_version() {
+    |                ------------------------------- ^^ -------------------------------- StorageVersion
+    |                |
+    |                NoStorageVersionSet
+    |
+note: `NoStorageVersionSet` does not implement `PartialEq<StorageVersion>`
+   --> $WORKSPACE/substrate/frame/support/src/traits/metadata.rs
+    |
+    | pub struct NoStorageVersionSet;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `NoStorageVersionSet` is defined in another crate

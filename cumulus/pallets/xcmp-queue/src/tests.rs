@@ -1223,7 +1223,7 @@ fn page_not_modified_when_fragment_does_not_fit() {
 			if num_pages == 2 {
 				let new_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);
 				assert_eq!(old_page_zero, new_page_zero);
-				break
+				break;
 			} else if num_pages > 2 {
 				panic!("Too many pages created");
 			}

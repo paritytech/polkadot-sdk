@@ -71,8 +71,15 @@ pub async fn assert_para_throughput(
 	let expected_candidate_ranges = expected_candidate_ranges.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
+	log::info!(
+		"Asserting parachain throughput for para_ids: {:?}. Wait for the first session change",
+		valid_para_ids
+	);
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut blocks_sub).await?;
+	log::info!(
+		"First session change detected. Counting {stop_after} finalized relay chain blocks."
+	);
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -81,7 +88,7 @@ pub async fn assert_para_throughput(
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change(&block).await? {
-			continue
+			continue;
 		}
 
 		current_block_count += 1;
@@ -116,12 +123,12 @@ pub async fn assert_para_throughput(
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
 		let actual = candidate_count
 			.get(&para_id)
-			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+			.ok_or_else(|| anyhow!("ParaId {} did not have any backed candidates", para_id))?;
 
 		if !expected_candidate_range.contains(actual) {
 			return Err(anyhow!(
 				"Candidate count {actual} not within range {expected_candidate_range:?}"
-			))
+			));
 		}
 	}
 
@@ -240,8 +247,9 @@ fn identifier_matches_header(
 			let header_hash = BlakeTwo256::hash(&header.encode());
 			header_hash == *hash
 		},
-		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } =>
-			header.state_root == *storage_root,
+		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } => {
+			header.state_root == *storage_root
+		},
 	}
 }
 
@@ -358,7 +366,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 			TxStatus::InFinalizedBlock(ref tx_in_block) => {
 				tx_in_block.wait_for_success().await?;
 				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
-				return Ok(tx_in_block.block_hash())
+				return Ok(tx_in_block.block_hash());
 			},
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
@@ -546,7 +554,7 @@ pub async fn wait_for_runtime_upgrade(
 		{
 			log::info!("Runtime upgraded in block {:?}", block.hash());
 
-			return Ok(block.hash())
+			return Ok(block.hash());
 		}
 	}
 

@@ -174,7 +174,7 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_default_command("substrate")
 				.with_default_image(integration_image.as_str())
 				.with_chain_spec_path(chain_spec.as_str())
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("alice")
 						.with_args(vec!["--sync=warp".into(), "--log=beefy=debug".into()])
 				})

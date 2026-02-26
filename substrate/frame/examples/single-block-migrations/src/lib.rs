@@ -55,12 +55,10 @@
 #![doc = docify::embed!("src/lib.rs", CurrentAndPreviousValue)]
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
 #![doc = docify::embed!("src/lib.rs", Value)]
-//!
 //! In StorageVersion V1 of the pallet when [`set_value`](crate::Call::set_value) is called, the
 //! new value is stored in the `current` field of [`CurrentAndPreviousValue`], and the previous
 //! value (if it exists) is stored in the `previous` field.
 #![doc = docify::embed!("src/lib.rs", pallet_calls)]
-//!
 //! ## Why a migration is necessary
 //!
 //! Without a migration, there will be a discrepancy between the on-chain storage for [`Value`] (in

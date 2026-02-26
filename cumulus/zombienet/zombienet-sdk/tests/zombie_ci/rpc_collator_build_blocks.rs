@@ -111,9 +111,9 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_validator(|node| node.with_name("alice"))
 				.with_validator(|node| node.with_name("bob"))
 				.with_validator(|node| node.with_name("charlie"))
-				.with_fullnode(|node| node.with_name("one"))
-				.with_fullnode(|node| node.with_name("two"))
-				.with_fullnode(|node| node.with_name("three"))
+				.with_validator(|node| node.with_name("one").validator(false))
+				.with_validator(|node| node.with_name("two").validator(false))
+				.with_validator(|node| node.with_name("three").validator(false))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)

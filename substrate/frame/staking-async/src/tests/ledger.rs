@@ -809,7 +809,7 @@ mod ledger_recovery {
 
 			// however if 333 bonds extra, the wrong lock is updated.
 			bond_extra_no_checks(&333, 30);
-			assert_eq!(asset::staked::<Test>(&333), lock_444_before + 40 + 30); //not OK
+			assert_eq!(asset::staked::<Test>(&333), lock_444_before + 40 + 30); // not OK
 			assert_eq!(asset::staked::<Test>(&444), lock_444_before + 40); // OK
 
 			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be
@@ -830,7 +830,7 @@ mod ledger_recovery {
 				Error::<Test>::CannotRestoreLedger
 			);
 
-			//and enforcing a new ledger lock/total on this non-corrupted ledger will work.
+			// and enforcing a new ledger lock/total on this non-corrupted ledger will work.
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,

@@ -29,8 +29,8 @@
 //!
 //! 1. Awaits the next production signal from the internal timer
 //! 2. Retrieves the current best relay chain block and identifies a valid parent block (see
-//!    [find_potential_parents][cumulus_client_consensus_common::find_potential_parents] for parent
-//!    selection criteria)
+//!    [find_parent_for_building][cumulus_client_consensus_common::find_parent_for_building] for
+//!    parent selection criteria)
 //! 3. Validates that:
 //!    - The parachain has an assigned core on the relay chain
 //!    - No block has been previously built on the target core
@@ -73,7 +73,7 @@ use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::RelayParentOffsetApi;
+use cumulus_primitives_core::{KeyToIncludeInRelayProof, RelayParentOffsetApi};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
@@ -165,8 +165,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + RelayParentOffsetApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ AuraUnincludedSegmentApi<Block>
+		+ RelayParentOffsetApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,

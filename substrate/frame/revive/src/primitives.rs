@@ -18,18 +18,19 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{
-	evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome, BalanceOf, Config, Time, H160,
-	U256,
+	BalanceOf, Config, H160, Time, U256, evm::DryRunConfig, mock::MockHandler,
+	storage::WriteOutcome, transient_storage::TransientStorage,
 };
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::tokens::Balance, weights::Weight};
+use core::cell::RefCell;
+use frame_support::{DefaultNoBound, traits::tokens::Balance, weights::Weight};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{One, Saturating, Zero},
 	DispatchError,
+	traits::{One, Saturating, Zero},
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -152,7 +153,7 @@ impl<Balance> BalanceWithDust<Balance> {
 		value: U256,
 	) -> Result<BalanceWithDust<BalanceOf<T>>, BalanceConversionError> {
 		if value.is_zero() {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
@@ -171,11 +172,7 @@ impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
 
 	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
 	pub fn into_rounded_balance(self) -> Balance {
-		if self.dust == 0 {
-			self.value
-		} else {
-			self.value.saturating_add(Balance::one())
-		}
+		if self.dust == 0 { self.value } else { self.value.saturating_add(Balance::one()) }
 	}
 }
 
@@ -303,18 +300,20 @@ where
 		match (self, rhs) {
 			(Charge(lhs), Charge(rhs)) => Charge(lhs.saturating_add(*rhs)),
 			(Refund(lhs), Refund(rhs)) => Refund(lhs.saturating_add(*rhs)),
-			(Charge(lhs), Refund(rhs)) =>
+			(Charge(lhs), Refund(rhs)) => {
 				if lhs >= rhs {
 					Charge(lhs.saturating_sub(*rhs))
 				} else {
 					Refund(rhs.saturating_sub(*lhs))
-				},
-			(Refund(lhs), Charge(rhs)) =>
+				}
+			},
+			(Refund(lhs), Charge(rhs)) => {
 				if lhs > rhs {
 					Refund(lhs.saturating_sub(*rhs))
 				} else {
 					Charge(rhs.saturating_sub(*lhs))
-				},
+				}
+			},
 		}
 	}
 
@@ -324,18 +323,20 @@ where
 		match (self, rhs) {
 			(Charge(lhs), Refund(rhs)) => Charge(lhs.saturating_add(*rhs)),
 			(Refund(lhs), Charge(rhs)) => Refund(lhs.saturating_add(*rhs)),
-			(Charge(lhs), Charge(rhs)) =>
+			(Charge(lhs), Charge(rhs)) => {
 				if lhs >= rhs {
 					Charge(lhs.saturating_sub(*rhs))
 				} else {
 					Refund(rhs.saturating_sub(*lhs))
-				},
-			(Refund(lhs), Refund(rhs)) =>
+				}
+			},
+			(Refund(lhs), Refund(rhs)) => {
 				if lhs > rhs {
 					Refund(lhs.saturating_sub(*rhs))
 				} else {
 					Charge(rhs.saturating_sub(*lhs))
-				},
+				}
+			},
 		}
 	}
 
@@ -355,6 +356,7 @@ where
 }
 
 /// `Stack` wide configuration options.
+#[derive(DefaultNoBound)]
 pub struct ExecConfig<T: Config> {
 	/// Indicates whether the account nonce should be incremented after instantiating a new
 	/// contract.
@@ -389,6 +391,11 @@ pub struct ExecConfig<T: Config> {
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
 	pub mock_handler: Option<Box<dyn MockHandler<T>>>,
+	/// Externally supplied transient storage.
+	///
+	/// This is only used for testing purposes and should be `None` in production
+	/// environments.
+	pub test_env_transient_storage: Option<RefCell<TransientStorage<T>>>,
 }
 
 impl<T: Config> ExecConfig<T> {
@@ -400,6 +407,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: None,
 			is_dry_run: None,
 			mock_handler: None,
+			test_env_transient_storage: None,
 		}
 	}
 
@@ -410,6 +418,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: None,
 			mock_handler: None,
 			is_dry_run: None,
+			test_env_transient_storage: None,
 		}
 	}
 
@@ -421,6 +430,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: Some(effective_gas_price),
 			mock_handler: None,
 			is_dry_run: None,
+			test_env_transient_storage: None,
 		}
 	}
 
@@ -442,6 +452,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: self.effective_gas_price,
 			is_dry_run: self.is_dry_run.clone(),
 			mock_handler: None,
+			test_env_transient_storage: None,
 		}
 	}
 }
