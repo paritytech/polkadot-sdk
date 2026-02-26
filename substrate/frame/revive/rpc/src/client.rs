@@ -304,8 +304,8 @@ impl Client {
 			block_notifier: automine
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
-			block_subscription_tx: tokio::sync::broadcast::channel(0x400).0,
-			log_subscription_tx: tokio::sync::broadcast::channel(0xFFFFF).0,
+			block_subscription_tx: tokio::sync::broadcast::channel(256).0,
+			log_subscription_tx: tokio::sync::broadcast::channel(1000).0,
 		};
 
 		Ok(client)

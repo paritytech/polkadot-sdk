@@ -29,7 +29,6 @@ use sp_core::{H160, H256, U256, keccak_256};
 use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use subxt_signer::bip39::core::pin::Pin;
 use thiserror::Error;
-use tokio::time::Duration;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 
 pub mod cli;
