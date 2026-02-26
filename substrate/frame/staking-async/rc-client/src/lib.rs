@@ -831,6 +831,8 @@ where
 pub trait AHStakingInterface {
 	/// The validator account id type.
 	type AccountId;
+	/// The balance type.
+	type Balance: BalanceTrait;
 	/// Maximum number of validators that the staking system may have.
 	type MaxValidatorSet: Get<u32>;
 
@@ -864,6 +866,9 @@ pub trait AHStakingInterface {
 	///
 	/// Returns true if the account has called `validate()` and is in the `Validators` storage.
 	fn is_validator(who: &Self::AccountId) -> bool;
+
+	/// Returns the active bonded amount for a stash, or `None` if not bonded.
+	fn active_stake(who: &Self::AccountId) -> Option<Self::Balance>;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -1006,7 +1011,10 @@ pub mod pallet {
 		type RelayChainOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Our communication handle to the local staking pallet.
-		type AHStakingInterface: AHStakingInterface<AccountId = Self::AccountId>;
+		type AHStakingInterface: AHStakingInterface<
+			AccountId = Self::AccountId,
+			Balance = Self::Balance,
+		>;
 
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<
@@ -1058,6 +1066,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSessionKeysLength: Get<u32>;
 
+		/// Minimum active bond required to call `set_keys`. Set to 0 to disable.
+		#[pallet::constant]
+		type MinSetKeysBond: Get<BalanceOf<Self>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -1076,6 +1088,8 @@ pub mod pallet {
 		InvalidKeys,
 		/// Delivery fees exceeded the specified maximum.
 		FeesExceededMax,
+		/// The stash's active bond is below `MinSetKeysBond`.
+		InsufficientBond,
 	}
 
 	#[pallet::event]
@@ -1292,6 +1306,13 @@ pub mod pallet {
 
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
+
+			let min_bond = T::MinSetKeysBond::get();
+			if !min_bond.is_zero() {
+				let active = T::AHStakingInterface::active_stake(&stash)
+					.ok_or(Error::<T>::InsufficientBond)?;
+				ensure!(active >= min_bond, Error::<T>::InsufficientBond);
+			}
 
 			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
 			let _ = T::RelayChainSessionKeys::decode(&mut &keys[..])

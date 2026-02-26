@@ -728,12 +728,25 @@ pub mod pallet {
 			if !matches!(current_phase, Phase::Export(_)) {
 				let next_phase = current_phase.next();
 
-				let weight2 = match next_phase {
-					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-					Phase::SignedValidation(_) =>
-						T::WeightInfo::on_initialize_into_signed_validation(),
-					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-					_ => T::WeightInfo::on_initialize_nothing(),
+				let weight2 = {
+					use sp_std::mem::discriminant;
+					if discriminant(&current_phase) != discriminant(&next_phase) {
+						// Claim the heavy phase-entry weight only when the
+						// discriminant actually changes (e.g. Snapshot -> Signed).
+						// Ticks within the same phase (e.g. Signed(N) -> Signed(N-1))
+						// only write CurrentPhase.
+						// For Snapshot blocks the real cost is already accounted for by weight1
+						// above.
+						match next_phase {
+							Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
+							Phase::SignedValidation(_) =>
+								T::WeightInfo::on_initialize_into_signed_validation(),
+							Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
+							_ => T::WeightInfo::on_initialize_nothing(),
+						}
+					} else {
+						T::WeightInfo::on_initialize_nothing()
+					}
 				};
 
 				Self::phase_transition(next_phase);

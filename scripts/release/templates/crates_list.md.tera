@@ -2,38 +2,8 @@ The following crates were updated to the corresponding versions:
 
 <details>
   <summary>Click to see crates list</summary>
-- sp-trie@42.0.1
-- frame-benchmarking@45.0.3
-- pallet-dap@0.2.0
-- pallet-statement@0.2.0
-- pallet-bags-list@44.0.1
-- pallet-nomination-pools@43.0.2
-- snowbridge-verification-primitives@0.7.1
-- polkadot-node-core-pvf-execute-worker@24.0.1
-- polkadot-node-core-pvf-prepare-worker@24.0.1
-- pallet-staking-async@0.10.1
-- pallet-staking-async-ah-client@0.7.2
-- pallet-staking-async-rc-client@0.7.1
-- pallet-session@45.1.0
-- snowbridge-beacon-primitives@0.18.1
-- snowbridge-pallet-ethereum-client@0.18.2
-- snowbridge-pallet-outbound-queue-v2@0.7.1
-- snowbridge-pallet-ethereum-client-fixtures@0.26.1
-- snowbridge-pallet-inbound-queue-fixtures@0.26.1
-- snowbridge-pallet-inbound-queue-v2-fixtures@0.7.1
-- snowbridge-core@0.18.1
-- snowbridge-outbound-queue-primitives@0.7.1
-- polkadot@0.1.1
-- polkadot-jemalloc-shim@0.1.1
-- frame-omni-bencher@0.17.3
-- xcm-emulator@0.26.0
-- emulated-integration-tests-common@28.0.0
-- polkadot@30.0.2
-- xcm-executor-integration-tests@0.13.1
-- polkadot-omni-node@0.13.2
-- westend-runtime@30.2.0
-- asset-hub-westend-runtime@0.42.0
-- staging-xcm-executor@24.0.1
-- polkadot-sdk@2512.3.3
-
+- pallet-election-provider-multi-block@0.6.1
+- pallet-staking-async-rc-client@0.7.2
+- pallet-staking-async@0.10.2
+- asset-hub-westend-runtime@0.42.1
 </details>

@@ -1458,9 +1458,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/election-provider-multi-block
 name = "pallet-election-provider-multi-block"
-from = "0.5.0"
-to = "0.6.0"
-bump = "major"
+from = "0.6.0"
+to = "0.6.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2414,8 +2414,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking-async/rc-client
 name = "pallet-staking-async-rc-client"
-from = "0.7.0"
-to = "0.7.1"
+from = "0.7.1"
+to = "0.7.2"
 bump = "minor"
 reason = "changed"
 
@@ -2692,9 +2692,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/staking-async
 name = "pallet-staking-async"
-from = "0.10.0"
-to = "0.10.1"
-bump = "patch"
+from = "0.10.1"
+to = "0.10.2"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -3500,9 +3500,9 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend
 name = "asset-hub-westend-runtime"
-from = "0.40.0"
-to = "0.42.0"
-bump = "major"
+from = "0.42.0"
+to = "0.42.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]

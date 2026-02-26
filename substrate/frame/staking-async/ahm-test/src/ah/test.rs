@@ -1082,7 +1082,7 @@ fn era_lifecycle_test() {
 mod session_keys {
 	use super::*;
 	use crate::ah::mock::{
-		Balances, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
+		Balances, LocalQueue, MinSetKeysBond, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
 		SetKeysExecutionCost,
 	};
 	use frame_support::{assert_noop, BoundedVec};
@@ -1455,6 +1455,55 @@ mod session_keys {
 					rc_client::Error::<T>::FeesExceededMax
 				);
 			});
+		});
+	}
+
+	#[test]
+	fn set_keys_insufficient_bond() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let keys = make_session_keys();
+
+			// GIVEN: MinSetKeysBond is set higher than the validator's active bond (100)
+			MinSetKeysBond::set(101);
+
+			// WHEN: Validator tries to set keys
+			// THEN: InsufficientBond error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					None,
+				),
+				rc_client::Error::<T>::InsufficientBond
+			);
+
+			// GIVEN: MinSetKeysBond equals the validator's active bond
+			MinSetKeysBond::set(100);
+
+			// WHEN: Validator sets keys with exact bond
+			// THEN: Succeeds
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys.clone(),
+				None,
+			));
+		});
+	}
+
+	#[test]
+	fn set_keys_min_bond_zero_disables_check() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: MinSetKeysBond is 0 (default in tests) — check is disabled
+			let validator: AccountId = 1;
+			let keys = make_session_keys();
+
+			// WHEN/THEN: set_keys succeeds regardless of bond amount
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				None,
+			));
 		});
 	}
 

@@ -1111,6 +1111,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
+	type Balance = BalanceOf<T>;
 	type MaxValidatorSet = T::MaxValidatorSet;
 
 	/// When we receive a session report from the relay chain, it kicks off the next session.
@@ -1350,6 +1351,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 	fn is_validator(who: &Self::AccountId) -> bool {
 		Validators::<T>::contains_key(who)
+	}
+
+	fn active_stake(who: &Self::AccountId) -> Option<BalanceOf<T>> {
+		Self::ledger(StakingAccount::Stash(who.clone())).ok().map(|l| l.active)
 	}
 }
 
