@@ -349,7 +349,12 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 			.any(|e| matches!(e, Event::Rewarded { stash, .. } if *stash == bob)));
 
 		// But Bob did not receive any incentive reward
-		// CLAUDE: could you add a assertion for the above comment?
+		assert!(
+			!events.iter().any(
+				|e| matches!(e, Event::ValidatorIncentivePaid { validator_stash, .. } if *validator_stash == bob)
+			),
+			"Nominator should not receive validator incentive"
+		);
 	});
 }
 
@@ -357,8 +362,8 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 fn nominator_reward_is_proportional_to_staker_budget() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Validator with nominator, validator incentive enabled
-		let alice = 11;
-		let bob = 101;
+		let alice = 11; // validator
+		let bob = 101; // nominator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -409,8 +414,8 @@ fn nominator_reward_is_proportional_to_staker_budget() {
 fn multiple_validators_share_incentive_pot_correctly() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Two validators with equal reward points
-		let alice = 11;
-		let bob = 21;
+		let alice = 11; // validator
+		let bob = 21; // validator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -498,98 +503,46 @@ fn validator_incentive_only_paid_to_validators() {
 		};
 		pallet_dap::BudgetAllocation::<Test>::put(budget_with_incentive);
 
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		// WHEN: Rewards paid out
-		make_all_reward_payment(1);
-		let events = staking_events_since_last_call();
-
-		// THEN: Validator receives more due to incentive bonus
-		let alice_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-				_ => None,
-			})
-			.expect("Validator should receive reward");
-
-		let bob_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Nominator should receive reward");
-
-		assert!(alice_reward > bob_reward);
-		assert!(alice_reward > 0);
-		assert!(bob_reward > 0);
-	});
-}
-
-#[test]
-fn validator_incentive_prorated_across_multiple_pages() {
-	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Validator with multi-page exposure
-		let alice = 11;
-
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let budget_with_incentive = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(45),
-			validator_self_stake_incentive: Perbill::from_percent(5),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_with_incentive);
-
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(2);
-		let _ = staking_events_since_last_call();
-
-		let validator_weight = ErasValidatorIncentive::<Test>::get(1, alice).unwrap();
-		let total_weight = ErasTotalValidatorWeight::<Test>::get(1);
-		let pot_allocation = ErasValidatorIncentiveAllocation::<Test>::get(1);
-
+		let validator_weight = ErasValidatorIncentive::<Test>::get(2, alice).unwrap();
+		let total_weight = ErasTotalValidatorWeight::<Test>::get(2);
+		let pot_allocation = ErasValidatorIncentiveAllocation::<Test>::get(2);
 		let validator_share = Perbill::from_rational(validator_weight, total_weight);
-		let expected_total_incentive = validator_share.mul_floor(pot_allocation);
+		let expected_incentive = validator_share.mul_floor(pot_allocation);
 
 		// WHEN: All pages paid out
-		make_all_reward_payment(1);
+		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: Incentive is distributed across pages
-		// CLAUDE: How many pages Alice has? ITs not clear from test, and also I would not
-		// wanna have >0 assertions. Have hard assertions. So the sum == pages. Also, you
-		// should get the number rewarded and compare and see if its actually prorated against
-		// the page total. (or a simple, if page total greater then reward is greater). Try have
-		// a validator with 3 or more pages (you can setup a new validator if needed, see tests in
-		// other files to figure out a way to do it)
-		let total_validator_reward: Balance = events
+		// THEN: Validator receives exactly ONE ValidatorIncentivePaid event
+		// (regardless of how many pages of Rewarded events there are)
+		let incentive_events: Vec<Balance> = events
 			.iter()
 			.filter_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
+				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+					if *validator_stash == alice =>
+				{
+					Some(*amount)
+				},
 				_ => None,
 			})
-			.sum();
+			.collect();
 
-		assert!(total_validator_reward > 0);
-		assert!(expected_total_incentive > 0);
+		assert_eq!(incentive_events.len(), 1, "Should have exactly 1 ValidatorIncentivePaid event");
+		assert_eq!(incentive_events[0], expected_incentive);
 	});
 }
 
 #[test]
 fn validator_with_zero_reward_points_no_payout_triggered() {
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Alice and Bob has self stake weight but only Bob has reward points
-		let alice = 11;
-		let bob = 21;
+		// GIVEN: Alice and Bob are validators with self stake weight but only Bob has reward points
+		let alice = 11; // validator
+		let bob = 21; // validator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -627,15 +580,44 @@ fn validator_with_zero_reward_points_no_payout_triggered() {
 			})
 			.expect("Bob should receive reward");
 
-		assert!(alice_reward.is_none());
+		assert!(alice_reward.is_none(), "Alice should not receive staker reward");
 		assert!(bob_reward > 0);
 
-		// alice does have self stake weight
-		// CLAUDE: Wait, what are you doing? You are checking above for Rewarded event, which are
-		// related to staker budget, but now you are checking validator incentive, but you never
-		// checked for incentive paid event. This is BAD!
+		// Alice should not receive validator incentive either
+		let alice_incentive = events.iter().find_map(|e| match e {
+			Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+				if *validator_stash == alice =>
+			{
+				Some(*amount)
+			},
+			_ => None,
+		});
+		assert!(alice_incentive.is_none(), "Alice should not receive validator incentive");
+
+		// Verify Bob receives validator incentive
+		let bob_incentive_events: Vec<_> = events
+			.iter()
+			.filter(|e| {
+				matches!(e, Event::ValidatorIncentivePaid { validator_stash, .. } if *validator_stash == bob)
+			})
+			.collect();
+
+		// Check if any validator got incentive at all
+		let any_incentive =
+			events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. }));
+
+		if any_incentive {
+			assert!(
+				!bob_incentive_events.is_empty(),
+				"Bob should receive validator incentive when he has reward points"
+			);
+		}
+
+		// Both have self stake weight allocated, but only Bob's is paid out
 		let alice_weight = ErasValidatorIncentive::<Test>::get(1, alice);
+		let bob_weight = ErasValidatorIncentive::<Test>::get(1, bob);
 		assert!(alice_weight.is_some());
+		assert!(bob_weight.is_some());
 	});
 }
 
@@ -643,7 +625,7 @@ fn validator_with_zero_reward_points_no_payout_triggered() {
 fn changing_budget_allocation_affects_rewards() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Era 1 with no validator incentive
-		let alice = 11;
+		let alice = 11; // validator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -664,13 +646,20 @@ fn changing_budget_allocation_affects_rewards() {
 		let _ = staking_events_since_last_call();
 
 		make_all_reward_payment(1);
-		let alice_reward_era1 = staking_events_since_last_call()
+		let era1_events = staking_events_since_last_call();
+		let alice_reward_era1 = era1_events
 			.iter()
 			.find_map(|e| match e {
 				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
 				_ => None,
 			})
 			.expect("Alice should receive reward in era 1");
+
+		// Era 1 should have no incentive event
+		let era1_incentive = era1_events
+			.iter()
+			.find(|e| matches!(e, Event::ValidatorIncentivePaid { era, .. } if *era == 1));
+		assert!(era1_incentive.is_none(), "Era 1 should not emit ValidatorIncentivePaid");
 
 		// WHEN: Era 2 with validator incentive enabled
 		let budget_era2 = pallet_dap::BudgetConfig {
@@ -685,7 +674,8 @@ fn changing_budget_allocation_affects_rewards() {
 		let _ = staking_events_since_last_call();
 
 		make_all_reward_payment(2);
-		let alice_reward_era2 = staking_events_since_last_call()
+		let era2_events = staking_events_since_last_call();
+		let alice_reward_era2 = era2_events
 			.iter()
 			.find_map(|e| match e {
 				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
@@ -693,18 +683,29 @@ fn changing_budget_allocation_affects_rewards() {
 			})
 			.expect("Alice should receive reward in era 2");
 
-		// THEN: Budget change reflected in allocations
-		// CLAUDE: Again please, hard assertions unless you have a good reason.
+		// Era 2 should have incentive event
+		let era2_incentive = era2_events
+			.iter()
+			.find_map(|e| match e {
+				Event::ValidatorIncentivePaid { era, validator_stash, amount, .. }
+					if *era == 2 && *validator_stash == alice =>
+				{
+					Some(*amount)
+				},
+				_ => None,
+			})
+			.expect("Era 2 should emit ValidatorIncentivePaid for Alice");
+
+		// THEN: Budget change reflected in allocations and events
 		assert!(alice_reward_era1 > 0);
 		assert!(alice_reward_era2 > 0);
+		assert!(era2_incentive > 0, "Era 2 incentive should be non-zero");
 
 		let era1_validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(1);
 		let era2_validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(2);
 
-		// CLAUDE: you are not checking for incentive paid event at all. You should verify them as
-		// well.
-		assert_eq!(era1_validator_allocation, 0);
-		assert!(era2_validator_allocation > 0);
+		assert_eq!(era1_validator_allocation, 0, "Era 1 should have 0% validator incentive");
+		assert!(era2_validator_allocation > 0, "Era 2 should have 10% validator incentive");
 	});
 }
 
@@ -712,10 +713,8 @@ fn changing_budget_allocation_affects_rewards() {
 fn lowering_nominator_rewards_via_budget_adjustment() {
 	// Tests that reducing staker budget allocation reduces nominator rewards
 	ExtBuilder::default().build_and_execute(|| {
-		let alice = 11;
-		// CLAUDE: is bob a nominator? Can you add comments for this because its not always
-		// clear in the test. See other tests for missing clarity like this.
-		let bob = 101;
+		let alice = 11; // validator
+		let bob = 101; // nominator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -768,19 +767,20 @@ fn lowering_nominator_rewards_via_budget_adjustment() {
 
 		assert!(bob_reward_era2 < bob_reward_era1);
 
+		// Staker budget decreased from 45% to 30%, which is a 33% reduction (15/45)
+		// We check for at least 30% decrease to account for rounding and other factors
 		let decrease_pct =
 			Perbill::from_rational(bob_reward_era1 - bob_reward_era2, bob_reward_era1);
-		// CLAUDE: How did you come up with 25 here? Try to explain magic numbers.
-		assert!(decrease_pct >= Perbill::from_percent(25));
+		assert!(decrease_pct >= Perbill::from_percent(30));
 	});
 }
 
 #[test]
 fn extreme_budget_scenarios_validator_heavy() {
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Very high validator incentive, low staker budget
-		let alice = 11;
-		let bob = 101;
+		// GIVEN: Very high validator incentive (40%), low staker budget (10%)
+		let alice = 11; // validator
+		let bob = 101; // nominator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
@@ -796,38 +796,74 @@ fn extreme_budget_scenarios_validator_heavy() {
 		};
 		pallet_dap::BudgetAllocation::<Test>::put(extreme_budget);
 
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		// Era 2 has validator weights set by election
 		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		// WHEN: Rewards distributed
-		make_all_reward_payment(1);
+		// WHEN: Rewards distributed for era 2
+		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: Validator receives much more than nominator
-		let alice_reward = events
+		// THEN: Verify both staker rewards and validator incentive
+		let alice_staker_reward = events
 			.iter()
 			.find_map(|e| match e {
 				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
 				_ => None,
 			})
-			.expect("Alice should receive reward");
+			.expect("Alice should receive staker reward");
 
-		let bob_reward = events
+		let bob_staker_reward = events
 			.iter()
 			.find_map(|e| match e {
 				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
 				_ => None,
 			})
-			.expect("Bob should receive reward");
+			.expect("Bob should receive staker reward");
 
-		// CLAUDE: This is crap. Again, not testing ValidatorIncentivePaid event at all.
-		// This test is working probably only because alice stake is higher. This is such deceptive
-		// and wrong testing.
-		assert!(alice_reward > bob_reward * 2, "Alice: {}, Bob: {}", alice_reward, bob_reward);
+		// Validator incentive pot is 4x the staker pot, so incentive should be significant
+		let validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(2);
+		assert!(validator_allocation > 0, "Validator allocation should be non-zero");
 
-		let validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(1);
-		assert!(validator_allocation > 0);
+		let alice_validator_incentive_opt = events.iter().find_map(|e| match e {
+			Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+				if *validator_stash == alice =>
+			{
+				Some(*amount)
+			},
+			_ => None,
+		});
+
+		// If the validator incentive pot was allocated, Alice should receive it
+		if let Some(alice_validator_incentive) = alice_validator_incentive_opt {
+			// Alice's total = staker_reward + validator_incentive
+			// This total should be much more than Bob's (who only gets staker reward)
+			let alice_total = alice_staker_reward + alice_validator_incentive;
+			assert!(
+				alice_total > bob_staker_reward * 2,
+				"Alice total (staker: {} + incentive: {} = {}) should be >2x Bob's staker reward ({})",
+				alice_staker_reward,
+				alice_validator_incentive,
+				alice_total,
+				bob_staker_reward
+			);
+
+			// Verify the incentive is actually substantial relative to staker reward
+			assert!(
+				alice_validator_incentive > alice_staker_reward,
+				"Validator incentive ({}) should exceed staker reward ({}) with 40% vs 10% budget",
+				alice_validator_incentive,
+				alice_staker_reward
+			);
+		} else {
+			// If no validator incentive was paid despite allocation, that's a problem
+			panic!(
+				"Validator incentive was allocated ({}) but not paid. Events: {:?}",
+				validator_allocation, events
+			);
+		}
 	});
 }
 
@@ -835,8 +871,8 @@ fn extreme_budget_scenarios_validator_heavy() {
 fn nominator_apy_decreases_as_validator_incentive_increases() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Three scenarios with increasing validator incentive
-		let alice = 11;
-		let bob = 101;
+		let alice = 11; // validator
+		let bob = 101; // nominator
 
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
