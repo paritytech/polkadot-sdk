@@ -10,8 +10,8 @@ use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
-	statement_allowance_key, Channel, Statement, StatementAllowance, SubmitResult, Topic,
-	TopicFilter,
+	statement_allowance_key, Channel, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	cell::Cell,
@@ -650,7 +650,7 @@ impl Participant {
 		for idx in &pending {
 			let subscription = self
 				.rpc_client
-				.subscribe::<Bytes>(
+				.subscribe::<StatementEvent>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
 						vec![topic_public_key(), topic_idx(*idx)].try_into().expect("Two topics")
@@ -664,13 +664,28 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {
-				let statement_bytes =
-					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-						.await
-						.map_err(|_| anyhow!("Timeout waiting for session key"))?
-						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let statement = Statement::decode(&mut &statement_bytes[..])
+				let mut batch;
+				loop {
+					let item =
+						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+							.await
+							.map_err(|_| anyhow!("Timeout waiting for session key"))?
+							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+							.map_err(|e| anyhow!("Subscription error: {}", e))?;
+					let StatementEvent::NewStatements { statements, .. } = item;
+					if statements.is_empty() {
+						continue; // Ignore empty batches
+					} else {
+						batch = statements;
+						break;
+					}
+				}
+
+				if batch.len() != 1 {
+					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
+				}
+
+				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
 				let session_key = sr25519::Public::from_raw(
@@ -722,7 +737,7 @@ impl Participant {
 		for &(sender_idx, sender_session_key) in &pending {
 			let subscription = self
 				.rpc_client
-				.subscribe::<Bytes>(
+				.subscribe::<StatementEvent>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
 						vec![topic_message(), topic_pair(&sender_session_key, &own_session_key)]
@@ -738,13 +753,27 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(sender_idx, mut subscription)| async move {
-				let statement_bytes =
-					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-						.await
-						.map_err(|_| anyhow!("Timeout waiting for message"))?
-						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let statement = Statement::decode(&mut &statement_bytes[..])
+				let mut batch;
+				loop {
+					let item =
+						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+							.await
+							.map_err(|_| anyhow!("Timeout waiting for message"))?
+							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+							.map_err(|e| anyhow!("Subscription error: {}", e))?;
+					batch = match item {
+						StatementEvent::NewStatements { statements: batch, .. } => batch,
+					};
+					if batch.is_empty() {
+						continue; // Ignore empty batches
+					} else {
+						break;
+					}
+				}
+				if batch.len() != 1 {
+					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
+				}
+				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
 				let req = StatementMessage::decode(&mut &data[..])
@@ -977,7 +1006,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						let topic: Topic = blake2_256(topic_str.as_bytes()).into();
 
 						let subscription = rpc_client
-							.subscribe::<Bytes>(
+							.subscribe::<StatementEvent>(
 								"statement_subscribeStatement",
 								rpc_params![TopicFilter::MatchAll(
 									vec![topic].try_into().expect("Single topic")
@@ -1059,7 +1088,9 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						.into_iter()
 						.map(|(msg_idx, topic_str, mut subscription)| async move {
 							match timeout(total_timeout, subscription.next()).await {
-								Ok(Some(Ok(_statement_bytes))) => Ok((msg_idx, topic_str)),
+								Ok(Some(Ok(StatementEvent::NewStatements { .. }))) => {
+									Ok((msg_idx, topic_str))
+								},
 								Ok(Some(Err(e))) => Err(anyhow!(
 									"Subscription error for message {}: {}",
 									msg_idx,
