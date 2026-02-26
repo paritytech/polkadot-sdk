@@ -369,7 +369,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/* Configuration Operations */
+		// Configuration Operations
 
 		/// Set the account that will be used to payout users in the DOT purchase process.
 		///

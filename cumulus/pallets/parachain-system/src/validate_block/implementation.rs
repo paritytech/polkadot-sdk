@@ -20,7 +20,9 @@ use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
+	relay_chain::{
+		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+	},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
@@ -159,6 +161,13 @@ where
 			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
 			array_bytes::bytes2hex("0x", p.as_ref()),
 			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
+		);
+		let encoded_header_size = b.header().encoded_size();
+		assert!(
+			encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
+			"Header size {} exceeds MAX_HEAD_DATA_SIZE {}",
+			encoded_header_size,
+			MAX_HEAD_DATA_SIZE
 		);
 		b.header().hash()
 	});

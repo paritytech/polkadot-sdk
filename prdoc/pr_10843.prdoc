@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expand multisig pallet tests
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Expand the multisig pallet tests to cover more cases. In particular, those concerning out-of-order signatories,
+      and sender in signatories. Also, reword extrinsic comments.
+
+crates:
+  - name: pallet-multisig
+    bump: patch

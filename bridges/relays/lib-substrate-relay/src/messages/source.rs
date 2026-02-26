@@ -289,7 +289,7 @@ where
 					P::TargetChain::NAME,
 					in_msgs_details.len(),
 					msgs_to_refine_batch.len(),
-				)))
+				)));
 			}
 			for ((_, out_msg_details), in_msg_details) in
 				msgs_to_refine_batch.iter_mut().zip(in_msgs_details)
@@ -400,7 +400,7 @@ where
 			if let Some(batch_tx) =
 				BatchProofTransaction::new(target_to_source_headers_relay.clone(), id.0).await?
 			{
-				return Ok(Some(batch_tx))
+				return Ok(Some(batch_tx));
 			}
 
 			target_to_source_headers_relay.require_more_headers(id.0).await;
@@ -523,12 +523,12 @@ fn validate_out_msgs_details<C: Chain>(
 	if out_msgs_details.len() > nonces.clone().count() {
 		return Err(SubstrateError::Custom(
 			"More messages than requested returned by the message_details call.".into(),
-		))
+		));
 	}
 
 	// Check if last nonce is missing. The loop below is not checking this.
 	if out_msgs_details.is_empty() && !nonces.is_empty() {
-		return make_missing_nonce_error(*nonces.end())
+		return make_missing_nonce_error(*nonces.end());
 	}
 
 	let mut nonces_iter = nonces.clone().rev().peekable();
@@ -538,7 +538,7 @@ fn validate_out_msgs_details<C: Chain>(
 		nonces_iter.next();
 		if out_msg_details.nonce != nonce {
 			// Some nonces are missing from the middle/tail of the range. This is critical error.
-			return make_missing_nonce_error(nonce)
+			return make_missing_nonce_error(nonce);
 		}
 	}
 
@@ -575,7 +575,7 @@ fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain, LaneId
 					Source::FROM_CHAIN_MESSAGE_DETAILS_METHOD,
 					Target::NAME,
 					Target::max_extrinsic_size(),
-				)))
+				)));
 			}
 
 			if let Some(msg) = current_msgs_batch.pop() {

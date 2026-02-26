@@ -129,7 +129,7 @@ where
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s.to_lowercase() == "max" {
-			return Ok(ExplicitOrMaximal::Maximal)
+			return Ok(ExplicitOrMaximal::Maximal);
 		}
 
 		V::from_str(s)
