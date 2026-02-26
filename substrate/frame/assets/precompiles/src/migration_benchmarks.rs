@@ -73,8 +73,7 @@ mod benchmarks {
 		#[block]
 		{
 			MigrateForeignAssetPrecompileMappings::<T, T::AssetsInstance, ()>::step(
-				None,
-				&mut meter,
+				None, &mut meter,
 			)
 			.unwrap();
 		}
