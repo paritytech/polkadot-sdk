@@ -249,7 +249,7 @@ impl Rational128 {
 		let self_scaled = self.checked_to_den(lcm)?;
 		let other_scaled = other.checked_to_den(lcm)?;
 
-		let n = self_scaled.0.checked_sub(other_scaled.0).ok_or(ArithmeticError::Overflow)?; // Underflow is also an Overflow in this context
+		let n = self_scaled.0.checked_sub(other_scaled.0).ok_or(ArithmeticError::Overflow)?;
 		Ok(Self(n, lcm))
 	}
 }
@@ -446,10 +446,7 @@ mod tests {
 		// errors
 		// Note: With checked_lcm and checked_to_den, "failed to scale" should now manifest as
 		// Overflow or DivisionByZero
-		assert_eq!(
-			r(1, MAX128).checked_add(r(1, MAX128 - 1)),
-			Err(ArithmeticError::Overflow), // Or DivisionByZero if intermediate scaling implies it
-		);
+		assert_eq!(r(1, MAX128).checked_add(r(1, MAX128 - 1)), Err(ArithmeticError::Overflow),);
 		assert_eq!(r(7, MAX128).checked_add(r(MAX128, MAX128)), Err(ArithmeticError::Overflow),);
 		assert_eq!(
 			r(MAX128, MAX128).checked_add(r(MAX128, MAX128)),
@@ -630,10 +627,7 @@ mod tests {
 		assert_eq!(r(1, 0).checked_lcm(&r(1, 0)), Err(ArithmeticError::DivisionByZero));
 		// Overflow case for LCM: (self.1 * other.1) / g overflows u128
 		// MAX128 * MAX128 / 1 would overflow.
-		assert_eq!(
-			r(1, MAX128).checked_lcm(&r(1, MAX128 - 1)), // gcd is 1
-			Err(ArithmeticError::Overflow)
-		);
+		assert_eq!(r(1, MAX128).checked_lcm(&r(1, MAX128 - 1)), Err(ArithmeticError::Overflow));
 		// A slightly less extreme case that might overflow:
 		// (MAX128/2 + 1) and (MAX128/2 + 2) might have a small gcd, leading to large product
 		let d1 = MAX128 / 2 + 1;
