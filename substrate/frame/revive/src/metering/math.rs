@@ -28,31 +28,14 @@ use revm::interpreter::gas::CALL_STIPEND;
 const STIPEND_LOG_TOPICS: u32 = 4;
 /// Maximum LOG data size (in bytes) a stipend frame is expected to emit.
 const STIPEND_LOG_DATA_LEN: u32 = 64;
-/// Fraction of CALL_STIPEND used as overhead for surrounding opcodes
-/// (function prologue, stack ops, STOP). A divisor of 5 is the tightest
-/// value that passes tests; we use 4 for safety margin against benchmark
-/// fluctuations.
-const STIPEND_OVERHEAD_DIVISOR: u64 = 4;
 
 fn determine_call_stipend<T: Config>() -> Weight {
 	let gas_weight = <EVMGas as Token<T>>::weight(&EVMGas(CALL_STIPEND));
-
-	// The Ethereum 2300 gas stipend allows the called contract to emit a LOG event
-	// with minimal surrounding opcodes. DepositEvent weight includes a per-byte
-	// surcharge (EXTRA_EVENT_CHARGE_PER_BYTE) that can exceed 2300 gas worth of
-	// evm_opcode weight. We take the max of the pure gas-based stipend and an
-	// event-based stipend that covers one DepositEvent plus opcode overhead.
-	let overhead = <EVMGas as Token<T>>::weight(&EVMGas(CALL_STIPEND / STIPEND_OVERHEAD_DIVISOR));
 	let event_weight = <RuntimeCosts as Token<T>>::weight(&RuntimeCosts::DepositEvent {
 		num_topic: STIPEND_LOG_TOPICS,
 		len: STIPEND_LOG_DATA_LEN,
 	});
-	let event_based = event_weight.saturating_add(overhead);
-
-	Weight::from_parts(
-		gas_weight.ref_time().max(event_based.ref_time()),
-		gas_weight.proof_size().max(event_based.proof_size()),
-	)
+	gas_weight.saturating_add(event_weight)
 }
 
 pub mod substrate_execution {
