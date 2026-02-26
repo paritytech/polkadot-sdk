@@ -1531,5 +1531,4 @@ mod tests {
 		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
 		assert!(!provider.is_before_effective_earliest_block(&just_over));
 	}
-
 }
