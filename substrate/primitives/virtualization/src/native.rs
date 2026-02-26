@@ -20,7 +20,7 @@ use crate::{
 	LOG_TARGET,
 };
 use polkavm::{
-	CallError, Caller, Config, Engine, GasMeteringKind, Instance, Linker, Module, ModuleConfig,
+	Config, Engine, GasMeteringKind, InterruptKind, Module, ModuleConfig, ProgramCounter,
 	RawInstance, Reg,
 };
 use std::{
@@ -28,20 +28,6 @@ use std::{
 	rc::{Rc, Weak},
 	sync::OnceLock,
 };
-
-/// User error type returned from `on_ecall` to signal that execution should stop.
-///
-/// This is used as the `UserError` type parameter for [`Instance`] and [`Linker`].
-/// When the syscall handler sets `exit` to true, `on_ecall` returns this error which
-/// propagates as `CallError::User(EcallError)`.
-#[derive(Debug)]
-struct EcallError;
-
-impl core::fmt::Display for EcallError {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		write!(f, "ecall requested exit")
-	}
-}
 
 /// This is the single PolkaVM engine we use for everything.
 ///
@@ -59,12 +45,12 @@ fn engine() -> &'static Engine {
 
 /// Native implementation of [`VirtT`].
 pub struct Virt {
-	/// The PolkaVM instance we are managing.
+	/// The PolkaVM raw instance we are managing.
 	///
 	/// Boxed so that its heap address is stable across moves of `Virt`. This allows
 	/// [`Memory`] to hold a raw pointer to the inner [`RawInstance`] that remains valid
 	/// for the lifetime of this struct.
-	instance: Box<Instance<Self, EcallError>>,
+	instance: Box<RawInstance>,
 	/// The compiled module, kept around so we can resolve import indices to symbols.
 	module: Module,
 	/// Shared memory handle handed out via [`VirtT::memory`].
@@ -72,39 +58,15 @@ pub struct Virt {
 	/// Users hold [`Weak`] references; once [`Virt`] is dropped the [`Rc`] is the last
 	/// owner and all [`Weak`] references become invalid.
 	memory: Rc<Memory>,
-	/// The fields which are only set while being within [`Self::execute`].
-	while_exec: Option<WhileExec>,
-}
-
-/// Those are fields which are only set while [`Virt::execute`] is running.
-///
-/// Those types have their type parameter deleted because `on_ecall` can't be generic as a free
-/// standing function without requiring `T` to be `'static`. Since we do not actually need
-/// to access `T` in `on_ecall` we opt for deleting the type parameter instead.
-struct WhileExec {
-	/// The handler function that is called for every host function made by the program.
-	///
-	/// Transmuted from `SyscallHandler<T>` passed to [`Virt::execute`].
-	syscall_handler: ErasedSyscallHandler,
-	/// A pointer to the state that is shared between the syscall handler and us.
-	///
-	/// Represents `&mut SharedState<T>` passed to [`Virt::execute`]. We casted it into
-	/// a raw pointer.
-	state: usize,
 }
 
 /// The native [`MemoryT`] implementation.
 ///
 /// Provides access to the guest memory of a [`RawInstance`] owned by [`Virt`].
 ///
-/// This type exists because memory access is needed both from outside execution (through
-/// the [`Instance`] in [`Virt`]) and from inside `on_ecall` callbacks (through the
-/// [`Caller`]'s `&mut RawInstance`). Since the [`Instance`] is heap-allocated ([`Box`]),
-/// the raw pointer remains stable across moves of [`Virt`].
-///
 /// # Safety
 ///
-/// The inner `*mut RawInstance` is derived from `Box<Instance<..>>` which is heap-allocated
+/// The inner `*mut RawInstance` is derived from `Box<RawInstance>` which is heap-allocated
 /// and never moves. The pointer is valid for the lifetime of [`Virt`] which owns both the
 /// [`Box`] and the [`Rc<Memory>`]. Users only hold [`Weak`] references that become invalid
 /// once [`Virt`] is dropped.
@@ -165,23 +127,16 @@ impl VirtT for Virt {
 			InstantiateError::InvalidImage
 		})?;
 
-		let mut linker = Linker::<Self, EcallError>::new();
-		linker.define_fallback(on_ecall);
-		let instance = linker.instantiate_pre(&module).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to link program: {err}");
-			InstantiateError::InvalidImage
-		})?;
-
-		let mut instance = Box::new(instance.instantiate().map_err(|err| {
+		let mut instance = Box::new(module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
 		})?);
-		// SAFETY: `instance` is `Box`-allocated so `&mut **instance` (the `RawInstance`
-		// obtained via `Deref`) has a stable heap address. The pointer remains valid for
-		// the lifetime of `Virt` which owns both the `Box` and the `Rc<Memory>`.
-		let ptr = &mut **instance as *mut RawInstance;
+		// SAFETY: `instance` is `Box`-allocated so `&mut *instance` (the `RawInstance`)
+		// has a stable heap address. The pointer remains valid for the lifetime of `Virt`
+		// which owns both the `Box` and the `Rc<Memory>`.
+		let ptr = &mut *instance as *mut RawInstance;
 		let memory = Rc::new(Memory(ptr));
-		let virt = Self { while_exec: None, memory, instance, module };
+		let virt = Self { memory, instance, module };
 		Ok(virt)
 	}
 
@@ -221,41 +176,18 @@ impl MemoryT for Weak<Memory> {
 }
 
 impl Virt {
-	/// Return a mutable reference to the state shared with the syscall handler.
-	///
-	/// # SAFETY
-	///
-	/// The caller must make sure that no other reference to [`Self::state`] exists
-	/// while holding the reference returned from this function.
-	///
-	/// # Traps
-	///
-	/// Traps if being called outside of `on_ecall`.
-	unsafe fn state(&mut self) -> &mut SharedState<()> {
-		// # SAFETY
-		//
-		// ## Life Times
-		//
-		// The reference is created from a raw pointer which was in turn created from a
-		// mutable reference passed into [`Self::`execute`]. This makes sure that no other
-		// reference exists while inside `execute`. The pointer is stored within
-		// [`Self::while_exec`] which is only set while being within `execute`.
-		//
-		// ## Change of generic parameter
-		//
-		// We transmute `&mut SharedState<T>` to `&mut SharedState<()>` here. This is safe because
-		// `SharedState` is using #[repr(C)] alignment where the change of the last field will
-		// not impact the alignment of the rest of the fields. Additionally, by choosing a ZST
-		// for `T` we prevent any code that accesses this data from being generated. Hence
-		// no assumptions over `T` will be made.
-		&mut *(self
-			.while_exec
-			.as_mut()
-			.expect(
-				"Is set while executing. This function is only called from on_ecall;
-				on_ecall is only called while executing; qed",
-			)
-			.state as *mut _)
+	fn find_export(&self, function: &str) -> Result<ProgramCounter, ExecError> {
+		self.module
+			.exports()
+			.find(|export| export.symbol().as_bytes() == function.as_bytes())
+			.map(|export| export.program_counter())
+			.ok_or_else(|| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Export not found: {function}"
+				);
+				ExecError::InvalidImage
+			})
 	}
 
 	fn internal_execute<T>(
@@ -272,92 +204,79 @@ impl Virt {
 			return Ok(());
 		}
 
-		self.while_exec = Some(WhileExec {
-			syscall_handler: syscall_handler.into(),
-			state: state as *mut _ as usize,
-		});
-		// SAFETY: We need to pass `&mut self` (as user_data) to `call_typed` while also
-		// calling it on `self.instance`. Rust's borrow checker cannot split borrows through
-		// `self`, so we use a raw pointer. This is safe because `call_typed` only accesses
-		// `user_data` from within `on_ecall` callbacks, which in turn only access
-		// `self.while_exec`, `self.memory`, and `self.module` — never `self.instance`.
-		let virt_ptr = self as *mut Self;
-		let outcome =
-			self.instance
-				.call_typed(unsafe { &mut *virt_ptr }, function, ())
-				.map_err(|err| match err {
-					CallError::Trap => ExecError::Trap,
-					CallError::NotEnoughGas => ExecError::OutOfGas,
-					CallError::Error(err) => {
-						log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
-						ExecError::InvalidImage
-					},
-					CallError::User(_) => ExecError::Trap,
-					CallError::Step => ExecError::Trap,
-				});
+		let pc = self.find_export(function)?;
+		self.instance.prepare_call_typed(pc, ());
 
-		self.while_exec = None;
+		let erased_handler: ErasedSyscallHandler = syscall_handler.into();
+		// SAFETY: We transmute `&mut SharedState<T>` to `&mut SharedState<()>` below.
+		// This is safe because `SharedState` uses `#[repr(C)]` where changing the last
+		// field to a ZST doesn't affect alignment of the preceding fields. By choosing
+		// `()` we prevent any code from accessing the user data through this pointer.
+		let state_ptr = state as *mut SharedState<T> as usize;
+
+		let outcome = loop {
+			let interrupt = self.instance.run().map_err(|err| {
+				log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
+				ExecError::InvalidImage
+			})?;
+
+			match interrupt {
+				InterruptKind::Finished => break Ok(()),
+				InterruptKind::Trap => break Err(ExecError::Trap),
+				InterruptKind::NotEnoughGas => break Err(ExecError::OutOfGas),
+				InterruptKind::Step => break Err(ExecError::Trap),
+				InterruptKind::Segfault(_) => break Err(ExecError::Trap),
+				InterruptKind::Ecalli(hostcall_index) => {
+					// The `hostcall_index` is an index into the module's import table,
+					// not the actual syscall number. We need to resolve it by looking up
+					// the symbol bytes.
+					let syscall_symbol =
+						self.module.imports().get(hostcall_index).expect(
+							"hostcall index is valid because it was generated by polkavm; qed",
+						);
+					let syscall_id = u32::from_le_bytes(
+						syscall_symbol
+							.as_bytes()
+							.try_into()
+							.expect("syscall symbols are always 4 bytes; qed"),
+					);
+
+					let a0 = self.instance.reg(Reg::A0) as u32;
+					let a1 = self.instance.reg(Reg::A1) as u32;
+					let a2 = self.instance.reg(Reg::A2) as u32;
+					let a3 = self.instance.reg(Reg::A3) as u32;
+					let a4 = self.instance.reg(Reg::A4) as u32;
+					let a5 = self.instance.reg(Reg::A5) as u32;
+
+					// Make gas_left available to the syscall handler.
+					let gas_left_before = self.instance.gas();
+					// SAFETY: `state_ptr` points to a valid `SharedState<T>`, and we only
+					// access the non-generic fields (gas_left, exit) through the `()`
+					// version. No other reference to the state exists at this point.
+					let state_ref = unsafe { &mut *(state_ptr as *mut SharedState<()>) };
+					state_ref.gas_left = gas_left_before;
+
+					// Delegate to the syscall handler.
+					let result = (erased_handler.0)(state_ptr, syscall_id, a0, a1, a2, a3, a4, a5);
+
+					// Re-read state after handler may have modified it.
+					let state_ref = unsafe { &mut *(state_ptr as *mut SharedState<()>) };
+
+					// Syscall handler might have reduced the gas left value.
+					let consumed = gas_left_before.saturating_sub(state_ref.gas_left);
+					self.instance.set_gas(self.instance.gas().saturating_sub(consumed));
+
+					if state_ref.exit {
+						break Err(ExecError::Trap);
+					}
+
+					self.instance.set_reg(Reg::A0, (result as u32).into());
+					self.instance.set_reg(Reg::A1, ((result >> 32) as u32).into());
+				},
+			}
+		};
+
 		state.gas_left = self.instance.gas();
-
 		outcome
-	}
-}
-
-fn on_ecall(caller: Caller<'_, Virt>, hostcall_index: u32) -> Result<(), EcallError> {
-	let virt = caller.user_data;
-	let instance = caller.instance;
-
-	// The `hostcall_index` is an index into the module's import table, not the actual
-	// syscall number. We need to resolve it by looking up the symbol bytes.
-	let syscall_symbol = virt
-		.module
-		.imports()
-		.get(hostcall_index)
-		.expect("hostcall index is valid because it was generated by polkavm; qed");
-	let syscall_id = u32::from_le_bytes(
-		syscall_symbol
-			.as_bytes()
-			.try_into()
-			.expect("syscall symbols are always 4 bytes; qed"),
-	);
-
-	let a0 = instance.reg(Reg::A0) as u32;
-	let a1 = instance.reg(Reg::A1) as u32;
-	let a2 = instance.reg(Reg::A2) as u32;
-	let a3 = instance.reg(Reg::A3) as u32;
-	let a4 = instance.reg(Reg::A4) as u32;
-	let a5 = instance.reg(Reg::A5) as u32;
-
-	// make gas_left available to the syscall handler
-	let gas_left_before = instance.gas();
-	// SAFETY: no other reference is created from `state` while borrowing via
-	// `state()`.
-	unsafe {
-		virt.state().gas_left = gas_left_before;
-	}
-
-	let while_exec = virt
-		.while_exec
-		.as_ref()
-		.expect("Is set while executing. `on_ecall` is only called while executing; qed");
-
-	// delegate to our syscall handler
-	let result =
-		(while_exec.syscall_handler.0)(while_exec.state, syscall_id, a0, a1, a2, a3, a4, a5);
-
-	// SAFETY: no other reference is created from `state` while borrowing via
-	// `state()`.
-	let state = unsafe { virt.state() };
-
-	// syscall handler might have reduced the gas left value
-	let consumed = gas_left_before.saturating_sub(state.gas_left);
-	instance.set_gas(instance.gas().saturating_sub(consumed));
-
-	if state.exit {
-		Err(EcallError)
-	} else {
-		instance.set_reg(Reg::A0, (result as u32).into());
-		instance.set_reg(Reg::A1, ((result >> 32) as u32).into());
-		Ok(())
 	}
 }
