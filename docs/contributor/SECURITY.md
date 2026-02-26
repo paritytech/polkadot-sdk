@@ -8,6 +8,7 @@ provide timely information, and deliver vulnerability fixes and mitigations
 required to address security issues.
 
 ## Sourcing Security Information
+
 The [Polkadot Security Hub](https://security.parity.io/) is a resource for all
 things security in the Polkadot ecosystem. You can discover [Security
 Vulnerabilities Disclosures](https://security.parity.io/disclosures), learn
@@ -51,17 +52,3 @@ website.
 A detailed description of scope, eligibility, rewards, legal information and
 terms & conditions for contributors can be found on
 [Parity's website](https://parity.io/bug-bounty).
-
-### Polkadot <> Kusama Bridges Bug Bounty Program
-
-Polkadot Bridges are a collection of components (Substrate pallets, crypto
-libraries, consensus algorithms) connecting different blockchain systems, as
-well as relayers to provide cross-chain communication capabilities. However,
-their significance and high transaction volume makes them prime targets for
-malicious attacks. Participate in this Bug Bounty Program sponsored by
-Polkadot Treasury to help protect the vital connection between Polkadot and
-other blockchains.
-
-A detailed description of scope, eligibility, rewards, legal information and
-terms & conditions for contributors can be found on
-[Polkadot's website](https://polkadot.com/bridges-bug-bounty).
