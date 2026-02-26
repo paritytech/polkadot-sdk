@@ -266,6 +266,8 @@ where
 	let final_result_big =
 		term2_big.checked_add(&correction_big).ok_or(ArithmeticError::Overflow)?;
 
+	// unwrap_or(u64::MAX) correctly models checked_saturating_reciprocal_mul behavior:
+	// when the result exceeds u64::MAX, the actual function saturates to the max value.
 	Ok(final_result_big.to_u64().unwrap_or(u64::MAX))
 }
 
@@ -346,11 +348,12 @@ where
 	}
 
 	let q_big = BigUint::from(q_inner.into());
+	let q_squared_big = q_big.checked_mul(&q_big).ok_or(ArithmeticError::Overflow)?;
 	let p_inner_big = BigUint::from(p_inner.into());
 	let p_inner_squared_big =
 		p_inner_big.checked_mul(&p_inner_big).ok_or(ArithmeticError::Overflow)?;
 
-	oracle_checked_from_rational_with_rounding::<P>(p_inner_squared_big, q_big, Rounding::Down)
+	oracle_checked_from_rational_with_rounding::<P>(p_inner_squared_big, q_squared_big, Rounding::Down)
 }
 
 fn main() {

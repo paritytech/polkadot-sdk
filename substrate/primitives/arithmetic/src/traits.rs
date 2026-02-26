@@ -821,7 +821,6 @@ mod ensure {
 			d: D,
 		) -> Result<Self, ArithmeticError> {
 			<Self as FixedPointNumber>::checked_from_rational(n, d)
-				.ok_or_else(|| error::division(&n, &d))
 		}
 
 		/// Ensure multiplication for integer type `N`. Equal to `self * n`.
@@ -848,7 +847,7 @@ mod ensure {
 		/// assert_eq!(underflow(), Err(ArithmeticError::Underflow));
 		/// ```
 		fn ensure_mul_int<N: FixedPointOperand>(self, n: N) -> Result<N, ArithmeticError> {
-			self.checked_mul_int(n).ok_or_else(|| error::multiplication(&self, &n))
+			self.checked_mul_int(n)
 		}
 
 		/// Ensure division for integer type `N`. Equal to `self / d`.
@@ -875,7 +874,7 @@ mod ensure {
 		/// assert_eq!(overflow(), Err(ArithmeticError::Overflow));
 		/// ```
 		fn ensure_div_int<D: FixedPointOperand>(self, d: D) -> Result<D, ArithmeticError> {
-			self.checked_div_int(d).ok_or_else(|| error::division(&self, &d))
+			self.checked_div_int(d)
 		}
 	}
 

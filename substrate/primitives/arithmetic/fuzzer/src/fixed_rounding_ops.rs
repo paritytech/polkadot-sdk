@@ -239,8 +239,10 @@ fn run_test<F: FixedPointNumber + core::fmt::Display>(
 				if let Some(val) = res {
 					let default_res = fp1.checked_mul(&fp2);
 					if let Some(default_val) = default_res {
+						let val_inner = val.into_inner();
+						let default_inner = default_val.into_inner();
 						let inner_diff =
-							val.into_inner().saturating_sub(default_val.into_inner()).abs_ext();
+							val_inner.saturating_sub(default_inner).abs_ext();
 						assert!(
 							inner_diff <= F::Inner::one(),
 							"Mul rounding diff > 1 epsilon. fp1={}, fp2={}, rounding={:?}, default_res={:?}, specific_res={:?}",
@@ -249,10 +251,20 @@ fn run_test<F: FixedPointNumber + core::fmt::Display>(
 							rounding_mode,
 							default_val,
 							val);
+						// Verify rounding direction for absolute modes.
+						match rounding_mode {
+							High | NearestPrefHigh =>
+								assert!(val_inner >= default_inner,
+									"Mul High rounding should be >= default. fp1={}, fp2={}, val={:?}, default={:?}",
+									fp1, fp2, val, default_val),
+							Low | NearestPrefLow =>
+								assert!(val_inner <= default_inner,
+									"Mul Low rounding should be <= default. fp1={}, fp2={}, val={:?}, default={:?}",
+									fp1, fp2, val, default_val),
+							_ => {},
+						}
 					}
 				}
-
-				// More precise checks could be added here based on rounding mode properties
 			}
 		},
 		RoundingOperationSelector::Div => {
@@ -290,8 +302,10 @@ fn run_test<F: FixedPointNumber + core::fmt::Display>(
 					if let Some(val) = res {
 						let default_res = fp1.checked_div(&fp2);
 						if let Some(default_val) = default_res {
+							let val_inner = val.into_inner();
+							let default_inner = default_val.into_inner();
 							let inner_diff =
-								val.into_inner().saturating_sub(default_val.into_inner()).abs_ext();
+								val_inner.saturating_sub(default_inner).abs_ext();
 							assert!(
 								inner_diff <= F::Inner::one(),
 								"Div rounding diff > 1 epsilon. fp1={}, fp2={}, rounding={:?}, default_res={:?}, specific_res={:?}",
@@ -301,10 +315,20 @@ fn run_test<F: FixedPointNumber + core::fmt::Display>(
 								default_val,
 								val
 							);
+							// Verify rounding direction for absolute modes.
+							match rounding_mode {
+								High | NearestPrefHigh =>
+									assert!(val_inner >= default_inner,
+										"Div High rounding should be >= default. fp1={}, fp2={}, val={:?}, default={:?}",
+										fp1, fp2, val, default_val),
+								Low | NearestPrefLow =>
+									assert!(val_inner <= default_inner,
+										"Div Low rounding should be <= default. fp1={}, fp2={}, val={:?}, default={:?}",
+										fp1, fp2, val, default_val),
+								_ => {},
+							}
 						}
 					}
-
-					// More precise checks could be added here based on rounding mode properties
 				}
 			}
 		},

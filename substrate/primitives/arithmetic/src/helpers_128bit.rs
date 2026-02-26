@@ -226,7 +226,7 @@ pub const fn checked_multiply_by_rational_with_rounding(
 ) -> Result<u128, ArithmeticError> {
 	use double128::Double128;
 	if c == 0 {
-		return Err(ArithmeticError::DivisionByZero)
+		return Err(ArithmeticError::DivisionByZero);
 	}
 	let (result, remainder) = Double128::product_of(a, b).div(c);
 	let mut result: u128 = match result.try_into_u128() {

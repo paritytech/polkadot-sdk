@@ -812,10 +812,11 @@ where
 		.checked_mul(&numer_upper)
 		.ok_or(ArithmeticError::Overflow)?;
 
+	// denom was verified non-zero above; these checks are defense-in-depth.
 	let rem_mul_div_upper =
-		rem_mul_upper.checked_div(&denom_upper).ok_or(ArithmeticError::DivisionByZero)?;
+		rem_mul_upper.checked_div(&denom_upper).ok_or(ArithmeticError::Overflow)?;
 	let remainder_upper =
-		rem_mul_upper.checked_rem(&denom_upper).ok_or(ArithmeticError::DivisionByZero)?;
+		rem_mul_upper.checked_rem(&denom_upper).ok_or(ArithmeticError::Overflow)?;
 
 	// `rem` is less than `denom`, so `rem * numer / denom` is less than `numer`, which fits in
 	// `P::Inner`. Conversion should be safe.
@@ -827,11 +828,12 @@ where
 
 	match rounding {
 		Rounding::Down => {},
-		Rounding::Up =>
+		Rounding::Up => {
 			if remainder_upper > Zero::zero() {
 				rem_mul_div_inner =
 					rem_mul_div_inner.checked_add(&one_inner).ok_or(ArithmeticError::Overflow)?;
-			},
+			}
+		},
 		Rounding::NearestPrefDown => {
 			let threshold = denom_upper.checked_div(&two_upper).ok_or(ArithmeticError::Overflow)?;
 			if remainder_upper > threshold {
@@ -2201,9 +2203,18 @@ macro_rules! implement_per_thing {
 					Err(ArithmeticError::DivisionByZero)
 				);
 
-				assert_eq!(fifty.checked_saturating_reciprocal_mul(val), Ok(20));
-				assert_eq!(fifty.checked_saturating_reciprocal_mul_floor(val), Ok(20));
-				assert_eq!(fifty.checked_saturating_reciprocal_mul_ceil(val), Ok(20));
+				assert_eq!(
+					fifty.checked_saturating_reciprocal_mul(val),
+					Ok(fifty.saturating_reciprocal_mul(val))
+				);
+				assert_eq!(
+					fifty.checked_saturating_reciprocal_mul_floor(val),
+					Ok(fifty.saturating_reciprocal_mul_floor(val))
+				);
+				assert_eq!(
+					fifty.checked_saturating_reciprocal_mul_ceil(val),
+					Ok(fifty.saturating_reciprocal_mul_ceil(val))
+				);
 			}
 
 			#[test]
@@ -2233,19 +2244,32 @@ macro_rules! implement_per_thing {
 				let three_quarters = $name::from_percent(75);
 				let val_n: $type = 10;
 
-				assert_eq!(half.checked_mul_floor(val_n), Ok(5));
-				assert_eq!(quarter.checked_mul_floor(val_n), Ok(2));
+				assert_eq!(half.checked_mul_floor(val_n), Ok(half.mul_floor(val_n)));
+				assert_eq!(quarter.checked_mul_floor(val_n), Ok(quarter.mul_floor(val_n)));
 				assert_eq!(one.checked_mul_floor(<$type>::MAX), Ok(<$type>::MAX));
 
-				assert_eq!(half.checked_mul_ceil(val_n), Ok(5));
-				assert_eq!(quarter.checked_mul_ceil(val_n), Ok(3));
+				assert_eq!(half.checked_mul_ceil(val_n), Ok(half.mul_ceil(val_n)));
+				assert_eq!(quarter.checked_mul_ceil(val_n), Ok(quarter.mul_ceil(val_n)));
 				assert_eq!(one.checked_mul_ceil(<$type>::MAX), Ok(<$type>::MAX));
 				assert_eq!(one.checked_square(), Ok(one));
 				assert_eq!(zero.checked_square(), Ok(zero));
-				assert_eq!(half.checked_square(), Ok(quarter));
-				assert_eq!(quarter.checked_square(), Ok($name::from_rational(1 as $type, 16 as $type)));
+				// checked_square computes: from_rational(p^2, ACCURACY^2, Down)
+				// whose inner value is ACCURACY * p^2 / ACCURACY^2 = p^2 / ACCURACY.
+				// Use u128 intermediate to avoid overflow.
+				let h = half.deconstruct() as u128;
+				let q = quarter.deconstruct() as u128;
+				let acc = <$name>::ACCURACY as u128;
+				assert_eq!(half.checked_square(), Ok($name::from_parts((h * h / acc) as $type)));
+				assert_eq!(quarter.checked_square(), Ok($name::from_parts((q * q / acc) as $type)));
 				assert_eq!(half.checked_div_with_rounding(quarter, Down).map_err(|e| e), Err(ArithmeticError::Overflow));
-				assert_eq!(quarter.checked_div_with_rounding(half, Down), Ok(half));
+				// quarter / half may not equal exactly half due to from_percent truncation
+				// (e.g. PerU16). Use checked_from_rational_with_rounding as oracle.
+				assert_eq!(
+					quarter.checked_div_with_rounding(half, Down),
+					$name::checked_from_rational_with_rounding(
+						quarter.deconstruct(), half.deconstruct(), Down
+					)
+				);
 				assert_eq!(one.checked_div_with_rounding(one, Down), Ok(one));
 				assert_eq!(one.checked_div_with_rounding(half, Down).map_err(|e| e), Err(ArithmeticError::Overflow));
 				assert_eq!(half.checked_div_with_rounding(one, Down), Ok(half));

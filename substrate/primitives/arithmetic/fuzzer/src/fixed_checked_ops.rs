@@ -226,10 +226,21 @@ where
 					v1,
 					v2
 				);
-			} else {
-				// If no overflow, it should succeed. The actual comparison of value is tricky due
-				// to rounding. For now, just check if it's Some when expected. A more precise check
-				// would involve replicating the internal rounding logic.
+			} else if let Some(r) = res {
+				let result_inner_i128: i128 =
+					r.into_inner().try_into().unwrap_or(Default::default());
+				let result_inner_big = BigInt::from(result_inner_i128);
+				let diff = (&result_inner_big - &expected_inner_big).abs();
+				assert!(
+					diff <= BigInt::from(1),
+					"CheckedMul result mismatch for {:?}, op: {:?}, v1: {}, v2: {}, expected: {}, got: {}",
+					core::any::type_name::<F>(),
+					op,
+					v1,
+					v2,
+					expected_inner_big,
+					result_inner_big
+				);
 			}
 		},
 		Operation::CheckedDiv => {
@@ -262,9 +273,21 @@ where
 						v1,
 						v2
 					);
-				} else {
-					// Similar to CheckedMul, precise value checking is hard due to rounding.
-					// At least checking if it's Some when expected. To improve in the future.
+				} else if let Some(r) = res {
+					let result_inner_i128: i128 =
+						r.into_inner().try_into().unwrap_or(Default::default());
+					let result_inner_big = BigInt::from(result_inner_i128);
+					let diff = (&result_inner_big - &expected_inner_big).abs();
+					assert!(
+						diff <= BigInt::from(1),
+						"CheckedDiv result mismatch for {:?}, op: {:?}, v1: {}, v2: {}, expected: {}, got: {}",
+						core::any::type_name::<F>(),
+						op,
+						v1,
+						v2,
+						expected_inner_big,
+						result_inner_big
+					);
 				}
 			}
 		},
@@ -327,10 +350,9 @@ where
 			let res = F::checked_from_rational(n, d);
 
 			if d == 0 {
-				assert_eq!(
-					res,
-					None,
-					"Expected None for CheckedFromRational with d=0 for {:?}, op: {:?}, n: {}, d: {}",
+				assert!(
+					res.is_err(),
+					"Expected Err for CheckedFromRational with d=0 for {:?}, op: {:?}, n: {}, d: {}",
 					core::any::type_name::<F>(),
 					op,
 					n,
@@ -342,16 +364,28 @@ where
 				let expected_inner_big = (n_big * &div_big) / d_big;
 				if expected_inner_big > max_inner_big || expected_inner_big < min_inner_big {
 					assert!(
-						res.is_none(),
-						"Expected None for CheckedFromRational overflow for {:?}, op: {:?}, n: {}, d: {}",
+						res.is_err(),
+						"Expected Err for CheckedFromRational overflow for {:?}, op: {:?}, n: {}, d: {}",
 						core::any::type_name::<F>(),
 						op,
 						n,
 						d
 					);
-				} else {
-					// Similar to CheckedMul, precise value checking is hard due to rounding.
-					// At least checking if it's Some when expected. To improve in the future.
+				} else if let Ok(r) = res {
+					let result_inner_i128: i128 =
+						r.into_inner().try_into().unwrap_or(Default::default());
+					let result_inner_big = BigInt::from(result_inner_i128);
+					let diff = (&result_inner_big - &expected_inner_big).abs();
+					assert!(
+						diff <= BigInt::from(1),
+						"CheckedFromRational result mismatch for {:?}, op: {:?}, n: {}, d: {}, expected: {}, got: {}",
+						core::any::type_name::<F>(),
+						op,
+						n,
+						d,
+						expected_inner_big,
+						result_inner_big
+					);
 				}
 			}
 		},
@@ -366,39 +400,72 @@ where
 				expected_int_val_big < BigInt::from(i128::MIN)
 			{
 				assert!(
-					res.is_none(),
-					"Expected None for CheckedMulInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
+					res.is_err(),
+					"Expected Err for CheckedMulInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
 					core::any::type_name::<F>(),
 					op,
 					fp1,
 					v2
 				);
-			} else {
-				// Similar to CheckedMul, precise value checking is hard due to rounding.
-				// At least checking if it's Some when expected. To improve in the future.
+			} else if let Ok(r) = res {
+				let result_big = BigInt::from(r);
+				let diff = (&result_big - &expected_int_val_big).abs();
+				assert!(
+					diff <= BigInt::from(1),
+					"CheckedMulInt result mismatch for {:?}, op: {:?}, fp1: {}, v2: {}, expected: {}, got: {}",
+					core::any::type_name::<F>(),
+					op,
+					fp1,
+					v2,
+					expected_int_val_big,
+					result_big
+				);
 			}
 		},
 		Operation::CheckedDivInt => {
-			let res = fp1.checked_div_int(v2);
-			let fp1_inner_i128: i128 = fp1.into_inner().try_into().unwrap_or(Default::default());
-			let fp1_inner_big = BigInt::from(fp1_inner_i128);
-			let v2_big = BigInt::from(v2);
-			let expected_int_val_big = (&fp1_inner_big / &div_big) / v2_big;
-
-			if expected_int_val_big > BigInt::from(i128::MAX) ||
-				expected_int_val_big < BigInt::from(i128::MIN)
-			{
+			if v2 == 0 {
 				assert!(
-					res.is_none(),
-					"Expected None for CheckedDivInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
+					fp1.checked_div_int(v2).is_err(),
+					"Expected Err for CheckedDivInt with d=0 for {:?}, op: {:?}, fp1: {}",
 					core::any::type_name::<F>(),
 					op,
 					fp1,
-					v2
 				);
 			} else {
-				// Similar to CheckedMul, precise value checking is hard due to rounding/truncation.
-				// At least checking if it's Some when expected. To improve in the future.
+				let res = fp1.checked_div_int(v2);
+				let fp1_inner_i128: i128 =
+					fp1.into_inner().try_into().unwrap_or(Default::default());
+				let fp1_inner_big = BigInt::from(fp1_inner_i128);
+				let v2_big = BigInt::from(v2);
+				// Intermediate: fp1_inner / v2, then / DIV
+				let d_times_div_big = &v2_big * &div_big;
+				let expected_int_val_big = &fp1_inner_big / &d_times_div_big;
+
+				if expected_int_val_big > BigInt::from(i128::MAX) ||
+					expected_int_val_big < BigInt::from(i128::MIN)
+				{
+					assert!(
+						res.is_err(),
+						"Expected Err for CheckedDivInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
+						core::any::type_name::<F>(),
+						op,
+						fp1,
+						v2
+					);
+				} else if let Ok(r) = res {
+					let result_big = BigInt::from(r);
+					let diff = (&result_big - &expected_int_val_big).abs();
+					assert!(
+						diff <= BigInt::from(1),
+						"CheckedDivInt result mismatch for {:?}, op: {:?}, fp1: {}, v2: {}, expected: {}, got: {}",
+						core::any::type_name::<F>(),
+						op,
+						fp1,
+						v2,
+						expected_int_val_big,
+						result_big
+					);
+				}
 			}
 		},
 		Operation::CheckedSqrt => {
@@ -411,18 +478,23 @@ where
 					op,
 					fp1
 				);
-			} else {
-				// Expected val: sqrt(fp1.inner * DIV) / DIV
-				//
-				// This is complex to verify perfectly due to integer sqrt and precision.
-				// For now, just ensure it's Some for non-negative, non-overflowing cases.
-				//
-				// In the future, an overflow check could be:
-				//   if fp1.inner * DIV overflows u128
-				// or
-				//   if result overflows
-				//
-				// At least checking if it's negative when unexpected. To improve in the future.
+			} else if let Some(r) = res {
+				// For non-negative inputs: verify result^2 <= input (integer sqrt floors).
+				let result_inner_i128: i128 =
+					r.into_inner().try_into().unwrap_or(Default::default());
+				let input_inner_i128: i128 =
+					fp1.into_inner().try_into().unwrap_or(Default::default());
+				let result_big = BigInt::from(result_inner_i128);
+				let input_big = BigInt::from(input_inner_i128);
+				let result_squared = &result_big * &result_big / &div_big;
+				assert!(
+					result_squared <= input_big,
+					"CheckedSqrt result^2 > input for {:?}, op: {:?}, fp1: {}, result: {}",
+					core::any::type_name::<F>(),
+					op,
+					fp1,
+					r
+				);
 			}
 		},
 	}
