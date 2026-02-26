@@ -76,8 +76,8 @@
 //!
 //! ## RPC Methods
 //!
-//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data with recipient keys and personhood proof, returns hash + pool status
-//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with ed25519 signature
+//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data with SCALE-encoded MultiSigner recipient keys and personhood proof, returns hash + pool status
+//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with SCALE-encoded MultiSignature
 //! - `hop_poolStatus() -> PoolStatus` - Get pool statistics
 //!
 //! ## CLI Flags

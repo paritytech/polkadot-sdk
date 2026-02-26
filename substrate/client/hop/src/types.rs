@@ -19,6 +19,7 @@
 use crate::primitives::HopBlockNumber;
 use codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use sp_runtime::MultiSigner;
 
 /// Stable pseudonymous alias derived from ring-VRF personhood proofs.
 /// Same person + same context = same alias, always.
@@ -37,8 +38,8 @@ pub struct HopEntryMeta {
 	pub expires_at: HopBlockNumber,
 	/// Size in bytes
 	pub size: u64,
-	/// Ephemeral ed25519 public keys of intended recipients.
-	pub recipients: Vec<[u8; 32]>,
+	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
+	pub recipients: Vec<MultiSigner>,
 	/// Tracks which recipients have claimed (by index into `recipients`).
 	pub claimed: Vec<bool>,
 	/// Alias of the sender who submitted this entry (from personhood proof).
@@ -51,7 +52,7 @@ impl HopEntryMeta {
 		size: u64,
 		added_at: HopBlockNumber,
 		retention_blocks: u32,
-		recipients: Vec<[u8; 32]>,
+		recipients: Vec<MultiSigner>,
 		sender_alias: Alias,
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
@@ -71,9 +72,9 @@ pub struct HopPoolEntry {
 	pub expires_at: HopBlockNumber,
 	/// Size in bytes
 	pub size: u64,
-	/// Ephemeral ed25519 public keys of intended recipients.
+	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
 	/// Each recipient claims by signing the content hash with their corresponding private key.
-	pub recipients: Vec<[u8; 32]>,
+	pub recipients: Vec<MultiSigner>,
 	/// Tracks which recipients have claimed (by index into `recipients`).
 	pub claimed: Vec<bool>,
 	/// Alias of the sender who submitted this entry (from personhood proof).
@@ -86,7 +87,7 @@ impl HopPoolEntry {
 		data: Vec<u8>,
 		added_at: HopBlockNumber,
 		retention_blocks: u32,
-		recipients: Vec<[u8; 32]>,
+		recipients: Vec<MultiSigner>,
 		sender_alias: Alias,
 	) -> Self {
 		let size = data.len() as u64;
@@ -147,8 +148,8 @@ pub enum HopError {
 	#[error("At least one recipient public key is required")]
 	NoRecipients,
 
-	#[error("Invalid recipient public key: expected 32 bytes, got {0}")]
-	InvalidRecipientKey(usize),
+	#[error("Invalid recipient: failed to SCALE-decode MultiSigner")]
+	InvalidRecipientKey,
 
 	#[error("User quota exceeded: using {used} of {limit} bytes")]
 	UserQuotaExceeded { used: u64, limit: u64 },
@@ -172,7 +173,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::InvalidSignature => 1009,
 			HopError::NotRecipient => 1010,
 			HopError::NoRecipients => 1011,
-			HopError::InvalidRecipientKey(_) => 1012,
+			HopError::InvalidRecipientKey => 1012,
 			HopError::UserQuotaExceeded { .. } => 1013,
 			HopError::InvalidPersonhoodProof => 1014,
 			HopError::IoError(_) => 1015,

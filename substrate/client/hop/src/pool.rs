@@ -22,7 +22,11 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use parking_lot::RwLock;
-use sp_core::{crypto::Pair as _, ed25519, hashing::blake2_256, H256};
+use sp_core::{hashing::blake2_256, H256};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	MultiSignature, MultiSigner,
+};
 use std::{
 	collections::HashMap,
 	fs,
@@ -213,7 +217,7 @@ impl HopDataPool {
 		&self,
 		data: Vec<u8>,
 		current_block: HopBlockNumber,
-		recipients: Vec<[u8; 32]>,
+		recipients: Vec<MultiSigner>,
 		sender_alias: Alias,
 	) -> Result<HopHash, HopError> {
 		// Validate recipients
@@ -341,8 +345,8 @@ impl HopDataPool {
 		let mut index = self.index.write();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
 
-		// Parse the ed25519 signature (64 bytes)
-		let sig = ed25519::Signature::try_from(signature)
+		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
+		let multi_sig = MultiSignature::decode(&mut &signature[..])
 			.map_err(|_| HopError::InvalidSignature)?;
 
 		// Find which unclaimed recipient this signature matches
@@ -350,12 +354,12 @@ impl HopDataPool {
 			.recipients
 			.iter()
 			.enumerate()
-			.find_map(|(i, pubkey)| {
+			.find_map(|(i, signer)| {
 				if meta.claimed[i] {
 					return None;
 				}
-				let public = ed25519::Public::from_raw(*pubkey);
-				if ed25519::Pair::verify(&sig, hash.as_bytes(), &public) {
+				let account_id = signer.clone().into_account();
+				if multi_sig.verify(hash.as_bytes(), &account_id) {
 					Some(i)
 				} else {
 					None
@@ -507,7 +511,7 @@ impl HopDataPool {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::Pair;
+	use sp_core::{crypto::Pair, ed25519, sr25519};
 	use tempfile::TempDir;
 
 	const ALIAS_A: Alias = [1u8; 32];
@@ -519,18 +523,18 @@ mod tests {
 		(pool, dir)
 	}
 
-	fn test_recipient() -> (ed25519::Pair, [u8; 32]) {
+	fn test_recipient() -> (ed25519::Pair, MultiSigner) {
 		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
-		let pubkey: [u8; 32] = pair.public().0;
-		(pair, pubkey)
+		let signer = MultiSigner::Ed25519(pair.public());
+		(pair, signer)
 	}
 
 	#[test]
 	fn test_insert_and_get() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
 
 		let retrieved = pool.get(&hash).unwrap();
 		assert_eq!(data, retrieved);
@@ -547,11 +551,11 @@ mod tests {
 	#[test]
 	fn test_duplicate_insert() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 
-		pool.insert(data.clone(), 0, vec![pubkey], ALIAS_A).unwrap();
-		let result = pool.insert(data, 0, vec![pubkey], ALIAS_A);
+		pool.insert(data.clone(), 0, vec![signer.clone()], ALIAS_A).unwrap();
+		let result = pool.insert(data, 0, vec![signer], ALIAS_A);
 
 		assert!(matches!(result, Err(HopError::DuplicateEntry)));
 	}
@@ -559,10 +563,10 @@ mod tests {
 	#[test]
 	fn test_data_too_large() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data = vec![0u8; (MAX_DATA_SIZE + 1) as usize];
 
-		let result = pool.insert(data, 0, vec![pubkey], ALIAS_A);
+		let result = pool.insert(data, 0, vec![signer], ALIAS_A);
 		assert!(matches!(result, Err(HopError::DataTooLarge(_, _))));
 	}
 
@@ -570,13 +574,13 @@ mod tests {
 	fn test_pool_full() {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(100, 100, dir.path().to_path_buf()).unwrap();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 
 		let data1 = vec![0u8; 60];
 		let data2 = vec![1u8; 50];
 
-		pool.insert(data1, 0, vec![pubkey], ALIAS_A).unwrap();
-		let result = pool.insert(data2, 0, vec![pubkey], ALIAS_A);
+		pool.insert(data1, 0, vec![signer.clone()], ALIAS_A).unwrap();
+		let result = pool.insert(data2, 0, vec![signer], ALIAS_A);
 
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 	}
@@ -584,9 +588,9 @@ mod tests {
 	#[test]
 	fn test_remove() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data, 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(data, 0, vec![signer], ALIAS_A).unwrap();
 
 		assert!(pool.has(&hash));
 		pool.remove(&hash).unwrap();
@@ -600,12 +604,12 @@ mod tests {
 	#[test]
 	fn test_status() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data1 = vec![1, 2, 3, 4, 5];
 		let data2 = vec![6, 7, 8];
 
-		pool.insert(data1.clone(), 0, vec![pubkey], ALIAS_A).unwrap();
-		pool.insert(data2.clone(), 0, vec![pubkey], ALIAS_A).unwrap();
+		pool.insert(data1.clone(), 0, vec![signer.clone()], ALIAS_A).unwrap();
+		pool.insert(data2.clone(), 0, vec![signer], ALIAS_A).unwrap();
 
 		let status = pool.status();
 		assert_eq!(status.entry_count, 2);
@@ -615,12 +619,13 @@ mod tests {
 	#[test]
 	fn test_claim_valid_signature() {
 		let (pool, _dir) = create_test_pool();
-		let (pair, pubkey) = test_recipient();
+		let (pair, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
 
 		let sig = pair.sign(hash.as_bytes());
-		let result = pool.claim(&hash, sig.as_ref()).unwrap();
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let result = pool.claim(&hash, &multi_sig.encode()).unwrap();
 		assert_eq!(data, result);
 
 		// Entry should be removed after sole recipient claims
@@ -630,26 +635,27 @@ mod tests {
 	#[test]
 	fn test_claim_invalid_signature() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data, 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(data, 0, vec![signer], ALIAS_A).unwrap();
 
-		// Use a bad signature (wrong length)
-		let result = pool.claim(&hash, &[0u8; 32]);
+		// Use invalid SCALE bytes — cannot decode as MultiSignature
+		let result = pool.claim(&hash, &[0u8; 3]);
 		assert!(matches!(result, Err(HopError::InvalidSignature)));
 	}
 
 	#[test]
 	fn test_claim_wrong_key() {
 		let (pool, _dir) = create_test_pool();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data, 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(data, 0, vec![signer], ALIAS_A).unwrap();
 
 		// Sign with a different keypair
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
 		let sig = wrong_pair.sign(hash.as_bytes());
-		let result = pool.claim(&hash, sig.as_ref());
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let result = pool.claim(&hash, &multi_sig.encode());
 		assert!(matches!(result, Err(HopError::NotRecipient)));
 
 		// Entry should still exist
@@ -661,21 +667,23 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let pair1 = ed25519::Pair::from_seed(&[1u8; 32]);
 		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
-		let pubkey1: [u8; 32] = pair1.public().0;
-		let pubkey2: [u8; 32] = pair2.public().0;
+		let signer1 = MultiSigner::Ed25519(pair1.public());
+		let signer2 = MultiSigner::Ed25519(pair2.public());
 
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![pubkey1, pubkey2], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], ALIAS_A).unwrap();
 
 		// First recipient claims
 		let sig1 = pair1.sign(hash.as_bytes());
-		let result1 = pool.claim(&hash, sig1.as_ref()).unwrap();
+		let multi_sig1 = MultiSignature::Ed25519(sig1);
+		let result1 = pool.claim(&hash, &multi_sig1.encode()).unwrap();
 		assert_eq!(data, result1);
 		assert!(pool.has(&hash)); // still exists, second recipient hasn't claimed
 
 		// Second recipient claims
 		let sig2 = pair2.sign(hash.as_bytes());
-		let result2 = pool.claim(&hash, sig2.as_ref()).unwrap();
+		let multi_sig2 = MultiSignature::Ed25519(sig2);
+		let result2 = pool.claim(&hash, &multi_sig2.encode()).unwrap();
 		assert_eq!(data, result2);
 		assert!(!pool.has(&hash)); // now removed
 
@@ -686,19 +694,21 @@ mod tests {
 	#[test]
 	fn test_claim_already_claimed_recipient() {
 		let (pool, _dir) = create_test_pool();
-		let (pair, pubkey) = test_recipient();
+		let (pair, signer) = test_recipient();
 		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
-		let pubkey2: [u8; 32] = pair2.public().0;
+		let signer2 = MultiSigner::Ed25519(pair2.public());
 
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![pubkey, pubkey2], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer, signer2], ALIAS_A).unwrap();
 
 		// First claim succeeds
 		let sig = pair.sign(hash.as_bytes());
-		pool.claim(&hash, sig.as_ref()).unwrap();
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let encoded_sig = multi_sig.encode();
+		pool.claim(&hash, &encoded_sig).unwrap();
 
 		// Same recipient tries to claim again — should fail (already claimed)
-		let result = pool.claim(&hash, sig.as_ref());
+		let result = pool.claim(&hash, &encoded_sig);
 		assert!(matches!(result, Err(HopError::NotRecipient)));
 	}
 
@@ -715,20 +725,20 @@ mod tests {
 		// Pool of 200 bytes, two users should each get 100
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 
 		// User A inserts 90 bytes — within their 200/1 = 200 limit (only user so far)
-		pool.insert(vec![0u8; 90], 0, vec![pubkey], ALIAS_A).unwrap();
+		pool.insert(vec![0u8; 90], 0, vec![signer.clone()], ALIAS_A).unwrap();
 
 		// User B inserts 90 bytes — now 2 users, limit is 200/2 = 100 each
-		pool.insert(vec![1u8; 90], 0, vec![pubkey], ALIAS_B).unwrap();
+		pool.insert(vec![1u8; 90], 0, vec![signer.clone()], ALIAS_B).unwrap();
 
 		// User A tries to insert 20 more — would be 110 total, limit is 100
-		let result = pool.insert(vec![2u8; 20], 0, vec![pubkey], ALIAS_A);
+		let result = pool.insert(vec![2u8; 20], 0, vec![signer.clone()], ALIAS_A);
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// User B tries to insert 20 more — would be 110 total, limit is 100
-		let result = pool.insert(vec![3u8; 20], 0, vec![pubkey], ALIAS_B);
+		let result = pool.insert(vec![3u8; 20], 0, vec![signer], ALIAS_B);
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 	}
 
@@ -737,49 +747,50 @@ mod tests {
 		// Pool of 200 bytes
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 
 		// User A inserts 90 bytes (sole user, limit = 200)
-		pool.insert(vec![0u8; 90], 0, vec![pubkey], ALIAS_A).unwrap();
+		pool.insert(vec![0u8; 90], 0, vec![signer.clone()], ALIAS_A).unwrap();
 
 		// New user B tries to insert 110 bytes — B is new, so active_users = 2,
 		// per_user_limit = 100, and 110 > 100
-		let result = pool.insert(vec![1u8; 110], 0, vec![pubkey], ALIAS_B);
+		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], ALIAS_B);
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// But B can insert 100 bytes (exactly at limit)
-		pool.insert(vec![2u8; 100], 0, vec![pubkey], ALIAS_B).unwrap();
+		pool.insert(vec![2u8; 100], 0, vec![signer], ALIAS_B).unwrap();
 	}
 
 	#[test]
 	fn test_quota_released_after_claim() {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap();
-		let (pair, pubkey) = test_recipient();
+		let (pair, signer) = test_recipient();
 
 		// User A inserts 100 bytes
-		let hash = pool.insert(vec![0u8; 100], 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(vec![0u8; 100], 0, vec![signer.clone()], ALIAS_A).unwrap();
 
 		// User A can't insert 110 more (would be 210, limit = 200 for sole user)
-		let result = pool.insert(vec![1u8; 110], 0, vec![pubkey], ALIAS_A);
+		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], ALIAS_A);
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 
 		// Claim the first entry — frees 100 bytes of user quota
 		let sig = pair.sign(hash.as_bytes());
-		pool.claim(&hash, sig.as_ref()).unwrap();
+		let multi_sig = MultiSignature::Ed25519(sig);
+		pool.claim(&hash, &multi_sig.encode()).unwrap();
 
 		// Now user A can insert again
-		pool.insert(vec![2u8; 100], 0, vec![pubkey], ALIAS_A).unwrap();
+		pool.insert(vec![2u8; 100], 0, vec![signer], ALIAS_A).unwrap();
 	}
 
 	#[test]
 	fn test_cleanup_expired_releases_quota() {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(200, 10, dir.path().to_path_buf()).unwrap();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 
 		// User A inserts at block 0, expires at block 10
-		pool.insert(vec![0u8; 100], 0, vec![pubkey], ALIAS_A).unwrap();
+		pool.insert(vec![0u8; 100], 0, vec![signer], ALIAS_A).unwrap();
 
 		// Verify usage is tracked
 		assert_eq!(pool.user_usage.read().get(&ALIAS_A).copied().unwrap_or(0), 100);
@@ -796,14 +807,15 @@ mod tests {
 	#[test]
 	fn test_user_removed_when_usage_drops_to_zero() {
 		let (pool, _dir) = create_test_pool();
-		let (pair, pubkey) = test_recipient();
+		let (pair, signer) = test_recipient();
 
-		let hash = pool.insert(vec![0u8; 50], 0, vec![pubkey], ALIAS_A).unwrap();
+		let hash = pool.insert(vec![0u8; 50], 0, vec![signer], ALIAS_A).unwrap();
 		assert!(pool.user_usage.read().contains_key(&ALIAS_A));
 
 		// Claim removes the entry
 		let sig = pair.sign(hash.as_bytes());
-		pool.claim(&hash, sig.as_ref()).unwrap();
+		let multi_sig = MultiSignature::Ed25519(sig);
+		pool.claim(&hash, &multi_sig.encode()).unwrap();
 
 		// User A should no longer be in usage map
 		assert!(!pool.user_usage.read().contains_key(&ALIAS_A));
@@ -812,13 +824,13 @@ mod tests {
 	#[test]
 	fn test_restart_recovery() {
 		let dir = TempDir::new().unwrap();
-		let (_, pubkey) = test_recipient();
+		let (_, signer) = test_recipient();
 
 		let hash;
 		// Create pool, insert data, then drop pool.
 		{
 			let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
-			hash = pool.insert(vec![42u8; 100], 0, vec![pubkey], ALIAS_A).unwrap();
+			hash = pool.insert(vec![42u8; 100], 0, vec![signer], ALIAS_A).unwrap();
 			assert!(pool.has(&hash));
 			assert_eq!(pool.status().entry_count, 1);
 			assert_eq!(pool.status().total_bytes, 100);
@@ -879,5 +891,48 @@ mod tests {
 		let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
 		assert!(!meta_path.exists());
 		assert_eq!(pool.status().entry_count, 0);
+	}
+
+	#[test]
+	fn test_claim_sr25519() {
+		let (pool, _dir) = create_test_pool();
+		let pair = sr25519::Pair::from_seed(&[3u8; 32]);
+		let signer = MultiSigner::Sr25519(pair.public());
+
+		let data = vec![10, 20, 30];
+		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
+
+		let sig = pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Sr25519(sig);
+		let result = pool.claim(&hash, &multi_sig.encode()).unwrap();
+		assert_eq!(data, result);
+		assert!(!pool.has(&hash));
+	}
+
+	#[test]
+	fn test_claim_mixed_key_types() {
+		let (pool, _dir) = create_test_pool();
+		let ed_pair = ed25519::Pair::from_seed(&[4u8; 32]);
+		let sr_pair = sr25519::Pair::from_seed(&[5u8; 32]);
+		let ed_signer = MultiSigner::Ed25519(ed_pair.public());
+		let sr_signer = MultiSigner::Sr25519(sr_pair.public());
+
+		let data = vec![42, 43, 44];
+		let hash =
+			pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], ALIAS_A).unwrap();
+
+		// sr25519 recipient claims first
+		let sr_sig = sr_pair.sign(hash.as_bytes());
+		let sr_multi = MultiSignature::Sr25519(sr_sig);
+		let result1 = pool.claim(&hash, &sr_multi.encode()).unwrap();
+		assert_eq!(data, result1);
+		assert!(pool.has(&hash)); // ed25519 recipient hasn't claimed yet
+
+		// ed25519 recipient claims second
+		let ed_sig = ed_pair.sign(hash.as_bytes());
+		let ed_multi = MultiSignature::Ed25519(ed_sig);
+		let result2 = pool.claim(&hash, &ed_multi.encode()).unwrap();
+		assert_eq!(data, result2);
+		assert!(!pool.has(&hash)); // all claimed
 	}
 }
