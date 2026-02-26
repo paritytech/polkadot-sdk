@@ -11,14 +11,13 @@
 //! properly handle assignment transitions.
 //!
 //! The claim queue has a lookahead depth L. At block N, it contains assignments for [N+1, ...,
-//! N+L]. With lookahead=5 and boundary at block 21 (A assigned for 0-20, B assigned for 21+):
-//! - Block 15: claim queue = [16, 17, 18, 19, 20] = [A, A, A, A, A]
-//! - Block 16: claim queue = [17, 18, 19, 20, 21] = [A, A, A, A, B] ← First B appears!
-//! - Block 17: claim queue = [18, 19, 20, 21, 22] = [A, A, A, B, B]
-//! - Block 18: claim queue = [19, 20, 21, 22, 23] = [A, A, B, B, B]
-//! - Block 19: claim queue = [20, 21, 22, 23, 24] = [A, B, B, B, B]
-//! - Block 20: claim queue = [21, 22, 23, 24, 25] = [B, B, B, B, B]
-//! - Block 21+: claim queue = [22+, ...] = [B, B, B, B, B]
+//! N+L]. With lookahead=5 and boundary at block B (A assigned for 0..B-1, B assigned for B+):
+//! - Block B-L-1: claim queue = [A, A, A, A, A]
+//! - Block B-L:   claim queue = [A, A, A, A, B] ← First B appears!
+//! - Block B-L+1: claim queue = [A, A, A, B, B]
+//! - ...
+//! - Block B-1:   claim queue = [B, B, B, B, B]
+//! - Block B+:    claim queue = [B, B, B, B, B]
 
 use anyhow::anyhow;
 use codec::Decode;
@@ -31,8 +30,11 @@ use zombienet_sdk::{subxt, subxt_signer::sr25519::dev, NetworkConfig, NetworkCon
 
 const PARA_A: u32 = 2000;
 const PARA_B: u32 = 2001;
-const BOUNDARY_BLOCK: u32 = 21;
 const LOOKAHEAD: u32 = 5;
+/// How far ahead of the current claim queue window to place the boundary.
+/// This ensures `assign_core(begin=boundary)` is never auto-adjusted by the stable claim queue
+/// invariant.
+const BOUNDARY_MARGIN: u32 = 15;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
@@ -59,8 +61,8 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 		"Both parachains registered (not yet onboarded - will be activated via core assignment)"
 	);
 
-	// Assign core 0 to para A from block 0 to 20
-	log::info!("Assigning core 0 to para {} for blocks 0-20", PARA_A);
+	// Assign core 0 to para A starting from block 0.
+	log::info!("Assigning core 0 to para {} (initial assignment)", PARA_A);
 	let assign_core_a = subxt::tx::dynamic(
 		"Sudo",
 		"sudo",
@@ -68,20 +70,35 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 			Coretime(assign_core { core: 0, begin: 0, assignment: ((Task(PARA_A), 57600)), end_hint: None() })
 		}],
 	);
-	relay_client
+	let events_a = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(&assign_core_a, &alice)
 		.await?
 		.wait_for_finalized_success()
 		.await?;
 
-	// Assign core 0 to para B from block 21 onwards
-	log::info!("Assigning core 0 to para {} for blocks 21+", PARA_B);
+	// Determine the boundary dynamically based on the current chain height.
+	// `assign_core()` auto-adjusts `begin` forward if it falls within the current claim queue
+	// window (block_number + 1 + lookahead). We place the boundary well beyond that window.
+	let current_block = events_a.block_ref().number();
+	let boundary = current_block + 1 + LOOKAHEAD + BOUNDARY_MARGIN;
+
+	log::info!(
+		"Chain is at block {}. Setting boundary at block {} (current + 1 + lookahead + margin = {} + 1 + {} + {})",
+		current_block,
+		boundary,
+		current_block,
+		LOOKAHEAD,
+		BOUNDARY_MARGIN
+	);
+
+	// Assign core 0 to para B from the boundary block onwards.
+	log::info!("Assigning core 0 to para {} for blocks {}+", PARA_B, boundary);
 	let assign_core_b = subxt::tx::dynamic(
 		"Sudo",
 		"sudo",
 		vec![value! {
-			Coretime(assign_core { core: 0, begin: 21, assignment: ((Task(PARA_B), 57600)), end_hint: None() })
+			Coretime(assign_core { core: 0, begin: boundary, assignment: ((Task(PARA_B), 57600)), end_hint: None() })
 		}],
 	);
 	relay_client
@@ -91,26 +108,47 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	log::info!("Core assignments configured: A for blocks 0-20, B for blocks 21+");
-	log::info!("Boundary is at block {}, lookahead is {}", BOUNDARY_BLOCK, LOOKAHEAD);
+	log::info!(
+		"Core assignments configured: A for blocks 0-{}, B for blocks {}+",
+		boundary - 1,
+		boundary
+	);
 
-	// Expected claim queue transitions:
-	// At block N, claim queue = [N+1, N+2, N+3, N+4, N+5] (for lookahead=5)
-	let expected_transitions: HashMap<u32, Vec<ParaId>> = [
-		(15, vec![PARA_A, PARA_A, PARA_A, PARA_A, PARA_A]), // [16,17,18,19,20]
-		(16, vec![PARA_A, PARA_A, PARA_A, PARA_A, PARA_B]), // [17,18,19,20,21] ← B appears!
-		(17, vec![PARA_A, PARA_A, PARA_A, PARA_B, PARA_B]), // [18,19,20,21,22]
-		(18, vec![PARA_A, PARA_A, PARA_B, PARA_B, PARA_B]), // [19,20,21,22,23]
-		(19, vec![PARA_A, PARA_B, PARA_B, PARA_B, PARA_B]), // [20,21,22,23,24]
-		(20, vec![PARA_B, PARA_B, PARA_B, PARA_B, PARA_B]), // [21,22,23,24,25]
-		(21, vec![PARA_B, PARA_B, PARA_B, PARA_B, PARA_B]), // [22,23,24,25,26]
-		(25, vec![PARA_B, PARA_B, PARA_B, PARA_B, PARA_B]), // [26,27,28,29,30]
-	]
-	.into_iter()
-	.map(|(block, assignments)| (block, assignments.into_iter().map(ParaId::from).collect()))
-	.collect();
+	// Build expected claim queue transitions dynamically.
+	// At block N, claim queue = [N+1, N+2, ..., N+L] (for lookahead=L).
+	// The transition happens when the claim queue window starts overlapping the boundary.
+	let mut expected_transitions: HashMap<u32, Vec<ParaId>> = HashMap::new();
 
-	log::info!("Monitoring claim queue transitions around boundary...");
+	// Block before transition window: all A
+	let pre_transition = boundary - LOOKAHEAD - 1;
+	expected_transitions.insert(
+		pre_transition,
+		vec![ParaId::from(PARA_A); LOOKAHEAD as usize],
+	);
+
+	// Transition blocks: B gradually replaces A from the end
+	for i in 0..LOOKAHEAD {
+		let block = boundary - LOOKAHEAD + i;
+		let num_a = (LOOKAHEAD - 1 - i) as usize;
+		let num_b = (1 + i) as usize;
+		let mut queue = vec![ParaId::from(PARA_A); num_a];
+		queue.extend(vec![ParaId::from(PARA_B); num_b]);
+		expected_transitions.insert(block, queue);
+	}
+
+	// After boundary: all B
+	expected_transitions.insert(
+		boundary + 4,
+		vec![ParaId::from(PARA_B); LOOKAHEAD as usize],
+	);
+
+	log::info!(
+		"Monitoring claim queue transitions around boundary (block {})...",
+		boundary
+	);
+	for (block, expected) in expected_transitions.iter() {
+		log::debug!("  Expected at block {}: {:?}", block, expected);
+	}
 
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut verified_blocks = HashSet::new();
@@ -151,10 +189,12 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 				} else {
 					return Err(anyhow!(
 						"FAIL: At block {}, expected claim queue {:?} but got {:?}.\n\
+						Boundary is at block {}.\n\
 						This indicates the peek-assigner is not working correctly!",
 						block_number,
 						expected_queue,
-						queue_vec
+						queue_vec,
+						boundary
 					));
 				}
 			}
@@ -166,19 +206,21 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 		let required_blocks: HashSet<_> = expected_transitions.keys().copied().collect();
 
 		if required_blocks.is_subset(&verified_blocks) {
-			log::info!("✓ All claim queue transitions verified successfully!");
+			log::info!("All claim queue transitions verified successfully!");
 			break;
 		}
 
 		// Safety: don't wait forever
-		if block_number > BOUNDARY_BLOCK + 10 {
+		if block_number > boundary + 10 {
 			let missing: Vec<_> = required_blocks.difference(&verified_blocks).collect();
 			return Err(anyhow!(
 				"Failed to verify all expected claim queue transitions. Missing blocks: {:?}\n\
 				Verified: {:?}\n\
+				Boundary: {}\n\
 				This suggests the test didn't observe all required blocks.",
 				missing,
-				verified_blocks
+				verified_blocks,
+				boundary
 			));
 		}
 	}
