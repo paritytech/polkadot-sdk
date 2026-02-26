@@ -36,7 +36,7 @@ impl VirtT for Virt {
 	type Memory = Memory;
 
 	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError> {
-		let instance_id = host_fn::instantiate(program)?;
+		let instance_id = host_fn::instantiate(program)?.into();
 		let virt = Self { instance_id, destroyed: false };
 		Ok(virt)
 	}

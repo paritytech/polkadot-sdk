@@ -18,7 +18,7 @@
 use crate::{ExecError, Memory, MemoryT, SharedState, Virt, VirtT};
 use alloc::vec::Vec;
 
-const GAS_MAX: u64 = i64::MAX as u64;
+const GAS_MAX: i64 = i64::MAX;
 
 /// Run all tests.
 ///
@@ -202,7 +202,7 @@ fn run_out_of_gas_works(program: &[u8]) {
 	let ret = instance.execute_and_destroy("increment_forever", syscall_handler, &mut state);
 	assert_eq!(ret, Err(ExecError::OutOfGas));
 	assert!(!state.exit);
-	assert_eq!(state.user.counter, 6_666);
+	assert_eq!(state.user.counter, 5_882);
 	assert_eq!(state.gas_left, 0);
 }
 

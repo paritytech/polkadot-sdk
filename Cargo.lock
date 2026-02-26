@@ -24466,7 +24466,7 @@ dependencies = [
  "log",
  "num_enum",
  "parity-scale-codec",
- "polkavm",
+ "polkavm 0.30.0",
  "sp-runtime-interface 24.0.0",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",

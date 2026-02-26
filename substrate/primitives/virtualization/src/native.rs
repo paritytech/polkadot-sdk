@@ -24,7 +24,6 @@ use polkavm::{
 	RawInstance, Reg,
 };
 use std::{
-	cell::RefCell,
 	mem,
 	rc::{Rc, Weak},
 	sync::OnceLock,
@@ -61,12 +60,18 @@ fn engine() -> &'static Engine {
 /// Native implementation of [`VirtT`].
 pub struct Virt {
 	/// The PolkaVM instance we are managing.
-	instance: Instance<Self, EcallError>,
-	/// Reference counted memory so that we can hand out multiple references to it.
 	///
-	/// This is needed because we need to make changes to the type from within `on_ecall`
-	/// while we already handed out references to it.
-	memory: Rc<RefCell<Memory>>,
+	/// Boxed so that its heap address is stable across moves of `Virt`. This allows
+	/// [`Memory`] to hold a raw pointer to the inner [`RawInstance`] that remains valid
+	/// for the lifetime of this struct.
+	instance: Box<Instance<Self, EcallError>>,
+	/// The compiled module, kept around so we can resolve import indices to symbols.
+	module: Module,
+	/// Shared memory handle handed out via [`VirtT::memory`].
+	///
+	/// Users hold [`Weak`] references; once [`Virt`] is dropped the [`Rc`] is the last
+	/// owner and all [`Weak`] references become invalid.
+	memory: Rc<Memory>,
 	/// The fields which are only set while being within [`Self::execute`].
 	while_exec: Option<WhileExec>,
 }
@@ -94,38 +99,27 @@ struct WhileExec {
 ///
 /// This type exists because memory access is needed both from outside execution (through
 /// the [`Instance`] in [`Virt`]) and from inside `on_ecall` callbacks (through the
-/// [`Caller`]'s `&mut RawInstance`). Since [`Instance`] derefs to [`RawInstance`], both
-/// paths reach the same underlying object. We share it via [`Rc`] so that [`MemoryT`]
-/// consumers hold a [`Weak`] reference that becomes invalid when [`Virt`] is dropped.
+/// [`Caller`]'s `&mut RawInstance`). Since the [`Instance`] is heap-allocated ([`Box`]),
+/// the raw pointer remains stable across moves of [`Virt`].
 ///
 /// # Safety
 ///
-/// The inner pointer is valid for the lifetime of the [`Instance`] in [`Virt`]. All access
-/// is confined to `read_memory_into` and `write_memory` on the [`RawInstance`], which do
-/// not interfere with PolkaVM's execution state.
+/// The inner `*mut RawInstance` is derived from `Box<Instance<..>>` which is heap-allocated
+/// and never moves. The pointer is valid for the lifetime of [`Virt`] which owns both the
+/// [`Box`] and the [`Rc<Memory>`]. Users only hold [`Weak`] references that become invalid
+/// once [`Virt`] is dropped.
 pub struct Memory(*mut RawInstance);
 
 impl Memory {
-	/// Create a new `Memory` from a mutable reference to an [`Instance`].
-	///
-	/// # Safety
-	///
-	/// The caller must ensure the [`Instance`] outlives all uses of this `Memory`.
-	unsafe fn new(instance: &mut Instance<Virt, EcallError>) -> Self {
-		Memory(&mut **instance as *mut RawInstance)
-	}
-
 	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
-		// SAFETY: The pointer is valid for the lifetime of `Virt` which owns
-		// both the `Instance` and the `Rc<RefCell<Memory>>`.
+		// SAFETY: See `Memory` doc comment. The pointer is valid for the lifetime of `Virt`.
 		unsafe { (*self.0).read_memory_into(offset, dest) }
 			.map(|_| ())
 			.map_err(|_| MemoryError::OutOfBounds)
 	}
 
 	fn write(&self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
-		// SAFETY: The pointer is valid for the lifetime of `Virt` which owns
-		// both the `Instance` and the `Rc<RefCell<Memory>>`.
+		// SAFETY: See `Memory` doc comment. The pointer is valid for the lifetime of `Virt`.
 		unsafe { (*self.0).write_memory(offset, src) }.map_err(|_| MemoryError::OutOfBounds)
 	}
 }
@@ -159,7 +153,7 @@ impl<T> From<SyscallHandler<T>> for ErasedSyscallHandler {
 impl VirtT for Virt {
 	// We use a weak reference in order to be compatible to the forwarder implementation
 	// where the memory is no longer accessible once the `Virt` is destroyed.
-	type Memory = Weak<RefCell<Memory>>;
+	type Memory = Weak<Memory>;
 
 	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError> {
 		let engine = engine();
@@ -178,15 +172,16 @@ impl VirtT for Virt {
 			InstantiateError::InvalidImage
 		})?;
 
-		let mut instance = instance.instantiate().map_err(|err| {
+		let mut instance = Box::new(instance.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
-		})?;
-		// SAFETY: `instance` is moved into `Virt` below and lives as long as `Virt`,
-		// which also owns the `Rc<RefCell<Memory>>`. The `Memory` is only accessed via
-		// `Weak` references which become invalid once `Virt` is dropped.
-		let memory = unsafe { Memory::new(&mut instance) };
-		let virt = Self { while_exec: None, memory: Rc::new(RefCell::new(memory)), instance };
+		})?);
+		// SAFETY: `instance` is `Box`-allocated so `&mut **instance` (the `RawInstance`
+		// obtained via `Deref`) has a stable heap address. The pointer remains valid for
+		// the lifetime of `Virt` which owns both the `Box` and the `Rc<Memory>`.
+		let ptr = &mut **instance as *mut RawInstance;
+		let memory = Rc::new(Memory(ptr));
+		let virt = Self { while_exec: None, memory, instance, module };
 		Ok(virt)
 	}
 
@@ -213,16 +208,14 @@ impl VirtT for Virt {
 	}
 }
 
-impl MemoryT for Weak<RefCell<Memory>> {
+impl MemoryT for Weak<Memory> {
 	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
-		let rc = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		let memory = rc.borrow();
+		let memory = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
 		memory.read(offset, dest)
 	}
 
 	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
-		let rc = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		let memory = rc.borrow();
+		let memory = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
 		memory.write(offset, src)
 	}
 }
@@ -271,7 +264,6 @@ impl Virt {
 		syscall_handler: SyscallHandler<T>,
 		state: &mut SharedState<T>,
 	) -> Result<(), ExecError> {
-		self.instance.reset_memory().map_err(|_| ExecError::InvalidInstance)?;
 		self.instance.set_gas(state.gas_left);
 
 		// It does not really make sense to set `exit` to true before calling execute. However,
@@ -288,7 +280,7 @@ impl Virt {
 		// calling it on `self.instance`. Rust's borrow checker cannot split borrows through
 		// `self`, so we use a raw pointer. This is safe because `call_typed` only accesses
 		// `user_data` from within `on_ecall` callbacks, which in turn only access
-		// `self.while_exec` and `self.memory` — never `self.instance`.
+		// `self.while_exec`, `self.memory`, and `self.module` — never `self.instance`.
 		let virt_ptr = self as *mut Self;
 		let outcome =
 			self.instance
@@ -311,9 +303,23 @@ impl Virt {
 	}
 }
 
-fn on_ecall(caller: Caller<'_, Virt>, syscall_id: u32) -> Result<(), EcallError> {
+fn on_ecall(caller: Caller<'_, Virt>, hostcall_index: u32) -> Result<(), EcallError> {
 	let virt = caller.user_data;
 	let instance = caller.instance;
+
+	// The `hostcall_index` is an index into the module's import table, not the actual
+	// syscall number. We need to resolve it by looking up the symbol bytes.
+	let syscall_symbol = virt
+		.module
+		.imports()
+		.get(hostcall_index)
+		.expect("hostcall index is valid because it was generated by polkavm; qed");
+	let syscall_id = u32::from_le_bytes(
+		syscall_symbol
+			.as_bytes()
+			.try_into()
+			.expect("syscall symbols are always 4 bytes; qed"),
+	);
 
 	let a0 = instance.reg(Reg::A0) as u32;
 	let a1 = instance.reg(Reg::A1) as u32;

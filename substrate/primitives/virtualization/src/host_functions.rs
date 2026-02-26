@@ -25,12 +25,23 @@ use strum::EnumCount;
 #[derive(EnumCount)]
 #[repr(i8)]
 pub enum RIInstantiateError {
-	InvalidImage = -1i8,
+	InvalidImage = -1,
 }
 
 impl From<RIInstantiateError> for i64 {
 	fn from(error: RIInstantiateError) -> Self {
 		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIInstantiateError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		match value {
+			-1 => Ok(RIInstantiateError::InvalidImage),
+			_ => Err(()),
+		}
 	}
 }
 
@@ -63,6 +74,21 @@ pub enum RIExecError {
 impl From<RIExecError> for i64 {
 	fn from(error: RIExecError) -> Self {
 		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIExecError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		match value {
+			-1 => Ok(RIExecError::InvalidInstance),
+			-2 => Ok(RIExecError::InvalidImage),
+			-3 => Ok(RIExecError::OutOfGas),
+			-4 => Ok(RIExecError::InvalidGasValue),
+			-5 => Ok(RIExecError::Trap),
+			_ => Err(()),
+		}
 	}
 }
 
@@ -102,6 +128,17 @@ impl From<RIDestroyError> for i64 {
 	}
 }
 
+impl TryFrom<i64> for RIDestroyError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		match value {
+			-1 => Ok(RIDestroyError::InvalidInstance),
+			_ => Err(()),
+		}
+	}
+}
+
 impl From<RIDestroyError> for DestroyError {
 	fn from(error: RIDestroyError) -> Self {
 		match error {
@@ -131,6 +168,18 @@ impl From<RIMemoryError> for i64 {
 	}
 }
 
+impl TryFrom<i64> for RIMemoryError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		match value {
+			-1 => Ok(RIMemoryError::InvalidInstance),
+			-2 => Ok(RIMemoryError::OutOfBounds),
+			_ => Err(()),
+		}
+	}
+}
+
 impl From<RIMemoryError> for MemoryError {
 	fn from(error: RIMemoryError) -> Self {
 		match error {
@@ -150,7 +199,7 @@ impl From<MemoryError> for RIMemoryError {
 }
 
 // The following code is an excerpt from RFC-145 implementation (still to be adopted)
-// ----------8< CUT HERE 8<----------
+// ---vvv--- 8< CUT HERE 8< ---vvv---
 
 /// Used to return less-than-64-bit value passed as `i64` through the FFI boundary.
 /// Negative values are used to represent error variants.
@@ -210,10 +259,10 @@ impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCoun
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
 				assert!(
-					error_code > 0 && error_code <= E::COUNT as i64,
+					error_code < 0 && error_code >= -(E::COUNT as i64),
 					"Error variant index out of bounds"
 				);
-				-error_code
+				error_code
 			},
 		}
 	}
@@ -283,7 +332,7 @@ impl TryFrom<i64> for VoidResult {
 	}
 }
 
-// ----------8< CUT HERE 8<----------
+// ---^^^--- 8< CUT HERE 8< ---^^^---
 
 /// Host functions used to spawn and call into PolkaVM instances.
 ///
