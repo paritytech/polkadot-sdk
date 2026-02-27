@@ -16,7 +16,9 @@
 // limitations under the License.
 
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic};
+use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
+use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
+use std::collections::HashSet;
 
 /// Statement store error.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
@@ -25,12 +27,79 @@ pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
 	Db(String),
-	/// Error decoding statement structure.
-	#[error("Error decoding statement: {0:?}")]
+	/// Decoding error
+	#[error("Decoding error: {0:?}")]
 	Decode(String),
-	/// Error making runtime call.
-	#[error("Error calling into the runtime")]
-	Runtime,
+	/// Error reading from storage.
+	#[error("Storage error: {0:?}")]
+	Storage(String),
+}
+
+/// Filter for subscribing to statements with different topics.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum TopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_TOPICS`] topics can be provided.
+	MatchAll(BoundedVec<Topic, ConstU32<{ MAX_TOPICS as u32 }>>),
+	/// Matches statements including any of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_ANY_TOPICS`] topics can be provided.
+	MatchAny(BoundedVec<Topic, ConstU32<{ MAX_ANY_TOPICS as u32 }>>),
+}
+
+/// Topic filter for statement subscriptions, optimized for matching.
+#[derive(Clone, Debug)]
+pub enum OptimizedTopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Up to `4` topics can be provided.
+	MatchAll(HashSet<Topic>),
+	/// Matches statements including any of the given topics.
+	/// Up to `128` topics can be provided.
+	MatchAny(HashSet<Topic>),
+}
+
+impl OptimizedTopicFilter {
+	/// Check if the statement matches the filter.
+	pub fn matches(&self, statement: &Statement) -> bool {
+		match self {
+			OptimizedTopicFilter::Any => true,
+			OptimizedTopicFilter::MatchAll(topics) => {
+				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
+					topics.len()
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				statement.topics().iter().any(|topic| topics.contains(topic))
+			},
+		}
+	}
+}
+
+// Convert TopicFilter to CheckedTopicFilter.
+impl From<TopicFilter> for OptimizedTopicFilter {
+	fn from(filter: TopicFilter) -> Self {
+		match filter {
+			TopicFilter::Any => OptimizedTopicFilter::Any,
+			TopicFilter::MatchAll(topics) => {
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				for topic in topics {
+					parsed_topics.insert(topic);
+				}
+				OptimizedTopicFilter::MatchAll(parsed_topics)
+			},
+			TopicFilter::MatchAny(topics) => {
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				for topic in topics {
+					parsed_topics.insert(topic);
+				}
+				OptimizedTopicFilter::MatchAny(parsed_topics)
+			},
+		}
+	}
 }
 
 /// Reason why a statement was rejected from the store.
@@ -45,22 +114,37 @@ pub enum RejectionReason {
 		/// Still available data size for the account.
 		available_size: usize,
 	},
-	/// Attempting to replace a channel message with lower or equal priority.
+	/// Attempting to replace a channel message with lower or equal expiry.
 	ChannelPriorityTooLow {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing channel message.
-		min_priority: u32,
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing channel message.
+		min_expiry: u64,
 	},
-	/// Account reached its statement limit and submitted priority is too low to evict existing.
+	/// Account reached its statement limit and submitted expiry is too low to evict existing.
 	AccountFull {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing statement.
-		min_priority: u32,
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing statement.
+		min_expiry: u64,
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
+	/// Account has no allowance set.
+	NoAllowance,
+}
+
+impl RejectionReason {
+	/// Returns a short string label suitable for use in metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			RejectionReason::DataTooLarge { .. } => "data_too_large",
+			RejectionReason::ChannelPriorityTooLow { .. } => "channel_priority_too_low",
+			RejectionReason::AccountFull { .. } => "account_full",
+			RejectionReason::StoreFull => "store_full",
+			RejectionReason::NoAllowance => "no_allowance",
+		}
+	}
 }
 
 /// Reason why a statement failed validation.
@@ -79,6 +163,8 @@ pub enum InvalidReason {
 		/// The maximum allowed size.
 		max_size: usize,
 	},
+	/// Statement has already expired. The expiry field is in the past.
+	AlreadyExpired,
 }
 
 /// Statement submission outcome
@@ -98,6 +184,25 @@ pub enum SubmitResult {
 	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
+}
+
+/// An item returned by the statement subscription stream.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "event", content = "data", rename_all = "camelCase"))]
+pub enum StatementEvent {
+	/// A batch of statements matching the subscription filter.
+	NewStatements {
+		/// A batch of statements matching the subscription filter, each entry is a SCALE-encoded
+		/// statement.
+		statements: Vec<Bytes>,
+		/// An optional count of how many more matching statements are in the store after this
+		/// batch. This guarantees to the client that it will receive at least this many more
+		/// statements in the subscription stream, but it may receive more if new statements are
+		/// added to the store that match the filter.
+		#[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+		remaining: Option<u32>,
+	},
 }
 
 /// Result type for `Error`

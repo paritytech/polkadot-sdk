@@ -242,6 +242,7 @@ where
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
 				spawn_handle: task_manager.spawn_handle(),
+				spawn_essential_handle: task_manager.spawn_essential_handle(),
 				import_queue,
 				net_config,
 				block_announce_validator_builder: None,
@@ -351,7 +352,7 @@ where
 				);
 			},
 		}
-
+		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
@@ -363,6 +364,7 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					None,
+					spawn_handle.clone(),
 				)?;
 				Ok(module)
 			})

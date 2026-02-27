@@ -54,6 +54,14 @@ impl ExtBytecode {
 	/// Relative jumps does not require checking for overflow.
 	pub fn relative_jump(&mut self, offset: isize) {
 		// SAFETY: The offset is validated by the caller to ensure it points within the bytecode
+		debug_assert!(
+			{
+				let bytes = self.base.bytes_ref();
+				let new_pc = self.pc().wrapping_add_signed(offset);
+				new_pc <= bytes.len()
+			},
+			"relative_jump would move instruction pointer out of bounds"
+		);
 		self.instruction_pointer = unsafe { self.instruction_pointer.offset(offset) };
 	}
 
@@ -61,6 +69,10 @@ impl ExtBytecode {
 	/// from jump table.
 	pub fn absolute_jump(&mut self, offset: usize) {
 		// SAFETY: The offset is validated by the caller to ensure it points within the bytecode
+		debug_assert!(
+			offset <= self.base.bytes_ref().len(),
+			"absolute_jump would move instruction pointer out of bounds"
+		);
 		self.instruction_pointer = unsafe { self.base.bytes_ref().as_ptr().add(offset) };
 	}
 
@@ -89,6 +101,14 @@ impl ExtBytecode {
 	pub fn read_slice(&self, len: usize) -> &[u8] {
 		// SAFETY: The caller ensures that `len` bytes are available from the current instruction
 		// pointer position.
+		debug_assert!(
+			{
+				let bytes = self.base.bytes_ref();
+				let pc = self.pc();
+				pc.checked_add(len).map_or(false, |end| end <= bytes.len())
+			},
+			"read_slice would read out of bounds"
+		);
 		unsafe { core::slice::from_raw_parts(self.instruction_pointer, len) }
 	}
 }

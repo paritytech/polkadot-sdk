@@ -18,21 +18,15 @@
 //! Migrations for `pallet-assets-precompiles`.
 
 use crate::{foreign_assets::pallet, weights::WeightInfo};
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
+	defensive,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	weights::{Weight, WeightMeter},
+	weights::WeightMeter,
 };
 
 const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
-
-/// Progressive states of the precompile mappings migration.
-#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
-pub enum MigrationState<A> {
-	Asset(A),
-	Finished,
-}
+const LOG_TARGET: &str = "runtime::MigrateForeignAssetPrecompileMappings";
 
 /// Migration to backfill foreign asset precompile mappings for existing assets.
 ///
@@ -78,6 +72,13 @@ pub enum MigrationState<A> {
 ///
 /// - Non-destructive: Does not modify any asset data, only adds mappings
 /// - Sequential indices: Each migrated asset gets the next available index
+///
+/// NB: If the SCALE encoding of `AssetId` (e.g. `xcm::v5::Location`) ever changes,
+/// the keys in `ForeignAssetIdToAssetIndex` must be migrated **in-place** (decode old
+/// encoding → re-encode with new encoding → reinsert with the same index). Simply
+/// clearing and repopulating would reassign indices, breaking EVM contracts that
+/// cached precompile addresses derived from those indices.
+
 pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<(T, I, W)>);
 
 impl<T, I, W> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I, W>
@@ -87,7 +88,7 @@ where
 	I: 'static,
 	W: WeightInfo,
 {
-	type Cursor = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
+	type Cursor = <T as pallet_assets::Config<I>>::AssetId;
 	type Identifier = MigrationId<32>;
 
 	fn id() -> Self::Identifier {
@@ -95,58 +96,52 @@ where
 	}
 
 	fn step(
-		mut cursor: Option<Self::Cursor>,
+		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		let required = W::migrate_foreign_asset_step();
+		if meter.remaining().any_lt(required) {
+			return Err(SteppedMigrationError::InsufficientWeight { required });
+		}
+
+		let mut last_key = cursor;
+
 		loop {
-			// Check if we're already finished
-			if let Some(MigrationState::Finished) = &cursor {
-				log::info!(
-					target: "runtime::MigrateForeignAssetPrecompileMappings",
-					"migration finished"
-				);
-				return Ok(None);
-			}
-
-			// Determine the key to start iteration from
-			let maybe_last_key = match &cursor {
-				None => None,
-				Some(MigrationState::Asset(last_asset)) => Some(last_asset),
-				Some(MigrationState::Finished) => unreachable!(),
-			};
-
-			// Peek at the next asset to determine the required weight for this step.
-			// This allows us to reserve only the weight we actually need.
-			let next_asset = Self::peek_next_asset(maybe_last_key);
-
-			// Calculate the weight required based on the actual operation
-			let required = match &next_asset {
-				None => W::migrate_asset_step_finished(),
-				Some(asset_id) =>
-					if pallet::Pallet::<T>::asset_index_of(asset_id).is_some() {
-						W::migrate_asset_step_skip()
-					} else {
-						W::migrate_asset_step_migrate()
-					},
-			};
-
-			// Try to consume the weight for this specific operation
 			if meter.try_consume(required).is_err() {
-				if cursor.is_none() {
-					// First iteration and we can't even start
-					return Err(SteppedMigrationError::InsufficientWeight { required });
-				}
-				// Can't continue, return current progress
 				break;
 			}
 
-			// Perform the actual migration step
-			let (next, _weight) = Self::migrate_asset_step(maybe_last_key);
+			let next_asset = Self::peek_next_asset(last_key.as_ref());
 
-			cursor = Some(next);
+			if let Some(asset_id) = next_asset {
+				if pallet::Pallet::<T>::asset_index_of(&asset_id).is_none() {
+					match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
+						Ok(asset_index) => log::debug!(
+							target: LOG_TARGET,
+							"Migrated asset {:?} to index {:?}",
+							asset_id,
+							asset_index
+						),
+						Err(()) => {
+							// qed: we already checked that the index does *not* exist
+							defensive!("insert_asset_mapping failed during migration; this should be unreachable unless NextAssetIndex overflowed u32::MAX");
+						},
+					}
+				} else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Skipping already-mapped asset {:?}",
+						asset_id
+					);
+				}
+				last_key = Some(asset_id);
+			} else {
+				log::info!(target: LOG_TARGET, "migration finished");
+				return Ok(None);
+			}
 		}
 
-		Ok(cursor)
+		Ok(last_key)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -162,7 +157,7 @@ where
 		}
 
 		log::info!(
-			target: "runtime::MigrateForeignAssetPrecompileMappings::pre_upgrade",
+			target: LOG_TARGET,
 			"Found {} foreign assets needing migration",
 			unmapped_assets.len()
 		);
@@ -189,15 +184,16 @@ where
 						Some(stored_id) if stored_id == *asset_id => {
 							migrated = migrated.saturating_add(1);
 						},
-						_ =>
+						_ => {
 							return Err(sp_runtime::TryRuntimeError::Other(
 								"Reverse mapping mismatch",
-							)),
+							))
+						},
 					}
 				},
 				None => {
 					log::error!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
+						target: LOG_TARGET,
 						"Asset {:?} not migrated",
 						asset_id
 					);
@@ -207,7 +203,7 @@ where
 		}
 
 		log::info!(
-			target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
+			target: LOG_TARGET,
 			"Verified {} foreign asset mappings",
 			migrated
 		);
@@ -224,7 +220,7 @@ where
 	W: WeightInfo,
 {
 	/// Peeks at the next asset without performing any migration.
-	/// Used to determine the weight required for the next step.
+	/// Used to determine whether there is another asset to process.
 	fn peek_next_asset(
 		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
 	) -> Option<<T as pallet_assets::Config<I>>::AssetId> {
@@ -237,44 +233,5 @@ where
 		};
 
 		iter.next()
-	}
-
-	/// Performs a single step of the migration.
-	/// Returns the new migration state and the weight consumed.
-	fn migrate_asset_step(
-		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
-	) -> (MigrationState<<T as pallet_assets::Config<I>>::AssetId>, Weight) {
-		let mut iter = if let Some(last_key) = maybe_last_key {
-			pallet_assets::Asset::<T, I>::iter_keys_from(
-				pallet_assets::Asset::<T, I>::hashed_key_for(last_key),
-			)
-		} else {
-			pallet_assets::Asset::<T, I>::iter_keys()
-		};
-
-		if let Some(asset_id) = iter.next() {
-			// Insert the bidirectional mapping with a new sequential index
-			match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
-				Ok(asset_index) => {
-					log::debug!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings",
-						"Migrated asset {:?} to index {:?}",
-						asset_id,
-						asset_index
-					);
-				},
-				Err(()) => {
-					log::warn!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings",
-						"Failed to migrate asset {:?}",
-						asset_id
-					);
-				},
-			}
-
-			(MigrationState::Asset(asset_id), W::migrate_asset_step_migrate())
-		} else {
-			(MigrationState::Finished, W::migrate_asset_step_finished())
-		}
 	}
 }

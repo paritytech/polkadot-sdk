@@ -124,17 +124,20 @@ impl PalletStorageAttrInfo {
 		for attr in attrs {
 			match attr {
 				PalletStorageAttr::Getter(ident, ..) if getter.is_none() => getter = Some(ident),
-				PalletStorageAttr::StorageName(name, ..) if rename_as.is_none() =>
-					rename_as = Some(name),
+				PalletStorageAttr::StorageName(name, ..) if rename_as.is_none() => {
+					rename_as = Some(name)
+				},
 				PalletStorageAttr::Unbounded(..) if !unbounded => unbounded = true,
 				PalletStorageAttr::WhitelistStorage(..) if !whitelisted => whitelisted = true,
-				PalletStorageAttr::DisableTryDecodeStorage(..) if !disable_try_decode_storage =>
-					disable_try_decode_storage = true,
-				attr =>
+				PalletStorageAttr::DisableTryDecodeStorage(..) if !disable_try_decode_storage => {
+					disable_try_decode_storage = true
+				},
+				attr => {
 					return Err(syn::Error::new(
 						attr.attr_span(),
 						"Invalid attribute: Duplicate attribute",
-					)),
+					))
+				},
 			}
 		}
 
@@ -269,10 +272,12 @@ impl StorageGenerics {
 			Self::Map { value, key, .. } => Metadata::Map { value, key },
 			Self::CountedMap { value, key, .. } => Metadata::CountedMap { value, key },
 			Self::Value { value, .. } => Metadata::Value { value },
-			Self::NMap { keygen, value, .. } =>
-				Metadata::NMap { keys: collect_keys(&keygen)?, keygen, value },
-			Self::CountedNMap { keygen, value, .. } =>
-				Metadata::CountedNMap { keys: collect_keys(&keygen)?, keygen, value },
+			Self::NMap { keygen, value, .. } => {
+				Metadata::NMap { keys: collect_keys(&keygen)?, keygen, value }
+			},
+			Self::CountedNMap { keygen, value, .. } => {
+				Metadata::CountedNMap { keys: collect_keys(&keygen)?, keygen, value }
+			},
 		};
 
 		Ok(res)
@@ -600,8 +605,9 @@ fn process_unnamed_generics(
 	};
 
 	let res = match storage {
-		StorageKind::Value =>
-			(None, Metadata::Value { value: retrieve_arg(1)? }, retrieve_arg(2).ok(), false),
+		StorageKind::Value => {
+			(None, Metadata::Value { value: retrieve_arg(1)? }, retrieve_arg(2).ok(), false)
+		},
 		StorageKind::Map => (
 			None,
 			Metadata::Map { key: retrieve_arg(2)?, value: retrieve_arg(3)? },
@@ -837,16 +843,22 @@ impl StorageDef {
 							.segments
 							.last()
 							.map_or(false, |s| s.ident == "OptionQuery") =>
-						return Ok(Some(QueryKind::OptionQuery)),
+					{
+						return Ok(Some(QueryKind::OptionQuery))
+					},
 					Type::Path(TypePath { path: Path { segments, .. }, .. })
 						if segments.last().map_or(false, |s| s.ident == "ResultQuery") =>
+					{
 						segments
 							.last()
 							.expect("segments is checked to have the last value; qed")
-							.clone(),
+							.clone()
+					},
 					Type::Path(path)
 						if path.path.segments.last().map_or(false, |s| s.ident == "ValueQuery") =>
-						return Ok(Some(QueryKind::ValueQuery)),
+					{
+						return Ok(Some(QueryKind::ValueQuery))
+					},
 					_ => return Ok(None),
 				};
 

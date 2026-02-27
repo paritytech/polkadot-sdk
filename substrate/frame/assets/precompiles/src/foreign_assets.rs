@@ -16,10 +16,12 @@
 // limitations under the License.
 
 use core::marker::PhantomData;
-use frame_support::LOG_TARGET;
 use pallet_assets::AssetsCallback;
 
 pub use pallet::*;
+
+const LOG_TARGET: &str = "pallet_foreign_assets";
+
 
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
 impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
@@ -47,9 +49,17 @@ pub mod pallet {
 		/// The foreign asset ID type. This must match the `AssetId` type used by the
 		/// `pallet_assets` instance for foreign assets.
 		type ForeignAssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+
+		/// The `pallet_assets` instance that holds foreign assets.
+		/// Used by benchmarks to interact with the correct assets instance.
+		#[cfg(feature = "runtime-benchmarks")]
+		type AssetsInstance: 'static;
 	}
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// The next available asset index for foreign assets.
@@ -105,6 +115,7 @@ pub mod pallet {
 			Ok(asset_index)
 		}
 
+		/// Remove an asset mapping if it exists, else this function has no effect.
 		pub fn remove_asset_mapping(asset_id: &T::ForeignAssetId) {
 			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::get(&asset_id) {
 				AssetIndexToForeignAssetId::<T>::remove(asset_index);

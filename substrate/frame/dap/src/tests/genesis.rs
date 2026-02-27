@@ -23,7 +23,7 @@ type DapPallet = crate::Pallet<Test>;
 
 #[test]
 fn genesis_creates_buffer_account() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let buffer = DapPallet::buffer_account();
 		// Buffer account should exist after genesis (created via inc_providers)
 		assert!(System::account_exists(&buffer));

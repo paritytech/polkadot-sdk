@@ -67,7 +67,7 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::CheckInherents) {
 				return Err(Error::new(input.span(), "`CheckInherents` is not supported anymore!"));
 			} else {
-				return Err(lookahead.error())
+				return Err(lookahead.error());
 			}
 		}
 
@@ -80,8 +80,9 @@ impl Parse for Input {
 
 fn crate_() -> Result<Ident, Error> {
 	match crate_name("cumulus-pallet-parachain-system") {
-		Ok(FoundCrate::Itself) =>
-			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site())),
+		Ok(FoundCrate::Itself) => {
+			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site()))
+		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}

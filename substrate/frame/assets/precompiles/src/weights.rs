@@ -71,9 +71,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_assets_precompiles`.
 pub trait WeightInfo {
-	fn migrate_asset_step_migrate() -> Weight;
-	fn migrate_asset_step_skip() -> Weight;
-	fn migrate_asset_step_finished() -> Weight;
+	fn migrate_foreign_asset_step() -> Weight;
 }
 
 /// Weight functions needed for `pallet_assets_precompiles::permit`.
@@ -90,51 +88,23 @@ pub trait PermitWeightInfo {
 /// Weights for `pallet_assets_precompiles` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn migrate_asset_step_migrate() -> Weight {
+	fn migrate_foreign_asset_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `0`
 		// Minimum execution time: 8_247_000 picoseconds.
 		Weight::from_parts(8_630_000, 0)
-	}
-	fn migrate_asset_step_skip() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `218`
-		//  Estimated: `0`
-		// Minimum execution time: 7_167_000 picoseconds.
-		Weight::from_parts(7_701_000, 0)
-	}
-	fn migrate_asset_step_finished() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `109`
-		//  Estimated: `0`
-		// Minimum execution time: 4_307_000 picoseconds.
-		Weight::from_parts(4_593_000, 0)
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	fn migrate_asset_step_migrate() -> Weight {
+	fn migrate_foreign_asset_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `0`
 		// Minimum execution time: 8_247_000 picoseconds.
 		Weight::from_parts(8_630_000, 0)
-	}
-	fn migrate_asset_step_skip() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `218`
-		//  Estimated: `0`
-		// Minimum execution time: 7_167_000 picoseconds.
-		Weight::from_parts(7_701_000, 0)
-	}
-	fn migrate_asset_step_finished() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `109`
-		//  Estimated: `0`
-		// Minimum execution time: 4_307_000 picoseconds.
-		Weight::from_parts(4_593_000, 0)
 	}
 }
 

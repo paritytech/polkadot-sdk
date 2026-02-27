@@ -121,7 +121,9 @@ extern crate alloc;
 pub mod benchmarking;
 pub mod weights;
 
-use alloc::{vec, vec::Vec};
+#[cfg(feature = "xcm-sender")]
+use alloc::vec;
+use alloc::vec::Vec;
 use codec::Decode;
 #[cfg(feature = "xcm-sender")]
 use core::fmt::Display;
@@ -595,7 +597,6 @@ impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
 /// It can be used both in the RC and AH. `Message` is the splittable message type, and `ToXcm`
 /// should be configured by the user, converting `message` to a valida `Xcm<()>`. It should utilize
 /// the correct call indices, which we only know at the runtime level.
-//
 // NOTE: to have the pallet fully XCM-agnostic, XCMSender should be moved out (to a new or existing
 // XCM helper crate or to runtimes crates directly)
 #[cfg(feature = "xcm-sender")]
@@ -799,7 +800,10 @@ where
 			{
 				Ok((_ticket, price)) => {
 					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
-					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
+					return Ok(current_messages
+						.into_iter()
+						.map(ToXcm::convert)
+						.collect::<Vec<_>>());
 				},
 				Err(SendError::ExceedsMaxMessageSize) => {
 					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
@@ -831,6 +835,8 @@ where
 pub trait AHStakingInterface {
 	/// The validator account id type.
 	type AccountId;
+	/// The balance type.
+	type Balance: BalanceTrait;
 	/// Maximum number of validators that the staking system may have.
 	type MaxValidatorSet: Get<u32>;
 
@@ -864,6 +870,9 @@ pub trait AHStakingInterface {
 	///
 	/// Returns true if the account has called `validate()` and is in the `Validators` storage.
 	fn is_validator(who: &Self::AccountId) -> bool;
+
+	/// Returns the active bonded amount for a stash, or `None` if not bonded.
+	fn active_stake(who: &Self::AccountId) -> Option<Self::Balance>;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -1006,7 +1015,10 @@ pub mod pallet {
 		type RelayChainOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Our communication handle to the local staking pallet.
-		type AHStakingInterface: AHStakingInterface<AccountId = Self::AccountId>;
+		type AHStakingInterface: AHStakingInterface<
+			AccountId = Self::AccountId,
+			Balance = Self::Balance,
+		>;
 
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<
@@ -1054,13 +1066,9 @@ pub mod pallet {
 		/// The balance type used for delivery fee limits.
 		type Balance: BalanceTrait;
 
-		/// Maximum length of encoded session keys.
+		/// Minimum active bond required to call `set_keys`. Set to 0 to disable.
 		#[pallet::constant]
-		type MaxSessionKeysLength: Get<u32>;
-
-		/// Maximum length of the session keys ownership proof.
-		#[pallet::constant]
-		type MaxSessionKeysProofLength: Get<u32>;
+		type MinSetKeysBond: Get<BalanceOf<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -1082,6 +1090,8 @@ pub mod pallet {
 		InvalidProof,
 		/// Delivery fees exceeded the specified maximum.
 		FeesExceededMax,
+		/// The stash's active bond is below `MinSetKeysBond`.
+		InsufficientBond,
 	}
 
 	#[pallet::event]
@@ -1292,14 +1302,21 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(
 			origin: OriginFor<T>,
-			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
-			proof: BoundedVec<u8, T::MaxSessionKeysProofLength>,
+			keys: Vec<u8>,
+			proof: Vec<u8>,
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
+
+			let min_bond = T::MinSetKeysBond::get();
+			if !min_bond.is_zero() {
+				let active = T::AHStakingInterface::active_stake(&stash)
+					.ok_or(Error::<T>::InsufficientBond)?;
+				ensure!(active >= min_bond, Error::<T>::InsufficientBond);
+			}
 
 			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
 			let session_keys = T::RelayChainSessionKeys::decode(&mut &keys[..])
@@ -1314,7 +1331,7 @@ pub mod pallet {
 			// Forward validated keys to RC (no proof needed, already validated)
 			let fees = T::SendToRelayChain::set_keys(
 				stash.clone(),
-				keys.into_inner(),
+				keys,
 				max_delivery_and_remote_execution_fee,
 			)
 			.map_err(|e| match e {
@@ -1354,7 +1371,6 @@ pub mod pallet {
 		/// delivery + RC execution fee. This does not include the local transaction weight fee. If
 		/// the fee exceeds this limit, the operation fails with `FeesExceededMax`. Pass `None` for
 		/// unlimited (no cap).
-		//
 		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
 		// (storage item) to track accounts that have called set_keys. We will also need to perform
 		// a migration to populate the state for all validators that have set keys via RC.

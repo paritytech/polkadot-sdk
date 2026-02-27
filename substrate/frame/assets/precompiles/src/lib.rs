@@ -58,7 +58,7 @@ mod permit_tests;
 mod tests;
 
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
-pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
+pub use migration::MigrateForeignAssetPrecompileMappings;
 pub use permit::{
 	pallet::Config as PermitConfig, DIGEST_PREFIX_LEN, DOMAIN_SEPARATOR_ENCODED_LEN,
 	PERMIT_STRUCT_ENCODED_LEN, PERMIT_TYPEHASH, SECP256K1_N_DIV_2,
@@ -175,7 +175,9 @@ where
 			IERC20Calls::transferFrom(_) |
 			IERC20Calls::permit(_)
 				if env.is_read_only() =>
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
+			{
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+			},
 
 			// ERC20 functions
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
@@ -190,6 +192,11 @@ where
 			IERC20Calls::nonces(call) => Self::nonces(contract_addr, call, env),
 			IERC20Calls::DOMAIN_SEPARATOR(_) =>
 				Self::domain_separator(asset_id, contract_addr, env),
+
+			// ERC20Metadata functions
+			IERC20Calls::name(_) => Self::name(asset_id, env),
+			IERC20Calls::symbol(_) => Self::symbol(asset_id, env),
+			IERC20Calls::decimals(_) => Self::decimals(asset_id, env),
 		}
 	}
 }
@@ -520,5 +527,50 @@ where
 		let separator_alloy: alloy::primitives::FixedBytes<32> = separator.0.into();
 
 		Ok(IERC20::DOMAIN_SEPARATORCall::abi_encode_returns(&separator_alloy))
+	}
+
+	/// Execute the name call.
+	fn name(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let name = alloc::string::String::from_utf8(metadata.name.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in name".into() }))?;
+
+		Ok(IERC20::nameCall::abi_encode_returns(&name))
+	}
+
+	/// Execute the symbol call.
+	fn symbol(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let symbol = alloc::string::String::from_utf8(metadata.symbol.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in symbol".into() }))?;
+
+		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
+	}
+
+	/// Execute the decimals call.
+	fn decimals(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals))
 	}
 }

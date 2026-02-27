@@ -533,7 +533,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 
 		let ignore_banned = matches!(check, CheckBannedBeforeVerify::No);
 		if let Err(err) = self.validated_pool.check_is_known(&hash, ignore_banned) {
-			return (hash, ValidatedTransaction::Invalid(hash, err))
+			return (hash, ValidatedTransaction::Invalid(hash, err));
 		}
 
 		let validation_result = self
@@ -553,7 +553,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		};
 
 		let validity = match status {
-			Ok(validity) =>
+			Ok(validity) => {
 				if validity.provides.is_empty() {
 					ValidatedTransaction::Invalid(hash, error::Error::NoTagsProvided.into())
 				} else {
@@ -565,11 +565,14 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 						bytes,
 						validity,
 					)
-				},
-			Err(TransactionValidityError::Invalid(e)) =>
-				ValidatedTransaction::Invalid(hash, error::Error::InvalidTransaction(e).into()),
-			Err(TransactionValidityError::Unknown(e)) =>
-				ValidatedTransaction::Unknown(hash, error::Error::UnknownTransaction(e).into()),
+				}
+			},
+			Err(TransactionValidityError::Invalid(e)) => {
+				ValidatedTransaction::Invalid(hash, error::Error::InvalidTransaction(e).into())
+			},
+			Err(TransactionValidityError::Unknown(e)) => {
+				ValidatedTransaction::Unknown(hash, error::Error::UnknownTransaction(e).into())
+			},
 		};
 
 		(hash, validity)

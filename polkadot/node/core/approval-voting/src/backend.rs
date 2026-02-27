@@ -159,7 +159,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub fn load_blocks_at_height(&self, height: &BlockNumber) -> SubsystemResult<Vec<Hash>> {
 		if let Some(val) = self.blocks_at_height.get(&height) {
-			return Ok(val.clone().unwrap_or_default())
+			return Ok(val.clone().unwrap_or_default());
 		}
 
 		self.inner.load_blocks_at_height(height)
@@ -167,7 +167,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub fn load_block_entry(&self, hash: &Hash) -> SubsystemResult<Option<BlockEntry>> {
 		if let Some(val) = self.block_entries.get(&hash) {
-			return Ok(val.clone())
+			return Ok(val.clone());
 		}
 
 		self.inner.load_block_entry(hash)
@@ -178,7 +178,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 		candidate_hash: &CandidateHash,
 	) -> SubsystemResult<Option<CandidateEntry>> {
 		if let Some(val) = self.candidate_entries.get(&candidate_hash) {
-			return Ok(val.clone())
+			return Ok(val.clone());
 		}
 
 		self.inner.load_candidate_entry(candidate_hash)

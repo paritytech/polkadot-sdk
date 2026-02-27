@@ -121,6 +121,8 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Test {
 
 impl pallet::Config for Test {
 	type ForeignAssetId = Location;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = ForeignAssetsInstance;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

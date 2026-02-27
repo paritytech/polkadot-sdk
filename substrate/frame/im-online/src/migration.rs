@@ -75,7 +75,7 @@ pub mod v1 {
 					target: TARGET,
 					"Skipping migration because in-code storage version is not 0"
 				);
-				return weight
+				return weight;
 			}
 
 			let heartbeats = v0::ReceivedHeartbeats::<T>::drain().collect::<Vec<_>>();

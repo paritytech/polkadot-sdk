@@ -1,0 +1,21 @@
+title: Make some BEEFY keystore logic more generic
+doc:
+- audience: Node Dev
+  description: |-
+    This PR:
+    1. makes some BEEFY keystore methods more generic:
+    - `sign()`
+    - `public_keys()`
+       This is done by implementing the specific logic in the `BeefyAuthorityId`.
+    2. Removes the `BeefyAuthorityId::SignatureHasher` since for some algorithms it doesn't make sense to have a hasher.
+
+    Also since now the `BeefyAuthorityId` implements both the signing and the verification logic, we should have better consistency.
+
+    Related to https://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834
+crates:
+- name: sp-consensus-beefy
+  bump: major
+- name: sc-consensus-beefy
+  bump: patch
+- name: pallet-beefy
+  bump: patch

@@ -16,13 +16,13 @@
 // limitations under the License.
 
 use crate::{
-	test_utils::builder::Contract,
-	tests::{builder, ExtBuilder, Test},
 	Code, Config,
+	test_utils::builder::Contract,
+	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, FixtureType, StipendTest};
+use pallet_revive_fixtures::{FixtureType, StipendTest, compile_module_with_type};
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
