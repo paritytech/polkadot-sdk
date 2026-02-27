@@ -967,14 +967,10 @@ struct MockDb {
 }
 
 impl Default for MockDb {
+	/// Create an instance where all peers have a score that allows instant fetching.
 	fn default() -> Self {
-		let query_fn = |_peer_id, _para_id| None;
-		Self {
-			finalized: Default::default(),
-			witnessed_bumps: Default::default(),
-			witnessed_slash: Default::default(),
-			query_fn: Arc::new(Mutex::new(query_fn)),
-		}
+		let query_fn = |_peer_id, _para_id| Some(Score::new(VALID_INCLUDED_CANDIDATE_BUMP));
+		Self::new(Arc::new(Mutex::new(query_fn)))
 	}
 }
 
@@ -1728,9 +1724,7 @@ async fn finalized_block_notification() {
 	let mut expected_bumps = BTreeMap::new();
 	expected_bumps.insert(
 		ParaId::new(100),
-		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap())]
-			.into_iter()
-			.collect(),
+		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP))].into_iter().collect(),
 	);
 
 	futures::join!(test_state.handle_finalized_block(6), async {
@@ -1766,8 +1760,8 @@ async fn finalized_block_notification() {
 	expected_bumps.insert(
 		ParaId::new(100),
 		[
-			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
-			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
 		]
 		.into_iter()
 		.collect(),
@@ -1775,8 +1769,8 @@ async fn finalized_block_notification() {
 	expected_bumps.insert(
 		ParaId::new(200),
 		[
-			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
-			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP)),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
 		]
 		.into_iter()
 		.collect(),
@@ -3132,7 +3126,7 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |peer_id, _para_id| {
 		if peer_id == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else {
 			None
 		}

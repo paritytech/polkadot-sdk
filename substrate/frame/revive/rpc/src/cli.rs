@@ -20,7 +20,7 @@ use crate::{
 	LOG_TARGET, PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	client::{Client, SubscriptionType, SubstrateBlockNumber, connect},
-	receipt_provider::DEFAULT_BLOCK_CACHE_SIZE,
+	receipt_provider::MAX_CACHED_BLOCKS,
 };
 use clap::Parser;
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -177,7 +177,7 @@ fn build_client(
 		validate_earliest_receipt_block_argument(earliest_receipt_block, latest)?;
 
 		let (pool, keep_latest_n_blocks) = if is_in_memory_db {
-			let max_retained_blocks = prune.unwrap_or(DEFAULT_BLOCK_CACHE_SIZE);
+			let max_retained_blocks = prune.unwrap_or(MAX_CACHED_BLOCKS);
 			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {max_retained_blocks} blocks in memory");
 			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
 			let pool = SqlitePoolOptions::new()
