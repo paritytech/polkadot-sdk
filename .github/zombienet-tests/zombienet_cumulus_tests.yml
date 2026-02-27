@@ -30,13 +30,13 @@
 
 - job-name: "zombienet-cumulus-0006-rpc_collator_builds_blocks"
   test-filter: "zombie_ci::rpc_collator_build_blocks::rpc_collator_builds_blocks"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0007-full_node_warp_sync"
   test-filter: "zombie_ci::full_node_warp_sync::full_node_warp_sync"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
@@ -76,6 +76,13 @@
 
 - job-name: "zombienet-cumulus-0014-elastic_scaling_upgrade_to_3_cores"
   test-filter: "zombie_ci::elastic_scaling::upgrade_to_3_cores::elastic_scaling_upgrade_to_3_cores"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+  needs-wasm-binary: true
+
+- job-name: "zombienet-cumulus-0015-parachain-runtime-upgrade"
+  test-filter: "zombie_ci::parachain_runtime_upgrade_slot_duration_18s::parachain_runtime_upgrade_slot_duration_18s"
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
