@@ -122,16 +122,6 @@ If new statements arrive in the store they get delivered as they are without any
 ```
 
 ### Expiration and Maintenance:
-##### Statement::expiry field
-Message expiry field `Statement::expiry`, used for determining which statements to keep. The most significant 32 bits represent the expiration timestamp (in seconds since UNIX epoch) after which the statement gets removed. These ensure that statements with a higher expiration time have a higher priority.
-The lower (LSB) 32 bits represent an arbitrary sequence number used to order statements with the same expiration time. Higher values indicate a higher priority.
-This is used in two cases:
-1) When an account exceeds its quota and some statements need to be removed. Statements with the lowest `expiry` are removed first.
-2) When multiple statements are submitted on the same channel, the one with the highest expiry replaces the one with the same channel.
-
-Statements can be removed from the store in according to eviction policy:
-
-- A higher-priority statement replaces a lower-priority one when constraints are exceeded. 
+Message expiration based on expiry field, please refer to in code [description](https://github.com/paritytech/polkadot-sdk/blob/26bb41ac541de7359350c79aa917a6cced095eb3/substrate/primitives/statement-store/src/lib.rs#L371)
 
 
-When removed, statements are marked as expired but remain in the index and database. Actual deletion occurs during the maintenance process, which runs every 30 seconds in a background task using Store::maintain(). Expired statements remain in the database for a configurable period (default 48 hours) to prevent resubmission during gossip propagation. 
