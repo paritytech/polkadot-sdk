@@ -419,8 +419,7 @@ impl price_oracle::oracle::Config for Runtime {
 	type MaxEndpointsPerAsset = ConstU32<8>;
 	type MaxVoteAge = ConstU32<4>;
 	type MaxVotesPerBlock = Self::MaxAuthorities;
-	type RelayBlockNumberProvider =
-		cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
+	type RelayBlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Self>;
 	type TimeProvider = crate::Timestamp;
 	type TallyManager = price_oracle::tally::SimpleAverage<Self>;
 	type WeightInfo = price_oracle::oracle::weights::SubstrateWeight<Self>;

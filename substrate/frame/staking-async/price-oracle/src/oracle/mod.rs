@@ -197,6 +197,15 @@ pub mod pallet {
 		KeepVotes(Error),
 	}
 
+	#[pallet::origin]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
+	)]
+	pub enum Origin {
+		/// Full admin: can register/deregister assets and manage endpoints.
+		Admin,
+	}
+
 	/// Interface to be implemented by the tally algorithm that we intend to use here.
 	pub trait Tally {
 		/// The asset-id type.
@@ -311,6 +320,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: super::WeightInfo;
+
+		/// Origin for the oracle pallet.
+		type OracleOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Origin>;
 	}
 
 	#[pallet::event]
@@ -329,6 +341,14 @@ pub mod pallet {
 		},
 		/// The tallying failed with the given error.
 		TallyFailed { error: TallyOuterError<TallyInnerErrorOf<T>> },
+		/// A new asset was registered.
+		AssetRegistered { asset_id: T::AssetId },
+		/// An asset was deregistered.
+		AssetDeregistered { asset_id: T::AssetId },
+		/// An endpoint was added to an asset.
+		EndpointAdded { asset_id: T::AssetId, endpoint: Endpoint },
+		/// An endpoint was removed from an asset.
+		EndpointRemoved { asset_id: T::AssetId, index: u32 },
 	}
 
 	#[pallet::error]
@@ -402,7 +422,6 @@ pub mod pallet {
 		}
 
 		/// Deregister an asset from being tracked.
-		#[allow(unused)]
 		fn deregister_asset(asset_id: T::AssetId) -> DispatchResult {
 			ensure!(Self::is_tracked(asset_id), Error::<T>::AssetNotTracked);
 			Endpoints::<T>::remove(asset_id);
@@ -415,8 +434,9 @@ pub mod pallet {
 		}
 
 		/// Add an endpoint to an already tracked asset.
-		#[allow(unused)]
 		fn add_endpoint(asset_id: T::AssetId, endpoint: Endpoint) -> DispatchResult {
+			offchain::OracleOffchainWorker::<T>::validate_endpoint(&endpoint)
+				.map_err(|_| Error::<T>::InvalidEndpoint)?;
 			let mut stored = Endpoints::<T>::get(&asset_id).ok_or(Error::<T>::AssetNotTracked)?;
 			stored.try_push(endpoint).map_err(|_| Error::<T>::TooManyEndpoints)?;
 			Endpoints::<T>::insert(asset_id, stored);
@@ -424,7 +444,6 @@ pub mod pallet {
 		}
 
 		/// Remove an endpoint from an already tracked asset.
-		#[allow(unused)]
 		fn remove_endpoint_at(asset_id: T::AssetId, index: usize) -> DispatchResult {
 			let mut stored = Endpoints::<T>::get(&asset_id).ok_or(Error::<T>::AssetNotTracked)?;
 			ensure!(index < stored.len(), Error::<T>::EndpointNotFound);
@@ -859,36 +878,58 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight({(1000, DispatchClass::Operational)})]
 		pub fn register_asset(
-			_origin: OriginFor<T>,
-			_asset_id: T::AssetId,
-			_endpoints: Vec<Endpoint>,
+			origin: OriginFor<T>,
+			asset_id: T::AssetId,
+			endpoints: Vec<Endpoint>,
 		) -> DispatchResult {
+			T::OracleOrigin::ensure_origin(origin)?;
+
+			let bounded_endpoints = BoundedVec::<_, T::MaxEndpointsPerAsset>::try_from(endpoints)
+				.map_err(|_| Error::<T>::TooManyEndpoints)?;
+			StorageManager::<T>::register_asset(asset_id, bounded_endpoints)?;
+			Self::deposit_event(Event::<T>::AssetRegistered { asset_id });
+
 			Ok(())
 		}
 
 		#[pallet::call_index(2)]
 		#[pallet::weight({(1000, DispatchClass::Operational)})]
-		pub fn deregister_asset(_origin: OriginFor<T>, _asset_id: T::AssetId) -> DispatchResult {
+		pub fn deregister_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
+			T::OracleOrigin::ensure_origin(origin)?;
+
+			StorageManager::<T>::deregister_asset(asset_id)?;
+			Self::deposit_event(Event::<T>::AssetDeregistered { asset_id });
+
 			Ok(())
 		}
 
 		#[pallet::call_index(3)]
 		#[pallet::weight({(1000, DispatchClass::Operational)})]
 		pub fn add_endpoint(
-			_origin: OriginFor<T>,
-			_asset_id: T::AssetId,
-			_endpoint: Vec<u8>,
+			origin: OriginFor<T>,
+			asset_id: T::AssetId,
+			endpoint: Endpoint,
 		) -> DispatchResult {
+			T::OracleOrigin::ensure_origin(origin)?;
+
+			StorageManager::<T>::add_endpoint(asset_id, endpoint.clone())?;
+			Self::deposit_event(Event::<T>::EndpointAdded { asset_id, endpoint });
+
 			Ok(())
 		}
 
 		#[pallet::call_index(4)]
 		#[pallet::weight({(1000, DispatchClass::Operational)})]
 		pub fn remove_endpoint(
-			_origin: OriginFor<T>,
-			_asset_id: T::AssetId,
-			_index: u32,
+			origin: OriginFor<T>,
+			asset_id: T::AssetId,
+			index: u32,
 		) -> DispatchResult {
+			T::OracleOrigin::ensure_origin(origin)?;
+
+			StorageManager::<T>::remove_endpoint_at(asset_id, index as usize)?;
+			Self::deposit_event(Event::<T>::EndpointRemoved { asset_id, index });
+
 			Ok(())
 		}
 	}

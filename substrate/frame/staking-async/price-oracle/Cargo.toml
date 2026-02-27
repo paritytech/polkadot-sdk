@@ -12,8 +12,8 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
+scale-info = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -21,13 +21,13 @@ frame-system = { workspace = true }
 # because we have to act as session handler and should-end-session etc.
 pallet-session = { workspace = true }
 
-sp-runtime = { workspace = true }
-sp-io = { workspace = true }
 sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
-serde_json = { workspace = true }
-serde = { workspace = true, features = ["derive"]}
 log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }

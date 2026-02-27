@@ -601,7 +601,7 @@ impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManage
 					current_validators
 				);
 				Some(current_validators)
-			}
+			},
 			TweakValidatorSetOption::UsePrevious => {
 				let current_validators = pallet_session::Validators::<Runtime>::get();
 				log::info!(

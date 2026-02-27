@@ -852,3 +852,200 @@ mod on_session_change {
 		});
 	}
 }
+
+mod asset_management {
+	use super::*;
+	use crate::oracle::{Error, Event};
+
+	#[test]
+	fn registers_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(PriceOracle::register_asset(
+				RuntimeOrigin::root(),
+				2,
+				vec![Endpoint::default()]
+			));
+			System::assert_has_event(Event::<Runtime>::AssetRegistered { asset_id: 2 }.into());
+			assert!(StorageManager::<Runtime>::tracked_assets_with_endpoints()
+				.contains(&(2, vec![Endpoint::default()])));
+		});
+	}
+
+	#[test]
+	fn deregisters_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(PriceOracle::deregister_asset(RuntimeOrigin::root(), 1));
+			System::assert_has_event(Event::<Runtime>::AssetDeregistered { asset_id: 1 }.into());
+			assert!(StorageManager::<Runtime>::tracked_assets_with_endpoints().is_empty());
+		});
+	}
+
+	#[test]
+	fn adds_endpoint() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(PriceOracle::add_endpoint(RuntimeOrigin::root(), 1, Endpoint::default()));
+			System::assert_has_event(
+				Event::<Runtime>::EndpointAdded { asset_id: 1, endpoint: Endpoint::default() }
+					.into(),
+			);
+			let assets = StorageManager::<Runtime>::tracked_assets_with_endpoints();
+			assert!(assets
+				.iter()
+				.any(|(asset_id, endpoints)| *asset_id == 1 &&
+					endpoints.contains(&Endpoint::default())));
+		});
+	}
+
+	#[test]
+	fn removes_endpoint() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(PriceOracle::remove_endpoint(RuntimeOrigin::root(), 1, 0));
+			System::assert_has_event(
+				Event::<Runtime>::EndpointRemoved { asset_id: 1, index: 0 }.into(),
+			);
+			assert_eq!(
+				StorageManager::<Runtime>::tracked_assets_with_endpoints(),
+				vec![(1, vec![])]
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_invalid_signer_register_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::register_asset(RuntimeOrigin::signed(1), 1, vec![Endpoint::default()]),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_invalid_signer_deregister_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::deregister_asset(RuntimeOrigin::signed(1), 1),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_invalid_signer_add_endpoint() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::add_endpoint(RuntimeOrigin::signed(1), 1, Endpoint::default()),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_invalid_signer_remove_endpoint() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::remove_endpoint(RuntimeOrigin::signed(1), 1, 0),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn adds_existing_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::register_asset(RuntimeOrigin::root(), 1, vec![]),
+				Error::<Runtime>::AssetAlreadyTracked
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_too_many_endpoints() {
+		ExtBuilder::default().build_and_execute(|| {
+			let max_endpoints_per_asset =
+				<<Runtime as crate::oracle::Config>::MaxEndpointsPerAsset as Get<u32>>::get();
+			assert_noop!(
+				PriceOracle::register_asset(
+					RuntimeOrigin::root(),
+					2,
+					vec![Endpoint::default(); max_endpoints_per_asset as usize + 1]
+				),
+				Error::<Runtime>::TooManyEndpoints
+			);
+		});
+	}
+
+	#[test]
+	fn adds_invalid_endpoint() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::add_endpoint(
+					RuntimeOrigin::root(),
+					2,
+					Endpoint { requires_api_key: true, ..Default::default() }
+				),
+				Error::<Runtime>::InvalidEndpoint
+			);
+		});
+	}
+
+	#[test]
+	fn deregister_non_existent_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::deregister_asset(RuntimeOrigin::root(), 2),
+				Error::<Runtime>::AssetNotTracked
+			);
+		});
+	}
+
+	#[test]
+	fn adds_endpoint_to_non_existent_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::add_endpoint(RuntimeOrigin::root(), 2, Endpoint::default()),
+				Error::<Runtime>::AssetNotTracked
+			);
+		});
+	}
+
+	#[test]
+	fn adds_too_many_endpoints() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(PriceOracle::register_asset(
+				RuntimeOrigin::root(),
+				2,
+				vec![
+					Endpoint::default();
+					<<Runtime as crate::oracle::Config>::MaxEndpointsPerAsset as Get<u32>>::get()
+						as usize
+				]
+			));
+			assert_noop!(
+				PriceOracle::add_endpoint(RuntimeOrigin::root(), 2, Endpoint::default()),
+				Error::<Runtime>::TooManyEndpoints
+			);
+		});
+	}
+
+	#[test]
+	fn remove_endpoint_from_non_existent_asset() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::remove_endpoint(RuntimeOrigin::root(), 2, 0),
+				Error::<Runtime>::AssetNotTracked
+			);
+		});
+	}
+
+	#[test]
+	fn remove_endpoint_at_non_existent_index() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_noop!(
+				PriceOracle::remove_endpoint(RuntimeOrigin::root(), 1, 1),
+				Error::<Runtime>::EndpointNotFound
+			);
+		});
+	}
+}

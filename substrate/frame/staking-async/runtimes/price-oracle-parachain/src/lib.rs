@@ -90,7 +90,10 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		// Rejects any transaction not from oracle authorities, sudo key, or root.
-		pallet_staking_async_price_oracle::extension::OnlyOracleAuthorities<Runtime, SudoKeyAsExtraSigner>,
+		pallet_staking_async_price_oracle::extension::OnlyOracleAuthorities<
+			Runtime,
+			SudoKeyAsExtraSigner,
+		>,
 		pallet_staking_async_price_oracle::extension::SetPriorityFromProducedIn<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),

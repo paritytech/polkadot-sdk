@@ -24,7 +24,7 @@ scale-info = { features = ["derive"], workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 smallvec = { workspace = true, default-features = true }
 
-pallet-staking-async-price-oracle ={ workspace = true, default-features = false }
+pallet-staking-async-price-oracle = { workspace = true, default-features = false }
 
 polkadot-sdk = { workspace = true, default-features = false, features = [
 	"pallet-aura",
@@ -75,11 +75,11 @@ std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"log/std",
+	"pallet-staking-async-price-oracle/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
 	"substrate-wasm-builder",
-	"pallet-staking-async-price-oracle/std"
 ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
