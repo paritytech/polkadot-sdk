@@ -284,7 +284,15 @@ where
 	)
 	.await
 	{
-		Ok(result) => result,
+		Ok(Some(result)) => Some(result),
+		Ok(None) => {
+			tracing::warn!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				"Could not find parent to build upon.",
+			);
+			None
+		},
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
