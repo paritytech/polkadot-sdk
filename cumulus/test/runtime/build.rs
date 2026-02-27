@@ -76,6 +76,13 @@ fn main() {
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
 		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("scheduling-v3-disabled")
+		.import_memory()
+		.set_file_name("wasm_binary_scheduling_v3_disabled.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

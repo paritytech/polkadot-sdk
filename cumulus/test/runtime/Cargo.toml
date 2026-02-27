@@ -107,3 +107,5 @@ sync-backing = []
 async-backing = []
 # An elastic scaling runtime with 12s slots.
 elastic-scaling-12s-slot = []
+# An async-backing runtime with scheduling V3 disabled.
+scheduling-v3-disabled = []

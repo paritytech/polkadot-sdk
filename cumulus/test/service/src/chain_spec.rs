@@ -143,6 +143,16 @@ pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	)
 }
 
+// Async backing with scheduling v3 disabled.
+pub fn get_scheduling_v3_disabled_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::scheduling_v3_disabled::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
+}
+
 pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,

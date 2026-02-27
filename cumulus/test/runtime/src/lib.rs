@@ -66,6 +66,11 @@ pub mod async_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
 
+pub mod scheduling_v3_disabled {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_scheduling_v3_disabled.rs"));
+}
+
 mod genesis_config_presets;
 mod test_pallet;
 
@@ -150,14 +155,18 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
-#[cfg(feature = "async-backing")]
+#[cfg(any(feature = "async-backing", feature = "scheduling-v3-disabled"))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 
 #[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
+#[cfg(all(
+	not(feature = "sync-backing"),
+	not(feature = "async-backing"),
+	not(feature = "scheduling-v3-disabled")
+))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
 #[cfg(any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"))]
@@ -365,9 +374,9 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 const RELAY_PARENT_OFFSET: u32 = 0;
 const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
 
-#[cfg(feature = "sync-backing")]
+#[cfg(any(feature = "sync-backing", feature = "scheduling-v3-disabled"))]
 const SCHEDULING_V3_ENABLED: bool = false;
-#[cfg(not(feature = "sync-backing"))]
+#[cfg(not(any(feature = "sync-backing", feature = "scheduling-v3-disabled")))]
 const SCHEDULING_V3_ENABLED: bool = true;
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
