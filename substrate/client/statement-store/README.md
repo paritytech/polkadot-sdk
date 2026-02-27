@@ -21,7 +21,7 @@ RUST_LOG=info,statement-store=trace ./target/x86_64-unknown-linux-gnu/debug/subs
 ```
 
 3. Set quota using sudo, you can use this [extrinsic as template](https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/extrinsics/decode/0x160000040468555345525f594f55525f4143434f554e545f4b45595f48455245200a00000000500000)
-> NOTE: link assumes that you are running node locally on 127.0.0.1:9944. For example [this link](https://polkadot.js.org/apps/?rpc=wss://previewnet.substrate.dev/relay/alice/extrinsics/decode/0x160000040468555345525f594f55525f4143434f554e545f4b45595f48455245200a00000000500000#/explorer) goes to [product preview testnet](https://previewnet.substrate.dev/). 
+> NOTE: link assumes that you are running node locally on 127.0.0.1:9944. Use this temaple if not `https://polkadot.js.org/apps/?rpc=wss://{URL_GOES_HERE}/relay/alice/extrinsics/decode/0x160000040468555345525f594f55525f4143434f554e545f4b45595f48455245200a00000000500000#/explorer`
 
 
 ### How do I get statement-store allowance for accounts?
