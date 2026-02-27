@@ -631,134 +631,135 @@ fn existing_validators_without_hold_are_except() {
 mod externally_set_keys_tracking {
 	use super::*;
 
-	fn setup_account(account_id: u64) {
-		frame_system::Pallet::<Test>::inc_providers(&account_id);
+	const ACCOUNT: u64 = 1000;
+
+	fn setup_account() {
+		frame_system::Pallet::<Test>::inc_providers(&ACCOUNT);
 		ValidatorAccounts::mutate(|m| {
-			m.insert(account_id, account_id);
+			m.insert(ACCOUNT, ACCOUNT);
+		});
+	}
+
+	fn set_local(key: u64) {
+		let keys = UintAuthorityId(key).into();
+		let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(key));
+		assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
+	}
+
+	fn set_remote(key: u64) {
+		<Session as SessionInterface>::set_keys(&ACCOUNT, UintAuthorityId(key).into()).unwrap();
+	}
+
+	fn purge_local() {
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(ACCOUNT)));
+	}
+
+	fn purge_remote() {
+		<Session as SessionInterface>::purge_keys(&ACCOUNT).unwrap();
+	}
+
+	fn assert_local_state(consumers_before: u32) {
+		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		// +1 from session's inc_consumers, +1 from pallet-balances hold.
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before + 2);
+		assert_eq!(session_hold(ACCOUNT), KeyDeposit::get());
+	}
+
+	fn assert_remote_state(consumers_before: u32) {
+		assert!(ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+		assert_eq!(session_hold(ACCOUNT), 0);
+	}
+
+	fn assert_clean_state(consumers_before: u32) {
+		assert!(!ExternallySetKeys::<Test>::contains_key(&ACCOUNT));
+		assert_eq!(System::consumers(&ACCOUNT), consumers_before);
+		assert_eq!(session_hold(ACCOUNT), 0);
+	}
+
+	#[test]
+	fn set_local_purge_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
+
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
+
+			purge_local();
+			assert_clean_state(consumers_before);
 		});
 	}
 
 	#[test]
-	fn purge_skips_dec_consumers_for_externally_set_keys() {
-		// GIVEN: keys set externally (no inc_consumers, no deposit)
-		// WHEN: purge (locally or externally)
-		// THEN: consumer count unchanged, no deposit
-		let account_id = 1000;
+	fn set_local_purge_remote() {
 		new_test_ext().execute_with(|| {
-			setup_account(account_id);
-			let consumers_before = System::consumers(&account_id);
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
 
-			<Session as SessionInterface>::set_keys(
-				&account_id,
-				UintAuthorityId(account_id).into(),
-			)
-			.unwrap();
-			assert!(ExternallySetKeys::<Test>::contains_key(&account_id));
-			assert_eq!(System::consumers(&account_id), consumers_before);
-			assert_eq!(session_hold(account_id), 0);
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
 
-			// External-to-external update: no change.
-			<Session as SessionInterface>::set_keys(&account_id, UintAuthorityId(70).into())
-				.unwrap();
-			assert!(ExternallySetKeys::<Test>::contains_key(&account_id));
-			assert_eq!(System::consumers(&account_id), consumers_before);
-			assert_eq!(session_hold(account_id), 0);
-
-			// Purge locally
-			frame_support::hypothetically!({
-				assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
-				assert_eq!(System::consumers(&account_id), consumers_before);
-				assert_eq!(session_hold(account_id), 0);
-				assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
-			});
-
-			// Purge externally
-			<Session as SessionInterface>::purge_keys(&account_id).unwrap();
-			assert_eq!(System::consumers(&account_id), consumers_before);
-			assert_eq!(session_hold(account_id), 0);
-			assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
+			purge_remote();
+			assert_clean_state(consumers_before);
 		});
 	}
 
 	#[test]
-	fn external_purge_releases_deposit_from_prior_local_registration() {
-		// GIVEN: keys set locally (deposit held)
-		// WHEN: external purge_keys
-		// THEN: deposit released
-		let account_id = 1000;
+	fn set_remote_purge_local() {
 		new_test_ext().execute_with(|| {
-			setup_account(account_id);
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
 
-			let keys = UintAuthorityId(account_id).into();
-			let proof = create_set_keys_proof(account_id, &UintAuthorityId(account_id));
-			assert_ok!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, proof));
-			assert_eq!(session_hold(account_id), KeyDeposit::get());
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
 
-			// External purge releases the deposit.
-			<Session as SessionInterface>::purge_keys(&account_id).unwrap();
-			assert_eq!(session_hold(account_id), 0);
+			purge_local();
+			assert_clean_state(consumers_before);
 		});
 	}
 
 	#[test]
-	fn purge_decrements_consumers_for_locally_set_keys() {
-		// GIVEN: keys set locally (inc_consumers + hold)
-		// WHEN: purge locally
-		// THEN: consumer count returns to baseline, deposit released
-		let account_id = 1000;
+	fn set_remote_purge_remote() {
 		new_test_ext().execute_with(|| {
-			setup_account(account_id);
-			let consumers_before = System::consumers(&account_id);
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
 
-			let keys = UintAuthorityId(account_id).into();
-			let proof = create_set_keys_proof(account_id, &UintAuthorityId(account_id));
-			assert_ok!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, proof));
-			assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
-			assert!(System::consumers(&account_id) > consumers_before);
-			assert_eq!(session_hold(account_id), KeyDeposit::get());
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
 
-			assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
-			assert_eq!(System::consumers(&account_id), consumers_before);
-			assert_eq!(session_hold(account_id), 0);
+			purge_remote();
+			assert_clean_state(consumers_before);
 		});
 	}
 
 	#[test]
-	fn full_round_trip_local_external_local() {
-		// local → external → local → purge
-		let account_id = 1000;
+	fn set_local_to_remote() {
 		new_test_ext().execute_with(|| {
-			setup_account(account_id);
-			let consumers_before = System::consumers(&account_id);
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
 
-			// 1. Local set: deposit + consumer.
-			let keys = UintAuthorityId(account_id).into();
-			let proof = create_set_keys_proof(account_id, &UintAuthorityId(account_id));
-			assert_ok!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, proof));
-			assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
-			let consumers_after_local = System::consumers(&account_id);
-			assert!(consumers_after_local > consumers_before);
-			assert_eq!(session_hold(account_id), KeyDeposit::get());
+			set_local(ACCOUNT);
+			assert_local_state(consumers_before);
 
-			// 2. External set: cleans up deposit + consumer.
-			<Session as SessionInterface>::set_keys(&account_id, UintAuthorityId(70).into())
-				.unwrap();
-			assert!(ExternallySetKeys::<Test>::contains_key(&account_id));
-			assert_eq!(System::consumers(&account_id), consumers_before);
-			assert_eq!(session_hold(account_id), 0);
+			// Transition to remote: deposit released, consumer decremented.
+			set_remote(70);
+			assert_remote_state(consumers_before);
+		});
+	}
 
-			// 3. Local set again: deposit + consumer restored.
-			let keys = UintAuthorityId(80).into();
-			let proof = create_set_keys_proof(account_id, &UintAuthorityId(80));
-			assert_ok!(Session::set_keys(RuntimeOrigin::signed(account_id), keys, proof));
-			assert!(!ExternallySetKeys::<Test>::contains_key(&account_id));
-			assert_eq!(System::consumers(&account_id), consumers_after_local);
-			assert_eq!(session_hold(account_id), KeyDeposit::get());
+	#[test]
+	fn set_remote_to_local() {
+		new_test_ext().execute_with(|| {
+			setup_account();
+			let consumers_before = System::consumers(&ACCOUNT);
 
-			// 4. Purge: back to baseline.
-			assert_ok!(Session::purge_keys(RuntimeOrigin::signed(account_id)));
-			assert_eq!(System::consumers(&account_id), consumers_before);
-			assert_eq!(session_hold(account_id), 0);
+			set_remote(ACCOUNT);
+			assert_remote_state(consumers_before);
+
+			// Transition to local: deposit placed, consumer incremented.
+			set_local(70);
+			assert_local_state(consumers_before);
 		});
 	}
 }
