@@ -13331,6 +13331,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "derive_more 0.99.17",
  "env_logger 0.11.3",
  "futures",
  "git2",

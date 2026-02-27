@@ -320,7 +320,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		&self,
 		label: SyncLabel,
 	) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let label_str = label.as_str();
+		let label_str = label.to_string();
 		let row = query!(
 			r#"
 			SELECT block_number, block_hash
@@ -358,7 +358,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		let label_str = label.as_str();
+		let label_str = label.to_string();
 		let block_number = checkpoint.block_number as i64;
 		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
 		query!(
@@ -383,7 +383,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		let label_str = label.as_str();
+		let label_str = label.to_string();
 		let block_number = checkpoint.block_number as i64;
 		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
 		query!(
@@ -411,7 +411,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		let label_str = label.as_str();
+		let label_str = label.to_string();
 		let block_number = checkpoint.block_number as i64;
 		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
 		query!(

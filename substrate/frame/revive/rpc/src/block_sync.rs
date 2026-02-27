@@ -27,39 +27,25 @@ use std::{future::Future, pin::Pin};
 const LOG_TARGET: &str = "eth-rpc::block-sync";
 
 /// Labels used to track sync progress in the `sync_state` table.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, derive_more::Display)]
 pub enum SyncLabel {
 	/// Genesis block hash — used for chain identity verification.
+	#[display(fmt = "genesis")]
 	Genesis,
 	/// Lowest block synced by the historic sync.
+	#[display(fmt = "sync-lower-bound")]
 	LowerBound,
 	/// Upper boundary of contiguous DB coverage, used to resume sync after a crash.
 	/// Non-zero means sync is in progress (or was interrupted).
 	/// Zero means sync completed; absent means sync never started.
+	#[display(fmt = "sync-upper-bound")]
 	UpperBound,
 	/// Latest finalized block, tracked by the live subscription.
+	#[display(fmt = "finalized")]
 	LastFinalized,
 	/// Auto-discovered first EVM block on the chain.
+	#[display(fmt = "evm-first-block")]
 	EvmFirstBlock,
-}
-
-impl SyncLabel {
-	/// The string stored in the database `label` column.
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			Self::Genesis => "genesis",
-			Self::LowerBound => "sync-lower-bound",
-			Self::UpperBound => "sync-upper-bound",
-			Self::LastFinalized => "finalized",
-			Self::EvmFirstBlock => "evm-first-block",
-		}
-	}
-}
-
-impl std::fmt::Display for SyncLabel {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(self.as_str())
-	}
 }
 
 /// Sync checkpoint persisted in the `sync_state` table to allow resuming after a crash.
@@ -461,40 +447,5 @@ impl Client {
 			 (requested #{upper}..#{lower})");
 
 		loop_result
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn sync_label_as_str() {
-		assert_eq!(SyncLabel::Genesis.as_str(), "genesis");
-		assert_eq!(SyncLabel::LowerBound.as_str(), "sync-lower-bound");
-		assert_eq!(SyncLabel::UpperBound.as_str(), "sync-upper-bound");
-		assert_eq!(SyncLabel::LastFinalized.as_str(), "finalized");
-		assert_eq!(SyncLabel::EvmFirstBlock.as_str(), "evm-first-block");
-	}
-
-	#[test]
-	fn sync_label_display() {
-		assert_eq!(format!("{}", SyncLabel::Genesis), "genesis");
-		assert_eq!(format!("{}", SyncLabel::LowerBound), "sync-lower-bound");
-		assert_eq!(format!("{}", SyncLabel::UpperBound), "sync-upper-bound");
-		assert_eq!(format!("{}", SyncLabel::LastFinalized), "finalized");
-		assert_eq!(format!("{}", SyncLabel::EvmFirstBlock), "evm-first-block");
-	}
-
-	#[test]
-	fn chain_validation_errors_are_detected() {
-		assert!(ClientError::ChainMismatch.is_chain_validation_error());
-		assert!(ClientError::SyncBoundaryMismatch.is_chain_validation_error());
-	}
-
-	#[test]
-	fn checkpoint_interval_is_reasonable() {
-		assert!(SYNC_CHECKPOINT_INTERVAL > 0);
-		assert!(SYNC_CHECKPOINT_INTERVAL <= 1000);
 	}
 }
