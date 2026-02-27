@@ -359,8 +359,7 @@ impl CollationManager {
 
 		for leaf in &leaves {
 			let free_slots = self.claim_queue_state.free_slots(leaf);
-			let Some(allowed_parents) =
-				self.implicit_view.known_allowed_relay_parents_under(leaf)
+			let Some(allowed_parents) = self.implicit_view.known_allowed_relay_parents_under(leaf)
 			else {
 				continue;
 			};
