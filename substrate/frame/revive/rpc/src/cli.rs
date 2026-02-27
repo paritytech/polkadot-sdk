@@ -295,8 +295,14 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	// Read the sync boundary before subscriptions start, so the finalized
 	// subscription cannot advance `Finalized` past actual contiguous coverage.
-	let upper_boundary =
-		if sync { Some(tokio_runtime.block_on(client.prepare_sync())?) } else { None };
+	let upper_boundary = if sync {
+		log::info!(target: "eth-rpc",
+			"🔄 Historical block sync enabled. For a complete sync, \
+			 the connected node should be an archive node.");
+		Some(tokio_runtime.block_on(client.prepare_sync())?)
+	} else {
+		None
+	};
 
 	let rpc_server_handle = start_rpc_servers(
 		&rpc_config,

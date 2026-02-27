@@ -23,7 +23,7 @@ pub(crate) mod storage_api;
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	SyncLabel, TracerType, TransactionInfo,
-	block_sync::{SYNC_CHECKPOINT_INTERVAL, SyncCheckpoint},
+	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
@@ -414,21 +414,22 @@ impl Client {
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			// Track finalized block in sync_state periodically (monotonic advance).
-			if subscription_type == SubscriptionType::FinalizedBlocks &&
-				block_number % SYNC_CHECKPOINT_INTERVAL == 0
-			{
-				let cp = SyncCheckpoint::new(block_number, hash);
-				if let Err(err) =
-					self.receipt_provider.advance_sync_label(SyncLabel::LastFinalized, cp).await
-				{
-					log::warn!(target: LOG_TARGET,
-						"Failed to update sync_label[{}]: {err:?}", SyncLabel::LastFinalized);
-				}
-			}
-
-			// Only broadcast for best blocks to avoid duplicate notifications.
 			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::FinalizedBlocks, _) => {
+					// Track finalized block in sync_state (monotonic advance).
+					if let Err(err) = self
+						.receipt_provider
+						.advance_sync_label(
+							SyncLabel::LastFinalized,
+							SyncCheckpoint::new(block_number, hash),
+						)
+						.await
+					{
+						log::warn!(target: LOG_TARGET,
+							"Failed to update sync_label[{}]: {err:?}",
+							SyncLabel::LastFinalized);
+					}
+				},
 				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
 					let _ = sender.send(hash);
 				},

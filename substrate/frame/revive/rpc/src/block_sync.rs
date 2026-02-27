@@ -144,20 +144,29 @@ impl Client {
 	/// Returns the upper bound of contiguous DB coverage.
 	/// Must be called before subscriptions start.
 	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let upper_bound = self.receipt_provider().get_sync_label(SyncLabel::UpperBound).await?;
+		let Some(checkpoint) =
+			self.receipt_provider().get_sync_label(SyncLabel::UpperBound).await?
+		else {
+			// No UpperBound row — fresh DB.
+			return Ok(None);
+		};
 
-		if let Some(checkpoint) = &upper_bound {
-			if checkpoint.block_number > 0 {
-				log::info!(target: LOG_TARGET,
-					"🗄️ Previous sync was interrupted, resuming from upper bound #{}", checkpoint.block_number);
-				return Ok(upper_bound);
-			}
+		// Interrupted sync — resume from where it left off.
+		if checkpoint.block_number > 0 {
+			log::info!(target: LOG_TARGET,
+				"🗄️ Previous sync was interrupted, resuming from upper bound #{}",
+				checkpoint.block_number);
+			return Ok(Some(checkpoint));
 		}
 
+		// UpperBound=0 means a previous sync completed successfully.
+		// Use LastFinalized as the new upper bound to sync blocks
+		// produced since the last completed sync.
 		let finalized = self.receipt_provider().get_sync_label(SyncLabel::LastFinalized).await?;
-		if let Some(checkpoint) = &finalized {
+		if let Some(fin) = &finalized {
 			log::info!(target: LOG_TARGET,
-				"🗄️ No interrupted sync, using last finalized #{} as upper bound", checkpoint.block_number);
+				"🗄️ Previous sync completed, using last finalized #{} as upper bound",
+				fin.block_number);
 		}
 		Ok(finalized)
 	}
