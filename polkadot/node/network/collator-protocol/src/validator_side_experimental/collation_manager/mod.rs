@@ -1432,11 +1432,12 @@ mod tests {
 		let para_id = ParaId::new(1);
 		let score = |val: u16| Score::new(val);
 
-		let now = Instant::now();
-		// Timestamp far enough in the past that any delay has passed.
-		let old_timestamp = now.checked_sub(MAX_FETCH_DELAY).unwrap();
-		// Timestamp recent enough that delay hasn't passed.
-		let recent_timestamp = now;
+		let leaf_timestamp = Instant::now();
+		// timestamp where MAX_FETCH_DELAY has elapsed
+		let no_delay_timestamp = leaf_timestamp.checked_add(MAX_FETCH_DELAY).unwrap();
+		// timestamp where MAX_FETCH_DELAY has not passed;
+		let delay_timestamp = leaf_timestamp.checked_add(MAX_FETCH_DELAY / 2).unwrap();
+		let expected_delay = MAX_FETCH_DELAY / 2;
 
 		let peer_a = PeerId::random();
 		let peer_b = PeerId::random();
@@ -1449,14 +1450,19 @@ mod tests {
 			prospective_candidate: None,
 		};
 
-		let new_collation_manager_instance = || CollationManager {
-			implicit_view: ImplicitView::new(),
-			claim_queue_state: PerLeafClaimQueueState::new(),
-			per_relay_parent: HashMap::from([(relay_parent, PerRelayParent::new(0, CoreIndex(0)))]),
-			blocked_from_seconding: HashMap::new(),
-			per_session: LruMap::new(ByLength::new(2)),
-			fetching: PendingRequests::default(),
-			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
+		let new_collation_manager_instance = || {
+			let mut per_relay_parent = PerRelayParent::new(0, CoreIndex(0));
+			per_relay_parent.activated_at = leaf_timestamp;
+
+			CollationManager {
+				implicit_view: ImplicitView::new(),
+				claim_queue_state: PerLeafClaimQueueState::new(),
+				per_relay_parent: HashMap::from([(relay_parent, per_relay_parent)]),
+				blocked_from_seconding: HashMap::new(),
+				per_session: LruMap::new(ByLength::new(2)),
+				fetching: PendingRequests::default(),
+				keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
+			}
 		};
 
 		// No advertisements - returns Left(None).
@@ -1466,7 +1472,7 @@ mod tests {
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
-					now,
+					leaf_timestamp,
 					relay_parent,
 					&[relay_parent],
 					para_id,
@@ -1480,21 +1486,21 @@ mod tests {
 		// Single advertisement with delay passed - returns the advertisement.
 		{
 			let mut collation_manager = new_collation_manager_instance();
-			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
 			collation_manager
 				.per_relay_parent
 				.get_mut(&relay_parent)
 				.unwrap()
-				.add_advertisement(make_adv(peer_a), old_timestamp);
+				.add_advertisement(make_adv(peer_a), no_delay_timestamp);
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
-					now,
+					no_delay_timestamp,
 					relay_parent,
 					&[relay_parent],
 					para_id,
-					score(100), // highest_rep == peer's score, so delay = 0
+					score(100),
 					&get_rep,
 				),
 				Either::Left(Some(make_adv(peer_a)))
@@ -1510,12 +1516,12 @@ mod tests {
 				.per_relay_parent
 				.get_mut(&relay_parent)
 				.unwrap()
-				.add_advertisement(make_adv(peer_a), recent_timestamp);
+				.add_advertisement(make_adv(peer_a), delay_timestamp);
 
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY
 			let result = collation_manager.pick_best_advertisement(
-				now,
+				delay_timestamp,
 				relay_parent,
 				&[relay_parent],
 				para_id,
@@ -1523,7 +1529,32 @@ mod tests {
 				&get_rep,
 			);
 
-			assert_eq!(result, Either::Right(MAX_FETCH_DELAY));
+			assert_eq!(result, Either::Right(expected_delay));
+		}
+
+		// No delay when max_para_score = 0
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
+
+			collation_manager
+				.per_relay_parent
+				.get_mut(&relay_parent)
+				.unwrap()
+				.add_advertisement(make_adv(peer_a), delay_timestamp);
+
+			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
+			// MAX_FETCH_DELAY
+			let result = collation_manager.pick_best_advertisement(
+				delay_timestamp,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				score(0),
+				&get_rep,
+			);
+
+			assert_eq!(result, Either::Left(Some(make_adv(peer_a))));
 		}
 
 		// Multiple advertisements - picks highest score.
@@ -1545,14 +1576,14 @@ mod tests {
 			};
 
 			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
-			per_rp.add_advertisement(make_adv(peer_a), old_timestamp);
-			per_rp.add_advertisement(make_adv(peer_b), old_timestamp);
-			per_rp.add_advertisement(make_adv(peer_c), old_timestamp);
+			per_rp.add_advertisement(make_adv(peer_a), no_delay_timestamp);
+			per_rp.add_advertisement(make_adv(peer_b), no_delay_timestamp);
+			per_rp.add_advertisement(make_adv(peer_c), no_delay_timestamp);
 
 			// All have old timestamps, so delay has passed. Should pick peer_b (highest score).
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
-					now,
+					no_delay_timestamp,
 					relay_parent,
 					&[relay_parent],
 					para_id,
@@ -1568,8 +1599,9 @@ mod tests {
 			let mut collation_manager = new_collation_manager_instance();
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 
-			let earlier = old_timestamp;
-			let later = old_timestamp + Duration::from_secs(1);
+			let earlier = no_delay_timestamp;
+			let later = no_delay_timestamp + Duration::from_secs(1);
+			let now = later + Duration::from_millis(100);
 
 			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
 			per_rp.add_advertisement(make_adv(peer_a), later);
@@ -1598,11 +1630,11 @@ mod tests {
 				.per_relay_parent
 				.get_mut(&relay_parent)
 				.unwrap()
-				.add_advertisement(make_adv(peer_a), old_timestamp);
+				.add_advertisement(make_adv(peer_a), no_delay_timestamp);
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
-					now,
+					no_delay_timestamp,
 					relay_parent,
 					&[relay_parent],
 					para_id,
@@ -1623,12 +1655,12 @@ mod tests {
 				.per_relay_parent
 				.get_mut(&relay_parent)
 				.unwrap()
-				.add_advertisement(make_adv(peer_a), old_timestamp);
+				.add_advertisement(make_adv(peer_a), no_delay_timestamp);
 
 			// Pass different relay parent in allowed_rps.
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
-					now,
+					no_delay_timestamp,
 					relay_parent,
 					&[other_relay_parent], // relay_parent not included
 					para_id,
@@ -1643,20 +1675,15 @@ mod tests {
 		// timer for the leaf has expired.
 		{
 			let mut collation_manager = new_collation_manager_instance();
-			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
-			// Set activated_at far enough in the past that any delay has elapsed.
 			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
-			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY * 2).unwrap();
 
-			// Advertisement arrives now (recent), but the leaf has been active long enough.
-			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
+			per_rp.add_advertisement(make_adv(peer_a), no_delay_timestamp);
 
-			// highest_rep = 100, peer's score = 50, so delay = MAX_FETCH_DELAY * 0.5
-			// But activated_at is 2*MAX_FETCH_DELAY ago, so remaining_delay = 0.
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
-					now,
+					no_delay_timestamp,
 					relay_parent,
 					&[relay_parent],
 					para_id,
@@ -1670,18 +1697,19 @@ mod tests {
 		// Advertisement with partial delay elapsed returns remaining delay.
 		{
 			let mut collation_manager = new_collation_manager_instance();
-			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
+			let advertisement_timestamp = leaf_timestamp + MAX_FETCH_DELAY / 4;
+			let expected_delay = MAX_FETCH_DELAY / 4 * 3;
 			// Set activated_at so that only part of the delay has elapsed.
-			// delay = MAX_FETCH_DELAY / 2 (score 50 out of 100)
-			// activated_at = MAX_FETCH_DELAY / 4 ago => remaining = MAX_FETCH_DELAY / 4
+			// score(0) < INSTANT_FETCH_REP_THRESHOLD and < highest_rep => delay = MAX_FETCH_DELAY
+			// activated_at = MAX_FETCH_DELAY / 4 ago => remaining = MAX_FETCH_DELAY * 3/4
 			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
-			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY / 4).unwrap();
 
-			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
+			per_rp.add_advertisement(make_adv(peer_a), advertisement_timestamp);
 
 			let result = collation_manager.pick_best_advertisement(
-				now,
+				advertisement_timestamp,
 				relay_parent,
 				&[relay_parent],
 				para_id,
@@ -1689,7 +1717,7 @@ mod tests {
 				&get_rep,
 			);
 
-			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 4));
+			assert_eq!(result, Either::Right(expected_delay));
 		}
 	}
 }
