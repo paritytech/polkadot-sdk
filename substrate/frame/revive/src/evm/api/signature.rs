@@ -223,14 +223,12 @@ mod tests {
 
 	#[test]
 	fn high_s_signature_is_rejected() {
-		// secp256k1 curve order N
 		let order: [u8; 32] = [
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
 			0xd0, 0x36, 0x41, 0x41,
 		];
 
-		// Decode a valid signed legacy transaction
 		let raw_tx = alloy_core::hex::decode(
 			"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f",
 		)
@@ -240,11 +238,9 @@ mod tests {
 		// The original transaction should recover successfully (low-S)
 		assert!(tx.recover_eth_address().is_ok());
 
-		// Extract the unsigned tx and the signature, then construct a high-S variant
 		let unsigned = TransactionUnsigned::from_signed(tx.clone());
 		let sig = tx.raw_signature().unwrap();
 
-		// Compute s' = order - s (high-S malleable counterpart)
 		let s_bytes: [u8; 32] = sig[32..64].try_into().unwrap();
 		let mut s_prime = [0u8; 32];
 		let mut borrow = 0i16;
@@ -260,11 +256,10 @@ mod tests {
 		}
 
 		let mut malleable_sig = [0u8; 65];
-		malleable_sig[0..32].copy_from_slice(&sig[0..32]); // same R
-		malleable_sig[32..64].copy_from_slice(&s_prime); // s' = order - s
-		malleable_sig[64] = sig[64] ^ 1; // flip recovery id
+		malleable_sig[0..32].copy_from_slice(&sig[0..32]);
+		malleable_sig[32..64].copy_from_slice(&s_prime);
+		malleable_sig[64] = sig[64] ^ 1;
 
-		// Construct signed tx with the high-S signature
 		let malleable_tx = unsigned.with_signature(malleable_sig);
 
 		// Should be rejected by recover_eth_address due to high-S
