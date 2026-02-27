@@ -1,4 +1,4 @@
-title: "Replace secp256k1 with k256 in sp-core, add v3 host functions with low-S enforcement (BIP-62 / EIP-2)"
+title: "Unify sp-core ECDSA to k256-only + low-S signature normalization (BIP-62 / EIP-2)"
 doc:
   - audience: Runtime Dev
     description: |
@@ -8,39 +8,24 @@ doc:
       from `sp-core` dependencies entirely. `k256/precomputed-tables` is enabled under the `std`
       feature for host-side performance.
 
-      **New v3 host functions**, four new host function versions are added in `sp-io` that use
-      `k256` and enforce low-S signatures (BIP-62 / EIP-2):
-      - `ecdsa_verify` v3: rejects high-S signatures before delegating to `Pair::verify()`
-      - `ecdsa_verify_prehashed` v2: rejects high-S signatures before delegating to
-        `Pair::verify_prehashed()`
-      - `secp256k1_ecdsa_recover` v3: rejects high-S, uses k256 for recovery (uncompressed)
-      - `secp256k1_ecdsa_recover_compressed` v3: rejects high-S, uses k256 for recovery
-        (compressed duh!)
-
-      Existing v1 (libsecp256k1) and v2 (secp256k1) host functions are completely unchanged for
-      backward compatibility. The `secp256k1` crate remains a dependency of `sp-io` for these
-      v2 recovery functions (`secp256k1_ecdsa_recover`, `secp256k1_ecdsa_recover_compressed`).
+      All existing host functions in `sp-io` are unchanged. Low-S enforcement is performed in
+      the runtime before calling host functions, using the new `is_signature_normalized()` helper.
+      No new host function versions are introduced.
 
       **Note:** `ecdsa_verify` v2 calls `Pair::verify()`, which now implicitly uses `k256`
       after the sp-core unification. This is accepted because the mathematical result is
-      identical, both libraries implement the same secp256k1 curve operations.
+      identical — both libraries implement the same secp256k1 curve operations.
 
-      **Host function library layering:**
-      | Version | Library | Low-S |
-      |---------|---------|-------|
-      | v1 | `libsecp256k1` | No |
-      | v2 | `secp256k1` (rust-bitcoin) | No |
-      | v3 | `k256` | **Yes** |
+      **sp_core::ecdsa** A public constant `SECP256K1_HALF_ORDER` and helper function
+      `is_signature_normalized()` are available for checking whether a 65-byte ECDSA signature
+      has its S value in the lower half of the curve order. Runtimes call this before the
+      existing host functions to enforce low-S where desired. `Pair::sign_prehashed()` performs
+      explicit low-S normalization and includes a debug assertion. The `Drop` impl for
+      `GenericPair` is removed since k256's `SigningKey` implements `ZeroizeOnDrop`.
 
       **claims-pallet** Migrated from `secp256k1` to `k256`. The test/benchmark helpers
       (`secp_utils`, `mock.rs`, `benchmarking.rs`) now use `k256::ecdsa::SigningKey` instead of
       `secp256k1::SecretKey`. The `secp256k1` crate is removed from `polkadot-runtime-common`.
-
-      **sp_core::ecdsa** A public constant `SECP256K1_HALF_ORDER` and helper function
-      `is_signature_normalized()` are available for checking whether a 65-byte ECDSA signature
-      has its S value in the lower half of the curve order. `Pair::sign_prehashed()` performs
-      explicit low-S normalization and includes a debug assertion. The `Drop` impl for
-      `GenericPair` is removed since k256's `SigningKey` implements `ZeroizeOnDrop`.
 
       **pallet-revive** `recover_eth_address()` rejects high-S signatures before calling
       `secp256k1_ecdsa_recover`, matching Ethereum post-Homestead validation (EIP-2). The
@@ -55,10 +40,6 @@ doc:
 
   - audience: Runtime User
     description: |
-      New v3 host functions for ECDSA verification and recovery are available that enforce
-      low-S signature normalization per BIP-62 / EIP-2. Runtimes can opt into these stricter
-      functions to reject malleable signatures.
-
       EVM transactions submitted to pallet-revive now require low-S signatures per EIP-2. All
       standard Ethereum signing libraries already produce low-S signatures by default, so no
       action is needed for well-behaved signers. Transactions with non-canonical (high-S)
@@ -67,11 +48,14 @@ doc:
       BEEFY ECDSA signature verification now also requires low-S. Validators using standard
       signing tooling are unaffected.
 
+      A new `sp_core::ecdsa::is_signature_normalized()` helper is available for runtimes that
+      want to enforce low-S on their own ECDSA verification paths.
+
 crates:
   - name: sp-core
     bump: major
   - name: sp-io
-    bump: minor
+    bump: patch
   - name: polkadot-runtime-common
     bump: patch
   - name: pallet-revive

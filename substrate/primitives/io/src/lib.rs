@@ -131,9 +131,6 @@ use secp256k1::{
 };
 
 #[cfg(not(substrate_runtime))]
-use k256::ecdsa::{RecoveryId as K256RecoveryId, Signature as K256Signature, VerifyingKey};
-
-#[cfg(not(substrate_runtime))]
 use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
@@ -1209,22 +1206,6 @@ pub trait Crypto {
 		ecdsa::Pair::verify(sig, msg, pub_key)
 	}
 
-	/// Verify `ecdsa` signature with low-S enforcement (BIP-62/EIP-2).
-	///
-	/// Returns `true` when the verification was successful and the signature
-	/// has a normalized (low) S value. Rejects malleable high-S signatures.
-	#[version(3)]
-	fn ecdsa_verify(
-		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
-		msg: PassFatPointerAndRead<&[u8]>,
-		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
-	) -> bool {
-		if !ecdsa::is_signature_normalized(&sig.0) {
-			return false;
-		}
-		ecdsa::Pair::verify(sig, msg, pub_key)
-	}
-
 	/// Verify `ecdsa` signature with pre-hashed `msg`.
 	///
 	/// Returns `true` when the verification was successful.
@@ -1233,22 +1214,6 @@ pub trait Crypto {
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
 	) -> bool {
-		ecdsa::Pair::verify_prehashed(sig, msg, pub_key)
-	}
-
-	/// Verify `ecdsa` signature with pre-hashed `msg` and low-S enforcement (BIP-62/EIP-2).
-	///
-	/// Returns `true` when the verification was successful and the signature
-	/// has a normalized (low) S value. Rejects malleable high-S signatures.
-	#[version(2)]
-	fn ecdsa_verify_prehashed(
-		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
-		msg: PassPointerAndRead<&[u8; 32], 32>,
-		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
-	) -> bool {
-		if !ecdsa::is_signature_normalized(&sig.0) {
-			return false;
-		}
 		ecdsa::Pair::verify_prehashed(sig, msg, pub_key)
 	}
 
@@ -1334,34 +1299,6 @@ pub trait Crypto {
 		Ok(res)
 	}
 
-	/// Verify and recover a SECP256k1 ECDSA signature using k256 with low-S enforcement.
-	///
-	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
-	/// - `msg` is the blake2-256 hash of the message.
-	/// - Rejects high-S (malleable) signatures per BIP-62/EIP-2.
-	///
-	/// Returns `Err` if the signature is bad or high-S, otherwise the 64-byte pubkey
-	/// (doesn't include the 0x04 prefix).
-	#[version(3)]
-	fn secp256k1_ecdsa_recover(
-		sig: PassPointerAndRead<&[u8; 65], 65>,
-		msg: PassPointerAndRead<&[u8; 32], 32>,
-	) -> AllocateAndReturnByCodec<Result<[u8; 64], EcdsaVerifyError>> {
-		if !ecdsa::is_signature_normalized(sig) {
-			return Err(EcdsaVerifyError::BadSignature);
-		}
-		let v = if sig[64] > 26 { sig[64] - 27 } else { sig[64] };
-		let rid = K256RecoveryId::from_byte(v).ok_or(EcdsaVerifyError::BadV)?;
-		let k256_sig =
-			K256Signature::from_slice(&sig[..64]).map_err(|_| EcdsaVerifyError::BadRS)?;
-		let pubkey = VerifyingKey::recover_from_prehash(msg.as_ref(), &k256_sig, rid)
-			.map_err(|_| EcdsaVerifyError::BadSignature)?;
-		let uncompressed = pubkey.to_encoded_point(false);
-		let mut res = [0u8; 64];
-		res.copy_from_slice(&uncompressed.as_bytes()[1..]);
-		Ok(res)
-	}
-
 	/// Verify and recover a SECP256k1 ECDSA signature.
 	///
 	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
@@ -1406,33 +1343,6 @@ pub trait Crypto {
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
 		let pubkey = ctx.recover_ecdsa(msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		Ok(pubkey.serialize())
-	}
-
-	/// Verify and recover a SECP256k1 ECDSA signature using k256 with low-S enforcement.
-	///
-	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
-	/// - `msg` is the blake2-256 hash of the message.
-	/// - Rejects high-S (malleable) signatures per BIP-62/EIP-2.
-	///
-	/// Returns `Err` if the signature is bad or high-S, otherwise the 33-byte compressed pubkey.
-	#[version(3)]
-	fn secp256k1_ecdsa_recover_compressed(
-		sig: PassPointerAndRead<&[u8; 65], 65>,
-		msg: PassPointerAndRead<&[u8; 32], 32>,
-	) -> AllocateAndReturnByCodec<Result<[u8; 33], EcdsaVerifyError>> {
-		if !ecdsa::is_signature_normalized(sig) {
-			return Err(EcdsaVerifyError::BadSignature);
-		}
-		let v = if sig[64] > 26 { sig[64] - 27 } else { sig[64] };
-		let rid = K256RecoveryId::from_byte(v).ok_or(EcdsaVerifyError::BadV)?;
-		let k256_sig =
-			K256Signature::from_slice(&sig[..64]).map_err(|_| EcdsaVerifyError::BadRS)?;
-		let pubkey = VerifyingKey::recover_from_prehash(msg.as_ref(), &k256_sig, rid)
-			.map_err(|_| EcdsaVerifyError::BadSignature)?;
-		let compressed = pubkey.to_sec1_bytes();
-		let mut res = [0u8; 33];
-		res.copy_from_slice(&compressed);
-		Ok(res)
 	}
 
 	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
@@ -2247,35 +2157,8 @@ mod tests {
 		});
 	}
 
-	/// The secp256k1 curve order N.
-	const SECP256K1_ORDER: [u8; 32] = [
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-		0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36,
-		0x41, 0x41,
-	];
-
-	/// Compute the high-S complement of a 65-byte ECDSA signature (R||S||V).
-	/// Returns s' = N - s with flipped recovery ID.
-	fn make_high_s_signature(sig: &[u8; 65]) -> [u8; 65] {
-		let mut result = [0u8; 65];
-		result[0..32].copy_from_slice(&sig[0..32]);
-		let mut borrow = 0i16;
-		for i in (0..32).rev() {
-			let diff = SECP256K1_ORDER[i] as i16 - sig[32 + i] as i16 - borrow;
-			if diff < 0 {
-				result[32 + i] = (diff + 256) as u8;
-				borrow = 1;
-			} else {
-				result[32 + i] = diff as u8;
-				borrow = 0;
-			}
-		}
-		result[64] = sig[64] ^ 1;
-		result
-	}
-
 	#[test]
-	fn secp256k1_ecdsa_recover_accepts_valid_low_s() {
+	fn secp256k1_ecdsa_recover_valid_signature() {
 		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
 		let msg = sp_crypto_hashing::blake2_256(b"test message");
 		let sig = pair.sign_prehashed(&msg);
@@ -2289,20 +2172,7 @@ mod tests {
 	}
 
 	#[test]
-	fn secp256k1_ecdsa_recover_rejects_high_s() {
-		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
-		let msg = sp_crypto_hashing::blake2_256(b"test message");
-		let sig = pair.sign_prehashed(&msg);
-
-		let high_s = make_high_s_signature(&sig.0);
-		assert!(!ecdsa::is_signature_normalized(&high_s));
-
-		let result = crypto::secp256k1_ecdsa_recover(&high_s, &msg);
-		assert!(result.is_err());
-	}
-
-	#[test]
-	fn secp256k1_ecdsa_recover_compressed_accepts_valid_low_s() {
+	fn secp256k1_ecdsa_recover_compressed_valid_signature() {
 		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
 		let msg = sp_crypto_hashing::blake2_256(b"test message");
 		let sig = pair.sign_prehashed(&msg);
@@ -2313,18 +2183,7 @@ mod tests {
 	}
 
 	#[test]
-	fn secp256k1_ecdsa_recover_compressed_rejects_high_s() {
-		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
-		let msg = sp_crypto_hashing::blake2_256(b"test message");
-		let sig = pair.sign_prehashed(&msg);
-
-		let high_s = make_high_s_signature(&sig.0);
-		let result = crypto::secp256k1_ecdsa_recover_compressed(&high_s, &msg);
-		assert!(result.is_err());
-	}
-
-	#[test]
-	fn ecdsa_verify_accepts_valid_low_s() {
+	fn ecdsa_verify_valid_signature() {
 		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
 		let message = b"test message";
 		let sig = pair.sign(message);
@@ -2334,79 +2193,11 @@ mod tests {
 	}
 
 	#[test]
-	fn ecdsa_verify_rejects_high_s() {
-		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
-		let message = b"test message";
-		let sig = pair.sign(message);
-
-		let high_s = make_high_s_signature(&sig.0);
-		let high_s_sig = ecdsa::Signature::from_raw(high_s);
-		assert!(!crypto::ecdsa_verify(&high_s_sig, message, &pair.public()));
-	}
-
-	#[test]
-	fn ecdsa_verify_prehashed_accepts_valid_low_s() {
+	fn ecdsa_verify_prehashed_valid_signature() {
 		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
 		let msg = sp_crypto_hashing::blake2_256(b"test message");
 		let sig = pair.sign_prehashed(&msg);
 
 		assert!(crypto::ecdsa_verify_prehashed(&sig, &msg, &pair.public()));
-	}
-
-	#[test]
-	fn ecdsa_verify_prehashed_rejects_high_s() {
-		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
-		let msg = sp_crypto_hashing::blake2_256(b"test message");
-		let sig = pair.sign_prehashed(&msg);
-
-		let high_s = make_high_s_signature(&sig.0);
-		let high_s_sig = ecdsa::Signature::from_raw(high_s);
-		assert!(!crypto::ecdsa_verify_prehashed(&high_s_sig, &msg, &pair.public()));
-	}
-
-	#[test]
-	fn secp256k1_and_k256_recover_identical_pubkeys() {
-		// Verify that the secp256k1 crate (used by v2 host functions) and the k256
-		// crate (used by v3 host functions and sp-core Pair) produce identical
-		// recovery results for the same valid signature.
-		for i in 1..11u8 {
-			let seed = [i; 32];
-			let pair = ecdsa::Pair::from_seed(&seed);
-			let msg = sp_crypto_hashing::blake2_256(&[i]);
-			let sig = pair.sign_prehashed(&msg);
-
-			// Recover using secp256k1 crate (what v2 host functions do)
-			let v = sig.0[64];
-			let rid = RecoveryId::try_from(v as i32).unwrap();
-			let secp_sig = RecoverableSignature::from_compact(&sig.0[..64], rid).unwrap();
-			let secp_msg = Message::from_digest(msg);
-			let secp_pubkey = secp256k1::SECP256K1.recover_ecdsa(secp_msg, &secp_sig).unwrap();
-
-			// Recover using k256 crate (what v3 host functions do)
-			let k256_rid = K256RecoveryId::from_byte(v).unwrap();
-			let k256_sig = K256Signature::from_slice(&sig.0[..64]).unwrap();
-			let k256_pubkey =
-				VerifyingKey::recover_from_prehash(&msg, &k256_sig, k256_rid).unwrap();
-
-			// Uncompressed keys must match
-			let secp_uncompressed = secp_pubkey.serialize_uncompressed();
-			let k256_uncompressed = k256_pubkey.to_encoded_point(false);
-			assert_eq!(
-				&secp_uncompressed[..],
-				k256_uncompressed.as_bytes(),
-				"uncompressed pubkey mismatch for seed {}",
-				i
-			);
-
-			// Compressed keys must match
-			let secp_compressed = secp_pubkey.serialize();
-			let k256_compressed = k256_pubkey.to_sec1_bytes();
-			assert_eq!(
-				&secp_compressed[..],
-				&k256_compressed[..],
-				"compressed pubkey mismatch for seed {}",
-				i
-			);
-		}
 	}
 }
