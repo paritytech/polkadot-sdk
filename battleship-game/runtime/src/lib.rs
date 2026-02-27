@@ -215,7 +215,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) * TARGET_BLOCK_RATE;
+pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * TARGET_BLOCK_RATE;
 /// Relay chain slot duration, in milliseconds.
 pub(crate) const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 /// Target number of blocks per relay chain slot.
