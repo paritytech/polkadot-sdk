@@ -240,7 +240,13 @@ where
 			},
 		);
 
-		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
+		let code_upgrade_detected =
+			if <PSC as frame_system::Config>::Version::get().system_version >= 3 {
+				overlay.storage(well_known_keys::PENDING_CODE).is_some()
+			} else {
+				overlay.storage(well_known_keys::CODE).is_some()
+			};
+		if code_upgrade_detected && num_blocks > 1 {
 			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
 		}
 		run_with_externalities_and_recorder::<B, _, _>(
