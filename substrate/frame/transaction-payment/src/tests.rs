@@ -915,3 +915,179 @@ fn fungible_adapter_no_zero_refund_action() {
 		);
 	});
 }
+
+#[test]
+fn pallet_origin_with_fee_payer_charges_fees() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			// So events are emitted
+			System::set_block_number(10);
+
+			let ext = Ext::from(0);
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = 10;
+
+			// FeePayer(1) has fee_payer returning Some(1), so fees should be charged.
+			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(1).into();
+			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+
+			// base_weight(5) + byte_fee(10) + call_weight(5) + ext_weight(10) = 30
+			assert_eq!(Balances::free_balance(1), 100 - 5 - 10 - 5 - 10);
+
+			// post_dispatch should also work.
+			let pd_res = Ok(());
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+			<Ext as sp_runtime::traits::TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+
+			// Fee event should have been deposited.
+			assert!(System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::TransactionPayment(crate::Event::TransactionFeePaid { who: 1, .. })
+			)));
+		});
+}
+
+#[test]
+fn pallet_origin_with_fee_payer_and_tip_charges_correctly() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let tip = 7u64;
+			let ext = Ext::from(tip);
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = 10;
+
+			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(2).into();
+			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+
+			// base_weight(5) + byte_fee(10) + call_weight(5) + ext_weight(10) + tip(7) = 37
+			assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 5 - 10 - 7);
+
+			let pd_res = Ok(());
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+			<Ext as sp_runtime::traits::TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+		});
+}
+
+#[test]
+fn pallet_origin_without_fee_payer_skips_fees() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let ext = Ext::from(0);
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = 10;
+
+			// NonFeePayer(1) has as_account returning Some(1) but NOT fee_payer,
+			// so fee_payer() returns None and no fees should be charged.
+			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::NonPaying(1).into();
+			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+
+			// Balance should be unchanged — no fees charged.
+			assert_eq!(Balances::free_balance(1), 100);
+
+			// post_dispatch should refund extension weight.
+			let pd_res = Ok(());
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+			<Ext as sp_runtime::traits::TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+
+			// Extension weight should be refunded since NoCharge path was taken.
+			assert_eq!(post_info.actual_weight, Some(info.call_weight));
+		});
+}
+
+#[test]
+fn pallet_admin_origin_skips_fees() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let ext = Ext::from(0);
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = 10;
+
+			// Council has no as_account at all, so fee_payer() returns None.
+			let origin: RuntimeOrigin = frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Council.into();
+			let (pre, _origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+
+			// post_dispatch should refund extension weight.
+			let pd_res = Ok(());
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+			<Ext as sp_runtime::traits::TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+
+			assert_eq!(post_info.actual_weight, Some(info.call_weight));
+		});
+}
+
+#[test]
+fn pallet_origin_fee_payer_insufficient_balance() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let ext = Ext::from(0);
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = 10;
+
+			// Account 99 has no balance (not in genesis). fee_payer() returns Some(99)
+			// but the account can't pay, so validate_and_prepare should fail.
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(99)
+					.into();
+			assert!(ext.validate_and_prepare(origin, CALL, &info, len, 0).is_err());
+		});
+}

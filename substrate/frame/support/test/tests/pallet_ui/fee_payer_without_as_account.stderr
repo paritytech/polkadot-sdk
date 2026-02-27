@@ -1,0 +1,5 @@
+error: `#[pallet::fee_payer]` requires `#[pallet::as_account(...)]` on the same variant
+  --> tests/pallet_ui/fee_payer_without_as_account.rs:39:3
+   |
+39 |         #[pallet::fee_payer]
+   |         ^

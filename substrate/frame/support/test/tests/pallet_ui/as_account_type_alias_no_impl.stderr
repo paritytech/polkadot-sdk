@@ -1,0 +1,10 @@
+error[E0277]: the trait bound `CustomOrigin<<T as Config>::AccountId>: AccountLike<...>` is not satisfied
+  --> tests/pallet_ui/as_account_type_alias_no_impl.rs:25:1
+   |
+25 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+   = help: the trait `AccountLike<<T as frame_system::Config>::AccountId>` is not implemented for `CustomOrigin<<T as frame_system::Config>::AccountId>`
+   = help: the trait `AccountLike<AccountId>` is implemented for `RawOrigin<AccountId>`
+   = note: consider using `--verbose` to print the full type name to the console
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)

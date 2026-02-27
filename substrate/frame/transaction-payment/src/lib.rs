@@ -55,7 +55,7 @@ use frame_support::{
 		DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
 	pallet_prelude::TransactionSource,
-	traits::{Defensive, EstimateCallFee, Get, Imbalance, SuppressedDrop},
+	traits::{AccountLike, Defensive, EstimateCallFee, Get, Imbalance, OriginTrait, SuppressedDrop},
 	weights::{Weight, WeightToFee},
 	DebugNoBound,
 };
@@ -1015,7 +1015,7 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
+		let Some(who) = origin.caller().fee_payer() else {
 			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
 		let fee_with_tip = self.can_withdraw_fee(&who, call, info, len)?;

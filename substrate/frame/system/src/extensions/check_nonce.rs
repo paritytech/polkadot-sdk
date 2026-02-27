@@ -23,10 +23,11 @@ use crate::Config;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{dispatch::DispatchInfo, pallet_prelude::TransactionSource, DebugNoBound};
 use scale_info::TypeInfo;
+use frame_support::traits::{AccountLike, OriginTrait};
 use sp_runtime::{
 	traits::{
-		AsSystemOriginSigner, CheckedAdd, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
-		TransactionExtension, ValidateResult, Zero,
+		CheckedAdd, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
@@ -139,7 +140,7 @@ pub enum Pre {
 impl<T: Config> TransactionExtension<T::RuntimeCall> for CheckNonce<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: Clone,
 {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();
@@ -160,10 +161,11 @@ where
 		_inherited_implication: &impl Encode,
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		let Some(who) = origin.as_system_origin_signer() else {
+		let Some(who) = origin.caller().nonce_provider() else {
 			return Ok((Default::default(), Val::Refund(self.weight(call)), origin));
 		};
-		let ValidNonceInfo { provides, requires } = Self::validate_nonce_for_account(who, self.0)?;
+		let ValidNonceInfo { provides, requires } =
+			Self::validate_nonce_for_account(&who, self.0)?;
 
 		let validity = ValidTransaction {
 			priority: 0,
@@ -173,7 +175,7 @@ where
 			propagate: true,
 		};
 
-		Ok((validity, Val::CheckNonce(who.clone()), origin))
+		Ok((validity, Val::CheckNonce(who), origin))
 	}
 
 	fn prepare(
@@ -440,6 +442,206 @@ mod tests {
 			.unwrap();
 
 			assert_eq!(post_info.actual_weight, Some(info.call_weight));
+		})
+	}
+
+	fn custom_origin_member(who: u64) -> <Test as Config>::RuntimeOrigin {
+		crate::mocking::pallet_with_custom_origin::Origin::<Test>::Member(who).into()
+	}
+
+	fn custom_origin_council() -> <Test as Config>::RuntimeOrigin {
+		crate::mocking::pallet_with_custom_origin::Origin::<Test>::Council.into()
+	}
+
+	#[test]
+	fn custom_origin_nonce_checked() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
+				custom_origin_member(1),
+				CALL,
+				&info,
+				len,
+				0,
+			));
+			assert_eq!(crate::Account::<Test>::get(1).nonce, 2u64.into());
+		})
+	}
+
+	#[test]
+	fn custom_origin_without_nonce_provider_skipped() {
+		new_test_ext().execute_with(|| {
+			let ext = CheckNonce::<Test>(1u64.into());
+
+			let mut info = CALL.get_dispatch_info();
+			info.extension_weight = ext.weight(CALL);
+
+			assert!(info.extension_weight != Weight::zero());
+
+			let len = CALL.encoded_size();
+			let (pre, _origin) =
+				ext.validate_and_prepare(custom_origin_council(), CALL, &info, len, 0).unwrap();
+
+			let pd_res = Ok(());
+			let mut post_info = frame_support::dispatch::PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+
+			<CheckNonce<Test> as TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+
+			// Weight should be refunded since nonce was not checked.
+			assert_eq!(post_info.actual_weight, Some(info.call_weight));
+		})
+	}
+
+	#[test]
+	fn custom_origin_stale_nonce() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 5u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_storage_noop!({
+				assert_eq!(
+					CheckNonce::<Test>(3u64.into())
+						.validate_and_prepare(custom_origin_member(1), CALL, &info, len, 0)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale)
+				);
+			});
+		})
+	}
+
+	#[test]
+	fn custom_origin_future_nonce() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			// validate_only succeeds for future nonce
+			assert_ok!(CheckNonce::<Test>(5u64.into()).validate_only(
+				custom_origin_member(1),
+				CALL,
+				&info,
+				len,
+				External,
+				0,
+			));
+			// validate_and_prepare fails at prepare step
+			assert_eq!(
+				CheckNonce::<Test>(5u64.into())
+					.validate_and_prepare(custom_origin_member(1), CALL, &info, len, 0)
+					.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Future)
+			);
+		})
+	}
+
+	#[test]
+	fn custom_origin_requires_provider() {
+		new_test_ext().execute_with(|| {
+			// Account with providers=0 and sufficients=0
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 0,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_storage_noop!({
+				assert_eq!(
+					CheckNonce::<Test>(1u64.into())
+						.validate_and_prepare(custom_origin_member(1), CALL, &info, len, 0)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Payment)
+				);
+			});
+		})
+	}
+
+	#[test]
+	fn custom_origin_preserves_account_data() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			// run the validation step
+			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
+				.validate(
+					custom_origin_member(1),
+					CALL,
+					&info,
+					len,
+					(),
+					&TxBaseImplication(CALL),
+					External,
+				)
+				.unwrap();
+			// mutate AccountData for the caller
+			crate::Account::<Test>::mutate(1, |info| {
+				info.data = 42;
+			});
+			// run the preparation step
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
+			// only the nonce should be altered by the preparation step
+			let expected_info = crate::AccountInfo {
+				nonce: 2u64.into(),
+				consumers: 0,
+				providers: 1,
+				sufficients: 0,
+				data: 42,
+			};
+			assert_eq!(crate::Account::<Test>::get(1), expected_info);
 		})
 	}
 }

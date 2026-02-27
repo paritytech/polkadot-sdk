@@ -25,6 +25,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
+		PalletWithCustomOrigin: crate::mocking::pallet_with_custom_origin,
 	}
 );
 
@@ -102,6 +103,8 @@ impl Config for Test {
 	type MultiBlockMigrator = MockedMigrator;
 	type Nonce = TypeWithDefault<u64, DefaultNonceProvider>;
 }
+
+impl crate::mocking::pallet_with_custom_origin::Config for Test {}
 
 parameter_types! {
 	pub static Ongoing: bool = false;

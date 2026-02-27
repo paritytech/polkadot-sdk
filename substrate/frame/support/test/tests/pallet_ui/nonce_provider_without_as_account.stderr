@@ -1,0 +1,5 @@
+error: `#[pallet::nonce_provider]` requires `#[pallet::as_account(...)]` on the same variant
+  --> tests/pallet_ui/nonce_provider_without_as_account.rs:39:3
+   |
+39 |         #[pallet::nonce_provider]
+   |         ^

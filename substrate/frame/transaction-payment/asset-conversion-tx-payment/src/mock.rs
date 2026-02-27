@@ -57,6 +57,7 @@ frame_support::construct_runtime!(
 		PoolAssets: pallet_assets::<Instance2>,
 		AssetConversion: pallet_asset_conversion,
 		AssetTxPayment: pallet_asset_conversion_tx_payment,
+		CustomOriginPallet: frame_system::mocking::pallet_with_custom_origin,
 	}
 );
 
@@ -294,6 +295,8 @@ impl WeightInfo for MockWeights {
 		Weight::from_parts(20, 0)
 	}
 }
+
+impl frame_system::mocking::pallet_with_custom_origin::Config for Runtime {}
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

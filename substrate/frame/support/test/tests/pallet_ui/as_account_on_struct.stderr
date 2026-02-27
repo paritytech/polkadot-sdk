@@ -1,0 +1,5 @@
+error: `#[pallet::as_account]` is only supported on enum origin variants
+  --> tests/pallet_ui/as_account_on_struct.rs:40:2
+   |
+40 |     #[pallet::as_account(|_| None)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -851,6 +851,47 @@ fn ensure_signed_stuff_works() {
 	}
 }
 
+#[test]
+fn ensure_account_works_for_signed_origin() {
+	assert_eq!(ensure_account(RuntimeOrigin::signed(42)).unwrap(), 42u64);
+}
+
+#[test]
+fn ensure_account_fails_for_root() {
+	assert!(ensure_account(RuntimeOrigin::root()).is_err());
+}
+
+#[test]
+fn ensure_account_fails_for_none() {
+	assert!(ensure_account(RuntimeOrigin::none()).is_err());
+}
+
+#[test]
+fn ensure_account_works_for_custom_origin_with_as_account() {
+	use crate::mocking::pallet_with_custom_origin::Origin;
+
+	// All variants with #[pallet::as_account] should return Ok with the correct account.
+	let member: RuntimeOrigin = Origin::<Test>::Member(99).into();
+	assert_eq!(ensure_account(member).unwrap(), 99u64);
+
+	let nonce_only: RuntimeOrigin = Origin::<Test>::NonceOnly(7).into();
+	assert_eq!(ensure_account(nonce_only).unwrap(), 7u64);
+
+	let fee_only: RuntimeOrigin = Origin::<Test>::FeeOnly(3).into();
+	assert_eq!(ensure_account(fee_only).unwrap(), 3u64);
+
+	let non_paying: RuntimeOrigin = Origin::<Test>::NonPaying(55).into();
+	assert_eq!(ensure_account(non_paying).unwrap(), 55u64);
+}
+
+#[test]
+fn ensure_account_fails_for_custom_origin_without_as_account() {
+	// Council has no #[pallet::as_account], so as_account() returns None.
+	let council: RuntimeOrigin =
+		crate::mocking::pallet_with_custom_origin::Origin::<Test>::Council.into();
+	assert!(ensure_account(council).is_err());
+}
+
 pub fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 	PostDispatchInfo {
 		actual_weight: ref_time.map(|t| Weight::from_all(t)),
