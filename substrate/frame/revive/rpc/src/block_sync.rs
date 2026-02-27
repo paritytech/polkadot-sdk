@@ -81,8 +81,7 @@ impl SyncCheckpoint {
 	}
 }
 
-/// How often (in blocks) sync progress is checkpointed to the database.
-/// Used by both the backward historic sync and the live finalized-block tracker.
+/// How often (in blocks) the backward historic sync checkpoints progress to the database.
 pub(crate) const SYNC_CHECKPOINT_INTERVAL: u32 = 128;
 
 /// The future type returned by sync hook callbacks.
@@ -414,12 +413,15 @@ impl Client {
 				},
 				None => {
 					let evm_first_block = block_number.saturating_add(1);
+					log::debug!(target: LOG_TARGET,
+						"🔍 No EVM hash at #{block_number}, setting evm_first_block to #{evm_first_block}");
 					if let Err(err) =
 						self.receipt_provider().set_evm_first_block(evm_first_block).await
 					{
 						log::warn!(target: LOG_TARGET,
 							"Failed to persist evm-first-block: {err:?}");
 					}
+
 					break Ok(());
 				},
 			}

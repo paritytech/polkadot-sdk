@@ -33,7 +33,7 @@ use pallet_revive::{
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
 		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, decode_revert_reason,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
 	},
 };
 use runtime_api::RuntimeApi;
@@ -803,6 +803,15 @@ impl Client {
 		hydrated_transactions: bool,
 	) -> Option<Block> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
+
+		if self
+			.receipt_provider
+			.is_before_effective_earliest_block(&BlockNumberOrTag::U256(U256::from(block.number())))
+		{
+			log::trace!(target: LOG_TARGET,
+				"Block #{} is before effective earliest EVM block, skipping", block.number());
+			return None;
+		}
 
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
