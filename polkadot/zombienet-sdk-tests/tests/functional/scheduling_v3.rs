@@ -133,14 +133,15 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 			(1..5).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			p.with_id(2000)
+			p.with_id(2500)
 				.with_default_command("test-parachain")
+                .with_chain("async-backing")
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug").into(),
 					// Use slot-based collator which supports V3 scheduling
 					("--authoring=slot-based").into(),
 				])
-				.with_collator(|n| n.with_name("collator-2000"))
+				.with_collator(|n| n.with_name("collator-2500"))
 		})
 		.build()
 		.map_err(|e| {
@@ -152,7 +153,7 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2000")?;
+	let para_node = network.get_node("collator-2500")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
@@ -160,7 +161,7 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 	// We expect at least 5 V3 candidates within 20 relay chain blocks after session change
 	assert_candidates_version(
 		&relay_client,
-		ParaId::from(2000),
+		ParaId::from(2500),
 		CandidateDescriptorVersion::V3,
 		true,
 		5,
