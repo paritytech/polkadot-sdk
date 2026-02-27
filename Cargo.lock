@@ -11597,6 +11597,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-revive",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
