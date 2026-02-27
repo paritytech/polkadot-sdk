@@ -190,8 +190,9 @@ where
 			// ERC20Permit functions (EIP-2612)
 			IERC20Calls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
 			IERC20Calls::nonces(call) => Self::nonces(contract_addr, call, env),
-			IERC20Calls::DOMAIN_SEPARATOR(_) =>
-				Self::domain_separator(asset_id, contract_addr, env),
+			IERC20Calls::DOMAIN_SEPARATOR(_) => {
+				Self::domain_separator(asset_id, contract_addr, env)
+			},
 
 			// ERC20Metadata functions
 			IERC20Calls::name(_) => Self::name(asset_id, env),
@@ -443,8 +444,9 @@ where
 						permit::pallet::Error::PermitExpired => "Permit expired",
 						permit::pallet::Error::InvalidSignature => "Invalid signature",
 						permit::pallet::Error::SignerMismatch => "Signer does not match owner",
-						permit::pallet::Error::SignatureSValueTooHigh =>
-							"Signature s value too high (malleability)",
+						permit::pallet::Error::SignatureSValueTooHigh => {
+							"Signature s value too high (malleability)"
+						},
 						permit::pallet::Error::InvalidVValue => "Invalid signature v value",
 						permit::pallet::Error::NonceOverflow => "Nonce overflow",
 						permit::pallet::Error::InvalidOwner => "Invalid owner address",
