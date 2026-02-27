@@ -123,13 +123,14 @@ impl<T: frame_system::Config> PermitWeightInfo for PermitWeight<T> {
 	}
 
 	/// Weight for computing the EIP-712 domain separator.
-	/// Pure computation: 4x keccak256 hashes.
+	/// Storage: `pallet_assets::Metadata` (r:1 w:0)
 	fn domain_separator() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 5_000_000 picoseconds.
 		Weight::from_parts(5_500_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 
 	/// Weight for the full permit verification and nonce consumption.
@@ -156,6 +157,7 @@ impl PermitWeightInfo for () {
 
 	fn domain_separator() -> Weight {
 		Weight::from_parts(5_500_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 
 	fn use_permit() -> Weight {
