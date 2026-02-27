@@ -37,8 +37,7 @@ contract ComplexReceiver {
 
 /**
  * @title ReentrancyAttacker
- * @dev On receiving ETH, attempts to call back into the sender's attemptTransfer()
- *      to drain more ETH. The 2300 gas stipend must prevent this callback.
+ * @dev On receiving ETH, attempts to call back into the sender
  */
 contract ReentrancyAttacker {
     receive() external payable {
