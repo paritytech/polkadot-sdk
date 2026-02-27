@@ -82,6 +82,7 @@ use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAss
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, TaskId};
+use pallet_conviction_voting_precompiles::ConvictionVotingPrecompile;
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -93,6 +94,7 @@ use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_tx_pause::RuntimeCallNameOf;
+use pallet_referenda_precompiles::ReferendaPrecompile;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -1013,6 +1015,7 @@ parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
 }
 
+
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
 	type RuntimeEvent = RuntimeEvent;
@@ -1023,6 +1026,10 @@ impl pallet_conviction_voting::Config for Runtime {
 	type Polls = Referenda;
 	type BlockNumberProvider = System;
 	type VotingHooks = ();
+}
+
+impl pallet_conviction_voting_precompiles_benchmarks::Config for Runtime {
+	
 }
 
 parameter_types! {
@@ -1117,7 +1124,9 @@ impl pallet_remark::Config for Runtime {
 impl pallet_root_testing::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
-
+impl pallet_referenda_precompiles_benchmarks::Config for Runtime {
+	
+}
 parameter_types! {
 	pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
 	pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
@@ -2874,7 +2883,7 @@ mod runtime {
 
 	#[runtime::pallet_index(90)]
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
-}
+
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
@@ -3126,6 +3135,7 @@ mod benches {
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_conviction_voting_precompiles_benchmarks, ConvictionVotingPrecompilesBenchmarks]
 		[pallet_contracts, Contracts]
 		[pallet_revive, Revive]
 		[pallet_core_fellowship, CoreFellowship]
@@ -3159,6 +3169,8 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, RankedCollective]
 		[pallet_referenda, Referenda]
+	 [pallet_referenda_precompiles_benchmarks, ReferendaPrecompilesBenchmarks]
+
 		[pallet_recovery, Recovery]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]

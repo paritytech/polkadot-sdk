@@ -12156,6 +12156,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-conviction-voting-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
+name = "pallet-conviction-voting-precompiles-benchmarks"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-conviction-voting-precompiles",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
 name = "pallet-core-fellowship"
 version = "12.0.0"
 dependencies = [
@@ -13246,6 +13280,47 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-referenda-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-referenda",
+ "pallet-revive",
+ "pallet-scheduler",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
+]
+
+[[package]]
+name = "pallet-referenda-precompiles-benchmarks"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-referenda",
+ "pallet-referenda-precompiles",
+ "pallet-revive",
+ "pallet-scheduler",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "tracing",
 ]
 
 [[package]]
@@ -16510,6 +16585,8 @@ dependencies = [
  "pallet-contracts-proc-macro",
  "pallet-contracts-uapi",
  "pallet-conviction-voting",
+ "pallet-conviction-voting-precompiles",
+ "pallet-conviction-voting-precompiles-benchmarks",
  "pallet-core-fellowship",
  "pallet-dap",
  "pallet-delegated-staking",
@@ -16558,6 +16635,8 @@ dependencies = [
  "pallet-ranked-collective",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-referenda-precompiles",
+ "pallet-referenda-precompiles-benchmarks",
  "pallet-remark",
  "pallet-revive",
  "pallet-revive-proc-macro",
