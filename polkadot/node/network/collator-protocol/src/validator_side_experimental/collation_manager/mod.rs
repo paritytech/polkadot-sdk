@@ -360,7 +360,7 @@ impl CollationManager {
 		for leaf in &leaves {
 			let free_slots = self.claim_queue_state.free_slots(leaf);
 			let Some(allowed_parents) =
-				self.implicit_view.known_allowed_relay_parents_under(leaf, None)
+				self.implicit_view.known_allowed_relay_parents_under(leaf)
 			else {
 				continue;
 			};
@@ -1585,15 +1585,19 @@ mod tests {
 			prospective_candidate: None,
 		};
 
-		let new_collation_manager_instance = || CollationManager {
-			implicit_view: ImplicitView::new(None),
-			claim_queue_state: PerLeafClaimQueueState::new(),
-			per_relay_parent: HashMap::from([(relay_parent, PerRelayParent::new(0, CoreIndex(0)))]),
-			blocked_from_seconding: HashMap::new(),
-			per_session: LruMap::new(ByLength::new(2)),
-			fetching: PendingRequests::default(),
-			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
-			parallel_state: ParallelFetchState::default(),
+		let new_collation_manager_instance = || {
+			let mut per_rp = PerRelayParent::new(0, CoreIndex(0));
+			per_rp.activated_at = leaf_timestamp;
+			CollationManager {
+				implicit_view: ImplicitView::new(),
+				claim_queue_state: PerLeafClaimQueueState::new(),
+				per_relay_parent: HashMap::from([(relay_parent, per_rp)]),
+				blocked_from_seconding: HashMap::new(),
+				per_session: LruMap::new(ByLength::new(2)),
+				fetching: PendingRequests::default(),
+				keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
+				parallel_state: ParallelFetchState::default(),
+			}
 		};
 
 		// No advertisements - returns Left(None).

@@ -3355,9 +3355,9 @@ async fn test_escalation_launches_parallel_fetch() {
 	// Give each peer a non-zero reputation so the zero-rep delay path is not triggered.
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == second_peer {
-			Some(Score::new(50).unwrap())
+			Some(Score::new(50))
 		} else {
 			None
 		}
@@ -3433,9 +3433,9 @@ async fn test_parallel_fetch_winner_keeps_slot() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == second_peer {
-			Some(Score::new(50).unwrap())
+			Some(Score::new(50))
 		} else {
 			None
 		}
@@ -3523,9 +3523,9 @@ async fn test_phase1_succeeds_before_escalation() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == second_peer {
-			Some(Score::new(50).unwrap())
+			Some(Score::new(50))
 		} else {
 			None
 		}
@@ -3603,9 +3603,9 @@ async fn test_phase1_wins_race_after_phase2_launched() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == second_peer {
-			Some(Score::new(50).unwrap())
+			Some(Score::new(50))
 		} else {
 			None
 		}
@@ -3698,9 +3698,9 @@ async fn test_both_fetches_fail_group_cleaned_up() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == second_peer {
-			Some(Score::new(50).unwrap())
+			Some(Score::new(50))
 		} else {
 			None
 		}
@@ -3802,10 +3802,10 @@ async fn test_zero_rep_escalation_launches_immediately() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == zero_rep_peer {
 			// Zero reputation: present but no history.
-			Some(Score::new(0).unwrap())
+			Some(Score::new(0))
 		} else {
 			None
 		}
@@ -3879,9 +3879,9 @@ async fn test_multiple_para_ids_escalate_independently() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
 		if p == peer_a || p == peer_b {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else if p == peer_c || p == peer_d {
-			Some(Score::new(50).unwrap())
+			Some(Score::new(50))
 		} else {
 			None
 		}
