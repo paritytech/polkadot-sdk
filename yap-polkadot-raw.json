@@ -1,5 +1,5 @@
 {
-  "name": "Yet Another Parachain",
+  "name": "Yap Polkadot 3427",
   "id": "yet_another_parachain",
   "chainType": "Live",
   "bootNodes": [],
@@ -7,7 +7,7 @@
   "protocolId": null,
   "properties": null,
   "relay_chain": "polkadot",
-  "para_id": null,
+  "para_id": 3427,
   "codeSubstitutes": {},
   "genesis": {
     "raw": {
