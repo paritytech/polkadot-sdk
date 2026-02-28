@@ -1891,8 +1891,8 @@ impl Get<[u8; 3]> for ChildBountyAccountPrefix {
 ///
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
-/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`BountyAccountPrefix`]). Must
-///   implement `Get<[u8; 3]>`.
+/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`BountyAccountPrefix`]). Must implement
+///   `Get<[u8; 3]>`.
 /// - `T`: The pallet configuration
 /// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
 ///   same.
@@ -1949,8 +1949,11 @@ where
 	) -> Result<T::Beneficiary, (BountyIndex, BountyIndex, T::AssetKind)> {
 		// The prefix is distinct from the bounty prefix so AccountIds differ when parent and
 		// child index are the same.
-		let account: T::AccountId =
-			Id::get().into_sub_account_truncating((Prefix::get(), parent_bounty_id, child_bounty_id));
+		let account: T::AccountId = Id::get().into_sub_account_truncating((
+			Prefix::get(),
+			parent_bounty_id,
+			child_bounty_id,
+		));
 		Ok(C::convert(account))
 	}
 }
