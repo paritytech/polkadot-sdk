@@ -26,10 +26,9 @@ use crate::{
 	TransactionParams,
 };
 
-use async_std::{
-	channel::{unbounded, Receiver, Sender},
-	sync::{Arc, Mutex},
-};
+use async_channel::{unbounded, Receiver, Sender};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
@@ -103,7 +102,7 @@ impl<
 			on_demand_source_relay_to_target_headers: on_demand_source_relay_to_target_headers
 				.clone(),
 		};
-		async_std::task::spawn(async move {
+		tokio::spawn(async move {
 			background_task::<P>(
 				source_relay_client,
 				target_client,
@@ -302,7 +301,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					required_parachain_header_number = new_required_parachain_header_number;
 				}
 			},
-			_ = async_std::task::sleep(P::TargetChain::AVERAGE_BLOCK_INTERVAL).fuse() => {},
+			_ = tokio::time::sleep(P::TargetChain::AVERAGE_BLOCK_INTERVAL).fuse() => {},
 			_ = parachains_relay_task => {
 				// this should never happen in practice given the current code
 				restart_relay = true;
@@ -1012,7 +1011,7 @@ mod tests {
 		}
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn select_headers_to_prove_returns_err_if_required_para_block_is_missing_at_source() {
 		assert!(matches!(
 			select_headers_to_prove((20_u32, 10_u32, 200_u32, 100_u32), 300_u32,).await,
@@ -1020,7 +1019,7 @@ mod tests {
 		));
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn select_headers_to_prove_fails_to_use_existing_ancient_relay_block() {
 		assert_eq!(
 			select_headers_to_prove((220_u32, 10_u32, 200_u32, 100_u32), 100_u32,)
@@ -1030,7 +1029,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn select_headers_to_prove_is_able_to_use_existing_recent_relay_block() {
 		assert_eq!(
 			select_headers_to_prove((40_u32, 10_u32, 200_u32, 100_u32), 100_u32,)
@@ -1040,7 +1039,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn select_headers_to_prove_uses_new_relay_block() {
 		assert_eq!(
 			select_headers_to_prove((20_u32, 10_u32, 200_u32, 100_u32), 200_u32,)

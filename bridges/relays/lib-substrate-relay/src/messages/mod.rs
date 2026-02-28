@@ -25,7 +25,7 @@ use crate::{
 	BatchCallBuilder, BatchCallBuilderConstructor, TransactionParams,
 };
 
-use async_std::sync::Arc;
+use std::sync::Arc;
 use bp_messages::{
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, MessageNonce,
 };

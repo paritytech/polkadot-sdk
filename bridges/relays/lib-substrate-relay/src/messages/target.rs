@@ -32,7 +32,7 @@ use crate::{
 	TransactionParams,
 };
 
-use async_std::sync::Arc;
+use std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,

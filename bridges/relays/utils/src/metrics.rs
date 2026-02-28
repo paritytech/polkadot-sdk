@@ -21,7 +21,8 @@ pub use prometheus_endpoint::{
 	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, I64, U64,
 };
 
-use async_std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use async_trait::async_trait;
 use std::{fmt::Debug, time::Duration};
 
@@ -82,11 +83,11 @@ pub trait StandaloneMetric: Metric {
 
 	/// Spawn the self update task that will keep update metric value at given intervals.
 	fn spawn(self) {
-		async_std::task::spawn(async move {
+		tokio::spawn(async move {
 			let update_interval = self.update_interval();
 			loop {
 				self.update().await;
-				async_std::task::sleep(update_interval).await;
+				tokio::time::sleep(update_interval).await;
 			}
 		});
 	}

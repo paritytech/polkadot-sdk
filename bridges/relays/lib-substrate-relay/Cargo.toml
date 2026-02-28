@@ -12,7 +12,8 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-async-std = { workspace = true }
+tokio = { features = ["macros", "rt-multi-thread", "time", "sync"], workspace = true }
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true, default-features = true }

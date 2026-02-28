@@ -26,8 +26,9 @@ use crate::{
 };
 use std::{cmp::Ordering, future::Future, task::Poll};
 
-use async_std::{
-	sync::{Arc, Mutex, RwLock},
+use std::sync::Arc;
+use tokio::{
+	sync::{Mutex, RwLock},
 	task::JoinHandle,
 };
 use async_trait::async_trait;
@@ -162,7 +163,7 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		best_finalized_header: Arc<RwLock<Option<HeaderOf<C>>>>,
 		header_by_hash_cache: SyncCache<HashOf<C>, HeaderOf<C>>,
 	) -> JoinHandle<Result<()>> {
-		async_std::task::spawn(async move {
+		tokio::spawn(async move {
 			// initialize by reading headers directly from backend to avoid doing that in the
 			// high-level code
 			let mut last_finalized_header =

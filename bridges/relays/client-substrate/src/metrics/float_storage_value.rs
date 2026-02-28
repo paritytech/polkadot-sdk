@@ -16,7 +16,8 @@
 
 use crate::{Chain, Client, Error as SubstrateError};
 
-use async_std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use async_trait::async_trait;
 use codec::Decode;
 use num_traits::One;

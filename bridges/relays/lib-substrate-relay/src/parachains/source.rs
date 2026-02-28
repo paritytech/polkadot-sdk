@@ -20,7 +20,8 @@ use crate::{
 	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
 	proofs::to_raw_storage_proof,
 };
-use async_std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};

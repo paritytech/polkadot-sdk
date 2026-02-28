@@ -29,7 +29,7 @@ use crate::{
 	TransactionParams,
 };
 
-use async_std::sync::Arc;
+use std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},

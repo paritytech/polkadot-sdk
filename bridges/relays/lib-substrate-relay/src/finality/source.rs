@@ -23,7 +23,8 @@ use crate::{
 	},
 };
 
-use async_std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_header_chain::FinalityProof;
 use codec::Decode;

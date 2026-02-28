@@ -12,7 +12,7 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { workspace = true }
+tokio = { features = ["macros", "rt-multi-thread", "time", "sync"], workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true }
 bp-header-chain = { workspace = true, default-features = true }

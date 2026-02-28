@@ -16,7 +16,7 @@
 
 //! Primitives for exposing the parachains finality relaying functionality in the CLI.
 
-use async_std::sync::Mutex;
+use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_polkadot_core::BlockNumber as RelayBlockNumber;
 use bp_runtime::HeaderIdProvider;

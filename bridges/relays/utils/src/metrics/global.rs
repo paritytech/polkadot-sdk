@@ -21,7 +21,8 @@ use crate::metrics::{
 	StandaloneMetric, F64, U64,
 };
 
-use async_std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use async_trait::async_trait;
 use std::time::Duration;
 use sysinfo::{RefreshKind, System};
