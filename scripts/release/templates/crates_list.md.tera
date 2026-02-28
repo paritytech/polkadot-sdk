@@ -6,4 +6,5 @@ The following crates were updated to the corresponding versions:
 - pallet-staking-async-rc-client@0.7.2
 - pallet-staking-async@0.10.2
 - asset-hub-westend-runtime@0.42.1
+- pallet-session@45.2.0
 </details>
