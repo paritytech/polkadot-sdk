@@ -32,7 +32,7 @@ xcm = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true }
-pallet-revive-fixtures = { workspace = true, features = ["std"] }
+pallet-revive-fixtures = { workspace = true }
 test-case = { workspace = true }
 
 [features]
