@@ -605,8 +605,7 @@ mod externally_set_keys_tracking {
 
 	fn set_local(key: u64) {
 		let keys = UintAuthorityId(key).into();
-		let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(key));
-		assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
+		assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, vec![]));
 	}
 
 	fn set_remote(key: u64) {
