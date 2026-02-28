@@ -23,7 +23,7 @@ use crate::{
 };
 use alloy::primitives::U256;
 use frame_support::{assert_ok, traits::Currency};
-use pallet_revive::{Code, precompiles::TransactionLimits, ExecConfig};
+use pallet_revive::{precompiles::TransactionLimits, Code, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
