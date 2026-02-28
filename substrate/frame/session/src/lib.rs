@@ -626,6 +626,14 @@ pub mod pallet {
 	pub type KeyOwner<T: Config> =
 		StorageMap<_, Twox64Concat, (KeyTypeId, Vec<u8>), T::ValidatorId, OptionQuery>;
 
+	/// Accounts whose keys were set via `SessionInterface` (external path) without
+	/// incrementing the consumer reference or placing a key deposit. `do_purge_keys`
+	/// only decrements consumers for accounts that were registered through the local
+	/// session pallet.
+	#[pallet::storage]
+	pub type ExternallySetKeys<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -920,9 +928,12 @@ impl<T: Config> Pallet<T> {
 
 		let old_keys = Self::inner_set_keys(&who, keys)?;
 
-		// Place deposit on hold if this is a new registration (i.e. old_keys is None).
-		// The hold call itself will return an error if funds are insufficient.
-		if old_keys.is_none() {
+		// Place deposit and increment consumer if this is a new local registration,
+		// or if transitioning from external to local management.
+		// We also clear `ExternallySetKeys` if set.
+		let needs_local_setup =
+			old_keys.is_none() || ExternallySetKeys::<T>::take(account).is_some();
+		if needs_local_setup {
 			let deposit = T::KeyDeposit::get();
 			if !deposit.is_zero() {
 				T::Currency::hold(&HoldReason::Keys.into(), account, deposit)?;
@@ -996,7 +1007,10 @@ impl<T: Config> Pallet<T> {
 			frame_support::traits::tokens::Precision::BestEffort,
 		);
 
-		frame_system::Pallet::<T>::dec_consumers(account);
+		if ExternallySetKeys::<T>::take(account).is_none() {
+			// Consumer was incremented locally via `do_set_keys`, so decrement it.
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
 
 		Ok(())
 	}
@@ -1196,7 +1210,17 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
-		Self::inner_set_keys(&who, keys)?;
+		let old_keys = Self::inner_set_keys(&who, keys)?;
+		// Transitioning from local to external: clean up deposit and consumer ref.
+		if old_keys.is_some() && !ExternallySetKeys::<T>::contains_key(account) {
+			let _ = T::Currency::release_all(
+				&HoldReason::Keys.into(),
+				account,
+				frame_support::traits::tokens::Precision::BestEffort,
+			);
+			frame_system::Pallet::<T>::dec_consumers(account);
+		}
+		ExternallySetKeys::<T>::insert(account, ());
 		Ok(())
 	}
 
@@ -1208,6 +1232,14 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		for id in T::Keys::key_ids() {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
+		}
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+		if ExternallySetKeys::<T>::take(account).is_none() {
+			frame_system::Pallet::<T>::dec_consumers(account);
 		}
 		Ok(())
 	}

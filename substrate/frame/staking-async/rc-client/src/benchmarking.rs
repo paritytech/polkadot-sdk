@@ -60,17 +60,12 @@ pub trait Config: crate::Config {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use frame_support::BoundedVec;
 	use xcm_executor::traits::FeeReason;
 
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
 		let stash = T::setup_validator();
 		let (keys, proof) = T::generate_session_keys_and_proof(stash.clone());
-		let keys: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysLength> =
-			keys.try_into().expect("keys should fit in bounded vec");
-		let proof: BoundedVec<u8, <T as crate::Config>::MaxSessionKeysProofLength> =
-			proof.try_into().expect("proof should fit in bounded vec");
 
 		// Ensure XCM delivery will succeed by setting up required fees/accounts.
 		let stash_location = T::account_to_location(stash.clone());
