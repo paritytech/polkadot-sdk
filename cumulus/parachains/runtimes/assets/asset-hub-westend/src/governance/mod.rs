@@ -198,11 +198,13 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	>;
 	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
 		TreasuryPalletId,
+		pallet_multi_asset_bounties::BountyAccountPrefix,
 		Runtime,
 		AccountIdToLocalLocation,
 	>;
 	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
 		TreasuryPalletId,
+		pallet_multi_asset_bounties::ChildBountyAccountPrefix,
 		Runtime,
 		AccountIdToLocalLocation,
 	>;
