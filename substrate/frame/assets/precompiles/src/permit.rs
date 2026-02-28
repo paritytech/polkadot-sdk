@@ -403,30 +403,40 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-}
 
-#[cfg(test)]
-impl<T: Config> Pallet<T> {
-	/// Test-only entry point that exposes [`do_verify_permit`] without consuming the nonce.
-	///
-	/// Use this in unit tests to exercise signature verification in isolation.
-	/// Production callers must use [`use_permit`], which atomically verifies and
-	/// increments the nonce to prevent replay attacks.
-	pub fn verify_permit(
-		verifying_contract: &H160,
-		name: &[u8],
-		owner: &H160,
-		spender: &H160,
-		value: &[u8; 32],
-		deadline: &[u8; 32],
-		v: u8,
-		r: &[u8; 32],
-		s: &[u8; 32],
-	) -> Result<(), Error<T>>
-	where
-		<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
-	{
-		Self::do_verify_permit(verifying_contract, name, owner, spender, value, deadline, v, r, s)
+	#[cfg(test)]
+	impl<T: Config> Pallet<T> {
+		/// Test-only entry point that exposes [`do_verify_permit`] without consuming the nonce.
+		///
+		/// Use this in unit tests to exercise signature verification in isolation.
+		/// Production callers must use [`use_permit`], which atomically verifies and
+		/// increments the nonce to prevent replay attacks.
+		pub fn verify_permit(
+			verifying_contract: &H160,
+			name: &[u8],
+			owner: &H160,
+			spender: &H160,
+			value: &[u8; 32],
+			deadline: &[u8; 32],
+			v: u8,
+			r: &[u8; 32],
+			s: &[u8; 32],
+		) -> Result<(), Error<T>>
+		where
+			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
+		{
+			Self::do_verify_permit(
+				verifying_contract,
+				name,
+				owner,
+				spender,
+				value,
+				deadline,
+				v,
+				r,
+				s,
+			)
+		}
 	}
 }
 
