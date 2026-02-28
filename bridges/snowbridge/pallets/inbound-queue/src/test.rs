@@ -5,7 +5,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_core::ChannelId;
-use snowbridge_inbound_queue_primitives::EventProof;
+use snowbridge_inbound_queue_primitives::{EventProof, Proof};
 use sp_keyring::Sr25519Keyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
@@ -23,9 +23,9 @@ fn test_submit_happy_path() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit event proof
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -73,9 +73,9 @@ fn test_submit_xcm_invalid_channel() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		// Submit event proof
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log_invalid_channel(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -98,9 +98,9 @@ fn test_submit_with_invalid_gateway() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		// Submit event proof
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log_invalid_gateway(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -123,9 +123,9 @@ fn test_submit_with_invalid_nonce() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		// Submit message
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -156,9 +156,9 @@ fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 		Balances::set_balance(&sovereign_account, 0);
 
 		// Submit message
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -173,9 +173,9 @@ fn test_set_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -214,9 +214,9 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 		Balances::set_balance(&sovereign_account, ExistentialDeposit::get() + 1);
 
 		// Submit message successfully
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
@@ -230,9 +230,9 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 		// Submit another message with nonce set as 2
 		let mut event_log = mock_event_log();
 		event_log.data[31] = 2;
-		let event = EventProof::<TestProof> {
+		let event = EventProof::<Proof> {
 			event_log,
-			proof: TestProof {
+			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},

@@ -113,16 +113,10 @@ impl snowbridge_pallet_ethereum_client::Config for Test {
 // Mock verifier
 pub struct MockVerifier;
 
-/// Proof type used by the mock (matches ethereum client config on Test).
-pub type TestProof = Proof<
-	<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
-	<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
->;
-
 impl Verifier for MockVerifier {
-	type Proof = TestProof;
+	type Proof = Proof;
 
-	fn verify(_: &Log, _: &TestProof) -> Result<(), VerificationError> {
+	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
 		Ok(())
 	}
 }
@@ -145,7 +139,7 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<Test> for Test {
-	fn initialize_storage() -> EventFixture<TestProof> {
+	fn initialize_storage() -> EventFixture<Proof> {
 		make_register_token_message::<
 			<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
 			<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
