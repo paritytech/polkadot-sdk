@@ -77,7 +77,7 @@ mod benchmarks {
 		//
 		// Parameters:
 		// - Chain ID: 31337
-		// - Token Name: "Test Token" (must match TEST_TOKEN_NAME)
+		// - Token Name: "Asset Permit"
 		// - Owner: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 		// - Verifying Contract: 0x0000000000000000000000000000000012345678
 		// - Spender: 0x0000000000000000000000000000000098765432
