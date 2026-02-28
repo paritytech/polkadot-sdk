@@ -1858,23 +1858,51 @@ where
 	}
 }
 
+/// Standard 3-byte prefix for bounty account derivation.
+///
+/// Returns `b"mbt"` (multi-asset bounty). Use this type when configuring
+/// [`BountySourceFromPalletId`] unless your runtime requires a custom prefix.
+pub struct BountyAccountPrefix;
+impl Get<[u8; 3]> for BountyAccountPrefix {
+	fn get() -> [u8; 3] {
+		*b"mbt"
+	}
+}
+
+/// Standard 3-byte prefix for child-bounty account derivation.
+///
+/// Returns `b"mcb"` (multi-asset child bounty). Use this type when configuring
+/// [`ChildBountySourceFromPalletId`] unless your runtime requires a custom prefix.
+pub struct ChildBountyAccountPrefix;
+impl Get<[u8; 3]> for ChildBountyAccountPrefix {
+	fn get() -> [u8; 3] {
+		*b"mcb"
+	}
+}
+
 /// Derives a bounty `AccountId` from the `PalletId` and the `BountyIndex`,
 /// then converts it into the corresponding bounty `Beneficiary`.
 ///
-/// Uses the prefix `"mbt"` (multi-asset bounty) to derive the account ID.
+/// The account is derived using a fixed-size 3-byte prefix (e.g. `b"mbt"` for multi-asset bounty).
+/// The prefix is supplied via the `Prefix` type parameter, which must implement `Get<[u8; 3]>`.
+/// This ensures the encoded sub-account seed has a predictable size and avoids truncation issues.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
+///
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
+/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`BountyAccountPrefix`]). Must
+///   implement `Get<[u8; 3]>`.
 /// - `T`: The pallet configuration
 /// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
 ///   same.
 /// - `I`: Instance parameter (default: `()`)
-pub struct BountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
-impl<Id, T, C, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
-	for BountySourceFromPalletId<Id, T, C, I>
+pub struct BountySourceFromPalletId<Id, Prefix, T, C, I = ()>(PhantomData<(Id, Prefix, T, C, I)>);
+impl<Id, Prefix, T, C, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
+	for BountySourceFromPalletId<Id, Prefix, T, C, I>
 where
 	Id: Get<PalletId>,
+	Prefix: Get<[u8; 3]>,
 	T: crate::Config<I>,
 	C: Convert<T::AccountId, T::Beneficiary>,
 {
@@ -1882,7 +1910,7 @@ where
 		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, T::AssetKind)> {
 		let account: T::AccountId =
-			Id::get().into_sub_account_truncating(("mbt", parent_bounty_id));
+			Id::get().into_sub_account_truncating((Prefix::get(), parent_bounty_id));
 		Ok(C::convert(account))
 	}
 }
@@ -1890,30 +1918,39 @@ where
 /// Derives a child-bounty `AccountId` from the `PalletId`, the parent index,
 /// and the child index, then converts it into the child-bounty `Beneficiary`.
 ///
-/// Uses the prefix `"mcb"` (multi-asset child bounty) to derive the account ID.
+/// The account is derived using a fixed-size 3-byte prefix (e.g. `b"mcb"` for multi-asset child
+/// bounty). The prefix is supplied via the `Prefix` type parameter, which must implement
+/// `Get<[u8; 3]>`. Using a different prefix from the parent bounty ensures distinct account IDs
+/// when parent and child indices coincide.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
+///
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
+/// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`ChildBountyAccountPrefix`]). Must
+///   implement `Get<[u8; 3]>`.
 /// - `T`: The pallet configuration
 /// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
 ///   same.
 /// - `I`: Instance parameter (default: `()`)
-pub struct ChildBountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
-impl<Id, T, C, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
-	for ChildBountySourceFromPalletId<Id, T, C, I>
+pub struct ChildBountySourceFromPalletId<Id, Prefix, T, C, I = ()>(
+	PhantomData<(Id, Prefix, T, C, I)>,
+);
+impl<Id, Prefix, T, C, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
+	for ChildBountySourceFromPalletId<Id, Prefix, T, C, I>
 where
 	Id: Get<PalletId>,
+	Prefix: Get<[u8; 3]>,
 	T: crate::Config<I>,
 	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(
 		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, BountyIndex, T::AssetKind)> {
-		// The prefix is changed to have different AccountId when the index of
-		// parent and child is same.
+		// The prefix is distinct from the bounty prefix so AccountIds differ when parent and
+		// child index are the same.
 		let account: T::AccountId =
-			Id::get().into_sub_account_truncating(("mcb", parent_bounty_id, child_bounty_id));
+			Id::get().into_sub_account_truncating((Prefix::get(), parent_bounty_id, child_bounty_id));
 		Ok(C::convert(account))
 	}
 }
