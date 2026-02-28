@@ -13,20 +13,6 @@ doc:
      --> .../assets-common-.../foreign_creators.rs:29:1
     ```
 
-    Root cause: `bridge-hub-test-utils` lacked a `try-runtime` feature, preventing propagation to `asset-test-utils` → `assets-common`.  
-    This caused `assets-common` to be compiled without `try-runtime` while `frame-support` had it enabled → missing `try_successful_origin` method (guarded by `#[cfg(feature = "try-runtime")]`).
-
-    **Changes**  
-    - Added `try-runtime` feature to `bridge-hub-test-utils/Cargo.toml`, forwarding only to the 16 crates that declare/support it.  
-    - Activated the feature in the two test runtimes:  
-      - `cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/Cargo.toml`  
-      - `cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/Cargo.toml`
-
-    After these changes, `cargo check --features try-runtime` and  
-    `SKIP_PALLET_REVIVE_FIXTURES=1 cargo test -p bridge-hub-*-runtime --release --locked -q --all-features`  
-    pass cleanly on both rococo and westend runtimes.
-
-
 crates:
   - name: bridge-hub-rococo-runtime
     bump: patch
