@@ -285,6 +285,11 @@ impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
 	type FreeHeadersInterval = ConstU32<SLOTS_PER_EPOCH>;
+	// Receipts trie uses 64-nibble keys (keccak(rlp(tx_index))), so proof can have up to 64 nodes.
+	type MaxReceiptProofDepth = ConstU32<64>;
+	// RLP-encoded MPT node: branch/extension nodes are small; leaf = receipt (bloom 256B + logs).
+	// 32 KiB is sufficient for mainnet receipts.
+	type MaxMptNodeSize = ConstU32<32_768>;
 	type WeightInfo = crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }
 
@@ -343,7 +348,7 @@ pub mod benchmark_helpers {
 	use snowbridge_beacon_primitives::BeaconHeader;
 	use snowbridge_inbound_queue_primitives::{
 		v2::{MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor},
-		EventFixture,
+		EventFixture, Verifier,
 	};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
@@ -355,9 +360,14 @@ pub mod benchmark_helpers {
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 	use xcm_executor::XcmExecutor;
 
-	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage() -> EventFixture {
-			let message = make_register_token_message();
+	impl BenchmarkHelper<Runtime> for Runtime {
+		fn initialize_storage() -> EventFixture<
+			<<Runtime as snowbridge_pallet_inbound_queue::Config>::Verifier as Verifier>::Proof,
+		> {
+			let message = make_register_token_message::<
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+			>();
 			EthereumBeaconClient::store_finalized_header(
 				message.finalized_header,
 				message.block_roots_root,
@@ -375,9 +385,14 @@ pub mod benchmark_helpers {
 		}
 	}
 
-	impl<T: snowbridge_pallet_inbound_queue_v2::Config> InboundQueueBenchmarkHelperV2<T> for Runtime {
-		fn initialize_storage() -> EventFixture {
-			let message = make_register_token_message_v2();
+	impl InboundQueueBenchmarkHelperV2<Runtime> for Runtime {
+		fn initialize_storage() -> EventFixture<
+			<<Runtime as snowbridge_pallet_inbound_queue_v2::Config>::Verifier as Verifier>::Proof,
+		> {
+			let message = make_register_token_message_v2::<
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+			>();
 
 			assert_ok!(EthereumBeaconClient::store_finalized_header(
 				message.finalized_header,

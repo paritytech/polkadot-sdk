@@ -5,7 +5,7 @@ use crate::config;
 use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_verification_primitives::{Log, Proof};
+use snowbridge_verification_primitives::{DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof};
 use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
@@ -87,8 +87,17 @@ pub fn load_sync_committee_update_period_0_newer_fixture() -> Box<
 	Box::new(load_fixture("sync-committee-update-period-0-newer.json".to_string()).unwrap())
 }
 
-pub fn get_message_verification_payload() -> (Log, Proof) {
-	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
+pub fn get_message_verification_payload() -> (
+	Log,
+	Proof<
+		<Test as ethereum_beacon_client::Config>::MaxMptNodeSize,
+		<Test as ethereum_beacon_client::Config>::MaxReceiptProofDepth,
+	>,
+) {
+	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture::<
+		<Test as ethereum_beacon_client::Config>::MaxMptNodeSize,
+		<Test as ethereum_beacon_client::Config>::MaxReceiptProofDepth,
+	>();
 	(inbound_fixture.event.event_log, inbound_fixture.event.proof)
 }
 
@@ -151,6 +160,8 @@ impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
 	type FreeHeadersInterval = ConstU32<FREE_SLOTS_INTERVAL>;
+	type MaxReceiptProofDepth = DefaultMaxDepth;
+	type MaxMptNodeSize = DefaultMaxNodeSize;
 	type WeightInfo = ();
 }
 
@@ -162,7 +173,10 @@ pub fn new_tester() -> sp_io::TestExternalities {
 }
 
 pub fn initialize_storage() -> DispatchResult {
-	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
+	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture::<
+		<Test as ethereum_beacon_client::Config>::MaxMptNodeSize,
+		<Test as ethereum_beacon_client::Config>::MaxReceiptProofDepth,
+	>();
 	EthereumBeaconClient::store_finalized_header(
 		inbound_fixture.finalized_header,
 		inbound_fixture.block_roots_root,

@@ -75,6 +75,8 @@ impl pallet_message_queue::Config for Test {
 pub struct MockVerifier;
 
 impl Verifier for MockVerifier {
+	type Proof = Proof;
+
 	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
 		Ok(())
 	}

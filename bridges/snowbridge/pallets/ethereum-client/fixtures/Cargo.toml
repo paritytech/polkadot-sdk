@@ -18,6 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 exclude-from-umbrella = true
 
 [dependencies]
+frame-support = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-verification-primitives = { workspace = true }
@@ -27,9 +28,10 @@ sp-std = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"frame-support/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-verification-primitives/std",
 	"sp-core/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = []
+runtime-benchmarks = ["frame-support/runtime-benchmarks"]

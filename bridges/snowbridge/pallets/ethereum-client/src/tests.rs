@@ -760,14 +760,18 @@ fn verify_message() {
 
 	new_tester().execute_with(|| {
 		assert_ok!(initialize_storage());
-		assert_ok!(EthereumBeaconClient::verify(&event_log, &proof));
+	assert_ok!(EthereumBeaconClient::verify(&event_log, &proof));
 	});
 }
 
 #[test]
 fn verify_message_invalid_proof() {
+	use snowbridge_verification_primitives::ReceiptProofNode;
+
 	let (event_log, mut proof) = get_message_verification_payload();
-	proof.receipt_proof[0] = TEST_HASH.into();
+	proof.receipt_proof[0] =
+		ReceiptProofNode::<<Test as crate::Config>::MaxMptNodeSize>::try_from(TEST_HASH.to_vec())
+			.unwrap();
 
 	new_tester().execute_with(|| {
 		assert_ok!(initialize_storage());

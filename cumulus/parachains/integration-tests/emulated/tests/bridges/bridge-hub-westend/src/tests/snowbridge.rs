@@ -48,7 +48,7 @@ use rococo_westend_system_emulated_network::{
 use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
-	EventFixture,
+	EventFixture, Proof,
 };
 use snowbridge_pallet_inbound_queue_fixtures::send_native_eth::make_send_native_eth_message;
 use sp_core::{H160, H256};
@@ -63,7 +63,14 @@ const INSUFFICIENT_XCM_FEE: u128 = 1000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 const BRIDGE_FEE: u128 = 4_000_000_000_000;
 
-pub fn send_inbound_message(fixture: EventFixture) -> DispatchResult {
+pub fn send_inbound_message(
+	fixture: EventFixture<
+		Proof<
+			<bridge_hub_westend_runtime::Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<bridge_hub_westend_runtime::Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>,
+	>,
+) -> DispatchResult {
 	EthereumBeaconClient::store_finalized_header(
 		fixture.finalized_header,
 		fixture.block_roots_root,
@@ -317,7 +324,10 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 		));
 
 		// Construct SendToken message and sent to inbound queue
-		assert_ok!(send_inbound_message(make_send_native_eth_message()));
+		assert_ok!(send_inbound_message(make_send_native_eth_message::<
+			<bridge_hub_westend_runtime::Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<bridge_hub_westend_runtime::Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>()));
 
 		// Check that the send token message was sent using xcm
 		assert_expected_events!(

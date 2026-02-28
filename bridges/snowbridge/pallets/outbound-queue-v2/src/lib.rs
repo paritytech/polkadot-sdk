@@ -294,12 +294,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		<T::Verifier as Verifier>::Proof: Clone + Debug + PartialEq + Encode + Decode + TypeInfo,
 	{
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
-			event: Box<EventProof>,
+			event: Box<EventProof<<T::Verifier as Verifier>::Proof>>,
 		) -> DispatchResult
 		where
 			<T as frame_system::Config>::AccountId: From<[u8; 32]>,

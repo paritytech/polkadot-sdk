@@ -5,7 +5,10 @@ use sp_core::H256;
 use sp_io::hashing::keccak_256;
 use sp_std::prelude::*;
 
-pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<ReceiptEnvelope> {
+pub fn verify_receipt_proof(
+	receipts_root: H256,
+	values: &[impl AsRef<[u8]>],
+) -> Option<ReceiptEnvelope> {
 	match apply_merkle_proof(values) {
 		Some((root, data)) if root == receipts_root => {
 			ReceiptEnvelope::decode(&mut data.as_slice()).ok()
@@ -15,18 +18,18 @@ pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<R
 	}
 }
 
-fn apply_merkle_proof(proof: &[Vec<u8>]) -> Option<(H256, Vec<u8>)> {
+fn apply_merkle_proof(proof: &[impl AsRef<[u8]>]) -> Option<(H256, Vec<u8>)> {
 	let mut iter = proof.iter().rev();
 	let first_bytes = match iter.next() {
-		Some(b) => b,
+		Some(b) => b.as_ref(),
 		None => return None,
 	};
 	let item_to_prove: mpt::ShortNode = rlp::decode(first_bytes).ok()?;
 
 	let final_hash: Option<[u8; 32]> = iter.try_fold(keccak_256(first_bytes), |acc, x| {
-		let node: Box<dyn mpt::Node> = x.as_slice().try_into().ok()?;
+		let node: Box<dyn mpt::Node> = x.as_ref().try_into().ok()?;
 		if (*node).contains_hash(acc.into()) {
-			return Some(keccak_256(x));
+			return Some(keccak_256(x.as_ref()));
 		}
 		None
 	});

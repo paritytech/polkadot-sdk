@@ -8,6 +8,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{traits::Hooks, BoundedVec};
 use frame_system::RawOrigin;
 use snowbridge_outbound_queue_primitives::v2::{Command, Initializer, Message};
+use snowbridge_verification_primitives::{DefaultMaxDepth, DefaultMaxNodeSize, Proof};
 use sp_core::{H160, H256};
 
 #[allow(unused_imports)]
@@ -17,6 +18,13 @@ use crate::Pallet as OutboundQueue;
 	where
 		<T as Config>::MaxMessagePayloadSize: Get<u32>,
 		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		<T::Verifier as snowbridge_outbound_queue_primitives::Verifier>::Proof: Clone
+			+ core::fmt::Debug
+			+ PartialEq
+			+ codec::Encode
+			+ codec::Decode
+			+ scale_info::TypeInfo
+			+ From<Proof>,
 )]
 mod benchmarks {
 	use super::*;
@@ -154,7 +162,7 @@ mod benchmarks {
 	fn submit_delivery_receipt() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
-		let message = make_submit_delivery_receipt_message();
+		let message = make_submit_delivery_receipt_message::<DefaultMaxNodeSize, DefaultMaxDepth>();
 
 		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
 
@@ -169,9 +177,13 @@ mod benchmarks {
 
 		#[block]
 		{
+			let event = snowbridge_outbound_queue_primitives::EventProof {
+				event_log: message.event.event_log,
+				proof: message.event.proof.into(),
+			};
 			assert_ok!(OutboundQueue::<T>::submit_delivery_receipt(
 				RawOrigin::Signed(caller.clone()).into(),
-				Box::new(message.event),
+				Box::new(event),
 			));
 		}
 

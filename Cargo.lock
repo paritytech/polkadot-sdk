@@ -2780,6 +2780,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
+ "snowbridge-pallet-ethereum-client",
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-inbound-queue-v2",
@@ -22667,6 +22668,7 @@ dependencies = [
 name = "snowbridge-pallet-ethereum-client-fixtures"
 version = "0.9.0"
 dependencies = [
+ "frame-support",
  "hex-literal",
  "snowbridge-beacon-primitives",
  "snowbridge-verification-primitives",
@@ -22706,10 +22708,12 @@ dependencies = [
 name = "snowbridge-pallet-inbound-queue-fixtures"
 version = "0.10.0"
 dependencies = [
+ "frame-support",
  "hex-literal",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
+ "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
 ]
@@ -22748,10 +22752,12 @@ dependencies = [
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
 version = "0.10.0"
 dependencies = [
+ "frame-support",
  "hex-literal",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
+ "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
 ]

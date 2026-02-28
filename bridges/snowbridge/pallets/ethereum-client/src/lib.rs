@@ -91,6 +91,12 @@ pub mod pallet {
 		/// Minimum gap between finalized headers for an update to be free.
 		#[pallet::constant]
 		type FreeHeadersInterval: Get<u32>;
+		/// Maximum number of nodes in an Ethereum receipts MPT proof (path depth + leaf).
+		#[pallet::constant]
+		type MaxReceiptProofDepth: Get<u32>;
+		/// Maximum RLP-encoded size of a single MPT node (leaf = receipt, or branch/extension node).
+		#[pallet::constant]
+		type MaxMptNodeSize: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 

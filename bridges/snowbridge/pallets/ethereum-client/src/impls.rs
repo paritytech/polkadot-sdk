@@ -15,12 +15,14 @@ use snowbridge_verification_primitives::{
 };
 
 impl<T: Config> Verifier for Pallet<T> {
+	type Proof = Proof<T::MaxMptNodeSize, T::MaxReceiptProofDepth>;
+
 	/// Verify a message by verifying the existence of the corresponding
 	/// Ethereum log in a block. Returns the log if successful. The execution header containing
 	/// the log is sent with the message. The beacon header containing the execution header
 	/// is also sent with the message, to check if the header is an ancestor of a finalized
 	/// header.
-	fn verify(event_log: &Log, proof: &Proof) -> Result<(), VerificationError> {
+	fn verify(event_log: &Log, proof: &Self::Proof) -> Result<(), VerificationError> {
 		Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
 
@@ -35,14 +37,15 @@ impl<T: Config> Verifier for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Verifies that the receipt encoded in `proof.data` is included in the block given by
-	/// `proof.block_hash`.
+	/// Verifies that the receipt encoded in the proof is included in the block with the given
+	/// `receipts_root`. Uses the runtime-configured bounded receipt proof type.
 	pub fn verify_receipt_inclusion(
 		receipts_root: H256,
-		receipt_proof: &[Vec<u8>],
+		receipt_proof: &ReceiptProof<T::MaxMptNodeSize, T::MaxReceiptProofDepth>,
 		log: &Log,
 	) -> Result<(), VerificationError> {
-		let receipt = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
+		let receipt =
+			verify_receipt_proof(receipts_root, receipt_proof.as_ref()).ok_or(InvalidProof)?;
 		if !receipt.logs().iter().any(|l| Self::check_log_match(log, l)) {
 			tracing::error!(
 				target: "ethereum-client",

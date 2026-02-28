@@ -11,7 +11,7 @@ use snowbridge_beacon_primitives::{
 use snowbridge_core::{ParaId, TokenId};
 use snowbridge_inbound_queue_primitives::{
 	v2::{CreateAssetCallInfo, MessageProcessorError, MessageToXcm, XcmMessageProcessor},
-	Log, Proof, VerificationError,
+	DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof, VerificationError, Verifier,
 };
 use sp_core::H160;
 use sp_runtime::{
@@ -66,6 +66,8 @@ impl pallet_balances::Config for Test {
 pub struct MockVerifier;
 
 impl Verifier for MockVerifier {
+	type Proof = Proof;
+
 	fn verify(log: &Log, _: &Proof) -> Result<(), VerificationError> {
 		if log.address == ERROR_ADDRESS.into() {
 			return Err(VerificationError::InvalidProof);
@@ -77,10 +79,17 @@ impl Verifier for MockVerifier {
 const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305"];
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage() -> EventFixture {
-		make_register_token_message()
+impl BenchmarkHelper<Test> for Test {
+	fn initialize_storage() -> EventFixture<Proof> {
+		let fixture = make_register_token_message::<DefaultMaxNodeSize, DefaultMaxDepth>();
+		EventFixture {
+			event: snowbridge_inbound_queue_primitives::EventProof {
+				event_log: fixture.event.event_log,
+				proof: fixture.event.proof,
+			},
+			finalized_header: fixture.finalized_header,
+			block_roots_root: fixture.block_roots_root,
+		}
 	}
 }
 

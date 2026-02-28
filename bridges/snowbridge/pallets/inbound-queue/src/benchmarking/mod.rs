@@ -7,7 +7,15 @@ use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
-#[benchmarks]
+#[benchmarks(
+	where
+		<T::Verifier as snowbridge_inbound_queue_primitives::Verifier>::Proof: Clone
+			+ core::fmt::Debug
+			+ PartialEq
+			+ codec::Encode
+			+ codec::Decode
+			+ scale_info::TypeInfo
+)]
 mod benchmarks {
 	use super::*;
 

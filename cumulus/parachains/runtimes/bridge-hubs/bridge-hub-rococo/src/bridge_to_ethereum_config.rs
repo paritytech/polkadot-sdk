@@ -193,6 +193,8 @@ impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type ForkVersions = ChainForkVersions;
 	// Free consensus update every epoch. Works out to be 225 updates per day.
 	type FreeHeadersInterval = ConstU32<SLOTS_PER_EPOCH>;
+	type MaxReceiptProofDepth = ConstU32<16>;
+	type MaxMptNodeSize = ConstU32<32_768>;
 	type WeightInfo = crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }
 

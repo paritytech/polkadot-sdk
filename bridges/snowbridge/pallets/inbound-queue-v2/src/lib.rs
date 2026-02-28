@@ -73,8 +73,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<T> {
-		fn initialize_storage() -> EventFixture;
+	pub trait BenchmarkHelper<T: Config> {
+		fn initialize_storage() -> EventFixture<<T::Verifier as Verifier>::Proof>;
 	}
 
 	#[pallet::config]
@@ -178,11 +178,17 @@ pub mod pallet {
 	pub type Tips<T: Config> = StorageMap<_, Blake2_128Concat, u64, u128, OptionQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		<T::Verifier as Verifier>::Proof: Clone + Debug + PartialEq + Encode + Decode + TypeInfo,
+	{
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
-		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
+		pub fn submit(
+			origin: OriginFor<T>,
+			event: Box<EventProof<<T::Verifier as Verifier>::Proof>>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 

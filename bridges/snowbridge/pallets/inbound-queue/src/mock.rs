@@ -10,7 +10,9 @@ use snowbridge_beacon_primitives::{
 use snowbridge_core::{
 	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
+use snowbridge_inbound_queue_primitives::{
+	v1::MessageToXcm, DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof, VerificationError, Verifier,
+};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
@@ -103,14 +105,24 @@ impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
 	type FreeHeadersInterval = ConstU32<32>;
+	type MaxReceiptProofDepth = DefaultMaxDepth;
+	type MaxMptNodeSize = DefaultMaxNodeSize;
 	type WeightInfo = ();
 }
 
 // Mock verifier
 pub struct MockVerifier;
 
+/// Proof type used by the mock (matches ethereum client config on Test).
+pub type TestProof = Proof<
+	<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+	<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+>;
+
 impl Verifier for MockVerifier {
-	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
+	type Proof = TestProof;
+
+	fn verify(_: &Log, _: &TestProof) -> Result<(), VerificationError> {
 		Ok(())
 	}
 }
@@ -132,9 +144,12 @@ parameter_types! {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	fn initialize_storage() -> EventFixture {
-		make_register_token_message()
+impl BenchmarkHelper<Test> for Test {
+	fn initialize_storage() -> EventFixture<TestProof> {
+		make_register_token_message::<
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>()
 	}
 }
 

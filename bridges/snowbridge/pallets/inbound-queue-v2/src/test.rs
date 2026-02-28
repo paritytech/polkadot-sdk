@@ -22,7 +22,7 @@ fn test_submit_happy_path() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -53,7 +53,7 @@ fn test_submit_with_invalid_gateway() {
 		let origin = RuntimeOrigin::signed(relayer);
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log_invalid_gateway(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -75,7 +75,7 @@ fn test_submit_verification_fails_with_invalid_proof() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let mut event = EventProof {
+		let mut event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -100,7 +100,7 @@ fn test_submit_fails_with_malformed_message() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log_invalid_message(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -123,7 +123,7 @@ fn test_using_same_nonce_fails() {
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -155,7 +155,7 @@ fn test_set_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -206,7 +206,7 @@ fn test_xcm_send_failure() {
 		let origin = mock::RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -236,7 +236,7 @@ fn test_xcm_send_validate_failure() {
 		let origin = mock::RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -261,7 +261,7 @@ fn test_xcm_charge_fees_failure() {
 		let origin = mock::RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -281,7 +281,7 @@ fn test_register_token() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log_v2(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -298,7 +298,7 @@ fn test_switch_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-		let event = EventProof {
+		let event = EventProof::<Proof> {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
