@@ -45,6 +45,7 @@ std = [
 	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
@@ -52,7 +53,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"xcm/std",
-	"pallet-revive-fixtures/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
