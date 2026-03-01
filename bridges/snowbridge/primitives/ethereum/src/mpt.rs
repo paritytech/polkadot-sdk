@@ -90,6 +90,17 @@ impl rlp::Decodable for ShortNode {
 	}
 }
 
+/// Fixture-only: RLP encoding for ShortNode. Not included in release; used when generating
+/// receipt proof fixtures (see snowbridge-verification-primitives fixtures).
+#[cfg(any(test, feature = "std", feature = "fixtures"))]
+impl rlp::Encodable for ShortNode {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(2);
+		s.append(&self.key);
+		s.append(&self.value);
+	}
+}
+
 impl Node for ShortNode {
 	fn contains_hash(&self, hash: H256) -> bool {
 		self.value == hash.0

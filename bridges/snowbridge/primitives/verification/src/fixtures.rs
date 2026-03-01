@@ -1,34 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Fixture utilities for tests and benchmarks.
-//! Only compiled when `runtime-benchmarks` feature is enabled.
+//! Only compiled when `runtime-benchmarks` or `fixtures` feature is enabled.
+//! Not included in release builds.
 
 use frame_support::traits::Get;
 use sp_std::prelude::*;
 
 use crate::*;
 use frame_support::BoundedVec;
+use snowbridge_ethereum::mpt::ShortNode;
 use sp_std::vec;
 
 /// Error when building a receipt proof from raw bytes (length or node size out of bounds).
 #[derive(Clone, Debug)]
 pub struct ReceiptProofBoundsError;
 
-/// Minimal RLP encoding for [0x00, value] where value length is < 56.
-/// Used to build short MPT nodes for hash-chain receipt proofs in benchmarks.
-pub fn short_node(value: &[u8]) -> Vec<u8> {
-	let mut out = Vec::with_capacity(1 + 2 + 1 + value.len());
-	let payload_len = 2 + 1 + value.len();
-	out.push(0xc0 + payload_len as u8);
-	out.push(0x81);
-	out.push(0x00);
-	out.push(0x80 + value.len() as u8);
-	out.extend_from_slice(value);
-	out
+/// Build a valid RLP-encoded MPT node: the RLP encoding of a `ShortNode` with `key = [0x00]`
+/// and `value` (padded with zeros). The returned byte length is **at most** `max_len`
+/// (`result.len() <= max_len`).
+pub fn short_node(value: &[u8], max_len: usize) -> Vec<u8> {
+	// RLP(ShortNode): key [0x00] is 1 byte. Value string of L bytes:
+	//   L<=55: 1+L bytes → total 3+L
+	//   56<=L<=255: 2+L bytes → payload 3+L, list header 2 bytes → total 5+L
+	//   L>=256: 3+L bytes (2-byte length) → payload 4+L, list header 3 bytes → total 7+L
+	let data_len = if max_len < 3 {
+		0
+	} else if max_len <= 58 {
+		(max_len - 3).min(55)
+	} else if max_len <= 260 {
+		// 59..260: total = 5+L, so L = max_len - 5 (L <= 255)
+		max_len - 5
+	} else {
+		// max_len >= 261: total = 7+L so L = max_len - 7 (avoids overflow for L>=256)
+		max_len - 7
+	};
+	let mut value_padded = value.to_vec();
+	value_padded.resize(data_len, 0u8);
+	let node = ShortNode { key: sp_std::vec![0x00], value: value_padded };
+	let encoded = rlp::encode(&node).to_vec();
+	debug_assert!(
+		encoded.len() <= max_len,
+		"short_node: encoded len {} > max_len {}",
+		encoded.len(),
+		max_len
+	);
+	encoded
 }
 
-/// Build a hash-chain receipt proof with [`MaxDepth`] nodes, each bounded by [`MaxNodeSize`].
-/// Uses short RLP nodes for the chain; nodes are padded to MaxNodeSize for worst-case benchmarks.
+/// Build a hash-chain receipt proof with [`MaxDepth`] nodes, each of length [`MaxNodeSize`].
+/// Uses short RLP nodes for the chain; each node is padded to MaxNodeSize for worst-case
+/// benchmarks.
 pub fn build_hash_chain_proof<MaxNodeSize, MaxDepth>() -> Vec<Vec<u8>>
 where
 	MaxNodeSize: Get<u32>,
@@ -37,23 +59,16 @@ where
 	use sp_core::hashing;
 	let depth = MaxDepth::get() as usize;
 	let node_size = MaxNodeSize::get() as usize;
-	let leaf = short_node(&[0xde, 0xad, 0xbe, 0xef]);
+	let leaf = short_node(&[0xde, 0xad, 0xbe, 0xef], node_size);
 	let mut proof = vec![leaf.clone()];
 	let mut hash = hashing::keccak_256(&leaf);
 	for _ in 0..depth.saturating_sub(1) {
-		let node = short_node(&hash);
+		let node = short_node(&hash, node_size);
 		hash = hashing::keccak_256(&node);
 		proof.push(node);
 	}
 	proof.reverse();
-	// Pad each node to MaxNodeSize for worst-case bounds
 	proof
-		.into_iter()
-		.map(|mut node| {
-			node.resize(node_size, 0u8);
-			node
-		})
-		.collect()
 }
 
 /// Build a [`ReceiptProof`] from a `Vec<Vec<u8>>`. Fails if length or any node size exceeds bounds.

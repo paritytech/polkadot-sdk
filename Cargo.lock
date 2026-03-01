@@ -22989,8 +22989,10 @@ version = "0.2.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
+ "rlp 0.6.1",
  "scale-info",
  "snowbridge-beacon-primitives",
+ "snowbridge-ethereum",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
 ]

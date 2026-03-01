@@ -26,8 +26,12 @@ hex-literal = { workspace = true }
 parity-bytes = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-serde-big-array = { optional = true, features = ["const-generics"], workspace = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
+serde-big-array = { optional = true, features = [
+	"const-generics",
+], workspace = true }
 
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -38,7 +42,7 @@ ethabi = { workspace = true }
 
 [features]
 default = ["std"]
-expensive_tests = []
+fixtures = []
 std = [
 	"alloy-consensus/std",
 	"alloy-core/std",
