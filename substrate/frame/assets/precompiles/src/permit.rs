@@ -34,7 +34,7 @@ use frame_support::pallet_prelude::*;
 use pallet_revive::precompiles::H160;
 use sp_core::{H256, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
-use sp_runtime::traits::UniqueSaturatedInto;
+use frame_support::traits::UnixTime;
 
 pub use crate::weights::PermitWeightInfo;
 pub use pallet::*;
@@ -313,10 +313,7 @@ pub mod pallet {
 			v: u8,
 			r: &[u8; 32],
 			s: &[u8; 32],
-		) -> Result<(), Error<T>>
-		where
-			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
-		{
+		) -> Result<(), Error<T>> {
 			// EIP-2612: owner and spender cannot be the zero address
 			if owner.is_zero() {
 				return Err(Error::<T>::InvalidOwner);
@@ -325,13 +322,14 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidSpender);
 			}
 
-			// Validate deadline against current timestamp
-			// EIP-2612 specifies deadlines in UNIX seconds, but pallet_timestamp
-			// typically returns milliseconds. Convert to seconds for compatibility.
-			// TODO: how to enforce correct time units here?
-			let now_ms: u128 = <pallet_timestamp::Pallet<T>>::get().unique_saturated_into();
-			// Floor division: don't reject permits early due to ms -> s conversion
-			let now_seconds = now_ms / 1000;
+			// Validate deadline against current timestamp.
+			// EIP-2612 specifies deadlines in UNIX seconds. We use the `UnixTime`
+			// trait which returns a `core::time::Duration` — its `as_secs()` method
+			// gives us seconds regardless of pallet_timestamp's internal resolution
+			// (which stores milliseconds, converted via `Duration::from_millis` in
+			// pallet_timestamp's `UnixTime` implementation).
+			let now_seconds =
+				<pallet_timestamp::Pallet<T> as UnixTime>::now().as_secs();
 			let deadline_u256 = U256::from_big_endian(deadline);
 			let now_u256 = U256::from(now_seconds);
 
@@ -379,10 +377,7 @@ pub mod pallet {
 			v: u8,
 			r: &[u8; 32],
 			s: &[u8; 32],
-		) -> Result<(), Error<T>>
-		where
-			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
-		{
+		) -> Result<(), Error<T>> {
 			// Verify the permit first
 			Self::do_verify_permit(
 				verifying_contract,
@@ -421,10 +416,7 @@ pub mod pallet {
 			v: u8,
 			r: &[u8; 32],
 			s: &[u8; 32],
-		) -> Result<(), Error<T>>
-		where
-			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
-		{
+		) -> Result<(), Error<T>> {
 			Self::do_verify_permit(
 				verifying_contract,
 				name,
