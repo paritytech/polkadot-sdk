@@ -10,9 +10,8 @@ use snowbridge_beacon_primitives::{
 use snowbridge_core::{
 	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_inbound_queue_primitives::{
-	v1::MessageToXcm, DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof, VerificationError, Verifier,
-};
+use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
+use snowbridge_verification_primitives::{DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
@@ -26,9 +25,11 @@ use xcm::{
 use xcm_executor::AssetsInHolding;
 
 #[cfg(feature = "runtime-benchmarks")]
-use snowbridge_inbound_queue_primitives::EventFixture;
+use snowbridge_pallet_inbound_queue_fixtures::register_token::{
+	make_register_token_message, make_register_token_message_worst_case,
+};
 #[cfg(feature = "runtime-benchmarks")]
-use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+use snowbridge_verification_primitives::EventFixture;
 
 use crate::{self as inbound_queue};
 
@@ -114,7 +115,7 @@ impl snowbridge_pallet_ethereum_client::Config for Test {
 pub struct MockVerifier;
 
 impl Verifier for MockVerifier {
-	type Proof = Proof;
+	type Proof = snowbridge_verification_primitives::Proof;
 
 	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
 		Ok(())
@@ -141,6 +142,13 @@ parameter_types! {
 impl BenchmarkHelper<Test> for Test {
 	fn initialize_storage() -> EventFixture<Proof> {
 		make_register_token_message::<
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>()
+	}
+
+	fn initialize_storage_worst_case_invalid_proof() -> EventFixture<Proof> {
+		make_register_token_message_worst_case::<
 			<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
 			<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
 		>()
@@ -249,6 +257,9 @@ impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
 
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Verifier = EthereumBeaconClient;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Verifier = MockVerifier;
 	type Token = Balances;
 	type XcmSender = MockXcmSender;
@@ -286,6 +297,18 @@ pub fn setup() {
 		InitialFund::get(),
 	)
 	.unwrap();
+	#[cfg(feature = "runtime-benchmarks")]
+	{
+		let message = make_register_token_message::<
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>();
+		EthereumBeaconClient::store_finalized_header(
+			message.finalized_header,
+			message.block_roots_root,
+		)
+		.unwrap();
+	}
 }
 
 pub fn new_tester() -> sp_io::TestExternalities {

@@ -66,7 +66,7 @@ impl<T: frame_system::Config> snowbridge_pallet_inbound_queue::WeightInfo for We
 	/// Proof: `EthereumSystem::PricingParameters` (`max_values`: Some(1), `max_size`: Some(112), added: 607, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn submit() -> Weight {
+		fn submit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `657`
 		//  Estimated: `4122`
@@ -75,5 +75,15 @@ impl<T: frame_system::Config> snowbridge_pallet_inbound_queue::WeightInfo for We
 			.saturating_add(Weight::from_parts(0, 4122))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(2))
+	}
+
+	/// Worst-case: invalid proof at max depth and node size (rejection path).
+	/// Run `frame-omni-bencher benchmark pallet --pallet=snowbridge_pallet_inbound_queue
+	/// --extrinsic=submit_invalid_proof_with_worst_case_bounds` to replace with measured values.
+	fn submit_invalid_proof_with_worst_case_bounds() -> Weight {
+		Weight::from_parts(200_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 2_097_152))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(0))
 	}
 }

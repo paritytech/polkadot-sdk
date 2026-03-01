@@ -4,12 +4,13 @@ use super::*;
 
 use crate::Pallet as InboundQueue;
 use frame_benchmarking::v2::*;
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use snowbridge_verification_primitives::VerificationError;
 
 #[benchmarks(
 	where
-		<T::Verifier as snowbridge_inbound_queue_primitives::Verifier>::Proof: Clone
+		<T::Verifier as snowbridge_verification_primitives::Verifier>::Proof: Clone
 			+ core::fmt::Debug
 			+ PartialEq
 			+ codec::Encode
@@ -46,6 +47,28 @@ mod benchmarks {
 				RawOrigin::Signed(caller.clone()).into(),
 				create_message.event,
 			));
+		}
+
+		Ok(())
+	}
+
+	/// Benchmarks weight of rejecting invalid proof at worst-case bounds
+	/// (DefaultMaxDepth nodes, each DefaultMaxNodeSize bytes).
+	#[benchmark]
+	fn submit_invalid_proof_with_worst_case_bounds() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+
+		let create_message = T::Helper::initialize_storage_worst_case_invalid_proof();
+
+		#[block]
+		{
+			assert_noop!(
+				InboundQueue::<T>::submit(
+					RawOrigin::Signed(caller.clone()).into(),
+					create_message.event,
+				),
+				Error::<T>::Verification(VerificationError::InvalidProof)
+			);
 		}
 
 		Ok(())

@@ -68,4 +68,24 @@ impl<T: frame_system::Config> snowbridge_pallet_inbound_queue_v2::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	/// Worst-case: reject invalid proof at max depth and node size.
+	/// Storage: `EthereumInboundQueueV2::OperatingMode` (r:1 w:0)
+	/// Proof: `EthereumInboundQueueV2::OperatingMode` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumBeaconClient::LatestFinalizedBlockRoot` (r:1 w:0)
+	/// Proof: `EthereumBeaconClient::LatestFinalizedBlockRoot` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumBeaconClient::FinalizedBeaconState` (r:1 w:0)
+	/// Proof: `EthereumBeaconClient::FinalizedBeaconState` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: UNKNOWN KEY `0xaed97c7854d601808b98ae43079dafb3` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0xaed97c7854d601808b98ae43079dafb3` (r:1 w:0)
+	fn submit_invalid_proof_with_worst_case_bounds() -> Weight {
+		// Proof Size summary in bytes:
+		//  Worst-case: MaxDepth nodes × MaxNodeSize bytes (e.g. 64 × 32KB = 2MB)
+		//  Measured:  `2_097_152`
+		//  Estimated: `2_097_152`
+		// Minimum execution time: placeholder; run benchmark for accurate value.
+		Weight::from_parts(120_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 2_097_152))
+			.saturating_add(T::DbWeight::get().reads(4))
+	}
 }

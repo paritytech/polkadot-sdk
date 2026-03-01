@@ -124,33 +124,10 @@ pub struct EventFixture<Proof> {
 	pub block_roots_root: H256,
 }
 
-/// Error when building a receipt proof from raw bytes (length or node size out of bounds).
-#[derive(Clone, Debug)]
-pub struct ReceiptProofBoundsError;
+#[cfg(any(test, feature = "runtime-benchmarks", feature = "std", feature = "fixtures"))]
+pub mod fixtures;
 
-/// Build a [`ReceiptProof`] from a `Vec<Vec<u8>>`. Fails if length or any node size exceeds bounds.
-pub fn try_receipt_proof_from_vec<MaxNodeSize, MaxDepth>(
-	v: Vec<Vec<u8>>,
-) -> Result<ReceiptProof<MaxNodeSize, MaxDepth>, ReceiptProofBoundsError>
-where
-	MaxNodeSize: Get<u32>,
-	MaxDepth: Get<u32>,
-{
-	let max_node = MaxNodeSize::get() as usize;
-	let max_depth = MaxDepth::get() as usize;
-	if v.len() > max_depth {
-		return Err(ReceiptProofBoundsError);
-	}
-	let inner: Result<Vec<ReceiptProofNode<MaxNodeSize>>, _> = v
-		.into_iter()
-		.map(|x| {
-			if x.len() > max_node {
-				Err(ReceiptProofBoundsError)
-			} else {
-				BoundedVec::try_from(x).map_err(|_| ReceiptProofBoundsError)
-			}
-		})
-		.collect();
-	let inner = inner?;
-	BoundedVec::try_from(inner).map_err(|_| ReceiptProofBoundsError)
-}
+#[cfg(any(test, feature = "runtime-benchmarks", feature = "std", feature = "fixtures"))]
+pub use fixtures::{
+	build_hash_chain_proof, short_node, try_receipt_proof_from_vec, ReceiptProofBoundsError,
+};

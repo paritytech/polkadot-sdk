@@ -37,7 +37,7 @@ pallet-timestamp = { optional = true, workspace = true }
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
 snowbridge-ethereum = { workspace = true }
-snowbridge-pallet-ethereum-client-fixtures = { optional = true, workspace = true }
+snowbridge-pallet-ethereum-client-fixtures = { workspace = true, optional = true }
 snowbridge-verification-primitives = { workspace = true }
 static_assertions = { workspace = true }
 
@@ -63,7 +63,6 @@ std = [
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"snowbridge-ethereum/std",
-	"snowbridge-pallet-ethereum-client-fixtures/std",
 	"snowbridge-verification-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -79,6 +78,7 @@ runtime-benchmarks = [
 	"pallet-timestamp?/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
+	"snowbridge-verification-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [

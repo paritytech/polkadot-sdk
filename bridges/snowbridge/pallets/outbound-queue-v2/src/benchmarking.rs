@@ -2,13 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use crate::fixture::make_submit_delivery_receipt_message;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{traits::Hooks, BoundedVec};
 use frame_system::RawOrigin;
 use snowbridge_outbound_queue_primitives::v2::{Command, Initializer, Message};
-use snowbridge_verification_primitives::{DefaultMaxDepth, DefaultMaxNodeSize, Proof};
+use snowbridge_verification_primitives::Proof;
 use sp_core::{H160, H256};
 
 #[allow(unused_imports)]
@@ -28,7 +27,8 @@ use crate::Pallet as OutboundQueue;
 )]
 mod benchmarks {
 	use super::*;
-	use frame_support::assert_ok;
+	use frame_support::{assert_noop, assert_ok};
+	use snowbridge_outbound_queue_primitives::VerificationError;
 
 	/// Build `Upgrade` message with `MaxMessagePayloadSize`, in the worst-case.
 	fn build_message<T: Config>() -> (Message, OutboundMessage) {
@@ -162,9 +162,7 @@ mod benchmarks {
 	fn submit_delivery_receipt() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
-		let message = make_submit_delivery_receipt_message::<DefaultMaxNodeSize, DefaultMaxDepth>();
-
-		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
+		let message = T::Helper::initialize_storage();
 
 		let receipt = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
 
@@ -185,6 +183,33 @@ mod benchmarks {
 				RawOrigin::Signed(caller.clone()).into(),
 				Box::new(event),
 			));
+		}
+
+		Ok(())
+	}
+
+	/// Benchmarks weight of rejecting invalid proof at worst-case bounds
+	/// (DefaultMaxDepth nodes, each DefaultMaxNodeSize bytes).
+	#[benchmark]
+	fn submit_delivery_receipt_invalid_proof_with_worst_case_bounds() -> Result<(), BenchmarkError>
+	{
+		let caller: T::AccountId = whitelisted_caller();
+
+		let message = T::Helper::initialize_storage_worst_case_invalid_proof();
+
+		#[block]
+		{
+			let event = snowbridge_outbound_queue_primitives::EventProof {
+				event_log: message.event.event_log,
+				proof: message.event.proof.into(),
+			};
+			assert_noop!(
+				OutboundQueue::<T>::submit_delivery_receipt(
+					RawOrigin::Signed(caller.clone()).into(),
+					Box::new(event),
+				),
+				Error::<T>::Verification(VerificationError::InvalidProof)
+			);
 		}
 
 		Ok(())

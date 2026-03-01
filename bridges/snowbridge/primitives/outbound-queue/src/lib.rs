@@ -13,7 +13,10 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use Debug;
 
-pub use snowbridge_verification_primitives::*;
+pub use snowbridge_verification_primitives::{
+	EventFixture, EventProof, Log, Proof, ReceiptProof, ReceiptProofNode, VerificationError,
+	Verifier,
+};
 
 /// The operating mode of Channels and Gateway contract on Ethereum.
 #[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]

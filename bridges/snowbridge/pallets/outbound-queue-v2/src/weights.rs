@@ -35,6 +35,7 @@ pub trait WeightInfo {
 	fn commit() -> Weight;
 	fn commit_single() -> Weight;
 	fn submit_delivery_receipt() -> Weight;
+	fn submit_delivery_receipt_invalid_proof_with_worst_case_bounds() -> Weight;
 	fn on_initialize() -> Weight;
 	fn process() -> Weight;
 }
@@ -87,6 +88,14 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 3601))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(2))
+	}
+
+	fn submit_delivery_receipt_invalid_proof_with_worst_case_bounds() -> Weight {
+		// Worst-case: max depth and node size; heavier than submit_delivery_receipt.
+		Weight::from_parts(120_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 2_097_152)) // ~2MB proof
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(0))
 	}
 
 	fn on_initialize() -> Weight {

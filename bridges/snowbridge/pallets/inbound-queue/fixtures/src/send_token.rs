@@ -8,7 +8,7 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{
+use snowbridge_verification_primitives::{
 	try_receipt_proof_from_vec, EventFixture, EventProof, Log, Proof,
 };
 use sp_core::U256;

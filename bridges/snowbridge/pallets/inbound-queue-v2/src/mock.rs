@@ -6,14 +6,16 @@ use crate::{self as inbound_queue_v2};
 use frame_support::{derive_impl, parameter_types};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
-	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
+	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{ParaId, TokenId};
-use snowbridge_inbound_queue_primitives::{
-	v2::{CreateAssetCallInfo, MessageProcessorError, MessageToXcm, XcmMessageProcessor},
-	DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof, VerificationError, Verifier,
+use snowbridge_inbound_queue_primitives::v2::{
+	CreateAssetCallInfo, MessageProcessorError, MessageToXcm, XcmMessageProcessor,
 };
-use sp_core::H160;
+use snowbridge_verification_primitives::{
+	DefaultMaxDepth, DefaultMaxNodeSize, Log, Proof, Verifier,
+};
+use sp_core::{ConstU32, H160};
 use sp_runtime::{
 	traits::{IdentityLookup, MaybeConvert, TryConvert},
 	BuildStorage,
@@ -24,16 +26,19 @@ type Block = frame_system::mocking::MockBlock<Test>;
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
 use snowbridge_inbound_queue_primitives::EventFixture;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message;
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::{
+	make_register_token_message, make_register_token_message_worst_case,
+};
 
 frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
 		InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -76,12 +81,67 @@ impl Verifier for MockVerifier {
 	}
 }
 
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: hex!("00000001"),
+			epoch: 0,
+		},
+		altair: Fork {
+			version: hex!("01000001"),
+			epoch: 0,
+		},
+		bellatrix: Fork {
+			version: hex!("02000001"),
+			epoch: 0,
+		},
+		capella: Fork {
+			version: hex!("03000001"),
+			epoch: 0,
+		},
+		deneb: Fork {
+			version: hex!("04000001"),
+			epoch: 0,
+		},
+		electra: Fork {
+			version: hex!("05000000"),
+			epoch: 80000000000,
+		},
+		fulu: Fork {
+			version: hex!("06000000"),
+			epoch: 80000000001,
+		}
+	};
+}
+
+impl snowbridge_pallet_ethereum_client::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<32>;
+	type MaxReceiptProofDepth = DefaultMaxDepth;
+	type MaxMptNodeSize = DefaultMaxNodeSize;
+	type WeightInfo = ();
+}
+
 const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305"];
 
 #[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<Test> for Test {
 	fn initialize_storage() -> EventFixture<Proof> {
 		let fixture = make_register_token_message::<DefaultMaxNodeSize, DefaultMaxDepth>();
+		EventFixture {
+			event: snowbridge_inbound_queue_primitives::EventProof {
+				event_log: fixture.event.event_log,
+				proof: fixture.event.proof,
+			},
+			finalized_header: fixture.finalized_header,
+			block_roots_root: fixture.block_roots_root,
+		}
+	}
+
+	fn initialize_storage_worst_case_invalid_proof() -> EventFixture<Proof> {
+		let fixture =
+			make_register_token_message_worst_case::<DefaultMaxNodeSize, DefaultMaxDepth>();
 		EventFixture {
 			event: snowbridge_inbound_queue_primitives::EventProof {
 				event_log: fixture.event.event_log,
@@ -160,6 +220,9 @@ impl MessageProcessor<AccountId> for DummySuffix {
 
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Verifier = EthereumBeaconClient;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Verifier = MockVerifier;
 	type GatewayAddress = GatewayAddress;
 	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
@@ -194,6 +257,18 @@ impl inbound_queue_v2::Config for Test {
 
 pub fn setup() {
 	System::set_block_number(1);
+	#[cfg(feature = "runtime-benchmarks")]
+	{
+		let message = make_register_token_message::<
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>();
+		EthereumBeaconClient::store_finalized_header(
+			message.finalized_header,
+			message.block_roots_root,
+		)
+		.unwrap();
+	}
 }
 
 pub fn new_tester() -> sp_io::TestExternalities {
@@ -201,6 +276,16 @@ pub fn new_tester() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(setup);
 	ext
+}
+
+/// Full EventProof for register_token (matches finalized header from setup).
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+pub fn register_token_event_proof() -> snowbridge_inbound_queue_primitives::EventProof<Proof> {
+	let fixture = make_register_token_message::<
+		<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+		<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+	>();
+	fixture.event
 }
 
 // Generated from smoketests:

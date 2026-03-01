@@ -65,7 +65,7 @@ mod mock;
 mod test;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod fixture;
+pub mod fixture;
 
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -102,7 +102,7 @@ pub use weights::WeightInfo;
 use xcm::prelude::NetworkId;
 
 #[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::BeaconHeader;
+use snowbridge_verification_primitives::EventFixture;
 
 pub use pallet::*;
 
@@ -286,8 +286,11 @@ pub mod pallet {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+	pub trait BenchmarkHelper<T: Config> {
+		fn initialize_storage() -> EventFixture<<T::Verifier as Verifier>::Proof>;
+		/// Worst-case fixture that triggers InvalidProof (for benchmarking rejection path).
+		fn initialize_storage_worst_case_invalid_proof(
+		) -> EventFixture<<T::Verifier as Verifier>::Proof>;
 	}
 
 	#[pallet::call]
@@ -297,7 +300,8 @@ pub mod pallet {
 		<T::Verifier as Verifier>::Proof: Clone + Debug + PartialEq + Encode + Decode + TypeInfo,
 	{
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
+		#[pallet::weight(T::WeightInfo::submit_delivery_receipt()
+			.max(T::WeightInfo::submit_delivery_receipt_invalid_proof_with_worst_case_bounds()))]
 		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
 			event: Box<EventProof<<T::Verifier as Verifier>::Proof>>,

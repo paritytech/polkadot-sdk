@@ -136,4 +136,14 @@ impl<T: frame_system::Config> snowbridge_pallet_outbound_queue_v2::WeightInfo fo
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	/// Worst-case: invalid proof at max depth and node size (rejection path).
+	/// Run `frame-omni-bencher benchmark pallet --pallet=snowbridge_pallet_outbound_queue_v2
+	/// --extrinsic=submit_delivery_receipt_invalid_proof_with_worst_case_bounds` to replace with measured values.
+	fn submit_delivery_receipt_invalid_proof_with_worst_case_bounds() -> Weight {
+		Weight::from_parts(200_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 2_097_152))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(0))
+	}
 }

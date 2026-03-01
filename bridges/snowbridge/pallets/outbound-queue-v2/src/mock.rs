@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::fixture::{
+	make_submit_delivery_receipt_message, make_submit_delivery_receipt_message_worst_case,
+};
+
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{Everything, Hooks},
@@ -12,9 +17,11 @@ use frame_support::{
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use scale_info::TypeInfo;
+use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{AgentId, AgentIdOf, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
+use snowbridge_verification_primitives::{DefaultMaxDepth, DefaultMaxNodeSize};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -32,6 +39,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Event<T>},
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
 		OutboundQueue: crate::{Pallet, Storage, Event<T>},
 	}
 );
@@ -69,6 +77,27 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = ServiceWeight;
 	type IdleMaxServiceWeight = ();
 	type QueuePausedQuery = ();
+}
+
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork { version: hex!("00000001"), epoch: 0 },
+		altair: Fork { version: hex!("01000001"), epoch: 0 },
+		bellatrix: Fork { version: hex!("02000001"), epoch: 0 },
+		capella: Fork { version: hex!("03000001"), epoch: 0 },
+		deneb: Fork { version: hex!("04000001"), epoch: 0 },
+		electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
+		fulu: Fork { version: hex!("06000000"), epoch: 80000000001 },
+	};
+}
+
+impl snowbridge_pallet_ethereum_client::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<32>;
+	type MaxReceiptProofDepth = DefaultMaxDepth;
+	type MaxMptNodeSize = DefaultMaxNodeSize;
+	type WeightInfo = ();
 }
 
 // Mock verifier
@@ -117,6 +146,9 @@ impl From<H256> for AggregateMessageOrigin {
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Verifier = EthereumBeaconClient;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Verifier = MockVerifier;
 	type GatewayAddress = GatewayAddress;
 	type Hashing = Keccak256;
@@ -243,7 +275,41 @@ pub fn mock_register_token_message(sibling_para_id: u32) -> Message {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+type TestProof = <<Test as Config>::Verifier as Verifier>::Proof;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper<Test> for Test {
+	fn initialize_storage() -> EventFixture<TestProof> {
+		let fixture = make_submit_delivery_receipt_message::<DefaultMaxNodeSize, DefaultMaxDepth>();
+		let _ = EthereumBeaconClient::store_finalized_header(
+			fixture.finalized_header,
+			fixture.block_roots_root,
+		);
+		EventFixture {
+			event: snowbridge_outbound_queue_primitives::EventProof {
+				event_log: fixture.event.event_log,
+				proof: fixture.event.proof,
+			},
+			finalized_header: fixture.finalized_header,
+			block_roots_root: fixture.block_roots_root,
+		}
+	}
+
+	fn initialize_storage_worst_case_invalid_proof() -> EventFixture<TestProof> {
+		let fixture =
+			make_submit_delivery_receipt_message_worst_case::<DefaultMaxNodeSize, DefaultMaxDepth>(
+			);
+		let _ = EthereumBeaconClient::store_finalized_header(
+			fixture.finalized_header,
+			fixture.block_roots_root,
+		);
+		EventFixture {
+			event: snowbridge_outbound_queue_primitives::EventProof {
+				event_log: fixture.event.event_log,
+				proof: fixture.event.proof,
+			},
+			finalized_header: fixture.finalized_header,
+			block_roots_root: fixture.block_roots_root,
+		}
+	}
 }

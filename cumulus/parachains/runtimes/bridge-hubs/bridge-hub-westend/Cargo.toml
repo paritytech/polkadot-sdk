@@ -15,7 +15,9 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
 tracing = { workspace = true }
 
@@ -112,21 +114,26 @@ snowbridge-outbound-queue-runtime-api = { workspace = true }
 snowbridge-outbound-queue-v2-runtime-api = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
-snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true, optional = true }
 snowbridge-pallet-inbound-queue-v2 = { workspace = true }
-snowbridge-pallet-inbound-queue-v2-fixtures = { workspace = true }
+snowbridge-pallet-inbound-queue-v2-fixtures = { workspace = true, optional = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-system-v2 = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 snowbridge-system-v2-runtime-api = { workspace = true }
+snowbridge-verification-primitives = { workspace = true }
 
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
-bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
+bridge-runtime-common = { features = [
+	"integrity-test",
+], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
+snowbridge-pallet-inbound-queue-fixtures = { workspace = true, default-features = true }
+snowbridge-pallet-inbound-queue-v2-fixtures = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
 [build-dependencies]
@@ -199,8 +206,6 @@ std = [
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-outbound-queue-v2-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
-	"snowbridge-pallet-inbound-queue-fixtures/std",
-	"snowbridge-pallet-inbound-queue-v2-fixtures/std",
 	"snowbridge-pallet-inbound-queue-v2/std",
 	"snowbridge-pallet-inbound-queue/std",
 	"snowbridge-pallet-outbound-queue-v2/std",
@@ -209,6 +214,7 @@ std = [
 	"snowbridge-pallet-system/std",
 	"snowbridge-system-runtime-api/std",
 	"snowbridge-system-v2-runtime-api/std",
+	"snowbridge-verification-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -278,6 +284,7 @@ runtime-benchmarks = [
 	"snowbridge-pallet-system-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
+	"snowbridge-verification-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime-constants/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

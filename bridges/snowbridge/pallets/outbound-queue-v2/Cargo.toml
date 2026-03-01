@@ -25,6 +25,7 @@ hex-literal = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
+bp-relayers = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -33,8 +34,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-
-bp-relayers = { workspace = true }
 
 snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
@@ -48,6 +47,7 @@ xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }
+snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
 
 [features]
@@ -84,7 +84,9 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-test-utils/runtime-benchmarks",
+	"snowbridge-verification-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -94,5 +96,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

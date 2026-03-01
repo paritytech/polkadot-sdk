@@ -17,20 +17,29 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for ethereum_beacon_client.
 pub trait WeightInfo {
-    fn submit() -> Weight;
+	fn submit() -> Weight;
+	fn submit_invalid_proof_with_worst_case_bounds() -> Weight;
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-    fn submit() -> Weight {
-        // Proof Size summary in bytes:
-        //  Measured:  `309`
-        //  Estimated: `3774`
-        // Minimum execution time: 59_000_000 picoseconds.
-        Weight::from_parts(60_000_000, 0)
-            .saturating_add(Weight::from_parts(0, 3774))
-            .saturating_add(RocksDbWeight::get().reads(7))
-            .saturating_add(RocksDbWeight::get().writes(2))
-    }
+	fn submit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `309`
+		//  Estimated: `3774`
+		// Minimum execution time: 59_000_000 picoseconds.
+		Weight::from_parts(60_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3774))
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(2))
+	}
+
+	fn submit_invalid_proof_with_worst_case_bounds() -> Weight {
+		// Worst-case: max depth and node size; heavier than submit.
+		Weight::from_parts(120_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 2_097_152)) // ~2MB proof
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(0))
+	}
 }
 

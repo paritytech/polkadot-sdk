@@ -33,7 +33,7 @@ pub mod weights;
 #[cfg(test)]
 mod mock;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "runtime-benchmarks")))]
 mod test;
 
 use codec::{Decode, DecodeAll, Encode};
@@ -60,9 +60,9 @@ use snowbridge_core::{
 	StaticLookup,
 };
 use snowbridge_inbound_queue_primitives::{
-	v1::{ConvertMessage, ConvertMessageError, VersionedMessage},
-	EventProof, VerificationError, Verifier,
+	v1::{ConvertMessage, ConvertMessageError, VersionedMessage}
 };
+use snowbridge_verification_primitives::{EventProof, VerificationError, Verifier};
 
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
@@ -84,7 +84,7 @@ pub mod pallet {
 	use sp_core::H256;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	use snowbridge_inbound_queue_primitives::EventFixture;
+	use snowbridge_verification_primitives::EventFixture;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -92,6 +92,9 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T: Config> {
 		fn initialize_storage() -> EventFixture<<T::Verifier as Verifier>::Proof>;
+		/// Worst-case fixture that triggers InvalidProof (for benchmarking rejection path).
+		fn initialize_storage_worst_case_invalid_proof(
+		) -> EventFixture<<T::Verifier as Verifier>::Proof>;
 	}
 
 	#[pallet::config]
@@ -236,7 +239,8 @@ pub mod pallet {
 	{
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit())]
+		#[pallet::weight(T::WeightInfo::submit()
+			.max(T::WeightInfo::submit_invalid_proof_with_worst_case_bounds()))]
 		pub fn submit(
 			origin: OriginFor<T>,
 			event: EventProof<<T::Verifier as Verifier>::Proof>,

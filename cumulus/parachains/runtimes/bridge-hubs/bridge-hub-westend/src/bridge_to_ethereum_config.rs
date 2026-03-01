@@ -345,17 +345,23 @@ pub mod benchmark_helpers {
 	use codec::Encode;
 	use frame_support::assert_ok;
 	use hex_literal::hex;
-	use snowbridge_beacon_primitives::BeaconHeader;
 	use snowbridge_inbound_queue_primitives::{
 		v2::{MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor},
 		EventFixture, Verifier,
 	};
+	use snowbridge_outbound_queue_primitives::{EventFixture as OutboundEventFixture, Verifier as OutboundVerifier};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::{
+		make_register_token_message,
+	};
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
 	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
-	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
-	use sp_core::H256;
+	use snowbridge_pallet_outbound_queue_v2::{
+		fixture::{
+			make_submit_delivery_receipt_message, make_submit_delivery_receipt_message_worst_case,
+		},
+		BenchmarkHelper as OutboundQueueBenchmarkHelperV2,
+	};
 	use testnet_parachains_constants::westend::snowbridge::{AssetHubParaId, EthereumNetwork};
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 	use xcm_executor::XcmExecutor;
@@ -383,6 +389,19 @@ pub mod benchmark_helpers {
 			.unwrap();
 			message
 		}
+		fn initialize_storage_worst_case_invalid_proof() -> EventFixture<
+			<<Runtime as snowbridge_pallet_outbound_queue_v2::Config>::Verifier as Verifier>::Proof,
+		> {
+			let message = make_submit_delivery_receipt_message_worst_case::<
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+			>();
+			assert_ok!(EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			));
+			message
+		}
 	}
 
 	impl InboundQueueBenchmarkHelperV2<Runtime> for Runtime {
@@ -401,11 +420,66 @@ pub mod benchmark_helpers {
 
 			message
 		}
+		fn initialize_storage_worst_case_invalid_proof() -> EventFixture<
+			<<Runtime as snowbridge_pallet_outbound_queue_v2::Config>::Verifier as Verifier>::Proof,
+		> {
+			let message = make_submit_delivery_receipt_message_worst_case::<
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+			>();
+			assert_ok!(EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			));
+			message
+		}
 	}
 
-	impl<T: snowbridge_pallet_outbound_queue_v2::Config> OutboundQueueBenchmarkHelperV2<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+	impl<T: snowbridge_pallet_outbound_queue_v2::Config> OutboundQueueBenchmarkHelperV2<T> for Runtime
+	where
+		snowbridge_outbound_queue_primitives::Proof<
+			<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+			<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+		>: Into<<T::Verifier as OutboundVerifier>::Proof>,
+	{
+		fn initialize_storage() -> OutboundEventFixture<<T::Verifier as OutboundVerifier>::Proof> {
+			let message = make_submit_delivery_receipt_message::<
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+			>();
+
+			assert_ok!(EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			));
+
+			OutboundEventFixture {
+				event: snowbridge_outbound_queue_primitives::EventProof {
+					event_log: message.event.event_log,
+					proof: message.event.proof.into(),
+				},
+				finalized_header: message.finalized_header,
+				block_roots_root: message.block_roots_root,
+			}
+		}
+		fn initialize_storage_worst_case_invalid_proof(
+		) -> OutboundEventFixture<<T::Verifier as OutboundVerifier>::Proof> {
+			let message = make_submit_delivery_receipt_message_worst_case::<
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
+				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
+			>();
+			assert_ok!(EthereumBeaconClient::store_finalized_header(
+				message.finalized_header,
+				message.block_roots_root,
+			));
+			OutboundEventFixture {
+				event: snowbridge_outbound_queue_primitives::EventProof {
+					event_log: message.event.event_log,
+					proof: message.event.proof.into(),
+				},
+				finalized_header: message.finalized_header,
+				block_roots_root: message.block_roots_root,
+			}
 		}
 	}
 

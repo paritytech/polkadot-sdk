@@ -8,8 +8,8 @@ use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
-use snowbridge_inbound_queue_primitives::{
-	try_receipt_proof_from_vec, EventFixture, EventProof, Log, Proof,
+use snowbridge_verification_primitives::{
+	build_hash_chain_proof, try_receipt_proof_from_vec, EventFixture, EventProof, Log, Proof,
 };
 use sp_core::U256;
 use sp_std::vec;
@@ -96,4 +96,25 @@ where
         },
         block_roots_root: hex!("4e457522f4a5ea3d544185f9dc34527008a784b5a748e5ae14f0822b00e255e0").into(),
     }
+}
+
+/// Same as [`make_register_token_message`] but with a receipt proof at worst-case bounds:
+/// [`MaxDepth`] nodes, each of [`MaxNodeSize`] bytes. Used for worst-case benchmarks.
+pub fn make_register_token_message_worst_case<MaxNodeSize, MaxDepth>(
+) -> EventFixture<Proof<MaxNodeSize, MaxDepth>>
+where
+	MaxNodeSize: Get<u32>,
+	MaxDepth: Get<u32>,
+{
+	let base = make_register_token_message::<MaxNodeSize, MaxDepth>();
+	let nodes = build_hash_chain_proof::<MaxNodeSize, MaxDepth>();
+	let receipt_proof = try_receipt_proof_from_vec::<MaxNodeSize, MaxDepth>(nodes).unwrap();
+	EventFixture {
+		event: EventProof {
+			event_log: base.event.event_log,
+			proof: Proof { receipt_proof, execution_proof: base.event.proof.execution_proof },
+		},
+		finalized_header: base.finalized_header,
+		block_roots_root: base.block_roots_root,
+	}
 }
