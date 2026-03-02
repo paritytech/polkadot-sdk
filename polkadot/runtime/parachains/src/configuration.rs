@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -342,6 +342,8 @@ pub enum InconsistentError<BlockNumber> {
 	OnDemandQueueSizeTooLarge,
 	/// Number of delay tranches cannot be 0.
 	ZeroDelayTranches,
+	/// `max_relay_parent_age` is less than `lookahead`.
+	MaxRelayParentAgeLessThanLookahead { max_relay_parent_age: u32, lookahead: u32 },
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -443,6 +445,13 @@ where
 			return Err(ZeroDelayTranches);
 		}
 
+		if self.scheduler_params.max_relay_parent_age < self.scheduler_params.lookahead {
+			return Err(MaxRelayParentAgeLessThanLookahead {
+				max_relay_parent_age: self.scheduler_params.max_relay_parent_age,
+				lookahead: self.scheduler_params.lookahead,
+			});
+		}
+
 		Ok(())
 	}
 
@@ -521,7 +530,8 @@ pub mod pallet {
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
 	/// v11-12: <https://github.com/paritytech/polkadot-sdk/pull/3181>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(12);
+	/// v12-13: added max_relay_parent_age to SchedulerParams
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1237,6 +1247,19 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.scheduler_params = new;
+			})
+		}
+
+		/// Set the maximum relay parent age.
+		#[pallet::call_index(56)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_u32(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_max_relay_parent_age(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.scheduler_params.max_relay_parent_age = new;
 			})
 		}
 	}

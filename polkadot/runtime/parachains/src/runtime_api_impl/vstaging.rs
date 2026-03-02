@@ -27,9 +27,8 @@ pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
 }
 
 /// Implementation of `max_relay_parent_age` runtime API.
-/// For now, returns the same as `scheduling_lookahead`.
 pub fn max_relay_parent_age<T: initializer::Config>() -> u32 {
-	configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
+	configuration::ActiveConfig::<T>::get().scheduler_params.max_relay_parent_age
 }
 
 /// Implementation of `unapplied_slashes_v2` runtime API

@@ -25,7 +25,7 @@ use alloc::format;
 use alloc::{vec, vec::Vec};
 use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
-use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
+use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -138,6 +138,7 @@ fn default_parachains_host_configuration(
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 5,
+			max_relay_parent_age: 5,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()

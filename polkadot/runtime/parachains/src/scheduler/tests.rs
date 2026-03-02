@@ -23,7 +23,7 @@ use assigner_coretime::PartsOf57600;
 use frame_support::assert_ok;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::{
-	BlockNumber, SchedulerParams, SessionIndex, ValidationCode, ValidatorId,
+	vstaging::SchedulerParams, BlockNumber, SessionIndex, ValidationCode, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
 
@@ -101,6 +101,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 			group_rotation_frequency: 10,
 			paras_availability_period: 3,
 			lookahead: 2,
+			max_relay_parent_age: 3,
 			num_cores: 3,
 			max_availability_timeouts: 1,
 			..Default::default()

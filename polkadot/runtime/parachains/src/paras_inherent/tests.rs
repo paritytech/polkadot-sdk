@@ -20,7 +20,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::{MockGenesisConfig, Scheduler},
 };
-use polkadot_primitives::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
