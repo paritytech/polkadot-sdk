@@ -1,12 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::{anyhow, Context, Result};
-use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
-use zombienet_orchestrator::tx_helper::parachain::{fetch_genesis_header, fetch_validation_code};
+use anyhow::Result;
 use zombienet_sdk::{
-	subxt::{dynamic::Value, ext::scale_value::value, tx, OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	LocalFileSystem, Network, NetworkConfig,
 };
 
