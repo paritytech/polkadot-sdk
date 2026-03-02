@@ -6,16 +6,15 @@ MEV Shield primitives for the Subtensor runtime. Defines the shared interface be
 
 ## What it contains
 
-- **`ShieldKeystore` trait** — interface for keystore operations: key rotation, public key retrieval, ML-KEM-768 decapsulation, and XChaCha20-Poly1305 decryption.
+- **`ShieldKeystore` trait** — interface for keystore operations: key rotation (`roll_for_next_slot`), encapsulation key retrieval (`next_enc_key`), and decapsulation key retrieval (`current_dec_key`).
 - **`ShieldedTransaction`** — structure representing an encrypted transaction (KEM ciphertext + AEAD ciphertext + nonce).
-- **`ShieldApi` runtime API** — allows the runtime to decode and decrypt shielded extrinsics.
-- **`ShieldKeystoreExt`** — registers the keystore as a Substrate externalities extension for use inside the runtime.
+- **`ShieldApi` runtime API** — allows the node to call into the runtime to decode and decrypt shielded extrinsics. The decapsulation key is passed as a parameter so no host functions are needed.
 - Common constants and type aliases (`ShieldPublicKey`, `InherentType`, `INHERENT_IDENTIFIER`).
 
 `no_std`-compatible.
 
 ## How it fits in
 
-Validators announce a public key via a block inherent. Submitters encrypt their transactions to that key. The validator decrypts them when building the block, preventing front-running.
+Validators announce an ML-KEM-768 encapsulation key via a block inherent. Submitters encrypt their transactions to that key. The validator passes the decapsulation key to the runtime API when building the block, and the runtime decrypts them in pure WASM — preventing front-running without requiring host functions.
 
 See [`stc-shield`](../../client/shield) for the client-side implementation.

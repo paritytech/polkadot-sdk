@@ -40,7 +40,7 @@ use sp_runtime::{
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
-use stp_shield::{ShieldApi, ShieldKeystoreExt, ShieldKeystorePtr, ShieldedTransaction};
+use stp_shield::{ShieldApi, ShieldKeystorePtr, ShieldedTransaction};
 
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
@@ -460,8 +460,7 @@ where
 			let pending_tx_data = (**pending_tx.data()).clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
-			let mut api = self.client.runtime_api();
-			api.register_extension(ShieldKeystoreExt::from(self.shield_keystore.clone()));
+			let api = self.client.runtime_api();
 
 			let maybe_shielded_tx = api
 				.try_decode_shielded_tx(self.parent_hash, pending_tx_data.clone())
@@ -532,7 +531,7 @@ where
 
 					// The shield wrapper paid the unshield fee.
 					if let Err(end_reason) = self.unshield_and_push_inner_tx(
-						&mut api,
+						&api,
 						block_builder,
 						pending_tx_hash,
 						shielded_tx,
@@ -580,15 +579,27 @@ where
 
 	fn unshield_and_push_inner_tx(
 		&self,
-		api: &mut ApiRef<'_, C::Api>,
+		api: &ApiRef<'_, C::Api>,
 		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C>,
 		shielded_tx_hash: TxHash<A>,
 		shielded_tx: ShieldedTransaction,
 		skipped: &mut usize,
 		soft_deadline: time::Instant,
 	) -> Result<(), EndProposingReason> {
+		let dec_key_bytes = self
+			.shield_keystore
+			.current_dec_key()
+			.map_err(|e| {
+				debug!(target: LOG_TARGET, "[{:?}] Failed to get decapsulation key: {}", shielded_tx_hash, e);
+			})
+			.ok();
+
+		let Some(dec_key_bytes) = dec_key_bytes else {
+			return Ok(());
+		};
+
 		let Some(unshielded_tx_data) =
-			api.try_unshield_tx(self.parent_hash, shielded_tx).ok().flatten()
+			api.try_unshield_tx(self.parent_hash, dec_key_bytes, shielded_tx).ok().flatten()
 		else {
 			debug!(target: LOG_TARGET, "[{:?}] Failed to unshield transaction", shielded_tx_hash);
 			return Ok(());
@@ -1549,21 +1560,11 @@ mod tests {
 			Ok(())
 		}
 
-		fn next_public_key(&self) -> TraitResult<Vec<u8>> {
+		fn next_enc_key(&self) -> TraitResult<Vec<u8>> {
 			Ok(Vec::new())
 		}
 
-		fn mlkem768_decapsulate(&self, _ciphertext: &[u8]) -> TraitResult<[u8; 32]> {
-			Ok([0u8; 32])
-		}
-
-		fn aead_decrypt(
-			&self,
-			_key: [u8; 32],
-			_nonce: [u8; 24],
-			_msg: &[u8],
-			_aad: &[u8],
-		) -> TraitResult<Vec<u8>> {
+		fn current_dec_key(&self) -> TraitResult<Vec<u8>> {
 			Ok(Vec::new())
 		}
 	}

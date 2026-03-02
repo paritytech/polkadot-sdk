@@ -15,7 +15,7 @@ impl InherentDataProvider {
 #[async_trait::async_trait]
 impl sp_inherents::InherentDataProvider for InherentDataProvider {
     async fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
-        let public_key = self.keystore.next_public_key().ok();
+        let public_key = self.keystore.next_enc_key().ok();
         let bounded = public_key.map(|pk| BoundedVec::truncate_from(pk));
         inherent_data.put_data::<InherentType>(INHERENT_IDENTIFIER, &bounded)
     }

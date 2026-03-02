@@ -1,6 +1,8 @@
 //! MEV Shield primitives for Subtensor
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use sp_inherents::InherentIdentifier;
 use sp_runtime::{BoundedVec, traits::ConstU32};
 

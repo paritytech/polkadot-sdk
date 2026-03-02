@@ -840,7 +840,7 @@ impl_runtime_apis! {
 				.and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
 		}
 
-		fn try_unshield_tx(_shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+		fn try_unshield_tx(_dec_key_bytes: Vec<u8>, _shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
 			sp_io::storage::get(SHIELD_TEST_UNSHIELD_KEY)
 				.and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
 		}

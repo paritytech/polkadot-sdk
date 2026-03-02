@@ -8,7 +8,6 @@ edition.workspace = true
 [dependencies]
 codec.workspace = true
 scale-info.workspace = true
-sp-externalities.workspace = true
 sp-api.workspace = true
 sp-runtime.workspace = true
 sp-inherents.workspace = true
@@ -21,7 +20,6 @@ default = ["std"]
 std = [
     "codec/std",
     "scale-info/std",
-    "sp-externalities/std",
     "sp-api/std",
     "sp-runtime/std",
     "sp-inherents/std",

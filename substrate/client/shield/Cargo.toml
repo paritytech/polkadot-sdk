@@ -14,7 +14,6 @@ hex.workspace = true
 
 # Crypto
 rand.workspace = true
-chacha20poly1305 = { workspace = true, features = ["std"] }
 ml-kem = { workspace = true, features = ["zeroize"] }
 
 # Substrate
@@ -34,7 +33,6 @@ workspace = true
 default = ["std"]
 std = [
     "anyhow/std",
-    "chacha20poly1305/std",
     "ml-kem/std",
     "stp-shield/std",
     "codec/std",
