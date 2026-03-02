@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::Result;
-use zombienet_sdk::{
-	LocalFileSystem, Network, NetworkConfig,
-};
+use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig};
 
 pub const PARACHAIN_VALIDATOR_METRIC: &str = "polkadot_node_is_parachain_validator";
 pub const ACTIVE_VALIDATOR_METRIC: &str = "polkadot_node_is_active_validator";
