@@ -26,7 +26,8 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, EraPotAccountProvider, EraPotType, Exposure, Forcing, LedgerIntegrityState,
 	MaxNominationsOf, Nominations, NominationsQuota, PagedExposure, PositiveImbalanceOf,
-	RewardDestination, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	RewardDestination, SnapshotStatus, StakingLedger, ValidatorIncentivePayout as _,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -38,7 +39,7 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::Mutate, tokens::Preservation, Defensive, DefensiveSaturating, Get, Imbalance,
+		Defensive, DefensiveSaturating, Get, Imbalance,
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
@@ -762,17 +763,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer validator incentive to the destination account.
 	///
-	/// Note: Validator incentive is never restaked, even for RewardDestination::Staked.
-	/// It is always paid as liquid balance to the stash account.
+	/// Uses [`Config::ValidatorIncentivePayout`] to pay the amount from the era's validator
+	/// incentive pot. The payout may be liquid or vested depending on [`Config::VestingDuration`].
 	///
-	/// TODO(ank4n): Replace with vesting transfer.
-	/// Future implementation should:
-	/// 1. Create a vesting schedule for the stash account
-	/// 2. Lock the funds in the vesting pallet
-	/// 3. Emit an event indicating vesting creation
-	/// 4. Return the vested amount
-	///
-	/// Returns the amount transferred if successful, 0 otherwise.
+	/// Returns the amount paid if successful, 0 otherwise.
 	fn transfer_validator_incentive(
 		era: EraIndex,
 		stash: &T::AccountId,
@@ -800,35 +794,39 @@ impl<T: Config> Pallet<T> {
 		let validator_incentive_pot_account =
 			T::EraPotAccountProvider::era_pot_account(era, EraPotType::ValidatorSelfStake);
 
-		if let Err(e) = T::Currency::transfer(
+		let vesting_duration = T::VestingDuration::get();
+
+		match T::ValidatorIncentivePayout::payout(
 			&validator_incentive_pot_account,
 			&payout_account,
 			amount,
-			Preservation::Expendable,
+			vesting_duration,
 		) {
-			log!(
-				warn,
-				"Failed to transfer validator incentive ({:?}) to {:?}: {:?}",
-				amount,
-				payout_account,
-				e
-			);
-			defensive!("Validator incentive transfer failed");
-			Self::deposit_event(Event::<T>::Unexpected(
-				UnexpectedKind::ValidatorIncentiveTransferFailed { era },
-			));
-			return Zero::zero();
+			Ok(paid) => {
+				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
+					era,
+					validator_stash: stash.clone(),
+					dest,
+					amount: paid,
+					vested: !vesting_duration.is_zero(),
+				});
+				paid
+			},
+			Err(e) => {
+				log!(
+					warn,
+					"Failed to pay validator incentive ({:?}) to {:?}: {:?}",
+					amount,
+					payout_account,
+					e
+				);
+				defensive!("Validator incentive payout failed");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+				));
+				Zero::zero()
+			},
 		}
-
-		// Emit event for successful validator incentive payout
-		Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
-			era,
-			validator_stash: stash.clone(),
-			dest,
-			amount,
-		});
-
-		amount
 	}
 
 	/// Pay validator incentive bonus for a single page.
