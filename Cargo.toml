@@ -1167,6 +1167,7 @@ polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
 polkavm = { version = "0.30.0", default-features = false }
+polkavm-common = { version = "0.30.0", default-features = false }
 polkavm-derive = "0.30.0"
 polkavm-linker = "0.30.0"
 portpicker = { version = "0.1.1" }
