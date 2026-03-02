@@ -202,7 +202,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 				self.layers.iter().any(|layer| layer.deleted_keys.contains(&hash));
 
 			if is_deleted {
-				return
+				return;
 			}
 
 			if op == DeltaKeyOp::Deleted {

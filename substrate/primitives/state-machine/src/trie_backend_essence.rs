@@ -657,16 +657,16 @@ where
 	}
 
 	/// Partition delta keys into updated and deleted sets.
-	fn partition_delta<'a>(
-		delta: Vec<(&'a [u8], DeltaKeyOp)>,
-	) -> (Vec<&'a [u8]>, Vec<&'a [u8]>) {
-		delta.into_iter().fold((Vec::new(), Vec::new()), |(mut read, mut removed), (k, op)| {
-			match op {
-				DeltaKeyOp::Updated => read.push(k),
-				DeltaKeyOp::Deleted => removed.push(k),
-			}
-			(read, removed)
-		})
+	fn partition_delta<'a>(delta: Vec<(&'a [u8], DeltaKeyOp)>) -> (Vec<&'a [u8]>, Vec<&'a [u8]>) {
+		delta
+			.into_iter()
+			.fold((Vec::new(), Vec::new()), |(mut read, mut removed), (k, op)| {
+				match op {
+					DeltaKeyOp::Updated => read.push(k),
+					DeltaKeyOp::Deleted => removed.push(k),
+				}
+				(read, removed)
+			})
 	}
 
 	/// Updates the recorder's proof size by recording trie nodes for a given delta.
@@ -721,22 +721,24 @@ where
 		self.with_recorder_and_cache(None, |recorder, cache| {
 			let res = {
 				match state_version {
-					StateVersion::V0 =>
+					StateVersion::V0 => {
 						remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
 							&mut eph,
 							self.root,
 							keys_to_be_removed,
 							recorder,
 							cache,
-						),
-					StateVersion::V1 =>
+						)
+					},
+					StateVersion::V1 => {
 						remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 							&mut eph,
 							self.root,
 							keys_to_be_removed,
 							recorder,
 							cache,
-						),
+						)
+					},
 				}
 			};
 
@@ -835,7 +837,7 @@ where
 
 		let _ =
 			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
-				StateVersion::V0 =>
+				StateVersion::V0 => {
 					child_read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&eph,
@@ -843,8 +845,9 @@ where
 						keys_to_be_read,
 						recorder,
 						cache,
-					),
-				StateVersion::V1 =>
+					)
+				},
+				StateVersion::V1 => {
 					child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&eph,
@@ -852,12 +855,13 @@ where
 						keys_to_be_read,
 						recorder,
 						cache,
-					),
+					)
+				},
 			});
 
 		let _ =
 			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
-				StateVersion::V0 =>
+				StateVersion::V0 => {
 					child_remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&mut eph,
@@ -865,8 +869,9 @@ where
 						keys_to_be_removed,
 						recorder,
 						cache,
-					),
-				StateVersion::V1 =>
+					)
+				},
+				StateVersion::V1 => {
 					child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&mut eph,
@@ -874,7 +879,8 @@ where
 						keys_to_be_removed,
 						recorder,
 						cache,
-					),
+					)
+				},
 			});
 	}
 }

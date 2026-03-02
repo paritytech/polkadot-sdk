@@ -76,7 +76,7 @@ impl StorageCmd {
 				"estimation_batch_size ({}) must be 0 or <= batch_size ({})",
 				self.params.estimation_batch_size, self.params.batch_size
 			)
-			.into())
+			.into());
 		}
 
 		// Store the time that it took to write each value.

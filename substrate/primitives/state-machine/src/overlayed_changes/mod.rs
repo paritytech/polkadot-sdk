@@ -683,11 +683,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 	{
 		let snapshot = self.top.take_delta();
 
-		let child_snapshots: Vec<_> = self
-			.children
-			.values_mut()
-			.map(|v| (&v.1, v.0.take_delta()))
-			.collect();
+		let child_snapshots: Vec<_> =
+			self.children.values_mut().map(|v| (&v.1, v.0.take_delta())).collect();
 
 		let delta = snapshot.values().map(|(k, op)| (&k[..], *op));
 		let child_delta = child_snapshots
