@@ -200,7 +200,6 @@ fn run_call<'a, E: Ext>(
 			(_, true) => (true, ReentrancyProtection::AllowNext),
 			(_, _) => (false, ReentrancyProtection::AllowReentry),
 		};
-	log::trace!(target: LOG_TARGET, "add_stipend={add_stipend}, reentracy={reentracy:?}");
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
