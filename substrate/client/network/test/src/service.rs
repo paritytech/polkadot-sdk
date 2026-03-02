@@ -378,10 +378,10 @@ async fn notifications_state_consistent() {
 		}
 
 		// Also randomly disconnect the two nodes from time to time.
-		if rand::random::<u8>() % 20 == 0 {
+		if rand::random::<u8>().is_multiple_of(20) {
 			node1.disconnect_peer(node2.local_peer_id(), PROTOCOL_NAME.into());
 		}
-		if rand::random::<u8>() % 20 == 0 {
+		if rand::random::<u8>().is_multiple_of(20) {
 			node2.disconnect_peer(node1.local_peer_id(), PROTOCOL_NAME.into());
 		}
 

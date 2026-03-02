@@ -38,18 +38,55 @@ use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 /// lose (N-1)*INACTIVITY_DECAY points. With the values below (VALID_INCLUDED_CANDIDATE_BUMP=100
 /// and INACTIVITY_DECAY=1) with N=100 collators no longer gain any score.
 ///
-/// The time to reach max score is also controlled by these two parameters. With the values below
-/// (VALID_INCLUDED_CANDIDATE_BUMP=100 and INACTIVITY_DECAY=1) for N=50 a collator will reach
-/// `MAX_SCORE` for around 81 hours (69 days). For N=20 - ~20hrs.
-
-///  Maximum reputation score. Scores higher than this will be
-/// saturated to this value.
-pub const MAX_SCORE: u16 = 35_000;
+/// Time to reach max score (in hours) =
+/// 	VALID_INCLUDED_CANDIDATE_BUMP / MAX_SCORE * NUM_COLLATORS * BLOCK_TIME / 60 / 60
+///
+/// REASONING:
+/// - We want high MAX_SCORE and low VALID_INCLUDED_CANDIDATE_BUMP so that it takes a lot of time
+///   (weeks) for a collator to build up reputation. Setting low value for MAX_SCORE will allow a
+///   malicious collator to reach top score fast and if it try to commit an offence the rest of the
+///   collators won't have an advantage against him. Keeping high MAX_SCORE will require far more
+///   effort to reach this level.
+/// - INACTIVITY_DECAY is 0 because its not fair to punish collator for not claiming a slot they are
+///   not supposed to claim. We can reconsider this value in the future if there is a mechanism to
+///   know the number of collators in the parachain and actually know when a collator skips its
+///   slot.
+/// - FAILED_FETCH_SLASH equals MAX_SCORE because this is a serious offence and we want a harsh
+///   punishment for it. A collator builds up reputation slowly but loses it fast if it act
+///   maliciously. Setting it to anything less will give unneeded advantage to a malicious collator.
+///
+/// Maximum reputation score. Scores higher than this will be saturated to this value.
+pub const MAX_SCORE: u16 = u16::MAX;
 /// Reputation bump for getting a valid candidate included in a finalized block.
-pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 100;
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 1;
 /// Reputation slash for peer inactivity (for each included candidate of the para that was not
 /// authored by the peer)
-pub const INACTIVITY_DECAY: u16 = 1;
+pub const INACTIVITY_DECAY: u16 = 0;
+
+/// For the values above (MAX_SCORE=u16::MAX, VALID_INCLUDED_CANDIDATE_BUMP=1, INACTIVITY_DECAY=0)
+/// we have the following times to reach max score:
+/// - 1 collator = ~218 hrs
+/// - 2 collators = ~436 hrs
+/// - 3 collators = ~655 hrs
+/// - 5 collators = ~1092 hrs
+/// - 10 collators = ~2184 hrs
+///
+/// Which means `MAX_SCORE` and `VALID_INCLUDED_CANDIDATE_BUMP` combination guarantees reputation
+/// will build up slowly.
+
+/// The next two parameters determine the punishments for misbehaviours. `FAILED_FETCH_SLASH`
+/// indicates malicious behavior and the consequences are severe.
+
+/// Slashing value for a failed fetch which might or might not be a malicious act. We can't make
+/// this punishment too severe because it can affect legitimate collators experiencing temporary
+/// networking issues too hard.
+pub const FAILED_FETCH_SLASH: Score = Score::new(MAX_SCORE / 6);
+
+/// Slashing value for an invalid collation (half of the max).
+pub const INVALID_COLLATION_SLASH: Score = Score::new(MAX_SCORE / 2);
+
+/// Minimum reputation threshold that warrants an instant fetch.
+pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(VALID_INCLUDED_CANDIDATE_BUMP);
 
 /// Limit for the total number connected peers.
 pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 is greater than 0");
@@ -69,13 +106,6 @@ pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
 
-/// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
-pub const FAILED_FETCH_SLASH: Score = Score::new(140).expect("140 is less than MAX_SCORE");
-
-/// Slashing value for an invalid collation (half of the ma).
-pub const INVALID_COLLATION_SLASH: Score =
-	Score::new(MAX_SCORE / 2).expect("1/2 MAX_SCORE is less than MAX_SCORE");
-
 /// The maximum acceptable delay which can be applied on an advertisement from a collator with score
 /// less than the maximum score for the parachain.
 pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
@@ -90,12 +120,8 @@ pub struct Score(u16);
 
 impl Score {
 	/// Create a new instance. Fail if over the `MAX_SCORE`.
-	pub const fn new(val: u16) -> Option<Self> {
-		if val > MAX_SCORE {
-			return None;
-		}
-
-		Some(Self(val))
+	pub const fn new(val: u16) -> Self {
+		Self(val)
 	}
 
 	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
@@ -260,17 +286,8 @@ mod tests {
 	fn score_functions() {
 		assert!(MAX_SCORE > 50);
 
-		// Test that the constructor returns None for values that exceed the limit.
-		for score in (0..MAX_SCORE).step_by(10) {
-			assert_eq!(u16::from(Score::new(score).unwrap()), score);
-		}
-		assert_eq!(u16::from(Score::new(MAX_SCORE).unwrap()), MAX_SCORE);
-		for score in ((MAX_SCORE + 1)..(MAX_SCORE + 50)).step_by(5) {
-			assert_eq!(Score::new(score), None);
-		}
-
 		// Test saturating arithmetic functions.
-		let score = Score::new(50).unwrap();
+		let score = Score::new(50);
 
 		// Test addition with value that does not go over the limit.
 		for other_score in (0..(MAX_SCORE - 50)).step_by(10) {
