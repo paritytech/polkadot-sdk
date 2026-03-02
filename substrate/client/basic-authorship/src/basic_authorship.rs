@@ -29,8 +29,8 @@ use futures::{
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
-use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxHash, TxInvalidityReportMap};
+use sp_api::{ApiExt, ApiRef, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -40,6 +40,7 @@ use sp_runtime::{
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
+use stp_shield::{ShieldApi, ShieldKeystorePtr, ShieldedTransaction};
 
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
@@ -82,6 +83,8 @@ pub struct ProposerFactory<A, C, PR> {
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
+	/// The MEV shield keystore.
+	shield_keystore: ShieldKeystorePtr,
 	/// phantom member to pin the `ProofRecording` type.
 	_phantom: PhantomData<PR>,
 }
@@ -97,6 +100,7 @@ impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			shield_keystore: self.shield_keystore.clone(),
 			_phantom: self._phantom,
 		}
 	}
@@ -113,6 +117,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
+		shield_keystore: ShieldKeystorePtr,
 	) -> Self {
 		ProposerFactory {
 			spawn_handle: Box::new(spawn_handle),
@@ -123,6 +128,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 			telemetry,
 			client,
 			include_proof_in_block_size_estimation: false,
+			shield_keystore,
 			_phantom: PhantomData,
 		}
 	}
@@ -141,6 +147,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
+		shield_keystore: ShieldKeystorePtr,
 	) -> Self {
 		ProposerFactory {
 			client,
@@ -151,6 +158,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
 			telemetry,
 			include_proof_in_block_size_estimation: true,
+			shield_keystore,
 			_phantom: PhantomData,
 		}
 	}
@@ -221,6 +229,7 @@ where
 			default_block_size_limit: self.default_block_size_limit,
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
+			shield_keystore: self.shield_keystore.clone(),
 			_phantom: PhantomData,
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
 		};
@@ -234,7 +243,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block> + ShieldApi<Block>,
 	PR: ProofRecording,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
@@ -259,6 +268,7 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
+	shield_keystore: ShieldKeystorePtr,
 	_phantom: PhantomData<PR>,
 }
 
@@ -267,7 +277,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block> + ShieldApi<Block>,
 	PR: ProofRecording,
 {
 	type Proposal =
@@ -318,7 +328,7 @@ where
 	A: TransactionPool<Block = Block>,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block> + ShieldApi<Block>,
 	PR: ProofRecording,
 {
 	async fn propose_with(
@@ -340,8 +350,9 @@ where
 
 		let mode = block_builder.extrinsic_inclusion_mode();
 		let end_reason = match mode {
-			ExtrinsicInclusionMode::AllExtrinsics =>
-				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::AllExtrinsics => {
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?
+			},
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
@@ -384,7 +395,7 @@ where
 					error!(
 						"❌️ Mandatory inherent extrinsic returned error. Block cannot be produced."
 					);
-					return Err(ApplyExtrinsicFailed(Validity(e)))
+					return Err(ApplyExtrinsicFailed(Validity(e)));
 				},
 				Err(e) => {
 					warn!(
@@ -433,7 +444,7 @@ where
 					"No more transactions, proceeding with proposing."
 				);
 
-				break EndProposingReason::NoMoreTransactions
+				break EndProposingReason::NoMoreTransactions;
 			};
 
 			let now = (self.now)();
@@ -443,15 +454,43 @@ where
 					"Consensus deadline reached when pushing block transactions, \
 				proceeding with proposing."
 				);
-				break EndProposingReason::HitDeadline
+				break EndProposingReason::HitDeadline;
 			}
 
 			let pending_tx_data = (**pending_tx.data()).clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
+			let api = self.client.runtime_api();
+
+			let maybe_shielded_tx = api
+				.try_decode_shielded_tx(self.parent_hash, pending_tx_data.clone())
+				.ok()
+				.flatten();
+
+			if skip_shielded_txs() && maybe_shielded_tx.is_some() {
+				debug!(target: LOG_TARGET, "Skipping shielded transaction");
+				// We don't report the transaction as invalid so it stay in the pool
+				// and may be gossiped to other block authors that allow them.
+				continue;
+			}
+
+			let pending_tx_data_size = if let Some(shielded_tx) = &maybe_shielded_tx {
+				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16 bytes
+				// for the tag (source: https://www.rfc-editor.org/rfc/rfc8439#section-2.8) so we need
+				// to subtract it from the ciphertext length to get the plaintext length
+				const TAG_SIZE: usize = 16;
+				let unshielded_tx_size = shielded_tx.aead_ct.len().saturating_sub(TAG_SIZE);
+
+				// We will push the shielded tx wrapper and the unshielded inner tx to the block builder
+				// so we should account for both when estimating the block size
+				pending_tx_data.encoded_size() + unshielded_tx_size
+			} else {
+				pending_tx_data.encoded_size()
+			};
+
 			let block_size =
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
-			if block_size + pending_tx_data.encoded_size() > block_size_limit {
+			if block_size + pending_tx_data_size > block_size_limit {
 				pending_iterator.report_invalid(&pending_tx);
 				if skipped < MAX_SKIPPED_TRANSACTIONS {
 					skipped += 1;
@@ -461,7 +500,7 @@ where
 					 but will try {} more transactions before quitting.",
 						MAX_SKIPPED_TRANSACTIONS - skipped,
 					);
-					continue
+					continue;
 				} else if now < soft_deadline {
 					debug!(
 						target: LOG_TARGET,
@@ -469,41 +508,45 @@ where
 					 but we still have time before the soft deadline, so \
 					 we will try a bit more."
 					);
-					continue
+					continue;
 				} else {
 					debug!(
 						target: LOG_TARGET,
 						"Reached block size limit, proceeding with proposing."
 					);
-					break EndProposingReason::HitBlockSizeLimit
+					break EndProposingReason::HitBlockSizeLimit;
 				}
 			}
 
-			trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
+			let tx_type = if maybe_shielded_tx.is_some() { "shield wrapper" } else { "normal" };
+			trace!(target: LOG_TARGET, "[{:?}] Pushing {} transaction to the block.", pending_tx_hash, tx_type);
 			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				Ok(()) => {
 					transaction_pushed = true;
-					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
+					trace!(target: LOG_TARGET, "[{:?}] Pushed {} transaction to the block.", pending_tx_hash, tx_type);
+
+					let Some(shielded_tx) = maybe_shielded_tx else {
+						continue;
+					};
+
+					// The shield wrapper paid the unshield fee.
+					if let Err(end_reason) = self.unshield_and_push_inner_tx(
+						&api,
+						block_builder,
+						pending_tx_hash,
+						shielded_tx,
+						&mut skipped,
+						soft_deadline,
+					) {
+						break end_reason;
+					}
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					pending_iterator.report_invalid(&pending_tx);
-					if skipped < MAX_SKIPPED_TRANSACTIONS {
-						skipped += 1;
-						debug!(target: LOG_TARGET,
-							"Block seems full, but will try {} more transactions before quitting.",
-							MAX_SKIPPED_TRANSACTIONS - skipped,
-						);
-					} else if (self.now)() < soft_deadline {
-						debug!(target: LOG_TARGET,
-							"Block seems full, but we still have time before the soft deadline, \
-							 so we will try a bit more before quitting."
-						);
-					} else {
-						debug!(
-							target: LOG_TARGET,
-							"Reached block weight limit, proceeding with proposing."
-						);
-						break EndProposingReason::HitBlockWeightLimit
+					if let Err(end_reason) =
+						self.report_exhausted_resources(&mut skipped, soft_deadline)
+					{
+						break end_reason;
 					}
 				},
 				Err(e) => {
@@ -532,6 +575,81 @@ where
 
 		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
 		Ok(end_reason)
+	}
+
+	fn unshield_and_push_inner_tx(
+		&self,
+		api: &ApiRef<'_, C::Api>,
+		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C>,
+		shielded_tx_hash: TxHash<A>,
+		shielded_tx: ShieldedTransaction,
+		skipped: &mut usize,
+		soft_deadline: time::Instant,
+	) -> Result<(), EndProposingReason> {
+		let dec_key_bytes = self
+			.shield_keystore
+			.current_dec_key()
+			.map_err(|e| {
+				debug!(target: LOG_TARGET, "[{:?}] Failed to get decapsulation key: {}", shielded_tx_hash, e);
+			})
+			.ok();
+
+		let Some(dec_key_bytes) = dec_key_bytes else {
+			return Ok(());
+		};
+
+		let Some(unshielded_tx_data) =
+			api.try_unshield_tx(self.parent_hash, dec_key_bytes, shielded_tx).ok().flatten()
+		else {
+			debug!(target: LOG_TARGET, "[{:?}] Failed to unshield transaction", shielded_tx_hash);
+			return Ok(());
+		};
+		debug!(target: LOG_TARGET, "[{:?}] Unshielded inner transaction: {:?}", shielded_tx_hash, unshielded_tx_data);
+
+		match sc_block_builder::BlockBuilder::push(block_builder, unshielded_tx_data) {
+			Ok(()) => {
+				debug!(target: LOG_TARGET, "[{:?}] Pushed unshielded transaction to the block.", shielded_tx_hash);
+			},
+			Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
+				debug!(target: LOG_TARGET, "[{:?}] Unshielded transaction exhausted resources", shielded_tx_hash);
+				self.report_exhausted_resources(skipped, soft_deadline)?;
+			},
+			Err(e) => {
+				debug!(
+					target: LOG_TARGET,
+					"[{:?}] Invalid unshielded transaction: {} at: {}", shielded_tx_hash, e, self.parent_hash
+				);
+			},
+		}
+
+		Ok(())
+	}
+
+	fn report_exhausted_resources(
+		&self,
+		skipped: &mut usize,
+		soft_deadline: time::Instant,
+	) -> Result<(), EndProposingReason> {
+		if *skipped < MAX_SKIPPED_TRANSACTIONS {
+			*skipped += 1;
+			debug!(target: LOG_TARGET,
+				"Block seems full, but will try {} more transactions before quitting.",
+				MAX_SKIPPED_TRANSACTIONS - *skipped,
+			);
+			Ok(())
+		} else if (self.now)() < soft_deadline {
+			debug!(target: LOG_TARGET,
+				"Block seems full, but we still have time before the soft deadline, \
+				 so we will try a bit more before quitting."
+			);
+			Ok(())
+		} else {
+			debug!(
+				target: LOG_TARGET,
+				"Reached block weight limit, proceeding with proposing."
+			);
+			Err(EndProposingReason::HitBlockWeightLimit)
+		}
 	}
 
 	/// Prints a summary and does telemetry + metrics.
@@ -600,6 +718,10 @@ where
 	}
 }
 
+fn skip_shielded_txs() -> bool {
+	std::env::var("SUBSTRATE_SKIP_SHIELDED_TXS").is_ok_and(|v| v.trim() == "1")
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -613,9 +735,13 @@ mod tests {
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_runtime::{generic::BlockId, traits::NumberFor, Perbill};
+	use stp_shield::{Result as TraitResult, ShieldKeystore, ShieldedTransaction};
 	use substrate_test_runtime_client::{
 		prelude::*,
-		runtime::{Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer},
+		runtime::{
+			Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer, SHIELD_TEST_DECODE_KEY,
+			SHIELD_TEST_UNSHIELD_KEY,
+		},
 		TestClientBuilder, TestClientBuilderExt,
 	};
 
@@ -656,6 +782,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
@@ -666,8 +793,14 @@ mod tests {
 			)),
 		);
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 
 		let cell = Mutex::new((false, time::Instant::now()));
 		let proposer = proposer_factory.init_with_now(
@@ -676,7 +809,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1
+					return value.1;
 				}
 				let old = value.1;
 				let new = old + time::Duration::from_secs(1);
@@ -709,9 +842,16 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 
 		let cell = Mutex::new((false, time::Instant::now()));
 		let proposer = proposer_factory.init_with_now(
@@ -720,7 +860,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1
+					return value.1;
 				}
 				let new = value.1 + time::Duration::from_secs(160);
 				*value = (true, new);
@@ -746,6 +886,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let genesis_hash = client.info().best_hash;
 
@@ -759,8 +900,14 @@ mod tests {
 			)),
 		);
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 
 		let proposer = proposer_factory.init_with_now(
 			&client.header(genesis_hash).unwrap().unwrap(),
@@ -802,6 +949,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let medium = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(MEDIUM))
@@ -819,8 +967,14 @@ mod tests {
 		))
 		.unwrap();
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 		let mut propose_block = |client: &TestClient,
 		                         parent_number,
 		                         expected_block_extrinsics,
@@ -910,6 +1064,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
@@ -926,20 +1081,26 @@ mod tests {
 		.chain((1..extrinsics_num as u64).map(extrinsic))
 		.collect::<Vec<_>>();
 
-		let block_limit = genesis_header.encoded_size() +
-			extrinsics
+		let block_limit = genesis_header.encoded_size()
+			+ extrinsics
 				.iter()
 				.take(extrinsics_num - 1)
 				.map(Encode::encoded_size)
-				.sum::<usize>() +
-			Vec::<Extrinsic>::new().encoded_size();
+				.sum::<usize>()
+			+ Vec::<Extrinsic>::new().encoded_size();
 
 		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 
 		block_on(txpool.maintain(chain_event(genesis_header.clone())));
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore.clone(),
+		);
 
 		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
 
@@ -973,6 +1134,7 @@ mod tests {
 			txpool.clone(),
 			None,
 			None,
+			shield_keystore,
 		);
 
 		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
@@ -1015,6 +1177,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
@@ -1046,8 +1209,14 @@ mod tests {
 		)));
 		assert_eq!(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * 3);
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 
 		let cell = Mutex::new(time::Instant::now());
 		let proposer = proposer_factory.init_with_now(
@@ -1084,6 +1253,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {
@@ -1117,8 +1287,14 @@ mod tests {
 		)));
 		assert_eq!(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * 2 + 4);
 
-		let mut proposer_factory =
-			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 
 		let deadline = time::Duration::from_secs(600);
 		let cell = Arc::new(Mutex::new((0, time::Instant::now())));
@@ -1157,5 +1333,271 @@ mod tests {
 			cell2.lock().0 > MAX_SKIPPED_TRANSACTIONS,
 			"Not enough calls to current time, which indicates the test might have ended because of deadline, not soft deadline"
 		);
+	}
+
+	// --- Shielded transaction tests ---
+
+	/// Creates a test client with mock shielded tx data injected into genesis storage.
+	fn shielded_test_client(
+		decode: Option<ShieldedTransaction>,
+		unshield: Option<Extrinsic>,
+	) -> Arc<substrate_test_runtime_client::TestClient> {
+		let mut builder = TestClientBuilder::new();
+		if let Some(tx) = decode {
+			builder = builder.add_extra_storage(SHIELD_TEST_DECODE_KEY.to_vec(), tx.encode());
+		}
+		if let Some(ext) = unshield {
+			builder = builder.add_extra_storage(SHIELD_TEST_UNSHIELD_KEY.to_vec(), ext.encode());
+		}
+		Arc::new(builder.build())
+	}
+
+	#[test]
+	fn shielded_tx_and_inner_tx_both_included_in_block() {
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(1)));
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+
+		// Submit one extrinsic (this becomes the wrapper)
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should contain: wrapper extrinsic + unshielded inner extrinsic
+		assert_eq!(block.extrinsics().len(), 2);
+	}
+
+	#[test]
+	fn shielded_tx_included_when_unshielding_fails() {
+		// Decode succeeds but unshielding fails (no unshield key in storage)
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), None);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+
+		// Submit one extrinsic
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should contain only the wrapper (inner unshielding failed gracefully)
+		assert_eq!(block.extrinsics().len(), 1);
+	}
+
+	#[test]
+	fn should_skip_shielded_txs_when_env_var_is_set() {
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(2)));
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+
+		// Submit extrinsics to the pool
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+		assert_eq!(txpool.ready().count(), 2);
+
+		// Set env var to skip shielded txs
+		let _env_guard = EnvVarGuard::set("SUBSTRATE_SKIP_SHIELDED_TXS", "1");
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should have 0 extrinsics, all were shielded and skipped
+		assert_eq!(block.extrinsics().len(), 0);
+
+		// Transactions should still be in the pool (they weren't reported as invalid, just skipped)
+		assert_eq!(txpool.ready().count(), 2);
+	}
+
+	#[test]
+	fn block_size_accounts_for_unshielded_tx_size() {
+		let aead_ct_len = 10_000;
+		let client = shielded_test_client(Some(mock_shielded_tx(aead_ct_len)), Some(extrinsic(1)));
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
+
+		let wrapper_tx = extrinsic(0);
+		let wrapper_encoded_size = wrapper_tx.encoded_size();
+
+		// Submit the wrapper to the pool
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![wrapper_tx])).unwrap();
+		block_on(txpool.maintain(chain_event(genesis_header.clone())));
+
+		// Compute base block size (header + empty extrinsics vector encoding)
+		let base_block_size = {
+			let builder = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(genesis_hash)
+				.with_parent_block_number(0)
+				.build()
+				.unwrap();
+			builder.estimate_block_size(false)
+		};
+
+		// aead_ct of 10_000 bytes means estimated inner = 9_984 bytes.
+		// The limit fits base + wrapper + half the estimated inner (so wrapper alone fits,
+		// but combined does not)
+		let estimated_inner_size = aead_ct_len - 16;
+		let block_size_limit = base_block_size + wrapper_encoded_size + estimated_inner_size / 2;
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block = block_on(proposer.propose(
+			Default::default(),
+			Default::default(),
+			deadline,
+			Some(block_size_limit),
+		))
+		.map(|r| r.block)
+		.unwrap();
+
+		// Block should have 0 extrinsics, the shielded tx was too large to fit
+		// because the block size estimation accounts for wrapper + estimated inner
+		assert_eq!(block.extrinsics().len(), 0);
+	}
+
+	/// Minimal shield keystore stub, no actual decryption is performed in these tests
+	/// since the test runtime returns mock data from storage instead.
+	struct TestShieldKeystore;
+
+	impl ShieldKeystore for TestShieldKeystore {
+		fn roll_for_next_slot(&self) -> TraitResult<()> {
+			Ok(())
+		}
+
+		fn next_enc_key(&self) -> TraitResult<Vec<u8>> {
+			Ok(Vec::new())
+		}
+
+		fn current_dec_key(&self) -> TraitResult<Vec<u8>> {
+			Ok(Vec::new())
+		}
+	}
+
+	fn mock_shielded_tx(aead_ct_len: usize) -> ShieldedTransaction {
+		ShieldedTransaction {
+			key_hash: [0u8; 16],
+			kem_ct: vec![0u8; 32],
+			aead_ct: vec![0u8; aead_ct_len],
+			nonce: [0u8; 24],
+		}
+	}
+
+	/// RAII guard that sets an environment variable and restores the previous value on drop.
+	struct EnvVarGuard {
+		key: &'static str,
+		prev: Option<String>,
+	}
+
+	impl EnvVarGuard {
+		fn set(key: &'static str, value: &str) -> Self {
+			let prev = std::env::var(key).ok();
+			std::env::set_var(key, value);
+			Self { key, prev }
+		}
+	}
+
+	impl Drop for EnvVarGuard {
+		fn drop(&mut self) {
+			match &self.prev {
+				Some(val) => std::env::set_var(self.key, val),
+				None => std::env::remove_var(self.key),
+			}
+		}
 	}
 }

@@ -87,6 +87,7 @@ pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
 pub use extrinsic::{ExtrinsicBuilder, Transfer};
 
+
 const LOG_TARGET: &str = "substrate-test-runtime";
 
 // Include the WASM binary
@@ -509,6 +510,14 @@ pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEp
 	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 };
 
+/// Well-known storage keys for injecting mock shielded transaction data in tests.
+/// We use storage instead of thread-locals because the test client executes runtime API calls
+/// via `WasmExecutor`, so thread-locals set on the host side are not accessible from Wasm.
+/// Write encoded `ShieldedTransaction` / `Extrinsic` to these keys via `add_extra_storage`
+/// on the test client builder.
+pub const SHIELD_TEST_DECODE_KEY: &[u8] = b"shield_test:decode_result";
+pub const SHIELD_TEST_UNSHIELD_KEY: &[u8] = b"shield_test:unshield_result";
+
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -822,6 +831,18 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<PresetId> {
 			vec![PresetId::from("foobar"), PresetId::from("staging")]
+		}
+	}
+	
+	impl stp_shield::ShieldApi<Block> for Runtime {
+		fn try_decode_shielded_tx(_uxt: <Block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+			sp_io::storage::get(SHIELD_TEST_DECODE_KEY)
+				.and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
+		}
+
+		fn try_unshield_tx(_dec_key_bytes: Vec<u8>, _shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+			sp_io::storage::get(SHIELD_TEST_UNSHIELD_KEY)
+				.and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
 		}
 	}
 }

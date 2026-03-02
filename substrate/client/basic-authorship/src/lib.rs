@@ -29,6 +29,7 @@
 //! #     runtime::Transfer, Sr25519Keyring,
 //! #     DefaultTestClientBuilderExt, TestClientBuilderExt,
 //! # };
+//! # use stc_shield::MemoryShieldKeystore;
 //! # use sc_transaction_pool::{BasicPool, FullChainApi};
 //! # let client = Arc::new(substrate_test_runtime_client::new());
 //! # let spawner = sp_core::testing::TaskExecutor::new();
@@ -39,6 +40,7 @@
 //! #     spawner.clone(),
 //! #     client.clone(),
 //! # ));
+//! # let shield_keystore = Arc::new(MemoryShieldKeystore::new());
 //! // The first step is to create a `ProposerFactory`.
 //! let mut proposer_factory = ProposerFactory::new(
 //! 		spawner,
@@ -46,6 +48,7 @@
 //! 		txpool.clone(),
 //! 		None,
 //! 		None,
+//! 		shield_keystore,
 //! 	);
 //!
 //! // From this factory, we create a `Proposer`.

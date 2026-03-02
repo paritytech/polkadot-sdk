@@ -137,6 +137,10 @@ where
 				.dispatch_transaction(None.into(), self.function, info, len, extension_version),
 		}
 	}
+	
+	fn call(&self) -> &Self::Call {
+		&self.function
+	}
 }
 
 impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>>

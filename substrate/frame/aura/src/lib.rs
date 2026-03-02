@@ -230,7 +230,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Get the current slot from the pre-runtime digests.
-	fn current_slot_from_digests() -> Option<Slot> {
+	pub fn current_slot_from_digests() -> Option<Slot> {
 		let digest = frame_system::Pallet::<T>::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		for (id, mut data) in pre_runtime_digests {

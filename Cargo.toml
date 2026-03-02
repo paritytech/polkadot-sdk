@@ -594,6 +594,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(ignore_flaky_test)',
 	'cfg(substrate_runtime)',
 ] }
+mismatched_lifetime_syntaxes = "allow"
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }
@@ -1467,6 +1468,11 @@ zeroize = { version = "1.7.0", default-features = false }
 zombienet-orchestrator = { version = "0.3.0" }
 zombienet-sdk = { version = "0.3.0" }
 zstd = { version = "0.12.4", default-features = false }
+
+stp-shield = { path = "substrate/primitives/shield", default-features = false }
+stc-shield = { path = "substrate/client/shield", default-features = false }
+ml-kem = { version = "0.2.2", default-features = false }
+chacha20poly1305 = { version = "0.10", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
