@@ -1318,12 +1318,13 @@ pub mod pallet {
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
-			// Hold a deposit on first set_keys call. Subsequent calls skip (idempotent).
+			// Hold deposit for key storage.
 			let deposit = T::KeyDeposit::get();
 			if !deposit.is_zero() {
 				let current_hold = T::Currency::balance_on_hold(&HoldReason::Keys.into(), &stash);
-				if current_hold.is_zero() {
-					T::Currency::hold(&HoldReason::Keys.into(), &stash, deposit)?;
+				if current_hold < deposit {
+					// Top up if current hold is below the required deposit.
+					T::Currency::set_on_hold(&HoldReason::Keys.into(), &stash, deposit)?;
 				}
 			}
 
