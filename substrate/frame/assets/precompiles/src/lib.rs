@@ -323,7 +323,7 @@ where
 		let spender = call.spender.into_array().into();
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
-		pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
+		pallet_assets::Pallet::<Runtime, Instance>::do_set_approval_amount(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner),
 			&spender,
