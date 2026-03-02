@@ -191,8 +191,7 @@ fn run_call<'a, E: Ext>(
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
 	// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
-	// For zero-value transfer/send, solc injects this explicitly. We apply `AllowNext`
-	// reentrancy protection since gas-to-weight scaling may allow reentry within 2300 gas.
+	// For zero-value transfer/send, solc injects this explicitly.
 	let (add_stipend, reentracy) =
 		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
 		{
