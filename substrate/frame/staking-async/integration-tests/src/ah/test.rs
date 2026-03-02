@@ -2034,6 +2034,41 @@ mod session_keys {
 		});
 	}
 
+	#[test]
+	fn purge_keys_on_rc_does_not_release_ah_deposit() {
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
+
+		let validator: AccountId = 1;
+		let deposit = KeyDeposit::get();
+
+		// GIVEN: Validator sets keys on AH (deposit is held).
+		shared::in_ah(|| {
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+		});
+
+		// WHEN: Keys are purged directly on RC (bypassing AH).
+		shared::in_rc(|| {
+			assert_ok!(pallet_session::Pallet::<rc::Runtime>::purge_keys(
+				rc::RuntimeOrigin::signed(validator),
+			));
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+
+		// THEN: The AH deposit is still held — only AH's purge_keys releases it.
+		shared::in_ah(|| {
+			assert_eq!(key_deposit_hold(validator), deposit);
+		});
+	}
+
 	/// End-to-end test: set keys on AssetHub, verify on RelayChain, then purge and verify.
 	#[test]
 	fn set_and_purge_keys_e2e() {
