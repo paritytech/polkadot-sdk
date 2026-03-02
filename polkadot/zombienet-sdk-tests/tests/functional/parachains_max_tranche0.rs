@@ -148,8 +148,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				"undying-collator export-genesis-state --pov-size=10000 --pvf-complexity=1",
 			)
 			.with_collator(|n| {
-				n.with_name("collator")
-					.with_args(vec![("-lruntime=debug,parachain=trace").into()])
+				n.with_name("collator").with_args(vec![
+					"-lruntime=debug,parachain=trace".into(),
+					"--pov-size=10000".into(),
+					"--pvf-complexity=1".into(),
+				])
 			})
 	});
 
@@ -168,8 +171,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				"undying-collator export-genesis-state --pov-size=20000 --pvf-complexity=2",
 			)
 			.with_collator(|n| {
-				n.with_name("collator")
-					.with_args(vec![("-lruntime=debug,parachain=trace").into()])
+				n.with_name("collator").with_args(vec![
+					"-lruntime=debug,parachain=trace".into(),
+					"--pov-size=20000".into(),
+					"--pvf-complexity=2".into(),
+				])
 			})
 	});
 
@@ -188,8 +194,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				"undying-collator export-genesis-state --pov-size=30000 --pvf-complexity=3",
 			)
 			.with_collator(|n| {
-				n.with_name("collator")
-					.with_args(vec![("-lruntime=debug,parachain=trace").into()])
+				n.with_name("collator").with_args(vec![
+					"-lruntime=debug,parachain=trace".into(),
+					"--pov-size=30000".into(),
+					"--pvf-complexity=3".into(),
+				])
 			})
 	});
 
@@ -208,8 +217,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				"undying-collator export-genesis-state --pov-size=40000 --pvf-complexity=4",
 			)
 			.with_collator(|n| {
-				n.with_name("collator")
-					.with_args(vec![("-lruntime=debug,parachain=trace").into()])
+				n.with_name("collator").with_args(vec![
+					"-lruntime=debug,parachain=trace".into(),
+					"--pov-size=40000".into(),
+					"--pvf-complexity=4".into(),
+				])
 			})
 	});
 
@@ -228,8 +240,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				"undying-collator export-genesis-state --pov-size=50000 --pvf-complexity=5",
 			)
 			.with_collator(|n| {
-				n.with_name("collator")
-					.with_args(vec![("-lruntime=debug,parachain=trace").into()])
+				n.with_name("collator").with_args(vec![
+					"-lruntime=debug,parachain=trace".into(),
+					"--pov-size=50000".into(),
+					"--pvf-complexity=5".into(),
+				])
 			})
 	});
 
