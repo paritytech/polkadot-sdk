@@ -192,6 +192,7 @@ fn run_call<'a, E: Ext>(
 ) -> ControlFlow<Halt> {
 	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend. This is
 	// just a heuristic.
+	log::trace!(target: LOG_TARGET, "call: value={value}, gas_limit={gas_limit}, scheme={scheme:?}");
 	let (add_stipend, reentracy) =
 		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
 		{
@@ -199,6 +200,7 @@ fn run_call<'a, E: Ext>(
 			(_, true) => (true, ReentrancyProtection::AllowNext),
 			(_, _) => (false, ReentrancyProtection::AllowReentry),
 		};
+	log::trace!(target: LOG_TARGET, "add_stipend={add_stipend}, reentracy={reentracy:?}");
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
