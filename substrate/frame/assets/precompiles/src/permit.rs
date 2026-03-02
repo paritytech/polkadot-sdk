@@ -30,11 +30,10 @@
 //!   curve order to prevent signature malleability attacks.
 
 use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::UnixTime};
 use pallet_revive::precompiles::H160;
 use sp_core::{H256, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
-use frame_support::traits::UnixTime;
 
 pub use crate::weights::PermitWeightInfo;
 pub use pallet::*;
@@ -328,8 +327,7 @@ pub mod pallet {
 			// gives us seconds regardless of pallet_timestamp's internal resolution
 			// (which stores milliseconds, converted via `Duration::from_millis` in
 			// pallet_timestamp's `UnixTime` implementation).
-			let now_seconds =
-				<pallet_timestamp::Pallet<T> as UnixTime>::now().as_secs();
+			let now_seconds = <pallet_timestamp::Pallet<T> as UnixTime>::now().as_secs();
 			let deadline_u256 = U256::from_big_endian(deadline);
 			let now_u256 = U256::from(now_seconds);
 
