@@ -540,7 +540,7 @@ impl RelayParentHoldOffState {
 struct PerSchedulingParent {
 	collations: Collations,
 	v3_enabled: bool,
-	/// The core index assigned to this validator at this relay parent's block height.
+	/// The core index assigned to this validator at this scheduling parent's block height.
 	/// Used to look up the relevant claim queue from the leaf.
 	current_core: CoreIndex,
 	session_index: SessionIndex,
