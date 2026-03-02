@@ -1,0 +1,14 @@
+title: 'staking-async/rc-client: replace MinSetKeysBond with storage deposit'
+doc:
+- audience: Runtime Dev
+  description: "Replace MinSetKeysBond with a fungible hold deposit (KeyDeposit) which\
+    \ ties the cost directly to the storage used: held on set_keys, released on purge_keys.\n\
+    No-op migration bumps on-chain storage version 1\u21922 (new HasKeyDeposit map\
+    \ starts empty, existing validators charged on next set_keys)."
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-staking-async-rc-client
+  bump: minor
+- name: pallet-staking-async
+  bump: minor
