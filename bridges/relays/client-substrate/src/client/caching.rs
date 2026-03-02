@@ -26,11 +26,6 @@ use crate::{
 };
 use std::{cmp::Ordering, future::Future, task::Poll};
 
-use std::sync::Arc;
-use tokio::{
-	sync::{Mutex, RwLock},
-	task::JoinHandle,
-};
 use async_trait::async_trait;
 use codec::Encode;
 use frame_support::weights::Weight;
@@ -44,6 +39,11 @@ use sp_core::{
 use sp_runtime::{traits::Header as _, transaction_validity::TransactionValidity};
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
+use std::sync::Arc;
+use tokio::{
+	sync::{Mutex, RwLock},
+	task::JoinHandle,
+};
 
 /// `quick_cache::unsync::Cache` wrapped in async-aware synchronization primitives.
 type SyncCache<K, V> = Arc<RwLock<Cache<K, V>>>;

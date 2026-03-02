@@ -35,8 +35,6 @@ use crate::{
 	TransactionTracker, UnsignedTransaction,
 };
 
-use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
 use async_trait::async_trait;
 use bp_runtime::HeaderIdProvider;
 use codec::Encode;
@@ -59,7 +57,8 @@ use sp_runtime::{
 };
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
-use std::{cmp::Ordering, future::Future, marker::PhantomData};
+use std::{cmp::Ordering, future::Future, marker::PhantomData, sync::Arc};
+use tokio::sync::{Mutex, RwLock};
 
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 

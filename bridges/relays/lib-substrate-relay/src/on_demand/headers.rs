@@ -18,14 +18,14 @@
 
 use crate::finality::SubmitFinalityProofCallBuilder;
 
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_header_chain::ConsensusLogReader;
 use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::{One, Saturating, Zero};
 use sp_runtime::traits::Header;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use finality_relay::{FinalitySyncParams, HeadersToRelay, TargetClient as FinalityTargetClient};
 use relay_substrate_client::{

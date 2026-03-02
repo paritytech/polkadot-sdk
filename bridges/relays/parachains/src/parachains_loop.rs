@@ -689,13 +689,12 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::sync::Arc;
-	use tokio::sync::Mutex;
 	use futures::{SinkExt, StreamExt};
 	use relay_substrate_client::test_chain::{TestChain, TestParachain};
 	use relay_utils::{HeaderId, MaybeConnectionError};
 	use sp_core::H256;
-	use std::collections::HashMap;
+	use std::{collections::HashMap, sync::Arc};
+	use tokio::sync::Mutex;
 
 	const PARA_10_HASH: ParaHash = H256([10u8; 32]);
 	const PARA_20_HASH: ParaHash = H256([20u8; 32]);

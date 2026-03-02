@@ -23,8 +23,6 @@ use crate::{
 	},
 };
 
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_header_chain::FinalityProof;
 use codec::Decode;
@@ -36,6 +34,8 @@ use futures::{
 use num_traits::One;
 use relay_substrate_client::{BlockNumberOf, BlockWithJustification, Client, Error, HeaderOf};
 use relay_utils::{relay_loop::Client as RelayClient, UniqueSaturatedInto};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Shared updatable reference to the maximal header number that we want to sync from the source.
 pub type RequiredHeaderNumberRef<C> = Arc<Mutex<<C as bp_runtime::Chain>::BlockNumber>>;

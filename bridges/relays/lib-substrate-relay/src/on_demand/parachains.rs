@@ -27,8 +27,6 @@ use crate::{
 };
 
 use async_channel::{unbounded, Receiver, Sender};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use async_trait::async_trait;
 use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
@@ -44,7 +42,8 @@ use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, BlockNumberBase, FailedClient,
 	HeaderId, UniqueSaturatedInto,
 };
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
+use tokio::sync::Mutex;
 
 /// On-demand Substrate <-> Substrate parachain finality relay.
 ///

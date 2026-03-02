@@ -21,10 +21,9 @@ pub use prometheus_endpoint::{
 	register, Counter, CounterVec, Gauge, GaugeVec, Opts, PrometheusError, Registry, F64, I64, U64,
 };
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use async_trait::async_trait;
-use std::{fmt::Debug, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 mod float_json_value;
 mod global;
