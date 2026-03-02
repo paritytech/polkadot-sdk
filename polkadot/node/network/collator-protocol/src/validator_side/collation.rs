@@ -217,13 +217,11 @@ impl CollationStatus {
 	}
 }
 
-/// The number of claims in the claim queue and seconded candidates count for a specific `ParaId`.
+/// Tracks the number of seconded candidates for a specific `ParaId`.
 #[derive(Default, Debug)]
 struct CandidatesStatePerPara {
 	/// How many collations have been seconded.
 	pub seconded_per_para: usize,
-	// Claims in the claim queue for the `ParaId`.
-	pub claims_per_para: usize,
 }
 
 /// Information about collations per relay parent.
@@ -243,17 +241,14 @@ pub struct Collations {
 }
 
 impl Collations {
-	pub(super) fn new<'a>(group_assignments: impl Iterator<Item = &'a ParaId>) -> Self {
-		let mut candidates_state = BTreeMap::<ParaId, CandidatesStatePerPara>::new();
-		for para_id in group_assignments {
-			candidates_state.entry(*para_id).or_default().claims_per_para += 1;
-		}
-
+	/// Create empty collations state.
+	/// Candidate entries are created on-demand when collations are received.
+	pub(super) fn new() -> Self {
 		Self {
 			status: Default::default(),
 			fetching_from: None,
 			waiting_queue: Default::default(),
-			candidates_state,
+			candidates_state: Default::default(),
 		}
 	}
 
