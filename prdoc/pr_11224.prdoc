@@ -1,0 +1,7 @@
+title: 'Prometheus: Bind external address to IPv6'
+doc:
+- audience: Node Operator
+  description: 'Closes: https://github.com/paritytech/polkadot-sdk/issues/11205'
+crates:
+- name: sc-cli
+  bump: patch
