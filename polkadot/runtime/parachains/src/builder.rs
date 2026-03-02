@@ -93,9 +93,11 @@ fn byte32_slice_from(n: u32) -> [u8; 32] {
 pub(crate) enum CandidateDescriptorVersionConfig {
 	/// V1 descriptor (legacy format, no UMP signals).
 	V1,
-	/// V2 descriptor (includes UMP signals with SelectCore and optional ApprovedPeer).
+	/// V2 descriptor (versioned format, zeroed collator fields; commitments may include UMP
+	/// signals).
 	V2,
-	/// V3 descriptor (includes UMP signals and explicit scheduling_parent field).
+	/// V3 descriptor (adds explicit scheduling_parent field; commitments must include UMP
+	/// signals).
 	V3,
 }
 

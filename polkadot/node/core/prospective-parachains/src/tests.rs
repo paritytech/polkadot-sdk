@@ -975,7 +975,7 @@ fn introduce_candidate_multiple_times(#[case] runtime_api_version: u32) {
 }
 
 #[test]
-fn fragment_chain_best_chain_length_is_bounded() {
+fn fragment_chain_chain_length_is_bounded() {
 	let mut test_state = TestState::default();
 	test_state.claim_queue.insert(
 		CoreIndex(2),
@@ -1025,7 +1025,7 @@ fn fragment_chain_best_chain_length_is_bounded() {
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
 
 		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates and
-		// they won't be part of the best chain.
+		// they won't be part of the chain.
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
 
@@ -2119,7 +2119,7 @@ fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
 			.await;
 
 		// Get membership of candidates after adding A. They all are still unconnected candidates
-		// (not part of the best backable chain).
+		// (not part of the backable chain).
 		for (candidate, pvd) in [
 			(candidate_a.clone(), pvd_a.clone()),
 			(candidate_b.clone(), pvd_b.clone()),
@@ -2135,7 +2135,7 @@ fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
 			.await;
 		}
 
-		// Back A. Now A is part of the best chain the rest can be added as unconnected.
+		// Back A. Now A is part of the chain, the rest can be added as unconnected.
 
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
 
