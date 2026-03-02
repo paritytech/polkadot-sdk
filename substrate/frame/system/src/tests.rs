@@ -1006,10 +1006,8 @@ fn set_code_version_3_schedules_and_applies_pending_code() {
 			.logs()
 			.iter()
 			.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
-		// CodeUpdated event should NOT be emitted yet
-		assert!(System::events()
-			.iter()
-			.all(|e| !matches!(e.event, RuntimeEvent::System(SysEvent::CodeUpdated))));
+		// CodeUpdated event is emitted immediately when the upgrade is scheduled.
+		System::assert_has_event(SysEvent::CodeUpdated.into());
 		// First on_finalize (block N): counter goes 2 -> 1, no apply yet
 		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
 		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(1u8));
