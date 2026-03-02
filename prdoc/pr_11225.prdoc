@@ -1,0 +1,11 @@
+title: '[WIP][pallet-assets] added function to pallet-assets do_set_approval_amount'
+doc:
+- audience: Runtime Dev
+  description: "The ERC-20 approve(spender, amount) spec requires the allowance to\
+    \ be set to amount. The precompile was calling do_approve_transfer, which adds\
+    \ to the existing allowance \u2014 breaking ERC-20 compliance.\n\nAdds do_set_approval_amount\
+    \ that replaces the approval (or removes it when zero), and wires the precompile\
+    \ to use it. The Substrate extrinsic approve_transfer is unchanged."
+crates:
+- name: pallet-assets-precompiles
+  bump: minor
