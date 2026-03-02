@@ -79,6 +79,8 @@ jobs:
           rustup default $TOOLCHAIN
           rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
+          cargo +stable --version
+          cargo +nightly --version
 
       - name: Install parity-publish
         run: |
