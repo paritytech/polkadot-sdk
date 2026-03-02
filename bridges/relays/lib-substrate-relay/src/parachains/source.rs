@@ -119,7 +119,7 @@ where
 				source=%P::SourceParachain::NAME,
 				"Block is ancient. Cannot prove the header there"
 			);
-			return Ok(AvailableHeader::Unavailable)
+			return Ok(AvailableHeader::Unavailable);
 		}
 
 		// else - try to read head from the source client

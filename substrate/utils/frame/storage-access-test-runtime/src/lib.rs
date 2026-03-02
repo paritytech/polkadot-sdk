@@ -134,7 +134,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 	}
 
 	match payload {
-		StorageAccessPayload::Read(keys) =>
+		StorageAccessPayload::Read(keys) => {
 			for (key, maybe_child_info) in keys {
 				match maybe_child_info {
 					Some(child_info) => {

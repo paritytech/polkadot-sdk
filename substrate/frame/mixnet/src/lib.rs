@@ -59,7 +59,7 @@ pub type AuthorityIndex = u32;
 	MaxEncodedLen,
 	PartialEq,
 	TypeInfo,
-	RuntimeDebug,
+	Debug,
 	Serialize,
 	Deserialize,
 )]
@@ -130,7 +130,7 @@ pub type BoundedMixnodeFor<T> = BoundedMixnode<
 
 /// A mixnode registration. A registration transaction is formed from one of these plus an
 /// [`AuthoritySignature`].
-#[derive(Clone, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo, Debug)]
 pub struct Registration<BlockNumber, BoundedMixnode> {
 	/// Block number at the time of creation. When a registration transaction fails to make it on
 	/// to the chain for whatever reason, we send out another one. We want this one to have a
@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
 		// public key as the "random" source. This is slightly biased as remaining_blocks most
 		// likely won't divide into 2^64, but it doesn't really matter...
 		let random = twox(block_number, &mixnode.kx_public);
-		(random % remaining_blocks.try_into().unwrap_or(u64::MAX)) == 0
+		random.is_multiple_of(remaining_blocks.try_into().unwrap_or(u64::MAX))
 	}
 
 	fn next_local_authority() -> Option<(AuthorityIndex, AuthorityId)> {

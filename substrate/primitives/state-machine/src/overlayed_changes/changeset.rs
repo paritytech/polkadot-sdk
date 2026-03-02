@@ -154,7 +154,7 @@ impl StorageEntry {
 		if let StorageEntry::Append { data, materialized_length, current_length, .. } = self {
 			let current_length = *current_length;
 			if materialized_length.map_or(false, |m| m == current_length) {
-				return
+				return;
 			}
 			StorageAppend::new(data).replace_length(*materialized_length, current_length);
 			*materialized_length = Some(current_length);
@@ -622,7 +622,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Calling this while already inside the runtime will return an error.
 	pub fn enter_runtime(&mut self) -> Result<(), AlreadyInRuntime> {
 		if let ExecutionMode::Runtime = self.execution_mode {
-			return Err(AlreadyInRuntime)
+			return Err(AlreadyInRuntime);
 		}
 		self.execution_mode = ExecutionMode::Runtime;
 		self.num_client_transactions = self.transaction_depth();
@@ -635,7 +635,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Calling this while already outside the runtime will return an error.
 	pub fn exit_runtime_offchain(&mut self) -> Result<(), NotInRuntime> {
 		if let ExecutionMode::Client = self.execution_mode {
-			return Err(NotInRuntime)
+			return Err(NotInRuntime);
 		}
 		self.execution_mode = ExecutionMode::Client;
 		if self.has_open_runtime_transactions() {
@@ -684,7 +684,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
 			!self.has_open_runtime_transactions()
 		{
-			return Err(NoOpenTransaction)
+			return Err(NoOpenTransaction);
 		}
 
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
@@ -772,7 +772,7 @@ impl OverlayedChangeSet {
 		if matches!(self.execution_mode, ExecutionMode::Runtime) &&
 			!self.has_open_runtime_transactions()
 		{
-			return Err(NoOpenTransaction)
+			return Err(NoOpenTransaction);
 		}
 
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
@@ -892,7 +892,7 @@ impl OverlayedChangeSet {
 	/// Calling this while already outside the runtime will return an error.
 	pub fn exit_runtime(&mut self) -> Result<(), NotInRuntime> {
 		if matches!(self.execution_mode, ExecutionMode::Client) {
-			return Err(NotInRuntime)
+			return Err(NotInRuntime);
 		}
 
 		self.execution_mode = ExecutionMode::Client;
