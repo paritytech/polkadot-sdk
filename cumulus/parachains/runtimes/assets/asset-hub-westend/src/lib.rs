@@ -1562,6 +1562,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	pallet_staking_async_rc_client::migrations::MigrateV1ToV2<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
