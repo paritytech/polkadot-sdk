@@ -15,7 +15,16 @@ pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<R
 	}
 }
 
+/// Maximum number of nodes allowed in a receipt MPT proof.
+/// Ethereum's receipt trie is a 16-way Merkle Patricia Trie keyed by transaction index.
+/// Even with the maximum ~100k transactions per block, the trie depth is at most
+/// ceil(log16(100_000)) = 5. A limit of 10 is generous and prevents unbounded iteration.
+pub const MAX_RECEIPT_PROOF_NODES: usize = 10;
+
 fn apply_merkle_proof(proof: &[Vec<u8>]) -> Option<(H256, Vec<u8>)> {
+	if proof.len() > MAX_RECEIPT_PROOF_NODES {
+		return None;
+	}
 	let mut iter = proof.iter().rev();
 	let first_bytes = match iter.next() {
 		Some(b) => b,
@@ -84,5 +93,67 @@ mod tests {
 			hex!("f901ae20b901aaf901a70183bb444eb9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000001000000000000000000000000000100000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000002000000000000000000081000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000f89df89b94dac17f958d2ee523a2206206994597c13d831ec7f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000002e514404ff6823f1b46a8318a709251db414e5e1a000000000000000000000000055021c55847c00d764357a352e5803237d328954a0000000000000000000000000000000000000000000000000000000000201c370").to_vec(),
 		];
 		assert!(verify_receipt_proof(root, &proof_receipt263).is_some());
+	}
+
+	// Helper to build a valid hash-chained proof of arbitrary length.
+	// Each node is a minimal RLP-encoded ShortNode: [0x00, value].
+	fn build_hash_chain(chain_len: usize) -> (Vec<Vec<u8>>, Vec<u8>) {
+		fn short_node(value: &[u8]) -> Vec<u8> {
+			let mut stream = rlp::RlpStream::new_list(2);
+			stream.append(&vec![0u8]);
+			stream.append(&value.to_vec());
+			stream.out().to_vec()
+		}
+
+		let leaf_value = vec![0xde, 0xad, 0xbe, 0xef];
+		let leaf = short_node(&leaf_value);
+
+		let mut proof = vec![leaf.clone()];
+		let mut hash = keccak_256(&leaf);
+		for _ in 0..chain_len {
+			let node = short_node(&hash);
+			hash = keccak_256(&node);
+			proof.push(node);
+		}
+
+		proof.reverse();
+		(proof, leaf_value)
+	}
+
+	#[test]
+	fn apply_merkle_proof_rejects_oversized_proof() {
+		let (proof, _) = build_hash_chain(MAX_RECEIPT_PROOF_NODES + 1);
+		assert!(proof.len() > MAX_RECEIPT_PROOF_NODES);
+		assert!(apply_merkle_proof(&proof).is_none());
+	}
+
+	#[test]
+	fn apply_merkle_proof_accepts_proof_at_limit() {
+		// Build a chain that results in exactly MAX_RECEIPT_PROOF_NODES entries
+		// (chain_len intermediate nodes + 1 leaf = MAX_RECEIPT_PROOF_NODES)
+		let (proof, leaf_value) = build_hash_chain(MAX_RECEIPT_PROOF_NODES - 1);
+		assert_eq!(proof.len(), MAX_RECEIPT_PROOF_NODES);
+		let result = apply_merkle_proof(&proof);
+		assert!(result.is_some());
+		let (_, value) = result.unwrap();
+		assert_eq!(value, leaf_value);
+	}
+
+	#[test]
+	fn apply_merkle_proof_rejects_proof_one_over_limit() {
+		// Build a chain that results in MAX_RECEIPT_PROOF_NODES + 1 entries
+		let (proof, _) = build_hash_chain(MAX_RECEIPT_PROOF_NODES);
+		assert_eq!(proof.len(), MAX_RECEIPT_PROOF_NODES + 1);
+		assert!(apply_merkle_proof(&proof).is_none());
+	}
+
+	#[test]
+	fn verify_receipt_proof_rejects_large_invalid_proof() {
+		let root: H256 =
+			hex!("fd5e397a84884641f53c496804f24b5276cbb8c5c9cfc2342246be8e3ce5ad02").into();
+		let (proof, _) = build_hash_chain(100);
+		assert!(proof.len() > MAX_RECEIPT_PROOF_NODES);
+		// Must be rejected before any expensive verification work
+		assert!(verify_receipt_proof(root, &proof).is_none());
 	}
 }

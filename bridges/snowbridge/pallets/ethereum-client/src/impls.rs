@@ -6,7 +6,7 @@ use snowbridge_beacon_primitives::ExecutionProof;
 
 use snowbridge_beacon_primitives::{
 	merkle_proof::{generalized_index_length, subtree_index},
-	receipt::verify_receipt_proof,
+	receipt::{verify_receipt_proof, MAX_RECEIPT_PROOF_NODES},
 };
 use snowbridge_ethereum::Log as AlloyLog;
 use snowbridge_verification_primitives::{
@@ -42,6 +42,15 @@ impl<T: Config> Pallet<T> {
 		receipt_proof: &[Vec<u8>],
 		log: &Log,
 	) -> Result<(), VerificationError> {
+		if receipt_proof.len() > MAX_RECEIPT_PROOF_NODES {
+			tracing::error!(
+				target: "ethereum-client",
+				"💫 Receipt proof with {} nodes exceeds maximum of {}",
+				receipt_proof.len(),
+				MAX_RECEIPT_PROOF_NODES,
+			);
+			return Err(InvalidProof);
+		}
 		let receipt = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
 		if !receipt.logs().iter().any(|l| Self::check_log_match(log, l)) {
 			tracing::error!(
