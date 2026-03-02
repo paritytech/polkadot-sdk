@@ -23,7 +23,12 @@ pub type ReceiptProof<MaxNodeSize, MaxDepth> = BoundedVec<ReceiptProofNode<MaxNo
 /// Default max MPT node size in bytes (32 KiB). Reusable for runtime config and proof bounds.
 pub const DEFAULT_MAX_NODE_SIZE: u32 = 32_768;
 /// Default max receipt proof depth. Reusable for runtime config and proof bounds.
-pub const DEFAULT_MAX_DEPTH: u32 = 64;
+///
+/// Maximum number of nodes allowed in a receipt MPT proof. Ethereum's receipt trie is a 16-way
+/// Merkle Patricia Trie keyed by transaction index. Even with the maximum ~100k transactions per
+/// block, the trie depth is at most ceil(log16(100_000)) = 5. So a limit of 16 is generous and
+/// prevents unbounded iteration.
+pub const DEFAULT_MAX_DEPTH: u32 = 16;
 
 /// Type alias for default max node size (for use in [`Proof`] / [`ReceiptProof`]).
 pub type DefaultMaxNodeSize = ConstU32<{ DEFAULT_MAX_NODE_SIZE }>;

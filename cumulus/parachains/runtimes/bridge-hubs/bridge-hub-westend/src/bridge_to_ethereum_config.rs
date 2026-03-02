@@ -285,8 +285,10 @@ impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
 	type FreeHeadersInterval = ConstU32<SLOTS_PER_EPOCH>;
-	// Receipts trie uses 64-nibble keys (keccak(rlp(tx_index))), so proof can have up to 64 nodes.
-	type MaxReceiptProofDepth = ConstU32<64>;
+	// Receipts trie is keyed by transaction index (RLP encoding); depth is ceil(log16(tx_count)).
+	// For ~100k txs per block depth is at most 5, so 16 is a generous bound and prevents unbounded
+	// iteration.
+	type MaxReceiptProofDepth = ConstU32<16>;
 	// RLP-encoded MPT node: branch/extension nodes are small; leaf = receipt (bloom 256B + logs).
 	// 32 KiB is sufficient for mainnet receipts.
 	type MaxMptNodeSize = ConstU32<32_768>;
@@ -349,11 +351,11 @@ pub mod benchmark_helpers {
 		v2::{MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor},
 		EventFixture, Verifier,
 	};
-	use snowbridge_outbound_queue_primitives::{EventFixture as OutboundEventFixture, Verifier as OutboundVerifier};
-	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::{
-		make_register_token_message,
+	use snowbridge_outbound_queue_primitives::{
+		EventFixture as OutboundEventFixture, Verifier as OutboundVerifier,
 	};
+	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
 	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
 	use snowbridge_pallet_outbound_queue_v2::{
