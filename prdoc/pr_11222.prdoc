@@ -6,6 +6,8 @@ doc:
     Idempotency is checked by inspecting the existing hold balance rather than a\
     \ separate storage map. Existing validators are charged on next set_keys."
 crates:
+- name: asset-hub-westend-runtime
+  bump: minor
 - name: pallet-staking-async-rc-client
   bump: minor
 - name: pallet-staking-async
