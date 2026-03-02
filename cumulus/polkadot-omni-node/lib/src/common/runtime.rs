@@ -169,9 +169,9 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 					   via a runtime upgrade (for example, asset-hub-polkadot).
 				
 					   Falling back to chain spec ID heuristics."#
-				);				
+				);
 				aura_id_from_chain_spec_id(chain_spec.id())
-			}
+			},
 		};
 		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
@@ -206,18 +206,23 @@ impl MetadataInspector {
 			return None;
 		}
 
-		for portable_type in self.0.types().types() {
+		for portable_type in &self.0.types().types {
 			let path = &portable_type.ty.path;
-			let segments = path.segments();
+			let segments = &path.segments;
 
 			if segments.len() >= 3 {
 				let last_three = &segments[segments.len() - 3..];
-				match last_three {
-					["sp_consensus_aura", "sr25519", "AuthorityId"] =>
-						return Some(AuraConsensusId::Sr25519),
-					["sp_consensus_aura", "ed25519", "AuthorityId"] =>
-						return Some(AuraConsensusId::Ed25519),
-					_ => continue,
+				if last_three[0] == "sp_consensus_aura"
+					&& last_three[1] == "sr25519"
+					&& last_three[2] == "AuthorityId"
+				{
+					return Some(AuraConsensusId::Sr25519);
+				}
+				if last_three[0] == "sp_consensus_aura"
+					&& last_three[1] == "ed25519"
+					&& last_three[2] == "AuthorityId"
+				{
+					return Some(AuraConsensusId::Ed25519);
 				}
 			}
 		}
