@@ -32,7 +32,7 @@ use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::interpreter::{gas::CALL_STIPEND, interpreter_action::CallScheme};
+use revm::interpreter::interpreter_action::CallScheme;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -192,14 +192,14 @@ fn run_call<'a, E: Ext>(
 ) -> ControlFlow<Halt> {
 	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend. This is
 	// just a heuristic.
-	let (add_stipend, reentracy) =
-		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
-		{
-			(false, _) => (true, ReentrancyProtection::AllowReentry),
-			(_, true) => (true, ReentrancyProtection::AllowNext),
-			(_, _) => (false, ReentrancyProtection::AllowReentry),
-		};
 
+	let (add_stipend, reentracy) = match (value.is_zero(), gas_limit.is_zero()) {
+		(false, true) => (true, ReentrancyProtection::AllowNext),
+		(false, _) => (true, ReentrancyProtection::AllowReentry),
+		(_, _) => (false, ReentrancyProtection::AllowReentry),
+	};
+
+	log::trace!(target: LOG_TARGET, "add_stipend={add_stipend}, reentracy={reentracy:?}");
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
 			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
