@@ -66,6 +66,9 @@ use std::{
 /// Logging target for the file.
 const LOG_TARGET: &str = "sub-libp2p::peerset";
 
+/// Logging subtarget which contains validator-specific logs for debugging connectivity issues.
+const LOG_TARGET_VALIDATORS: &str = "sub-libp2p::peerset::validators";
+
 /// Default backoff for connection re-attempts.
 const DEFAULT_BACKOFF: Duration = Duration::from_secs(5);
 
@@ -611,7 +614,7 @@ impl Peerset {
 
 		if self.peerstore_handle.is_banned(&peer) {
 			log::debug!(
-				target: LOG_TARGET,
+				target: LOG_TARGET_VALIDATORS,
 				"{}: rejecting banned peer {peer:?}",
 				self.protocol,
 			);
@@ -628,8 +631,8 @@ impl Peerset {
 		match state {
 			// disconnected peers that are reserved-only peers are rejected
 			PeerState::Disconnected if should_reject => {
-				log::trace!(
-					target: LOG_TARGET,
+				log::debug!(
+					target: LOG_TARGET_VALIDATORS,
 					"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
 					self.protocol,
 				);
@@ -642,9 +645,9 @@ impl Peerset {
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
 				if !is_reserved_peer && self.num_in == self.max_in {
-					log::trace!(
-						target: LOG_TARGET,
-						"{}: ({peer:?}) is backed-off and cannot accept, reject inbound substream",
+					log::debug!(
+						target: LOG_TARGET_VALIDATORS,
+						"{}: non-reserved peer ({peer:?}) is backed-off and no slots are available, reject inbound substream",
 						self.protocol,
 					);
 
@@ -655,6 +658,11 @@ impl Peerset {
 				// expires. Then, the peer will be in the disconnected state, subject to further
 				// rejection if the peer is not reserved by then.
 				if should_reject {
+					log::debug!(
+						target: LOG_TARGET_VALIDATORS,
+						"{}: non-reserved peer ({peer:?}) is backed-off in reserved-only mode, reject inbound substream",
+						self.protocol,
+					);
 					return ValidationResult::Reject;
 				}
 			},
@@ -674,8 +682,8 @@ impl Peerset {
 			// issue is fixed, this approach can be re-evaluated if need be.
 			PeerState::Opening { direction: Direction::Outbound(reserved) } => {
 				if should_reject {
-					log::trace!(
-						target: LOG_TARGET,
+					log::debug!(
+						target: LOG_TARGET_VALIDATORS,
 						"{}: rejecting inbound substream from {peer:?} ({reserved:?}) in reserved-only mode that was marked outbound",
 						self.protocol,
 					);
@@ -693,8 +701,8 @@ impl Peerset {
 				return ValidationResult::Accept;
 			},
 			PeerState::Canceled { direction } => {
-				log::trace!(
-					target: LOG_TARGET,
+				log::debug!(
+					target: LOG_TARGET_VALIDATORS,
 					"{}: {peer:?} is canceled, rejecting substream should_reject={should_reject}",
 					self.protocol,
 				);
@@ -737,8 +745,8 @@ impl Peerset {
 			return ValidationResult::Accept;
 		}
 
-		log::trace!(
-			target: LOG_TARGET,
+		log::debug!(
+			target: LOG_TARGET_VALIDATORS,
 			"{}: reject {peer:?}, not a reserved peer and no free inbound slots",
 			self.protocol,
 		);
@@ -1105,7 +1113,7 @@ impl Stream for Peerset {
 				// or disconnected (if there are no slots available). The new reserved peers are
 				// scheduled for outbound substreams
 				PeersetCommand::SetReservedPeers { peers } => {
-					log::debug!(target: LOG_TARGET, "{}: set reserved peers {peers:?}", self.protocol);
+					log::debug!(target: LOG_TARGET_VALIDATORS, "{}: set reserved peers {peers:?}", self.protocol);
 
 					// reserved peers don't consume any slots so if there are any regular connected
 					// peers, inbound/outbound slot count must be adjusted to not account for these
@@ -1200,8 +1208,8 @@ impl Stream for Peerset {
 						close_peers: peers_to_remove,
 					};
 
-					log::trace!(
-						target: LOG_TARGET,
+					log::debug!(
+						target: LOG_TARGET_VALIDATORS,
 						"{}: SetReservedPeers result {command:?}",
 						self.protocol,
 					);
@@ -1421,8 +1429,8 @@ impl Stream for Peerset {
 						.collect();
 
 					log::debug!(
-						target: LOG_TARGET,
-						"{}: close substreams to {peers_to_remove:?}",
+						target: LOG_TARGET_VALIDATORS,
+						"{}: close substreams to {peers_to_remove:?} as response to removal from reserved peers",
 						self.protocol,
 					);
 
@@ -1431,7 +1439,7 @@ impl Stream for Peerset {
 					)));
 				},
 				PeersetCommand::SetReservedOnly { reserved_only } => {
-					log::debug!(target: LOG_TARGET, "{}: set reserved only mode to {reserved_only}", self.protocol);
+					log::debug!(target: LOG_TARGET_VALIDATORS, "{}: set reserved only mode to {reserved_only}", self.protocol);
 
 					// update mode and if it's set to true, disconnect all non-reserved peers
 					self.reserved_only = reserved_only;
@@ -1463,6 +1471,12 @@ impl Stream for Peerset {
 							},
 							_ => {},
 						});
+
+						log::debug!(
+							target: LOG_TARGET_VALIDATORS,
+							"{}: close substreams to {peers_to_remove:?} as response to setting reserved-only mode",
+							self.protocol,
+						);
 
 						return Poll::Ready(Some(PeersetNotificationCommand::close_substream(
 							peers_to_remove,

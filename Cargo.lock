@@ -9994,8 +9994,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c68ba359d7f1a80d18821b46575d5ddb9a9a6672fe0669f5fc9e83cab9abd760"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lenxv/unreleased-fixes#96be8510fa13dd1c0c806c8018b8f0d77504a854"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10007,6 +10006,7 @@ dependencies = [
  "futures-timer",
  "hickory-resolver 0.25.2",
  "indexmap 2.9.0",
+ "ip_network",
  "libc",
  "mockall",
  "multiaddr 0.17.1",
