@@ -7,24 +7,18 @@ error[E0425]: cannot find function `bar` in module `test`
 note: found an item that was configured out
   --> tests/ui/no_feature_gated_method.rs:29:5
    |
+28 |     #[cfg(feature = "bar-feature")]
+   |           ----------------------- the item is gated behind the `bar-feature` feature
 29 |     fn bar() {}
    |        ^^^
-note: the item is gated behind the `bar-feature` feature
-  --> tests/ui/no_feature_gated_method.rs:28:8
-   |
-28 |     #[cfg(feature = "bar-feature")]
-   |           ^^^^^^^^^^^^^^^^^^^^^^^
 note: found an item that was configured out
   --> tests/ui/no_feature_gated_method.rs:29:5
    |
+24 | #[runtime_interface]
+   | -------------------- the item is gated here
+...
 29 |     fn bar() {}
    |        ^^^
-note: the item is gated here
-  --> tests/ui/no_feature_gated_method.rs:24:1
-   |
-24 | #[runtime_interface]
-   | ^^^^^^^^^^^^^^^^^^^^
-   = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 warning: unexpected `cfg` condition name: `substrate_runtime`
   --> tests/ui/no_feature_gated_method.rs:28:2

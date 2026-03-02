@@ -14,7 +14,7 @@ error: `Pallet` does not have #[pallet::origin] defined, perhaps you should remo
    |
    = note: this error originates in the macro `pallet::__substrate_origin_check::is_origin_part_defined` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0412]: cannot find type `Origin` in module `pallet`
+error[E0425]: cannot find type `Origin` in module `pallet`
   --> tests/construct_runtime_ui/undefined_origin_part.rs:66:1
    |
 66 | / construct_runtime! {
@@ -32,3 +32,9 @@ help: consider importing one of these type aliases
    |
 18 + use frame_system::Origin;
    |
+
+error[E0282]: type annotations needed
+  --> tests/construct_runtime_ui/undefined_origin_part.rs:70:11
+   |
+70 |         Pallet: pallet expanded::{}::{Pallet, Origin},
+   |                 ^^^^^^ cannot infer type
