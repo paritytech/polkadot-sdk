@@ -289,3 +289,51 @@ fn approval_works(asset_index: u16) {
 		);
 	});
 }
+
+/// Helper to call approve via the precompile and return whether it succeeded.
+fn call_approve(owner: u64, asset_addr: H160, spender_addr: H160, value: U256) {
+	let data = IERC20::approveCall { spender: spender_addr.0.into(), value }.abi_encode();
+	pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(owner),
+		asset_addr,
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		data,
+		&ExecConfig::new_substrate_tx(),
+	);
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_replaces_existing_allowance(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// First approve: set allowance to 100.
+		call_approve(owner, asset_addr, spender_addr, U256::from(100));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+
+		// Second approve: must REPLACE to 50, not add to 150.
+		call_approve(owner, asset_addr, spender_addr, U256::from(50));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
+
+		// Approve to 0: must revoke the allowance entirely.
+		call_approve(owner, asset_addr, spender_addr, U256::from(0));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
+	});
+}

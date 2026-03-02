@@ -957,6 +957,65 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Set (replace) the approval amount for a delegate.
+	///
+	/// Unlike [`Self::do_approve_transfer`] which adds to the existing approval, this function
+	/// replaces the current approval amount with `amount`. This matches ERC20 `approve()`
+	/// semantics where calling `approve(spender, N)` sets the allowance to exactly `N`.
+	///
+	/// When `amount` is zero, the approval is removed entirely and the deposit is returned.
+	pub fn do_set_approval_amount(
+		id: T::AssetId,
+		owner: &T::AccountId,
+		delegate: &T::AccountId,
+		amount: T::Balance,
+	) -> DispatchResult {
+		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		if amount.is_zero() {
+			// Setting to zero revokes the approval.
+			if let Some(approval) = Approvals::<T, I>::take((id.clone(), owner, delegate)) {
+				T::Currency::unreserve(owner, approval.deposit);
+				d.approvals.saturating_dec();
+			} else {
+				// No approval to revoke, just return Ok.
+				return Ok(());
+			}
+		} else {
+			Approvals::<T, I>::try_mutate(
+				(id.clone(), owner, delegate),
+				|maybe_approved| -> DispatchResult {
+					let mut approved = match maybe_approved.take() {
+						Some(a) => a,
+						None => {
+							d.approvals.saturating_inc();
+							Default::default()
+						},
+					};
+					let deposit_required = T::ApprovalDeposit::get();
+					if approved.deposit < deposit_required {
+						T::Currency::reserve(owner, deposit_required - approved.deposit)?;
+						approved.deposit = deposit_required;
+					}
+					approved.amount = amount;
+					*maybe_approved = Some(approved);
+					Ok(())
+				},
+			)?;
+		}
+
+		Asset::<T, I>::insert(&id, d);
+		Self::deposit_event(Event::ApprovedSetAmount {
+			asset_id: id,
+			source: owner.clone(),
+			delegate: delegate.clone(),
+			amount,
+		});
+
+		Ok(())
+	}
+
 	/// Reduces the asset `id` balance of `owner` by some `amount` and increases the balance of
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
