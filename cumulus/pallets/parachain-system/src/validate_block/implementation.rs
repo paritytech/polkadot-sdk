@@ -30,14 +30,18 @@ use frame_support::{
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
+use sp_core::{
+	sr25519,
+	storage::{well_known_keys, ChildInfo, StateVersion},
+	Pair, H256,
+};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::{hashing::blake2_128, KillStorageResult};
+use sp_io::KillStorageResult;
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
+use sp_trie::{HashDBT, LayoutV0, LayoutV1, ProofSizeProvider, TrieConfiguration, EMPTY_PREFIX};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
@@ -85,7 +89,17 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+	sp_runtime::runtime_logger::RuntimeLogger::init();
+
 	let _guard = (
+		// Replace hashing, crypto and trie calls with our own implementations
+		sp_io::hashing::host_blake2_256.replace_implementation(host_blake2_256),
+		sp_io::hashing::host_blake2_128.replace_implementation(host_blake2_128),
+		sp_io::hashing::host_twox_128.replace_implementation(host_twox_128),
+		sp_io::hashing::host_twox_64.replace_implementation(host_twox_64),
+		sp_io::crypto::host_sr25519_verify.replace_implementation(host_sr25519_verify),
+		sp_io::trie::host_blake2_256_ordered_root
+			.replace_implementation(host_blake2_256_ordered_root),
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
@@ -411,7 +425,7 @@ fn build_seed_from_head_data<B: BlockT>(
 		bytes_to_hash.extend_from_slice(block.header().hash().as_ref());
 	});
 
-	blake2_128(&bytes_to_hash)
+	sp_crypto_hashing::blake2_128(&bytes_to_hash)
 }
 
 /// Run the given closure with the externalities and recorder set.
@@ -577,4 +591,31 @@ fn host_transaction_index_index(_extrinsic: u32, _size: u32, _context_hash: [u8;
 #[cfg(feature = "transaction-index")]
 fn host_transaction_index_renew(_extrinsic: u32, _context_hash: [u8; 32]) {
 	// No-op host function used during parachain validation.
+}
+
+fn host_blake2_256(data: &[u8]) -> [u8; 32] {
+	sp_crypto_hashing::blake2_256(data)
+}
+
+fn host_blake2_128(data: &[u8]) -> [u8; 16] {
+	sp_crypto_hashing::blake2_128(data)
+}
+
+fn host_twox_128(data: &[u8]) -> [u8; 16] {
+	sp_crypto_hashing::twox_128(data)
+}
+
+fn host_twox_64(data: &[u8]) -> [u8; 8] {
+	sp_crypto_hashing::twox_64(data)
+}
+
+fn host_sr25519_verify(sig: &sr25519::Signature, msg: &[u8], pub_key: &sr25519::Public) -> bool {
+	sr25519::Pair::verify(sig, msg, pub_key)
+}
+
+fn host_blake2_256_ordered_root(input: Vec<Vec<u8>>, version: StateVersion) -> H256 {
+	match version {
+		StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+		StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+	}
 }
