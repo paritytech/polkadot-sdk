@@ -150,7 +150,8 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 							.ok_or("Value unexpectedly empty");
 					},
 				}
-			},
+			}
+		},
 		StorageAccessPayload::Write {
 			changes,
 			child_info: maybe_child_info,
