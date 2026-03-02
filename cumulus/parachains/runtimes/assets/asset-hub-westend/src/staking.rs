@@ -328,6 +328,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
 	type Balance = Balance;
+	type MinSetKeysBond = ConstU128<{ 10 * UNITS }>;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
@@ -338,8 +339,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
 	// | Total               |         | 193 bytes  | 385 bytes |
 	// We add some buffer for SCALE encoding overhead and future expansions
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
 }
 

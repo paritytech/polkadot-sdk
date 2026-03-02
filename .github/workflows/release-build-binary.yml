@@ -44,8 +44,10 @@ jobs:
       - name: Set runner
         id: set_runner
         shell: bash
+        env:
+          INPUT_BINARY: ${{ inputs.binary }}
         run: |
-          if [[ "${{ inputs.binary }}" == "polkadot-parachain" ]]; then
+          if [[ "$INPUT_BINARY" == "polkadot-parachain" ]]; then
             echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
             echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
@@ -61,17 +63,22 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Build binary
+        env:
+          INPUT_BINARY: ${{ inputs.binary }}
+          INPUT_PACKAGE: ${{ inputs.package }}
+          INPUT_PROFILE: ${{ inputs.profile }}
+          INPUT_FEATURES: ${{ inputs.features }}
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-          PROFILE=${{ inputs.profile }}
-          if [ "${{ inputs.binary }}" = "polkadot" ]; then
+          PROFILE="$INPUT_PROFILE"
+          if [ "$INPUT_BINARY" = "polkadot" ]; then
               for binary in polkadot polkadot-prepare-worker polkadot-execute-worker; do
-                  echo "Building $binary with profile $PROFILE and features ${{ inputs.features }}"
-                  ./.github/scripts/release/build-linux-release.sh $binary ${{ inputs.package }} ${{ inputs.features }}
+                  echo "Building $binary with profile $PROFILE and features $INPUT_FEATURES"
+                  ./.github/scripts/release/build-linux-release.sh "$binary" "$INPUT_PACKAGE" "$INPUT_FEATURES"
               done
           else
-            echo "Building ${{ inputs.binary }} with profile $PROFILE and features ${{ inputs.features }}"
-            ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.package }} ${{ inputs.features }}
+            echo "Building $INPUT_BINARY with profile $PROFILE and features $INPUT_FEATURES"
+            ./.github/scripts/release/build-linux-release.sh "$INPUT_BINARY" "$INPUT_PACKAGE" "$INPUT_FEATURES"
           fi
 
       - name: Upload ${{ inputs.binary }} artifacts

@@ -905,8 +905,9 @@ impl<T: Config> Rotator<T> {
 ///   backing after all calls to `maybe_fetch_election_results` are done. Note that older versions
 ///   of this pallet had a `MinimumValidatorCount` to double-check this, but we don't check it
 ///   anymore.
-/// * `maybe_fetch_election_results` returns no weight. Its weight should be taken account in the
-///   e2e benchmarking of the [`Config::ElectionProvider`].
+/// * `maybe_fetch_election_results` returns a tuple of `(weight, closure)`. The `weight` is the
+///   worst-case weight that `exec` might consume. The caller should check if `weight` fits within
+///   the boundaries of that context, and execute `closure` if so.
 ///
 /// TODOs:
 ///
@@ -940,6 +941,17 @@ impl<T: Config> EraElectionPlanner<T> {
 			let weight = T::DbWeight::get().reads(1);
 			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)));
 		};
+
+		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
+		// is benchmarked via `fetch_page`.
+		// * 1 extra read and write for `NextElectionPage`
+		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
+		//   that we know this writes one storage item under the hood)
+		// * 1 extra read for `CurrentEra`
+		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// ElectableStashes already read in `do_elect_paged`
+		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+
 		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
 				debug,
@@ -979,16 +991,6 @@ impl<T: Config> EraElectionPlanner<T> {
 			// consume the reported worst case weight.
 			meter.consume(required_weight)
 		});
-
-		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
-		// is benchmarked via `fetch_page`.
-		// * 1 extra read and write for `NextElectionPage`
-		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
-		//   that we know this writes one storage item under the hood)
-		// * 1 extra read for `CurrentEra`
-		// * 1 extra read for `BondedEras` in `get_prune_up_to`
-		// ElectableStashes already read in `do_elect_paged`
-		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
 
 		(required_weight, exec)
 	}
