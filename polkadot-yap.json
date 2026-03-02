@@ -1,5 +1,5 @@
 {
-  "name": "Yap Polkadot 3427",
+  "name": "YAP Polkadot 3428",
   "id": "yet_another_parachain",
   "chainType": "Live",
   "bootNodes": [],
@@ -7,7 +7,7 @@
   "protocolId": null,
   "properties": null,
   "relay_chain": "polkadot",
-  "para_id": 3427,
+  "para_id": 3428,
   "codeSubstitutes": {},
   "genesis": {
     "runtimeGenesis": {
@@ -128050,6 +128050,14 @@
             [
               "5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV",
               1152921504606846976
+            ],
+            [
+              "5HduXCDoQwMKr6huWkyChDStqCy1pUrorDeH7HkDx32GPktF",
+              1152921504606846976
+            ],
+            [
+              "5G7JN5UxUTbBzLcXUUMXNuGjv9wXG8Jo3C25zMpvomVGVSud",
+              1152921504606846976
             ]
           ]
         },
@@ -128058,11 +128066,13 @@
           "invulnerables": [
             "5C57B26NPKtKAa8yz2QWMgPPc39UHcuP3cRuXTQehAAN4Qrt",
             "5HmPNhXEUX3hXZyXC6becw7tFCq1TYotBvAYno2PkpY9unEQ",
-            "5Djr1xB6URUin8Gt91QbG1Rbqw7q3RyWqEZEAwW1RYrg7MxA"
+            "5Djr1xB6URUin8Gt91QbG1Rbqw7q3RyWqEZEAwW1RYrg7MxA",
+            "5HduXCDoQwMKr6huWkyChDStqCy1pUrorDeH7HkDx32GPktF",
+            "5G7JN5UxUTbBzLcXUUMXNuGjv9wXG8Jo3C25zMpvomVGVSud"
           ]
         },
         "parachainInfo": {
-          "parachainId": 3427
+          "parachainId": 3428
         },
         "polkadotXcm": {
           "safeXcmVersion": 5
@@ -128088,6 +128098,20 @@
               "5Djr1xB6URUin8Gt91QbG1Rbqw7q3RyWqEZEAwW1RYrg7MxA",
               {
                 "aura": "5Djr1xB6URUin8Gt91QbG1Rbqw7q3RyWqEZEAwW1RYrg7MxA"
+              }
+            ],
+            [
+              "5HduXCDoQwMKr6huWkyChDStqCy1pUrorDeH7HkDx32GPktF",
+              "5HduXCDoQwMKr6huWkyChDStqCy1pUrorDeH7HkDx32GPktF",
+              {
+                "aura": "5HduXCDoQwMKr6huWkyChDStqCy1pUrorDeH7HkDx32GPktF"
+              }
+            ],
+            [
+              "5G7JN5UxUTbBzLcXUUMXNuGjv9wXG8Jo3C25zMpvomVGVSud",
+              "5G7JN5UxUTbBzLcXUUMXNuGjv9wXG8Jo3C25zMpvomVGVSud",
+              {
+                "aura": "5G7JN5UxUTbBzLcXUUMXNuGjv9wXG8Jo3C25zMpvomVGVSud"
               }
             ]
           ]
