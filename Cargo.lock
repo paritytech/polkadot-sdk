@@ -9994,8 +9994,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13562b0f530405ababacf97cd98172fe4409ee0c43d84586a48ced04c922ef03"
+source = "git+https://github.com/paritytech/litep2p.git?branch=dm-ping-hotfix#5b2f54ef0322a7aa011c3ad24799de7ace3fb6d4"
 dependencies = [
  "async-trait",
  "bs58",
