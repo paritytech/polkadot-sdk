@@ -466,6 +466,14 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
+	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator;
+	/// Vest validator self-stake incentive rewards over approximately one year of relay-chain blocks.
+	type VestingDuration = ConstU32<{ 365 * DAYS }>;
+	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
+		Balances,
+		pallet_vesting::Pallet<Runtime>,
+		RelayChainBlockNumberProvider,
+	>;
 }
 
 // Relay chain session keys matching Westend configuration.

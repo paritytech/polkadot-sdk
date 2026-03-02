@@ -808,7 +808,6 @@ impl<T: Config> Pallet<T> {
 					validator_stash: stash.clone(),
 					dest,
 					amount: paid,
-					vested: !vesting_duration.is_zero(),
 				});
 				paid
 			},
