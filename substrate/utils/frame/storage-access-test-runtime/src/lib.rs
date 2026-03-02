@@ -34,7 +34,7 @@ use {
 	},
 	sp_core::storage::StateVersion,
 	sp_runtime::{generic, OpaqueExtrinsic},
-	sp_state_machine::{Backend, TrieBackendBuilder},
+	sp_state_machine::{Backend, DeltaKeyOp, TrieBackendBuilder},
 };
 
 // Include the WASM binary
@@ -174,7 +174,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 					let trigger_changes = &changes[start_idx..end_idx];
 					let trigger_delta = trigger_changes
 						.iter()
-						.map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
+						.map(|(key, _value)| (key.as_ref(), DeltaKeyOp::Updated));
 
 					match &maybe_child_info {
 						Some(child_info) => {
