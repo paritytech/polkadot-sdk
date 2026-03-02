@@ -9,9 +9,6 @@ pub const ACTIVE_VALIDATOR_METRIC: &str = "polkadot_node_is_active_validator";
 pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 pub const CUMULUS_IMAGE_ENV: &str = "CUMULUS_IMAGE";
 pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
-pub const DISPUTE_CONCLUDED_INVALID_METRIC: &str =
-	"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
-pub const APPROVALS_NO_SHOWS_TOTAL_METRIC: &str = "polkadot_parachain_approvals_no_shows_total";
 
 pub async fn initialize_network(
 	config: NetworkConfig,
