@@ -290,10 +290,10 @@ fn approval_works(asset_index: u16) {
 	});
 }
 
-/// Helper to call approve via the precompile and return whether it succeeded.
+/// Helper to call approve via the precompile, asserting that it succeeded.
 fn call_approve(owner: u64, asset_addr: H160, spender_addr: H160, value: U256) {
 	let data = IERC20::approveCall { spender: spender_addr.0.into(), value }.abi_encode();
-	pallet_revive::Pallet::<Test>::bare_call(
+	let result = pallet_revive::Pallet::<Test>::bare_call(
 		RuntimeOrigin::signed(owner),
 		asset_addr,
 		0u32.into(),
@@ -301,6 +301,7 @@ fn call_approve(owner: u64, asset_addr: H160, spender_addr: H160, value: U256) {
 		data,
 		&ExecConfig::new_substrate_tx(),
 	);
+	assert!(result.result.is_ok(), "approve precompile call failed: {:?}", result);
 }
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
