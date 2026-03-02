@@ -177,7 +177,6 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	}
 }
 
-
 struct MetadataInspector(Metadata);
 
 impl MetadataInspector {
