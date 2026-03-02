@@ -3003,9 +3003,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.10.1"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
+checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 dependencies = [
  "serde",
 ]
@@ -9769,7 +9769,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.8",
+ "yamux 0.13.9",
 ]
 
 [[package]]
@@ -9986,16 +9986,16 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser 0.17.0",
- "yamux 0.13.8",
+ "yamux 0.13.9",
  "yasna",
  "zeroize",
 ]
 
 [[package]]
 name = "litep2p"
-version = "0.13.0"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c68ba359d7f1a80d18821b46575d5ddb9a9a6672fe0669f5fc9e83cab9abd760"
+checksum = "3fb34d4675b8eadc4a473c46b788439d34d30c247cd5f3f286162ee25e3c4f97"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10007,6 +10007,7 @@ dependencies = [
  "futures-timer",
  "hickory-resolver 0.25.2",
  "indexmap 2.9.0",
+ "ip_network",
  "libc",
  "mockall",
  "multiaddr 0.17.1",
@@ -10035,7 +10036,7 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser 0.17.0",
- "yamux 0.13.8",
+ "yamux 0.13.9",
  "yasna",
  "zeroize",
 ]
@@ -20515,7 +20516,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.13.0",
+ "litep2p 0.13.2",
  "log",
  "mockall",
  "multistream-select",
@@ -20798,7 +20799,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.13.0",
+ "litep2p 0.13.2",
  "log",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
@@ -29056,9 +29057,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.8"
+version = "0.13.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deab71f2e20691b4728b349c6cee8fc7223880fa67b6b4f92225ec32225447e5"
+checksum = "c650efd29044140aa63caaf80129996a9e2659a2ab7045a7e061807d02fc8549"
 dependencies = [
  "futures",
  "log",
