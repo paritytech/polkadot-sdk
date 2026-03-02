@@ -18,7 +18,7 @@
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::{assert_ok, hypothetically};
+use frame_support::{assert_ok, hypothetically, traits::fungible::hold::Inspect as HoldInspect};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
@@ -1431,6 +1431,14 @@ mod session_keys {
 		(generated.keys.encode().try_into().unwrap(), generated.proof.encode().try_into().unwrap())
 	}
 
+	/// Returns the key-deposit hold for `who`.
+	fn key_deposit_hold(who: AccountId) -> Balance {
+		<Balances as HoldInspect<AccountId>>::balance_on_hold(
+			&rc_client::HoldReason::Keys.into(),
+			&who,
+		)
+	}
+
 	#[test]
 	fn set_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
@@ -1462,8 +1470,8 @@ mod session_keys {
 			// AND: Validator's balance is reduced by fees + deposit held
 			assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
 
-			// AND: HasKeyDeposit is set
-			assert!(rc_client::HasKeyDeposit::<T>::contains_key(validator));
+			// AND: Key deposit is held
+			assert!(key_deposit_hold(validator) > 0);
 
 			// AND: SetKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1755,7 +1763,7 @@ mod session_keys {
 				proof,
 				None,
 			));
-			assert!(rc_client::HasKeyDeposit::<T>::contains_key(validator));
+			assert!(key_deposit_hold(validator) > 0);
 
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
@@ -1776,8 +1784,8 @@ mod session_keys {
 			let deposit = KeyDeposit::get();
 			assert_eq!(Balances::free_balance(validator), balance_before - total_fee + deposit);
 
-			// AND: HasKeyDeposit is cleared
-			assert!(!rc_client::HasKeyDeposit::<T>::contains_key(validator));
+			// AND: Key deposit is released
+			assert_eq!(key_deposit_hold(validator), 0);
 
 			// AND: PurgeKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1917,7 +1925,7 @@ mod session_keys {
 				proof,
 				None,
 			));
-			assert!(rc_client::HasKeyDeposit::<T>::contains_key(validator));
+			assert!(key_deposit_hold(validator) > 0);
 			assert_eq!(Balances::free_balance(validator), balance_before - set_fees - deposit);
 
 			// Second set_keys: no additional deposit
@@ -1939,14 +1947,14 @@ mod session_keys {
 					rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
 					rc_client::Error::<T>::XcmSendFailed
 				);
-				assert!(rc_client::HasKeyDeposit::<T>::contains_key(validator));
+				assert!(key_deposit_hold(validator) > 0);
 				assert_eq!(Balances::free_balance(validator), balance_before_failed_purge);
 			});
 
 			// Successful purge: deposit released
 			let balance_before_purge = Balances::free_balance(validator);
 			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None));
-			assert!(!rc_client::HasKeyDeposit::<T>::contains_key(validator));
+			assert_eq!(key_deposit_hold(validator), 0);
 			assert_eq!(
 				Balances::free_balance(validator),
 				balance_before_purge - purge_fees + deposit
@@ -1972,7 +1980,7 @@ mod session_keys {
 					),
 					rc_client::Error::<T>::InvalidKeys
 				);
-				assert!(!rc_client::HasKeyDeposit::<T>::contains_key(validator));
+				assert_eq!(key_deposit_hold(validator), 0);
 				assert_eq!(Balances::free_balance(validator), balance_before);
 			});
 
@@ -1991,7 +1999,7 @@ mod session_keys {
 				);
 			});
 
-			// Zero deposit: set + purge lifecycle works
+			// Zero deposit: set + purge lifecycle works, no hold placed
 			hypothetically!({
 				KeyDeposit::set(0);
 				let (keys, proof) = make_session_keys_and_proof(validator);
@@ -2003,20 +2011,20 @@ mod session_keys {
 					proof,
 					None,
 				));
-				assert!(rc_client::HasKeyDeposit::<T>::contains_key(validator));
+				assert_eq!(key_deposit_hold(validator), 0);
 				assert_eq!(Balances::free_balance(validator), balance_before - set_fees);
 
 				assert_ok!(rc_client::Pallet::<T>::purge_keys(
 					RuntimeOrigin::signed(validator),
 					None,
 				));
-				assert!(!rc_client::HasKeyDeposit::<T>::contains_key(validator));
+				assert_eq!(key_deposit_hold(validator), 0);
 			});
 
-			// Pre-migration purge: no deposit to release, only XCM fees
+			// Purge without prior set_keys: no deposit to release, only XCM fees
 			hypothetically!({
 				let other: AccountId = 3;
-				assert!(!rc_client::HasKeyDeposit::<T>::contains_key(other));
+				assert_eq!(key_deposit_hold(other), 0);
 				let balance_before = Balances::free_balance(other);
 				let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
 

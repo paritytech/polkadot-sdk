@@ -119,7 +119,6 @@ extern crate alloc;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-pub mod migrations;
 pub mod weights;
 
 #[cfg(feature = "xcm-sender")]
@@ -132,7 +131,10 @@ use core::fmt::Display;
 use frame_support::storage::transactional::with_transaction_opaque_err;
 use frame_support::{
 	pallet_prelude::*,
-	traits::fungible::{hold::Mutate as HoldMutate, Inspect as FunInspect, Mutate as FunMutate},
+	traits::fungible::{
+		hold::{Inspect as HoldInspect, Mutate as HoldMutate},
+		Inspect as FunInspect, Mutate as FunMutate,
+	},
 	weights::Weight,
 };
 #[cfg(feature = "xcm-sender")]
@@ -903,7 +905,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	/// Reasons for holding funds.
 	#[pallet::composite_enum]
@@ -942,10 +944,6 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type OutgoingValidatorSet<T: Config> =
 		StorageValue<_, (ValidatorSetReport<T::AccountId>, u32), OptionQuery>;
-
-	/// Accounts that have a key deposit held. Presence means a deposit is held.
-	#[pallet::storage]
-	pub type HasKeyDeposit<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1321,12 +1319,12 @@ pub mod pallet {
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
 			// Hold a deposit on first set_keys call. Subsequent calls skip (idempotent).
-			if HasKeyDeposit::<T>::get(&stash).is_none() {
-				let deposit = T::KeyDeposit::get();
-				if !deposit.is_zero() {
+			let deposit = T::KeyDeposit::get();
+			if !deposit.is_zero() {
+				let current_hold = T::Currency::balance_on_hold(&HoldReason::Keys.into(), &stash);
+				if current_hold.is_zero() {
 					T::Currency::hold(&HoldReason::Keys.into(), &stash, deposit)?;
 				}
-				HasKeyDeposit::<T>::insert(&stash, ());
 			}
 
 			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
@@ -1390,14 +1388,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// Release the key deposit if one was held.
-			if HasKeyDeposit::<T>::take(&stash).is_some() {
-				let _ = T::Currency::release_all(
-					&HoldReason::Keys.into(),
-					&stash,
-					frame_support::traits::tokens::Precision::BestEffort,
-				);
-			}
+			// Release the key deposit if one was held (no-op if nothing held).
+			let _ = T::Currency::release_all(
+				&HoldReason::Keys.into(),
+				&stash,
+				frame_support::traits::tokens::Precision::BestEffort,
+			);
 
 			// Forward purge request to RC
 			// Note: RC will fail with NoKeys if the account has no keys set
