@@ -402,6 +402,29 @@ pub mod pallet {
 			BalanceOf<Self>,
 		>;
 
+		/// Duration of vesting for validator self-stake incentive rewards, in blocks.
+		///
+		/// The incentive reward will vest linearly over this many blocks starting from
+		/// the block at which the payout is claimed.
+		///
+		/// Set to `0` to pay the incentive as liquid funds immediately (no vesting).
+		#[pallet::constant]
+		#[pallet::no_default]
+		type VestingDuration: Get<BlockNumberFor<Self>>;
+
+		/// Mechanism for paying out validator self-stake incentive rewards.
+		///
+		/// Implementations may pay immediately as liquid funds or apply a vesting schedule.
+		/// Use [`crate::ImmediateIncentivePayout`] for liquid payouts (no vesting).
+		/// Use [`crate::VestedIncentivePayout`] to vest over [`Config::VestingDuration`] blocks.
+		#[pallet::no_default_bounds]
+		#[pallet::no_default]
+		type ValidatorIncentivePayout: crate::ValidatorIncentivePayout<
+			Self::AccountId,
+			BalanceOf<Self>,
+			BlockNumberFor<Self>,
+		>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
