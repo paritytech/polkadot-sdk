@@ -705,6 +705,22 @@ impl<T> PaysFee<T> for (u64, Pays) {
 
 // END TODO
 
+/// A `DispatchGuard` is executed right before the `Call` is dispatched. It has access
+/// to read-only storage and any changes will be rolled back. Root origin will passthrough.
+/// 
+/// The trait is implemented for all tuples of up to 30 elements.
+pub trait DispatchGuard<Call: Dispatchable> {
+	fn check(origin: &Call::RuntimeOrigin, call: &Call) -> DispatchResultWithPostInfo;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl<Call: Dispatchable> DispatchGuard<Call> for Tuple {
+	fn check(origin: &Call::RuntimeOrigin, call: &Call) -> DispatchResultWithPostInfo {
+		for_tuples!( #( Tuple::check(origin, call)?; )* );
+		Ok(().into())
+	}
+}
+
 #[cfg(test)]
 // Do not complain about unused `dispatch` and `dispatch_aux`.
 #[allow(dead_code)]

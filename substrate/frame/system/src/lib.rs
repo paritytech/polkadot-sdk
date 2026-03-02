@@ -127,16 +127,16 @@ use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEnc
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
-		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
+		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchGuard, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
 		PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	migrations::MultiStepMigrator,
 	pallet_prelude::Pays,
-	storage::{self, StorageStreamIter},
+	storage::{self, transactional::with_transaction, StorageStreamIter, TransactionOutcome},
 	traits::{
-		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
+		CallerTrait, ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
 		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
 		StoredMap, TypedGet,
 	},
@@ -372,6 +372,7 @@ pub mod pallet {
 			type PreInherents = ();
 			type PostInherents = ();
 			type PostTransactions = ();
+			type DispatchGuard = ();
 		}
 
 		/// Default configurations of this pallet in a solochain environment.
@@ -474,6 +475,7 @@ pub mod pallet {
 			type PreInherents = ();
 			type PostInherents = ();
 			type PostTransactions = ();
+			type DispatchGuard = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -690,6 +692,10 @@ pub mod pallet {
 		///
 		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
 		type PostTransactions: PostTransactions;
+
+		/// The dispatch guard to use in dispatchable.
+		#[pallet::no_default_bounds]
+		type DispatchGuard: DispatchGuard<Self::RuntimeCall>;
 	}
 
 	#[pallet::pallet]
@@ -2385,6 +2391,23 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	pub fn check_dispatch_guard(
+		origin: &T::RuntimeOrigin,
+		call: &T::RuntimeCall,
+	) -> DispatchResultWithPostInfo {
+		// Root bypasses the dispatch guard.
+		if origin.caller().is_root() {
+			return Ok(().into());
+		}
+
+		// Wrap the dispatch guard in a transaction layer and we rollback
+		// to prevent any writes.
+		with_transaction(|| {
+			let result = T::DispatchGuard::check(origin, call);
+			TransactionOutcome::Rollback(result)
+		})
 	}
 }
 
