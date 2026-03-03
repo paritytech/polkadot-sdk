@@ -496,17 +496,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			// Prune mode: set to oldest remaining block in the window.
 			self.receipt_extractor.set_oldest_synced_block(oldest);
 		} else if self.receipt_extractor.oldest_synced_block().is_none() {
-			// First block in non-prune mode: set + persist LowerBound.
+			// Record the first block seen by the live subscription.
 			self.receipt_extractor.decrease_oldest_synced_block(block.number());
-			if let Err(err) = self
-				.recede_sync_label(
-					SyncLabel::LowerBound,
-					SyncCheckpoint::from_number(block.number()),
-				)
-				.await
-			{
-				log::warn!(target: LOG_TARGET, "Failed to persist LowerBound: {err:?}");
-			}
 		}
 		Ok(())
 	}
@@ -1594,13 +1585,13 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn is_before_receipt_floor_sentinel_rejects_all() {
+	async fn is_before_receipt_floor_sentinel_is_permissive() {
 		let provider = mock_provider();
 
-		// Sentinel oldest_synced_block (u32::MAX) rejects all specific-block queries.
-		assert!(provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(0u32))));
+		// Sentinel oldest_synced_block (u32::MAX) is permissive — no queries rejected.
+		assert!(!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(0u32))));
 		assert!(
-			provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
+			!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
 		);
 
 		// Tag-based queries are never rejected.

@@ -185,9 +185,10 @@ impl ReceiptExtractor {
 	}
 
 	/// Check if the block is before the `oldest_synced_block` floor.
-	/// When sentinel (`u32::MAX`), all blocks are "before" → all rejected.
+	/// When sentinel (`u32::MAX`), no blocks are rejected (permissive default).
 	pub fn is_before_oldest_synced_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		block_number < self.oldest_synced_block.load(Ordering::Acquire)
+		let raw = self.oldest_synced_block.load(Ordering::Acquire);
+		raw != u32::MAX && block_number < raw
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
@@ -414,9 +415,9 @@ mod tests {
 		assert!(extractor.evm_first_block().is_none());
 		assert!(extractor.oldest_synced_block().is_none());
 
-		// Sentinel oldest_synced_block treats all blocks as "before"
-		assert!(extractor.is_before_oldest_synced_block(0));
-		assert!(extractor.is_before_oldest_synced_block(1_000_000));
+		// Sentinel oldest_synced_block is permissive (no blocks rejected)
+		assert!(!extractor.is_before_oldest_synced_block(0));
+		assert!(!extractor.is_before_oldest_synced_block(1_000_000));
 
 		// evm_first_block only decreases
 		extractor.set_evm_first_block(100);
