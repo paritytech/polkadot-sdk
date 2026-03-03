@@ -220,11 +220,10 @@ impl Client {
 		Ok(())
 	}
 
-	/// Fresh sync: backward from `latest_finalized` down to `earliest_receipt_block` or first EVM
-	/// block. Registers hooks to set `UpperBound` on the first synced block and checkpoint
-	/// `LowerBound`.
+	/// Fresh sync: backward from `latest_finalized` down to the first EVM block.
+	/// Registers hooks to set `UpperBound` on the first synced block and checkpoint `LowerBound`.
 	async fn fresh_sync(&self, latest_finalized: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let lower_bound = self.receipt_provider().effective_earliest_block();
+		let lower_bound = self.receipt_provider().evm_first_block_number();
 		self.sync_backward(
 			latest_finalized,
 			lower_bound,
@@ -267,9 +266,8 @@ impl Client {
 				.await?;
 		}
 
-		// Bottom gap: sync from db_lower_bound - 1 down to the effective sync floor
-		// (max of earliest_receipt_block and evm_first_block).
-		let earliest_block = self.receipt_provider().effective_earliest_block();
+		// Bottom gap: sync from db_lower_bound - 1 down to the first EVM block.
+		let earliest_block = self.receipt_provider().evm_first_block_number();
 		if db_lower_bound.block_number > earliest_block {
 			self.sync_backward(
 				db_lower_bound.block_number.saturating_sub(1),
@@ -302,7 +300,7 @@ impl Client {
 		}
 	}
 
-	/// Hook that checkpoints `SyncLabel::LowerBound`, only decreasing.
+	/// Hook that checkpoints `SyncLabel::LowerBound` to DB, only decreasing.
 	fn checkpoint_lower_bound_hook<'a>(
 		&'a self,
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {

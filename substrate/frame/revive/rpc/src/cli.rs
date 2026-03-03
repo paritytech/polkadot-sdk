@@ -16,10 +16,10 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	BlockInfoProvider, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl,
-	LOG_TARGET, PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
+	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{Client, SubscriptionType, SubstrateBlockNumber, connect},
+	client::{Client, SubscriptionType, connect},
 	receipt_provider::MAX_CACHED_BLOCKS,
 };
 use clap::Parser;
@@ -55,16 +55,7 @@ pub struct CliCommand {
 	#[clap(long, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..))]
 	pub prune: Option<usize>,
 
-	/// Earliest block number to consider when searching for transaction receipts.
-	/// Must not exceed the current chain head.
-	///
-	/// If set higher than the current lowest block number in the DB, blocks between them
-	/// remain in the database but are not served by RPC.
-	#[clap(long)]
-	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
-
-	/// Sync all historical blocks from the latest finalized block down to the first EVM block
-	/// or --earliest-receipt-block, whichever is higher.
+	/// Sync all historical blocks from the latest finalized block down to the first EVM block.
 	#[clap(long, conflicts_with = "prune")]
 	pub sync: bool,
 
@@ -143,25 +134,9 @@ fn resolve_db_options(
 	}
 }
 
-/// Validate that earliest-receipt-block is not beyond the current chain head.
-fn validate_earliest_receipt_block_argument(
-	earliest_receipt_block: Option<SubstrateBlockNumber>,
-	latest_block_number: SubstrateBlockNumber,
-) -> anyhow::Result<()> {
-	if let Some(earliest) = earliest_receipt_block {
-		if earliest > latest_block_number {
-			anyhow::bail!(
-				"--earliest-receipt-block={earliest} is beyond the current chain head (#{latest_block_number})"
-			);
-		}
-	}
-	Ok(())
-}
-
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	prune: Option<usize>,
-	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
 	db_options: SqliteConnectOptions,
 	is_in_memory_db: bool,
@@ -172,9 +147,6 @@ fn build_client(
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
-
-		let latest = block_provider.latest_finalized_block().await.number();
-		validate_earliest_receipt_block_argument(earliest_receipt_block, latest)?;
 
 		let (pool, keep_latest_n_blocks) = if is_in_memory_db {
 			let max_retained_blocks = prune.unwrap_or(MAX_CACHED_BLOCKS);
@@ -191,10 +163,7 @@ fn build_client(
 			(SqlitePoolOptions::new().connect_with(db_options).await?, None)
 		};
 
-		let receipt_extractor = ReceiptExtractor::new(
-			api.clone(),
-			earliest_receipt_block,
-		).await?;
+		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
 
 		let receipt_provider = ReceiptProvider::new(
 				pool,
@@ -226,7 +195,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		prometheus_params,
 		node_rpc_url,
 		prune,
-		earliest_receipt_block,
 		sync,
 		shared_params,
 		allow_unprotected_txs,
@@ -275,7 +243,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let client = build_client(
 		tokio_handle,
 		prune,
-		earliest_receipt_block,
 		&node_rpc_url,
 		db_options,
 		is_in_memory_db,
@@ -423,16 +390,5 @@ mod tests {
 		let dir = resolve_db_dir(None);
 		let dir_str = dir.to_string_lossy();
 		assert!(dir_str.contains("eth-rpc"));
-	}
-
-	#[test]
-	fn earliest_receipt_block_at_head_is_accepted() {
-		validate_earliest_receipt_block_argument(Some(100), 100).unwrap();
-	}
-
-	#[test]
-	fn earliest_receipt_block_beyond_head_is_rejected() {
-		let err = validate_earliest_receipt_block_argument(Some(101), 100).unwrap_err();
-		assert!(err.to_string().contains("beyond the current chain head"));
 	}
 }

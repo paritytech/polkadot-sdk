@@ -60,10 +60,6 @@ pub struct ReceiptExtractor {
 	/// Fetch ethereum block hash.
 	fetch_eth_block_hash: FetchEthBlockHashFn,
 
-	/// CLI-provided earliest block number to consider when searching for transaction receipts.
-	/// Immutable after construction.
-	earliest_receipt_block: Option<SubstrateBlockNumber>,
-
 	/// Auto-discovered first EVM block on the chain.
 	/// Set once during backward sync when the first non-EVM block is encountered.
 	/// Uses `0` as sentinel for "not yet discovered".
@@ -74,27 +70,21 @@ pub struct ReceiptExtractor {
 }
 
 impl ReceiptExtractor {
-	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
-	pub async fn new(
-		api: OnlineClient<SrcChainConfig>,
-		earliest_receipt_block: Option<SubstrateBlockNumber>,
-	) -> Result<Self, ClientError> {
+	/// Create a new `ReceiptExtractor`.
+	pub async fn new(api: OnlineClient<SrcChainConfig>) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
 			api,
-			earliest_receipt_block,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
 		.await
 	}
 
-	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
+	/// Create a new `ReceiptExtractor` with custom Ethereum address recovery logic.
 	///
-	/// Specify also a custom Ethereum address recovery logic.
 	/// Use `ReceiptExtractor::new` if the default Ethereum address recovery
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
 	pub async fn new_with_custom_address_recovery(
 		api: OnlineClient<SrcChainConfig>,
-		earliest_receipt_block: Option<SubstrateBlockNumber>,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
 		let api_inner = api.clone();
@@ -124,7 +114,6 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block,
 			evm_first_block: Arc::new(AtomicU32::new(0)),
 			recover_eth_address: recover_eth_address_fn,
 		})
@@ -132,11 +121,6 @@ impl ReceiptExtractor {
 
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
-		Self::new_mock_with_earliest(None)
-	}
-
-	#[cfg(test)]
-	pub fn new_mock_with_earliest(earliest_receipt_block: Option<SubstrateBlockNumber>) -> Self {
 		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
 		// This method is useful when testing eth - substrate mapping.
 		let fetch_eth_block_hash = Arc::new(|block_hash: H256, block_number: u64| {
@@ -149,7 +133,6 @@ impl ReceiptExtractor {
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block,
 			evm_first_block: Arc::new(AtomicU32::new(0)),
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
@@ -157,24 +140,10 @@ impl ReceiptExtractor {
 		}
 	}
 
-	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
-	pub fn effective_earliest_block(&self) -> SubstrateBlockNumber {
-		let cli = self.earliest_receipt_block.unwrap_or(0);
-		let evm = self.evm_first_block.load(Ordering::Acquire);
-		cli.max(evm)
-	}
-
-	/// Check if the block is before the effective floor: `max(earliest_receipt_block,
-	/// evm_first_block)`.
-	pub fn is_before_effective_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		let floor = self.effective_earliest_block();
+	/// Check if the block is before the `evm_first_block` floor.
+	pub fn is_before_evm_first_block(&self, block_number: SubstrateBlockNumber) -> bool {
+		let floor = self.evm_first_block_number();
 		floor > 0 && block_number < floor
-	}
-
-	/// Get the CLI-provided earliest receipt block, if set.
-	#[cfg(test)]
-	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
-		self.earliest_receipt_block
 	}
 
 	/// Set the first EVM block. Only stores if lower than or equal to the current value.
@@ -186,6 +155,12 @@ impl ReceiptExtractor {
 			log::warn!(target: LOG_TARGET,
 				"Failed to update evm_first_block to #{block_number}, current is #{prev}");
 		}
+	}
+
+	/// The auto-discovered first EVM block number.
+	/// Returns `0` if not yet discovered (sentinel value).
+	pub fn evm_first_block_number(&self) -> SubstrateBlockNumber {
+		self.evm_first_block.load(Ordering::Acquire)
 	}
 
 	/// The auto-discovered first EVM block, or `None` if not yet discovered.
@@ -286,7 +261,7 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		if self.is_before_effective_earliest_block(block.number()) {
+		if self.is_before_evm_first_block(block.number()) {
 			return Ok(vec![]);
 		}
 
@@ -412,13 +387,6 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn defaults_are_none() {
-		let extractor = ReceiptExtractor::new_mock();
-		assert_eq!(extractor.earliest_receipt_block(), None);
-		assert_eq!(extractor.evm_first_block(), None);
-	}
-
-	#[test]
 	fn evm_first_block_updates_to_lower() {
 		let extractor = ReceiptExtractor::new_mock();
 		extractor.set_evm_first_block(100);
@@ -432,34 +400,5 @@ mod tests {
 		extractor.set_evm_first_block(50);
 		extractor.set_evm_first_block(100);
 		assert_eq!(extractor.evm_first_block(), Some(50));
-	}
-
-	#[test]
-	fn is_before_effective_earliest_block_with_no_bound() {
-		let extractor = ReceiptExtractor::new_mock();
-		assert!(!extractor.is_before_effective_earliest_block(0));
-		assert!(!extractor.is_before_effective_earliest_block(999));
-	}
-
-	#[test]
-	fn is_before_effective_earliest_block_uses_max_of_cli_and_evm() {
-		let extractor = ReceiptExtractor::new_mock_with_earliest(Some(10));
-		// CLI = 10, EVM not set → floor = 10
-		assert!(extractor.is_before_effective_earliest_block(9));
-		assert!(!extractor.is_before_effective_earliest_block(10));
-
-		// EVM = 20 → floor = max(10, 20) = 20
-		extractor.set_evm_first_block(20);
-		assert!(extractor.is_before_effective_earliest_block(19));
-		assert!(!extractor.is_before_effective_earliest_block(20));
-	}
-
-	#[test]
-	fn is_before_effective_earliest_block_cli_higher_than_evm() {
-		let extractor = ReceiptExtractor::new_mock_with_earliest(Some(100));
-		extractor.set_evm_first_block(50);
-		// floor = max(100, 50) = 100
-		assert!(extractor.is_before_effective_earliest_block(99));
-		assert!(!extractor.is_before_effective_earliest_block(100));
 	}
 }

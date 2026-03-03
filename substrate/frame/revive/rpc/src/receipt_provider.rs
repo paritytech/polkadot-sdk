@@ -103,28 +103,22 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(provider)
 	}
 
-	/// Get the CLI-provided earliest receipt block, if set.
-	#[cfg(test)]
-	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
-		self.receipt_extractor.earliest_receipt_block()
-	}
-
-	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
-	pub fn effective_earliest_block(&self) -> SubstrateBlockNumber {
-		self.receipt_extractor.effective_earliest_block()
-	}
-
-	/// Check if the block is before the earliest block (CLI or auto-discovered first EVM block).
-	pub fn is_before_effective_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
+	/// Check if the block is before the `evm_first_block` floor.
+	pub fn is_before_evm_first_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
 				if *block_number > U256::from(u32::MAX) {
 					return false;
 				}
-				self.receipt_extractor.is_before_effective_earliest_block(block_number.as_u32())
+				self.receipt_extractor.is_before_evm_first_block(block_number.as_u32())
 			},
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
+	}
+
+	/// The auto-discovered first EVM block number (`0` if not yet discovered).
+	pub fn evm_first_block_number(&self) -> SubstrateBlockNumber {
+		self.receipt_extractor.evm_first_block_number()
 	}
 
 	/// Set the auto-discovered first EVM block (in-memory + persisted to DB).
@@ -1519,7 +1513,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn is_before_effective_earliest_block_u256_overflow() {
+	async fn is_before_evm_first_block_u256_overflow() {
 		let extractor = ReceiptExtractor::new_mock();
 		extractor.set_evm_first_block(10);
 		let provider = ReceiptProvider {
@@ -1532,10 +1526,10 @@ mod tests {
 
 		// U256 > u32::MAX should never be considered "before earliest"
 		let huge = BlockNumberOrTag::U256(U256::from(u64::MAX));
-		assert!(!provider.is_before_effective_earliest_block(&huge));
+		assert!(!provider.is_before_evm_first_block(&huge));
 
 		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
-		assert!(!provider.is_before_effective_earliest_block(&just_over));
+		assert!(!provider.is_before_evm_first_block(&just_over));
 	}
 
 	#[sqlx::test]

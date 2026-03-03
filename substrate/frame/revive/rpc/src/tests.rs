@@ -327,7 +327,6 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_sync_boundary_mismatch,
 		test_block_sync_receipts_queryable,
 		test_block_sync_picks_up_new_blocks,
-		test_block_sync_earliest_receipt_block,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -989,13 +988,6 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
-	create_sync_test_client_with_earliest(None).await
-}
-
-/// Create a [`Client`] for block-sync testing with an optional `earliest_receipt_block`.
-async fn create_sync_test_client_with_earliest(
-	earliest_receipt_block: Option<u32>,
-) -> anyhow::Result<Client> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -1011,7 +1003,7 @@ async fn create_sync_test_client_with_earliest(
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone(), earliest_receipt_block).await?;
+	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
 	let receipt_provider =
 		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
 
@@ -1087,7 +1079,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let evm_first = client.receipt_provider().get_sync_label(SyncLabel::EvmFirstBlock).await?;
 	assert!(evm_first.is_none(), "EvmFirstBlock should not be set when all blocks are EVM");
 	assert_eq!(client.receipt_provider().evm_first_block(), None);
-	assert_eq!(client.receipt_provider().effective_earliest_block(), 0);
+	assert_eq!(client.receipt_provider().evm_first_block_number(), 0);
 
 	log::debug!(
 		target: LOG_TARGET,
@@ -1363,95 +1355,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
 		finalized2.number(),
-		client2.receipt_provider().effective_earliest_block(),
-	);
-
-	Ok(())
-}
-
-/// When `--earliest-receipt-block` is set, the sync should stop at that block.
-async fn test_block_sync_earliest_receipt_block() -> anyhow::Result<()> {
-	use crate::block_sync::SyncCheckpoint;
-
-	// Submit transactions so the chain has enough blocks.
-	submit_evm_transfers(5).await?;
-
-	// Need chain length to compute `earliest` before constructing the client
-	// (earliest_receipt_block is set at construction time).
-	let probe = create_sync_test_client().await?;
-	let chain_len = probe.latest_finalized_block().await.number();
-	assert!(chain_len >= 5, "Chain must have at least 5 blocks for this test");
-	let earliest = chain_len / 2;
-	drop(probe);
-
-	let client = create_sync_test_client_with_earliest(Some(earliest)).await?;
-
-	// Verify earliest_block reflects the CLI setting.
-	assert_eq!(
-		client.receipt_provider().earliest_receipt_block(),
-		Some(earliest),
-		"earliest_receipt_block should be set"
-	);
-	assert_eq!(
-		client.receipt_provider().effective_earliest_block(),
-		earliest,
-		"earliest_block should equal earliest_receipt_block before sync"
-	);
-
-	// Run the full sync.
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
-
-	// UpperBound should be 0 (sync complete).
-	assert_eq!(
-		client
-			.receipt_provider()
-			.get_sync_label(SyncLabel::UpperBound)
-			.await?
-			.expect("UpperBound should be set after sync"),
-		SyncCheckpoint::from_number(0),
-		"UpperBound should be {{0, None}} after completed sync"
-	);
-
-	// LowerBound should be exactly `earliest`.
-	assert_eq!(
-		client
-			.receipt_provider()
-			.get_sync_label(SyncLabel::LowerBound)
-			.await?
-			.expect("LowerBound should be set after sync")
-			.block_number,
-		earliest,
-		"LowerBound should equal earliest_receipt_block"
-	);
-
-	assert!(earliest > 1, "earliest must be > 1 for this check");
-	assert_eq!(
-		client.receipt_provider().effective_earliest_block(),
-		earliest,
-		"effective_earliest_block() should equal earliest_receipt_block after sync"
-	);
-
-	// Blocks below `earliest` should NOT have ethereum hash mappings.
-	let block_below_earliest = client
-		.block_provider()
-		.block_by_number(earliest - 1)
-		.await?
-		.expect("Block before earliest should exist on chain");
-	assert!(
-		client
-			.receipt_provider()
-			.get_ethereum_hash(&block_below_earliest.hash())
-			.await
-			.is_none(),
-		"Block #{} (below earliest_receipt_block) should not be synced",
-		earliest - 1,
-	);
-
-	log::debug!(
-		target: LOG_TARGET,
-		"Earliest receipt block OK: earliest=#{}",
-		earliest
+		client2.receipt_provider().evm_first_block_number(),
 	);
 
 	Ok(())
