@@ -474,7 +474,7 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 }
 
 parameter_types! {
-	pub static MinSetKeysBond: Balance = 0;
+	pub static KeyDeposit: Balance = 10;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -484,9 +484,14 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
+<<<<<<< HEAD:substrate/frame/staking-async/ahm-test/src/ah/mock.rs
 	type Balance = Balance;
 	type MaxSessionKeysLength = ConstU32<256>;
 	type MinSetKeysBond = MinSetKeysBond;
+=======
+	type Currency = Balances;
+	type KeyDeposit = KeyDeposit;
+>>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222)):substrate/frame/staking-async/integration-tests/src/ah/mock.rs
 	type WeightInfo = ();
 }
 
