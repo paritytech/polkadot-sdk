@@ -47,7 +47,7 @@ pub(crate) struct RequestResultCache {
 	check_validation_outputs: LruMap<(Hash, ParaId, CandidateCommitments), bool>,
 	session_index_for_child: LruMap<Hash, SessionIndex>,
 	validation_code: LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCode>>,
-	validation_code_by_hash: LruMap<ValidationCodeHash, Option<ValidationCode>>,
+	validation_code_by_hash: LruMap<ValidationCodeHash, ValidationCode>,
 	candidate_pending_availability: LruMap<(Hash, ParaId), Option<CommittedCandidateReceipt>>,
 	candidates_pending_availability: LruMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>>,
 	candidate_events: LruMap<Hash, Vec<CandidateEvent>>,
@@ -244,12 +244,15 @@ impl RequestResultCache {
 		self.validation_code.insert(key, value);
 	}
 
-	// the actual key is `ValidationCodeHash` (`Hash` is ignored),
-	// but we keep the interface that way to keep the macro simple
+	// The actual key is `ValidationCodeHash` (`Hash` is ignored).
+	// Only `Some` values are cached: validation code may not exist at query time but
+	// could be added later (e.g. via `force_set_current_code`). Caching `None` would
+	// produce stale results that prevent approval voting from fetching code that is
+	// already on-chain, stalling finality.
 	pub(crate) fn validation_code_by_hash(
 		&mut self,
 		key: (Hash, ValidationCodeHash),
-	) -> Option<&Option<ValidationCode>> {
+	) -> Option<&ValidationCode> {
 		self.validation_code_by_hash.get(&key.1).map(|v| &*v)
 	}
 
@@ -258,7 +261,9 @@ impl RequestResultCache {
 		key: ValidationCodeHash,
 		value: Option<ValidationCode>,
 	) {
-		self.validation_code_by_hash.insert(key, value);
+		if let Some(code) = value {
+			self.validation_code_by_hash.insert(key, code);
+		}
 	}
 
 	pub(crate) fn candidate_pending_availability(
@@ -682,4 +687,26 @@ pub(crate) enum RequestResult {
 	ValidationCodeBombLimit(SessionIndex, u32),
 	ParaIds(SessionIndex, Vec<ParaId>),
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn validation_code_by_hash_does_not_cache_none() {
+		let mut cache = RequestResultCache::default();
+		let relay_parent: Hash = [1u8; 32].into();
+		let code = ValidationCode(vec![1, 2, 3]);
+		let code_hash = code.hash();
+
+		cache.cache_validation_code_by_hash(code_hash, None);
+		assert!(
+			cache.validation_code_by_hash((relay_parent, code_hash)).is_none(),
+			"None results must not be cached",
+		);
+
+		cache.cache_validation_code_by_hash(code_hash, Some(code.clone()));
+		assert_eq!(cache.validation_code_by_hash((relay_parent, code_hash)), Some(&code),);
+	}
 }

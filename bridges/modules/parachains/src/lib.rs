@@ -530,7 +530,9 @@ pub mod pallet {
 									if at_relay_block.0.saturating_sub(
 										best_head.best_head_hash.at_relay_block_number,
 									) >= free_headers_interval =>
-									true,
+								{
+									true
+								},
 								Some(_) => false,
 								None => true,
 							};

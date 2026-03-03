@@ -22,9 +22,9 @@
 
 //! It does this by extending transactions to include an optional `AssetId` that specifies the asset
 //! to be used for payment (defaulting to the native token on `None`). It expects an
-//! [`OnChargeAssetTransaction`] implementation analogously to [`pallet-transaction-payment`]. The
+//! [`OnChargeAssetTransaction`] implementation analogously to `pallet-transaction-payment`. The
 //! included [`FungiblesAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the fee
-//! amount by converting the fee calculated by [`pallet-transaction-payment`] into the desired
+//! amount by converting the fee calculated by `pallet-transaction-payment` into the desired
 //! asset.
 //!
 //! ## Integration
@@ -375,8 +375,9 @@ where
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, initial_payment, asset_id, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, asset_id, weight } =>
-				(tip, who, initial_payment, asset_id, weight),
+			Pre::Charge { tip, who, initial_payment, asset_id, weight } => {
+				(tip, who, initial_payment, asset_id, weight)
+			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
 				return Ok(refund);

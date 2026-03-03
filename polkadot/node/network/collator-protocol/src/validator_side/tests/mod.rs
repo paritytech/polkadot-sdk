@@ -416,18 +416,20 @@ async fn connect_and_declare_collator(
 	.await;
 
 	let wire_message = match version {
-		CollationVersion::V1 =>
+		CollationVersion::V1 => {
 			CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
-		CollationVersion::V2 =>
+			))
+		},
+		CollationVersion::V2 => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
+			))
+		},
 	};
 
 	overseer_send(
@@ -448,12 +450,13 @@ async fn advertise_collation(
 	candidate: Option<(CandidateHash, Hash)>, // Candidate hash + parent head data hash.
 ) {
 	let wire_message = match candidate {
-		Some((candidate_hash, parent_head_data_hash)) =>
+		Some((candidate_hash, parent_head_data_hash)) => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 				relay_parent,
 				candidate_hash,
 				parent_head_data_hash,
-			}),
+			})
+		},
 		None => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
 			relay_parent,
 		)),

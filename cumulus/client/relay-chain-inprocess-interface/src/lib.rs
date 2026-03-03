@@ -33,7 +33,9 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::{
+	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
+};
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_primitives::CandidateEvent;
 use polkadot_service::{
@@ -109,12 +111,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.full_client.hash(num)? {
 					hash
 				} else {
 					return Ok(None);
-				},
+				}
+			},
 		};
 		let header = self.full_client.header(hash)?;
 
@@ -237,6 +240,18 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
+			.map_err(RelayChainError::StateMachineError)
+	}
+
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
+
+		sp_state_machine::prove_child_read(state_backend, child_info, child_keys)
 			.map_err(RelayChainError::StateMachineError)
 	}
 
@@ -420,6 +435,7 @@ fn build_polkadot_full_node(
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
 		experimental_collator_protocol: false,
+		collator_reputation_persist_interval: None,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {

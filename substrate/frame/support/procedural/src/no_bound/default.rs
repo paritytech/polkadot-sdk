@@ -138,13 +138,14 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 				},
 			}
 		},
-		Data::Union(union_) =>
+		Data::Union(union_) => {
 			return syn::Error::new_spanned(
 				union_.union_token,
 				"Union type not supported by `derive(DefaultNoBound)`",
 			)
 			.to_compile_error()
-			.into(),
+			.into()
+		},
 	};
 
 	quote!(

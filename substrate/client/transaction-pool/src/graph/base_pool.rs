@@ -481,12 +481,13 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 							match worst.transaction.priority.cmp(&transaction.transaction.priority)
 							{
 								Ordering::Less => worst,
-								Ordering::Equal =>
+								Ordering::Equal => {
 									if worst.insertion_id > transaction.insertion_id {
 										transaction.clone()
 									} else {
 										worst
-									},
+									}
+								},
 								Ordering::Greater => transaction.clone(),
 							}
 						})
@@ -514,12 +515,13 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 								worst
 							}
 						},
-						_ =>
+						_ => {
 							if worst.imported_at > current.imported_at {
 								current.clone()
 							} else {
 								worst
-							},
+							}
+						},
 					},
 				),
 			});
