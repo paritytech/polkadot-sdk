@@ -154,11 +154,7 @@ impl<B: Backend> PeerManager<B> {
 
 		let updates = self
 			.db
-			.process_bumps(
-				finalized_block_number,
-				bumps,
-				Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
-			)
+			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)))
 			.await;
 		for update in updates {
 			self.connected.update_reputation(update);
