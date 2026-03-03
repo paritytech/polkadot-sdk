@@ -223,7 +223,7 @@ impl Client {
 	/// Fresh sync: backward from `latest_finalized` down to the first EVM block.
 	/// Registers hooks to set `UpperBound` on the first synced block and checkpoint `LowerBound`.
 	async fn fresh_sync(&self, latest_finalized: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let lower_bound = self.receipt_provider().evm_first_block_number();
+		let lower_bound = self.receipt_provider().evm_first_block().unwrap_or(0);
 		self.sync_backward(
 			latest_finalized,
 			lower_bound,
@@ -267,7 +267,7 @@ impl Client {
 		}
 
 		// Bottom gap: sync from db_lower_bound - 1 down to the first EVM block.
-		let earliest_block = self.receipt_provider().evm_first_block_number();
+		let earliest_block = self.receipt_provider().evm_first_block().unwrap_or(0);
 		if db_lower_bound.block_number > earliest_block {
 			self.sync_backward(
 				db_lower_bound.block_number.saturating_sub(1),

@@ -62,8 +62,12 @@ pub struct ReceiptExtractor {
 
 	/// Auto-discovered first EVM block on the chain.
 	/// Set once during backward sync when the first non-EVM block is encountered.
-	/// Uses `0` as sentinel for "not yet discovered".
+	/// Uses `u32::MAX` as sentinel for "not yet discovered".
 	evm_first_block: Arc<AtomicU32>,
+
+	/// The lowest block number with receipt data in database.
+	/// Uses `u32::MAX` as sentinel for "no data yet".
+	oldest_synced_block: Arc<AtomicU32>,
 
 	/// Recover the ethereum address from a transaction signature.
 	recover_eth_address: RecoverEthAddressFn,
@@ -114,7 +118,8 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			evm_first_block: Arc::new(AtomicU32::new(0)),
+			evm_first_block: Arc::new(AtomicU32::new(u32::MAX)),
+			oldest_synced_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: recover_eth_address_fn,
 		})
 	}
@@ -133,7 +138,8 @@ impl ReceiptExtractor {
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			evm_first_block: Arc::new(AtomicU32::new(0)),
+			evm_first_block: Arc::new(AtomicU32::new(u32::MAX)),
+			oldest_synced_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
 			}),
@@ -141,33 +147,47 @@ impl ReceiptExtractor {
 	}
 
 	/// Check if the block is before the `evm_first_block` floor.
+	/// When sentinel (`u32::MAX`), no blocks are rejected (permissive default).
 	pub fn is_before_evm_first_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		let floor = self.evm_first_block_number();
-		floor > 0 && block_number < floor
+		let raw = self.evm_first_block.load(Ordering::Acquire);
+		raw != u32::MAX && block_number < raw
 	}
 
-	/// Set the first EVM block. Only stores if lower than or equal to the current value.
+	/// Set the first EVM block. Only stores if lower than the current value.
 	pub fn set_evm_first_block(&self, block_number: SubstrateBlockNumber) {
-		if let Err(prev) =
-			self.evm_first_block.fetch_update(Ordering::Release, Ordering::Acquire, |prev| {
-				(prev == 0 || block_number <= prev).then_some(block_number)
-			}) {
+		let prev = self.evm_first_block.fetch_min(block_number, Ordering::AcqRel);
+		if block_number > prev {
 			log::warn!(target: LOG_TARGET,
 				"Failed to update evm_first_block to #{block_number}, current is #{prev}");
 		}
 	}
 
-	/// The auto-discovered first EVM block number.
-	/// Returns `0` if not yet discovered (sentinel value).
-	pub fn evm_first_block_number(&self) -> SubstrateBlockNumber {
-		self.evm_first_block.load(Ordering::Acquire)
-	}
-
 	/// The auto-discovered first EVM block, or `None` if not yet discovered.
-	#[cfg(test)]
 	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
 		let val = self.evm_first_block.load(Ordering::Acquire);
-		if val > 0 { Some(val) } else { None }
+		(val != u32::MAX).then_some(val)
+	}
+
+	/// Atomically decrease `oldest_synced_block` (for sync + first subscription block).
+	pub fn decrease_oldest_synced_block(&self, block_number: SubstrateBlockNumber) {
+		self.oldest_synced_block.fetch_min(block_number, Ordering::AcqRel);
+	}
+
+	/// Set `oldest_synced_block` to an exact value (for prune — can increase).
+	pub fn set_oldest_synced_block(&self, block_number: SubstrateBlockNumber) {
+		self.oldest_synced_block.store(block_number, Ordering::Release);
+	}
+
+	/// The oldest synced block, or `None` if no data has been synced yet.
+	pub fn oldest_synced_block(&self) -> Option<SubstrateBlockNumber> {
+		let val = self.oldest_synced_block.load(Ordering::Acquire);
+		(val != u32::MAX).then_some(val)
+	}
+
+	/// Check if the block is before the `oldest_synced_block` floor.
+	/// When sentinel (`u32::MAX`), all blocks are "before" → all rejected.
+	pub fn is_before_oldest_synced_block(&self, block_number: SubstrateBlockNumber) -> bool {
+		block_number < self.oldest_synced_block.load(Ordering::Acquire)
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
@@ -387,18 +407,40 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn evm_first_block_updates_to_lower() {
+	fn defaults_and_evm_first_block_only_decreases() {
 		let extractor = ReceiptExtractor::new_mock();
+
+		// Both default to None
+		assert!(extractor.evm_first_block().is_none());
+		assert!(extractor.oldest_synced_block().is_none());
+
+		// Sentinel oldest_synced_block treats all blocks as "before"
+		assert!(extractor.is_before_oldest_synced_block(0));
+		assert!(extractor.is_before_oldest_synced_block(1_000_000));
+
+		// evm_first_block only decreases
 		extractor.set_evm_first_block(100);
+		assert_eq!(extractor.evm_first_block(), Some(100));
+
 		extractor.set_evm_first_block(50);
+		assert_eq!(extractor.evm_first_block(), Some(50));
+
+		// Higher value is ignored
+		extractor.set_evm_first_block(100);
 		assert_eq!(extractor.evm_first_block(), Some(50));
 	}
 
 	#[test]
-	fn evm_first_block_ignores_higher() {
+	fn oldest_synced_block_decrease_only_decreases() {
 		let extractor = ReceiptExtractor::new_mock();
-		extractor.set_evm_first_block(50);
-		extractor.set_evm_first_block(100);
-		assert_eq!(extractor.evm_first_block(), Some(50));
+		extractor.decrease_oldest_synced_block(100);
+		assert_eq!(extractor.oldest_synced_block(), Some(100));
+
+		extractor.decrease_oldest_synced_block(50);
+		assert_eq!(extractor.oldest_synced_block(), Some(50));
+
+		// Higher value is ignored by fetch_min
+		extractor.decrease_oldest_synced_block(200);
+		assert_eq!(extractor.oldest_synced_block(), Some(50));
 	}
 }

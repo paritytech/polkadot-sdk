@@ -1079,7 +1079,6 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let evm_first = client.receipt_provider().get_sync_label(SyncLabel::EvmFirstBlock).await?;
 	assert!(evm_first.is_none(), "EvmFirstBlock should not be set when all blocks are EVM");
 	assert_eq!(client.receipt_provider().evm_first_block(), None);
-	assert_eq!(client.receipt_provider().evm_first_block_number(), 0);
 
 	log::debug!(
 		target: LOG_TARGET,
@@ -1355,7 +1354,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
 		finalized2.number(),
-		client2.receipt_provider().evm_first_block_number(),
+		client2.receipt_provider().evm_first_block().unwrap_or(0),
 	);
 
 	Ok(())
