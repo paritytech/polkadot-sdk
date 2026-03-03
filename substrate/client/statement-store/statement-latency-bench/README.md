@@ -1,6 +1,7 @@
 # Statement Store Latency Benchmark
 
-CLI tool for benchmarking statement store latency at scale. Clients form a ring topology where each subscribes to statements from the next client, measuring propagation latency across the network.
+CLI tool for benchmarking statement store latency at scale. Clients form a ring topology where each subscribes
+to statements from the next client, measuring propagation latency across the network.
 
 ## Building
 
@@ -59,5 +60,6 @@ Results are logged with min/avg/max statistics for:
 
 Example output:
 ```
-Benchmark Results: send_min=0.045s send_avg=0.123s send_max=0.234s receive_min=2.134s receive_avg=3.456s receive_max=5.678s latency_min=2.234s latency_avg=3.567s latency_max=5.789s
+Benchmark Results: send_min=0.045s send_avg=0.123s send_max=0.234s receive_min=2.134s receive_avg=3.456s
+receive_max=5.678s latency_min=2.234s latency_avg=3.567s latency_max=5.789s
 ```
