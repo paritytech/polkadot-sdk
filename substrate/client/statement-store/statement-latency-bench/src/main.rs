@@ -41,7 +41,7 @@ use jsonrpsee::{
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
-use sp_statement_store::{Statement, SubmitResult, Topic, TopicFilter};
+use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 
@@ -204,7 +204,7 @@ async fn run_client(
 			.try_into()
 			.map_err(|_| anyhow!("Client {client_id}: Too many topics (max 128)"))?;
 
-		let mut subscription: Subscription<Bytes> = rpc_client
+		let mut subscription: Subscription<StatementEvent> = rpc_client
 			.subscribe(
 				"statement_subscribeStatement",
 				rpc_params![TopicFilter::MatchAny(bounded_topics)],
@@ -255,12 +255,12 @@ async fn run_client(
 				timeout(Duration::from_millis(receive_timeout_ms), subscription.next()).await;
 
 			match result {
-				Ok(Some(Ok(_))) => {
-					received_count += 1;
+				Ok(Some(Ok(StatementEvent::NewStatements { statements, .. }))) => {
+					received_count += statements.len() as u32;
 					if is_leader(client_id) {
 						debug!(
-							"Round {}/{}. Received {} statement(s)",
-							round, num_rounds, received_count
+							"Round {}/{}. Received {} statement(s) (batch of {})",
+							round, num_rounds, received_count, statements.len()
 						);
 					}
 				},
