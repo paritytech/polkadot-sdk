@@ -46,9 +46,6 @@ async fn deregister_register_validator_smoke_test() -> Result<(), anyhow::Error>
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
 
-	// loop {
-	// 	tokio::time::sleep(std::time::Duration::from_secs(50)).await;
-	// }
 
 	let alice_node = network.get_node("alice")?;
 	let dave_node = network.get_node("dave")?;
