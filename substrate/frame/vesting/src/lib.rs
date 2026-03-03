@@ -47,8 +47,8 @@
 
 mod benchmarking;
 
-#[cfg(test)]
-mod mock;
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod mock;
 #[cfg(test)]
 mod tests;
 mod vesting_info;
@@ -309,6 +309,10 @@ pub mod pallet {
 		ScheduleIndexOutOfBounds,
 		/// Failed to create a new schedule because some parameter was invalid.
 		InvalidScheduleParams,
+		/// The source and target accounts are the same. A vested transfer to self is not
+		/// allowed because the currency transfer is a no-op, but the vesting lock would still
+		/// be created in storage.
+		SelfVestedTransfer,
 	}
 
 	#[pallet::call]
@@ -555,6 +559,10 @@ impl<T: Config> Pallet<T> {
 		target: &T::AccountId,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
+		// Disallow transfers to self. When source == target, Currency::transfer is a no-op
+		// (returns Ok without moving funds).
+		ensure!(source != target, Error::<T>::SelfVestedTransfer);
+
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {

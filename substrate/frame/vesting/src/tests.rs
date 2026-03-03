@@ -1262,3 +1262,167 @@ fn vested_transfer_impl_works() {
 		);
 	});
 }
+
+#[test]
+fn self_vested_transfer_fails() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user3_free_balance = Balances::free_balance(&3);
+		assert_eq!(user3_free_balance, ED * 30);
+
+		let schedule = VestingInfo::new(
+			ED * 5,
+			64, // Vesting over 20 blocks
+			10,
+		);
+
+		// A vested transfer to self must fail.
+		assert_noop!(
+			Vesting::vested_transfer(Some(3).into(), 3, schedule),
+			Error::<Test>::SelfVestedTransfer,
+		);
+
+		// No storage was created.
+		assert_eq!(VestingStorage::<Test>::get(&3), None);
+		// No balance changed.
+		assert_eq!(Balances::free_balance(&3), user3_free_balance);
+	});
+}
+
+#[test]
+fn self_force_vested_transfer_fails() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user3_free_balance = Balances::free_balance(&3);
+
+		let schedule = VestingInfo::new(
+			ED * 5,
+			64, // Vesting over 20 blocks
+			10,
+		);
+
+		// Even root cannot do a vested transfer to self since it goes through
+		// do_vested_transfer which rejects source == target.
+		assert_noop!(
+			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 3, schedule),
+			Error::<Test>::SelfVestedTransfer,
+		);
+
+		// No storage was created.
+		assert_eq!(VestingStorage::<Test>::get(&3), None);
+		// No balance changed.
+		assert_eq!(Balances::free_balance(&3), user3_free_balance);
+	});
+}
+
+#[test]
+fn self_vested_transfer_to_empty_account_no_storage_pollution() {
+	// Reproduces the attack described in the security report:
+	// An attacker transfers all funds away, then calls vested_transfer to self with a huge
+	// schedule. Without the fix, Currency::transfer to self is a no-op but the vesting lock
+	// would still be created, polluting storage at minimal cost.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// Account 4 has no vesting and 40 * ED balance.
+		assert_eq!(VestingStorage::<Test>::get(&4), None);
+		assert_eq!(Balances::free_balance(&4), ED * 40);
+
+		// Simulate the attack: first transfer all funds away.
+		assert_ok!(Balances::transfer_allow_death(Some(4).into(), 3, ED * 40));
+		assert_eq!(Balances::free_balance(&4), 0);
+
+		// Now attempt the self-vested-transfer with a huge amount.
+		let huge_schedule = VestingInfo::new(
+			ED * 999_999,
+			1,
+			999_999_999,
+		);
+		assert_noop!(
+			Vesting::vested_transfer(Some(4).into(), 4, huge_schedule),
+			Error::<Test>::SelfVestedTransfer,
+		);
+
+		// No orphaned storage was created.
+		assert_eq!(VestingStorage::<Test>::get(&4), None);
+	});
+}
+
+#[test]
+fn vested_transfer_from_empty_account_to_different_target_fails() {
+	// Validates Engineer 1's assumption: when source != target but source has no funds,
+	// Currency::transfer correctly fails (it's not a no-op since source != target).
+	// This means proxy/derivative attacks where source is different from target don't work.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// Account 4 has funds, account 100 does not exist.
+		assert_eq!(Balances::free_balance(&4), ED * 40);
+		assert_eq!(Balances::free_balance(&100), 0);
+
+		let schedule = VestingInfo::new(
+			ED * 5,
+			64, // Vesting over 20 blocks
+			10,
+		);
+
+		// Transfer from a non-existent/empty account to a real target fails at the
+		// Currency::transfer level, not silently succeeding.
+		assert_noop!(
+			Vesting::vested_transfer(Some(100).into(), 4, schedule),
+			TokenError::FundsUnavailable,
+		);
+
+		// No vesting storage was created for account 4.
+		assert_eq!(VestingStorage::<Test>::get(&4), None);
+		// Account 4 balance is unchanged.
+		assert_eq!(Balances::free_balance(&4), ED * 40);
+	});
+}
+
+#[test]
+fn vested_transfer_from_drained_account_to_different_target_fails() {
+	// Validates that even if an account drains its balance within a batch, it cannot
+	// create a vested transfer to a different target without funds.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		assert_eq!(Balances::free_balance(&3), ED * 30);
+		assert_eq!(Balances::free_balance(&4), ED * 40);
+
+		// Account 3 transfers all funds to account 4, simulating drain.
+		assert_ok!(Balances::transfer_allow_death(Some(3).into(), 4, ED * 30));
+		assert_eq!(Balances::free_balance(&3), 0);
+
+		let schedule = VestingInfo::new(
+			ED * 5,
+			64,
+			10,
+		);
+
+		// Attempting vested_transfer from drained account 3 to account 4 fails.
+		assert_noop!(
+			Vesting::vested_transfer(Some(3).into(), 4, schedule),
+			TokenError::FundsUnavailable,
+		);
+
+		// No vesting schedule created on account 4.
+		assert_eq!(VestingStorage::<Test>::get(&4), None);
+	});
+}
+
+#[test]
+fn self_vested_transfer_via_trait_impl_fails() {
+	// Ensures the VestedTransfer trait implementation also rejects self-transfers.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user3_free_balance = Balances::free_balance(&3);
+
+		assert_noop!(
+			<Vesting as VestedTransfer<_>>::vested_transfer(
+				&3,
+				&3,
+				ED * 5,
+				ED * 5 / 20,
+				10
+			),
+			Error::<Test>::SelfVestedTransfer,
+		);
+
+		// No storage was created.
+		assert_eq!(VestingStorage::<Test>::get(&3), None);
+		// No balance changed.
+		assert_eq!(Balances::free_balance(&3), user3_free_balance);
+	});
+}

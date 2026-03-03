@@ -1,0 +1,34 @@
+[package]
+name = "pallet-vesting-fuzzer"
+version = "2.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Fuzzer for pallet-vesting operations."
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[[bin]]
+name = "vesting"
+path = "src/main.rs"
+
+[dependencies]
+honggfuzz = { workspace = true }
+
+pallet-vesting = { features = ["fuzzing"], workspace = true, default-features = true }
+
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+
+log = { workspace = true, default-features = true }
+rand = { features = ["small_rng"], workspace = true, default-features = true }
