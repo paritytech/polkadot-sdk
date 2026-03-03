@@ -32,14 +32,16 @@ statement-latency-bench \
 
 ## CLI Arguments
 
-| Argument               | Description                                         | Default |
-| ---------------------- | --------------------------------------------------- | ------- |
-| `--rpc-endpoints`      | Comma-separated WebSocket URLs (required)           | -       |
-| `--num-clients`        | Number of clients to spawn                          | 100     |
-| `--messages-pattern`   | Message pattern "count:size" (e.g., "5:512,3:1024") | "5:512" |
-| `--num-rounds`         | Number of benchmark rounds                          | 1       |
-| `--interval-ms`        | Interval between rounds (ms)                        | 10000   |
-| `--receive-timeout-ms` | Timeout for receiving messages (ms)                 | 5000    |
+| Argument                | Description                                         | Default |
+| ----------------------- | --------------------------------------------------- | ------- |
+| `--rpc-endpoints`       | Comma-separated WebSocket URLs (required)           | -       |
+| `--num-clients`         | Number of clients to spawn                          | 100     |
+| `--messages-pattern`    | Message pattern "count:size" (e.g., "5:512,3:1024") | "5:512" |
+| `--num-rounds`          | Number of benchmark rounds                          | 1       |
+| `--interval-ms`         | Interval between rounds (ms)                        | 10000   |
+| `--receive-timeout-ms`  | Timeout for receiving messages (ms)                 | 5000    |
+| `--statement-expiry-ms` | Statement expiry time (ms)                          | 600000  |
+| `--skip-sync`           | Skip time synchronization (for local testing)       | false   |
 
 ## How It Works
 
