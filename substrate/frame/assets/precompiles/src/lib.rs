@@ -406,16 +406,13 @@ where
 		call: &IERC20::permitCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Charge for permit verification/consumption + the approval from pallet_assets
-		let permit_weight = <Runtime as permit::Config>::WeightInfo::use_permit()
-			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
-		env.charge(permit_weight)?;
+		// Charge for the full end-to-end permit flow: asset name read, ECDSA recovery,
+		// nonce write, and approval write. Weight is benchmarked end-to-end in
+		// permit_benchmarks::permit().
+		env.charge(<Runtime as permit::Config>::WeightInfo::permit())?;
 
 		let owner_h160: H160 = call.owner.into_array().into();
 		let spender_h160: H160 = call.spender.into_array().into();
-
-		// Fetch token name for EIP-712 domain separator (per EIP-2612 spec)
-		let token_name = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id.clone());
 
 		// Convert U256 values to byte arrays
 		let value_bytes: [u8; 32] = call.value.to_be_bytes();
@@ -428,7 +425,7 @@ where
 				// Use the permit - this validates deadline, signature, and increments nonce
 				permit::Pallet::<Runtime>::use_permit(
 					&verifying_contract,
-					&token_name,
+					&pallet_assets::Pallet::<Runtime, Instance>::name(asset_id.clone()),
 					&owner_h160,
 					&spender_h160,
 					&value_bytes,

@@ -83,6 +83,14 @@ pub trait PermitWeightInfo {
 	/// Weight for the full permit operation (verify signature + increment nonce).
 	/// This does NOT include the approval weight from pallet_assets.
 	fn use_permit() -> Weight;
+	/// Weight for the full end-to-end `permit()` precompile call (EIP-2612).
+	///
+	/// Covers all operations performed by the permit precompile in a single call:
+	/// - Asset metadata name read (`pallet_assets::Metadata` r:1)
+	/// - Permit digest computation, ECDSA recovery, and nonce read + write (`Nonces` r:1 w:1)
+	/// - Approval record read + write (`pallet_assets::Approvals` r:1 w:1)
+	/// - Asset record read + write for approval count (`pallet_assets::Asset` r:1 w:1)
+	fn permit() -> Weight;
 }
 
 /// Weights for `pallet_assets_precompiles` using the Substrate node and recommended hardware.
@@ -146,6 +154,22 @@ impl<T: frame_system::Config> PermitWeightInfo for PermitWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	/// Weight for the full end-to-end `permit()` precompile call (EIP-2612).
+	///
+	/// Storage: `pallet_assets::Metadata` (r:1), `Nonces` (r:1 w:1),
+	///          `pallet_assets::Approvals` (r:1 w:1), `pallet_assets::Asset` (r:1 w:1)
+	fn permit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `374`
+		//  Estimated: `6850`
+		// Minimum execution time: 70_000_000 picoseconds.
+		// Includes: asset name DB read, keccak256 hashes, secp256k1 recovery,
+		// nonce ops, and approval write with deposit reserve.
+		Weight::from_parts(70_000_000, 6850)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -164,5 +188,11 @@ impl PermitWeightInfo for () {
 		Weight::from_parts(62_000_000, 3541)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn permit() -> Weight {
+		Weight::from_parts(70_000_000, 6850)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }
