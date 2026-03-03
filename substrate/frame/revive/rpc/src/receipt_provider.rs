@@ -82,6 +82,30 @@ impl BlockInfo for SubstrateBlock {
 /// Maximum number of entries kept in the block to hash map.
 pub const MAX_CACHED_BLOCKS: usize = 256;
 
+/// Upsert a sync label row, updating only when the existing `block_number`
+/// compares with `$op` against the new value. `$op` must be `"<"` or `">"`.
+macro_rules! upsert_sync_label {
+	($pool:expr, $op:literal, $label:expr, $checkpoint:expr) => {{
+		let label_str = $label.to_string();
+		let block_number = $checkpoint.block_number as i64;
+		let block_hash = $checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
+		query!(
+			"INSERT INTO sync_state (label, block_number, block_hash)
+			VALUES ($1, $2, $3)
+			ON CONFLICT(label) DO UPDATE
+				SET block_number = excluded.block_number, block_hash = excluded.block_hash
+			WHERE sync_state.block_number " +
+				$op + " excluded.block_number
+			",
+			label_str,
+			block_number,
+			block_hash
+		)
+		.execute($pool)
+		.await?;
+	}};
+}
+
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
@@ -398,23 +422,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		let label_str = label.to_string();
-		let block_number = checkpoint.block_number as i64;
-		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
-		query!(
-			r#"
-			INSERT INTO sync_state (label, block_number, block_hash)
-			VALUES ($1, $2, $3)
-			ON CONFLICT(label) DO UPDATE
-				SET block_number = excluded.block_number, block_hash = excluded.block_hash
-			WHERE sync_state.block_number < excluded.block_number
-			"#,
-			label_str,
-			block_number,
-			block_hash,
-		)
-		.execute(&self.pool)
-		.await?;
+		upsert_sync_label!(&self.pool, "<", label, checkpoint);
 		Ok(())
 	}
 
@@ -426,23 +434,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		let label_str = label.to_string();
-		let block_number = checkpoint.block_number as i64;
-		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
-		query!(
-			r#"
-			INSERT INTO sync_state (label, block_number, block_hash)
-			VALUES ($1, $2, $3)
-			ON CONFLICT(label) DO UPDATE
-				SET block_number = excluded.block_number, block_hash = excluded.block_hash
-			WHERE sync_state.block_number > excluded.block_number
-			"#,
-			label_str,
-			block_number,
-			block_hash,
-		)
-		.execute(&self.pool)
-		.await?;
+		upsert_sync_label!(&self.pool, ">", label, checkpoint);
 		Ok(())
 	}
 
@@ -463,7 +455,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<(), ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		self.receipt_extractor.decrease_oldest_synced_block(block.number());
+		self.decrease_oldest_synced_block(block.number());
 		Ok(())
 	}
 
