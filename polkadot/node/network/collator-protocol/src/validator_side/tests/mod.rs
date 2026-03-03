@@ -52,6 +52,7 @@ mod prospective_parachains;
 const ACTIVITY_TIMEOUT: Duration = Duration::from_millis(500);
 const DECLARE_TIMEOUT: Duration = Duration::from_millis(25);
 const REPUTATION_CHANGE_TEST_INTERVAL: Duration = Duration::from_millis(10);
+const SLOT_DURATION_MILLIS: u64 = 6000;
 
 fn dummy_pvd() -> PersistedValidationData {
 	PersistedValidationData {
@@ -235,7 +236,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		REPUTATION_CHANGE_TEST_INTERVAL,
 		ah_invulnerable_collators,
 		HOLD_OFF_DURATION_DEFAULT_VALUE,
-		6000,
+		SLOT_DURATION_MILLIS,
 	);
 
 	let test_fut = test(TestHarness { virtual_overseer, keystore });
@@ -462,6 +463,32 @@ async fn advertise_collation(
 			scheduling_parent,
 		)),
 	};
+	overseer_send(
+		virtual_overseer,
+		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+			peer,
+			wire_message,
+		)),
+	)
+	.await;
+}
+
+/// Advertise a collation using the V3 protocol, which includes the candidate descriptor version.
+async fn advertise_collation_v3(
+	virtual_overseer: &mut VirtualOverseer,
+	peer: PeerId,
+	scheduling_parent: Hash,
+	candidate_hash: CandidateHash,
+	parent_head_data_hash: Hash,
+	candidate_descriptor_version: CandidateDescriptorVersion,
+) {
+	let wire_message =
+		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+		});
 	overseer_send(
 		virtual_overseer,
 		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
