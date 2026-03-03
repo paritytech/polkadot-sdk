@@ -296,8 +296,9 @@ impl Candidates {
 		) {
 			for (c_hash, candidate) in i {
 				match candidate {
-					CandidateState::Unconfirmed(u) =>
-						u.extend_hypotheticals(*c_hash, v, maybe_required_parent),
+					CandidateState::Unconfirmed(u) => {
+						u.extend_hypotheticals(*c_hash, v, maybe_required_parent)
+					},
 					CandidateState::Confirmed(c) => v.push(c.to_hypothetical(*c_hash)),
 				}
 			}
@@ -335,7 +336,7 @@ impl Candidates {
 			}
 		};
 		self.candidates.retain(|c_hash, state| match state {
-			CandidateState::Confirmed(ref mut c) =>
+			CandidateState::Confirmed(ref mut c) => {
 				if !relay_parent_live(&c.relay_parent()) {
 					remove_parent_claims(*c_hash, c.parent_head_data_hash(), c.para_id());
 					false
@@ -344,7 +345,8 @@ impl Candidates {
 						c.importable_under.remove(leaf_hash);
 					}
 					true
-				},
+				}
+			},
 			CandidateState::Unconfirmed(ref mut c) => {
 				c.on_deactivate_leaves(
 					leaves,

@@ -329,12 +329,13 @@ impl TestState {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
-				None =>
+				None => {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
 						break None;
-					},
+					}
+				},
 			};
 
 			match msg {
@@ -353,29 +354,23 @@ impl TestState {
 					)))
 					.unwrap();
 				},
-				AllMessages::ProspectiveParachains(
-					ProspectiveParachainsMessage::GetMinimumRelayParents(rp, tx),
-				) => {
-					assert!(active_leaves.contains(&rp));
-					let rp_info = self.rp_info.get(&rp).unwrap();
-					let session_info = self.session_info.get(&rp_info.session_index).unwrap();
-					tx.send(
-						rp_info
-							.claim_queue
-							.get(&rp_info.assigned_core)
-							.unwrap()
-							.iter()
-							.map(|para| {
-								(
-									*para,
-									rp_info
-										.number
-										.saturating_sub(session_info.scheduling_lookahead - 1),
-								)
-							})
-							.collect(),
-					)
-					.unwrap();
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_rp,
+					RuntimeApiRequest::SchedulingLookahead(session_index, tx),
+				)) => {
+					let session_info = self.session_info.get(&session_index).unwrap();
+					tx.send(Ok(session_info.scheduling_lookahead)).unwrap();
+				},
+				AllMessages::ChainApi(ChainApiMessage::Ancestors { hash, k, response_channel }) => {
+					let rp_info = self.rp_info.get(&hash).unwrap();
+					let ancestors: Vec<Hash> = (1..=k as u32)
+						.map(|i| rp_info.number.saturating_sub(i))
+						.take_while(|n| *n > 0)
+						.filter_map(|n| {
+							self.rp_info.iter().find(|(_, info)| info.number == n).map(|(h, _)| *h)
+						})
+						.collect();
+					response_channel.send(Ok(ancestors)).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
@@ -430,12 +425,13 @@ impl TestState {
 						.collect()))
 						.unwrap();
 				},
-				other =>
+				other => {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
 						break Some(other);
-					},
+					}
+				},
 			};
 		};
 
@@ -492,12 +488,13 @@ impl TestState {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
-				None =>
+				None => {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
 						break None;
-					},
+					}
+				},
 			};
 
 			match msg {
@@ -539,12 +536,13 @@ impl TestState {
 						.collect();
 					tx.send(Ok(candidates)).unwrap();
 				},
-				other =>
+				other => {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
 						break Some(other);
-					},
+					}
+				},
 			};
 		};
 
@@ -969,14 +967,10 @@ struct MockDb {
 }
 
 impl Default for MockDb {
+	/// Create an instance where all peers have a score that allows instant fetching.
 	fn default() -> Self {
-		let query_fn = |_peer_id, _para_id| None;
-		Self {
-			finalized: Default::default(),
-			witnessed_bumps: Default::default(),
-			witnessed_slash: Default::default(),
-			query_fn: Arc::new(Mutex::new(query_fn)),
-		}
+		let query_fn = |_peer_id, _para_id| Some(Score::new(VALID_INCLUDED_CANDIDATE_BUMP));
+		Self::new(Arc::new(Mutex::new(query_fn)))
 	}
 }
 
@@ -1730,9 +1724,7 @@ async fn finalized_block_notification() {
 	let mut expected_bumps = BTreeMap::new();
 	expected_bumps.insert(
 		ParaId::new(100),
-		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap())]
-			.into_iter()
-			.collect(),
+		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP))].into_iter().collect(),
 	);
 
 	futures::join!(test_state.handle_finalized_block(6), async {
@@ -1768,8 +1760,8 @@ async fn finalized_block_notification() {
 	expected_bumps.insert(
 		ParaId::new(100),
 		[
-			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
-			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
 		]
 		.into_iter()
 		.collect(),
@@ -1777,8 +1769,8 @@ async fn finalized_block_notification() {
 	expected_bumps.insert(
 		ParaId::new(200),
 		[
-			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
-			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP)),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
 		]
 		.into_iter()
 		.collect(),
@@ -3134,7 +3126,7 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |peer_id, _para_id| {
 		if peer_id == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else {
 			None
 		}

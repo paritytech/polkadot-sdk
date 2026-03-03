@@ -831,7 +831,7 @@ async fn validate_and_make_available(
 
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
-		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } =>
+		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } => {
 			match request_pov(
 				&mut sender,
 				relay_parent,
@@ -854,7 +854,8 @@ async fn validate_and_make_available(
 				},
 				Err(err) => return Err(err),
 				Ok(pov) => pov,
-			},
+			}
+		},
 	};
 
 	let v = {
@@ -945,10 +946,12 @@ async fn handle_communication<Context>(
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
 		},
-		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) =>
-			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?,
-		CandidateBackingMessage::CanSecond(request, tx) =>
-			handle_can_second_request(ctx, state, request, tx).await,
+		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) => {
+			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?
+		},
+		CandidateBackingMessage::CanSecond(request, tx) => {
+			handle_can_second_request(ctx, state, request, tx).await
+		},
 	}
 
 	Ok(())
@@ -994,7 +997,7 @@ async fn handle_active_leaves_update<Context>(
 		None => return Ok(()),
 		Some((leaf, Ok(_))) => {
 			let fresh_relay_parents =
-				state.implicit_view.known_allowed_relay_parents_under(&leaf.hash, None);
+				state.implicit_view.known_allowed_relay_parents_under(&leaf.hash);
 
 			let fresh_relay_parent = match fresh_relay_parents {
 				Some(f) => f.to_vec(),
@@ -1252,15 +1255,13 @@ async fn seconding_sanity_check<Context>(
 	let mut leaves_for_seconding = Vec::new();
 	let mut responses = FuturesOrdered::<BoxFuture<'_, Result<_, oneshot::Canceled>>>::new();
 
-	let candidate_para = hypothetical_candidate.candidate_para();
 	let candidate_relay_parent = hypothetical_candidate.relay_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for head in implicit_view.leaves() {
 		// Check that the candidate relay parent is allowed for para, skip the
 		// leaf otherwise.
-		let allowed_parents_for_para =
-			implicit_view.known_allowed_relay_parents_under(head, Some(candidate_para));
+		let allowed_parents_for_para = implicit_view.known_allowed_relay_parents_under(head);
 		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
 			continue;
 		}

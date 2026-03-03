@@ -26,14 +26,14 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use crate::{
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
 	metering::{TransactionLimits, TransactionMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
-	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -447,8 +447,9 @@ impl VmBinaryModule {
 				// return execution right away without breaking up basic block
 				// SENTINEL is a hard coded syscall that terminates execution
 				0 => writeln!(text, "ecalli {}", crate::SENTINEL).unwrap(),
-				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 =>
-					text.push_str("fallthrough\n"),
+				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 => {
+					text.push_str("fallthrough\n")
+				},
 				_ => text.push_str("a0 = a1 + a2\n"),
 			}
 		}

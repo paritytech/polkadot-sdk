@@ -152,7 +152,9 @@ pub mod substrate_execution {
 				CallResources::WeightDeposit { weight, deposit_limit } =>
 				// when explicit weight+deposit requested, take the minimum of parent's left
 				// and the requested per-call limits.
-					(weight_left.min(*weight), deposit_left.min(*deposit_limit), None),
+				{
+					(weight_left.min(*weight), deposit_left.min(*deposit_limit), None)
+				},
 			}
 		};
 

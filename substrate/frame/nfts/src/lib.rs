@@ -1436,8 +1436,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			let depositor = match namespace {
-				AttributeNamespace::CollectionOwner =>
-					Self::collection_owner(collection).ok_or(Error::<T, I>::UnknownCollection)?,
+				AttributeNamespace::CollectionOwner => {
+					Self::collection_owner(collection).ok_or(Error::<T, I>::UnknownCollection)?
+				},
 				_ => origin.clone(),
 			};
 			Self::do_set_attribute(origin, collection, maybe_item, namespace, key, value, depositor)

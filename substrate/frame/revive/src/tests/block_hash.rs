@@ -18,17 +18,17 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::{block_hash::EthereumBlockBuilder, fees::InfoT, Block, TransactionSigned},
-	test_utils::{builder::Contract, deposit_limit, ALICE},
-	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, System, Test, Timestamp},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
+	evm::{Block, TransactionSigned, block_hash::EthereumBlockBuilder, fees::InfoT},
+	test_utils::{ALICE, builder::Contract, deposit_limit},
+	tests::{Contracts, ExtBuilder, RuntimeOrigin, System, Test, Timestamp, assert_ok, builder},
 };
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::{FixedBytes, Log as AlloyLog};
 use frame_support::traits::{
-	fungible::{Balanced, Mutate},
 	Hooks,
+	fungible::{Balanced, Mutate},
 };
 use pallet_revive_fixtures::compile_module;
 use sp_state_machine::BasicExternalities;
@@ -93,10 +93,12 @@ fn transactions_are_captured() {
 
 		// eth calls are captured.
 		assert_ok!(builder::eth_call(addr).transaction_encoded(vec![1]).value(balance).build());
-		assert_ok!(builder::eth_instantiate_with_code(binary)
-			.value(balance)
-			.transaction_encoded(vec![2])
-			.build());
+		assert_ok!(
+			builder::eth_instantiate_with_code(binary)
+				.value(balance)
+				.transaction_encoded(vec![2])
+				.build()
+		);
 		assert_ok!(builder::eth_call(addr2).transaction_encoded(vec![3]).build());
 
 		// non-eth calls are not captured.

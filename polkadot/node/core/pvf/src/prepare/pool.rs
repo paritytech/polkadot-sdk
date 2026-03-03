@@ -330,8 +330,9 @@ fn handle_mux(
 			// If we receive an outcome that the worker is unreachable or that an error occurred on
 			// the worker, we attempt to kill the worker process.
 			match outcome {
-				Outcome::Concluded { worker: idle, result } =>
-					handle_concluded_no_rip(from_pool, spawned, worker, idle, result),
+				Outcome::Concluded { worker: idle, result } => {
+					handle_concluded_no_rip(from_pool, spawned, worker, idle, result)
+				},
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
 				Outcome::CreateTmpFileErr { worker: idle, err } => handle_concluded_no_rip(

@@ -20,7 +20,10 @@
 
 use std::sync::Arc;
 
-use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
+use prometheus_endpoint::{
+	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts,
+	Opts, PrometheusError, Registry, U64,
+};
 
 #[derive(Clone, Default)]
 pub struct MetricsLink(Arc<Option<Metrics>>);
@@ -41,6 +44,17 @@ impl MetricsLink {
 			do_this(metrics);
 		}
 	}
+
+	pub fn start_submit_timer(&self) -> Option<HistogramTimer> {
+		self.0.as_ref().as_ref().map(|m| m.submit_duration_seconds.start_timer())
+	}
+
+	pub fn start_check_expiration_timer(&self) -> Option<HistogramTimer> {
+		self.0
+			.as_ref()
+			.as_ref()
+			.map(|m| m.check_expiration_duration_seconds.start_timer())
+	}
 }
 
 /// Statement store Prometheus metrics.
@@ -48,6 +62,16 @@ pub struct Metrics {
 	pub submitted_statements: Counter<U64>,
 	pub validations_invalid: Counter<U64>,
 	pub statements_pruned: Counter<U64>,
+	pub statements_total: Gauge<U64>,
+	pub bytes_total: Gauge<U64>,
+	pub accounts_total: Gauge<U64>,
+	pub expired_total: Gauge<U64>,
+	pub capacity_statements: Gauge<U64>,
+	pub capacity_bytes: Gauge<U64>,
+	pub rejections: CounterVec<U64>,
+	pub submit_duration_seconds: Histogram,
+	pub check_expiration_duration_seconds: Histogram,
+	pub statements_expired_total: Counter<U64>,
 }
 
 impl Metrics {
@@ -63,7 +87,7 @@ impl Metrics {
 			validations_invalid: register(
 				Counter::new(
 					"substrate_sub_statement_store_validations_invalid",
-					"Total number of statements that were removed from the pool as invalid",
+					"Total number of statements that were fail validation during submission",
 				)?,
 				registry,
 			)?,
@@ -71,6 +95,86 @@ impl Metrics {
 				Counter::new(
 					"substrate_sub_statement_store_block_statements",
 					"Total number of statements that was requested to be pruned by block events",
+				)?,
+				registry,
+			)?,
+			statements_total: register(
+				Gauge::new(
+					"substrate_sub_statement_store_statements_total",
+					"Current number of statements in the store",
+				)?,
+				registry,
+			)?,
+			capacity_statements: register(
+				Gauge::new(
+					"substrate_sub_statement_store_capacity_statements",
+					"Maximum number of statements the store can hold",
+				)?,
+				registry,
+			)?,
+
+			capacity_bytes: register(
+				Gauge::new(
+					"substrate_sub_statement_store_capacity_bytes",
+					"Maximum total size of statement data in bytes",
+				)?,
+				registry,
+			)?,
+			bytes_total: register(
+				Gauge::new(
+					"substrate_sub_statement_store_bytes_total",
+					"Current total size of all statement data in bytes",
+				)?,
+				registry,
+			)?,
+			accounts_total: register(
+				Gauge::new(
+					"substrate_sub_statement_store_accounts_total",
+					"Current number of unique accounts with statements",
+				)?,
+				registry,
+			)?,
+			expired_total: register(
+				Gauge::new(
+					"substrate_sub_statement_store_expired_total",
+					"Current number of expired statements awaiting purge",
+				)?,
+				registry,
+			)?,
+			rejections: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_rejections_total",
+						"Total statement rejections by reason",
+					),
+					&["reason"],
+				)?,
+				registry,
+			)?,
+			submit_duration_seconds: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_sub_statement_store_submit_duration_seconds",
+						"Time to submit a statement",
+					)
+					.buckets(vec![0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0]),
+				)?,
+				registry,
+			)?,
+			check_expiration_duration_seconds: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_sub_statement_store_check_expiration_duration_seconds",
+						"Time to check and process statement expiration",
+					)
+					.buckets(vec![0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0]),
+				)?,
+				registry,
+			)?,
+			statements_expired_total: register(
+				Counter::new(
+					"substrate_sub_statement_store_statements_expired_total",
+					"Total number of statements that expired and were removed",
 				)?,
 				registry,
 			)?,

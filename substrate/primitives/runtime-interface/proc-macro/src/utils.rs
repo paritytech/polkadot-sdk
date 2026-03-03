@@ -360,9 +360,10 @@ pub fn host_inner_return_ty(ty: &syn::ReturnType) -> syn::ReturnType {
 	let crate_ = generate_crate_access();
 	match ty {
 		syn::ReturnType::Default => syn::ReturnType::Default,
-		syn::ReturnType::Type(ref arrow, ref ty) =>
+		syn::ReturnType::Type(ref arrow, ref ty) => {
 			syn::parse2::<syn::ReturnType>(quote! { #arrow <#ty as #crate_::RIType>::Inner })
-				.expect("parsing doesn't fail"),
+				.expect("parsing doesn't fail")
+		},
 	}
 }
 

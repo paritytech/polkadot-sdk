@@ -80,8 +80,9 @@ pub struct AccountIdConverter;
 impl xcm_executor::traits::ConvertLocation<AccountId> for AccountIdConverter {
 	fn convert_location(ml: &Location) -> Option<AccountId> {
 		match ml.unpack() {
-			(0, [Junction::AccountId32 { id, .. }]) =>
-				Some(<AccountId as codec::Decode>::decode(&mut &*id.to_vec()).unwrap()),
+			(0, [Junction::AccountId32 { id, .. }]) => {
+				Some(<AccountId as codec::Decode>::decode(&mut &*id.to_vec()).unwrap())
+			},
 			(1, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
 			_ => None,
 		}

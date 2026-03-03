@@ -160,8 +160,9 @@ impl VisitMut for MacroInjectArgs {
 
 		if let Some(attr) = attr {
 			match &attr.meta {
-				syn::Meta::Path(path) =>
-					assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params"),
+				syn::Meta::Path(path) => {
+					assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params")
+				},
 				_ => (),
 			}
 
