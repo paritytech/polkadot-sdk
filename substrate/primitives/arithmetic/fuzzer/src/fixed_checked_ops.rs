@@ -352,8 +352,8 @@ where
 
 			if d == 0 {
 				assert!(
-					res.is_err(),
-					"Expected Err for CheckedFromRational with d=0 for {:?}, op: {:?}, n: {}, d: {}",
+					res.is_none(),
+					"Expected None for CheckedFromRational with d=0 for {:?}, op: {:?}, n: {}, d: {}",
 					core::any::type_name::<F>(),
 					op,
 					n,
@@ -365,14 +365,14 @@ where
 				let expected_inner_big = (n_big * &div_big) / d_big;
 				if expected_inner_big > max_inner_big || expected_inner_big < min_inner_big {
 					assert!(
-						res.is_err(),
-						"Expected Err for CheckedFromRational overflow for {:?}, op: {:?}, n: {}, d: {}",
+						res.is_none(),
+						"Expected None for CheckedFromRational overflow for {:?}, op: {:?}, n: {}, d: {}",
 						core::any::type_name::<F>(),
 						op,
 						n,
 						d
 					);
-				} else if let Ok(r) = res {
+				} else if let Some(r) = res {
 					let result_inner_i128: i128 =
 						r.into_inner().try_into().unwrap_or(Default::default());
 					let result_inner_big = BigInt::from(result_inner_i128);
@@ -401,14 +401,14 @@ where
 				expected_int_val_big < BigInt::from(i128::MIN)
 			{
 				assert!(
-					res.is_err(),
-					"Expected Err for CheckedMulInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
+					res.is_none(),
+					"Expected None for CheckedMulInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
 					core::any::type_name::<F>(),
 					op,
 					fp1,
 					v2
 				);
-			} else if let Ok(r) = res {
+			} else if let Some(r) = res {
 				let result_big = BigInt::from(r);
 				let diff = (&result_big - &expected_int_val_big).abs();
 				assert!(
@@ -426,8 +426,8 @@ where
 		Operation::CheckedDivInt => {
 			if v2 == 0 {
 				assert!(
-					fp1.checked_div_int(v2).is_err(),
-					"Expected Err for CheckedDivInt with d=0 for {:?}, op: {:?}, fp1: {}",
+					fp1.checked_div_int(v2).is_none(),
+					"Expected None for CheckedDivInt with d=0 for {:?}, op: {:?}, fp1: {}",
 					core::any::type_name::<F>(),
 					op,
 					fp1,
@@ -446,14 +446,14 @@ where
 					expected_int_val_big < BigInt::from(i128::MIN)
 				{
 					assert!(
-						res.is_err(),
-						"Expected Err for CheckedDivInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
+						res.is_none(),
+						"Expected None for CheckedDivInt overflow for {:?}, op: {:?}, fp1: {}, v2: {}",
 						core::any::type_name::<F>(),
 						op,
 						fp1,
 						v2
 					);
-				} else if let Ok(r) = res {
+				} else if let Some(r) = res {
 					let result_big = BigInt::from(r);
 					let diff = (&result_big - &expected_int_val_big).abs();
 					assert!(
