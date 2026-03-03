@@ -24,7 +24,7 @@ use crate::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
 			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			MAX_FETCH_DELAY,
+			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
 	},
@@ -585,39 +585,14 @@ impl CollationManager {
 		(peer_id, unblocked_can_second)
 	}
 
-	// Calculates a linear amount of delay for collators with score less than the max score for the
-	// para:
-	//
-	// delay = MAX_FETCH_DELAY * (1 - collator_score/max_score_for_para)
-	//
-	// which roughly looks like this:
-	//
-	// delay
-	// |\
-	// | \
-	// |-- +
-	// |   | \
-	// |___|___\___________________ score
-	//.    ^    ^ max_score_for_para
-	//.    ^collator_score
-	//.
-	// In plain English: apply some delay, if the collator's score is less than the max one for the
-	// para. Otherwise fetch immediately.
+	// Returns max delay for unknown collators and zero delay if the collator has provided at least
+	// one good collation (it's score is >= INSTANT_FETCH_REP_THRESHOLD).
 	fn calculate_delay(collator_score: Score, max_score_for_para: Score) -> Duration {
-		if collator_score > max_score_for_para {
-			gum::warn!(
-				target: LOG_TARGET,
-				?collator_score,
-				?max_score_for_para,
-				"Collator score exceeds recorded max score for para"
-			);
-
+		if collator_score >= INSTANT_FETCH_REP_THRESHOLD || collator_score >= max_score_for_para {
 			return Duration::ZERO;
 		}
 
-		let ratio = collator_score.ratio(&max_score_for_para);
-		let delay_ms = MAX_FETCH_DELAY.as_millis() as f32 * (1_f32 - ratio);
-		Duration::from_millis(delay_ms as u64)
+		MAX_FETCH_DELAY
 	}
 
 	/// Tries to find the best available advertisement for the provided parachain.
@@ -640,8 +615,13 @@ impl CollationManager {
 			.iter()
 			// Only check advertisements for relay parents within the view of this leaf.
 			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
-			.flat_map(|per_rp| per_rp.eligible_advertisements(para_id, leaf))
-			.filter_map(|(adv, adv_timestamp)| {
+			.flat_map(|per_rp| {
+				let activated_at = per_rp.activated_at;
+				per_rp
+					.eligible_advertisements(para_id, leaf)
+					.map(move |(adv, timestamp)| (adv, timestamp, activated_at))
+			})
+			.filter_map(|(adv, adv_timestamp, activated_at)| {
 				// Check that we're not already fetching this advertisement.
 				if self.fetching.contains(adv) {
 					return None;
@@ -651,6 +631,7 @@ impl CollationManager {
 					adv,
 					score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
 					timestamp: adv_timestamp,
+					activated_at,
 				})
 			})
 			.collect::<BTreeSet<_>>();
@@ -662,10 +643,26 @@ impl CollationManager {
 
 		let delay = Self::calculate_delay(best_advertisement.score, highest_rep_of_para);
 
-		if *best_advertisement.timestamp + delay <= now {
+		// Calculate the remaining delay relative to the relay parent's activation time,
+		// not the advertisement's arrival time. This ensures that if a relay parent has been
+		// active long enough, advertisements are fetched immediately regardless of when they
+		// arrived.
+		let elapsed_since_activation = now.duration_since(best_advertisement.activated_at);
+		let remaining_delay = delay.saturating_sub(elapsed_since_activation);
+
+		if remaining_delay.is_zero() {
+			gum::debug!(
+				target: LOG_TARGET,
+				peer_id = ?best_advertisement.adv.peer_id,
+				relay_parent = ?best_advertisement.adv.relay_parent,
+				para_id = ?best_advertisement.adv.para_id,
+				?elapsed_since_activation,
+				?delay,
+				"Delay elapsed for leaf; initiating fetch."
+			);
 			Either::Left(Some(*best_advertisement.adv))
 		} else {
-			Either::Right(delay)
+			Either::Right(remaining_delay)
 		}
 	}
 
@@ -900,6 +897,8 @@ struct AcceptedAdvertisement<'a> {
 	adv: &'a Advertisement,
 	score: Score,
 	timestamp: &'a Instant,
+	/// The time at which the relay parent was activated
+	activated_at: Instant,
 }
 
 impl<'a> Ord for AcceptedAdvertisement<'a> {
@@ -925,6 +924,9 @@ struct PerRelayParent {
 	fetched_collations: HashMap<CandidateHash, PeerId>,
 	session_index: SessionIndex,
 	core_index: CoreIndex,
+	// The time at which this relay parent was activated. Used to calculate fetch
+	// delays relative to leaf activation.
+	activated_at: Instant,
 }
 
 impl PerRelayParent {
@@ -934,6 +936,7 @@ impl PerRelayParent {
 			core_index,
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
+			activated_at: Instant::now(),
 		}
 	}
 
@@ -1205,7 +1208,7 @@ mod tests {
 
 	#[test]
 	fn calculate_delay_works() {
-		let score = |val: u16| Score::new(val).unwrap();
+		let score = |val: u16| Score::new(val);
 
 		// collator score == max score => zero delay
 		assert_eq!(
@@ -1213,39 +1216,30 @@ mod tests {
 			Duration::ZERO
 		);
 
-		// collator score == 0 => MAX_FETCH_DELAY
+		// collator score >= INSTANT_FETCH_REP_THRESHOLD => zero delay
+		assert_eq!(
+			CollationManager::calculate_delay(INSTANT_FETCH_REP_THRESHOLD, score(MAX_SCORE)),
+			Duration::ZERO
+		);
+
+		// collator score > INSTANT_FETCH_REP_THRESHOLD => zero delay
+		assert_eq!(CollationManager::calculate_delay(score(100), score(MAX_SCORE)), Duration::ZERO);
+
+		// collator score >= max_score_for_para => zero delay
+		assert_eq!(CollationManager::calculate_delay(score(50), score(50)), Duration::ZERO);
+
+		// collator score == 0 and max_score_for_para > 0 => MAX_FETCH_DELAY
 		assert_eq!(CollationManager::calculate_delay(score(0), score(MAX_SCORE)), MAX_FETCH_DELAY);
 
-		// collator score == 1/2 MAX_SCORE => 1/2 MAX_FETCH_DELAY
-		assert_eq!(
-			CollationManager::calculate_delay(score(MAX_SCORE / 2), score(MAX_SCORE)),
-			MAX_FETCH_DELAY / 2
-		);
-
-		// collator score == 3/4 MAX_SCORE => 1/4 MAX_FETCH_DELAY.
-		assert_eq!(
-			CollationManager::calculate_delay(score(MAX_SCORE / 4 * 3), score(MAX_SCORE)),
-			MAX_FETCH_DELAY / 4
-		);
-
-		// collator score == 1/4 MAX_SCORE => 3/4 MAX_FETCH_DELAY.
-		assert_eq!(
-			CollationManager::calculate_delay(score(MAX_SCORE / 4), score(MAX_SCORE)),
-			MAX_FETCH_DELAY * 3 / 4
-		);
-
-		// collator score at 10% of max => 90% delay
-		assert_eq!(
-			CollationManager::calculate_delay(score(MAX_SCORE / 10), score(MAX_SCORE)),
-			MAX_FETCH_DELAY * 9 / 10
-		);
+		// collator score == 0 and max_score_for_para == 0 => zero delay (no one has rep yet)
+		assert_eq!(CollationManager::calculate_delay(score(0), score(0)), Duration::ZERO);
 	}
 
 	#[test]
 	fn accepted_advertisement_ordering() {
 		use std::cmp::Ordering;
 
-		let score = |val: u16| Score::new(val).unwrap();
+		let score = |val: u16| Score::new(val);
 		let now = Instant::now();
 		let later = now + Duration::from_secs(1);
 
@@ -1268,9 +1262,9 @@ mod tests {
 		// Different scores - higher score comes first (is "less").
 		{
 			let high_score =
-				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
 			let low_score =
-				AcceptedAdvertisement { adv: &adv_2, score: score(50), timestamp: &now };
+				AcceptedAdvertisement { adv: &adv_2, score: score(50), timestamp: &now, activated_at: now };
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
 			assert_eq!(low_score.cmp(&high_score), Ordering::Greater);
@@ -1278,8 +1272,8 @@ mod tests {
 
 		// Same score, different timestamps - earlier timestamp comes first.
 		{
-			let earlier = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let later = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &later };
+			let earlier = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
+			let later = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &later, activated_at: now };
 
 			assert_eq!(earlier.cmp(&later), Ordering::Less);
 			assert_eq!(later.cmp(&earlier), Ordering::Greater);
@@ -1287,8 +1281,8 @@ mod tests {
 
 		// Same score, same timestamp - falls back to advertisement comparison.
 		{
-			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let acc_2 = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now };
+			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
+			let acc_2 = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now, activated_at: now };
 
 			// Result depends on advertisement Ord, but must be consistent and not Equal.
 			let cmp_result = acc_1.cmp(&acc_2);
@@ -1298,8 +1292,8 @@ mod tests {
 
 		// Same advertisement, same score, same timestamp - should be Equal.
 		{
-			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let acc_2 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
+			let acc_2 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
 
 			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
 		}
@@ -1310,10 +1304,10 @@ mod tests {
 			let adv_4 = make_adv(PeerId::random());
 
 			let advertisements = [
-				AcceptedAdvertisement { adv: &adv_1, score: score(50), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_2, score: score(200), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_3, score: score(100), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_4, score: score(150), timestamp: &later },
+				AcceptedAdvertisement { adv: &adv_1, score: score(50), timestamp: &now, activated_at: now },
+				AcceptedAdvertisement { adv: &adv_2, score: score(200), timestamp: &now, activated_at: now },
+				AcceptedAdvertisement { adv: &adv_3, score: score(100), timestamp: &now, activated_at: now },
+				AcceptedAdvertisement { adv: &adv_4, score: score(150), timestamp: &later, activated_at: now },
 			]
 			.into_iter()
 			.collect::<BTreeSet<_>>();
@@ -1327,9 +1321,9 @@ mod tests {
 			let adv_3 = make_adv(PeerId::random());
 
 			let advertisements: BTreeSet<_> = [
-				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &later },
-				AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_3, score: score(50), timestamp: &now },
+				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &later, activated_at: now },
+				AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now, activated_at: now },
+				AcceptedAdvertisement { adv: &adv_3, score: score(50), timestamp: &now, activated_at: now },
 			]
 			.into_iter()
 			.collect();
@@ -1344,7 +1338,7 @@ mod tests {
 	fn pick_best_advertisement_works() {
 		let relay_parent = Hash::random();
 		let para_id = ParaId::new(1);
-		let score = |val: u16| Score::new(val).unwrap();
+		let score = |val: u16| Score::new(val);
 
 		let now = Instant::now();
 		// Timestamp far enough in the past that any delay has passed.
@@ -1418,7 +1412,7 @@ mod tests {
 		// Single advertisement with delay not passed - returns Right(delay).
 		{
 			let mut collation_manager = new_collation_manager_instance();
-			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
 			collation_manager
 				.per_relay_parent
@@ -1426,7 +1420,8 @@ mod tests {
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), recent_timestamp);
 
-			// highest_rep = 100, peer's score = 50, so delay = MAX_FETCH_DELAY * 0.5
+			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
+			// MAX_FETCH_DELAY
 			let result = collation_manager.pick_best_advertisement(
 				now,
 				relay_parent,
@@ -1436,7 +1431,7 @@ mod tests {
 				&get_rep,
 			);
 
-			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 2));
+			assert_eq!(result, Either::Right(MAX_FETCH_DELAY));
 		}
 
 		// Multiple advertisements - picks highest score.
@@ -1550,6 +1545,61 @@ mod tests {
 				),
 				Either::Left(None)
 			);
+		}
+
+		// Delay passed because leaf has been active long enough, even though advertisement arrived
+		// recently. Tests that the delay is relative to activation time, not advertisement
+		// arrival time. When the relay parent (leaf) has been active longer than the full delay,
+		// the remaining delay should be zero and the advertisement should be fetched immediately.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
+
+			// Set activated_at far enough in the past that any delay has elapsed.
+			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY * 2).unwrap();
+
+			// Advertisement arrives now (recent), but the leaf has been active long enough.
+			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
+
+			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
+			// MAX_FETCH_DELAY. But activated_at is 2*MAX_FETCH_DELAY ago, so remaining_delay = 0.
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(Some(make_adv(peer_a)))
+			);
+		}
+
+		// Advertisement with partial delay elapsed returns remaining delay.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
+
+			// Set activated_at so that only part of the delay has elapsed.
+			// score(0) < INSTANT_FETCH_REP_THRESHOLD and < highest_rep => delay = MAX_FETCH_DELAY
+			// activated_at = MAX_FETCH_DELAY / 4 ago => remaining = MAX_FETCH_DELAY * 3/4
+			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY / 4).unwrap();
+
+			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
+
+			let result = collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				score(100),
+				&get_rep,
+			);
+
+			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 4 * 3));
 		}
 	}
 }

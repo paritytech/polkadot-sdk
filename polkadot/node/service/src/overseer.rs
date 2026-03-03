@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Error, IsParachainNode, Registry};
+use polkadot_collator_protocol::ReputationConfig;
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
@@ -151,6 +152,8 @@ pub struct ExtendedOverseerGenArgs {
 	pub experimental_collator_protocol: bool,
 	/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
 	pub slot_duration_millis: u64,
+	/// Reputation DB config used by experimental collator protocol,
+	pub reputation_config: ReputationConfig,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -189,6 +192,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		collator_protocol_hold_off,
 		experimental_collator_protocol,
 		slot_duration_millis,
+		reputation_config,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -311,6 +315,8 @@ where
 						ProtocolSide::ValidatorExperimental {
 							keystore: keystore.clone(),
 							metrics: Metrics::register(registry)?,
+							db: parachains_db.clone(),
+							reputation_config,
 						}
 					} else {
 						ProtocolSide::Validator {

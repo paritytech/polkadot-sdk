@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
 		// public key as the "random" source. This is slightly biased as remaining_blocks most
 		// likely won't divide into 2^64, but it doesn't really matter...
 		let random = twox(block_number, &mixnode.kx_public);
-		(random % remaining_blocks.try_into().unwrap_or(u64::MAX)) == 0
+		random.is_multiple_of(remaining_blocks.try_into().unwrap_or(u64::MAX))
 	}
 
 	fn next_local_authority() -> Option<(AuthorityIndex, AuthorityId)> {

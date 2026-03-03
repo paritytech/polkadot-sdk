@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
-use crate::{evm::fees::InfoT, BalanceOf, Config, StorageDeposit};
+use crate::{BalanceOf, Config, StorageDeposit, evm::fees::InfoT};
 use frame_support::DebugNoBound;
 use sp_core::Get;
 use sp_runtime::{FixedPointNumber, Saturating};
@@ -49,11 +49,7 @@ impl<T: Config> SignedGas<T> {
 	///
 	/// Ensures the invariant that `Negative` must not be used for zero
 	pub fn safe_new_negative(amount: BalanceOf<T>) -> Self {
-		if amount == Default::default() {
-			Positive(amount)
-		} else {
-			Negative(amount)
-		}
+		if amount == Default::default() { Positive(amount) } else { Negative(amount) }
 	}
 
 	/// Transform a weight fee into a gas amount.

@@ -26,6 +26,7 @@ sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 
+codec.workspace = true
 fatality = { workspace = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
@@ -33,10 +34,12 @@ polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+tokio.workspace = true
 tokio-util = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+kvdb-memorydb = { workspace = true }
 rstest = { workspace = true }
 sc-network-types = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }

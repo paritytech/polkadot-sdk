@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
-	Config,
+	Config, limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts,
+	weights::WeightInfo,
 };
-use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
