@@ -40,11 +40,12 @@ pub use pallet::*;
 
 /// EIP-712 type hash for Permit.
 /// keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
-/// Computed using sp_io::hashing::keccak_256
-pub const PERMIT_TYPEHASH: [u8; 32] = [
-	0x6e, 0x71, 0xed, 0xae, 0x12, 0xb1, 0xb9, 0x7f, 0x4d, 0x1f, 0x60, 0x37, 0x0f, 0xef, 0x10, 0x10,
-	0x5f, 0xa2, 0xfa, 0xae, 0x01, 0x26, 0x11, 0x4a, 0x16, 0x9c, 0x64, 0x84, 0x5d, 0x61, 0x26, 0xc9,
-];
+///
+/// Computed at compile time from the canonical string, eliminating any risk of a
+/// copy-paste error in a hand-written byte array.
+pub const PERMIT_TYPEHASH: [u8; 32] = const_crypto::sha3::Keccak256::new()
+	.update(b"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
+	.finalize();
 
 /// Half of the secp256k1 curve order (n/2).
 /// Used to ensure `s` is in the lower half to prevent signature malleability.
@@ -427,19 +428,5 @@ pub mod pallet {
 				s,
 			)
 		}
-	}
-}
-
-#[cfg(test)]
-mod typehash_tests {
-	use super::*;
-
-	/// Verify that PERMIT_TYPEHASH matches the expected keccak256 hash.
-	#[test]
-	fn verify_permit_typehash() {
-		let computed = sp_io::hashing::keccak_256(
-			b"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
-		);
-		assert_eq!(computed, PERMIT_TYPEHASH, "PERMIT_TYPEHASH does not match computed value");
 	}
 }
