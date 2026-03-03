@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	approvals_rewards, assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -88,6 +88,7 @@ frame_support::construct_runtime!(
 		SessionInfo: session_info,
 		Disputes: disputes,
 		Babe: pallet_babe,
+		ApprovalsRewards: approvals_rewards,
 	}
 );
 
@@ -113,7 +114,12 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
 		);
-	pub static BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(u32::MAX, Perbill::from_percent(75));
+	pub static BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(u32::MAX)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = Perbill::from_percent(75) * u32::MAX
+		})
+		.build();
 }
 
 pub type AccountId = u64;
@@ -584,6 +590,30 @@ impl crate::session_info::Config for Test {
 	type ValidatorSet = MockValidatorSet;
 }
 
+parameter_types! {
+	pub const MaxTalliesPerSubmission: u32 = 1000;
+	pub const ApprovalStatsWindowSize: u32 = 5;
+}
+
+thread_local! {
+	pub static APPROVAL_REWARDS: RefCell<Vec<(AccountId, u32)>> = RefCell::new(vec![]);
+}
+
+pub struct TestRewardsReporter;
+impl frame_support::traits::RewardsReporter<AccountId> for TestRewardsReporter {
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (AccountId, u32)>) {
+		APPROVAL_REWARDS.with(|r| r.borrow_mut().extend(validators_points));
+	}
+}
+
+impl crate::approvals_rewards::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxTalliesPerSubmission = MaxTalliesPerSubmission;
+	type ApprovalStatsWindowSize = ApprovalStatsWindowSize;
+	type RewardsReporter = TestRewardsReporter;
+	type WeightInfo = crate::approvals_rewards::TestWeightInfo;
+}
+
 thread_local! {
 	pub static DISCOVERY_AUTHORITIES: RefCell<Vec<AuthorityDiscoveryId>> = RefCell::new(Vec::new());
 }
@@ -651,7 +681,7 @@ impl ProcessMessage for TestProcessMessage {
 			Err(_) => return Err(ProcessMessageError::Corrupt), // same as the real `ProcessMessage`
 		};
 		if meter.try_consume(required).is_err() {
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(required));
 		}
 
 		let mut processed = Processed::get();

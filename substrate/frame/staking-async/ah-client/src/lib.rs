@@ -704,6 +704,12 @@ pub mod pallet {
 			// if we have any pending session reports, send it.
 			weight.saturating_accrue(T::DbWeight::get().reads(1));
 			if let Some((session_report, retries_left)) = OutgoingSessionReport::<T>::take() {
+				log!(
+					info,
+					"sending session report to asset hub: session={} validator_points={:?}",
+					session_report.end_index,
+					session_report.validator_points,
+				);
 				match T::SendToAssetHub::relay_session_report(session_report.clone()) {
 					Ok(()) => {
 						// report was sent, all good, it is already deleted.
@@ -736,7 +742,7 @@ pub mod pallet {
 			weight.saturating_accrue(T::DbWeight::get().reads(2));
 			OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
 				if page.is_empty() {
-					return Ok(())
+					return Ok(());
 				}
 				// send the page if not empty. If sending returns `Ok`, we delete this page.
 				T::SendToAssetHub::relay_new_offence_paged(page.into_inner()).inspect_err(|_| {
@@ -843,10 +849,12 @@ pub mod pallet {
 					// delegate to the fallback implementation.
 					T::Fallback::on_offence(offenders, slash_fraction, slash_session)
 				},
-				OperatingMode::Buffered =>
-					Self::on_offence_buffered(offenders, slash_fraction, slash_session),
-				OperatingMode::Active =>
-					Self::on_offence_active(offenders, slash_fraction, slash_session),
+				OperatingMode::Buffered => {
+					Self::on_offence_buffered(offenders, slash_fraction, slash_session)
+				},
+				OperatingMode::Active => {
+					Self::on_offence_active(offenders, slash_fraction, slash_session)
+				},
 			}
 		}
 	}

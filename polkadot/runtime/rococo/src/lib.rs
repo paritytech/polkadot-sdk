@@ -80,6 +80,7 @@ use polkadot_runtime_parachains::{
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
+	approvals_rewards as parachains_approvals_rewards,
 };
 use rococo_runtime_constants::system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID};
 use scale_info::TypeInfo;
@@ -1041,6 +1042,9 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 	fn reward_backing(_: impl IntoIterator<Item = ValidatorIndex>) {}
 	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
+impl frame_support::traits::RewardsReporter<AccountId> for RewardValidators {
+	fn reward_by_ids(_: impl IntoIterator<Item = (AccountId, u32)>) {}
+}
 
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1223,6 +1227,20 @@ impl parachains_slashing::Config for Runtime {
 	>;
 	type WeightInfo = parachains_slashing::TestWeightInfo;
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
+}
+
+parameter_types! {
+	pub const MaxTalliesPerSubmission: u32 = 1024;
+	/// Half of the epoch duration (prod: 300 blocks, fast: 5 blocks).
+	pub ApprovalStatsWindowSize: u32 = EpochDurationInBlocks::get() / 2;
+}
+
+impl parachains_approvals_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::polkadot_runtime_parachains_approvals_rewards::WeightInfo<Runtime>;
+	type MaxTalliesPerSubmission = MaxTalliesPerSubmission;
+	type ApprovalStatsWindowSize = ApprovalStatsWindowSize;
+	type RewardsReporter = RewardValidators;
 }
 
 parameter_types! {
@@ -1592,6 +1610,7 @@ construct_runtime! {
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
 		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
+		ApprovalsRewards: parachains_approvals_rewards = 69,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar = 70,
@@ -1862,6 +1881,7 @@ mod benches {
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
 		[polkadot_runtime_parachains::paras, Paras]
 		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
+		[polkadot_runtime_parachains::approvals_rewards, ApprovalsRewards]
 		// Substrate
 		[pallet_balances, Balances]
 		[pallet_balances, NisCounterpartBalances]
@@ -2109,7 +2129,7 @@ sp_api::impl_runtime_apis! {
 			payload: polkadot_primitives::vstaging::ApprovalStatistics,
 			signature: polkadot_primitives::ValidatorSignature
 		) {
-			parachains_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
+			parachains_staging_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {

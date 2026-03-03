@@ -91,6 +91,7 @@ use polkadot_runtime_parachains::{
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
+	approvals_rewards as parachains_approvals_rewards,
 };
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -508,7 +509,7 @@ impl pallet_authorship::Config for Runtime {
 }
 
 parameter_types! {
-	pub const Period: BlockNumber = 10 * MINUTES;
+	pub const Period: BlockNumber = 5 * MINUTES; // 5 minutes = 50 blocks
 	pub const Offset: BlockNumber = 0;
 }
 
@@ -729,8 +730,8 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 }
 
 parameter_types! {
-	// Six sessions in an era (6 hours).
-	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 2);
+	// Six sessions in an era (6 hours). Fast: 15 sessions (30 minutes, given 2-min sessions).
+	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 15);
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -1444,6 +1445,20 @@ impl parachains_paras::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxTalliesPerSubmission: u32 = 1024;
+	/// Half the session length (EpochDuration drives actual session rotation via BABE).
+	pub const ApprovalStatsWindowSize: u32 = EpochDuration::get() as u32 / 2;
+}
+
+impl parachains_approvals_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::polkadot_runtime_parachains_approvals_rewards::WeightInfo<Runtime>;
+	type MaxTalliesPerSubmission = MaxTalliesPerSubmission;
+	type ApprovalStatsWindowSize = ApprovalStatsWindowSize;
+	type RewardsReporter = StakingAhClient;
+}
+
+parameter_types! {
 	/// Amount of weight that can be spent per block to service messages.
 	///
 	/// # WARNING
@@ -1977,6 +1992,8 @@ mod runtime {
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
 	#[runtime::pallet_index(57)]
 	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
+	#[runtime::pallet_index(58)]
+	pub type ApprovalsRewards = parachains_approvals_rewards;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
@@ -2141,6 +2158,7 @@ mod benches {
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
 		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		[polkadot_runtime_parachains::coretime, Coretime]
+		[polkadot_runtime_parachains::approvals_rewards, ApprovalsRewards]
 		// Substrate
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
@@ -2355,7 +2373,7 @@ sp_api::impl_runtime_apis! {
 			payload: ApprovalStatistics,
 			signature: ValidatorSignature,
 		) {
-			parachains_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
+			parachains_staging_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {
