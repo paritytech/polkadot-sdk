@@ -225,10 +225,23 @@ where
 
 		let block_hash = block_hash.unwrap_or(self.client.info().finalized_hash);
 		let key = statement_allowance_key(account_id);
+		let key_hex: String = key.iter().map(|b| format!("{b:02x}")).collect();
 		let storage_key = StorageKey(key);
-		self.client
+		let result = self
+			.client
 			.storage(block_hash, &storage_key)
-			.map_err(|e| Error::Storage(format!("Failed to read allowance: {:?}", e)))?
+			.map_err(|e| Error::Storage(format!("Failed to read allowance: {:?}", e)))?;
+
+		log::debug!(
+			target: LOG_TARGET,
+			"read_allowance: account=0x{} block={:?} key=0x{} result={}",
+			account_id.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+			block_hash,
+			key_hex,
+			if result.is_some() { "Some" } else { "None" },
+		);
+
+		result
 			.map(|value| {
 				StatementAllowance::decode(&mut &value.0[..])
 					.map_err(|e| Error::Decode(format!("Failed to decode allowance: {:?}", e)))
