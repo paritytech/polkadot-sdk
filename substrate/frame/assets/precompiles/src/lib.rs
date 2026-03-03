@@ -89,7 +89,7 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
-		Ok(index.into())
+		return Ok(index.into());
 	}
 }
 
@@ -240,6 +240,7 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	/// Deposit an event to the runtime.
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
@@ -251,6 +252,7 @@ where
 		Ok(())
 	}
 
+	/// Execute the transfer call.
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::transferCall,
@@ -282,9 +284,10 @@ where
 			}),
 		)?;
 
-		Ok(IERC20::transferCall::abi_encode_returns(&true))
+		return Ok(IERC20::transferCall::abi_encode_returns(&true));
 	}
 
+	/// Execute the total supply call.
 	fn total_supply(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
@@ -294,9 +297,10 @@ where
 
 		let value =
 			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
-		Ok(IERC20::totalSupplyCall::abi_encode_returns(&value))
+		return Ok(IERC20::totalSupplyCall::abi_encode_returns(&value));
 	}
 
+	/// Execute the balance_of call.
 	fn balance_of(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::balanceOfCall,
@@ -307,9 +311,10 @@ where
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
 		let value =
 			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
-		Ok(IERC20::balanceOfCall::abi_encode_returns(&value))
+		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
 	}
 
+	/// Execute the allowance call.
 	fn allowance(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::allowanceCall,
@@ -326,9 +331,10 @@ where
 			asset_id, &owner, &spender,
 		))?;
 
-		Ok(IERC20::allowanceCall::abi_encode_returns(&value))
+		return Ok(IERC20::allowanceCall::abi_encode_returns(&value));
 	}
 
+	/// Execute the approve call.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
@@ -355,9 +361,10 @@ where
 			}),
 		)?;
 
-		Ok(IERC20::approveCall::abi_encode_returns(&true))
+		return Ok(IERC20::approveCall::abi_encode_returns(&true));
 	}
 
+	/// Execute the transfer_from call.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::transferFromCall,
@@ -391,7 +398,7 @@ where
 			}),
 		)?;
 
-		Ok(IERC20::transferFromCall::abi_encode_returns(&true))
+		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
 	}
 
 	// ==================== ERC20Permit Functions (EIP-2612) ====================
