@@ -26,12 +26,12 @@ use std::{future::Future, pin::Pin};
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
 
+/// Trait for types that can be used as keys in the `sync_state` table.
+pub trait SyncStateKey: std::fmt::Display {}
+
 /// Labels used to track sync progress in the `sync_state` table.
 #[derive(Debug, Clone, Copy, derive_more::Display)]
 pub enum SyncLabel {
-	/// Genesis block hash — used for chain identity verification.
-	#[display(fmt = "genesis")]
-	Genesis,
 	/// Lowest block synced by the historic sync.
 	#[display(fmt = "sync-lower-bound")]
 	LowerBound,
@@ -41,12 +41,23 @@ pub enum SyncLabel {
 	#[display(fmt = "sync-upper-bound")]
 	UpperBound,
 	/// Latest finalized block, tracked by the live subscription.
-	#[display(fmt = "finalized")]
+	#[display(fmt = "sync-finalized")]
 	LastFinalized,
+}
+
+/// Chain metadata stored in the `sync_state` table.
+#[derive(Debug, Clone, Copy, derive_more::Display)]
+pub enum ChainMetadata {
+	/// Genesis block hash — used for chain identity verification.
+	#[display(fmt = "chain-genesis")]
+	Genesis,
 	/// Auto-discovered first EVM block on the chain.
-	#[display(fmt = "evm-first-block")]
+	#[display(fmt = "chain-evm-first-block")]
 	EvmFirstBlock,
 }
+
+impl SyncStateKey for SyncLabel {}
+impl SyncStateKey for ChainMetadata {}
 
 /// Sync checkpoint persisted in the `sync_state` table to allow resuming after a crash.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -81,7 +92,8 @@ impl Client {
 	async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
 		let genesis_hash: H256 = self.api().genesis_hash();
 
-		if let Some(checkpoint) = self.receipt_provider().get_sync_label(SyncLabel::Genesis).await?
+		if let Some(checkpoint) =
+			self.receipt_provider().get_sync_label(ChainMetadata::Genesis).await?
 		{
 			if let Some(stored) = checkpoint.block_hash {
 				if stored != genesis_hash {
@@ -186,7 +198,7 @@ impl Client {
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
-			.set_sync_label(SyncLabel::Genesis, SyncCheckpoint::new(0, genesis_hash))
+			.set_sync_label(ChainMetadata::Genesis, SyncCheckpoint::new(0, genesis_hash))
 			.await?;
 
 		let lower_boundary = self.receipt_provider().get_sync_label(SyncLabel::LowerBound).await?;

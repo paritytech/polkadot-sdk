@@ -19,8 +19,8 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockInfoProvider, EthRpcClient, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider,
-	SyncLabel,
+	BlockInfoProvider, ChainMetadata, EthRpcClient, ReceiptExtractor, ReceiptProvider,
+	SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{Client, connect},
 	example::TransactionBuilder,
@@ -1024,13 +1024,13 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Fresh DB — sync_state table should be empty.
-	for label in [
-		SyncLabel::Genesis,
-		SyncLabel::LowerBound,
-		SyncLabel::UpperBound,
-		SyncLabel::LastFinalized,
-		SyncLabel::EvmFirstBlock,
-	] {
+	for label in [SyncLabel::LowerBound, SyncLabel::UpperBound, SyncLabel::LastFinalized] {
+		assert!(
+			client.receipt_provider().get_sync_label(label).await?.is_none(),
+			"sync_state[{label}] should be absent on fresh DB"
+		);
+	}
+	for label in [ChainMetadata::Genesis, ChainMetadata::EvmFirstBlock] {
 		assert!(
 			client.receipt_provider().get_sync_label(label).await?.is_none(),
 			"sync_state[{label}] should be absent on fresh DB"
@@ -1046,7 +1046,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	// Genesis label must match the chain.
 	let genesis = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::Genesis)
+		.get_sync_label(ChainMetadata::Genesis)
 		.await?
 		.expect("Genesis label should be set after sync");
 	assert_eq!(
@@ -1076,7 +1076,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	assert_eq!(lower_bound, genesis, "LowerBound should be genesis");
 
 	// On the dev node all blocks (including genesis) have EVM hashes
-	let evm_first = client.receipt_provider().get_sync_label(SyncLabel::EvmFirstBlock).await?;
+	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::EvmFirstBlock).await?;
 	assert!(evm_first.is_none(), "EvmFirstBlock should not be set when all blocks are EVM");
 	assert_eq!(client.receipt_provider().evm_first_block(), None);
 
@@ -1218,7 +1218,7 @@ async fn test_block_sync_chain_mismatch() -> anyhow::Result<()> {
 	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::Genesis, fake_genesis)
+		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
 		.await?;
 
 	// Re-sync should detect the mismatch and return ChainMismatch.

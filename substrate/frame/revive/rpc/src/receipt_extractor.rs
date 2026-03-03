@@ -157,8 +157,8 @@ impl ReceiptExtractor {
 	pub fn set_evm_first_block(&self, block_number: SubstrateBlockNumber) {
 		let prev = self.evm_first_block.fetch_min(block_number, Ordering::AcqRel);
 		if block_number > prev {
-			log::warn!(target: LOG_TARGET,
-				"Failed to update evm_first_block to #{block_number}, current is #{prev}");
+			log::debug!(target: LOG_TARGET,
+				"Ignored attempt to raise evm_first_block to #{block_number}, current is #{prev}");
 		}
 	}
 

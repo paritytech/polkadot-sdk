@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
-	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
+	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes,
+	ChainMetadata, ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
+	SyncStateKey,
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
@@ -133,7 +134,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_number: SubstrateBlockNumber,
 	) -> Result<(), ClientError> {
 		self.receipt_extractor.set_evm_first_block(block_number);
-		self.set_sync_label(SyncLabel::EvmFirstBlock, SyncCheckpoint::from_number(block_number))
+		self.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(block_number))
 			.await
 	}
 
@@ -160,7 +161,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Restore `evm_first_block` from DB, clearing it if the boundary has shifted.
 	async fn load_and_validate_evm_first_block(&self) -> Result<(), ClientError> {
 		let Some(evm_first) = self
-			.get_sync_label(SyncLabel::EvmFirstBlock)
+			.get_sync_label(ChainMetadata::EvmFirstBlock)
 			.await?
 			.map(|c| c.block_number)
 			.filter(|&n| n > 0)
@@ -190,7 +191,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				 (has_evm={current_has_evm}, predecessor_has_evm={predecessor_has_evm}), \
 				 clearing.");
 			if let Err(e) = self
-				.set_sync_label(SyncLabel::EvmFirstBlock, SyncCheckpoint::from_number(0))
+				.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(0))
 				.await
 			{
 				log::error!(target: LOG_TARGET,
@@ -332,7 +333,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Read a sync label entry.
 	pub async fn get_sync_label(
 		&self,
-		label: SyncLabel,
+		label: impl SyncStateKey,
 	) -> Result<Option<SyncCheckpoint>, ClientError> {
 		let label_str = label.to_string();
 		let row = query!(
@@ -369,7 +370,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Upsert a sync label entry.
 	pub async fn set_sync_label(
 		&self,
-		label: SyncLabel,
+		label: impl SyncStateKey,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
 		let label_str = label.to_string();
@@ -1438,12 +1439,12 @@ mod tests {
 		assert_eq!(provider.evm_first_block(), None);
 
 		provider
-			.set_sync_label(SyncLabel::EvmFirstBlock, SyncCheckpoint::from_number(42))
+			.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(42))
 			.await
 			.unwrap();
 
 		// Verify the value can be loaded from DB.
-		let checkpoint = provider.get_sync_label(SyncLabel::EvmFirstBlock).await?;
+		let checkpoint = provider.get_sync_label(ChainMetadata::EvmFirstBlock).await?;
 		assert_eq!(checkpoint.map(|c| c.block_number), Some(42));
 		Ok(())
 	}
@@ -1456,7 +1457,7 @@ mod tests {
 
 		// Persist evm_first_block = 42.
 		provider
-			.set_sync_label(SyncLabel::EvmFirstBlock, SyncCheckpoint::from_number(42))
+			.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(42))
 			.await?;
 
 		// MockBlockInfoProvider returns no blocks, so has_evm_hash is always false.
@@ -1467,7 +1468,7 @@ mod tests {
 		assert_eq!(provider.evm_first_block(), None);
 
 		// DB should be reset to 0.
-		let checkpoint = provider.get_sync_label(SyncLabel::EvmFirstBlock).await?;
+		let checkpoint = provider.get_sync_label(ChainMetadata::EvmFirstBlock).await?;
 		assert_eq!(checkpoint.map(|c| c.block_number), Some(0));
 		Ok(())
 	}
@@ -1477,25 +1478,25 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Initially empty
-		assert!(provider.get_sync_label(SyncLabel::Genesis).await.unwrap().is_none());
+		assert!(provider.get_sync_label(ChainMetadata::Genesis).await.unwrap().is_none());
 
 		// Set and read back
 		let hash = H256::repeat_byte(0x42);
 		provider
-			.set_sync_label(SyncLabel::Genesis, SyncCheckpoint::new(0, hash))
+			.set_sync_label(ChainMetadata::Genesis, SyncCheckpoint::new(0, hash))
 			.await
 			.unwrap();
-		let checkpoint = provider.get_sync_label(SyncLabel::Genesis).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_label(ChainMetadata::Genesis).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 0);
 		assert_eq!(checkpoint.block_hash, Some(hash));
 
 		// Overwrite
 		let hash2 = H256::repeat_byte(0xAA);
 		provider
-			.set_sync_label(SyncLabel::Genesis, SyncCheckpoint::new(0, hash2))
+			.set_sync_label(ChainMetadata::Genesis, SyncCheckpoint::new(0, hash2))
 			.await
 			.unwrap();
-		let checkpoint = provider.get_sync_label(SyncLabel::Genesis).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_label(ChainMetadata::Genesis).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_hash, Some(hash2));
 
 		Ok(())
