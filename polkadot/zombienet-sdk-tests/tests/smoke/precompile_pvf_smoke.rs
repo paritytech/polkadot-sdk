@@ -24,7 +24,7 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
-	wait_for_nth_session_change, wait_for_first_session_change,
+	wait_for_first_session_change, wait_for_nth_session_change,
 };
 use polkadot_primitives::Id as ParaId;
 use tokio::time::{sleep, Duration};

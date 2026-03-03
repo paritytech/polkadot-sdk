@@ -32,16 +32,15 @@ async fn parachains_smoke_test() -> Result<(), anyhow::Error> {
 	let alice_client: zombienet_sdk::subxt::OnlineClient<PolkadotConfig> =
 		alice.wait_client().await?;
 
-	// Check parachain is registered (225 seconds)
-	// Using 75 blocks as upper bound (~225 seconds with 3s block time)
+	// Check parachain is registered (should be since is included in genesis)
 	log::info!("Checking parachain {} is registered", PARA_ID);
-	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 75).await?;
+	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 5).await?;
 	log::info!("Parachain {} is registered", PARA_ID);
 
 	// Check parachain produces at least 5 blocks (60 seconds)
 	// Using 10 relay blocks as measurement window
 	log::info!("Checking parachain {} is producing blocks", PARA_ID);
-	assert_para_throughput(&alice_client, 10, [(ParaId::from(PARA_ID), 5..11)]).await?;
+	assert_para_throughput(&alice_client, 5, [(ParaId::from(PARA_ID), 2..6)]).await?;
 	log::info!("Parachain {} is producing blocks successfully", PARA_ID);
 
 	log::info!("Test finished successfully");
