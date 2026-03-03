@@ -740,7 +740,7 @@ pub enum ProxyType {
 	/// destinations, or nominate.
 	///
 	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
-	/// and `Utility` pallets.
+	/// and `Utility` batching calls (batch, batch_all, force_batch).
 	StakingOperator,
 }
 impl Default for ProxyType {
@@ -899,7 +899,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Utility { .. }
+				) | RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
 		}
 	}
