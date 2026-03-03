@@ -156,12 +156,14 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		CanSecondRequest, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
-		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest,
+		CanSecondRequest, CandidateBackingMessage, ChainApiMessage, CollatorProtocolMessage,
+		IfDisconnected, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+		ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, SubsystemError,
 };
+use sp_consensus_babe::digests::CompatibleDigestItem;
+use sp_consensus_slots::SlotDuration;
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
@@ -590,6 +592,14 @@ struct State {
 	/// - `is_slot_available()`: validates advertisements using offset-based position checks
 	/// - `unfulfilled_claim_queue_entries()`: determines fetch priority based on CQ order
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+
+	/// Per active leaf: (parent_hash, babe_slot_timestamp).
+	/// Used to determine whether a leaf's relay chain slot has finished,
+	/// so the scheduling parent check can accept the last finished slot's block.
+	leaf_scheduling_info: HashMap<Hash, (Hash, sp_timestamp::Timestamp)>,
+
+	/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
+	slot_duration_millis: u64,
 
 	/// State tracked per scheduling parent in the implicit view.
 	/// Includes collation tracking, core assignment, and hold-off state.
@@ -1353,8 +1363,8 @@ enum AdvertisementError {
 	SecondedLimitReached,
 	/// For V1 protocol, relay_parent must be an active leaf (no async backing support).
 	ProtocolMisuse,
-	/// For V3 candidate descriptors, scheduling_parent must be an active leaf.
-	SchedulingParentNotActiveLeaf,
+	/// For V3 candidate descriptors, the scheduling parent's relay chain slot is still in progress.
+	SchedulingParentSlotInProgress,
 	/// Advertisement is invalid.
 	#[allow(dead_code)]
 	Invalid(InsertAdvertisementError),
@@ -1367,11 +1377,13 @@ impl AdvertisementError {
 		use AdvertisementError::*;
 		match self {
 			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
-			SchedulingParentNotActiveLeaf |
-			SchedulingParentUnknown |
-			UndeclaredCollator |
-			Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
-			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
+			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
+				Some(COST_UNEXPECTED_MESSAGE)
+			},
+			UnknownPeer |
+			SecondedLimitReached |
+			BlockedByBacking |
+			SchedulingParentSlotInProgress => None,
 		}
 	}
 }
@@ -1697,12 +1709,31 @@ where
 {
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
-	// V3 candidate descriptors require scheduling_parent to be an active leaf.
-	// For V1/V2 candidate descriptors sent over V3 protocol, we have to be more lenient.
-	if candidate_descriptor_version == CandidateDescriptorVersion::V3 &&
-		!state.leaf_claim_queues.contains_key(&scheduling_parent)
-	{
-		return Err(AdvertisementError::SchedulingParentNotActiveLeaf);
+	// V3 candidate descriptors require the scheduling_parent to be the block from the last
+	// finished relay chain slot. For each active leaf we check:
+	// - slot_age < slot_duration: leaf's slot is in progress → scheduling parent == leaf's
+	//   parent
+	// - slot_age < 2*slot_duration: leaf's slot just finished → scheduling parent == leaf
+	// - slot_age >= 2*slot_duration: leaf is too old, skip
+	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
+		let now = sp_timestamp::Timestamp::current();
+		let slot_duration_ms = state.slot_duration_millis;
+
+		let scheduling_parent_valid =
+			state.leaf_scheduling_info.iter().any(|(leaf_hash, (parent_hash, slot_timestamp))| {
+				let slot_age_ms = (*now).saturating_sub(**slot_timestamp);
+				if slot_age_ms < slot_duration_ms {
+					scheduling_parent == *parent_hash
+				} else if slot_age_ms < 2 * slot_duration_ms {
+					scheduling_parent == *leaf_hash
+				} else {
+					false
+				}
+			});
+
+		if !scheduling_parent_valid {
+			return Err(AdvertisementError::SchedulingParentSlotInProgress);
+		}
 	}
 
 	let per_scheduling_parent = state
@@ -1936,6 +1967,24 @@ where
 		state.per_scheduling_parent.insert(*leaf, per_relay_parent);
 		state.leaf_claim_queues.insert(*leaf, leaf_claim_queue);
 
+		// Fetch leaf header to extract BABE slot for scheduling parent validation.
+		let (tx, rx) = oneshot::channel();
+		sender.send_message(ChainApiMessage::BlockHeader(*leaf, tx)).await;
+		if let Ok(Ok(Some(header))) = rx.await {
+			let babe_pre_digest =
+				header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest());
+			if let Some(pre_digest) = babe_pre_digest {
+				let slot_duration_ms = state.slot_duration_millis;
+				if let Some(slot_timestamp) =
+					pre_digest.slot().timestamp(SlotDuration::from_millis(slot_duration_ms))
+				{
+					state
+						.leaf_scheduling_info
+						.insert(*leaf, (header.parent_hash, slot_timestamp));
+				}
+			}
+		}
+
 		state
 			.implicit_view
 			.activate_leaf(sender, *leaf)
@@ -1974,6 +2023,7 @@ where
 		);
 
 		state.leaf_claim_queues.remove(&removed);
+		state.leaf_scheduling_info.remove(&removed);
 
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
@@ -2301,6 +2351,7 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
+	slot_duration_millis: u64,
 ) -> std::result::Result<(), SubsystemError> {
 	gum::info!(target: LOG_TARGET, "Running legacy collator protocol");
 	run_inner(
@@ -2312,6 +2363,7 @@ pub(crate) async fn run<Context>(
 		REPUTATION_CHANGE_INTERVAL,
 		ah_invulnerables,
 		hold_off_duration.unwrap_or(HOLD_OFF_DURATION_DEFAULT_VALUE),
+		slot_duration_millis,
 	)
 	.await
 }
@@ -2326,12 +2378,19 @@ async fn run_inner<Context>(
 	reputation_interval: Duration,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Duration,
+	slot_duration_millis: u64,
 ) -> std::result::Result<(), SubsystemError> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state =
-		State { metrics, reputation, ah_invulnerables, hold_off_duration, ..Default::default() };
+	let mut state = State {
+		metrics,
+		reputation,
+		ah_invulnerables,
+		hold_off_duration,
+		slot_duration_millis,
+		..Default::default()
+	};
 
 	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);

@@ -149,6 +149,8 @@ pub struct ExtendedOverseerGenArgs {
 	pub collator_protocol_hold_off: Option<Duration>,
 	/// Use experimental collator protocol
 	pub experimental_collator_protocol: bool,
+	/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
+	pub slot_duration_millis: u64,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -186,6 +188,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
 		experimental_collator_protocol,
+		slot_duration_millis,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -316,6 +319,7 @@ where
 							metrics: Metrics::register(registry)?,
 							invulnerables: invulnerable_ah_collators,
 							collator_protocol_hold_off,
+							slot_duration_millis,
 						}
 					}
 				},

@@ -84,6 +84,8 @@ pub enum ProtocolSide {
 		invulnerables: HashSet<PeerId>,
 		/// Override for `HOLD_OFF_DURATION` constant .
 		collator_protocol_hold_off: Option<Duration>,
+		/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
+		slot_duration_millis: u64,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
 	ValidatorExperimental {
@@ -130,6 +132,7 @@ impl<Context> CollatorProtocolSubsystem {
 				metrics,
 				invulnerables,
 				collator_protocol_hold_off,
+				slot_duration_millis,
 			} => {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -144,6 +147,7 @@ impl<Context> CollatorProtocolSubsystem {
 					metrics,
 					invulnerables,
 					collator_protocol_hold_off,
+					slot_duration_millis,
 				)
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
