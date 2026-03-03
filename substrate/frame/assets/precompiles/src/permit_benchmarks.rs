@@ -173,8 +173,7 @@ mod benchmarks {
 
 		// ── Setup: owner native balance for the approval deposit ─────────────
 		let owner = test_owner();
-		let owner_account =
-			<T as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
+		let owner_account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 		let deposit = <T as pallet_assets::Config>::ApprovalDeposit::get();
 		<T as pallet_assets::Config>::Currency::make_free_balance_be(
 			&owner_account,
@@ -182,8 +181,7 @@ mod benchmarks {
 		);
 
 		let spender = H160::from_low_u64_be(0x9876_5432);
-		let spender_account =
-			<T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+		let spender_account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
 		// ── Permit signature (same as use_permit benchmark) ──────────────────
 		let verifying_contract = test_verifying_contract();
@@ -191,19 +189,20 @@ mod benchmarks {
 		let deadline: [u8; 32] = U256::from(u64::MAX).to_big_endian();
 		let v = 27u8;
 		let r: [u8; 32] = [
-			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215,
-			220, 121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
+			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
+			121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
 		];
 		let s: [u8; 32] = [
-			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27,
-			5, 147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
+			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
+			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
 		];
 
 		#[block]
 		{
 			// 1. Asset name DB read (same as lib.rs::permit()).
-			let token_name =
-				<pallet_assets::Pallet<T> as FungiblesMetadata<T::AccountId>>::name(asset_id.clone());
+			let token_name = <pallet_assets::Pallet<T> as FungiblesMetadata<T::AccountId>>::name(
+				asset_id.clone(),
+			);
 
 			// 2. Permit digest computation, ECDSA recovery, and nonce write.
 			Pallet::<T>::use_permit(
@@ -219,8 +218,8 @@ mod benchmarks {
 			)
 			.expect("permit should be valid");
 
-			// 3. Approval record write (do_approve_transfer reads Asset + Approvals,
-			//    writes Approvals + Asset, and reserves the deposit from owner).
+			// 3. Approval record write (do_approve_transfer reads Asset + Approvals, writes
+			//    Approvals + Asset, and reserves the deposit from owner).
 			pallet_assets::Pallet::<T>::do_approve_transfer(
 				asset_id,
 				&owner_account,
