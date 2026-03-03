@@ -56,6 +56,7 @@ pub use weights_ext::WeightInfoExt;
 extern crate alloc;
 
 use alloc::{collections::BTreeSet, vec, vec::Vec};
+use bitflags::bitflags;
 use bounded_collections::{BoundedBTreeSet, BoundedSlice, BoundedVec};
 use codec::{Compact, Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
@@ -373,6 +374,14 @@ pub enum OutboundState {
 	Suspended,
 }
 
+bitflags! {
+	#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+	struct OutboundChannelFlags: u32 {
+		const CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT = 1;
+		const CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT = 1 << 1;
+	}
+}
+
 /// Struct containing detailed information about the outbound channel.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug, MaxEncodedLen)]
 pub struct OutboundChannelDetails {
@@ -380,12 +389,14 @@ pub struct OutboundChannelDetails {
 	recipient: ParaId,
 	/// The state of the channel.
 	state: OutboundState,
-	/// Whether or not any signals exist in this channel.
+	/// Whether any signals exist in this channel.
 	signals_exist: bool,
 	/// The index of the first outbound message.
 	first_index: u16,
 	/// The index of the last outbound message.
 	last_index: u16,
+	/// Flags
+	flags: OutboundChannelFlags,
 }
 
 impl OutboundChannelDetails {
@@ -396,6 +407,7 @@ impl OutboundChannelDetails {
 			signals_exist: false,
 			first_index: 0,
 			last_index: 0,
+			flags: OutboundChannelFlags::empty(),
 		}
 	}
 
@@ -1021,6 +1033,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				signals_exist,
 				first_index,
 				last_index,
+				flags: _,
 			} = status;
 
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(*para_id) {

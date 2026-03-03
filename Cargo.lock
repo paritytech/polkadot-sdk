@@ -4714,6 +4714,7 @@ name = "cumulus-pallet-xcmp-queue"
 version = "0.7.1"
 dependencies = [
  "approx",
+ "bitflags 1.3.2",
  "bounded-collections 0.3.2",
  "bp-xcm-bridge-hub-router",
  "cumulus-pallet-parachain-system",
