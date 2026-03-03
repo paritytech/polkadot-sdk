@@ -46,7 +46,6 @@ async fn deregister_register_validator_smoke_test() -> Result<(), anyhow::Error>
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
 
-
 	let alice_node = network.get_node("alice")?;
 	let dave_node = network.get_node("dave")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice_node.wait_client().await?;
