@@ -19,8 +19,8 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, SessionInfo,
-		System, Test, ApprovalsRewards, APPROVAL_REWARDS,
+		new_test_ext, ApprovalsRewards, Configuration, MockGenesisConfig, ParasShared,
+		RuntimeOrigin, SessionInfo, System, Test, APPROVAL_REWARDS,
 	},
 };
 use frame_support::{assert_noop, assert_ok};
@@ -30,8 +30,6 @@ use polkadot_primitives::{
 	BlockNumber, SessionIndex, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::RuntimeAppPublic;
-
-// ==================== Helper Functions ====================
 
 /// Generate a list of validators with keypairs
 fn generate_validators(count: usize) -> Vec<ValidatorId> {
@@ -171,17 +169,17 @@ fn genesis_config() -> MockGenesisConfig {
 /// Session change notification helper - changes every 10 blocks
 fn session_changes(n: BlockNumber) -> Option<SessionChangeNotification<BlockNumber>> {
 	if n % 10 == 0 {
-		Some(SessionChangeNotification {
-			session_index: n / 10,
-			..Default::default()
-		})
+		Some(SessionChangeNotification { session_index: n / 10, ..Default::default() })
 	} else {
 		None
 	}
 }
 
 /// Create tallies with varying approval usage for testing median calculation
-fn create_test_tallies(validator_count: usize, base_usage: u32) -> Vec<ApprovalStatisticsTallyLine> {
+fn create_test_tallies(
+	validator_count: usize,
+	base_usage: u32,
+) -> Vec<ApprovalStatisticsTallyLine> {
 	(0..validator_count)
 		.map(|v_idx| ApprovalStatisticsTallyLine {
 			validator_index: ValidatorIndex(v_idx as u32),
@@ -190,8 +188,6 @@ fn create_test_tallies(validator_count: usize, base_usage: u32) -> Vec<ApprovalS
 		})
 		.collect()
 }
-
-// ==================== Tests ====================
 
 #[test]
 fn successful_approval_statistics_submission() {
@@ -217,8 +213,7 @@ fn successful_approval_statistics_submission() {
 
 		// Verify storage was updated
 		assert!(ApprovalsTallies::<Test>::contains_key(session_index, validator_index));
-		let stored_tallies =
-			ApprovalsTallies::<Test>::get(session_index, validator_index).unwrap();
+		let stored_tallies = ApprovalsTallies::<Test>::get(session_index, validator_index).unwrap();
 		assert_eq!(stored_tallies, tallies);
 
 		// Verify event was emitted
@@ -260,8 +255,6 @@ fn successful_submission_multiple_validators() {
 	});
 }
 
-// ==================== Error Condition Tests ====================
-
 #[test]
 fn reject_invalid_signature() {
 	new_test_ext(genesis_config()).execute_with(|| {
@@ -274,7 +267,8 @@ fn reject_invalid_signature() {
 		let payload = ApprovalStatistics(session_index, validator_index, tallies);
 
 		// Create a wrong signature (from different validator)
-		let wrong_signature = validators[1].sign(&payload.signing_payload()).expect("Signing should work");
+		let wrong_signature =
+			validators[1].sign(&payload.signing_payload()).expect("Signing should work");
 
 		assert_noop!(
 			ApprovalsRewards::include_approvals_rewards_statistics(
@@ -359,7 +353,8 @@ fn reject_validator_index_out_of_bounds() {
 
 		let payload = ApprovalStatistics(session_index, invalid_index, tallies);
 		// Sign with valid validator but use invalid index in payload
-		let signature = validators[0].sign(&payload.signing_payload()).expect("Signing should work");
+		let signature =
+			validators[0].sign(&payload.signing_payload()).expect("Signing should work");
 
 		assert_noop!(
 			ApprovalsRewards::include_approvals_rewards_statistics(
@@ -442,8 +437,6 @@ fn reject_unknown_session_index() {
 	});
 }
 
-// ==================== Session Change Logic Tests ====================
-
 #[test]
 fn median_calculation_on_session_change() {
 	new_test_ext(genesis_config()).execute_with(|| {
@@ -473,10 +466,8 @@ fn median_calculation_on_session_change() {
 		System::set_block_number(6);
 
 		// Trigger session change: window expired → settles session_1
-		let notification = SessionChangeNotification {
-			session_index: session_1 + 1,
-			..Default::default()
-		};
+		let notification =
+			SessionChangeNotification { session_index: session_1 + 1, ..Default::default() };
 		ApprovalsRewards::initializer_on_new_session(&notification);
 
 		// Verify medians were calculated and stored for session 1
@@ -516,10 +507,8 @@ fn no_median_below_byzantine_threshold() {
 		System::set_block_number(6);
 
 		// Trigger session change: window expired → settles with insufficient tallies
-		let notification = SessionChangeNotification {
-			session_index: session_1 + 1,
-			..Default::default()
-		};
+		let notification =
+			SessionChangeNotification { session_index: session_1 + 1, ..Default::default() };
 		ApprovalsRewards::initializer_on_new_session(&notification);
 
 		// Verify NO medians were calculated (below byzantine threshold)
@@ -559,10 +548,8 @@ fn old_data_pruning_on_session_change() {
 
 		let current_session = start_session + 9;
 		let next_session = current_session + 1;
-		let notification = SessionChangeNotification {
-			session_index: next_session,
-			..Default::default()
-		};
+		let notification =
+			SessionChangeNotification { session_index: next_session, ..Default::default() };
 		ApprovalsRewards::initializer_on_new_session(&notification);
 
 		// min_session_to_keep = next_session - dispute_period
@@ -605,18 +592,12 @@ fn session_change_without_session_info() {
 		SettlingForSession::<Test>::put(session_1);
 
 		// Directly insert a tally (bypassing submission since there's no session info)
-		ApprovalsTallies::<Test>::insert(
-			session_1,
-			ValidatorIndex(0),
-			create_test_tallies(5, 100),
-		);
+		ApprovalsTallies::<Test>::insert(session_1, ValidatorIndex(0), create_test_tallies(5, 100));
 
 		// Advance past window_end then trigger session change without session info
 		System::set_block_number(6);
-		let notification = SessionChangeNotification {
-			session_index: session_1 + 1,
-			..Default::default()
-		};
+		let notification =
+			SessionChangeNotification { session_index: session_1 + 1, ..Default::default() };
 
 		// Should not panic - settle_specific_session returns early when session info missing
 		ApprovalsRewards::initializer_on_new_session(&notification);
@@ -625,8 +606,6 @@ fn session_change_without_session_info() {
 		assert!(!AvailableApprovalsMedians::<Test>::contains_key(session_1));
 	});
 }
-
-// ==================== Unsigned Validation Tests ====================
 
 #[test]
 fn validate_unsigned_accepts_valid_transaction() {
@@ -642,10 +621,8 @@ fn validate_unsigned_accepts_valid_transaction() {
 		let (payload, signature) =
 			create_approval_statistics(session_index, validator_index, tallies.clone());
 
-		let call = Call::include_approvals_rewards_statistics {
-			payload: payload.clone(),
-			signature,
-		};
+		let call =
+			Call::include_approvals_rewards_statistics { payload: payload.clone(), signature };
 
 		let result = <ApprovalsRewards as ValidateUnsigned>::validate_unsigned(
 			TransactionSource::External,
@@ -696,20 +673,16 @@ fn validate_unsigned_with_different_payloads() {
 			signature: signature_2,
 		};
 
-		assert!(
-			<ApprovalsRewards as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::External,
-				&call_1,
-			)
-			.is_ok()
-		);
-		assert!(
-			<ApprovalsRewards as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::External,
-				&call_2,
-			)
-			.is_ok()
-		);
+		assert!(<ApprovalsRewards as ValidateUnsigned>::validate_unsigned(
+			TransactionSource::External,
+			&call_1,
+		)
+		.is_ok());
+		assert!(<ApprovalsRewards as ValidateUnsigned>::validate_unsigned(
+			TransactionSource::External,
+			&call_2,
+		)
+		.is_ok());
 	});
 }
 
@@ -725,16 +698,13 @@ fn pre_dispatch_accepts_any_call() {
 		let (payload, signature) =
 			create_approval_statistics(session_index, validator_index, tallies);
 
-		let call =
-			Call::include_approvals_rewards_statistics { payload, signature };
+		let call = Call::include_approvals_rewards_statistics { payload, signature };
 
 		// pre_dispatch should always return Ok(())
 		let result = <ApprovalsRewards as ValidateUnsigned>::pre_dispatch(&call);
 		assert_ok!(result);
 	});
 }
-
-// ==================== Integration and Edge Case Tests ====================
 
 #[test]
 fn end_to_end_approval_rewards_flow() {
@@ -945,8 +915,6 @@ fn pays_no_fee_for_valid_submission() {
 		assert_eq!(post_info.pays_fee, frame_support::dispatch::Pays::No);
 	});
 }
-
-// ==================== Rewards Accumulation Tests ====================
 
 #[test]
 fn rewards_accumulate_after_settlement() {

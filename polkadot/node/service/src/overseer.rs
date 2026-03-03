@@ -357,6 +357,7 @@ where
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
 		.rewards_statistics_collector(RewardsStatisticsCollector::new(
+			keystore.clone(),
 			Metrics::register(registry)?,
 			rewards_statistics_collector_config,
 		))

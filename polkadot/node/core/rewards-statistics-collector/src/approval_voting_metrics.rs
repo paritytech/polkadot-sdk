@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::View;
+use crate::{View, LOG_TARGET};
 use polkadot_primitives::{BlockNumber, Hash, ValidatorIndex};
 use std::collections::BTreeMap;
 
@@ -30,15 +30,32 @@ pub fn handle_candidate_approved(
 	block_number: BlockNumber,
 	approvals: Vec<ValidatorIndex>,
 ) {
+	gum::debug!(
+		target: LOG_TARGET,
+		?block_hash,
+		block_number,
+		approval_count = approvals.len(),
+		"processing candidate approvals"
+	);
+
 	view.per_relay.entry((block_hash, block_number)).and_modify(|relay_view| {
-		for validator_index in approvals {
+		for validator_index in approvals.iter() {
 			relay_view
 				.approvals_stats
 				.votes
-				.entry(validator_index)
+				.entry(*validator_index)
 				.and_modify(|count| *count = count.saturating_add(1))
 				.or_insert(1);
 		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?block_hash,
+			block_number,
+			total_unique_validators = relay_view.approvals_stats.votes.len(),
+			total_approvals = relay_view.approvals_stats.votes.values().sum::<u32>(),
+			"candidate approvals recorded"
+		);
 	});
 }
 
@@ -48,14 +65,31 @@ pub fn handle_observed_no_shows(
 	block_number: BlockNumber,
 	no_show_validators: Vec<ValidatorIndex>,
 ) {
+	gum::debug!(
+		target: LOG_TARGET,
+		?block_hash,
+		block_number,
+		no_show_count = no_show_validators.len(),
+		"processing observed no-shows"
+	);
+
 	view.per_relay.entry((block_hash, block_number)).and_modify(|relay_view| {
-		for validator_index in no_show_validators {
+		for validator_index in no_show_validators.iter() {
 			relay_view
 				.approvals_stats
 				.no_shows
-				.entry(validator_index)
+				.entry(*validator_index)
 				.and_modify(|count| *count = count.saturating_add(1))
 				.or_insert(1);
 		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			?block_hash,
+			block_number,
+			total_unique_no_shows = relay_view.approvals_stats.no_shows.len(),
+			total_no_show_count = relay_view.approvals_stats.no_shows.values().sum::<u32>(),
+			"no-shows recorded"
+		);
 	});
 }

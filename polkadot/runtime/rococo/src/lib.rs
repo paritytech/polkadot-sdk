@@ -66,6 +66,7 @@ use polkadot_runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
+	approvals_rewards as parachains_approvals_rewards,
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
@@ -80,7 +81,6 @@ use polkadot_runtime_parachains::{
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
-	approvals_rewards as parachains_approvals_rewards,
 };
 use rococo_runtime_constants::system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID};
 use scale_info::TypeInfo;
@@ -977,19 +977,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. } |
-					RuntimeCall::Crowdloan { .. } |
-					RuntimeCall::Registrar { .. } |
-					RuntimeCall::Multisig(..) |
-					RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. }
+					| RuntimeCall::Crowdloan { .. }
+					| RuntimeCall::Registrar { .. }
+					| RuntimeCall::Multisig(..)
+					| RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),

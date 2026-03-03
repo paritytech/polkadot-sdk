@@ -29,10 +29,7 @@ use polkadot_primitives::{
 	vstaging::{ApprovalStatistics, ApprovalStatisticsTallyLine},
 	SessionIndex, SessionInfo, ValidatorIndex, ValidatorSignature,
 };
-use sp_runtime::{
-	traits::AppVerify,
-	Saturating,
-};
+use sp_runtime::{traits::AppVerify, Saturating};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -192,15 +189,13 @@ pub mod pallet {
 		ApprovalRewardsUndefinedWindow,
 	}
 
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let Some(session_start) = CurrentSessionStartBlock::<T>::get() else {
 				return Weight::zero();
 			};
-			let window_end =
-				session_start.saturating_add(T::ApprovalStatsWindowSize::get().into());
+			let window_end = session_start.saturating_add(T::ApprovalStatsWindowSize::get().into());
 			if n == window_end.saturating_add(One::one()) {
 				if let Some(settling_session) = SettlingForSession::<T>::take() {
 					Self::settle_specific_session(settling_session);
@@ -545,8 +540,7 @@ impl<T: Config> Pallet<T> {
 		// If a window is open, check whether it has already expired without being settled by
 		// on_initialize. This can happen when ApprovalStatsWindowSize >= session length.
 		if let Some(window_start) = CurrentSessionStartBlock::<T>::get() {
-			let window_end =
-				window_start.saturating_add(T::ApprovalStatsWindowSize::get().into());
+			let window_end = window_start.saturating_add(T::ApprovalStatsWindowSize::get().into());
 			if current_block > window_end {
 				if let Some(settling_session) = SettlingForSession::<T>::take() {
 					Self::settle_specific_session(settling_session);

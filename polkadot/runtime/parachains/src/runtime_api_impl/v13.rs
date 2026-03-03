@@ -344,14 +344,6 @@ pub fn submit_pvf_check_statement<T: paras::Config>(
 	paras::Pallet::<T>::submit_pvf_check_statement(stmt, signature)
 }
 
-/// Submits the collected approval statistics for a given session.
-pub fn submit_approval_statistics<T: paras::Config>(
-	payload: ApprovalStatistics,
-	signature: ValidatorSignature,
-) {
-	paras::Pallet::<T>::submit_approval_statistics(payload, signature)
-}
-
 /// Returns the list of all PVF code hashes that require pre-checking.
 pub fn pvfs_require_precheck<T: paras::Config>() -> Vec<ValidationCodeHash> {
 	paras::Pallet::<T>::pvfs_require_precheck()

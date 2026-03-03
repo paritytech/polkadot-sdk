@@ -2291,7 +2291,7 @@ sp_api::impl_runtime_apis! {
 			payload: ApprovalStatistic,
 			signature: ValidatorSignature,
 		) {
-			parachains_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
+			parachains_staging_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {
