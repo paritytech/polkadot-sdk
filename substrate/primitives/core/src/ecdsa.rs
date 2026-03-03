@@ -41,18 +41,13 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
-/// Half of the secp256k1 curve order (N/2).
-/// Signatures with s > HALF_ORDER are considered "high-S" and malleable.
-/// Per BIP-62 and EIP-2, only low-S signatures (s <= N/2) should be accepted.
-pub const SECP256K1_HALF_ORDER: [u8; 32] = [
-	0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-	0x5d, 0x57, 0x6e, 0x73, 0x57, 0xa4, 0x50, 0x1d, 0xdf, 0xe9, 0x2f, 0x46, 0x68, 0x1b, 0x20, 0xa0,
-];
-
 /// Returns `true` if the S component of a 65-byte ECDSA signature (R||S||V) is in
 /// the low range (s <= N/2), i.e. the signature is canonical.
 pub fn is_signature_normalized(sig: &[u8; 65]) -> bool {
-	sig[32..64] <= SECP256K1_HALF_ORDER[..]
+	let Ok(parsed) = k256::ecdsa::Signature::try_from(&sig[..64]) else {
+		return false;
+	};
+	parsed.normalize_s().is_none()
 }
 
 #[doc(hidden)]
@@ -421,7 +416,7 @@ where
 			(raw_sig, recovery_id)
 		};
 		debug_assert!(
-			normalized_sig.to_bytes()[32..] <= SECP256K1_HALF_ORDER[..],
+			normalized_sig.normalize_s().is_none(),
 			"secp256k1 signing must produce low-S signatures"
 		);
 		(normalized_sig, adjusted_v).into()
@@ -805,31 +800,45 @@ mod test {
 
 	#[test]
 	fn is_signature_normalized_accepts_low_s() {
-		let mut sig = [0u8; 65];
-		assert!(is_signature_normalized(&sig));
-
-		sig[32..64].copy_from_slice(&SECP256K1_HALF_ORDER);
-		assert!(is_signature_normalized(&sig));
+		// A real low-S signature produced by sign_prehashed
+		let pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let msg = sp_crypto_hashing::blake2_256(b"low-s test");
+		let sig = pair.sign_prehashed(&msg);
+		assert!(is_signature_normalized(&sig.0));
 	}
 
 	#[test]
 	fn is_signature_normalized_rejects_high_s() {
-		let mut half_order_plus_one = SECP256K1_HALF_ORDER;
-		let mut carry = 1u16;
-		for byte in half_order_plus_one.iter_mut().rev() {
-			let sum = *byte as u16 + carry;
-			*byte = sum as u8;
-			carry = sum >> 8;
-			if carry == 0 {
-				break;
+		// Create a high-S signature by computing S' = N - S from a valid low-S signature
+		let pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let msg = sp_crypto_hashing::blake2_256(b"high-s test");
+		let sig = pair.sign_prehashed(&msg);
+
+		let order: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+
+		let s_bytes: [u8; 32] = sig.0[32..64].try_into().unwrap();
+		let mut s_prime = [0u8; 32];
+		let mut borrow = 0i16;
+		for i in (0..32).rev() {
+			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
+			if diff < 0 {
+				s_prime[i] = (diff + 256) as u8;
+				borrow = 1;
+			} else {
+				s_prime[i] = diff as u8;
+				borrow = 0;
 			}
 		}
-		let mut sig = [0u8; 65];
-		sig[32..64].copy_from_slice(&half_order_plus_one);
-		assert!(!is_signature_normalized(&sig));
 
-		sig[32..64].fill(0xff);
-		assert!(!is_signature_normalized(&sig));
+		let mut high_s_sig = [0u8; 65];
+		high_s_sig[0..32].copy_from_slice(&sig.0[0..32]);
+		high_s_sig[32..64].copy_from_slice(&s_prime);
+		high_s_sig[64] = sig.0[64] ^ 1;
+		assert!(!is_signature_normalized(&high_s_sig));
 	}
 
 	#[test]

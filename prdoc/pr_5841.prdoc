@@ -16,10 +16,10 @@ doc:
       after the sp-core unification. This is accepted because the mathematical result is
       identical — both libraries implement the same secp256k1 curve operations.
 
-      **sp_core::ecdsa** A public constant `SECP256K1_HALF_ORDER` and helper function
-      `is_signature_normalized()` are available for checking whether a 65-byte ECDSA signature
-      has its S value in the lower half of the curve order. Runtimes call this before the
-      existing host functions to enforce low-S where desired. `Pair::sign_prehashed()` performs
+      **sp_core::ecdsa** A helper function `is_signature_normalized()` is available for checking
+      whether a 65-byte ECDSA signature has its S value in the lower half of the curve order,
+      using k256's built-in `normalize_s()` internally. Runtimes call this before the existing
+      host functions to enforce low-S where desired. `Pair::sign_prehashed()` performs
       explicit low-S normalization and includes a debug assertion. The `Drop` impl for
       `GenericPair` is removed since k256's `SigningKey` implements `ZeroizeOnDrop`.
 
