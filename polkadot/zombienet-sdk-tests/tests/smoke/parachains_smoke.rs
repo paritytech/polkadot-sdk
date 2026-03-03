@@ -38,10 +38,10 @@ async fn parachains_smoke_test() -> Result<(), anyhow::Error> {
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 75).await?;
 	log::info!("Parachain {} is registered", PARA_ID);
 
-	// Check parachain produces at least 10 blocks (400 seconds)
-	// Using 30 relay blocks as measurement window
+	// Check parachain produces at least 5 blocks (60 seconds)
+	// Using 10 relay blocks as measurement window
 	log::info!("Checking parachain {} is producing blocks", PARA_ID);
-	assert_para_throughput(&alice_client, 30, [(ParaId::from(PARA_ID), 10..100)]).await?;
+	assert_para_throughput(&alice_client, 10, [(ParaId::from(PARA_ID), 5..11)]).await?;
 	log::info!("Parachain {} is producing blocks successfully", PARA_ID);
 
 	log::info!("Test finished successfully");

@@ -24,7 +24,7 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
-	wait_for_nth_session_change,
+	wait_for_nth_session_change, wait_for_first_session_change,
 };
 use polkadot_primitives::Id as ParaId;
 use tokio::time::{sleep, Duration};
@@ -184,8 +184,8 @@ async fn precompile_pvf_smoke_test() -> Result<(), anyhow::Error> {
 	// Wait 1 session and check PVF preparation count is still 1
 	// Verifies that PVF was already prepared before Dave became active
 	log::info!("Waiting for 1 session boundary");
-	sleep(Duration::from_secs(60)).await;
-	log::info!("Session boundary passed");
+	wait_for_first_session_change(&mut blocks_sub).await?;
+	log::info!("Session boundaries passed");
 
 	log::info!("Checking final PVF preparation count");
 	dave_node
@@ -216,8 +216,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
-				// .onboard_as_parachain(false)
-				// .cumulus_based(true)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(cumulus_image.as_str())
 				.with_collator(|n| n.with_name("collator-2000"))
