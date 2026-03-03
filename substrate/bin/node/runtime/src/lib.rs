@@ -1463,6 +1463,12 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
 }
 
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
+	type ForeignAssetId = u32;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = Instance1;
+}
+
 impl pallet_tips::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DataDepositPerByte = DataDepositPerByte;
@@ -2874,6 +2880,9 @@ mod runtime {
 
 	#[runtime::pallet_index(90)]
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3151,6 +3160,7 @@ mod benches {
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
 		[pallet_multi_asset_bounties, MultiAssetBounties]
+		[pallet_assets_precompiles, AssetsPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]

@@ -118,6 +118,33 @@ contract StipendTest {
         require(address(complexReceiver).balance == balanceBefore, "ComplexReceiver balance changed on failed send");
     }
 
+    // Test transfer with zero value (solc injects gas=2300 explicitly)
+    function testTransferZero() public {
+        // EOA should succeed
+        eoa.transfer(0);
+
+        // DoNothingReceiver should succeed (empty receive)
+        payable(address(doNothingReceiver)).transfer(0);
+
+        // SimpleReceiver should succeed
+        payable(address(simpleReceiver)).transfer(0);
+    }
+
+    // Test send with zero value (solc injects gas=2300 explicitly)
+    function testSendZero() public {
+        // EOA should succeed
+        bool success = eoa.send(0);
+        require(success, "EOA send zero failed");
+
+        // DoNothingReceiver should succeed
+        success = payable(address(doNothingReceiver)).send(0);
+        require(success, "DoNothingReceiver send zero failed");
+
+        // SimpleReceiver should succeed
+        success = payable(address(simpleReceiver)).send(0);
+        require(success, "SimpleReceiver send zero failed");
+    }
+
     // Test call method (forwards all gas)
     function testCall() public payable {
         uint256 amount = msg.value / 4;
