@@ -27,7 +27,6 @@ use cumulus_zombienet_sdk_helpers::{
 	wait_for_first_session_change, wait_for_nth_session_change,
 };
 use polkadot_primitives::Id as ParaId;
-use tokio::time::{sleep, Duration};
 use zombienet_sdk::{
 	subxt::{dynamic::Value, OnlineClient, PolkadotConfig},
 	subxt_signer::{sr25519::dev, DeriveJunction},
