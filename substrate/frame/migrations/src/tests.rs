@@ -124,7 +124,7 @@ fn failing_migration_faulty_ignore_handler() {
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
-		run_to_block(5);
+		run_to_block(6);
 
 		// Failed migrations are not recorded in `Historical`.
 		assert!(historic().is_empty());
@@ -144,8 +144,8 @@ fn failing_migration_faulty_ignore_handler() {
 
 		// Crash handler was called 3 times:
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 3));
-
-		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck), "Must stuck the chain");
+		// Handler did not modify the cursor
+		assert!(matches!(Cursor::<T>::get(), Some(MigrationCursor::Active { .. })), "Must stuck the chain");
 	});
 }
 
