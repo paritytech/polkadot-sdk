@@ -1471,7 +1471,7 @@ mod session_keys {
 			assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
 
 			// AND: Key deposit is held
-			assert!(key_deposit_hold(validator) > 0);
+			assert_eq!(key_deposit_hold(validator), deposit);
 
 			// AND: SetKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1763,7 +1763,7 @@ mod session_keys {
 				proof,
 				None,
 			));
-			assert!(key_deposit_hold(validator) > 0);
+			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
 
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
@@ -1925,7 +1925,7 @@ mod session_keys {
 				proof,
 				None,
 			));
-			assert!(key_deposit_hold(validator) > 0);
+			assert_eq!(key_deposit_hold(validator), deposit);
 			assert_eq!(Balances::free_balance(validator), balance_before - set_fees - deposit);
 
 			// Second set_keys: no additional deposit
@@ -1947,7 +1947,7 @@ mod session_keys {
 					rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
 					rc_client::Error::<T>::XcmSendFailed
 				);
-				assert!(key_deposit_hold(validator) > 0);
+				assert_eq!(key_deposit_hold(validator), deposit);
 				assert_eq!(Balances::free_balance(validator), balance_before_failed_purge);
 			});
 
