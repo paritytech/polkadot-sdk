@@ -1009,7 +1009,7 @@ fn update_our_view<Context>(
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,
-	);;
+	);
 
 	send_validation_message_v3(
 		v3_validation_peers,
