@@ -162,8 +162,6 @@ use polkadot_node_subsystem::{
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, SubsystemError,
 };
-use sp_consensus_babe::digests::CompatibleDigestItem;
-use sp_consensus_slots::SlotDuration;
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
@@ -174,6 +172,8 @@ use polkadot_primitives::{
 	CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
 	SessionIndex,
 };
+use sp_consensus_babe::digests::CompatibleDigestItem;
+use sp_consensus_slots::SlotDuration;
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
@@ -1363,7 +1363,8 @@ enum AdvertisementError {
 	SecondedLimitReached,
 	/// For V1 protocol, relay_parent must be an active leaf (no async backing support).
 	ProtocolMisuse,
-	/// For V3 candidate descriptors, the scheduling parent's relay chain slot is still in progress.
+	/// For V3 candidate descriptors, the scheduling parent's relay chain slot is still in
+	/// progress.
 	SchedulingParentSlotInProgress,
 	/// Advertisement is invalid.
 	#[allow(dead_code)]
@@ -1711,25 +1712,26 @@ where
 
 	// V3 candidate descriptors require the scheduling_parent to be the block from the last
 	// finished relay chain slot. For each active leaf we check:
-	// - slot_age < slot_duration: leaf's slot is in progress → scheduling parent == leaf's
-	//   parent
-	// - slot_age < 2*slot_duration: leaf's slot just finished → scheduling parent == leaf
-	// - slot_age >= 2*slot_duration: leaf is too old, skip
+	// - slot_age < slot_duration: leaf's slot is still in progress → the scheduling parent must be
+	//   the leaf's parent (i.e. the previous slot's block).
+	// - slot_age >= slot_duration: leaf's slot has finished → the scheduling parent must be the
+	//   leaf itself.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
 		let now = sp_timestamp::Timestamp::current();
 		let slot_duration_ms = state.slot_duration_millis;
 
 		let scheduling_parent_valid =
-			state.leaf_scheduling_info.iter().any(|(leaf_hash, (parent_hash, slot_timestamp))| {
-				let slot_age_ms = (*now).saturating_sub(**slot_timestamp);
-				if slot_age_ms < slot_duration_ms {
-					scheduling_parent == *parent_hash
-				} else if slot_age_ms < 2 * slot_duration_ms {
-					scheduling_parent == *leaf_hash
-				} else {
-					false
-				}
-			});
+			state
+				.leaf_scheduling_info
+				.iter()
+				.any(|(leaf_hash, (parent_hash, slot_timestamp))| {
+					let slot_age_ms = (*now).saturating_sub(**slot_timestamp);
+					if slot_age_ms < slot_duration_ms {
+						scheduling_parent == *parent_hash
+					} else {
+						scheduling_parent == *leaf_hash
+					}
+				});
 
 		if !scheduling_parent_valid {
 			return Err(AdvertisementError::SchedulingParentSlotInProgress);
@@ -1978,9 +1980,7 @@ where
 				if let Some(slot_timestamp) =
 					pre_digest.slot().timestamp(SlotDuration::from_millis(slot_duration_ms))
 				{
-					state
-						.leaf_scheduling_info
-						.insert(*leaf, (header.parent_hash, slot_timestamp));
+					state.leaf_scheduling_info.insert(*leaf, (header.parent_hash, slot_timestamp));
 				}
 			}
 		}
