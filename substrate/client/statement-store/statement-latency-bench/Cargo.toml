@@ -19,7 +19,10 @@ env_logger = { workspace = true }
 jsonrpsee = { workspace = true, features = ["ws-client", "client-ws-transport-tls"] }
 log = { workspace = true }
 rand = { workspace = true }
+scale-info = { workspace = true, default-features = true }
 serde = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
+subxt = { workspace = true, features = ["native", "jsonrpsee"] }
+subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync"] }

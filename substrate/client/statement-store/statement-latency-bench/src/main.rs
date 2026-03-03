@@ -26,9 +26,164 @@ use jsonrpsee::{
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
-use sp_statement_store::{Statement, SubmitResult, Topic, TopicFilter};
-use std::{sync::Arc, time::Duration};
+use sp_statement_store::{
+	statement_allowance_key, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
+};
+use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
+use subxt::{
+	config::{
+		transaction_extensions::{
+			AnyOf, ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
+			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, TransactionExtension,
+			VerifySignatureDetails,
+		},
+		Config, DefaultExtrinsicParamsBuilder, ExtrinsicParams, ExtrinsicParamsEncoder,
+	},
+	ext::scale_value::{value, Value},
+	utils::Static,
+	OnlineClient, PolkadotConfig,
+};
+use subxt_signer::{sr25519::Keypair as SubxtKeypair, SecretUri};
 use tokio::{sync::Barrier, time::timeout};
+
+pub struct VerifyMultiSignature<T: Config>(VerifySignatureDetails<T>);
+
+impl<T: Config> ExtrinsicParams<T> for VerifyMultiSignature<T> {
+	type Params = ();
+
+	fn new(
+		_client: &subxt::client::ClientState<T>,
+		_params: Self::Params,
+	) -> Result<Self, subxt::config::ExtrinsicParamsError> {
+		Ok(VerifyMultiSignature(VerifySignatureDetails::Disabled))
+	}
+}
+
+impl<T: Config> ExtrinsicParamsEncoder for VerifyMultiSignature<T> {
+	fn encode_value_to(&self, v: &mut Vec<u8>) {
+		self.0.encode_to(v);
+	}
+
+	fn inject_signature(&mut self, account: &dyn Any, signature: &dyn Any) {
+		let account = account
+			.downcast_ref::<T::AccountId>()
+			.expect("A T::AccountId should have been provided")
+			.clone();
+		let signature = signature
+			.downcast_ref::<T::Signature>()
+			.expect("A T::Signature should have been provided")
+			.clone();
+		self.0 = VerifySignatureDetails::Signed { signature, account };
+	}
+}
+
+impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
+	type Decoded = Static<VerifySignatureDetails<T>>;
+
+	fn matches(identifier: &str, _type_id: u32, _types: &::scale_info::PortableRegistry) -> bool {
+		identifier == "VerifyMultiSignature" || identifier == "VerifySignature"
+	}
+}
+
+/// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`).
+///
+/// Empty types are automatically skipped by `AnyOf`, so our catch-all handlers must not claim
+/// them - otherwise they waste a slot that could be used for a non-empty unknown extension.
+fn is_type_empty(type_id: u32, types: &::scale_info::PortableRegistry) -> bool {
+	use scale_info::TypeDef;
+	let Some(ty) = types.resolve(type_id) else {
+		return false;
+	};
+	match &ty.type_def {
+		TypeDef::Composite(c) => c.fields.iter().all(|f| is_type_empty(f.ty.id, types)),
+		TypeDef::Array(a) => a.len == 0 || is_type_empty(a.type_param.id, types),
+		TypeDef::Tuple(t) => t.fields.iter().all(|f| is_type_empty(f.id, types)),
+		_ => false,
+	}
+}
+
+macro_rules! define_skip_unknown_extensions {
+	($($name:ident),+ $(,)?) => { $(
+		pub struct $name;
+
+		impl<T: Config> ExtrinsicParams<T> for $name {
+			type Params = ();
+
+			fn new(
+				_client: &subxt::client::ClientState<T>,
+				_params: Self::Params,
+			) -> Result<Self, subxt::config::ExtrinsicParamsError> {
+				Ok($name)
+			}
+		}
+
+		impl ExtrinsicParamsEncoder for $name {
+			fn encode_value_to(&self, v: &mut Vec<u8>) {
+				v.push(0x00);
+			}
+		}
+
+		impl<T: Config> TransactionExtension<T> for $name {
+			type Decoded = Static<u8>;
+
+			fn matches(
+				_identifier: &str,
+				type_id: u32,
+				types: &::scale_info::PortableRegistry,
+			) -> bool {
+				!is_type_empty(type_id, types)
+			}
+		}
+	)+ };
+}
+
+define_skip_unknown_extensions!(
+	SkipUnknown1,
+	SkipUnknown2,
+	SkipUnknown3,
+	SkipUnknown4,
+	SkipUnknown5,
+	SkipUnknown6,
+	SkipUnknown7,
+	SkipUnknown8,
+);
+
+type BenchExtrinsicParams<T> = AnyOf<
+	T,
+	(
+		VerifyMultiSignature<T>,
+		CheckSpecVersion,
+		CheckTxVersion,
+		CheckNonce,
+		CheckGenesis<T>,
+		CheckMortality<T>,
+		ChargeAssetTxPayment<T>,
+		ChargeTransactionPayment,
+		CheckMetadataHash,
+		SkipUnknown1,
+		SkipUnknown2,
+		SkipUnknown3,
+		SkipUnknown4,
+		SkipUnknown5,
+		SkipUnknown6,
+		SkipUnknown7,
+		SkipUnknown8,
+	),
+>;
+
+/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`BenchExtrinsicParams`].
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub enum BenchConfig {}
+
+impl Config for BenchConfig {
+	type AccountId = <PolkadotConfig as Config>::AccountId;
+	type Address = <PolkadotConfig as Config>::Address;
+	type Signature = <PolkadotConfig as Config>::Signature;
+	type Hasher = <PolkadotConfig as Config>::Hasher;
+	type Header = <PolkadotConfig as Config>::Header;
+	type ExtrinsicParams = BenchExtrinsicParams<Self>;
+	type AssetId = <PolkadotConfig as Config>::AssetId;
+}
 
 const STATEMENT_EXPIRY_SECS: u32 = 600; // 10 minutes
 
@@ -50,7 +205,7 @@ struct Args {
 	messages_pattern: String,
 
 	/// Timeout for receiving messages in a batch (milliseconds)
-	#[arg(long, default_value = "5000")]
+	#[arg(long, default_value = "30000")]
 	receive_timeout_ms: u64,
 
 	/// Number of benchmark rounds
@@ -64,6 +219,15 @@ struct Args {
 	/// Skip time synchronization (for local testing)
 	#[arg(long, default_value = "false")]
 	skip_sync: bool,
+
+	/// Sudo seed/SURI for setting statement allowances (e.g., "//Alice" or mnemonic phrase).
+	/// When provided, deterministic accounts are used and allowances are set on-chain.
+	#[arg(long)]
+	sudo_seed: Option<String>,
+
+	/// Number of accounts per allowance-setting transaction (default: 100).
+	#[arg(long, default_value = "100")]
+	allowance_batch_size: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,6 +289,15 @@ fn generate_topic(test_run_id: u64, client_id: u32, round: usize, msg_idx: u32) 
 	blake2_256(topic_str.as_bytes())
 }
 
+/// Generate a deterministic keypair for a given client index.
+///
+/// Uses the same derivation path as the zombienet statement-store benchmarks
+/// so that accounts are identical across runs.
+fn get_keypair(idx: u32) -> sr25519::Pair {
+	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None)
+		.expect("Derivation path is always valid; qed")
+}
+
 struct ClientConfig {
 	client_id: u32,
 	neighbour_id: u32,
@@ -153,7 +326,7 @@ async fn run_client(
 		interval_ms,
 	} = config;
 
-	let (keyring, _) = sr25519::Pair::generate();
+	let keyring = get_keypair(client_id);
 	let expected_count = messages_per_client(&messages_pattern) as u32;
 
 	barrier.wait().await;
@@ -181,9 +354,20 @@ async fn run_client(
 			.map(|idx| generate_topic(test_run_id, neighbour_id, round, idx).into())
 			.collect();
 
-		let bounded_topics: BoundedVec<Topic, ConstU32<128>> = expected_topics
-			.try_into()
-			.map_err(|_| anyhow!("Client {client_id}: Too many topics (max 128)"))?;
+		let bounded_topics: BoundedVec<Topic, ConstU32<128>> =
+			expected_topics
+				.clone()
+				.try_into()
+				.map_err(|_| anyhow!("Client {client_id}: Too many topics (max 128)"))?;
+
+		info!(
+			"Client {client_id}: Round {round}/{num_rounds}. \
+			 Subscribing to {expected_count} topics (neighbour_id={neighbour_id})"
+		);
+		for (idx, topic) in expected_topics.iter().enumerate() {
+			let hex: String = topic.iter().map(|b| format!("{b:02x}")).collect();
+			debug!("  subscribe topic[{idx}]: 0x{hex}");
+		}
 
 		let mut subscription: Subscription<Bytes> = rpc_client
 			.subscribe(
@@ -202,8 +386,8 @@ async fn run_client(
 				let expiry_timestamp = std::time::SystemTime::now()
 					.duration_since(std::time::UNIX_EPOCH)
 					.unwrap_or_default()
-					.as_secs() as u32 +
-					STATEMENT_EXPIRY_SECS;
+					.as_secs() as u32
+					+ STATEMENT_EXPIRY_SECS;
 
 				let mut statement = Statement::new();
 				statement.set_channel(channel);
@@ -213,6 +397,8 @@ async fn run_client(
 				statement.set_plain_data(vec![0u8; size]);
 				statement.sign_sr25519_private(&keyring);
 
+				let expiry = statement.expiry();
+				let topic_hex: String = topic.iter().map(|b| format!("{b:02x}")).collect();
 				let encoded: Bytes = statement.encode().into();
 				let result: SubmitResult = rpc_client
 					.request("statement_submit", rpc_params![encoded])
@@ -220,11 +406,21 @@ async fn run_client(
 					.with_context(|| format!("Client {client_id}: Failed to submit statement"))?;
 
 				sent_count += 1;
-				if is_leader(client_id) {
-					debug!(
-						"Round {}/{}. Sent {} statement(s): {:?}",
-						round, num_rounds, sent_count, result
-					);
+				match &result {
+					SubmitResult::New => {
+						info!(
+							"Client {client_id}: Round {round}/{num_rounds}. \
+							 Submitted statement {sent_count}/{expected_count}: New \
+							 (topic=0x{topic_hex:.16}.., expiry=0x{expiry:016x})"
+						);
+					},
+					other => {
+						return Err(anyhow!(
+							"Client {client_id}: Round {round}/{num_rounds}. \
+							 Statement {sent_count}/{expected_count} NOT accepted: {other:?} \
+							 (topic=0x{topic_hex:.16}.., expiry=0x{expiry:016x})"
+						));
+					},
 				}
 			}
 		}
@@ -238,12 +434,10 @@ async fn run_client(
 			match result {
 				Ok(Some(Ok(_))) => {
 					received_count += 1;
-					if is_leader(client_id) {
-						debug!(
-							"Round {}/{}. Received {} statement(s)",
-							round, num_rounds, received_count
-						);
-					}
+					info!(
+						"Client {client_id}: Round {round}/{num_rounds}. \
+						 Received {received_count}/{expected_count} statement(s)"
+					);
 				},
 				other => {
 					return Err(anyhow!(
@@ -343,6 +537,125 @@ async fn wait_for_sync_time() {
 	info!("Sync time reached, starting benchmark");
 }
 
+/// Set statement allowances for all deterministic benchmark accounts in a single
+/// `Sudo(Utility(batch_all { calls: [System(set_storage { items }), ...] }))` transaction.
+///
+/// Storage items are grouped into inner `set_storage` calls of `batch_size` each to keep
+/// individual call payloads small, but all inner calls are submitted atomically in one
+/// `batch_all` wrapped in `Sudo`.
+async fn set_allowances(
+	rpc_url: &str,
+	rpc_client: &WsClient,
+	sudo_seed: &str,
+	num_clients: u32,
+	batch_size: u32,
+) -> Result<(), anyhow::Error> {
+	let client = OnlineClient::<BenchConfig>::from_insecure_url(rpc_url).await?;
+
+	let uri = SecretUri::from_str(sudo_seed).map_err(|e| anyhow!("Invalid sudo seed URI: {e}"))?;
+	let sudo_key =
+		SubxtKeypair::from_uri(&uri).map_err(|e| anyhow!("Failed to derive sudo keypair: {e}"))?;
+
+	let allowance_value = StatementAllowance::new(100_000, 1_000_000).encode();
+
+	let storage_calls: Vec<Value> = (0..num_clients)
+		.step_by(batch_size as usize)
+		.map(|chunk_start| {
+			let chunk_end = std::cmp::min(chunk_start + batch_size, num_clients);
+
+			let items: Vec<Value> = (chunk_start..chunk_end)
+				.map(|i| {
+					let pub_key = get_keypair(i).public();
+					let storage_key = statement_allowance_key(pub_key.as_ref() as &[u8]);
+
+					let hex_key: String = storage_key.iter().map(|b| format!("{b:02x}")).collect();
+					info!("Account {i}: pubkey={pub_key} storage_key=0x{hex_key}");
+
+					Value::unnamed_composite([
+						Value::from_bytes(storage_key),
+						Value::from_bytes(allowance_value.clone()),
+					])
+				})
+				.collect();
+
+			value! { System(set_storage { items: items }) }
+		})
+		.collect();
+
+	let num_inner_calls = storage_calls.len();
+	info!(
+		"Submitting {} set_storage calls for {} accounts in a single Sudo(batch_all) transaction",
+		num_inner_calls, num_clients
+	);
+
+	let batch_call = value! { Utility(batch_all { calls: storage_calls }) };
+	let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
+	let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new().immortal().build();
+	let extensions =
+		(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (), ());
+
+	let mut progress = client
+		.tx()
+		.create_signed(&tx, &sudo_key, extensions)
+		.await?
+		.submit_and_watch()
+		.await?;
+
+	use subxt::tx::TxStatus;
+	while let Some(status) = progress.next().await.transpose()? {
+		match status {
+			TxStatus::InFinalizedBlock(tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+				info!(
+					"All {} account allowances finalized in block {:#?}",
+					num_clients,
+					tx_in_block.block_hash()
+				);
+				break;
+			},
+			TxStatus::Error { message }
+			| TxStatus::Invalid { message }
+			| TxStatus::Dropped { message } => {
+				return Err(anyhow!("Allowance tx failed: {message}"));
+			},
+			_ => continue,
+		}
+	}
+
+	// Verify that allowances were actually written to storage.
+	// The statement store reads allowances from the FINALIZED block
+	let finalized_hash: String = rpc_client
+		.request("chain_getFinalizedHead", rpc_params![])
+		.await
+		.context("Failed to get finalized head")?;
+	info!("Finalized head for verification: {finalized_hash}");
+
+	for i in 0..num_clients {
+		let pub_key = get_keypair(i).public();
+		let storage_key = statement_allowance_key(pub_key.as_ref() as &[u8]);
+		let hex_key: String = storage_key.iter().map(|b| format!("{b:02x}")).collect();
+
+		// Check at best block
+		let result_best: Option<String> = rpc_client
+			.request("state_getStorage", rpc_params![format!("0x{hex_key}")])
+			.await
+			.with_context(|| format!("Failed to verify allowance for account {i} at best"))?;
+
+		// Check at finalized block
+		let result_finalized: Option<String> = rpc_client
+			.request("state_getStorage", rpc_params![format!("0x{hex_key}"), &finalized_hash])
+			.await
+			.with_context(|| format!("Failed to verify allowance for account {i} at finalized"))?;
+
+		info!(
+			"Account {i}: allowance at best={:?}, at finalized={:?}",
+			result_best, result_finalized
+		);
+	}
+
+	Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -368,6 +681,17 @@ async fn main() -> Result<(), anyhow::Error> {
 	}
 
 	let rpc_clients = connect_to_endpoints(&args.rpc_endpoints).await?;
+
+	if let Some(ref sudo_seed) = args.sudo_seed {
+		set_allowances(
+			&args.rpc_endpoints[0],
+			&rpc_clients[0],
+			sudo_seed,
+			args.num_clients,
+			args.allowance_batch_size,
+		)
+		.await?;
+	}
 
 	info!("Spawning {} client tasks... {}", args.num_clients, test_run_id);
 	let sync_start = std::time::Instant::now();
