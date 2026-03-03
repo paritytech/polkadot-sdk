@@ -45,8 +45,6 @@ use sp_statement_store::{Statement, SubmitResult, Topic, TopicFilter};
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 
-const STATEMENT_EXPIRY_SECS: u32 = 600; // 10 minutes
-
 #[derive(Parser, Debug)]
 #[command(name = "statement-latency-bench")]
 #[command(about = "Distributed statement store latency benchmark", long_about = None)]
@@ -79,6 +77,10 @@ struct Args {
 	/// Skip time synchronization (for local testing)
 	#[arg(long, default_value = "false")]
 	skip_sync: bool,
+
+	/// Statement expiry time in milliseconds (default: 10 minutes)
+	#[arg(long, default_value_t = 600_000)]
+	statement_expiry_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +151,7 @@ struct ClientConfig {
 	messages_pattern: Vec<(usize, usize)>,
 	receive_timeout_ms: u64,
 	interval_ms: u64,
+	statement_expiry_ms: u64,
 }
 
 async fn run_client(
@@ -166,6 +169,7 @@ async fn run_client(
 		messages_pattern,
 		receive_timeout_ms,
 		interval_ms,
+		statement_expiry_ms,
 	} = config;
 
 	let (keyring, _) = sr25519::Pair::generate();
@@ -214,11 +218,11 @@ async fn run_client(
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
 				let channel = blake2_256(sent_count.to_le_bytes().as_ref());
 
-				let expiry_timestamp = std::time::SystemTime::now()
+				let expiry_timestamp = (std::time::SystemTime::now()
 					.duration_since(std::time::UNIX_EPOCH)
-					.unwrap_or_default()
-					.as_secs() as u32 +
-					STATEMENT_EXPIRY_SECS;
+					.unwrap_or_default() +
+					Duration::from_millis(statement_expiry_ms))
+				.as_secs() as u32;
 
 				let mut statement = Statement::new();
 				statement.set_channel(channel);
@@ -399,6 +403,7 @@ async fn main() -> Result<(), anyhow::Error> {
 				messages_pattern: messages_pattern.clone(),
 				receive_timeout_ms: args.receive_timeout_ms,
 				interval_ms: args.interval_ms,
+				statement_expiry_ms: args.statement_expiry_ms,
 			};
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);
