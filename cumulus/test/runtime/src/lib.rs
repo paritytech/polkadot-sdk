@@ -66,9 +66,14 @@ pub mod async_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
 
-pub mod scheduling_v3_disabled {
+pub mod async_backing_v3_disabled {
 	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_scheduling_v3_disabled.rs"));
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_disabled.rs"));
+}
+
+pub mod elastic_scaling_v3_disabled {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3_disabled.rs"));
 }
 
 pub mod slot_duration_18s {
@@ -160,18 +165,14 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
-#[cfg(any(feature = "async-backing", feature = "scheduling-v3-disabled"))]
+#[cfg(feature = "async-backing")]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 
 #[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-#[cfg(all(
-	not(feature = "sync-backing"),
-	not(feature = "async-backing"),
-	not(feature = "scheduling-v3-disabled")
-))]
+#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing"),))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
 #[cfg(feature = "slot-duration-18s")]
@@ -388,9 +389,17 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 const RELAY_PARENT_OFFSET: u32 = 0;
 const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
 
-#[cfg(any(feature = "sync-backing", feature = "scheduling-v3-disabled"))]
+#[cfg(any(
+	feature = "sync-backing",
+	feature = "async-backing-v3-disabled",
+	feature = "elastic-scaling-v3-disabled",
+))]
 const SCHEDULING_V3_ENABLED: bool = false;
-#[cfg(not(any(feature = "sync-backing", feature = "scheduling-v3-disabled")))]
+#[cfg(not(any(
+	feature = "sync-backing",
+	feature = "async-backing-v3-disabled",
+	feature = "elastic-scaling-v3-disabled",
+)))]
 const SCHEDULING_V3_ENABLED: bool = true;
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<

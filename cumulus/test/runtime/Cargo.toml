@@ -112,6 +112,8 @@ async-backing = []
 # An elastic scaling runtime with 12s slots.
 elastic-scaling-12s-slot = []
 # An async-backing runtime with scheduling V3 disabled.
-scheduling-v3-disabled = []
+async-backing-v3-disabled = ["async-backing"]
+# An elastic scaling runtime with scheduling V3 disabled.
+elastic-scaling-v3-disabled = ["elastic-scaling"]
 # A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 slot-duration-18s = ["increment-spec-version"]

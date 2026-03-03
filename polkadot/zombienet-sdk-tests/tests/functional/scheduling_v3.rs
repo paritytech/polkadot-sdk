@@ -1,16 +1,13 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Test that V3 candidate descriptors with scheduling_parent work correctly.
-//!
-//! This test verifies that:
-//! 1. V3 candidates with scheduling_parent != relay_parent are backed and included
-//! 2. The parachain continues to produce blocks when V3 is enabled
-//! 3. Legacy (V1/V2) parachains continue to work alongside V3 parachains
+//! Test that V2/V3 candidate descriptors with scheduling_parent work correctly.
 
 use anyhow::anyhow;
 use codec::Decode;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, wait_for_first_session_change};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assign_cores, wait_for_first_session_change,
+};
 use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
 use serde_json::json;
 use zombienet_sdk::{
@@ -212,7 +209,7 @@ async fn v2_candidates_still_working() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2700)
 				.with_default_command("test-parachain")
-				.with_chain("scheduling-v3-disabled")
+				.with_chain("async-backing-v3-disabled")
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,cumulus-collator=debug").into(),
 				])
