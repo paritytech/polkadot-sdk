@@ -121,8 +121,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
 			// parachain A

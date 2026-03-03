@@ -49,6 +49,15 @@ pub struct Cli {
 	#[arg(long, default_value_t = 1)]
 	pub statement_network_workers: usize,
 
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = 50_000)]
+	pub statement_rate_limit: u32,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,

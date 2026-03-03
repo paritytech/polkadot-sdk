@@ -36,7 +36,9 @@ use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{
+	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
 
@@ -61,7 +63,10 @@ use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Member},
+	Saturating,
+};
 use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -164,8 +169,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -216,8 +223,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -308,7 +317,7 @@ where
 				},
 			};
 
-			let (included_block, initial_parent) = match crate::collators::find_parent(
+			let parent_search_result = match crate::collators::find_parent(
 				relay_parent,
 				params.para_id,
 				&*params.para_backend,
@@ -316,10 +325,11 @@ where
 			)
 			.await
 			{
-				Some(value) => value,
+				Some(result) => result,
 				None => continue,
 			};
 
+			let included_header = &parent_search_result.included_header;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let can_build_upon = |block_hash| {
@@ -335,7 +345,7 @@ where
 					relay_slot,
 					timestamp,
 					block_hash,
-					included_block.hash(),
+					included_header.hash(),
 					para_client,
 					&keystore,
 				))
@@ -343,8 +353,11 @@ where
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
-			let mut parent_hash = initial_parent.hash;
-			let mut parent_header = initial_parent.header;
+			let mut parent_hash = parent_search_result.best_parent_header.hash();
+			let mut parent_header = parent_search_result.best_parent_header;
+			// Distance from included block to best parent.
+			let initial_parent_depth =
+				(*parent_header.number()).saturating_sub(*included_header.number());
 			let overseer_handle = &mut params.overseer_handle;
 
 			// Do not try to build upon an unknown, pruned or bad block
@@ -367,7 +380,7 @@ where
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2 {
+			for n_built in 0..2u32 {
 				let slot_claim = match can_build_upon(parent_hash) {
 					Some(fut) => match fut.await {
 						None => break,
@@ -379,7 +392,7 @@ where
 				tracing::debug!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
-					unincluded_segment_len = initial_parent.depth + n_built,
+					unincluded_segment_len = ?initial_parent_depth.saturating_add(n_built.into()),
 					"Slot claimed. Building"
 				);
 
@@ -392,12 +405,16 @@ where
 
 				// Build and announce collations recursively until
 				// `can_build_upon` fails or building a collation fails.
+				let relay_proof_request =
+					super::get_relay_proof_request(&*params.para_client, parent_hash);
+
 				let (parachain_inherent_data, other_inherent_data) = match collator
 					.create_inherent_data(
 						relay_parent,
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
+						relay_proof_request,
 						params.collator_peer_id,
 					)
 					.await
