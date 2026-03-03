@@ -1,0 +1,15 @@
+title: Add statement store e2e integration tests
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    #10783
+
+    - Add 3 new zombienet-sdk e2e integration tests for the statement store subsystem:
+      - **propagation_multi_node**: 4-node fan-out with data integrity verification
+      - **expiration**: enforcement cycle cleanup of expired statements
+      - **quota_enforcement**: AccountFull, NoAllowance, DataTooLarge rejections and priority-based eviction
+    - Add `spawn_network_with_custom_allowances()` helper for per-participant quota configuration
+    - Register all 4 statement store tests (3 new + 1 existing) in CI matrix
+crates: []
