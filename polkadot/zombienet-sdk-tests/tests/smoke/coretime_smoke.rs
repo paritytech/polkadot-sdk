@@ -138,7 +138,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(CORETIME_PARA_ID)
 				.with_default_command("polkadot-parachain")
-				.with_default_image(culumus_image.as_str())
+				.with_default_image(cumulus_image.as_str())
 				.with_chain("coretime-westend-local")
 				// Add sudo key
 				.with_genesis_overrides(json!({
