@@ -327,11 +327,19 @@ impl SubstrateCli for TestCollatorCli {
 			"relay-parent-offset" => Box::new(
 				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
 			) as Box<_>,
-			"scheduling-v3-disabled" => {
-				tracing::info!("Using scheduling V3 disabled chain spec.");
-				Box::new(cumulus_test_service::get_scheduling_v3_disabled_chain_spec(Some(
+			"async-backing-v3-disabled" => {
+				tracing::info!("Using async backing V3 disabled chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_v3_disabled_chain_spec(Some(
 					ParaId::from(2700),
 				))) as Box<_>
+			},
+			"elastic-scaling-v3-disabled" => {
+				tracing::info!("Using elastic scaling V3 disabled chain spec.");
+				Box::new(
+					cumulus_test_service::get_elastic_scaling_v3_disabled_chain_spec(Some(
+						ParaId::from(2900),
+					)),
+				) as Box<_>
 			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =

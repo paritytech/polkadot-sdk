@@ -79,9 +79,17 @@ fn main() {
 
 	WasmBuilder::new()
 		.with_current_project()
-		.enable_feature("scheduling-v3-disabled")
+		.enable_feature("async-backing-v3-disabled")
 		.import_memory()
-		.set_file_name("wasm_binary_scheduling_v3_disabled.rs")
+		.set_file_name("wasm_binary_async_backing_v3_disabled.rs")
+                .build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling-v3-disabled")
+		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_v3_disabled.rs")
+		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("slot-duration-18s")

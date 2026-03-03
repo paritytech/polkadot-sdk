@@ -1,16 +1,13 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Test that V3 candidate descriptors with scheduling_parent work correctly.
-//!
-//! This test verifies that:
-//! 1. V3 candidates with scheduling_parent != relay_parent are backed and included
-//! 2. The parachain continues to produce blocks when V3 is enabled
-//! 3. Legacy (V1/V2) parachains continue to work alongside V3 parachains
+//! Test that V2/V3 candidate descriptors with scheduling_parent work correctly.
 
 use anyhow::anyhow;
 use codec::Decode;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, wait_for_first_session_change};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assign_cores, wait_for_first_session_change,
+};
 use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
 use serde_json::json;
 use zombienet_sdk::{
@@ -212,7 +209,7 @@ async fn v2_candidates_still_working() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2700)
 				.with_default_command("test-parachain")
-				.with_chain("scheduling-v3-disabled")
+				.with_chain("async-backing-v3-disabled")
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,cumulus-collator=debug").into(),
 				])
@@ -245,5 +242,178 @@ async fn v2_candidates_still_working() -> Result<(), anyhow::Error> {
 
 	log::info!("V2 candidates still working test finished successfully");
 
+	Ok(())
+}
+
+/// Test that V3 candidates work correctly with elastic scaling (multiple cores).
+///
+/// This test assigns 3 cores to a single parachain and verifies that V3 candidates are
+/// being backed at elastic scaling throughput.
+#[tokio::test(flavor = "multi_thread")]
+async fn scheduling_v3_elastic_scaling() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	// V2 (bit 4) and V3 (bit 3) enabled
+	let node_features_with_v3 = json!({"bits": 8, "data": [0b00011000]});
+
+	let config = NetworkConfigBuilder::new()
+		.with_relaychain(|r| {
+			let r = r
+				.with_chain("rococo-local")
+				.with_default_command("polkadot")
+				.with_default_args(vec![
+					("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,runtime::parachains::scheduler=trace").into(),
+				])
+				.with_genesis_overrides(json!({
+					"patch": {
+						"configuration": {
+							"config": {
+								"scheduler_params": {
+									// 2 extra cores to assign, plus 1 auto-assigned by zombienet
+									"num_cores": 2,
+									"max_validators_per_core": 1,
+									"group_rotation_frequency": 4,
+								},
+								"node_features": node_features_with_v3,
+							}
+						}
+					}
+				}))
+				.with_node(|node| node.with_name("validator-0"));
+
+			(1..6).fold(r, |acc, i| {
+				acc.with_node(|node| node.with_name(&format!("validator-{i}")))
+			})
+		})
+		.with_parachain(|p| {
+			p.with_id(2800)
+				.with_default_command("test-parachain")
+				.with_chain("elastic-scaling")
+				.with_default_args(vec![
+					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,basic-authorship=debug").into(),
+					("--authoring=slot-based").into(),
+					("--force-authoring").into(),
+				])
+				.with_collator(|n| n.with_name("collator-2800"))
+		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})?;
+
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
+	let network = spawn_fn(config).await?;
+
+	let relay_node = network.get_node("validator-0")?;
+	let para_node = network.get_node("collator-2800")?;
+
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
+	// Assign 2 additional cores to the parachain (zombienet already assigns 1)
+	assign_cores(&relay_client, 2800, vec![0, 1]).await?;
+
+	// With 3 cores total, we expect higher throughput.
+	// Wait for at least 15 V3 candidates within 20 relay chain blocks.
+	assert_candidates_version(
+		&relay_client,
+		ParaId::from(2800),
+		CandidateDescriptorVersion::V3,
+		true,
+		15,
+		20,
+	)
+	.await?;
+
+	// Allow more finality lag with elastic scaling
+	assert_finality_lag(&para_node.wait_client().await?, 15).await?;
+
+	log::info!("V3 elastic scaling test finished successfully");
+	Ok(())
+}
+
+/// Test that V2 candidates work correctly with elastic scaling when V3 is not enabled.
+///
+/// This verifies backwards compatibility: elastic scaling should work with V2 candidate
+/// descriptors when the V3 node feature is not enabled on the relay chain.
+#[tokio::test(flavor = "multi_thread")]
+async fn v2_elastic_scaling_backwards_compat() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	// Only V2 (bit 4) enabled, no V3
+	let node_features_v2_only = json!({"bits": 8, "data": [0b00001000]});
+
+	let config = NetworkConfigBuilder::new()
+		.with_relaychain(|r| {
+			let r = r
+				.with_chain("rococo-local")
+				.with_default_command("polkadot")
+				.with_default_args(vec![
+					("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace,parachain::candidate-backing=trace,parachain::provisioner=trace").into(),
+				])
+				.with_genesis_overrides(json!({
+					"configuration": {
+						"config": {
+							"scheduler_params": {
+								"num_cores": 2,
+								"max_validators_per_core": 1,
+								"group_rotation_frequency": 4,
+							},
+							"node_features": node_features_v2_only,
+						}
+					}
+				}))
+				.with_node(|node| node.with_name("validator-0"));
+
+			(1..6).fold(r, |acc, i| {
+				acc.with_node(|node| node.with_name(&format!("validator-{i}")))
+			})
+		})
+		.with_parachain(|p| {
+			p.with_id(2900)
+				.with_default_command("test-parachain")
+				.with_chain("elastic-scaling-v3-disabled")
+				.with_default_args(vec![
+					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,basic-authorship=debug").into(),
+					("--authoring=slot-based").into(),
+					("--force-authoring").into(),
+				])
+				.with_collator(|n| n.with_name("collator-2900"))
+		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})?;
+
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
+	let network = spawn_fn(config).await?;
+
+	let relay_node = network.get_node("validator-0")?;
+	let para_node = network.get_node("collator-2900")?;
+
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
+	// Assign 2 additional cores to the parachain (zombienet already assigns 1)
+	assign_cores(&relay_client, 2900, vec![0, 1]).await?;
+
+	// With 3 cores and V2 candidates, we still expect elastic throughput.
+	assert_candidates_version(
+		&relay_client,
+		ParaId::from(2900),
+		CandidateDescriptorVersion::V2,
+		false, // v3 not enabled
+		15,
+		20,
+	)
+	.await?;
+
+	assert_finality_lag(&para_node.wait_client().await?, 15).await?;
+
+	log::info!("V2 elastic scaling backwards compat test finished successfully");
 	Ok(())
 }
