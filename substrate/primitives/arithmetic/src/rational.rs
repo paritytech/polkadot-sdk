@@ -146,12 +146,7 @@ impl Rational128 {
 	/// This only returns if the result is accurate. `None` is returned if the result cannot be
 	/// accurately calculated.
 	pub fn to_den(self, den: u128) -> Option<Self> {
-		if den == self.1 {
-			Some(self)
-		} else {
-			multiply_by_rational_with_rounding(self.0, den, self.1, Rounding::NearestPrefDown)
-				.map(|n| Self(n, den))
-		}
+		self.checked_to_den(den).ok()
 	}
 
 	/// Checked conversion of `self` to a similar rational number where denominator is `den`.
@@ -181,12 +176,7 @@ impl Rational128 {
 	/// This only returns if the result is accurate. `None` is returned if the result cannot be
 	/// accurately calculated.
 	pub fn lcm(&self, other: &Self) -> Option<u128> {
-		// this should be tested better: two large numbers that are almost the same.
-		if self.1 == other.1 {
-			return Some(self.1);
-		}
-		let g = gcd(self.1, other.1);
-		multiply_by_rational_with_rounding(self.1, other.1, g, Rounding::NearestPrefDown)
+		self.checked_lcm(other).ok()
 	}
 
 	/// Checked calculation of the least common multiple of the denominators of `self` and `other`.

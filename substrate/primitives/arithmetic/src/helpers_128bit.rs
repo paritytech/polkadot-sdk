@@ -183,35 +183,17 @@ mod double128 {
 }
 
 /// Returns `a * b / c` (wrapping to 128 bits) or `None` in the case of
-/// overflow.
+/// overflow or division by zero.
 pub const fn multiply_by_rational_with_rounding(
 	a: u128,
 	b: u128,
 	c: u128,
 	r: Rounding,
 ) -> Option<u128> {
-	use double128::Double128;
-	if c == 0 {
-		return None;
+	match checked_multiply_by_rational_with_rounding(a, b, c, r) {
+		Ok(v) => Some(v),
+		Err(_) => None,
 	}
-	let (result, remainder) = Double128::product_of(a, b).div(c);
-	let mut result: u128 = match result.try_into_u128() {
-		Ok(v) => v,
-		Err(_) => return None,
-	};
-	if match r {
-		Rounding::Up => remainder > 0,
-		// cannot be `(c + 1) / 2` since `c` might be `max_value` and overflow.
-		Rounding::NearestPrefUp => remainder >= c / 2 + c % 2,
-		Rounding::NearestPrefDown => remainder > c / 2,
-		Rounding::Down => false,
-	} {
-		result = match result.checked_add(1) {
-			Some(v) => v,
-			None => return None,
-		};
-	}
-	Some(result)
 }
 
 /// Returns `a * b / c` or `Err` in the case of error.

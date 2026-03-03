@@ -375,7 +375,7 @@ use sp_runtime::{
 		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, Saturating, StaticLookup,
 		Zero,
 	},
-	ArithmeticError, FixedPointNumber, Perbill,
+	FixedPointNumber, Perbill,
 };
 use sp_staking::{EraIndex, StakingInterface};
 
@@ -554,7 +554,7 @@ impl<T: Config> PoolMember<T> {
 
 		(current_reward_counter.defensive_saturating_sub(self.last_recorded_reward_counter))
 			.checked_mul_int(self.active_points())
-			.map_err(|_| Error::<T>::OverflowRisk)
+			.ok_or(Error::<T>::OverflowRisk)
 	}
 
 	/// Active balance of the member.
@@ -1498,12 +1498,8 @@ impl<T: Config> RewardPool<T> {
 		// which is basically 10^-8 DOTs. See `smallest_claimable_reward` for an example of this.
 		let current_reward_counter =
 			T::RewardCounter::checked_from_rational(new_pending_rewards, bonded_points)
-				.and_then(|ref r| {
-					self.last_recorded_reward_counter
-						.checked_add(r)
-						.ok_or(ArithmeticError::Overflow)
-				})
-				.map_err(|_| Error::<T>::OverflowRisk)?;
+				.and_then(|ref r| self.last_recorded_reward_counter.checked_add(r))
+				.ok_or(Error::<T>::OverflowRisk)?;
 
 		Ok((current_reward_counter, new_pending_commission))
 	}

@@ -81,9 +81,9 @@ impl arbitrary::Arbitrary<'_> for PerThingType {
 enum PerThingArithOp {
 	CheckedMulFloor,
 	CheckedMulCeil,
-	CheckedReciprocalMulFloor,
-	CheckedReciprocalMulCeil,
-	CheckedReciprocalMul,
+	SaturatingReciprocalMulFloor,
+	SaturatingReciprocalMulCeil,
+	SaturatingReciprocalMul,
 	CheckedSquare,
 	CheckedDivWithRounding,
 	CheckedIntDiv,
@@ -94,9 +94,9 @@ impl arbitrary::Arbitrary<'_> for PerThingArithOp {
 		Ok(match u.int_in_range(0..=7)? {
 			0 => PerThingArithOp::CheckedMulFloor,
 			1 => PerThingArithOp::CheckedMulCeil,
-			2 => PerThingArithOp::CheckedReciprocalMulFloor,
-			3 => PerThingArithOp::CheckedReciprocalMulCeil,
-			4 => PerThingArithOp::CheckedReciprocalMul,
+			2 => PerThingArithOp::SaturatingReciprocalMulFloor,
+			3 => PerThingArithOp::SaturatingReciprocalMulCeil,
+			4 => PerThingArithOp::SaturatingReciprocalMul,
 			5 => PerThingArithOp::CheckedSquare,
 			6 => PerThingArithOp::CheckedDivWithRounding,
 			7 => PerThingArithOp::CheckedIntDiv,
@@ -227,12 +227,13 @@ where
 	final_result_big.to_u64().ok_or(ArithmeticError::Overflow)
 }
 
-// Simulates checked_saturating_reciprocal_mul using BigUint
-fn oracle_checked_reciprocal_mul<P: PerThing>(
+// Simulates saturating_reciprocal_mul using BigUint.
+// Returns u64::MAX when part is zero (saturating behavior) or when the result overflows.
+fn oracle_saturating_reciprocal_mul<P: PerThing>(
 	pt1: P,
 	int_operand: u64,
 	rounding: Rounding,
-) -> Result<u64, ArithmeticError>
+) -> u64
 where
 	P::Inner: Into<u128> + NZero + NOne + Copy + NBounded + TryInto<u64>,
 	<P::Inner as TryInto<u64>>::Error: core::fmt::Debug,
@@ -242,7 +243,7 @@ where
 	let part_inner = pt1.deconstruct();
 
 	if part_inner.is_zero() {
-		return Err(ArithmeticError::DivisionByZero);
+		return u64::MAX;
 	}
 
 	let accuracy_inner = P::ACCURACY;
@@ -250,25 +251,27 @@ where
 	let part_big = BigUint::from(part_inner.into());
 	let x_big = BigUint::from(int_operand);
 
-	// Double check
-	if part_big.is_zero() {
-		return Err(ArithmeticError::DivisionByZero);
-	}
-
-	let correction_big = oracle_checked_rational_mul_correction::<P>(
+	let correction_big = match oracle_checked_rational_mul_correction::<P>(
 		int_operand,
 		accuracy_inner,
 		part_inner,
 		rounding,
-	)?;
+	) {
+		Ok(c) => c,
+		Err(_) => return u64::MAX,
+	};
 	let term1_big = &x_big / &part_big;
-	let term2_big = term1_big.checked_mul(&accuracy_big).ok_or(ArithmeticError::Overflow)?;
-	let final_result_big =
-		term2_big.checked_add(&correction_big).ok_or(ArithmeticError::Overflow)?;
+	let term2_big = match term1_big.checked_mul(&accuracy_big) {
+		Some(v) => v,
+		None => return u64::MAX,
+	};
+	let final_result_big = match term2_big.checked_add(&correction_big) {
+		Some(v) => v,
+		None => return u64::MAX,
+	};
 
-	// unwrap_or(u64::MAX) correctly models checked_saturating_reciprocal_mul behavior:
-	// when the result exceeds u64::MAX, the actual function saturates to the max value.
-	Ok(final_result_big.to_u64().unwrap_or(u64::MAX))
+	// When the result exceeds u64::MAX, the actual function saturates to the max value.
+	final_result_big.to_u64().unwrap_or(u64::MAX)
 }
 
 // Simulates checked_from_rational_with_rounding using BigUint
@@ -486,39 +489,39 @@ fn run_test<P: PerThing>(
 				pt1, int_operand, res, oracle_res
 			);
 		},
-		PerThingArithOp::CheckedReciprocalMulFloor => {
-			let res = pt1.checked_saturating_reciprocal_mul_floor(int_operand);
-			let oracle_res = oracle_checked_reciprocal_mul::<P>(pt1, int_operand, Rounding::Down);
+		PerThingArithOp::SaturatingReciprocalMulFloor => {
+			let res = pt1.saturating_reciprocal_mul_floor(int_operand);
+			let oracle_res = oracle_saturating_reciprocal_mul::<P>(pt1, int_operand, Rounding::Down);
 			assert_eq!(
 				res,
 				oracle_res,
-				"CheckedReciprocalMulFloor mismatch: pt1={:?}, int_operand={}, res={:?}, expected={:?}",
+				"SaturatingReciprocalMulFloor mismatch: pt1={:?}, int_operand={}, res={}, expected={}",
 				pt1,
 				int_operand,
 				res,
 				oracle_res
 			);
 		},
-		PerThingArithOp::CheckedReciprocalMulCeil => {
-			let res = pt1.checked_saturating_reciprocal_mul_ceil(int_operand);
-			let oracle_res = oracle_checked_reciprocal_mul::<P>(pt1, int_operand, Rounding::Up);
+		PerThingArithOp::SaturatingReciprocalMulCeil => {
+			let res = pt1.saturating_reciprocal_mul_ceil(int_operand);
+			let oracle_res = oracle_saturating_reciprocal_mul::<P>(pt1, int_operand, Rounding::Up);
 			assert_eq!(
 				res,
 				oracle_res,
-				"CheckedReciprocalMulCeil mismatch: pt1={:?}, int_operand={}, res={:?}, expected={:?}",
+				"SaturatingReciprocalMulCeil mismatch: pt1={:?}, int_operand={}, res={}, expected={}",
 				pt1,
 				int_operand,
 				res,
 				oracle_res
 			);
 		},
-		PerThingArithOp::CheckedReciprocalMul => {
-			let res = pt1.checked_saturating_reciprocal_mul(int_operand);
+		PerThingArithOp::SaturatingReciprocalMul => {
+			let res = pt1.saturating_reciprocal_mul(int_operand);
 			let oracle_res =
-				oracle_checked_reciprocal_mul::<P>(pt1, int_operand, Rounding::NearestPrefUp);
+				oracle_saturating_reciprocal_mul::<P>(pt1, int_operand, Rounding::NearestPrefUp);
 			assert_eq!(
 				res, oracle_res,
-				"CheckedReciprocalMul mismatch: pt1={:?}, int_operand={}, res={:?}, expected={:?}",
+				"SaturatingReciprocalMul mismatch: pt1={:?}, int_operand={}, res={}, expected={}",
 				pt1, int_operand, res, oracle_res
 			);
 		},

@@ -336,27 +336,11 @@ pub trait PerThing:
 	#[must_use]
 	fn saturating_reciprocal_mul<N>(self, b: N) -> N
 	where
-		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
+		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + Bounded,
 		Self::Inner: Into<N>,
 	{
 		saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::NearestPrefUp)
 	}
-
-	/// Checked saturating multiplication by the reciprocal of `self`.
-	///
-	/// Returns `ArithmeticError::DivisionByZero` if `self` is zero.
-	fn checked_saturating_reciprocal_mul<N>(self, b: N) -> Result<N, ArithmeticError>
-	where
-		N: ReciprocalArg
-			+ UniqueSaturatedInto<Self::Inner>
-			+ CheckedAdd
-			+ CheckedSub
-			+ CheckedMul
-			+ CheckedDiv,
-		Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-		Self::Upper: CheckedMul<Output = Self::Upper>
-			+ CheckedDiv<Output = Self::Upper>
-			+ CheckedRem<Output = Self::Upper>;
 
 	/// Saturating multiplication by the reciprocal of `self`.	The result is rounded down to the
 	/// nearest whole number and saturates at the numeric bounds instead of overflowing.
@@ -373,27 +357,11 @@ pub trait PerThing:
 	#[must_use]
 	fn saturating_reciprocal_mul_floor<N>(self, b: N) -> N
 	where
-		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
+		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + Bounded,
 		Self::Inner: Into<N>,
 	{
 		saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::Down)
 	}
-
-	/// Checked saturating multiplication by the reciprocal of `self`, rounding down.
-	///
-	/// Returns `ArithmeticError::DivisionByZero` if `self` is zero.
-	fn checked_saturating_reciprocal_mul_floor<N>(self, b: N) -> Result<N, ArithmeticError>
-	where
-		N: ReciprocalArg
-			+ UniqueSaturatedInto<Self::Inner>
-			+ CheckedAdd
-			+ CheckedSub
-			+ CheckedMul
-			+ CheckedDiv,
-		Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-		Self::Upper: CheckedMul<Output = Self::Upper>
-			+ CheckedDiv<Output = Self::Upper>
-			+ CheckedRem<Output = Self::Upper>;
 
 	/// Saturating multiplication by the reciprocal of `self`.	The result is rounded up to the
 	/// nearest whole number and saturates at the numeric bounds instead of overflowing.
@@ -410,27 +378,11 @@ pub trait PerThing:
 	#[must_use]
 	fn saturating_reciprocal_mul_ceil<N>(self, b: N) -> N
 	where
-		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
+		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + Bounded,
 		Self::Inner: Into<N>,
 	{
 		saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::Up)
 	}
-
-	/// Checked saturating multiplication by the reciprocal of `self`, rounding up.
-	///
-	/// Returns `ArithmeticError::DivisionByZero` if `self` is zero.
-	fn checked_saturating_reciprocal_mul_ceil<N>(self, b: N) -> Result<N, ArithmeticError>
-	where
-		N: ReciprocalArg
-			+ UniqueSaturatedInto<Self::Inner>
-			+ CheckedAdd
-			+ CheckedSub
-			+ CheckedMul
-			+ CheckedDiv,
-		Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-		Self::Upper: CheckedMul<Output = Self::Upper>
-			+ CheckedDiv<Output = Self::Upper>
-			+ CheckedRem<Output = Self::Upper>;
 
 	/// Consume self and return the number of parts per thing.
 	fn deconstruct(self) -> Self::Inner;
@@ -627,7 +579,7 @@ impl Rounding {
 }
 
 /// Saturating reciprocal multiplication. Compute `x / self`, saturating at the numeric
-/// bounds instead of overflowing.
+/// bounds instead of overflowing. Returns `Bounded::max_value()` when `part` is zero.
 fn saturating_reciprocal_mul<N, P>(x: N, part: P::Inner, rounding: Rounding) -> N
 where
 	N: Clone
@@ -637,48 +589,17 @@ where
 		+ ops::Add<N, Output = N>
 		+ ops::Rem<N, Output = N>
 		+ Saturating
-		+ Unsigned,
+		+ Unsigned
+		+ Bounded,
 	P: PerThing,
 	P::Inner: Into<N>,
 {
+	if part.is_zero() {
+		return Bounded::max_value();
+	}
 	let maximum: N = P::ACCURACY.into();
 	let c = rational_mul_correction::<N, P>(x.clone(), P::ACCURACY, part, rounding);
 	(x / part.into()).saturating_mul(maximum).saturating_add(c)
-}
-
-/// Checked saturating reciprocal multiplication. Compute `x / self`, returning an error if `part`
-/// is zero.
-fn checked_saturating_reciprocal_mul<N, P>(
-	x: N,
-	part: P::Inner,
-	rounding: Rounding,
-) -> Result<N, ArithmeticError>
-where
-	N: Clone
-		+ UniqueSaturatedInto<P::Inner>
-		+ ops::Div<N, Output = N>
-		+ ops::Mul<N, Output = N>
-		+ ops::Add<N, Output = N>
-		+ ops::Rem<N, Output = N>
-		+ Saturating
-		+ Unsigned
-		+ CheckedAdd
-		+ CheckedSub
-		+ CheckedMul
-		+ CheckedDiv,
-	P: PerThing,
-	P::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-	P::Upper: CheckedMul<Output = P::Upper>
-		+ CheckedDiv<Output = P::Upper>
-		+ CheckedRem<Output = P::Upper>,
-{
-	if part.is_zero() {
-		return Err(ArithmeticError::DivisionByZero);
-	}
-
-	let maximum: N = P::ACCURACY.into();
-	let c = checked_rational_mul_correction::<N, P>(x.clone(), P::ACCURACY, part, rounding)?;
-	Ok((x / part.into()).saturating_mul(maximum).saturating_add(c))
 }
 
 /// Overflow-prune multiplication. Accurately multiply a value by `self` without overflowing.
@@ -1012,33 +933,6 @@ macro_rules! implement_per_thing {
 					.map_err(|_| ArithmeticError::Overflow)
 			}
 
-			fn checked_saturating_reciprocal_mul<N>(self, b: N) -> Result<N, ArithmeticError>
-			where
-				N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv, // Added bounds
-				Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv, // Added bounds
-				Self::Upper: CheckedMul<Output = Self::Upper> + CheckedDiv<Output = Self::Upper> + CheckedRem<Output = Self::Upper>, // Added bounds
-			{
-				checked_saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::NearestPrefUp)
-			}
-
-			fn checked_saturating_reciprocal_mul_floor<N>(self, b: N) -> Result<N, ArithmeticError>
-			where
-				N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv, // Added bounds
-				Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv, // Added bounds
-				Self::Upper: CheckedMul<Output = Self::Upper> + CheckedDiv<Output = Self::Upper> + CheckedRem<Output = Self::Upper>, // Added bounds
-			{
-				checked_saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::Down)
-			}
-
-			fn checked_saturating_reciprocal_mul_ceil<N>(self, b: N) -> Result<N, ArithmeticError>
-			where
-				N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv, // Added bounds
-				Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv, // Added bounds
-				Self::Upper: CheckedMul<Output = Self::Upper> + CheckedDiv<Output = Self::Upper> + CheckedRem<Output = Self::Upper>, // Added bounds
-			{
-				checked_saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::Up)
-			}
-
 			fn checked_mul_floor<N>(self, b: N) -> Result<N, ArithmeticError>
 			where
 				N: MultiplyArg + UniqueSaturatedInto<Self::Inner> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
@@ -1185,7 +1079,7 @@ macro_rules! implement_per_thing {
 			/// See [`PerThing::saturating_reciprocal_mul`].
 			pub fn saturating_reciprocal_mul<N>(self, b: N) -> N
 				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type>,
+					N: ReciprocalArg + UniqueSaturatedInto<$type> + Bounded,
 					$type: Into<N>,
 			{
 				PerThing::saturating_reciprocal_mul(self, b)
@@ -1194,7 +1088,7 @@ macro_rules! implement_per_thing {
 			/// See [`PerThing::saturating_reciprocal_mul_floor`].
 			pub fn saturating_reciprocal_mul_floor<N>(self, b: N) -> N
 				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type>,
+					N: ReciprocalArg + UniqueSaturatedInto<$type> + Bounded,
 					$type: Into<N>,
 			{
 				PerThing::saturating_reciprocal_mul_floor(self, b)
@@ -1203,40 +1097,10 @@ macro_rules! implement_per_thing {
 			/// See [`PerThing::saturating_reciprocal_mul_ceil`].
 			pub fn saturating_reciprocal_mul_ceil<N>(self, b: N) -> N
 				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type>,
+					N: ReciprocalArg + UniqueSaturatedInto<$type> + Bounded,
 					$type: Into<N>,
 			{
 				PerThing::saturating_reciprocal_mul_ceil(self, b)
-			}
-
-			/// See [`PerThing::checked_saturating_reciprocal_mul`].
-			pub fn checked_saturating_reciprocal_mul<N>(self, b: N) -> Result<N, ArithmeticError>
-				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-					$type: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-					$upper_type: CheckedMul<Output = $upper_type> + CheckedDiv<Output = $upper_type> + CheckedRem<Output = $upper_type>,
-			{
-				PerThing::checked_saturating_reciprocal_mul(self, b)
-			}
-
-			/// See [`PerThing::checked_saturating_reciprocal_mul_floor`].
-			pub fn checked_saturating_reciprocal_mul_floor<N>(self, b: N) -> Result<N, ArithmeticError>
-				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-					$type: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-					$upper_type: CheckedMul<Output = $upper_type> + CheckedDiv<Output = $upper_type> + CheckedRem<Output = $upper_type>,
-			{
-				PerThing::checked_saturating_reciprocal_mul_floor(self, b)
-			}
-
-			/// See [`PerThing::checked_saturating_reciprocal_mul_ceil`].
-			pub fn checked_saturating_reciprocal_mul_ceil<N>(self, b: N) -> Result<N, ArithmeticError>
-				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-					$type: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
-					$upper_type: CheckedMul<Output = $upper_type> + CheckedDiv<Output = $upper_type> + CheckedRem<Output = $upper_type>,
-			{
-				PerThing::checked_saturating_reciprocal_mul_ceil(self, b)
 			}
 
 			/// See [`PerThing::checked_int_div`].
@@ -2185,36 +2049,21 @@ macro_rules! implement_per_thing {
 			}
 
 			#[test]
-			fn checked_reciprocal_mul_works() {
+			fn saturating_reciprocal_mul_zero_returns_max() {
 				let zero = $name::zero();
 				let fifty = $name::from_percent(50);
 				let val = 10 as $type;
 
-				assert_eq!(
-					zero.checked_saturating_reciprocal_mul(val),
-					Err(ArithmeticError::DivisionByZero)
-				);
-				assert_eq!(
-					zero.checked_saturating_reciprocal_mul_floor(val),
-					Err(ArithmeticError::DivisionByZero)
-				);
-				assert_eq!(
-					zero.checked_saturating_reciprocal_mul_ceil(val),
-					Err(ArithmeticError::DivisionByZero)
-				);
+				// Division by zero saturates to max.
+				assert_eq!(zero.saturating_reciprocal_mul(val), <$type>::MAX);
+				assert_eq!(zero.saturating_reciprocal_mul_floor(val), <$type>::MAX);
+				assert_eq!(zero.saturating_reciprocal_mul_ceil(val), <$type>::MAX);
 
-				assert_eq!(
-					fifty.checked_saturating_reciprocal_mul(val),
-					Ok(fifty.saturating_reciprocal_mul(val))
-				);
-				assert_eq!(
-					fifty.checked_saturating_reciprocal_mul_floor(val),
-					Ok(fifty.saturating_reciprocal_mul_floor(val))
-				);
-				assert_eq!(
-					fifty.checked_saturating_reciprocal_mul_ceil(val),
-					Ok(fifty.saturating_reciprocal_mul_ceil(val))
-				);
+				// Also saturates to max when x is zero.
+				assert_eq!(zero.saturating_reciprocal_mul(0 as $type), <$type>::MAX);
+
+				// Normal values still work.
+				assert_eq!(fifty.saturating_reciprocal_mul(val), 20);
 			}
 
 			#[test]
