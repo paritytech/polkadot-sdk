@@ -72,11 +72,9 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		break;
 	}
 	// Now make sure no more statements are received.
-	assert!(
-		tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
-			.await
-			.is_err()
-	);
+	assert!(tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
+		.await
+		.is_err());
 	log::info!("Statement store test passed");
 
 	Ok(())

@@ -8,10 +8,10 @@ use codec::{Decode, Encode};
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
-use sp_core::{Bytes, Pair, blake2_256, hexdisplay::HexDisplay, sr25519};
+use sp_core::{blake2_256, hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
-	Channel, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
-	statement_allowance_key,
+	statement_allowance_key, Channel, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	cell::Cell,
@@ -22,8 +22,8 @@ use std::{
 };
 use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
-	LocalFileSystem, Network, NetworkConfigBuilder,
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
+	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
 const GROUP_SIZE: u32 = 6;

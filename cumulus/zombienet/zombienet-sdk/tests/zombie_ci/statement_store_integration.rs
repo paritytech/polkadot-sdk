@@ -48,18 +48,17 @@ async fn submit_statement(
 }
 
 async fn expect_statement(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		StatementEvent,
+	>,
 	timeout_secs: u64,
 ) -> Result<Bytes, anyhow::Error> {
 	loop {
-		let item = tokio::time::timeout(
-			Duration::from_secs(timeout_secs),
-			subscription.next(),
-		)
-		.await
-		.map_err(|_| anyhow::anyhow!("Timeout waiting for statement after {}s", timeout_secs))?
-		.ok_or_else(|| anyhow::anyhow!("Subscription stream ended unexpectedly"))?
-		.map_err(|e| anyhow::anyhow!("Subscription error: {}", e))?;
+		let item = tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next())
+			.await
+			.map_err(|_| anyhow::anyhow!("Timeout waiting for statement after {}s", timeout_secs))?
+			.ok_or_else(|| anyhow::anyhow!("Subscription stream ended unexpectedly"))?
+			.map_err(|e| anyhow::anyhow!("Subscription error: {}", e))?;
 
 		match item {
 			StatementEvent::NewStatements { statements: batch, .. } => {
@@ -74,11 +73,12 @@ async fn expect_statement(
 }
 
 async fn assert_no_more_statements(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		StatementEvent,
+	>,
 	timeout_secs: u64,
 ) -> Result<(), anyhow::Error> {
-	let result =
-		tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next()).await;
+	let result = tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next()).await;
 	assert!(result.is_err(), "Expected no more statements but received one");
 	Ok(())
 }
@@ -94,9 +94,7 @@ async fn subscribe_topic(
 	let subscription = rpc
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAll(
-				vec![topic].try_into().expect("Single topic")
-			)],
+			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
 			"statement_unsubscribeStatement",
 		)
 		.await?;
@@ -194,7 +192,11 @@ async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 		create_test_statement(&keypair, topic, vec![10, 20, 30], now + expiry_offset, 0);
 	let result = submit_statement(&charlie_rpc, &statement).await?;
 	assert_eq!(result, SubmitResult::New, "Statement should be accepted as new");
-	log::info!("Submitted statement with expiry in {}s (at unix time {})", expiry_offset, now + expiry_offset);
+	log::info!(
+		"Submitted statement with expiry in {}s (at unix time {})",
+		expiry_offset,
+		now + expiry_offset
+	);
 
 	// Verify it propagated to dave
 	let received = expect_statement(&mut dave_sub, 30).await?;
@@ -212,8 +214,7 @@ async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 	tokio::time::sleep(Duration::from_secs(remaining_wait as u64)).await;
 
 	// Re-submit with a new expiry
-	let fresh_statement =
-		create_test_statement(&keypair, topic, vec![10, 20, 30], u32::MAX, 0);
+	let fresh_statement = create_test_statement(&keypair, topic, vec![10, 20, 30], u32::MAX, 0);
 	let result = submit_statement(&charlie_rpc, &fresh_statement).await?;
 
 	match result {
@@ -259,8 +260,7 @@ async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 		.map(|idx| (idx, StatementAllowance { max_count: 3, max_size: 10_000 }))
 		.collect();
 
-	let network =
-		spawn_network_with_custom_allowances(&["charlie", "dave"], &allowances).await?;
+	let network = spawn_network_with_custom_allowances(&["charlie", "dave"], &allowances).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
@@ -281,8 +281,7 @@ async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 
 	// Submit lower priority statement
 	log::info!("Verifying AccountFull rejection");
-	let low_priority =
-		create_test_statement(&keypair_0, topic, vec![0], u32::MAX, 50);
+	let low_priority = create_test_statement(&keypair_0, topic, vec![0], u32::MAX, 50);
 	let result = submit_statement(&charlie_rpc, &low_priority).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::AccountFull { .. }) => {
@@ -294,8 +293,7 @@ async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 	// Rejection for participant 7
 	log::info!("Verifying NoAllowance rejection");
 	let keypair_7 = get_keypair(7);
-	let no_allowance_stmt =
-		create_test_statement(&keypair_7, topic, vec![1], u32::MAX, 0);
+	let no_allowance_stmt = create_test_statement(&keypair_7, topic, vec![1], u32::MAX, 0);
 	let result = submit_statement(&charlie_rpc, &no_allowance_stmt).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::NoAllowance) => {
@@ -307,8 +305,7 @@ async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 	log::info!("Verifying DataTooLarge rejection");
 	let keypair_1 = get_keypair(1);
 	let large_data = vec![0u8; 10_001];
-	let large_stmt =
-		create_test_statement(&keypair_1, topic, large_data, u32::MAX, 0);
+	let large_stmt = create_test_statement(&keypair_1, topic, large_data, u32::MAX, 0);
 	let result = submit_statement(&charlie_rpc, &large_stmt).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::DataTooLarge { .. }) => {
@@ -320,8 +317,7 @@ async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 	log::info!("Verifying eviction with higher priority statement");
 	let mut dave_sub = subscribe_topic(&dave_rpc, topic).await?;
 
-	let high_priority =
-		create_test_statement(&keypair_0, topic, vec![4], u32::MAX, 400);
+	let high_priority = create_test_statement(&keypair_0, topic, vec![4], u32::MAX, 400);
 	let result = submit_statement(&charlie_rpc, &high_priority).await?;
 	assert_eq!(
 		result,
