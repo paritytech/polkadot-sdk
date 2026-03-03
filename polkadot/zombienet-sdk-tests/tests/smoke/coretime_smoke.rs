@@ -114,7 +114,7 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
-	let culumus_image = env_or_default(CUMULUS_IMAGE_ENV, images.cumulus.as_str());
+	let cumulus_image = env_or_default(CUMULUS_IMAGE_ENV, images.cumulus.as_str());
 
 	let alice_account_str = dev::alice().public_key().to_account_id().to_string();
 
