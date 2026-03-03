@@ -20,12 +20,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::v2::*;
-use frame_support::{traits::UnfilteredDispatchable, WeakBoundedVec};
-use frame_system::RawOrigin;
-use sp_runtime::{
-	traits::{ValidateUnsigned, Zero},
-	transaction_validity::TransactionSource,
+use frame_support::{
+	traits::{Authorize, UnfilteredDispatchable},
+	WeakBoundedVec,
 };
+use frame_system::RawOrigin;
+use sp_runtime::{traits::Zero, transaction_validity::TransactionSource};
 
 use crate::*;
 
@@ -60,51 +60,56 @@ pub fn create_heartbeat<T: Config>(
 	Ok((input_heartbeat, signature))
 }
 
-#[benchmarks]
+#[benchmarks(where <T as frame_system::Config>::RuntimeCall: From<Call<T>>)]
 mod benchmarks {
 	use super::*;
 
-	#[benchmark(extra)]
+	#[benchmark]
 	fn heartbeat(k: Linear<1, { <T as Config>::MaxKeys::get() }>) -> Result<(), BenchmarkError> {
 		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::None, input_heartbeat, signature);
-
-		Ok(())
-	}
-
-	#[benchmark(extra)]
-	fn validate_unsigned(
-		k: Linear<1, { <T as Config>::MaxKeys::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
-		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
-
-		#[block]
-		{
-			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
-				.map_err(<&str>::from)?;
-		}
+		_(RawOrigin::Authorized, input_heartbeat, signature);
 
 		Ok(())
 	}
 
 	#[benchmark]
-	fn validate_unsigned_and_then_heartbeat(
+	fn authorize_heartbeat(
+		k: Linear<1, { <T as Config>::MaxKeys::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
+		let call: <T as frame_system::Config>::RuntimeCall =
+			Call::heartbeat { heartbeat: input_heartbeat, signature }.into();
+
+		#[block]
+		{
+			call.authorize(TransactionSource::InBlock)
+				.expect("heartbeat call should have authorize logic")
+				.map_err(|_| "authorize failed")?;
+		}
+
+		Ok(())
+	}
+
+	#[benchmark(extra)]
+	fn authorize_and_then_heartbeat(
 		k: Linear<1, { <T as Config>::MaxKeys::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
+		let runtime_call: <T as frame_system::Config>::RuntimeCall = call.clone().into();
 		let call_enc = call.encode();
 
 		#[block]
 		{
-			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
-				.map_err(<&str>::from)?;
+			runtime_call
+				.authorize(TransactionSource::InBlock)
+				.expect("heartbeat call should have authorize logic")
+				.map_err(|_| "authorize failed")?;
 			<Call<T> as Decode>::decode(&mut &*call_enc)
 				.expect("call is encoded above, encoding must be correct")
-				.dispatch_bypass_filter(RawOrigin::None.into())?;
+				.dispatch_bypass_filter(RawOrigin::Authorized.into())?;
 		}
 
 		Ok(())
