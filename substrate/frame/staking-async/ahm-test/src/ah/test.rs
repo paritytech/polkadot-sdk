@@ -17,17 +17,8 @@
 
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
-<<<<<<< HEAD:substrate/frame/staking-async/ahm-test/src/ah/test.rs
-use frame_support::{assert_ok, hypothetically};
-use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-=======
-use frame_election_provider_support::Weight;
 use frame_support::{assert_ok, hypothetically, traits::fungible::hold::Inspect as HoldInspect};
-use pallet_election_provider_multi_block::{
-	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
-	ElectionScore, Event as ElectionEvent, Phase,
-};
->>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222)):substrate/frame/staking-async/integration-tests/src/ah/test.rs
+use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
 	Event as StakingEvent,
@@ -1094,15 +1085,11 @@ mod session_keys {
 		Balances, KeyDeposit, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
 		SetKeysExecutionCost,
 	};
-<<<<<<< HEAD:substrate/frame/staking-async/ahm-test/src/ah/test.rs
-	use frame_support::{assert_noop, BoundedVec};
-=======
-	use codec::Encode;
+
 	use frame_support::{assert_noop, pallet_prelude::DispatchError};
->>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222)):substrate/frame/staking-async/integration-tests/src/ah/test.rs
 	use rc_client::AHStakingInterface;
 
-	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
+	type Keys = Vec<u8>;
 
 	/// Helper to create properly encoded session keys.
 	///
@@ -1125,7 +1112,7 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
 			let keys = make_session_keys();
-			let keys_raw: Vec<u8> = keys.clone().into_inner();
+			let keys_raw: Vec<u8> = keys.clone();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
@@ -1347,11 +1334,10 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 3 is a validator that has set keys (deposit held)
 			let validator: AccountId = 3;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
-				proof,
 				None,
 			));
 			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
@@ -1503,53 +1489,13 @@ mod session_keys {
 	fn set_keys_deposit_lifecycle() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			let validator: AccountId = 1;
-<<<<<<< HEAD:substrate/frame/staking-async/ahm-test/src/ah/test.rs
-			let keys = make_session_keys();
-
-			// GIVEN: MinSetKeysBond is set higher than the validator's active bond (100)
-			MinSetKeysBond::set(101);
-
-			// WHEN: Validator tries to set keys
-			// THEN: InsufficientBond error is returned
-			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(validator),
-					keys.clone(),
-					None,
-				),
-				rc_client::Error::<T>::InsufficientBond
-			);
-
-			// GIVEN: MinSetKeysBond equals the validator's active bond
-			MinSetKeysBond::set(100);
-
-			// WHEN: Validator sets keys with exact bond
-			// THEN: Succeeds
-			assert_ok!(rc_client::Pallet::<T>::set_keys(
-				RuntimeOrigin::signed(validator),
-				keys.clone(),
-				None,
-			));
-		});
-	}
-
-	#[test]
-	fn set_keys_min_bond_zero_disables_check() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: MinSetKeysBond is 0 (default in tests) — check is disabled
-			let validator: AccountId = 1;
-			let keys = make_session_keys();
-
-			// WHEN/THEN: set_keys succeeds regardless of bond amount
-=======
 			let deposit = KeyDeposit::get();
 			let set_fees = XcmDeliveryFee::get() + SetKeysExecutionCost::get();
 			let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
 
 			// First set_keys: deposit held
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			let balance_before = Balances::free_balance(validator);
->>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222)):substrate/frame/staking-async/integration-tests/src/ah/test.rs
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
@@ -1560,11 +1506,10 @@ mod session_keys {
 
 			// Second set_keys: no additional deposit
 			let balance_after_first = Balances::free_balance(validator);
-			let (keys2, proof2) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
-				keys2,
-				proof2,
+				keys,
 				None,
 			));
 			assert_eq!(Balances::free_balance(validator), balance_after_first - set_fees);
@@ -1605,7 +1550,6 @@ mod session_keys {
 					rc_client::Pallet::<T>::set_keys(
 						RuntimeOrigin::signed(validator),
 						vec![0xff, 0xfe, 0xfd],
-						vec![],
 						None,
 					),
 					rc_client::Error::<T>::InvalidKeys
@@ -1616,15 +1560,10 @@ mod session_keys {
 
 			// Insufficient balance for deposit
 			hypothetically!({
-				let (keys, proof) = make_session_keys_and_proof(validator);
+				let keys = make_session_keys();
 				KeyDeposit::set(Balances::free_balance(validator) + 1);
 				assert_noop!(
-					rc_client::Pallet::<T>::set_keys(
-						RuntimeOrigin::signed(validator),
-						keys,
-						proof,
-						None,
-					),
+					rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
 					DispatchError::Token(frame::runtime::prelude::TokenError::FundsUnavailable)
 				);
 			});
@@ -1632,13 +1571,12 @@ mod session_keys {
 			// Zero deposit: set + purge lifecycle works, no hold placed
 			hypothetically!({
 				KeyDeposit::set(0);
-				let (keys, proof) = make_session_keys_and_proof(validator);
+				let keys = make_session_keys();
 				let balance_before = Balances::free_balance(validator);
 
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys,
-					proof,
 					None,
 				));
 				assert_eq!(key_deposit_hold(validator), 0);
@@ -1674,11 +1612,10 @@ mod session_keys {
 
 		// GIVEN: Validator sets keys on AH (deposit is held).
 		shared::in_ah(|| {
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
-				proof,
 				None,
 			));
 			assert_eq!(key_deposit_hold(validator), deposit);

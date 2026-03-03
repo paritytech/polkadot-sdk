@@ -121,7 +121,9 @@ extern crate alloc;
 pub mod benchmarking;
 pub mod weights;
 
-use alloc::{vec, vec::Vec};
+#[cfg(feature = "xcm-sender")]
+use alloc::vec;
+use alloc::vec::Vec;
 use codec::Decode;
 #[cfg(feature = "xcm-sender")]
 use core::fmt::Display;
@@ -1072,15 +1074,7 @@ pub mod pallet {
 		type Currency: FunMutate<Self::AccountId>
 			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
 
-<<<<<<< HEAD
-		/// Maximum length of encoded session keys.
-		#[pallet::constant]
-		type MaxSessionKeysLength: Get<u32>;
-
-		/// Minimum active bond required to call `set_keys`. Set to 0 to disable.
-=======
 		/// Deposit held when a validator sets session keys. Released on `purge_keys`.
->>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222))
 		#[pallet::constant]
 		type KeyDeposit: Get<BalanceOf<Self>>;
 
@@ -1282,21 +1276,11 @@ pub mod pallet {
 		/// do not charge again. The deposit is released on `purge_keys`.
 		///
 		/// **Validation on AssetHub:**
-<<<<<<< HEAD
-		/// Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
-		/// format. This prevents malicious validators from bloating the XCM queue with garbage
-		/// data.
-		///
-		/// This, combined with the enforcement of a high minimum validator bond, makes it
-		/// reasonable not to require a deposit.
-=======
 		/// - Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
 		///   format.
-		/// - Ownership proof is validated using `OpaqueKeys::ownership_proof_is_valid`.
 		///
 		/// If validation passes, only the validated keys are sent to RC (with empty proof),
 		/// since RC trusts AH's validation.
->>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222))
 		///
 		/// Note: Ownership proof validation requires PR #1739 which is not backported to
 		/// stable2512. The proof parameter will be added when that PR is backported.
@@ -1323,7 +1307,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(
 			origin: OriginFor<T>,
-			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
+			keys: Vec<u8>,
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
@@ -1348,7 +1332,7 @@ pub mod pallet {
 			// Forward validated keys to RC
 			let fees = T::SendToRelayChain::set_keys(
 				stash.clone(),
-				keys.into_inner(),
+				keys,
 				max_delivery_and_remote_execution_fee,
 			)
 			.map_err(|e| match e {
@@ -1388,15 +1372,6 @@ pub mod pallet {
 		/// delivery + RC execution fee. This does not include the local transaction weight fee. If
 		/// the fee exceeds this limit, the operation fails with `FeesExceededMax`. Pass `None` for
 		/// unlimited (no cap).
-<<<<<<< HEAD
-		//
-		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
-		// (storage item) to track accounts that have called set_keys. We will also need to perform
-		// a migration to populate the state for all validators that have set keys via RC.
-		//
-		// Note: No deposit is currently held/released, same reason as per set_keys.
-=======
->>>>>>> 4c562aef (staking-async/rc-client: replace MinSetKeysBond with storage deposit (#11222))
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(
