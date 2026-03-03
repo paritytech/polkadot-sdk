@@ -59,10 +59,7 @@ mod tests;
 
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
 pub use migration::MigrateForeignAssetPrecompileMappings;
-pub use permit::{
-	pallet::Config as PermitConfig, DIGEST_PREFIX_LEN, DOMAIN_SEPARATOR_ENCODED_LEN,
-	PERMIT_STRUCT_ENCODED_LEN, PERMIT_TYPEHASH, SECP256K1_N_DIV_2,
-};
+pub use permit::pallet::Config as PermitConfig;
 pub use weights::{PermitWeight, PermitWeightInfo};
 
 /// Mean of extracting the asset id from the precompile address.

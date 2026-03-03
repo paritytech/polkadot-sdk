@@ -43,7 +43,7 @@ pub use pallet::*;
 ///
 /// Computed at compile time from the canonical string, eliminating any risk of a
 /// copy-paste error in a hand-written byte array.
-pub const PERMIT_TYPEHASH: [u8; 32] = const_crypto::sha3::Keccak256::new()
+pub(crate) const PERMIT_TYPEHASH: [u8; 32] = const_crypto::sha3::Keccak256::new()
 	.update(b"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
 	.finalize();
 
@@ -51,7 +51,7 @@ pub const PERMIT_TYPEHASH: [u8; 32] = const_crypto::sha3::Keccak256::new()
 /// Used to ensure `s` is in the lower half to prevent signature malleability.
 /// n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 /// n/2 = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
-pub const SECP256K1_N_DIV_2: [u8; 32] = [
+pub(crate) const SECP256K1_N_DIV_2: [u8; 32] = [
 	0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 	0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B, 0x20, 0xA0,
 ];
@@ -59,12 +59,12 @@ pub const SECP256K1_N_DIV_2: [u8; 32] = [
 /// Encoded length constants for EIP-712 encoding.
 /// Domain separator: typehash(32) + name_hash(32) + version_hash(32) + chainId(32) +
 /// verifyingContract(32) = 160 bytes
-pub const DOMAIN_SEPARATOR_ENCODED_LEN: usize = 32 * 5;
+pub(crate) const DOMAIN_SEPARATOR_ENCODED_LEN: usize = 32 * 5;
 /// Permit struct: typehash(32) + owner(32) + spender(32) + value(32) + nonce(32) + deadline(32) =
 /// 192 bytes
-pub const PERMIT_STRUCT_ENCODED_LEN: usize = 32 * 6;
+pub(crate) const PERMIT_STRUCT_ENCODED_LEN: usize = 32 * 6;
 /// Digest prefix: \x19\x01(2) + domain_separator(32) + struct_hash(32) = 66 bytes
-pub const DIGEST_PREFIX_LEN: usize = 2 + 32 + 32;
+pub(crate) const DIGEST_PREFIX_LEN: usize = 2 + 32 + 32;
 
 #[frame_support::pallet]
 pub mod pallet {
