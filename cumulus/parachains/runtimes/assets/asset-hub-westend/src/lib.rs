@@ -598,7 +598,7 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 }
 
 impl pallet_assets_precompiles::PermitConfig for Runtime {
-	type ChainId = ConstU64<420_420_421>;
+	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
 	type WeightInfo = pallet_assets_precompiles::weights::PermitWeight<Runtime>;
 }
 
