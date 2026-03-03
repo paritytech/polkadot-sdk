@@ -219,7 +219,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				// .onboard_as_parachain(false)
 				// .cumulus_based(true)
 				.with_default_command("polkadot-parachain")
-				.with_default_image(culumus_image.as_str())
+				.with_default_image(cumulus_image.as_str())
 				.with_collator(|n| n.with_name("collator-2000"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
