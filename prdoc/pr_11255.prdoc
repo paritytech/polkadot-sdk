@@ -9,3 +9,4 @@ crates:
   bump: minor
 - name: pallet-staking-async-rc-client
   bump: minor
+  validate: false
