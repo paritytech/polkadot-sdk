@@ -11318,7 +11318,6 @@ dependencies = [
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
  "pallet-timestamp",
- "pallet-vesting",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
