@@ -21,7 +21,10 @@ use crate::{
 	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
 };
 use alloy::primitives::U256;
-use frame_support::{assert_ok, traits::{Currency, Get}};
+use frame_support::{
+	assert_ok,
+	traits::{Currency, Get},
+};
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
