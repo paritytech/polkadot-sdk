@@ -382,6 +382,29 @@ bitflags! {
 	}
 }
 
+impl OutboundChannelFlags {
+	fn has_concatenated_opaque_versioned_xcm_support(&self) -> bool {
+		*self & Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT != Self::empty()
+	}
+	fn notice_concatenated_opaque_versioned_xcm_support(&mut self) {
+		*self = *self |
+			Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT |
+			Self::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
+	}
+
+	fn should_send_concatenated_opaque_versioned_xcm_notification(&self) -> bool {
+		if *self & Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT != Self::empty() {
+			return false;
+		}
+
+		if *self & Self::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT != Self::empty() {
+			return false;
+		}
+
+		true
+	}
+}
+
 /// Struct containing detailed information about the outbound channel.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug, MaxEncodedLen)]
 pub struct OutboundChannelDetails {
@@ -486,7 +509,7 @@ impl<T: Config> Pallet<T> {
 			.inspect_err(|e| {
 				tracing::error!(target: LOG_TARGET, error=?e, "Failed to insert outbound HRMP channel");
 			})
-			.ok();
+			.ok()?;
 		all_channels.last_mut()
 	}
 
@@ -547,7 +570,6 @@ impl<T: Config> Pallet<T> {
 				let page =
 					OutboundXcmpMessages::<T>::get(recipient, channel_details.last_index - 1);
 				if XcmpMessageFormat::decode(&mut &page[..]) != Ok(format) {
-					defensive!("Bad format in outbound queue; dropping message");
 					break 'existing_page_check;
 				}
 				if page.len() + encoded_fragment.len() > max_message_size {
@@ -954,7 +976,19 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
 					let encoding = match format {
 						XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
-						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
+						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
+							let mut all_channels = <OutboundXcmpStatus<T>>::get();
+							if let Some(channel_details) =
+								Self::try_get_or_insert_outbound_channel(&mut all_channels, sender)
+							{
+								channel_details
+									.flags
+									.notice_concatenated_opaque_versioned_xcm_support();
+							}
+							<OutboundXcmpStatus<T>>::put(all_channels);
+
+							XcmEncoding::Double
+						},
 						_ => {
 							// This branch is unreachable.
 							continue;
@@ -1033,7 +1067,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				signals_exist,
 				first_index,
 				last_index,
-				flags: _,
+				flags,
 			} = status;
 
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(*para_id) {
@@ -1086,6 +1120,22 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 						*first_index += 1;
 						break 'page_fetch page;
 					}
+				}
+
+				// Send a notification to the recipient advertising that we support
+				// `XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm` if needed.
+				// We do this only once during the entire lifetime of the channel.
+				if flags.should_send_concatenated_opaque_versioned_xcm_notification() {
+					match WeakBoundedVec::try_from(XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm.encode()) {
+						Ok(page) => {
+							*flags = *flags | OutboundChannelFlags::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
+							break 'page_fetch page;
+						},
+						Err(_) => {
+							defensive!("XcmpMessageFormat should fit into a single page");
+							return true;
+						}
+					};
 				}
 
 				return true;
@@ -1178,10 +1228,30 @@ impl<T: Config> SendXcm for Pallet<T> {
 		}
 	}
 
-	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver((recipient, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
-		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
+		let mut encoding = XcmEncoding::Simple;
+		let mut all_channels = <OutboundXcmpStatus<T>>::get();
+		if let Some(channel_details) =
+			Self::try_get_or_insert_outbound_channel(&mut all_channels, recipient)
+		{
+			if channel_details.flags.has_concatenated_opaque_versioned_xcm_support() {
+				encoding = XcmEncoding::Double;
+			}
+		}
+
+		let result = match encoding {
+			XcmEncoding::Simple => {
+				Self::send_fragment(recipient, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm)
+			},
+			XcmEncoding::Double => Self::send_fragment(
+				recipient,
+				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm,
+				xcm.encode(),
+			),
+		};
+		match result {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
