@@ -34,25 +34,25 @@ use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use governor::{
+	Quota, RateLimiter,
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
-	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
-	Registry, U64,
+	Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64, exponential_buckets,
+	register,
 };
 use sc_network::{
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
-		traits::{NotificationEvent, NotificationService, ValidationResult},
 		NotificationMetrics,
+		traits::{NotificationEvent, NotificationService, ValidationResult},
 	},
 	types::ProtocolName,
-	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkPeers,
+	utils::{LruHashSet, interval},
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -61,7 +61,7 @@ use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
 	iter,
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
@@ -540,6 +540,9 @@ pub struct Peer {
 	/// Topic affinity filter received from a v2 peer.
 	/// When set, only statements matching this filter should be propagated to the peer.
 	topic_affinity: Option<AffinityFilter>,
+	/// Whether this peer is a light client.
+	/// Light clients on V2 must set topic affinity before receiving statements.
+	is_light: bool,
 }
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
@@ -618,11 +621,7 @@ fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> C
 	}
 
 	// If we couldn't fit even a single statement, skip it.
-	if count == 0 {
-		ChunkResult::SkipOversized
-	} else {
-		ChunkResult::Send(count)
-	}
+	if count == 0 { ChunkResult::SkipOversized } else { ChunkResult::Send(count) }
 }
 
 impl Peer {
@@ -638,7 +637,17 @@ impl Peer {
 			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
+			is_light: false,
 		}
+	}
+
+	/// Whether this peer is ready to receive statements.
+	///
+	/// Light V2 peers must set their topic affinity before receiving any statements.
+	fn can_receive(&self) -> bool {
+		!(self.is_light &&
+			self.protocol_version == PeerProtocolVersion::V2 &&
+			self.topic_affinity.is_none())
 	}
 }
 
@@ -760,8 +769,7 @@ where
 				let chunk = &statements[..chunk_end];
 				let encoded = match peer_version {
 					PeerProtocolVersion::V1 => chunk.encode(),
-					PeerProtocolVersion::V2 =>
-						StatementMessage::encode_statement_refs(chunk),
+					PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
 				};
 				let bytes_to_send = encoded.len() as u64;
 
@@ -832,7 +840,12 @@ where
 					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
 				let _ = result_tx.send(result);
 			},
-			NotificationEvent::NotificationStreamOpened { peer, negotiated_fallback, .. } => {
+			NotificationEvent::NotificationStreamOpened {
+				peer,
+				negotiated_fallback,
+				handshake,
+				..
+			} => {
 				// If negotiated_fallback is Some, the peer connected on a fallback protocol
 				// (v1). If None, the peer connected on the main protocol (v2).
 				let protocol_version = if negotiated_fallback.is_some() {
@@ -840,9 +853,11 @@ where
 				} else {
 					PeerProtocolVersion::V2
 				};
+				let is_light =
+					self.network.peer_role(peer, handshake).map_or(false, |role| role.is_light());
 				log::debug!(
 					target: LOG_TARGET,
-					"Peer {peer} connected with statement protocol {protocol_version:?}"
+					"Peer {peer} connected with statement protocol {protocol_version:?}, light={is_light}"
 				);
 				let _was_in = self.peers.insert(
 					peer,
@@ -860,6 +875,7 @@ where
 						),
 						protocol_version,
 						topic_affinity: None,
+						is_light,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -868,18 +884,10 @@ where
 					metrics.peers_connected.set(self.peers.len() as u64);
 				});
 
-				if !self.sync.is_major_syncing() {
-					let hashes = self.statement_store.statement_hashes();
-					if !hashes.is_empty() {
-						self.pending_initial_syncs.insert(
-							peer,
-							PendingInitialSync { hashes, started_at: Instant::now() },
-						);
-						self.initial_sync_peer_queue.push_back(peer);
-						self.metrics.as_ref().map(|metrics| {
-							metrics.initial_sync_peers_active.inc();
-						});
-					}
+				// Light V2 peers must set topic affinity before receiving statements.
+				// All other peers get initial sync immediately.
+				if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
+					self.schedule_initial_sync_for_peer(peer);
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
@@ -948,6 +956,8 @@ where
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										peer_data.topic_affinity = Some(filter);
 									}
+									// Re-sync statements matching the new filter.
+									self.schedule_initial_sync_for_peer(peer);
 								},
 							}
 						} else {
@@ -1105,18 +1115,23 @@ where
 			return;
 		};
 
+		if !peer.can_receive() {
+			return;
+		}
+
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| {
-				if !peer.known_statements.insert(*hash) {
+				if peer.known_statements.contains(hash) {
 					return None;
 				}
 				// For v2 peers with topic affinity, filter by topic match.
-				if let Some(ref affinity) = peer.topic_affinity {
-					if !affinity.matches_statement(stmt) {
-						return None;
-					}
+				// Don't mark filtered statements as known so they can be retried
+				// when the peer's affinity changes.
+				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+					return None;
 				}
+				peer.known_statements.insert(*hash);
 				Some(stmt)
 			})
 			.collect();
@@ -1166,6 +1181,31 @@ where
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			self.do_propagate_statements(&statements).await;
+		}
+	}
+
+	/// Schedule an initial sync for a peer, sending all known statements.
+	///
+	/// This is called both when a new peer connects and when a peer's topic
+	/// affinity changes (so that newly-matching statements get sent).
+	/// If the peer already has a pending initial sync, it is replaced.
+	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
+		if self.sync.is_major_syncing() {
+			return;
+		}
+		// If there's already a pending sync, clean it up first.
+		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+			self.record_initial_sync_completion(pending.started_at);
+			self.initial_sync_peer_queue.retain(|p| *p != peer);
+		}
+		let hashes = self.statement_store.statement_hashes();
+		if !hashes.is_empty() {
+			self.pending_initial_syncs
+				.insert(peer, PendingInitialSync { hashes, started_at: Instant::now() });
+			self.initial_sync_peer_queue.push_back(peer);
+			self.metrics.as_ref().map(|metrics| {
+				metrics.initial_sync_peers_active.inc();
+			});
 		}
 	}
 
@@ -1240,9 +1280,27 @@ where
 		let has_more = !entry.get().hashes.is_empty();
 		drop(entry);
 
-		// Send statements (already sized to fit in one message)
-		let to_send: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
-		match self.send_statement_chunk(&peer_id, &to_send).await {
+		// Filter out statements the peer already knows or that don't match its topic affinity.
+		let to_send: Vec<_> = {
+			let peer_ref = self.peers.get(&peer_id);
+			statements
+				.iter()
+				.filter(|(hash, stmt)| {
+					if let Some(peer) = peer_ref {
+						if peer.known_statements.contains(hash) {
+							return false;
+						}
+						if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
+						{
+							return false;
+						}
+					}
+					true
+				})
+				.collect()
+		};
+		let send_stmts: Vec<_> = to_send.iter().map(|(_, stmt)| stmt).collect();
+		match self.send_statement_chunk(&peer_id, &send_stmts).await {
 			SendChunkResult::Failed => {
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
 					self.record_initial_sync_completion(pending.started_at);
@@ -1250,13 +1308,13 @@ where
 				return;
 			},
 			SendChunkResult::Sent(sent) => {
-				debug_assert_eq!(to_send.len(), sent);
+				debug_assert_eq!(send_stmts.len(), sent);
 				self.metrics.as_ref().map(|metrics| {
 					metrics.initial_sync_statements_sent.inc_by(sent as u64);
 				});
-				// Mark statements as known
+				// Only mark actually sent statements as known
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
-					for (hash, _) in &statements {
+					for (hash, _) in &to_send {
 						peer.known_statements.insert(*hash);
 					}
 				}
@@ -1285,6 +1343,8 @@ mod tests {
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
 		disconnected_peers: Arc<Mutex<Vec<PeerId>>>,
+		/// Role to return from `peer_role`. Default: `Full`.
+		default_role: sc_network::ObservedRole,
 	}
 
 	impl TestNetwork {
@@ -1292,6 +1352,15 @@ mod tests {
 			Self {
 				reported_peers: Arc::new(Mutex::new(Vec::new())),
 				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
+				default_role: sc_network::ObservedRole::Full,
+			}
+		}
+
+		fn new_light() -> Self {
+			Self {
+				reported_peers: Arc::new(Mutex::new(Vec::new())),
+				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
+				default_role: sc_network::ObservedRole::Light,
 			}
 		}
 
@@ -1378,7 +1447,7 @@ mod tests {
 		}
 
 		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
-			unimplemented!()
+			Some(self.default_role)
 		}
 
 		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
@@ -1428,6 +1497,10 @@ mod tests {
 
 		fn get_sent_notifications(&self) -> Vec<(PeerId, Vec<u8>)> {
 			self.sent_notifications.lock().unwrap().clone()
+		}
+
+		fn clear_sent_notifications(&self) {
+			self.sent_notifications.lock().unwrap().clear();
 		}
 	}
 
@@ -1652,6 +1725,7 @@ mod tests {
 				),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
+				is_light: false,
 			},
 		);
 
@@ -1860,6 +1934,44 @@ mod tests {
 		let statement_store = TestStatementStore::new();
 		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
 		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+
+		let handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service.clone()),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync: TestSync {},
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store.clone()),
+			queue_sender,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+		};
+		(handler, statement_store, network, notification_service)
+	}
+
+	/// Like `build_handler_no_peers` but the network mock returns `Light` for peer roles.
+	fn build_handler_no_peers_light() -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+	) {
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let network = TestNetwork::new_light();
 		let notification_service = TestNotificationService::new();
 
 		let handler = StatementHandler {
@@ -2907,9 +3019,9 @@ mod tests {
 		// compatibility is broken.  Do NOT simply update the bytes — investigate
 		// why the format changed and whether a migration is needed.
 		let expected: &[u8] = &[
-			228, 1, 12, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-			42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-			42, 42, 128, 56, 10, 166, 36, 2, 0, 0, 0, 144, 4, 24,
+			228, 1, 12, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+			42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+			128, 56, 10, 166, 36, 2, 0, 0, 0, 144, 4, 24,
 		];
 		assert_eq!(
 			encoded, expected,
@@ -2917,12 +3029,274 @@ mod tests {
 		);
 
 		// Verify the snapshot decodes correctly and the topics round-trip.
-		let decoded =
-			AffinityFilter::decode(&mut &expected[..]).expect("snapshot must decode");
+		let decoded = AffinityFilter::decode(&mut &expected[..]).expect("snapshot must decode");
 		assert!(decoded.bloom.check(&topic_a), "topic_a must be present after decoding");
 		assert!(decoded.bloom.check(&topic_b), "topic_b must be present after decoding");
 		assert!(decoded.bloom.check(&topic_c), "topic_c must be present after decoding");
 		let topic_absent: [u8; 32] = [0xDD; 32];
 		assert!(!decoded.bloom.check(&topic_absent), "absent topic must not match");
+	}
+
+	#[tokio::test]
+	async fn test_affinity_change_triggers_resync() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers_light();
+
+		let peer_id = PeerId::random();
+
+		// Add statements with different topics to the store.
+		let topic_aa: [u8; 32] = [0xAA; 32];
+		let topic_bb: [u8; 32] = [0xBB; 32];
+
+		let mut stmt_aa = Statement::new();
+		stmt_aa.set_plain_data(b"stmt_aa".to_vec());
+		stmt_aa.set_topic(0, topic_aa.into());
+		let hash_aa = stmt_aa.hash();
+
+		let mut stmt_bb = Statement::new();
+		stmt_bb.set_plain_data(b"stmt_bb".to_vec());
+		stmt_bb.set_topic(0, topic_bb.into());
+		let hash_bb = stmt_bb.hash();
+
+		let mut stmt_no_topic = Statement::new();
+		stmt_no_topic.set_plain_data(b"no topic".to_vec());
+		let hash_no_topic = stmt_no_topic.hash();
+
+		statement_store.statements.lock().unwrap().insert(hash_aa, stmt_aa);
+		statement_store.statements.lock().unwrap().insert(hash_bb, stmt_bb);
+		statement_store.statements.lock().unwrap().insert(hash_no_topic, stmt_no_topic);
+
+		// Connect peer as v2.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Light V2 peers should NOT get initial sync on connect (must set affinity first).
+		assert!(
+			!handler.pending_initial_syncs.contains_key(&peer_id),
+			"Light V2 peer should NOT have initial sync scheduled on connect"
+		);
+
+		// Set topic affinity to topic_aa — this triggers the first initial sync.
+		let mut bloom_aa = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		bloom_aa.set(&topic_aa);
+		let filter = AffinityFilter { bloom: bloom_aa };
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		assert!(
+			handler.pending_initial_syncs.contains_key(&peer_id),
+			"Initial sync should be scheduled after setting affinity"
+		);
+
+		// Drain initial sync — only stmt_aa and stmt_no_topic should be sent.
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst().await;
+		}
+
+		let sent = notification_service.get_sent_notifications();
+		let sent_hashes: HashSet<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				match StatementMessage::decode(&mut notification.as_slice()).unwrap() {
+					StatementMessage::Statements(stmts) => stmts,
+					_ => panic!("Expected StatementMessage::Statements"),
+				}
+			})
+			.map(|s| s.hash())
+			.collect();
+		assert!(sent_hashes.contains(&hash_aa), "stmt_aa should be sent (matches affinity)");
+		assert!(
+			sent_hashes.contains(&hash_no_topic),
+			"stmt_no_topic should be sent (broadcast, no topic)"
+		);
+		assert!(!sent_hashes.contains(&hash_bb), "stmt_bb should NOT be sent (filtered)");
+
+		// Now change affinity to topic_bb — triggers re-sync.
+		let mut bloom_bb = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		bloom_bb.set(&topic_bb);
+		let filter = AffinityFilter { bloom: bloom_bb };
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		assert!(
+			handler.pending_initial_syncs.contains_key(&peer_id),
+			"Initial sync should be re-scheduled after affinity change"
+		);
+
+		notification_service.clear_sent_notifications();
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst().await;
+		}
+
+		let sent_after_bb = notification_service.get_sent_notifications();
+		let sent_hashes_bb: HashSet<_> = sent_after_bb
+			.iter()
+			.flat_map(|(_, notification)| {
+				match StatementMessage::decode(&mut notification.as_slice()).unwrap() {
+					StatementMessage::Statements(stmts) => stmts,
+					_ => panic!("Expected StatementMessage::Statements"),
+				}
+			})
+			.map(|s| s.hash())
+			.collect();
+		// stmt_bb was previously filtered and should now be sent.
+		assert!(
+			sent_hashes_bb.contains(&hash_bb),
+			"stmt_bb should now be sent after affinity changed to topic_bb"
+		);
+		// stmt_aa and stmt_no_topic are already known — should NOT be re-sent.
+		assert!(
+			!sent_hashes_bb.contains(&hash_aa),
+			"stmt_aa should NOT be re-sent (already known)"
+		);
+		assert!(
+			!sent_hashes_bb.contains(&hash_no_topic),
+			"stmt_no_topic should NOT be re-sent (already known)"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_affinity_change_sends_previously_filtered_statements() {
+		// This tests the scenario where:
+		// 1. Peer connects and immediately sets affinity (before initial sync).
+		// 2. Statements not matching the initial affinity are NOT marked as known.
+		// 3. When affinity changes to include those topics, they ARE sent.
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers_light();
+
+		let peer_id = PeerId::random();
+
+		let topic_aa: [u8; 32] = [0xAA; 32];
+		let topic_bb: [u8; 32] = [0xBB; 32];
+
+		let mut stmt_aa = Statement::new();
+		stmt_aa.set_plain_data(b"stmt_aa".to_vec());
+		stmt_aa.set_topic(0, topic_aa.into());
+		let hash_aa = stmt_aa.hash();
+
+		let mut stmt_bb = Statement::new();
+		stmt_bb.set_plain_data(b"stmt_bb".to_vec());
+		stmt_bb.set_topic(0, topic_bb.into());
+		let hash_bb = stmt_bb.hash();
+
+		statement_store.statements.lock().unwrap().insert(hash_aa, stmt_aa.clone());
+		statement_store.statements.lock().unwrap().insert(hash_bb, stmt_bb.clone());
+
+		// Also put them in recent_statements so propagate_statements can find them.
+		statement_store.recent_statements.lock().unwrap().insert(hash_aa, stmt_aa);
+		statement_store.recent_statements.lock().unwrap().insert(hash_bb, stmt_bb);
+
+		// Connect peer as v2.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Immediately set affinity to topic_aa BEFORE any initial sync runs.
+		let mut bloom_aa = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		bloom_aa.set(&topic_aa);
+		let filter = AffinityFilter { bloom: bloom_aa };
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		// Drain initial sync — should only send stmt_aa (matches affinity).
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst().await;
+		}
+
+		let sent = notification_service.get_sent_notifications();
+		let sent_hashes: HashSet<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				match StatementMessage::decode(&mut notification.as_slice()).unwrap() {
+					StatementMessage::Statements(stmts) => stmts,
+					_ => panic!("Expected StatementMessage::Statements"),
+				}
+			})
+			.map(|s| s.hash())
+			.collect();
+		assert!(sent_hashes.contains(&hash_aa), "stmt_aa should be sent (matches affinity)");
+		assert!(
+			!sent_hashes.contains(&hash_bb),
+			"stmt_bb should NOT be sent (filtered by affinity)"
+		);
+
+		// Now propagate_statements — stmt_bb should be filtered by affinity and NOT marked as
+		// known.
+		handler.propagate_statements().await;
+
+		// Verify stmt_bb was NOT marked as known (the bug fix).
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(
+			!peer.known_statements.contains(&hash_bb),
+			"stmt_bb should NOT be in known_statements (filtered by affinity)"
+		);
+		assert!(peer.known_statements.contains(&hash_aa), "stmt_aa should be in known_statements");
+
+		// Now change affinity to include topic_bb.
+		let mut bloom_both = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		bloom_both.set(&topic_aa);
+		bloom_both.set(&topic_bb);
+		let filter = AffinityFilter { bloom: bloom_both };
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+
+		notification_service.clear_sent_notifications();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: encoded.into(),
+			})
+			.await;
+
+		// Drain re-sync — stmt_bb should now be sent.
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst().await;
+		}
+
+		let sent = notification_service.get_sent_notifications();
+		let sent_hashes: HashSet<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				match StatementMessage::decode(&mut notification.as_slice()).unwrap() {
+					StatementMessage::Statements(stmts) => stmts,
+					_ => panic!("Expected StatementMessage::Statements"),
+				}
+			})
+			.map(|s| s.hash())
+			.collect();
+		assert!(
+			sent_hashes.contains(&hash_bb),
+			"stmt_bb should now be sent after affinity expanded to include topic_bb"
+		);
+		assert!(!sent_hashes.contains(&hash_aa), "stmt_aa should NOT be re-sent (already known)");
 	}
 }
