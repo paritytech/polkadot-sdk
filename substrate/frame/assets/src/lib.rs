@@ -655,14 +655,6 @@ pub mod pallet {
 			delegate: T::AccountId,
 			amount: T::Balance,
 		},
-		/// Funds have been approved for transfer to a destination account.
-		/// If there was a previous approval, then the amount was replaced (not incremented).
-		ApprovedSetAmount {
-			asset_id: T::AssetId,
-			source: T::AccountId,
-			delegate: T::AccountId,
-			amount: T::Balance,
-		},
 		/// An approval for account `delegate` was cancelled by `owner`.
 		ApprovalCancelled { asset_id: T::AssetId, owner: T::AccountId, delegate: T::AccountId },
 		/// An `amount` was transferred in its entirety from `owner` to `destination` by
@@ -698,6 +690,14 @@ pub mod pallet {
 		IssuedDebt { asset_id: T::AssetId, amount: T::Balance },
 		/// Some assets Debt was destroyed (and assets issued).
 		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
+		/// Funds have been approved for transfer to a destination account.
+		/// If there was a previous approval, then the amount was replaced (not incremented).
+		ApprovedSetAmount {
+			asset_id: T::AssetId,
+			source: T::AccountId,
+			delegate: T::AccountId,
+			amount: T::Balance,
+		},
 	}
 
 	#[pallet::error]
