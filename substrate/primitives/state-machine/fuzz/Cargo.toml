@@ -9,7 +9,7 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "0.4.12"
 sp-runtime = { path = "../../runtime" }
 
 [dependencies.sp-state-machine]
