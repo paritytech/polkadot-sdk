@@ -124,24 +124,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			block_number_to_hashes: Default::default(),
 		};
 		provider.load_and_validate_evm_first_block().await?;
-		provider.load_oldest_synced_block().await?;
 
 		Ok(provider)
 	}
 
-	/// Check if the block is before the receipt floor.
-	///
-	/// The floor is the maximum of `evm_first_block` (protocol boundary) and
-	/// `oldest_synced_block` (data availability). Blocks below either are rejected.
+	/// Check if the block is before the `evm_first_block` protocol boundary.
 	pub fn is_before_receipt_floor(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
 				if *block_number > U256::from(u32::MAX) {
 					return false;
 				}
-				let n = block_number.as_u32();
-				self.receipt_extractor.is_before_evm_first_block(n) ||
-					self.receipt_extractor.is_before_oldest_synced_block(n)
+				self.receipt_extractor.is_before_evm_first_block(block_number.as_u32())
 			},
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
@@ -160,26 +154,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.set_evm_first_block(block_number);
 		self.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(block_number))
 			.await
-	}
-
-	/// Decrease `oldest_synced_block` (for sync + first subscription block).
-	pub fn decrease_oldest_synced_block(&self, block_number: SubstrateBlockNumber) {
-		self.receipt_extractor.decrease_oldest_synced_block(block_number);
-	}
-
-	/// The oldest synced block, or `None` if no data has been synced yet.
-	pub fn oldest_synced_block(&self) -> Option<SubstrateBlockNumber> {
-		self.receipt_extractor.oldest_synced_block()
-	}
-
-	/// Load `oldest_synced_block` from `LowerBound` in the DB on startup.
-	async fn load_oldest_synced_block(&self) -> Result<(), ClientError> {
-		if let Some(cp) = self.get_sync_label(SyncLabel::LowerBound).await? {
-			self.receipt_extractor.decrease_oldest_synced_block(cp.block_number);
-			log::info!(target: LOG_TARGET,
-				"Loaded oldest_synced_block from LowerBound: #{}", cp.block_number);
-		}
-		Ok(())
 	}
 
 	/// Restore `evm_first_block` from DB, clearing it if the boundary has shifted.
@@ -455,7 +429,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<(), ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
-		self.decrease_oldest_synced_block(block.number());
 		Ok(())
 	}
 
@@ -481,27 +454,17 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
 		let block_map = BlockHashMap::new(block.hash(), *ethereum_hash);
-		let oldest_in_window = self.prune_blocks(block.number(), &block_map).await?;
+		self.prune_blocks(block.number(), &block_map).await?;
 		self.insert_into_db(block, receipts, ethereum_hash).await?;
-
-		if let Some(oldest) = oldest_in_window {
-			// Prune mode: set to oldest remaining block in the window.
-			self.receipt_extractor.set_oldest_synced_block(oldest);
-		} else if self.receipt_extractor.oldest_synced_block().is_none() {
-			// Record the first block seen by the live subscription.
-			self.receipt_extractor.decrease_oldest_synced_block(block.number());
-		}
 		Ok(())
 	}
 
 	/// Handle fork detection (always) and DB pruning (temporary mode only).
-	///
-	/// Returns the oldest remaining block number when in prune mode
 	async fn prune_blocks(
 		&self,
 		block_number: SubstrateBlockNumber,
 		block_map: &BlockHashMap,
-	) -> Result<Option<SubstrateBlockNumber>, ClientError> {
+	) -> Result<(), ClientError> {
 		let mut to_remove = Vec::new();
 		let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
 
@@ -521,7 +484,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			_ => {},
 		}
 
-		let oldest_in_window = if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
+		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
 			// If we have more blocks than we should keep, remove the oldest ones by count
 			// (not by block number range, to handle gaps correctly)
 			while block_number_to_hash.len() > keep_latest_n_blocks {
@@ -530,15 +493,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					to_remove.push(block_map);
 				}
 			}
-			block_number_to_hash.keys().next().copied()
 		} else {
 			// Evict oldest entries to prevent unbounded growth.
 			// Forks deeper than MAX_CACHED_BLOCKS(256) are unlikely.
 			while block_number_to_hash.len() > MAX_CACHED_BLOCKS {
 				block_number_to_hash.pop_first();
 			}
-			None
-		};
+		}
 
 		// Release the lock.
 		drop(block_number_to_hash);
@@ -548,7 +509,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			self.remove(&to_remove).await?;
 		}
 
-		Ok(oldest_in_window)
+		Ok(())
 	}
 
 	/// Insert receipts into the database without updating the in-memory block cache.
@@ -1564,7 +1525,6 @@ mod tests {
 	#[tokio::test]
 	async fn is_before_receipt_floor_u256_overflow() {
 		let extractor = ReceiptExtractor::new_mock();
-		extractor.decrease_oldest_synced_block(10);
 		extractor.set_evm_first_block(10);
 		let provider = mock_provider().with_extractor(extractor);
 
@@ -1580,7 +1540,7 @@ mod tests {
 	async fn is_before_receipt_floor_sentinel_is_permissive() {
 		let provider = mock_provider();
 
-		// Sentinel oldest_synced_block (u32::MAX) is permissive — no queries rejected.
+		// Sentinel evm_first_block (u32::MAX) is permissive — no queries rejected.
 		assert!(!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(0u32))));
 		assert!(
 			!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
