@@ -106,11 +106,9 @@ impl Client {
 	}
 
 	/// Verify that a stored boundary block still exists on the finalized chain.
-	async fn verify_boundary(
-		&self,
-		num: SubstrateBlockNumber,
-		hash: Option<H256>,
-	) -> Result<(), ClientError> {
+	async fn verify_boundary(&self, checkpoint: &SyncCheckpoint) -> Result<(), ClientError> {
+		let num = checkpoint.block_number;
+		let hash = checkpoint.block_hash;
 		match (num, hash) {
 			(0, None) => {
 				log::trace!(target: LOG_TARGET, "Boundary #{num}: genesis with no hash, OK");
@@ -124,7 +122,8 @@ impl Client {
 			(_, Some(stored_hash)) => {
 				let block = self.block_provider().block_by_number(num).await?.ok_or_else(|| {
 					log::error!(target: LOG_TARGET,
-							"Boundary #{num}: block not found on chain");
+						"Boundary #{num}: block not found on chain \
+						 (node may have pruned it — use an archive node with --sync)");
 					ClientError::SyncBoundaryMismatch
 				})?;
 				if block.hash() != stored_hash {
@@ -205,8 +204,7 @@ impl Client {
 		match (lower_boundary, upper_boundary) {
 			(Some(lower), Some(upper)) => {
 				// Verify boundary hashes still match the finalized chain.
-				self.verify_boundary(lower.block_number, lower.block_hash).await?;
-				self.verify_boundary(upper.block_number, upper.block_hash).await?;
+				tokio::try_join!(self.verify_boundary(&lower), self.verify_boundary(&upper),)?;
 				self.resume_sync(lower, upper, latest_finalized).await?;
 			},
 			(Some(_), None) => {
