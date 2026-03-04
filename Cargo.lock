@@ -13643,7 +13643,6 @@ dependencies = [
  "pallet-balances",
  "pallet-dap",
  "pallet-staking-async-rc-client",
- "pallet-vesting",
  "parity-scale-codec",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
