@@ -41,10 +41,7 @@ fn default_config() -> MockGenesisConfig {
 
 /// Enable the `CandidateReceiptV3` node feature in the genesis config.
 /// V1 and V2 don't require an additional feature flag.
-fn config_with_v3_feature(
-	mut config: MockGenesisConfig,
-	v3_enabled: bool,
-) -> MockGenesisConfig {
+fn config_with_v3_feature(mut config: MockGenesisConfig, v3_enabled: bool) -> MockGenesisConfig {
 	if v3_enabled {
 		let idx = FeatureIndex::CandidateReceiptV3 as usize;
 		config.configuration.config.node_features.resize(idx + 1, false);
@@ -277,7 +274,6 @@ mod enter {
 		);
 
 		new_test_ext(config).execute_with(|| {
-
 			let dispute_statements = BTreeMap::new();
 
 			// Map: ParaId -> number of validity votes for backed candidates.
@@ -380,7 +376,6 @@ mod enter {
 		);
 
 		new_test_ext(config).execute_with(|| {
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -1720,7 +1715,6 @@ mod enter {
 		);
 
 		new_test_ext(config).execute_with(|| {
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 2);
 			backed_and_concluding.insert(1, 2);
@@ -2093,7 +2087,6 @@ mod enter {
 		);
 
 		new_test_ext(config).execute_with(|| {
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2140,7 +2133,6 @@ mod enter {
 		);
 
 		new_test_ext(config).execute_with(|| {
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2185,7 +2177,6 @@ mod enter {
 		);
 
 		new_test_ext(config).execute_with(|| {
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -4154,7 +4145,6 @@ mod sanitizers {
 				descriptor_version == CandidateDescriptorVersionConfig::V3,
 			);
 			new_test_ext(config).execute_with(|| {
-
 				let non_v1_descriptor_version =
 					descriptor_version != CandidateDescriptorVersionConfig::V1;
 				let TestData {
@@ -4355,7 +4345,6 @@ mod sanitizers {
 				descriptor_version == CandidateDescriptorVersionConfig::V3,
 			);
 			new_test_ext(config).execute_with(|| {
-
 				let non_v1_descriptor_version =
 					descriptor_version != CandidateDescriptorVersionConfig::V1;
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
@@ -4424,7 +4413,6 @@ mod sanitizers {
 				descriptor_version == CandidateDescriptorVersionConfig::V3,
 			);
 			new_test_ext(config).execute_with(|| {
-
 				let non_v1_descriptor_version =
 					descriptor_version != CandidateDescriptorVersionConfig::V1;
 				let TestData {

@@ -1734,18 +1734,14 @@ where
 		let now = sp_timestamp::Timestamp::current();
 		let slot_duration_ms = state.slot_duration_millis;
 
-		let scheduling_parent_valid =
-			state
-				.leaf_scheduling_info
-				.iter()
-				.any(|(leaf_hash, info)| {
-					let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
-					if slot_age_ms < slot_duration_ms {
-						scheduling_parent == info.parent_hash
-					} else {
-						scheduling_parent == *leaf_hash
-					}
-				});
+		let scheduling_parent_valid = state.leaf_scheduling_info.iter().any(|(leaf_hash, info)| {
+			let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
+			if slot_age_ms < slot_duration_ms {
+				scheduling_parent == info.parent_hash
+			} else {
+				scheduling_parent == *leaf_hash
+			}
+		});
 
 		if !scheduling_parent_valid {
 			return Err(AdvertisementError::SchedulingParentSlotInProgress);
@@ -1994,10 +1990,9 @@ where
 				if let Some(slot_timestamp) =
 					pre_digest.slot().timestamp(SlotDuration::from_millis(slot_duration_ms))
 				{
-					state.leaf_scheduling_info.insert(
-						*leaf,
-						LeafSchedulingInfo::new(header.parent_hash, slot_timestamp),
-					);
+					state
+						.leaf_scheduling_info
+						.insert(*leaf, LeafSchedulingInfo::new(header.parent_hash, slot_timestamp));
 				}
 			}
 		}
