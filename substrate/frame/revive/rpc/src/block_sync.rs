@@ -52,8 +52,8 @@ pub enum ChainMetadata {
 	#[display(fmt = "chain-genesis")]
 	Genesis,
 	/// Auto-discovered first EVM block on the chain.
-	#[display(fmt = "chain-evm-first-block")]
-	EvmFirstBlock,
+	#[display(fmt = "chain-first-evm-block")]
+	FirstEvmBlock,
 }
 
 impl SyncStateKey for SyncLabel {}
@@ -168,8 +168,7 @@ impl Client {
 		Ok(finalized)
 	}
 
-	/// Sync historical blocks backward from `upper_boundary` to the earliest receipt block
-	/// or first EVM block.
+	/// Sync historical blocks backward from `upper_boundary` to the first EVM block.
 	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are swallowed
 	/// to avoid crashing the RPC server.
 	pub async fn sync_past_blocks(
@@ -235,7 +234,7 @@ impl Client {
 	/// Fresh sync: backward from `latest_finalized` down to the first EVM block.
 	/// Registers hooks to set `UpperBound` on the first synced block and checkpoint `LowerBound`.
 	async fn fresh_sync(&self, latest_finalized: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let lower_bound = self.receipt_provider().evm_first_block().unwrap_or(0);
+		let lower_bound = self.receipt_provider().first_evm_block().unwrap_or(0);
 		self.sync_backward(
 			latest_finalized,
 			lower_bound,
@@ -279,7 +278,7 @@ impl Client {
 		}
 
 		// Bottom gap: sync from db_lower_bound - 1 down to the first EVM block.
-		let earliest_block = self.receipt_provider().evm_first_block().unwrap_or(0);
+		let earliest_block = self.receipt_provider().first_evm_block().unwrap_or(0);
 		if db_lower_bound.block_number > earliest_block {
 			self.sync_backward(
 				db_lower_bound.block_number.saturating_sub(1),
@@ -408,14 +407,14 @@ impl Client {
 					}
 				},
 				None => {
-					let evm_first_block = block_number.saturating_add(1);
+					let first_evm_block = block_number.saturating_add(1);
 					log::debug!(target: LOG_TARGET,
-						"🔍 No EVM hash at #{block_number}, setting evm_first_block to #{evm_first_block}");
+						"🔍 No EVM hash at #{block_number}, setting first_evm_block to #{first_evm_block}");
 					if let Err(err) =
-						self.receipt_provider().set_evm_first_block(evm_first_block).await
+						self.receipt_provider().set_first_evm_block(first_evm_block).await
 					{
 						log::warn!(target: LOG_TARGET,
-							"Failed to persist evm-first-block: {err:?}");
+							"Failed to persist first-evm-block: {err:?}");
 					}
 
 					break Ok(());

@@ -1030,7 +1030,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 			"sync_state[{label}] should be absent on fresh DB"
 		);
 	}
-	for label in [ChainMetadata::Genesis, ChainMetadata::EvmFirstBlock] {
+	for label in [ChainMetadata::Genesis, ChainMetadata::FirstEvmBlock] {
 		assert!(
 			client.receipt_provider().get_sync_label(label).await?.is_none(),
 			"sync_state[{label}] should be absent on fresh DB"
@@ -1076,9 +1076,9 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	assert_eq!(lower_bound, genesis, "LowerBound should be genesis");
 
 	// On the dev node all blocks (including genesis) have EVM hashes
-	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::EvmFirstBlock).await?;
-	assert!(evm_first.is_none(), "EvmFirstBlock should not be set when all blocks are EVM");
-	assert_eq!(client.receipt_provider().evm_first_block(), None);
+	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
+	assert!(evm_first.is_none(), "FirstEvmBlock should not be set when all blocks are EVM");
+	assert_eq!(client.receipt_provider().first_evm_block(), None);
 
 	log::debug!(
 		target: LOG_TARGET,
@@ -1354,7 +1354,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
 		finalized2.number(),
-		client2.receipt_provider().evm_first_block().unwrap_or(0),
+		client2.receipt_provider().first_evm_block().unwrap_or(0),
 	);
 
 	Ok(())

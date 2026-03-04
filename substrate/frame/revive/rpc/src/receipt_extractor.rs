@@ -63,7 +63,7 @@ pub struct ReceiptExtractor {
 	/// Auto-discovered first EVM block on the chain.
 	/// Set once during backward sync when the first non-EVM block is encountered.
 	/// Uses `u32::MAX` as sentinel for "not yet discovered".
-	evm_first_block: Arc<AtomicU32>,
+	first_evm_block: Arc<AtomicU32>,
 
 	/// Recover the ethereum address from a transaction signature.
 	recover_eth_address: RecoverEthAddressFn,
@@ -114,7 +114,7 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			evm_first_block: Arc::new(AtomicU32::new(u32::MAX)),
+			first_evm_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: recover_eth_address_fn,
 		})
 	}
@@ -133,32 +133,32 @@ impl ReceiptExtractor {
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			evm_first_block: Arc::new(AtomicU32::new(u32::MAX)),
+			first_evm_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
 			}),
 		}
 	}
 
-	/// Check if the block is before the `evm_first_block` floor.
+	/// Check if the block is before the `first_evm_block` floor.
 	/// When sentinel (`u32::MAX`), no blocks are rejected (permissive default).
-	pub fn is_before_evm_first_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		let raw = self.evm_first_block.load(Ordering::Acquire);
+	pub fn is_before_first_evm_block(&self, block_number: SubstrateBlockNumber) -> bool {
+		let raw = self.first_evm_block.load(Ordering::Acquire);
 		raw != u32::MAX && block_number < raw
 	}
 
 	/// Set the first EVM block. Only stores if lower than the current value.
-	pub fn set_evm_first_block(&self, block_number: SubstrateBlockNumber) {
-		let prev = self.evm_first_block.fetch_min(block_number, Ordering::AcqRel);
+	pub fn set_first_evm_block(&self, block_number: SubstrateBlockNumber) {
+		let prev = self.first_evm_block.fetch_min(block_number, Ordering::AcqRel);
 		if block_number > prev {
 			log::debug!(target: LOG_TARGET,
-				"Ignored attempt to raise evm_first_block to #{block_number}, current is #{prev}");
+				"Ignored attempt to raise first_evm_block to #{block_number}, current is #{prev}");
 		}
 	}
 
 	/// The auto-discovered first EVM block, or `None` if not yet discovered.
-	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
-		let val = self.evm_first_block.load(Ordering::Acquire);
+	pub fn first_evm_block(&self) -> Option<SubstrateBlockNumber> {
+		let val = self.first_evm_block.load(Ordering::Acquire);
 		(val != u32::MAX).then_some(val)
 	}
 
@@ -253,7 +253,7 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		if self.is_before_evm_first_block(block.number()) {
+		if self.is_before_first_evm_block(block.number()) {
 			return Ok(vec![]);
 		}
 
@@ -379,20 +379,20 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn defaults_and_evm_first_block_only_decreases() {
+	fn defaults_and_first_evm_block_only_decreases() {
 		let extractor = ReceiptExtractor::new_mock();
 
-		assert!(extractor.evm_first_block().is_none());
+		assert!(extractor.first_evm_block().is_none());
 
-		// evm_first_block only decreases
-		extractor.set_evm_first_block(100);
-		assert_eq!(extractor.evm_first_block(), Some(100));
+		// first_evm_block only decreases
+		extractor.set_first_evm_block(100);
+		assert_eq!(extractor.first_evm_block(), Some(100));
 
-		extractor.set_evm_first_block(50);
-		assert_eq!(extractor.evm_first_block(), Some(50));
+		extractor.set_first_evm_block(50);
+		assert_eq!(extractor.first_evm_block(), Some(50));
 
 		// Higher value is ignored
-		extractor.set_evm_first_block(100);
-		assert_eq!(extractor.evm_first_block(), Some(50));
+		extractor.set_first_evm_block(100);
+		assert_eq!(extractor.first_evm_block(), Some(50));
 	}
 }

@@ -123,43 +123,43 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			keep_latest_n_blocks,
 			block_number_to_hashes: Default::default(),
 		};
-		provider.load_and_validate_evm_first_block().await?;
+		provider.load_and_validate_first_evm_block().await?;
 
 		Ok(provider)
 	}
 
-	/// Check if the block is before the `evm_first_block` protocol boundary.
+	/// Check if the block is before the `first_evm_block` protocol boundary.
 	pub fn is_before_receipt_floor(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
 				if *block_number > U256::from(u32::MAX) {
 					return false;
 				}
-				self.receipt_extractor.is_before_evm_first_block(block_number.as_u32())
+				self.receipt_extractor.is_before_first_evm_block(block_number.as_u32())
 			},
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
 	}
 
 	/// The auto-discovered first EVM block, or `None` if not yet discovered.
-	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
-		self.receipt_extractor.evm_first_block()
+	pub fn first_evm_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.first_evm_block()
 	}
 
 	/// Set the auto-discovered first EVM block (in-memory + persisted to DB).
-	pub async fn set_evm_first_block(
+	pub async fn set_first_evm_block(
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<(), ClientError> {
-		self.receipt_extractor.set_evm_first_block(block_number);
-		self.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(block_number))
+		self.receipt_extractor.set_first_evm_block(block_number);
+		self.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(block_number))
 			.await
 	}
 
-	/// Restore `evm_first_block` from DB, clearing it if the boundary has shifted.
-	async fn load_and_validate_evm_first_block(&self) -> Result<(), ClientError> {
+	/// Restore `first_evm_block` from DB, clearing it if the boundary has shifted.
+	async fn load_and_validate_first_evm_block(&self) -> Result<(), ClientError> {
 		let Some(evm_first) = self
-			.get_sync_label(ChainMetadata::EvmFirstBlock)
+			.get_sync_label(ChainMetadata::FirstEvmBlock)
 			.await?
 			.map(|c| c.block_number)
 			.filter(|&n| n > 0)
@@ -185,18 +185,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		if !current_has_evm || predecessor_has_evm {
 			log::warn!(target: LOG_TARGET,
-				"🗄️ Stored evm-first-block=#{evm_first} is stale \
+				"🗄️ Stored first-evm-block=#{evm_first} is stale \
 				 (has_evm={current_has_evm}, predecessor_has_evm={predecessor_has_evm}), \
 				 clearing.");
 			if let Err(e) = self
-				.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(0))
+				.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(0))
 				.await
 			{
 				log::error!(target: LOG_TARGET,
-					"🗄️ Failed to clear stale evm-first-block from DB: {e:?}");
+					"🗄️ Failed to clear stale first-evm-block from DB: {e:?}");
 			}
 		} else {
-			self.receipt_extractor.set_evm_first_block(evm_first);
+			self.receipt_extractor.set_first_evm_block(evm_first);
 		}
 		Ok(())
 	}
@@ -1369,50 +1369,50 @@ mod tests {
 	}
 
 	#[test]
-	fn evm_first_block_passthrough() {
+	fn first_evm_block_passthrough() {
 		let extractor = ReceiptExtractor::new_mock();
-		assert_eq!(extractor.evm_first_block(), None);
-		extractor.set_evm_first_block(50);
-		assert_eq!(extractor.evm_first_block(), Some(50));
+		assert_eq!(extractor.first_evm_block(), None);
+		extractor.set_first_evm_block(50);
+		assert_eq!(extractor.first_evm_block(), Some(50));
 	}
 
 	#[sqlx::test]
-	async fn evm_first_block_loaded_from_db(pool: SqlitePool) -> anyhow::Result<()> {
-		// Simulate a previous run that persisted evm-first-block.
+	async fn first_evm_block_loaded_from_db(pool: SqlitePool) -> anyhow::Result<()> {
+		// Simulate a previous run that persisted first-evm-block.
 		let provider = setup_sqlite_provider(pool.clone()).await;
-		assert_eq!(provider.evm_first_block(), None);
+		assert_eq!(provider.first_evm_block(), None);
 
 		provider
-			.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(42))
+			.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(42))
 			.await
 			.unwrap();
 
 		// Verify the value can be loaded from DB.
-		let checkpoint = provider.get_sync_label(ChainMetadata::EvmFirstBlock).await?;
+		let checkpoint = provider.get_sync_label(ChainMetadata::FirstEvmBlock).await?;
 		assert_eq!(checkpoint.map(|c| c.block_number), Some(42));
 		Ok(())
 	}
 
 	#[sqlx::test]
-	async fn load_and_validate_evm_first_block_clears_stale(
+	async fn load_and_validate_first_evm_block_clears_stale(
 		pool: SqlitePool,
 	) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 
-		// Persist evm_first_block = 42.
+		// Persist first_evm_block = 42.
 		provider
-			.set_sync_label(ChainMetadata::EvmFirstBlock, SyncCheckpoint::from_number(42))
+			.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(42))
 			.await?;
 
 		// MockBlockInfoProvider returns no blocks, so has_evm_hash is always false.
 		// This means evm_first=42 is stale (no longer has an EVM hash).
-		provider.load_and_validate_evm_first_block().await?;
+		provider.load_and_validate_first_evm_block().await?;
 
 		// The value should have been cleared (not restored to the extractor).
-		assert_eq!(provider.evm_first_block(), None);
+		assert_eq!(provider.first_evm_block(), None);
 
 		// DB should be reset to 0.
-		let checkpoint = provider.get_sync_label(ChainMetadata::EvmFirstBlock).await?;
+		let checkpoint = provider.get_sync_label(ChainMetadata::FirstEvmBlock).await?;
 		assert_eq!(checkpoint.map(|c| c.block_number), Some(0));
 		Ok(())
 	}
@@ -1525,7 +1525,7 @@ mod tests {
 	#[tokio::test]
 	async fn is_before_receipt_floor_u256_overflow() {
 		let extractor = ReceiptExtractor::new_mock();
-		extractor.set_evm_first_block(10);
+		extractor.set_first_evm_block(10);
 		let provider = mock_provider().with_extractor(extractor);
 
 		// U256 > u32::MAX should never be considered "before floor"
@@ -1540,7 +1540,7 @@ mod tests {
 	async fn is_before_receipt_floor_sentinel_is_permissive() {
 		let provider = mock_provider();
 
-		// Sentinel evm_first_block (u32::MAX) is permissive — no queries rejected.
+		// Sentinel first_evm_block (u32::MAX) is permissive — no queries rejected.
 		assert!(!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(0u32))));
 		assert!(
 			!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
