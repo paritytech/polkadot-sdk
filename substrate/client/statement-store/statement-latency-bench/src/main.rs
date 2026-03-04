@@ -260,7 +260,10 @@ async fn run_client(
 					if is_leader(client_id) {
 						debug!(
 							"Round {}/{}. Received {} statement(s) (batch of {})",
-							round, num_rounds, received_count, statements.len()
+							round,
+							num_rounds,
+							received_count,
+							statements.len()
 						);
 					}
 				},
