@@ -303,6 +303,7 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
+	"substrate/client/statement-store/statement-latency-bench",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
