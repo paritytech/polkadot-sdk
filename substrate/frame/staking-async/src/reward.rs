@@ -221,3 +221,190 @@ where
 		sp_staking::StakerRewardResult { validator_payout, nominator_payout }
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::Perbill;
+	use sp_staking::StakerRewardCalculator;
+
+	type Balance = u128;
+	type AccountId = u64;
+
+	// Helper to call the trait method with explicit type parameters
+	fn calculate_weight(
+		self_stake: Balance,
+		optimum: Balance,
+		cap: Balance,
+		slope_factor: Perbill,
+	) -> Balance {
+		<DefaultStakerRewardCalculator as StakerRewardCalculator<AccountId, Balance>>::calculate_validator_incentive_weight(
+			self_stake,
+			optimum,
+			cap,
+			slope_factor,
+		)
+	}
+
+	#[test]
+	fn weight_calculation_zero_self_stake() {
+		// GIVEN: Zero self-stake
+		let self_stake: Balance = 0;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN/THEN
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 0);
+	}
+
+	#[test]
+	fn weight_calculation_config_not_set() {
+		// GIVEN: Config not set (both optimum and cap are zero)
+		let self_stake: Balance = 100_000;
+		let optimum: Balance = 0;
+		let cap: Balance = 0;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN/THEN
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 0);
+	}
+
+	#[test]
+	fn weight_calculation_below_optimum() {
+		// GIVEN: Self-stake below optimum; w(s) = √s
+		let self_stake: Balance = 10_000;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN/THEN: √10_000 = 100
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 100);
+	}
+
+	#[test]
+	fn weight_calculation_at_optimum() {
+		// GIVEN: Self-stake exactly at optimum
+		let self_stake: Balance = 100_000;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN/THEN: √100_000 ≈ 316
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 316);
+	}
+
+	#[test]
+	fn weight_calculation_between_optimum_and_cap() {
+		// w(s) = √(T + k² × (s - T)) = √(100k + 0.25 × 200k) = √150k ≈ 387
+		let self_stake: Balance = 300_000;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 387);
+	}
+
+	#[test]
+	fn weight_calculation_at_cap() {
+		// w(C) = √(T + k² × (C - T)) = √(100k + 0.25 × 400k) = √200k ≈ 447
+		let self_stake: Balance = 500_000;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 447);
+	}
+
+	#[test]
+	fn weight_calculation_equal_optimum_and_cap() {
+		// GIVEN: Optimum equals cap (edge case)
+		let self_stake: Balance = 100_000;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 100_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN/THEN: √100_000 ≈ 316
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 316);
+	}
+
+	#[test]
+	fn weight_calculation_monotonically_increasing_below_cap() {
+		// GIVEN: Multiple self-stake values below cap
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN: Calculate weights for increasing self-stakes
+		let weight_50k = calculate_weight(50_000, optimum, cap, slope_factor);
+		let weight_100k = calculate_weight(100_000, optimum, cap, slope_factor);
+		let weight_200k = calculate_weight(200_000, optimum, cap, slope_factor);
+		let weight_400k = calculate_weight(400_000, optimum, cap, slope_factor);
+
+		// THEN: Weights should be monotonically increasing
+		assert!(weight_50k < weight_100k, "{} < {}", weight_50k, weight_100k);
+		assert!(weight_100k < weight_200k, "{} < {}", weight_100k, weight_200k);
+		assert!(weight_200k < weight_400k, "{} < {}", weight_200k, weight_400k);
+	}
+
+	#[test]
+	fn weight_calculation_plateau_above_cap() {
+		// GIVEN: Self-stakes above cap
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN: Calculate weights for self-stakes above cap
+		let weight_at_cap = calculate_weight(500_000, optimum, cap, slope_factor);
+		let weight_above_cap_1 = calculate_weight(1_000_000, optimum, cap, slope_factor);
+		let weight_above_cap_2 = calculate_weight(10_000_000, optimum, cap, slope_factor);
+
+		// THEN: All weights above cap should equal weight at cap (plateau)
+		assert_eq!(weight_at_cap, weight_above_cap_1);
+		assert_eq!(weight_at_cap, weight_above_cap_2);
+	}
+
+	#[test]
+	fn weight_calculation_very_small_self_stake() {
+		// GIVEN: Very small self-stake (1 unit)
+		let self_stake: Balance = 1;
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+		let slope_factor = Perbill::from_rational(1u32, 2u32);
+
+		// WHEN/THEN: √1 = 1
+		assert_eq!(calculate_weight(self_stake, optimum, cap, slope_factor), 1);
+	}
+
+	#[test]
+	fn weight_calculation_different_slope_factors() {
+		// GIVEN: Same self-stake with different slope factors
+		let self_stake: Balance = 300_000; // Between optimum and cap
+		let optimum: Balance = 100_000;
+		let cap: Balance = 500_000;
+
+		// WHEN: Calculate weights with different slope factors
+		let weight_k_025 = calculate_weight(
+			self_stake,
+			optimum,
+			cap,
+			Perbill::from_rational(1u32, 4u32), // k = 0.25
+		);
+		let weight_k_050 = calculate_weight(
+			self_stake,
+			optimum,
+			cap,
+			Perbill::from_rational(1u32, 2u32), // k = 0.5
+		);
+		let weight_k_075 = calculate_weight(
+			self_stake,
+			optimum,
+			cap,
+			Perbill::from_rational(3u32, 4u32), // k = 0.75
+		);
+
+		// THEN: Larger slope factor should result in larger weight
+		assert!(weight_k_025 < weight_k_050, "{} < {}", weight_k_025, weight_k_050);
+		assert!(weight_k_050 < weight_k_075, "{} < {}", weight_k_050, weight_k_075);
+	}
+}
