@@ -309,8 +309,7 @@ pub trait ValidatorIncentivePayout<AccountId, Balance, BlockNumber> {
 pub struct ImmediateIncentivePayout<Currency>(core::marker::PhantomData<Currency>);
 
 impl<AccountId, Balance, BlockNumber, Currency>
-	ValidatorIncentivePayout<AccountId, Balance, BlockNumber>
-	for ImmediateIncentivePayout<Currency>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for ImmediateIncentivePayout<Currency>
 where
 	AccountId: Eq,
 	Currency: frame_support::traits::fungible::Mutate<AccountId, Balance = Balance>,
@@ -335,20 +334,16 @@ where
 /// Pays validator incentive via a linear vesting schedule.
 ///
 /// Type parameter:
-/// - `Vesting`: a [`frame_support::traits::tokens::VestedPayout`] implementor
-///   (e.g. `pallet_vesting::Pallet<T>`).
+/// - `Vesting`: a [`frame_support::traits::tokens::VestedPayout`] implementor (e.g.
+///   `pallet_vesting::Pallet<T>`).
 pub struct VestedIncentivePayout<Vesting>(core::marker::PhantomData<Vesting>);
 
 impl<AccountId, Balance, BlockNumber, Vesting>
-	ValidatorIncentivePayout<AccountId, Balance, BlockNumber>
-	for VestedIncentivePayout<Vesting>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for VestedIncentivePayout<Vesting>
 where
 	Balance: Copy + sp_runtime::traits::Zero,
-	Vesting: frame_support::traits::tokens::VestedPayout<
-		AccountId,
-		Balance,
-		BlockNumber = BlockNumber,
-	>,
+	Vesting:
+		frame_support::traits::tokens::VestedPayout<AccountId, Balance, BlockNumber = BlockNumber>,
 {
 	fn payout(
 		source: &AccountId,

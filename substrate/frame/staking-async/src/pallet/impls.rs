@@ -39,8 +39,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, Get, Imbalance,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced,
+		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
+		OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
