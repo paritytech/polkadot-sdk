@@ -6,7 +6,7 @@ doc:
     Proof validation is a no-op until we backport PR #1739.
 crates:
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: patch
 - name: pallet-staking-async-rc-client
-  bump: minor
+  bump: major
   validate: false
