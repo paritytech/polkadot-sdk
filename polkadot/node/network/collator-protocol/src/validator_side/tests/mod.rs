@@ -294,7 +294,7 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 /// Assert that the next message is a `CandidateBacking(Second())`.
 async fn assert_candidate_backing_second(
 	virtual_overseer: &mut VirtualOverseer,
-	expected_relay_parent: Hash,
+	expected_scheduling_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
 	version: CollationVersion,
@@ -311,7 +311,7 @@ async fn assert_candidate_backing_second(
 				hash,
 				RuntimeApiRequest::PersistedValidationData(para_id, assumption, tx),
 			)) => {
-				assert_eq!(expected_relay_parent, hash);
+				assert_eq!(expected_scheduling_parent, hash);
 				assert_eq!(expected_para_id, para_id);
 				assert_eq!(OccupiedCoreAssumption::Free, assumption);
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
@@ -322,7 +322,7 @@ async fn assert_candidate_backing_second(
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 			) => {
-				assert_eq!(expected_relay_parent, request.candidate_relay_parent);
+				assert_eq!(expected_scheduling_parent, request.candidate_relay_parent);
 				assert_eq!(expected_para_id, request.para_id);
 				tx.send(Some(pvd.clone())).unwrap();
 			}
@@ -332,12 +332,12 @@ async fn assert_candidate_backing_second(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::CandidateBacking(CandidateBackingMessage::Second {
-			scheduling_parent: relay_parent,
+			scheduling_parent,
 			candidate: candidate_receipt,
 			pvd: received_pvd,
 			pov: incoming_pov,
 		}) => {
-			assert_eq!(expected_relay_parent, relay_parent);
+			assert_eq!(expected_scheduling_parent, scheduling_parent);
 			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
 			assert_eq!(*expected_pov, incoming_pov);
 			assert_eq!(pvd, received_pvd);

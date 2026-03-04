@@ -300,8 +300,11 @@ impl PeerData {
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			for removed in old_view.difference(&self.view) {
 				// Remove relay parent advertisements if it went out of our (implicit) view.
-				let keep =
-					is_relay_parent_in_implicit_view(removed, implicit_view, active_leaves.clone());
+				let keep = is_scheduling_parent_in_implicit_view(
+					removed,
+					implicit_view,
+					active_leaves.clone(),
+				);
 
 				if !keep {
 					peer_state.advertisements.remove(&removed);
@@ -322,7 +325,7 @@ impl PeerData {
 				// - Relay parent is an active leaf
 				// - It belongs to allowed ancestry under some leaf
 				// Discard otherwise.
-				is_relay_parent_in_implicit_view(hash, implicit_view, active_leaves.clone())
+				is_scheduling_parent_in_implicit_view(hash, implicit_view, active_leaves.clone())
 			});
 		}
 	}
@@ -337,7 +340,7 @@ impl PeerData {
 	/// or held off) to enable duplicate detection and per-collator spam limiting.
 	fn insert_advertisement(
 		&mut self,
-		on_relay_parent: Hash,
+		on_scheduling_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
 		per_scheduling_parent: &PerSchedulingParent,
@@ -346,8 +349,8 @@ impl PeerData {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
 			PeerState::Collating(ref mut state) => {
-				if !is_relay_parent_in_implicit_view(
-					&on_relay_parent,
+				if !is_scheduling_parent_in_implicit_view(
+					&on_scheduling_parent,
 					implicit_view,
 					leaf_claim_queues.keys(),
 				) {
@@ -357,13 +360,13 @@ impl PeerData {
 				if let Some(candidate_hash) = candidate_hash {
 					if state
 						.advertisements
-						.get(&on_relay_parent)
+						.get(&on_scheduling_parent)
 						.map_or(false, |candidates| candidates.contains(&candidate_hash))
 					{
 						return Err(InsertAdvertisementError::Duplicate);
 					}
 
-					let candidates = state.advertisements.entry(on_relay_parent).or_default();
+					let candidates = state.advertisements.entry(on_scheduling_parent).or_default();
 
 					// Spam protection: limit based on scheduling_lookahead (= claim queue length)
 					// Get lookahead from any leaf's claim queue length for our core
@@ -388,13 +391,13 @@ impl PeerData {
 						);
 					}
 
-					if state.advertisements.contains_key(&on_relay_parent) {
+					if state.advertisements.contains_key(&on_scheduling_parent) {
 						return Err(InsertAdvertisementError::Duplicate);
 					}
 
 					state
 						.advertisements
-						.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
+						.insert(on_scheduling_parent, HashSet::from_iter(candidate_hash));
 				};
 
 				state.last_active = Instant::now();
@@ -744,7 +747,7 @@ impl State {
 	}
 }
 
-fn is_relay_parent_in_implicit_view<'a>(
+fn is_scheduling_parent_in_implicit_view<'a>(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
 	mut active_leaves: impl Iterator<Item = &'a Hash>,
@@ -1651,7 +1654,7 @@ fn is_slot_available(
 async fn handle_advertisement<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	peer_id: PeerId,
 	prospective_candidate: Option<(CandidateHash, Hash)>,
 ) -> std::result::Result<(), AdvertisementError>
@@ -1663,7 +1666,7 @@ where
 
 	// V1 protocol requires relay_parent to be an active leaf (no async backing support)
 	if peer_data.version == CollationVersion::V1 &&
-		!state.leaf_claim_queues.contains_key(&relay_parent)
+		!state.leaf_claim_queues.contains_key(&scheduling_parent)
 	{
 		return Err(AdvertisementError::ProtocolMisuse);
 	}
@@ -1673,14 +1676,14 @@ where
 
 	let per_scheduling_parent = state
 		.per_scheduling_parent
-		.get(&relay_parent)
+		.get(&scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
 	// Always insert advertisements that pass all the checks for spam protection.
 	let candidate_hash = prospective_candidate.map(|(hash, ..)| hash);
 	let (collator_id, para_id) = peer_data
 		.insert_advertisement(
-			relay_parent,
+			scheduling_parent,
 			candidate_hash,
 			&state.implicit_view,
 			&per_scheduling_parent,
@@ -1692,7 +1695,7 @@ where
 		state,
 		peer_id,
 		&collator_id,
-		relay_parent,
+		scheduling_parent,
 		prospective_candidate,
 	) {
 		return Ok(());
@@ -1701,7 +1704,7 @@ where
 	process_advertisement(
 		sender,
 		state,
-		relay_parent,
+		scheduling_parent,
 		para_id,
 		peer_id,
 		collator_id,
@@ -2744,8 +2747,6 @@ async fn kick_off_seconding<Context>(
 					pov,
 					maybe_parent_head_data: None,
 				};
-				let scheduling_parent =
-					blocked_collation.candidate_receipt.descriptor().scheduling_parent(v3_enabled);
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?blocked_collation.candidate_receipt.hash(),
