@@ -1261,10 +1261,18 @@ mod tests {
 
 		// Different scores - higher score comes first (is "less").
 		{
-			let high_score =
-				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
-			let low_score =
-				AcceptedAdvertisement { adv: &adv_2, score: score(50), timestamp: &now, activated_at: now };
+			let high_score = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let low_score = AcceptedAdvertisement {
+				adv: &adv_2,
+				score: score(50),
+				timestamp: &now,
+				activated_at: now,
+			};
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
 			assert_eq!(low_score.cmp(&high_score), Ordering::Greater);
@@ -1272,8 +1280,18 @@ mod tests {
 
 		// Same score, different timestamps - earlier timestamp comes first.
 		{
-			let earlier = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
-			let later = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &later, activated_at: now };
+			let earlier = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let later = AcceptedAdvertisement {
+				adv: &adv_2,
+				score: score(100),
+				timestamp: &later,
+				activated_at: now,
+			};
 
 			assert_eq!(earlier.cmp(&later), Ordering::Less);
 			assert_eq!(later.cmp(&earlier), Ordering::Greater);
@@ -1281,8 +1299,18 @@ mod tests {
 
 		// Same score, same timestamp - falls back to advertisement comparison.
 		{
-			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
-			let acc_2 = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now, activated_at: now };
+			let acc_1 = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let acc_2 = AcceptedAdvertisement {
+				adv: &adv_2,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
 
 			// Result depends on advertisement Ord, but must be consistent and not Equal.
 			let cmp_result = acc_1.cmp(&acc_2);
@@ -1292,8 +1320,18 @@ mod tests {
 
 		// Same advertisement, same score, same timestamp - should be Equal.
 		{
-			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
-			let acc_2 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now, activated_at: now };
+			let acc_1 = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let acc_2 = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
 
 			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
 		}
@@ -1304,10 +1342,30 @@ mod tests {
 			let adv_4 = make_adv(PeerId::random());
 
 			let advertisements = [
-				AcceptedAdvertisement { adv: &adv_1, score: score(50), timestamp: &now, activated_at: now },
-				AcceptedAdvertisement { adv: &adv_2, score: score(200), timestamp: &now, activated_at: now },
-				AcceptedAdvertisement { adv: &adv_3, score: score(100), timestamp: &now, activated_at: now },
-				AcceptedAdvertisement { adv: &adv_4, score: score(150), timestamp: &later, activated_at: now },
+				AcceptedAdvertisement {
+					adv: &adv_1,
+					score: score(50),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_2,
+					score: score(200),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_3,
+					score: score(100),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_4,
+					score: score(150),
+					timestamp: &later,
+					activated_at: now,
+				},
 			]
 			.into_iter()
 			.collect::<BTreeSet<_>>();
@@ -1321,9 +1379,24 @@ mod tests {
 			let adv_3 = make_adv(PeerId::random());
 
 			let advertisements: BTreeSet<_> = [
-				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &later, activated_at: now },
-				AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now, activated_at: now },
-				AcceptedAdvertisement { adv: &adv_3, score: score(50), timestamp: &now, activated_at: now },
+				AcceptedAdvertisement {
+					adv: &adv_1,
+					score: score(100),
+					timestamp: &later,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_2,
+					score: score(100),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_3,
+					score: score(50),
+					timestamp: &now,
+					activated_at: now,
+				},
 			]
 			.into_iter()
 			.collect();

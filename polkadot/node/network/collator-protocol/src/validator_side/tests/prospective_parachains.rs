@@ -1864,7 +1864,10 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 #[case(true, false)] // V3 enabled, not crafted
 #[case(false, false)] // V3 disabled, not crafted (detected as V1)
 #[case(false, true)] // V3 disabled, crafted with non-zero reserved (detected as Unknown)
-fn v3_descriptor_version_detection(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool) {
+fn v3_descriptor_version_detection(
+	#[case] v3_feature_enabled: bool,
+	#[case] crafted_unknown: bool,
+) {
 	let mut test_state = TestState::default();
 
 	if v3_feature_enabled {
