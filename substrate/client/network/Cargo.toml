@@ -66,6 +66,7 @@ unsigned-varint = { features = ["asynchronous_codec", "futures"], workspace = tr
 void = { workspace = true }
 wasm-timer = { workspace = true }
 zeroize = { workspace = true, default-features = true }
+rustls = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
