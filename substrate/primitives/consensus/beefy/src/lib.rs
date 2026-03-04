@@ -149,7 +149,9 @@ pub mod ecdsa_crypto {
 				Ok(arr) => arr,
 				Err(_) => return false,
 			};
-			if !sp_core::ecdsa::is_signature_normalized(sig_array) {
+			let Some(sig_array) : Option<&[u8; 65]> = match sig_bytes.try_into().ok() else {
+				return false
+			};
 				return false;
 			}
 			let msg_hash = keccak_256(msg);
