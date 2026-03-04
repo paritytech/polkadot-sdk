@@ -2715,7 +2715,7 @@ fn v3_scheduling_parent_not_in_view_rejected() {
 		let parent_head_data_hash = Hash::zero();
 
 		// V3 advertisement with unknown scheduling_parent — should be rejected
-		// silently (no reputation penalty for SchedulingParentSlotInProgress).
+		// silently (no reputation penalty for SchedulingParentNotValid).
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,

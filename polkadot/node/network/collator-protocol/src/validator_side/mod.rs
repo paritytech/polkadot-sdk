@@ -1377,9 +1377,9 @@ enum AdvertisementError {
 	SecondedLimitReached,
 	/// For V1 protocol, relay_parent must be an active leaf (no async backing support).
 	ProtocolMisuse,
-	/// For V3 candidate descriptors, the scheduling parent's relay chain slot is still in
-	/// progress.
-	SchedulingParentSlotInProgress,
+	/// For V3 candidate descriptors, the scheduling parent does not match any active leaf's
+	/// expected scheduling parent based on its slot state.
+	SchedulingParentNotValid,
 	/// Advertisement is invalid.
 	#[allow(dead_code)]
 	Invalid(InsertAdvertisementError),
@@ -1398,7 +1398,7 @@ impl AdvertisementError {
 			UnknownPeer |
 			SecondedLimitReached |
 			BlockedByBacking |
-			SchedulingParentSlotInProgress => None,
+			SchedulingParentNotValid => None,
 		}
 	}
 }
@@ -1744,7 +1744,7 @@ where
 		});
 
 		if !scheduling_parent_valid {
-			return Err(AdvertisementError::SchedulingParentSlotInProgress);
+			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 	}
 
