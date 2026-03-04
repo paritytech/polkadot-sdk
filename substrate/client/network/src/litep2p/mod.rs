@@ -63,6 +63,7 @@ use litep2p::{
 	},
 	transport::{
 		tcp::config::Config as TcpTransportConfig,
+		webrtc::config::Config as WebRtcTransportConfig,
 		websocket::config::Config as WebSocketTransportConfig, ConnectionLimitsConfig, Endpoint,
 	},
 	types::{
@@ -278,65 +279,79 @@ impl Litep2pNetworkBackend {
 		};
 		let config_builder = ConfigBuilder::new();
 
-		let (tcp, websocket): (Vec<Option<_>>, Vec<Option<_>>) = config
-			.network_config
-			.listen_addresses
-			.iter()
-			.filter_map(|address| {
-				use sc_network_types::multiaddr::Protocol;
+		let mut tcp_addresses = Vec::new();
+		let mut websocket_addresses = Vec::new();
+		let mut webrtc_addresses = Vec::new();
 
-				let mut iter = address.iter();
+		for address in config.network_config.listen_addresses.iter() {
+			use sc_network_types::multiaddr::Protocol;
 
-				match iter.next() {
-					Some(Protocol::Ip4(_) | Protocol::Ip6(_)) => {},
+			let mut iter = address.iter();
+
+			match iter.next() {
+				Some(Protocol::Ip4(_) | Protocol::Ip6(_)) => {},
+				protocol => {
+					log::error!(
+						target: LOG_TARGET,
+						"unknown protocol {protocol:?}, ignoring {address:?}",
+					);
+					continue;
+				},
+			}
+
+			match iter.next() {
+				Some(Protocol::Tcp(_)) => match iter.next() {
+					Some(Protocol::Ws(_) | Protocol::Wss(_)) =>
+						websocket_addresses.push(address.clone()),
+					Some(Protocol::P2p(_)) | None => tcp_addresses.push(address.clone()),
 					protocol => {
 						log::error!(
 							target: LOG_TARGET,
 							"unknown protocol {protocol:?}, ignoring {address:?}",
 						);
 
-						return None;
 					},
-				}
-
-				match iter.next() {
-					Some(Protocol::Tcp(_)) => match iter.next() {
-						Some(Protocol::Ws(_) | Protocol::Wss(_)) => {
-							Some((None, Some(address.clone())))
-						},
-						Some(Protocol::P2p(_)) | None => Some((Some(address.clone()), None)),
-						protocol => {
-							log::error!(
-								target: LOG_TARGET,
-								"unknown protocol {protocol:?}, ignoring {address:?}",
-							);
-							None
-						},
-					},
+				},
+				Some(Protocol::Udp(_)) => match iter.next() {
+					Some(Protocol::WebRTC) => webrtc_addresses.push(address.clone()),
 					protocol => {
 						log::error!(
 							target: LOG_TARGET,
-							"unknown protocol {protocol:?}, ignoring {address:?}",
+							"unknown UDP protocol {protocol:?}, ignoring {address:?}",
 						);
-						None
 					},
-				}
-			})
-			.unzip();
+				},
+				protocol => {
+					log::error!(
+						target: LOG_TARGET,
+						"unknown protocol {protocol:?}, ignoring {address:?}",
+					);
+				},
+			}
+		}
 
-		config_builder
+		let mut config_builder = config_builder
 			.with_websocket(WebSocketTransportConfig {
-				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
+				listen_addresses: websocket_addresses.into_iter().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
-				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
+				listen_addresses: tcp_addresses.into_iter().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
-			})
+			});
+
+		if !webrtc_addresses.is_empty() {
+			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
+				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
+				..Default::default()
+			});
+		}
+
+		config_builder
 	}
 }
 
@@ -486,9 +501,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				use sc_network_types::multiaddr::Protocol;
 
 				let address = match address.iter().last() {
-					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) => {
-						address.with(Protocol::P2p(peer.into()))
-					},
+					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
+						address.with(Protocol::P2p(peer.into())),
+					Some(Protocol::WebRTC | Protocol::Certhash(_)) =>
+						address.with(Protocol::P2p(peer.into())),
+
 					Some(Protocol::P2p(_)) => address,
 					_ => return acc,
 				};
