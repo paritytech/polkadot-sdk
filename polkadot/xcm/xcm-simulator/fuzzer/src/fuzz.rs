@@ -246,11 +246,9 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 fn main() {
 	#[cfg(fuzzing)]
 	{
-		loop {
-			honggfuzz::fuzz!(|xcm_messages: [XcmMessage; 5]| {
-				run_input(xcm_messages);
-			})
-		}
+		ziggy::fuzz!(|xcm_messages: [XcmMessage; 5]| {
+			run_input(xcm_messages);
+		});
 	}
 	#[cfg(not(fuzzing))]
 	{

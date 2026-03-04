@@ -16,19 +16,13 @@
 // limitations under the License.
 
 //! # Running
-//! Running this fuzzer can be done with `cargo hfuzz run pallet-paged-list`. `honggfuzz` CLI
-//! options can be used by setting `HFUZZ_RUN_ARGS`, such as `-n 4` to use 4 threads.
+//! Running this fuzzer can be done with `cargo ziggy fuzz`. Use `-j N` for parallel jobs,
+//! e.g. `cargo ziggy fuzz -j 4 --no-honggfuzz -G 128`.
 //!
-//! # Debugging a panic
-//! Once a panic is found, it can be debugged with
-//! `cargo hfuzz run-debug pallet-paged-list hfuzz_workspace/pallet-paged-list/*.fuzz`.
-//!
-//! # More information
-//! More information about `honggfuzz` can be found
-//! [here](https://docs.rs/honggfuzz/).
+//! # Coverage
+//! Generate coverage reports with `cargo ziggy cover -s ..`.
 
 use arbitrary::Arbitrary;
-use honggfuzz::fuzz;
 
 use frame::{
 	prelude::*, runtime::prelude::storage::storage_noop_guard::StorageNoopGuard,
@@ -39,11 +33,9 @@ use pallet_paged_list::mock::{PagedList as List, *};
 type Meta = MetaOf<Test, ()>;
 
 fn main() {
-	loop {
-		fuzz!(|data: (Vec<Op>, u8)| {
-			drain_append_work(data.0, data.1);
-		});
-	}
+	ziggy::fuzz!(|data: (Vec<Op>, u8)| {
+		drain_append_work(data.0, data.1);
+	});
 }
 
 /// Appends and drains random number of elements in random order and checks storage invariants.

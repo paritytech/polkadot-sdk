@@ -20,77 +20,72 @@
 mod common;
 
 use common::*;
-use honggfuzz::fuzz;
-use rand::{self, SeedableRng};
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, seq_phragmen, to_supports, BalancingConfig,
 	ElectionResult, EvaluateSupport, VoteWeight,
 };
 
 fn main() {
-	loop {
-		fuzz!(|data: (usize, usize, usize, usize, u64)| {
-			let (mut target_count, mut voter_count, mut iterations, mut to_elect, seed) = data;
-			let rng = rand::rngs::SmallRng::seed_from_u64(seed);
-			target_count = to_range(target_count, 100, 200);
-			voter_count = to_range(voter_count, 100, 200);
-			iterations = to_range(iterations, 0, 30);
-			to_elect = to_range(to_elect, 25, target_count);
+	ziggy::fuzz!(|data: &[u8]| {
+		let mut input = InputBytes::new(data);
+		let target_count = input.range_usize(100, 200);
+		let voter_count = input.range_usize(100, 200);
+		let iterations = input.range_usize(0, 30);
+		let to_elect = input.range_usize(25, target_count);
 
-			println!(
-				"++ [voter_count: {} / target_count:{} / to_elect:{} / iterations:{}]",
-				voter_count, target_count, to_elect, iterations,
-			);
-			let (unbalanced, candidates, voters, stake_of_tree) = generate_random_npos_result(
-				voter_count as u64,
-				target_count as u64,
-				to_elect,
-				rng,
-				ElectionType::Phragmen(None),
-			);
+		println!(
+			"++ [voter_count: {} / target_count:{} / to_elect:{} / iterations:{}]",
+			voter_count, target_count, to_elect, iterations,
+		);
+		let (unbalanced, candidates, voters, stake_of_tree) = generate_npos_result(
+			voter_count as u64,
+			target_count as u64,
+			to_elect,
+			&mut input,
+			ElectionType::Phragmen(None),
+		);
 
-			let stake_of = |who: &AccountId| -> VoteWeight { *stake_of_tree.get(who).unwrap() };
+		let stake_of = |who: &AccountId| -> VoteWeight { *stake_of_tree.get(who).unwrap() };
 
-			let unbalanced_score = {
+		let unbalanced_score = {
+			let staked =
+				assignment_ratio_to_staked_normalized(unbalanced.assignments, &stake_of)
+					.unwrap();
+			let score = to_supports(staked.as_ref()).evaluate();
+
+			if score.minimal_stake == 0 {
+				// such cases cannot be improved by balancing.
+				return;
+			}
+			score
+		};
+
+		if iterations > 0 {
+			let config = BalancingConfig { iterations, tolerance: 0 };
+			let balanced: ElectionResult<AccountId, sp_runtime::Perbill> =
+				seq_phragmen(to_elect, candidates, voters, Some(config)).unwrap();
+
+			let balanced_score = {
 				let staked =
-					assignment_ratio_to_staked_normalized(unbalanced.assignments, &stake_of)
+					assignment_ratio_to_staked_normalized(balanced.assignments, &stake_of)
 						.unwrap();
-				let score = to_supports(staked.as_ref()).evaluate();
-
-				if score.minimal_stake == 0 {
-					// such cases cannot be improved by balancing.
-					return;
-				}
-				score
+				to_supports(staked.as_ref()).evaluate()
 			};
 
-			if iterations > 0 {
-				let config = BalancingConfig { iterations, tolerance: 0 };
-				let balanced: ElectionResult<AccountId, sp_runtime::Perbill> =
-					seq_phragmen(to_elect, candidates, voters, Some(config)).unwrap();
+			let enhance = balanced_score.strict_better(unbalanced_score);
 
-				let balanced_score = {
-					let staked =
-						assignment_ratio_to_staked_normalized(balanced.assignments, &stake_of)
-							.unwrap();
-					to_supports(staked.as_ref()).evaluate()
-				};
+			println!(
+				"iter = {} // {:?} -> {:?} [{}]",
+				iterations, unbalanced_score, balanced_score, enhance,
+			);
 
-				let enhance = balanced_score.strict_better(unbalanced_score);
-
-				println!(
-					"iter = {} // {:?} -> {:?} [{}]",
-					iterations, unbalanced_score, balanced_score, enhance,
-				);
-
-				// The only guarantee of balancing is such that the first and third element of the
-				// score cannot decrease.
-				assert!(
-					balanced_score.minimal_stake >= unbalanced_score.minimal_stake &&
-						balanced_score.sum_stake == unbalanced_score.sum_stake &&
-						balanced_score.sum_stake_squared <= unbalanced_score.sum_stake_squared
-				);
-			}
-		});
-	}
+			// The only guarantee of balancing is such that the first and third element of the
+			// score cannot decrease.
+			assert!(
+				balanced_score.minimal_stake >= unbalanced_score.minimal_stake &&
+					balanced_score.sum_stake == unbalanced_score.sum_stake &&
+					balanced_score.sum_stake_squared <= unbalanced_score.sum_stake_squared
+			);
+		}
+	});
 }

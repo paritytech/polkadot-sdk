@@ -529,6 +529,7 @@ members = [
 	"substrate/primitives/session",
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
+	"substrate/primitives/state-machine/fuzz",
 	"substrate/primitives/statement-store",
 	"substrate/primitives/std",
 	"substrate/primitives/storage",
@@ -1482,6 +1483,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
+ziggy = { version = "1", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-configuration = { version = "0.4.5" }
 zombienet-orchestrator = { version = "0.4.5" }

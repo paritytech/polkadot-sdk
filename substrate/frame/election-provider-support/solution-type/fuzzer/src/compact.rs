@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use frame_election_provider_solution_type::generate_solution_type;
-use honggfuzz::fuzz;
 use sp_arithmetic::Percent;
 use sp_runtime::codec::{Encode, Error};
 
@@ -28,8 +27,7 @@ fn main() {
 		Accuracy = Percent,
 		MaxVoters = frame_support::traits::ConstU32::<100_000>,
 	>(16));
-	loop {
-		fuzz!(|fuzzer_data: &[u8]| {
+	ziggy::fuzz!(|fuzzer_data: &[u8]| {
 			let result_decoded: Result<InnerTestSolutionCompact, Error> =
 				<InnerTestSolutionCompact as codec::Decode>::decode(&mut &*fuzzer_data);
 			// Ignore errors as not every random sequence of bytes can be decoded as
@@ -54,5 +52,4 @@ fn main() {
 				assert_eq!(decoded, decoded2);
 			}
 		});
-	}
 }

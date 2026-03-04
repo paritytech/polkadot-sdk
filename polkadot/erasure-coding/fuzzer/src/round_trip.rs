@@ -14,15 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use honggfuzz::fuzz;
 use polkadot_erasure_coding::*;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_primitives::PersistedValidationData;
 use std::sync::Arc;
 
 fn main() {
-	loop {
-		fuzz!(|data: &[u8]| {
+	ziggy::fuzz!(|data: &[u8]| {
 			let pov_block = PoV { block_data: BlockData(data.iter().cloned().collect()) };
 
 			let available_data = AvailableData {
@@ -44,6 +42,5 @@ fn main() {
 
 			assert_eq!(reconstructed, available_data);
 			println!("{:?}", reconstructed);
-		});
-	}
+	});
 }

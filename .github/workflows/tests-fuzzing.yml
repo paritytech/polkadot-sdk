@@ -69,31 +69,31 @@ jobs:
             add_fuzzer sp_arithmetic "substrate/primitives/arithmetic/fuzzer" honggfuzz
           fi
           if [ "${{ steps.changed.outputs.sp_npos_elections_any_changed }}" == "true" ]; then
-            add_fuzzer sp_npos_elections "substrate/primitives/npos-elections/fuzzer" honggfuzz
+            add_fuzzer sp_npos_elections "substrate/primitives/npos-elections/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.pallet_paged_list_any_changed }}" == "true" ]; then
-            add_fuzzer pallet_paged_list "substrate/frame/paged-list/fuzzer" honggfuzz
+            add_fuzzer pallet_paged_list "substrate/frame/paged-list/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.pallet_nomination_pools_any_changed }}" == "true" ]; then
-            add_fuzzer pallet_nomination_pools "substrate/frame/nomination-pools/fuzzer" honggfuzz
+            add_fuzzer pallet_nomination_pools "substrate/frame/nomination-pools/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.pallet_bags_list_any_changed }}" == "true" ]; then
-            add_fuzzer pallet_bags_list "substrate/frame/bags-list/fuzzer" honggfuzz
+            add_fuzzer pallet_bags_list "substrate/frame/bags-list/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.election_solution_type_any_changed }}" == "true" ]; then
-            add_fuzzer election_solution_type "substrate/frame/election-provider-support/solution-type/fuzzer" honggfuzz
+            add_fuzzer election_solution_type "substrate/frame/election-provider-support/solution-type/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.xcm_simulator_any_changed }}" == "true" ]; then
-            add_fuzzer xcm_simulator "polkadot/xcm/xcm-simulator/fuzzer" honggfuzz
+            add_fuzzer xcm_simulator "polkadot/xcm/xcm-simulator/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.erasure_coding_any_changed }}" == "true" ]; then
-            add_fuzzer erasure_coding "polkadot/erasure-coding/fuzzer" honggfuzz
+            add_fuzzer erasure_coding "polkadot/erasure-coding/fuzzer" ziggy
           fi
           if [ "${{ steps.changed.outputs.sp_core_any_changed }}" == "true" ]; then
-            add_fuzzer sp_core "substrate/primitives/core/fuzz" libfuzzer
+            add_fuzzer sp_core "substrate/primitives/core/fuzz" ziggy
           fi
           if [ "${{ steps.changed.outputs.sp_state_machine_any_changed }}" == "true" ]; then
-            add_fuzzer sp_state_machine "substrate/primitives/state-machine/fuzz" libfuzzer
+            add_fuzzer sp_state_machine "substrate/primitives/state-machine/fuzz" ziggy
           fi
 
           COUNT=$(echo "$FUZZERS" | jq 'length')
@@ -119,6 +119,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
+      # honggfuzz settings (only used by sp-arithmetic until it is migrated to ziggy)
       HFUZZ_RUN_ARGS: >-
         --exit_upon_crash
         --exit_code_upon_crash 1
@@ -128,7 +129,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # honggfuzz targets
+      # ziggy targets
+      - name: Install ziggy and AFL++ tooling
+        if: ${{ matrix.fuzzer.framework == 'ziggy' }}
+        run: |
+          cargo install --force ziggy cargo-afl
+          cargo afl system-config || true
+
+      - name: Run ziggy targets
+        if: ${{ matrix.fuzzer.framework == 'ziggy' }}
+        working-directory: ${{ matrix.fuzzer.dir }}
+        run: |
+          for target in $(cargo read-manifest | jq -r '.targets[] | select(.kind[] == "bin") | .name'); do
+            echo "::group::Fuzzing $target"
+            # Run for 60 seconds per target with AFL++ only
+            timeout 120 cargo ziggy fuzz --no-honggfuzz -G 128 --target "$target" -- -V 60 \
+              || { status=$?; if [ $status -eq 101 ]; then printf "fuzzing crash for %s\n" "$target"; exit 1; elif [ $status -eq 124 ]; then echo "timeout reached, continuing"; else printf "fuzzing failure for %s (exit %d)\n" "$target" "$status"; exit 1; fi; }
+            echo "::endgroup::"
+          done
+
+      - name: Upload ziggy artifacts
+        if: ${{ failure() && matrix.fuzzer.framework == 'ziggy' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ziggy-${{ github.sha }}-${{ strategy.job-index }}
+          path: ${{ matrix.fuzzer.dir }}/output/
+
+      # honggfuzz targets (sp-arithmetic only, pending migration)
       - name: Build honggfuzz targets
         if: ${{ matrix.fuzzer.framework == 'honggfuzz' }}
         working-directory: ${{ matrix.fuzzer.dir }}
@@ -150,28 +177,6 @@ jobs:
         with:
           name: hfuzz-${{ github.sha }}-${{ strategy.job-index }}
           path: ${{ matrix.fuzzer.dir }}/hfuzz_workspace/
-
-      # libfuzzer targets
-      - name: Install cargo-fuzz
-        if: ${{ matrix.fuzzer.framework == 'libfuzzer' }}
-        run: cargo +nightly install cargo-fuzz --vers 0.13.1 --locked
-
-      - name: Run libfuzzer targets
-        if: ${{ matrix.fuzzer.framework == 'libfuzzer' }}
-        working-directory: ${{ matrix.fuzzer.dir }}
-        run: |
-          for target in $(cargo +nightly fuzz list); do
-            echo "::group::Fuzzing $target"
-            cargo +nightly fuzz run "$target" -- -max_total_time=60 || { printf "fuzzing failure for %s\n" "$target"; exit 1; }
-            echo "::endgroup::"
-          done
-
-      - name: Upload libfuzzer artifacts
-        if: ${{ failure() && matrix.fuzzer.framework == 'libfuzzer' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: libfuzz-${{ github.sha }}-${{ strategy.job-index }}
-          path: ${{ matrix.fuzzer.dir }}/fuzz/artifacts/
 
   confirm-required-fuzzing-jobs-passed:
     runs-on: ubuntu-latest

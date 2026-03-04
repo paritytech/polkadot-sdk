@@ -34,7 +34,6 @@ path = "src/phragmen_pjr.rs"
 
 [dependencies]
 clap = { features = ["derive"], workspace = true }
-honggfuzz = { workspace = true }
-rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+ziggy = { workspace = true }

@@ -6153,10 +6153,10 @@ dependencies = [
 name = "erasure_coding_fuzzer"
 version = "1.0.0"
 dependencies = [
- "honggfuzz",
  "polkadot-erasure-coding",
  "polkadot-node-primitives",
  "polkadot-primitives",
+ "ziggy",
 ]
 
 [[package]]
@@ -6797,10 +6797,10 @@ dependencies = [
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
  "frame-support",
- "honggfuzz",
  "parity-scale-codec",
  "sp-arithmetic 23.0.0",
  "sp-runtime 31.0.1",
+ "ziggy",
 ]
 
 [[package]]
@@ -7973,14 +7973,15 @@ dependencies = [
 
 [[package]]
 name = "honggfuzz"
-version = "0.5.55"
+version = "0.5.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "848e9c511092e0daa0a35a63e8e6e475a3e8f870741448b9f6028d69b142f18e"
+checksum = "6e8319f3cc8fe416e7aa1ab95dcc04fd49f35397a47d0b2f0f225f6dba346a07"
 dependencies = [
  "arbitrary",
  "lazy_static",
- "memmap2 0.5.10",
+ "memmap2 0.9.3",
  "rustc_version 0.4.0",
+ "semver 1.0.18",
 ]
 
 [[package]]
@@ -9307,17 +9308,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a52d3a8bfc85f250440e4424db7d857e241a3aebbbe301f3eb606ab15c39acbf"
 dependencies = [
  "rle-decode-fast",
-]
-
-[[package]]
-name = "libfuzzer-sys"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a96cfd5557eb82f2b83fed4955246c988d331975a002961b07c81584d107e7f7"
-dependencies = [
- "arbitrary",
- "cc",
- "once_cell",
 ]
 
 [[package]]
@@ -11713,9 +11703,10 @@ dependencies = [
 name = "pallet-bags-list-fuzzer"
 version = "4.0.0-dev"
 dependencies = [
+ "arbitrary",
  "frame-election-provider-support",
- "honggfuzz",
  "pallet-bags-list",
+ "ziggy",
 ]
 
 [[package]]
@@ -12976,13 +12967,12 @@ version = "2.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "honggfuzz",
  "log",
  "pallet-nomination-pools",
- "rand 0.8.5",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
+ "ziggy",
 ]
 
 [[package]]
@@ -13123,9 +13113,9 @@ name = "pallet-paged-list-fuzzer"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
- "honggfuzz",
  "pallet-paged-list",
  "polkadot-sdk-frame",
+ "ziggy",
 ]
 
 [[package]]
@@ -23565,11 +23555,11 @@ dependencies = [
 
 [[package]]
 name = "sp-core-fuzz"
-version = "0.0.0"
+version = "2.0.0"
 dependencies = [
- "libfuzzer-sys",
  "regex",
  "sp-core 28.0.0",
+ "ziggy",
 ]
 
 [[package]]
@@ -23932,10 +23922,9 @@ name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
  "clap",
- "honggfuzz",
- "rand 0.8.5",
  "sp-npos-elections",
  "sp-runtime 31.0.1",
+ "ziggy",
 ]
 
 [[package]]
@@ -24214,6 +24203,16 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-db 0.30.0",
+]
+
+[[package]]
+name = "sp-state-machine-fuzz"
+version = "2.0.0"
+dependencies = [
+ "arbitrary",
+ "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "ziggy",
 ]
 
 [[package]]
@@ -29002,7 +29001,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-try-runtime",
- "honggfuzz",
  "pallet-balances",
  "pallet-message-queue",
  "pallet-xcm",
@@ -29018,6 +29016,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "xcm-simulator",
+ "ziggy",
 ]
 
 [[package]]
@@ -29225,6 +29224,12 @@ dependencies = [
  "quote 1.0.40",
  "syn 2.0.98",
 ]
+
+[[package]]
+name = "ziggy"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1558322fdb73d456fbc038b4d061287053e91ace1e8a6cbe8b9ec123c82ac4a6"
 
 [[package]]
 name = "zombienet-backchannel"

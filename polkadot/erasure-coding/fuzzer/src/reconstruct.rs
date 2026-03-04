@@ -14,19 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use honggfuzz::fuzz;
 use polkadot_erasure_coding::*;
 use polkadot_node_primitives::AvailableData;
 
 fn main() {
-	loop {
-		fuzz!(|data: (usize, Vec<(Vec<u8>, usize)>)| {
+	ziggy::fuzz!(|data: (usize, Vec<(Vec<u8>, usize)>)| {
 			let (num_validators, chunk_input) = data;
 			let reconstructed: Result<AvailableData, _> = reconstruct_v1(
 				num_validators,
 				chunk_input.iter().map(|t| (&*t.0, t.1)).collect::<Vec<(&[u8], usize)>>(),
 			);
 			println!("reconstructed {:?}", reconstructed);
-		});
-	}
+	});
 }

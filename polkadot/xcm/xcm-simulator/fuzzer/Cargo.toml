@@ -17,8 +17,8 @@ name = "xcm-fuzzer"
 [dependencies]
 arbitrary = { workspace = true }
 codec = { workspace = true, default-features = true }
-honggfuzz = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
+ziggy = { workspace = true }
 
 frame-executive = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
