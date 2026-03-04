@@ -49,11 +49,19 @@ fn staker_reward_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance
 
 /// Finds the validator incentive amount for a given stash from events.
 fn incentive_paid_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	incentive_paid_details(stash, events).map(|(amount, _)| amount)
+}
+
+/// Finds the validator incentive amount and destination for a given stash from events.
+fn incentive_paid_details(
+	stash: AccountId,
+	events: &[Event<Test>],
+) -> Option<(Balance, RewardDestination<AccountId>)> {
 	events.iter().find_map(|e| match e {
-		Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
 			if *validator_stash == stash =>
 		{
-			Some(*amount)
+			Some((*amount, dest.clone()))
 		},
 		_ => None,
 	})
@@ -527,8 +535,6 @@ fn changing_budget_allocation_affects_rewards() {
 		// GIVEN: Era 1 with no validator incentive
 		let alice = 11; // validator
 
-		setup_incentive_config();
-
 		// Era 1: 50% staker, 0% incentive
 		setup_incentive_with_budget(50, 0);
 
@@ -567,8 +573,6 @@ fn lowering_nominator_rewards_via_budget_adjustment() {
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
-		setup_incentive_config();
-
 		// GIVEN: Era 1 baseline with 45% staker rewards
 		setup_incentive_with_budget(45, 0);
 
@@ -588,7 +592,7 @@ fn lowering_nominator_rewards_via_budget_adjustment() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		mock::make_all_reward_payment(2);
+		make_all_reward_payment(2);
 		let era2_events = staking_events_since_last_call();
 		let bob_reward_era2 =
 			staker_reward_for(bob, &era2_events).expect("Bob should receive reward");
