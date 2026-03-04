@@ -281,7 +281,7 @@ use rand_chacha::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, CheckedAdd, CheckedSub, Hash, Saturating, StaticLookup,
+		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Hash, Saturating, StaticLookup,
 		TrailingZeroInput, Zero,
 	},
 	ArithmeticError::Overflow,
