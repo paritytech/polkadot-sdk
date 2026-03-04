@@ -376,19 +376,4 @@ mod tests {
 		resolve_db_options(false, Some(base)).unwrap();
 		assert!(nested.exists());
 	}
-
-	#[test]
-	fn resolve_db_dir_with_explicit_base_path() {
-		let tmp = TempDir::new().unwrap();
-		let base = BasePath::new(tmp.path());
-		let dir = resolve_db_dir(Some(base));
-		assert_eq!(dir, tmp.path());
-	}
-
-	#[test]
-	fn resolve_db_dir_platform_default() {
-		let dir = resolve_db_dir(None);
-		let dir_str = dir.to_string_lossy();
-		assert!(dir_str.contains("eth-rpc"));
-	}
 }

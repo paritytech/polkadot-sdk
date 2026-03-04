@@ -180,8 +180,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Stale if evm_first no longer has an EVM hash, or its predecessor now does.
 		// Note: evm_first >= 1 is guaranteed by the filter above.
-		let current_has_evm = has_evm_hash(evm_first).await;
-		let predecessor_has_evm = has_evm_hash(evm_first - 1).await;
+		let (current_has_evm, predecessor_has_evm) =
+			tokio::join!(has_evm_hash(evm_first), has_evm_hash(evm_first.saturating_sub(1)));
 
 		if !current_has_evm || predecessor_has_evm {
 			log::warn!(target: LOG_TARGET,

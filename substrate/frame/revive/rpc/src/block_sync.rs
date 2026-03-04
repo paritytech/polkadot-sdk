@@ -78,7 +78,7 @@ impl SyncCheckpoint {
 	}
 }
 
-/// How often (in blocks) the backward historic sync checkpoints progress to the database.
+/// How often (in blocks) the backward historic sync checkpoints are persisted to the database.
 pub(crate) const SYNC_CHECKPOINT_INTERVAL: u32 = 128;
 
 /// The future type returned by sync hook callbacks.
@@ -161,7 +161,7 @@ impl Client {
 		let finalized = self.receipt_provider().get_sync_label(SyncLabel::LastFinalized).await?;
 		if let Some(fin) = &finalized {
 			log::info!(target: LOG_TARGET,
-				"🗄️ Previous sync completed, using last finalized #{} as upper bound",
+				"🗄️ Previous sync completed, using stored last finalized #{} as upper bound",
 				fin.block_number);
 		}
 		Ok(finalized)
@@ -441,7 +441,7 @@ impl Client {
 		};
 
 		// Checkpoint the last synced block if it wasn't already at a checkpoint interval.
-		if !at_checkpoint(blocks_synced) {
+		if loop_result.is_ok() && !at_checkpoint(blocks_synced) {
 			if let Some((num, hash)) = last_synced {
 				if let Some(ref f) = on_progress {
 					f(num, hash).await;

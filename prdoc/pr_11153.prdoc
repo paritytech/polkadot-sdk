@@ -1,17 +1,18 @@
 title: '[eth-rpc]: add resumable block sync and improve CLI arguments'
 doc:
 - audience: Runtime Dev
-  description: "### Resumable block sync\n- New block_sync module syncs backward from\
-    \ the latest finalized block to the first EVM block, with crash-safe checkpoint\
-    \ tracking via a sync_state SQLite table.\n- On restart, fills only the top gap\
-    \ (new blocks) and bottom gap (remaining backfill) without re-syncing completed\
-    \ ranges.\n- Auto-discovers and persists `evm_first_block` \u2014 the lowest block\
-    \ with EVM support on the chain.\n- Chain identity verification: Store genesis\
-    \ hash in sync_state and validate on startup; detect stale boundaries after reorgs.\n\
-    \n### CLI rework\n- Replace --database-url with --database-name + --base-path\n\
-    - Replace --index-last-n-blocks with --sync (enables backward block sync, requires\
-    \ persistent DB)\n- Replace --cache-size with --prune (uses an in-memory database\
-    \ keeping only the latest N blocks)"
+  description: |
+    ### Resumable block sync
+    - New block_sync module syncs backward from the latest finalized block to the first EVM block, with crash-safe checkpoint tracking via a sync_state SQLite table.
+    - On restart, fills only the top gap (new blocks) and bottom gap (remaining backfill) without re-syncing completed ranges.
+    - Auto-discovers and persists `first_evm_block` — the lowest block with EVM support on the chain.
+    - Chain identity verification: Store genesis hash in sync_state and validate on startup; detect stale boundaries after reorgs.
+
+    ### CLI rework (breaking)
+    - Replace `--database-url` with `--base-path` (database file is auto-named `eth-rpc.db`)
+    - Replace `--index-last-n-blocks` with `--sync` (syncs all finalized blocks down to the first EVM block)
+    - Replace `--cache-size` with `--prune` (in-memory DB, keeps latest N blocks)
+    - Remove `--earliest-receipt-block` (replaced by auto-discovered `first_evm_block`)
 crates:
 - name: pallet-revive-eth-rpc
   bump: minor

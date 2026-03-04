@@ -143,8 +143,8 @@ impl ReceiptExtractor {
 	/// Check if the block is before the `first_evm_block` floor.
 	/// When sentinel (`u32::MAX`), no blocks are rejected (permissive default).
 	pub fn is_before_first_evm_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		let raw = self.first_evm_block.load(Ordering::Acquire);
-		raw != u32::MAX && block_number < raw
+		let val = self.first_evm_block.load(Ordering::Acquire);
+		val != u32::MAX && block_number < val
 	}
 
 	/// Set the first EVM block. Only stores if lower than the current value.

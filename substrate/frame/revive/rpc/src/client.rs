@@ -174,10 +174,10 @@ pub enum ClientError {
 	#[error("Transaction submission timeout")]
 	Timeout,
 	/// Chain identity mismatch between stored genesis and connected node.
-	#[error("Genesis mismatch. Delete the database and restart.")]
+	#[error("Genesis hash mismatch")]
 	ChainMismatch,
 	/// Stored sync boundary no longer matches the chain (e.g. after reorganization).
-	#[error("Database mismatch. Delete the database and restart.")]
+	#[error("Sync boundary mismatch")]
 	SyncBoundaryMismatch,
 }
 
@@ -431,6 +431,7 @@ impl Client {
 							SyncLabel::LastFinalized);
 					}
 				},
+				// Only broadcast for best blocks to avoid duplicate notifications.
 				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
 					let _ = sender.send(hash);
 				},
