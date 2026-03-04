@@ -692,7 +692,7 @@ pub mod pallet {
 		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
 		/// Funds have been approved for transfer to a destination account.
 		/// If there was a previous approval, then the amount was replaced (not incremented).
-		ApprovedSetAmount {
+		ApprovalSet {
 			asset_id: T::AssetId,
 			source: T::AccountId,
 			delegate: T::AccountId,

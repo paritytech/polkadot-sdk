@@ -989,7 +989,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			} else {
 				// No approval to revoke — still emit event for consistency with the
 				// ERC-20 Approval log that the precompile always emits on success.
-				Self::deposit_event(Event::ApprovedSetAmount {
+				Self::deposit_event(Event::ApprovalSet {
 					asset_id: id,
 					source: owner.clone(),
 					delegate: delegate.clone(),
@@ -1028,7 +1028,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		Asset::<T, I>::insert(&id, d);
-		Self::deposit_event(Event::ApprovedSetAmount {
+		Self::deposit_event(Event::ApprovalSet {
 			asset_id: id,
 			source: owner.clone(),
 			delegate: delegate.clone(),
