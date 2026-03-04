@@ -1474,11 +1474,7 @@ pub mod pallet {
 			);
 			let who = T::Lookup::lookup(who)?;
 
-			let total_payout = Payouts::<T, I>::get(&who)
-				.payouts
-				.iter()
-				.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
-			Self::slash_payout(&who, total_payout);
+			Self::slash_payout(&who, BalanceOf::<T, I>::max_value());
 
 			Self::suspend_member(&who)?;
 			Ok(())
