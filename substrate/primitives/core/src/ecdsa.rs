@@ -409,8 +409,7 @@ where
 			.expect("Signing can't fail when using 32 bytes message hash. qed.");
 
 		// k256 normalizes via RFC 6979 but we explicitly ensure low-S
-		let (normalized_sig, adjusted_v) = if raw_sig.normalize_s().is_some() {
-			let normalized = raw_sig.normalize_s().unwrap();
+		let (normalized_sig, adjusted_v) = if let Some(normalized) = raw_sig.normalize_s() {
 			(normalized, k256::ecdsa::RecoveryId::from_byte(recovery_id.to_byte() ^ 1).unwrap())
 		} else {
 			(raw_sig, recovery_id)
