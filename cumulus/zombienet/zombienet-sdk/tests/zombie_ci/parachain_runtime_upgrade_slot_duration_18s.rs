@@ -50,6 +50,12 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 
 	wait_for_runtime_upgrade(&collator_client).await?;
 
+	// since https://github.com/paritytech/polkadot-sdk/pull/6029
+	// we need to wait to the next block to get the slot duration updated.
+	log::info!("waiting one block for parachain {PARA_ID}...");
+	let mut finalized_blocks = collator_client.blocks().subscribe_best().await?;
+	let _ = finalized_blocks.next().await.ok_or(anyhow!("New block should be available"))?;
+
 	let slot_duration = get_slot_duration(&collator_client).await?;
 	assert_ne!(
 		initial_slot_duration, slot_duration,
