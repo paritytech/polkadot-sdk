@@ -753,6 +753,10 @@ pub mod pallet {
 		ContainsHolds,
 		/// Tried setting too many reserves.
 		TooManyReserves,
+		/// Cannot change a non-zero allowance to another non-zero value.
+		/// First set the allowance to zero, then set it to the desired value.
+		/// This mitigates the ERC-20 approve front-running attack.
+		AllowanceAlreadySet,
 	}
 
 	#[pallet::hooks]

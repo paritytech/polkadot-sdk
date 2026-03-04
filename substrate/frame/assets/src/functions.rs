@@ -960,10 +960,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Set (replace) the approval amount for a delegate.
 	///
 	/// Unlike [`Self::do_approve_transfer`] which adds to the existing approval, this function
-	/// replaces the current approval amount with `amount`. This matches ERC20 `approve()`
+	/// replaces the current approval amount with `amount`. This matches ERC-20 `approve()`
 	/// semantics where calling `approve(spender, N)` sets the allowance to exactly `N`.
 	///
 	/// When `amount` is zero, the approval is removed entirely and the deposit is returned.
+	///
+	/// # Front-running mitigation
+	///
+	/// To prevent the well-known ERC-20 approve front-running attack (where a spender
+	/// can spend both the old and new allowance by front-running the second `approve`),
+	/// this function rejects transitions from one non-zero allowance to another.
+	/// Callers must first set the allowance to zero, then set it to the new value.
+	/// This follows the widely deployed "safe approve" pattern (e.g. USDT).
 	pub fn do_set_approval_amount(
 		id: T::AssetId,
 		owner: &T::AccountId,
@@ -983,6 +991,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return Ok(());
 			}
 		} else {
+			// Front-running mitigation: reject non-zero → non-zero transitions.
+			if let Some(existing) = Approvals::<T, I>::get((id.clone(), owner, delegate)) {
+				if !existing.amount.is_zero() {
+					return Err(Error::<T, I>::AllowanceAlreadySet.into());
+				}
+			}
+
 			Approvals::<T, I>::try_mutate(
 				(id.clone(), owner, delegate),
 				|maybe_approved| -> DispatchResult {
