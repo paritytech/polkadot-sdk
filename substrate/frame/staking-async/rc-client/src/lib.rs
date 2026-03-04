@@ -121,13 +121,22 @@ extern crate alloc;
 pub mod benchmarking;
 pub mod weights;
 
-use alloc::{vec, vec::Vec};
+#[cfg(feature = "xcm-sender")]
+use alloc::vec;
+use alloc::vec::Vec;
 use codec::Decode;
 #[cfg(feature = "xcm-sender")]
 use core::fmt::Display;
 #[cfg(feature = "xcm-sender")]
 use frame_support::storage::transactional::with_transaction_opaque_err;
-use frame_support::{pallet_prelude::*, traits::tokens::Balance as BalanceTrait, weights::Weight};
+use frame_support::{
+	pallet_prelude::*,
+	traits::fungible::{
+		hold::{Inspect as HoldInspect, Mutate as HoldMutate},
+		Inspect as FunInspect, Mutate as FunMutate,
+	},
+	weights::Weight,
+};
 #[cfg(feature = "xcm-sender")]
 use sp_runtime::{traits::Convert, TransactionOutcome};
 use sp_runtime::{traits::OpaqueKeys, Perbill};
@@ -180,7 +189,9 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// Type alias for balance used in this pallet.
-pub type BalanceOf<T> = <T as pallet::Config>::Balance;
+pub type BalanceOf<T> = <<T as pallet::Config>::Currency as FunInspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 const LOG_TARGET: &str = "runtime::staking-async::rc-client";
 
@@ -894,6 +905,14 @@ pub mod pallet {
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
+	/// Reasons for holding funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Deposit held for session keys.
+		#[codec(index = 0)]
+		Keys,
+	}
+
 	/// An incomplete incoming session report that we have not acted upon yet.
 	// Note: this can remain unbounded, as the internals of `AHStakingInterface` is benchmarked, and
 	// is worst case.
@@ -1011,7 +1030,7 @@ pub mod pallet {
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<
 			AccountId = Self::AccountId,
-			Balance = Self::Balance,
+			Balance = BalanceOf<Self>,
 		>;
 
 		/// Maximum number of times that we retry sending a validator set to RC, after which, if
@@ -1051,12 +1070,13 @@ pub mod pallet {
 		/// to verify the keys can be properly decoded.
 		type RelayChainSessionKeys: OpaqueKeys + Decode;
 
-		/// The balance type used for delivery fee limits.
-		type Balance: BalanceTrait;
+		/// Currency used to hold key deposits.
+		type Currency: FunMutate<Self::AccountId>
+			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
 
-		/// Maximum length of encoded session keys.
+		/// Deposit held when a validator sets session keys. Released on `purge_keys`.
 		#[pallet::constant]
-		type MaxSessionKeysLength: Get<u32>;
+		type KeyDeposit: Get<BalanceOf<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -1254,13 +1274,15 @@ pub mod pallet {
 
 		/// Set session keys for a validator. Keys are validated on AssetHub and forwarded to RC.
 		///
-		/// **Validation on AssetHub:**
-		/// Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
-		/// format. This prevents malicious validators from bloating the XCM queue with garbage
-		/// data.
+		/// On the first call, a deposit of `KeyDeposit` is held from the stash. Subsequent calls
+		/// do not charge again. The deposit is released on `purge_keys`.
 		///
-		/// This, combined with the enforcement of a high minimum validator bond, makes it
-		/// reasonable not to require a deposit.
+		/// **Validation on AssetHub:**
+		/// - Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
+		///   format.
+		///
+		/// If validation passes, only the validated keys are sent to RC (with empty proof),
+		/// since RC trusts AH's validation.
 		///
 		/// Note: Ownership proof validation requires PR #1739 which is not backported to
 		/// stable2512. The proof parameter will be added when that PR is backported.
@@ -1287,7 +1309,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(
 			origin: OriginFor<T>,
-			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
+			keys: Vec<u8>,
 			proof: Vec<u8>,
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
@@ -1295,6 +1317,16 @@ pub mod pallet {
 
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
+
+			// Hold deposit for key storage.
+			let deposit = T::KeyDeposit::get();
+			if !deposit.is_zero() {
+				let current_hold = T::Currency::balance_on_hold(&HoldReason::Keys.into(), &stash);
+				if current_hold < deposit {
+					// Top up if current hold is below the required deposit.
+					T::Currency::set_on_hold(&HoldReason::Keys.into(), &stash, deposit)?;
+				}
+			}
 
 			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
 			let session_keys = T::RelayChainSessionKeys::decode(&mut &keys[..])
@@ -1306,7 +1338,7 @@ pub mod pallet {
 			// Forward validated keys to RC
 			let fees = T::SendToRelayChain::set_keys(
 				stash.clone(),
-				keys.into_inner(),
+				keys,
 				max_delivery_and_remote_execution_fee,
 			)
 			.map_err(|e| match e {
@@ -1320,7 +1352,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove session keys for a validator.
+		/// Remove session keys for a validator and release the key deposit.
 		///
 		/// This purges the keys from the Relay Chain.
 		///
@@ -1346,12 +1378,6 @@ pub mod pallet {
 		/// delivery + RC execution fee. This does not include the local transaction weight fee. If
 		/// the fee exceeds this limit, the operation fails with `FeesExceededMax`. Pass `None` for
 		/// unlimited (no cap).
-		//
-		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
-		// (storage item) to track accounts that have called set_keys. We will also need to perform
-		// a migration to populate the state for all validators that have set keys via RC.
-		//
-		// Note: No deposit is currently held/released, same reason as per set_keys.
 		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::purge_keys())]
 		pub fn purge_keys(
@@ -1359,6 +1385,13 @@ pub mod pallet {
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
+
+			// Release the key deposit if one was held (no-op if nothing held).
+			let _ = T::Currency::release_all(
+				&HoldReason::Keys.into(),
+				&stash,
+				frame_support::traits::tokens::Precision::BestEffort,
+			);
 
 			// Forward purge request to RC
 			// Note: RC will fail with NoKeys if the account has no keys set
