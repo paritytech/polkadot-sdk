@@ -89,6 +89,7 @@ fn byte32_slice_from(n: u32) -> [u8; 32] {
 
 /// Configuration for which candidate descriptor version to use in benchmarks and tests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CandidateDescriptorVersionConfig {
 	/// V1 descriptor (legacy format, no UMP signals).
 	V1,
