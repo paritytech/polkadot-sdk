@@ -469,11 +469,8 @@ impl pallet_staking_async::Config for Runtime {
 	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator;
 	/// Vest validator self-stake incentive rewards over approximately one year of relay-chain blocks.
 	type VestingDuration = ConstU32<{ 365 * DAYS }>;
-	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<
-		Balances,
-		pallet_vesting::Pallet<Runtime>,
-		RelayChainBlockNumberProvider,
-	>;
+	type ValidatorIncentivePayout =
+		pallet_staking_async::VestedIncentivePayout<pallet_vesting::Pallet<Runtime>>;
 }
 
 // Relay chain session keys matching Westend configuration.

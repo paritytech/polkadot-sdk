@@ -482,6 +482,9 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = RcClient;
 	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator;
 
+	type VestingDuration = ConstU64<0>;
+	type ValidatorIncentivePayout = pallet_staking_async::ImmediateIncentivePayout<Balances>;
+
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
 
