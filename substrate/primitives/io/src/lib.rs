@@ -1185,6 +1185,10 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification was successful.
 	/// This version is able to handle, non-standard, overflowing signatures.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn ecdsa_verify(
 		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
 		msg: PassFatPointerAndRead<&[u8]>,
@@ -1197,6 +1201,10 @@ pub trait Crypto {
 	/// Verify `ecdsa` signature.
 	///
 	/// Returns `true` when the verification was successful.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	#[version(2)]
 	fn ecdsa_verify(
 		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
@@ -1209,6 +1217,10 @@ pub trait Crypto {
 	/// Verify `ecdsa` signature with pre-hashed `msg`.
 	///
 	/// Returns `true` when the verification was successful.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn ecdsa_verify_prehashed(
 		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -1254,6 +1266,10 @@ pub trait Crypto {
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
 	/// (doesn't include the 0x04 prefix).
 	/// This version is able to handle, non-standard, overflowing signatures.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -1279,6 +1295,10 @@ pub trait Crypto {
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
 	/// (doesn't include the 0x04 prefix).
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	#[version(2)]
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
@@ -1305,6 +1325,10 @@ pub trait Crypto {
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -1327,6 +1351,10 @@ pub trait Crypto {
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	#[version(2)]
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,

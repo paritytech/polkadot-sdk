@@ -35,6 +35,15 @@ doc:
       **sp-consensus-beefy** `ecdsa_crypto::BeefyAuthorityId::verify()` rejects high-S
       signatures before recovery, ensuring canonical form for Ethereum-side light clients.
 
+      **sp-runtime (MultiSignature)** `MultiSignature::verify()` now rejects high-S signatures
+      for both `Ecdsa` and `Eth` variants before calling the recovery host functions. This
+      enforces BIP-62 / EIP-2 canonical signatures at the `MultiSignature` level.
+
+      **sp-io host function docs** All ECDSA host functions (`ecdsa_verify`, `ecdsa_verify_prehashed`,
+      `secp256k1_ecdsa_recover`, `secp256k1_ecdsa_recover_compressed`) now document that they
+      do **not** enforce low-S normalization. Callers should check
+      `sp_core::ecdsa::is_signature_normalized()` before calling if canonical signatures are required.
+
       `Pair::verify()` and `Pair::verify_prehashed()` are not changed to preserve backward
       compatibility with historical block verification.
 
@@ -48,6 +57,10 @@ doc:
       BEEFY ECDSA signature verification now also requires low-S. Validators using standard
       signing tooling are unaffected.
 
+      `MultiSignature::verify()` now rejects high-S ECDSA signatures for both `Ecdsa` and
+      `Eth` variants. Extrinsics signed with standard tooling are unaffected since all common
+      signing libraries produce low-S signatures by default.
+
       A new `sp_core::ecdsa::is_signature_normalized()` helper is available for runtimes that
       want to enforce low-S on their own ECDSA verification paths.
 
@@ -56,6 +69,8 @@ crates:
     bump: major
   - name: sp-io
     bump: patch
+  - name: sp-runtime
+    bump: major
   - name: polkadot-runtime-common
     bump: patch
   - name: pallet-revive

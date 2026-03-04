@@ -152,8 +152,6 @@ pub mod ecdsa_crypto {
 			let Some(sig_array) : Option<&[u8; 65]> = match sig_bytes.try_into().ok() else {
 				return false
 			};
-				return false;
-			}
 			let msg_hash = keccak_256(msg);
 			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 				sig_array,
