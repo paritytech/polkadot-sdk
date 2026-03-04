@@ -1476,8 +1476,7 @@ pub mod pallet {
 
 			Self::slash_payout(&who, BalanceOf::<T, I>::max_value());
 
-			Self::suspend_member(&who)?;
-			Ok(())
+			Self::suspend_member(&who).map(drop)
 		}
 	}
 }
