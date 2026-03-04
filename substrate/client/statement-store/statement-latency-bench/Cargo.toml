@@ -21,6 +21,7 @@ log = { workspace = true }
 rand = { workspace = true }
 scale-info = { workspace = true, default-features = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
 subxt = { workspace = true, features = ["native", "jsonrpsee"] }

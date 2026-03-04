@@ -25,10 +25,9 @@ use jsonrpsee::{
 };
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
-use sp_statement_store::{
-	statement_allowance_key, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
-};
+use sp_statement_store::{Statement, StatementAllowance, SubmitResult, Topic, TopicFilter};
 use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
 use subxt::{
 	config::{
@@ -83,6 +82,12 @@ impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
 	fn matches(identifier: &str, _type_id: u32, _types: &::scale_info::PortableRegistry) -> bool {
 		identifier == "VerifyMultiSignature" || identifier == "VerifySignature"
 	}
+}
+
+fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
+	let mut key = b":statement_allowance:".to_vec();
+	key.extend_from_slice(account_id.as_ref());
+	key
 }
 
 /// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`).
@@ -369,7 +374,7 @@ async fn run_client(
 			debug!("  subscribe topic[{idx}]: 0x{hex}");
 		}
 
-		let mut subscription: Subscription<Bytes> = rpc_client
+		let mut subscription: Subscription<serde_json::Value> = rpc_client
 			.subscribe(
 				"statement_subscribeStatement",
 				rpc_params![TopicFilter::MatchAny(bounded_topics)],
@@ -377,6 +382,43 @@ async fn run_client(
 			)
 			.await
 			.with_context(|| format!("Client {client_id}: Failed to subscribe"))?;
+
+		// // Pre-flight check: verify the allowance is still readable at the current
+		// // finalized head right before submitting statements. This helps diagnose
+		// // NoAllowance errors by catching state changes between set_allowances()
+		// // verification and actual statement submission.
+		// if is_leader(client_id) && round == 1 {
+		// 	let pub_key = keyring.public();
+		// 	let storage_key = statement_allowance_key(pub_key.as_ref() as &[u8]);
+		// 	let hex_key: String = storage_key.iter().map(|b| format!("{b:02x}")).collect();
+
+		// 	let finalized_now: String = rpc_client
+		// 		.request("chain_getFinalizedHead", rpc_params![])
+		// 		.await
+		// 		.context("Pre-flight: failed to get finalized head")?;
+
+		// 	let allowance_now: Option<String> = rpc_client
+		// 		.request(
+		// 			"state_getStorage",
+		// 			rpc_params![format!("0x{hex_key}"), &finalized_now],
+		// 		)
+		// 		.await
+		// 		.with_context(|| {
+		// 			format!("Pre-flight: failed to query allowance at {finalized_now}")
+		// 		})?;
+
+		// 	info!(
+		// 		"Pre-flight check: client={client_id} finalized={finalized_now} \
+		// 		 storage_key=0x{hex_key} allowance={allowance_now:?}"
+		// 	);
+
+		// 	if allowance_now.is_none() {
+		// 		return Err(anyhow!(
+		// 			"Pre-flight: allowance missing at finalized={finalized_now} \
+		// 			 for account 0x{hex_key}. The node's statement store will reject submissions."
+		// 		));
+		// 	}
+		// }
 
 		for &(count, size) in &messages_pattern {
 			for _ in 0..count {
@@ -651,6 +693,12 @@ async fn set_allowances(
 			"Account {i}: allowance at best={:?}, at finalized={:?}",
 			result_best, result_finalized
 		);
+
+		if result_finalized.is_none() {
+			return Err(anyhow!(
+				"Account {i}: allowance NOT found at finalized block {finalized_hash}"
+			));
+		}
 	}
 
 	Ok(())
