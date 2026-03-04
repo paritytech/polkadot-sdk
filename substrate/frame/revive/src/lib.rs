@@ -1675,10 +1675,15 @@ pub mod pallet {
 		///                       at the specified offsets.
 		/// - `address_mappings`: Sorted, non-overlapping byte offsets of 32-byte ABI
 		///                       slots in `data` that contain native addresses.
+		/// - `map_caller`:       When `true`, also registers the caller's own address mapping
+		///                       (self-funded, identical to calling [`Call::map_account`]).
+		///                       Idempotent: no deposit is charged if the mapping already exists.
 		#[pallet::call_index(13)]
 		#[pallet::weight(
-			<T as Config>::WeightInfo::call_with_mappings(address_mappings.len() as u32)
-				.saturating_add(*weight_limit)
+			<T as Config>::WeightInfo::call_with_mappings(
+				(address_mappings.len() as u32).saturating_add(*map_caller as u32),
+			)
+			.saturating_add(*weight_limit)
 		)]
 		pub fn call_with_mappings(
 			origin: OriginFor<T>,
@@ -1688,6 +1693,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			mut data: Vec<u8>,
 			address_mappings: Vec<u32>,
+			map_caller: bool,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let caller = ensure_signed(origin.clone())?;
@@ -1723,6 +1729,12 @@ pub mod pallet {
 				data[start + 12..start + 32].copy_from_slice(h160.as_bytes());
 			}
 
+			// Optionally register the caller's own address mapping (self-funded, behaves like
+			// `map_account`). Idempotent: no deposit charged if already mapped.
+			if map_caller {
+				T::AddressMapper::map_with_depositor(&caller, &caller)?;
+			}
+
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1743,7 +1755,9 @@ pub mod pallet {
 			dispatch_result(
 				output.result,
 				output.weight_consumed,
-				<T as Config>::WeightInfo::call_with_mappings(address_mappings.len() as u32),
+				<T as Config>::WeightInfo::call_with_mappings(
+					(address_mappings.len() as u32).saturating_add(map_caller as u32),
+				),
 			)
 		}
 	}

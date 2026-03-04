@@ -5502,6 +5502,7 @@ fn call_with_mappings_offset_out_of_bounds() {
 				0u64,
 				vec![0u8; 31],
 				vec![0u32],
+				false,
 			),
 			<Error<Test>>::MappingOffsetOutOfBounds,
 		);
@@ -5523,6 +5524,7 @@ fn call_with_mappings_overlapping_offsets() {
 				0u64,
 				vec![0u8; 64],
 				vec![0u32, 10u32],
+				false,
 			),
 			<Error<Test>>::MappingOffsetOverlap,
 		);
@@ -5544,6 +5546,7 @@ fn call_with_mappings_unsorted_offsets() {
 				0u64,
 				vec![0u8; 64],
 				vec![32u32, 0u32],
+				false,
 			),
 			<Error<Test>>::MappingOffsetOverlap,
 		);
@@ -5579,6 +5582,7 @@ fn call_with_mappings_registers_mapping_and_calls_contract() {
 			0u64,
 			data,
 			vec![0u32],
+			false,
 		));
 
 		// EVE is now mapped (OriginalAccount entry was registered)

@@ -80,8 +80,11 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	///   charged).
 	/// - Returns [`crate::Error::MappingConflict`] if the derived H160 is already registered
 	///   for a *different* native account.
-	/// - Charges deposit (for both the [`OriginalAccount`] and [`MappingDepositor`] entries)
-	///   from `depositor`.
+	/// - When `depositor == account_id`, behaves identically to [`Self::map`]: the deposit is
+	///   held from the mapped account under [`HoldReason::AddressMapping`] and no
+	///   [`MappingDepositor`] entry is written.
+	/// - Otherwise charges deposit (for both the [`OriginalAccount`] and [`MappingDepositor`]
+	///   entries) from `depositor` under [`HoldReason::ExternalAddressMapping`].
 	///
 	/// The default implementation ignores `depositor` and delegates to [`Self::map`].
 	/// Implementations that use [`OriginalAccount`] storage (i.e. [`AccountId32Mapper`])
@@ -194,6 +197,13 @@ where
 			return Ok(());
 		}
 
+		// Self-mapping: depositor == account_id.  Behave identically to `map()`:
+		// hold under AddressMapping, charge only for OriginalAccount (no MappingDepositor entry).
+		if account_id == depositor {
+			return Self::map(account_id);
+		}
+
+		// Third-party mapping: deposit held from depositor under ExternalAddressMapping.
 		// Deposit covers:
 		//   OriginalAccount entry : 20 (H160 key) + 32 (AccountId32 value) = 52 bytes
 		//   MappingDepositor entry: 20 (H160 key) + sizeof(T::AccountId, BalanceOf<T>) bytes
@@ -773,6 +783,77 @@ mod test {
 				),
 				0
 			);
+		});
+	}
+
+	/// When `depositor == account_id`, `map_with_depositor` must behave exactly like `map`:
+	/// deposit held under `AddressMapping` (not `ExternalAddressMapping`), no `MappingDepositor`
+	/// entry written, and `unmap` releases it back to the mapped account.
+	#[test]
+	fn map_with_depositor_self_behaves_like_map() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+
+			// EVE maps herself via map_with_depositor with depositor == account_id.
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &EVE).unwrap();
+
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+			// Deposit is held under AddressMapping (self-funded), just like map().
+			let held = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::AddressMapping.into(),
+				&EVE,
+			);
+			assert!(held > 0);
+
+			// No ExternalAddressMapping hold and no MappingDepositor entry.
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&EVE,
+				),
+				0
+			);
+			assert!(MappingDepositor::<Test>::get(&EVE_ADDR).is_none());
+
+			// Unmapping releases the deposit back to EVE.
+			<Test as Config>::AddressMapper::unmap(&EVE).unwrap();
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE,
+				),
+				0
+			);
+		});
+	}
+
+	/// Idempotency: calling `map_with_depositor(EVE, EVE)` when EVE is already self-mapped
+	/// (via `map_account`) returns Ok without charging an extra deposit or erroring.
+	#[test]
+	fn map_with_depositor_self_idempotent_when_already_self_mapped() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+
+			// EVE self-maps normally first.
+			<Test as Config>::AddressMapper::map(&EVE).unwrap();
+			let held = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::AddressMapping.into(),
+				&EVE,
+			);
+			assert!(held > 0);
+
+			// Second call with depositor == account_id is idempotent: no extra deposit.
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &EVE).unwrap();
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE,
+				),
+				held
+			);
+			assert!(MappingDepositor::<Test>::get(&EVE_ADDR).is_none());
 		});
 	}
 
