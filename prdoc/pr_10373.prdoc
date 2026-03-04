@@ -32,3 +32,5 @@ crates:
   bump: patch
 - name: sp-consensus
   bump: major
+  validate: false
+
