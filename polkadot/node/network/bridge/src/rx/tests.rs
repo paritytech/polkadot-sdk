@@ -1809,7 +1809,15 @@ fn assert_all_peer_set_versions_receive_view_updates(
 			)))
 			.await;
 
-		let actions = network_handle.next_network_actions(peers.len()).await;
+		// Collect actions with a timeout so the test fails fast instead of hanging
+		// if a version is missing its view update send.
+		let mut actions = Vec::with_capacity(peers.len());
+		for _ in 0..peers.len() {
+			match network_handle.next_network_action().timeout(Duration::from_secs(5)).await {
+				Some(action) => actions.push(action),
+				None => break,
+			}
+		}
 
 		for &(peer, version) in &peers {
 			assert!(
