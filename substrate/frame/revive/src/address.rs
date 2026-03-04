@@ -17,8 +17,9 @@
 
 //! Functions that deal contract addresses.
 
-use crate::{Config, Error, HoldReason, OriginalAccount, ensure};
+use crate::{BalanceOf, Config, Error, HoldReason, MappingDepositor, OriginalAccount, ensure};
 use alloc::vec::Vec;
+use codec::MaxEncodedLen;
 use core::marker::PhantomData;
 use frame_support::traits::{fungible::MutateHold, tokens::Precision};
 use sp_core::{Get, H160};
@@ -65,6 +66,30 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// Map an account id without taking any deposit.
 	/// This is only useful for genesis configuration, or benchmarks.
 	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+		Self::map(account_id)
+	}
+
+	/// Create a stateful mapping for `account_id`, holding the deposit from `depositor`
+	/// instead of from `account_id` itself.
+	///
+	/// This is used by [`crate::Pallet::call_with_mappings`] to register a mapping on behalf
+	/// of another account, with the caller (depositor) paying the storage deposit.
+	///
+	/// - Returns `Ok(())` without re-inserting if `account_id` is already correctly mapped —
+	///   including eth-derived accounts that are implicitly mapped (idempotent, no deposit
+	///   charged).
+	/// - Returns [`crate::Error::MappingConflict`] if the derived H160 is already registered
+	///   for a *different* native account.
+	/// - Charges deposit (for both the [`OriginalAccount`] and [`MappingDepositor`] entries)
+	///   from `depositor`.
+	///
+	/// The default implementation ignores `depositor` and delegates to [`Self::map`].
+	/// Implementations that use [`OriginalAccount`] storage (i.e. [`AccountId32Mapper`])
+	/// must override this.
+	fn map_with_depositor(
+		account_id: &T::AccountId,
+		_depositor: &T::AccountId,
+	) -> DispatchResult {
 		Self::map(account_id)
 	}
 
@@ -153,9 +178,65 @@ where
 		Ok(())
 	}
 
+	fn map_with_depositor(
+		account_id: &T::AccountId,
+		depositor: &T::AccountId,
+	) -> DispatchResult {
+		let address = Self::to_address(account_id);
+
+		// If already mapped (eth-derived or via OriginalAccount), just verify
+		// the mapping is consistent; no deposit is charged.
+		if Self::is_mapped(account_id) {
+			ensure!(
+				Self::to_account_id(&address) == *account_id,
+				<Error<T>>::MappingConflict
+			);
+			return Ok(());
+		}
+
+		// Deposit covers:
+		//   OriginalAccount entry : 20 (H160 key) + 32 (AccountId32 value) = 52 bytes
+		//   MappingDepositor entry: 20 (H160 key) + sizeof(T::AccountId, BalanceOf<T>) bytes
+		//
+		// The exact sizes are determined at runtime via MaxEncodedLen so the calculation
+		// stays correct regardless of the concrete AccountId or Balance types.
+		let mapping_depositor_value_bytes =
+			(T::AccountId::max_encoded_len() + BalanceOf::<T>::max_encoded_len()) as u32;
+		let deposit = T::DepositPerByte::get()
+			.saturating_mul((52u32 + 20u32 + mapping_depositor_value_bytes).into())
+			.saturating_add(T::DepositPerItem::get().saturating_mul(2u32.into()));
+
+		// Use a dedicated hold reason so that releasing this deposit later does not
+		// accidentally release unrelated AddressMapping holds the depositor may hold
+		// (e.g. from calling map_account for their own account).
+		T::Currency::hold(&HoldReason::ExternalAddressMapping.into(), depositor, deposit)?;
+
+		<OriginalAccount<T>>::insert(&address, account_id);
+		<MappingDepositor<T>>::insert(&address, (depositor.clone(), deposit));
+		Ok(())
+	}
+
 	fn unmap(account_id: &T::AccountId) -> DispatchResult {
-		// will do nothing if address is not mapped so no check required
-		<OriginalAccount<T>>::remove(Self::to_address(account_id));
+		let address = Self::to_address(account_id);
+
+		// If the mapping was funded by a third-party depositor (via `call_with_mappings`),
+		// release exactly the recorded deposit from that depositor's ExternalAddressMapping hold.
+		// Using the stored amount (not release_all) ensures that only this mapping's deposit
+		// is released, leaving any other ExternalAddressMapping holds the depositor may have
+		// for different mappings intact.
+		if let Some((depositor, deposit)) = <MappingDepositor<T>>::take(&address) {
+			T::Currency::release(
+				&HoldReason::ExternalAddressMapping.into(),
+				&depositor,
+				deposit,
+				Precision::Exact,
+			)?;
+			<OriginalAccount<T>>::remove(&address);
+			return Ok(());
+		}
+
+		// Self-funded mapping: remove the entry and release the self-held deposit.
+		<OriginalAccount<T>>::remove(&address);
 		T::Currency::release_all(
 			&HoldReason::AddressMapping.into(),
 			account_id,
@@ -270,13 +351,14 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 mod test {
 	use super::*;
 	use crate::{
-		AddressMapper, Error,
+		AddressMapper, Error, MappingDepositor, OriginalAccount,
 		test_utils::*,
 		tests::{ExtBuilder, Test},
 	};
 	use frame_support::{
 		assert_err,
-		traits::fungible::{InspectHold, Mutate},
+		traits::fungible::{InspectHold, Mutate, MutateHold},
+		traits::tokens::Precision,
 	};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, hex2array};
@@ -420,4 +502,278 @@ mod test {
 			);
 		});
 	}
+
+	#[test]
+	fn map_with_depositor_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			// ALICE is the depositor (eth-derived, needs funds to pay the deposit)
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&ALICE,
+				),
+				0
+			);
+
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE).unwrap();
+
+			// EVE is now mapped
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR), EVE);
+
+			// Deposit is held from ALICE (depositor) under ExternalAddressMapping, not from EVE
+			assert!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				) > 0
+			);
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE,
+				),
+				0
+			);
+
+			// MappingDepositor storage records ALICE as the depositor (with deposit amount)
+			assert_eq!(
+				MappingDepositor::<Test>::get(&EVE_ADDR).map(|(a, _)| a),
+				Some(ALICE)
+			);
+		});
+	}
+
+	#[test]
+	fn map_with_depositor_idempotent_for_eth_derived() {
+		ExtBuilder::default().build().execute_with(|| {
+			// BOB is the prospective depositor, but no deposit should be taken
+			<Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+			// ALICE is eth-derived: is_mapped returns true without OriginalAccount
+			assert!(<Test as Config>::AddressMapper::is_mapped(&ALICE));
+
+			// map_with_depositor is a no-op: no deposit charged
+			<Test as Config>::AddressMapper::map_with_depositor(&ALICE, &BOB).unwrap();
+
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&BOB,
+				),
+				0
+			);
+			// No MappingDepositor entry was created
+			assert!(MappingDepositor::<Test>::get(&ALICE_ADDR).is_none());
+		});
+	}
+
+	#[test]
+	fn map_with_depositor_idempotent_when_already_mapped() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// First mapping: ALICE pays deposit
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE).unwrap();
+			let deposit = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ExternalAddressMapping.into(),
+				&ALICE,
+			);
+			assert!(deposit > 0);
+
+			// Second call: idempotent, no additional deposit taken
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE).unwrap();
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				deposit
+			);
+		});
+	}
+
+	#[test]
+	fn map_with_depositor_conflict_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Manually plant a conflicting mapping: EVE_ADDR -> ALICE (not EVE)
+			OriginalAccount::<Test>::insert(EVE_ADDR, ALICE);
+
+			// map_with_depositor for EVE fails: EVE_ADDR already maps to a different account
+			assert_err!(
+				<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE),
+				<Error<Test>>::MappingConflict,
+			);
+
+			// No deposit was taken
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				0
+			);
+		});
+	}
+
+	#[test]
+	fn unmap_releases_depositor() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Map EVE with ALICE as depositor
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE).unwrap();
+			let deposit = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ExternalAddressMapping.into(),
+				&ALICE,
+			);
+			assert!(deposit > 0);
+
+			// EVE unmaps: the ExternalAddressMapping hold is released back to ALICE, not EVE
+			<Test as Config>::AddressMapper::unmap(&EVE).unwrap();
+
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				0
+			);
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE,
+				),
+				0
+			);
+			// MappingDepositor entry is cleaned up
+			assert!(MappingDepositor::<Test>::get(&EVE_ADDR).is_none());
+		});
+	}
+
+
+	/// ALICE pays for EVE's mapping and then for a second account's mapping (FRANK).
+	/// Unmapping one must not touch the deposit held for the other.
+	#[test]
+	fn depositor_multiple_mappings_independent() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// A second non-eth-derived account so it also needs a stateful mapping.
+			let frank = AccountId32::new([6u8; 32]);
+
+			// ALICE pays deposits for both EVE and FRANK.
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE).unwrap();
+			<Test as Config>::AddressMapper::map_with_depositor(&frank, &ALICE).unwrap();
+
+			let total_held = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ExternalAddressMapping.into(),
+				&ALICE,
+			);
+			// Both mappings cost the same deposit D in a single test run.
+			let d = total_held / 2;
+			assert!(d > 0);
+			assert_eq!(total_held, 2 * d);
+
+			// Unmapping EVE releases exactly D (EVE's deposit) and leaves FRANK's untouched.
+			<Test as Config>::AddressMapper::unmap(&EVE).unwrap();
+
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert!(<Test as Config>::AddressMapper::is_mapped(&frank));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				d
+			);
+
+			// Unmapping FRANK releases the remaining D.
+			<Test as Config>::AddressMapper::unmap(&frank).unwrap();
+
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&frank));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				0
+			);
+		});
+	}
+
+	/// Verifies that `unmap` releases the **exact** stored deposit even when two mappings were
+	/// registered with different deposit amounts (as would happen if `DepositPerByte` or
+	/// `DepositPerItem` changed between the two `call_with_mappings` calls).
+	///
+	/// The second mapping is constructed directly via storage manipulation so that its stored
+	/// deposit amount differs from the first mapping's amount.
+	#[test]
+	fn depositor_multiple_mappings_different_amounts() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// First mapping (normal path): ALICE pays deposit D1 for EVE.
+			<Test as Config>::AddressMapper::map_with_depositor(&EVE, &ALICE).unwrap();
+			let d1 = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ExternalAddressMapping.into(),
+				&ALICE,
+			);
+			assert!(d1 > 0);
+
+			// Second mapping: simulate a registration that happened when the deposit config was
+			// different. We construct the state manually so D2 != D1.
+			let frank = AccountId32::new([6u8; 32]);
+			let frank_addr = <Test as Config>::AddressMapper::to_address(&frank);
+			let d2 = d1 + 7; // arbitrary "different past deposit"
+
+			<Test as Config>::Currency::hold(
+				&HoldReason::ExternalAddressMapping.into(),
+				&ALICE,
+				d2,
+			)
+			.unwrap();
+			OriginalAccount::<Test>::insert(frank_addr, frank.clone());
+			MappingDepositor::<Test>::insert(frank_addr, (ALICE.clone(), d2));
+
+			// Total held from ALICE is exactly D1 + D2.
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				d1 + d2
+			);
+
+			// Unmapping EVE releases exactly D1; D2 must remain held for FRANK.
+			<Test as Config>::AddressMapper::unmap(&EVE).unwrap();
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert!(<Test as Config>::AddressMapper::is_mapped(&frank));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				d2
+			);
+
+			// Unmapping FRANK releases exactly D2; nothing should be left.
+			<Test as Config>::AddressMapper::unmap(&frank).unwrap();
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&frank));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::ExternalAddressMapping.into(),
+					&ALICE,
+				),
+				0
+			);
+		});
+	}
+
 }

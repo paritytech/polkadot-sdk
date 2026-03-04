@@ -59,7 +59,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	BoundedVec,
@@ -613,6 +613,15 @@ pub mod pallet {
 		PrecompileDelegateDenied = 0x40,
 		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 		EcdsaRecoveryFailed = 0x41,
+		/// An address mapping offset in [`Call::call_with_mappings`] points outside the bounds
+		/// of the supplied data, or the value at that offset cannot be decoded as `T::AccountId`.
+		MappingOffsetOutOfBounds = 0x42,
+		/// Two or more address mapping offset ranges in [`Call::call_with_mappings`] overlap, or
+		/// the offsets are not provided in ascending order.
+		MappingOffsetOverlap = 0x43,
+		/// The native address at an offset in [`Call::call_with_mappings`] maps to an H160 that
+		/// is already registered for a different native address.
+		MappingConflict = 0x44,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -625,8 +634,15 @@ pub mod pallet {
 		CodeUploadDepositReserve,
 		/// The Pallet has reserved it for storage deposit.
 		StorageDepositReserve,
-		/// Deposit for creating an address mapping in [`OriginalAccount`].
+		/// Deposit for creating an address mapping in [`OriginalAccount`] (self-funded).
 		AddressMapping,
+		/// Deposit for creating an address mapping on behalf of another account via
+		/// [`Pallet::call_with_mappings`] (externally funded).
+		///
+		/// Stored separately from [`HoldReason::AddressMapping`] so that a depositor who pays
+		/// for multiple mappings can have each deposit released individually on `unmap_account`
+		/// without releasing unrelated holds.
+		ExternalAddressMapping,
 	}
 
 	#[derive(
@@ -677,6 +693,21 @@ pub mod pallet {
 	/// use it with this pallet.
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
+
+	/// Tracks who paid the storage deposit for a mapping created by a third party via
+	/// [`Pallet::call_with_mappings`], and how much was deposited.
+	///
+	/// Only present when the deposit was **not** paid by the mapped account itself (i.e. when a
+	/// caller used [`Pallet::call_with_mappings`] to register the mapping on behalf of another
+	/// account). When [`Pallet::unmap_account`] is called the deposit is refunded to the
+	/// depositor stored here rather than to the mapped account.
+	///
+	/// The deposit amount is stored alongside the depositor so that the exact hold can be
+	/// released via [`HoldReason::ExternalAddressMapping`] without affecting any other holds
+	/// the depositor may have for unrelated mappings.
+	#[pallet::storage]
+	pub(crate) type MappingDepositor<T: Config> =
+		StorageMap<_, Identity, H160, (T::AccountId, BalanceOf<T>)>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
@@ -1043,6 +1074,17 @@ pub mod pallet {
 				"Maximal storage size {} exceeds the storage limit {}",
 				max_storage_size,
 				storage_size_limit
+			);
+
+			// `call_with_mappings` embeds a native `T::AccountId` in a 32-byte ABI slot.
+			// The encoding must fit; this holds for all standard account types
+			// (AccountId32: 32 B, H160: 20 B, u64: 8 B).
+			assert!(
+				T::AccountId::max_encoded_len() <= 32,
+				"`T::AccountId` SCALE-encodes to {} bytes, which exceeds the 32-byte ABI slot \
+				 used by `call_with_mappings`. Choose an `AccountId` type whose \
+				 `MaxEncodedLen` is at most 32.",
+				T::AccountId::max_encoded_len()
 			);
 		}
 	}
@@ -1560,6 +1602,149 @@ pub mod pallet {
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+		}
+
+		/// Call a smart contract, substituting native `T::AccountId` values embedded
+		/// in the call data with their derived Ethereum [`H160`] addresses.
+		///
+		/// This is a Substrate-signed variant of [`Call::eth_call`] intended for
+		/// callers whose identity is a native `T::AccountId` (e.g. `AccountId32`).
+		///
+		/// # How to embed native addresses in `data`
+		///
+		/// The `data` parameter carries ABI-encoded Solidity call data: a 4-byte
+		/// function selector followed by ABI-encoded arguments.  In standard Solidity
+		/// ABI encoding every argument occupies a **32-byte aligned slot**.  For an
+		/// `address` argument the slot contains the 20-byte H160 right-aligned with
+		/// 12 leading zero bytes:
+		///
+		/// ```text
+		/// slot (32 bytes): [ 0x00 × 12 | h160_byte_0 … h160_byte_19 ]
+		/// ```
+		///
+		/// With this extrinsic the caller may instead place a **SCALE-encoded
+		/// `T::AccountId`** in such a slot, right-aligned with zero padding on the
+		/// left to fill the full 32 bytes:
+		///
+		/// ```text
+		/// slot (32 bytes): [ 0x00 × (32 - max_encoded_len) | scale(AccountId) ]
+		/// ```
+		///
+		/// For `AccountId32` — the common production case — `max_encoded_len()` is
+		/// 32, so there is no padding and the slot is simply the raw 32 AccountId
+		/// bytes.
+		///
+		/// # `address_mappings` parameter
+		///
+		/// `address_mappings` is a **sorted** (ascending), non-overlapping list of
+		/// **byte offsets** into `data`.  Each offset marks the start of a 32-byte
+		/// ABI slot that contains a native `T::AccountId` instead of an H160.
+		///
+		/// The extrinsic will, for each such offset:
+		///
+		/// 1. SCALE-decode `T::AccountId` from `data[offset + padding .. offset + 32]`
+		///    where `padding = 32 - T::AccountId::max_encoded_len()`.
+		/// 2. Derive the corresponding [`H160`] via [`T::AddressMapper::to_address`].
+		/// 3. Register an [`OriginalAccount`] reverse-mapping so the H160 can later
+		///    be resolved back to the native account.  The storage deposit for this
+		///    entry is charged to the extrinsic **caller** and will be refunded when
+		///    [`Call::unmap_account`] is called by the mapped account.
+		///    If a correct mapping already exists no deposit is charged (idempotent).
+		///    If the H160 is already mapped to a *different* native account the
+		///    extrinsic fails with [`Error::MappingConflict`].
+		/// 4. Overwrite `data[offset .. offset + 32]` with the ABI-encoded H160:
+		///    12 zero bytes followed by the 20-byte address.
+		///
+		/// After all substitutions the modified `data` is forwarded to
+		/// [`Self::bare_call`] exactly as it would be for a regular Substrate call.
+		///
+		/// # Precondition
+		///
+		/// `T::AccountId::max_encoded_len() <= 32` must hold.  This is true for all
+		/// standard account types (`AccountId32`: 32 B, `H160`: 20 B, `u64`: 8 B).
+		/// This invariant is enforced by [`Pallet::integrity_test`].
+		///
+		/// # Parameters
+		///
+		/// - `dest`:             H160 address of the contract to call.
+		/// - `value`:            Value to transfer (in native balance units).
+		/// - `weight_limit`:     Maximum weight for contract execution.
+		/// - `storage_deposit_limit`: Maximum storage deposit for contract execution
+		///                       (does **not** cover the mapping deposits above).
+		/// - `data`:             ABI-encoded call data with native addresses embedded
+		///                       at the specified offsets.
+		/// - `address_mappings`: Sorted, non-overlapping byte offsets of 32-byte ABI
+		///                       slots in `data` that contain native addresses.
+		#[pallet::call_index(13)]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::call_with_mappings(address_mappings.len() as u32)
+				.saturating_add(*weight_limit)
+		)]
+		pub fn call_with_mappings(
+			origin: OriginFor<T>,
+			dest: H160,
+			#[pallet::compact] value: BalanceOf<T>,
+			weight_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			mut data: Vec<u8>,
+			address_mappings: Vec<u32>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
+			let caller = ensure_signed(origin.clone())?;
+
+			// Validate offsets: must be pre-sorted, within bounds, non-overlapping.
+			// The condition `offset >= prev_end` covers both unsorted and overlapping inputs.
+			let mut prev_end: u32 = 0;
+			for &offset in &address_mappings {
+				ensure!(offset >= prev_end, <Error<T>>::MappingOffsetOverlap);
+				let end = offset
+					.checked_add(32)
+					.filter(|&e| e as usize <= data.len())
+					.ok_or(<Error<T>>::MappingOffsetOutOfBounds)?;
+				prev_end = end;
+			}
+
+			let account_encoding_len = T::AccountId::max_encoded_len();
+			let padding = 32usize.saturating_sub(account_encoding_len);
+
+			for &offset in &address_mappings {
+				let start = offset as usize;
+
+				// SCALE-decode T::AccountId from the right-aligned bytes within the 32-byte slot.
+				let native_account = T::AccountId::decode(&mut &data[start + padding..start + 32])
+					.map_err(|_| <Error<T>>::MappingOffsetOutOfBounds)?;
+				let h160 = T::AddressMapper::to_address(&native_account);
+
+				// Register mapping if not already present; error on conflict.
+				T::AddressMapper::map_with_depositor(&native_account, &caller)?;
+
+				// Overwrite the slot with the ABI-encoded H160: 12 zero bytes + 20 address bytes.
+				data[start..start + 12].fill(0u8);
+				data[start + 12..start + 32].copy_from_slice(h160.as_bytes());
+			}
+
+			let mut output = Self::bare_call(
+				origin,
+				dest,
+				Pallet::<T>::convert_native_to_evm(value),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: storage_deposit_limit,
+				},
+				data,
+				&ExecConfig::new_substrate_tx(),
+			);
+
+			if let Ok(return_value) = &output.result &&
+				return_value.did_revert()
+			{
+				output.result = Err(<Error<T>>::ContractReverted.into());
+			}
+			dispatch_result(
+				output.result,
+				output.weight_consumed,
+				<T as Config>::WeightInfo::call_with_mappings(address_mappings.len() as u32),
+			)
 		}
 	}
 }

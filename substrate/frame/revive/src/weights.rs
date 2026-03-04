@@ -89,6 +89,7 @@ pub trait WeightInfo {
 	fn map_account() -> Weight;
 	fn unmap_account() -> Weight;
 	fn dispatch_as_fallback_account() -> Weight;
+	fn call_with_mappings(n: u32) -> Weight;
 	fn noop_host_fn(r: u32, ) -> Weight;
 	fn seal_caller() -> Weight;
 	fn seal_origin() -> Weight;
@@ -538,6 +539,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 19_441_000 picoseconds.
 		Weight::from_parts(19_775_000, 3846)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
+	/// Stub weight for `call_with_mappings`.
+	/// The range of component `n` is `[0, ...]` where `n` is the number of address mappings.
+	///
+	/// TODO: replace with proper benchmark output.
+	fn call_with_mappings(n: u32) -> Weight {
+		Self::call().saturating_add(Self::map_account().saturating_mul(n.into()))
 	}
 	/// The range of component `r` is `[0, 1600]`.
 	fn noop_host_fn(r: u32, ) -> Weight {
@@ -1827,6 +1835,13 @@ impl WeightInfo for () {
 		// Minimum execution time: 19_441_000 picoseconds.
 		Weight::from_parts(19_775_000, 3846)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
+	}
+	/// Stub weight for `call_with_mappings`.
+	/// The range of component `n` is `[0, ...]` where `n` is the number of address mappings.
+	///
+	/// TODO: replace with proper benchmark output.
+	fn call_with_mappings(n: u32) -> Weight {
+		Self::call().saturating_add(Self::map_account().saturating_mul(n.into()))
 	}
 	/// The range of component `r` is `[0, 1600]`.
 	fn noop_host_fn(r: u32, ) -> Weight {

@@ -23,7 +23,8 @@ use super::{
 };
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	DeletionQueueCounter, Error, ExecConfig, HoldReason, MappingDepositor, Origin, Pallet,
+	StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -51,7 +52,7 @@ use frame_support::{
 	storage::child,
 	traits::{
 		OnIdle, OnInitialize,
-		fungible::{Balanced, BalancedHold, Inspect, Mutate},
+		fungible::{Balanced, BalancedHold, Inspect, InspectHold, Mutate},
 		tokens::Preservation,
 	},
 	weights::{Weight, WeightMeter},
@@ -5482,6 +5483,120 @@ fn call_with_gas_limit() {
 			builder::call(caller_addr)
 				.data((callee_addr, 100_000_000_000u64).encode())
 				.build()
+		);
+	});
+}
+
+#[test]
+fn call_with_mappings_offset_out_of_bounds() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// data has 31 bytes; offset 0 requires data[0..32] which is out of bounds
+		assert_err_ignore_postinfo!(
+			Pallet::<Test>::call_with_mappings(
+				RuntimeOrigin::signed(ALICE),
+				BOB_ADDR,
+				0u64,
+				WEIGHT_LIMIT,
+				0u64,
+				vec![0u8; 31],
+				vec![0u32],
+			),
+			<Error<Test>>::MappingOffsetOutOfBounds,
+		);
+	});
+}
+
+#[test]
+fn call_with_mappings_overlapping_offsets() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// slot at offset 0 ends at byte 32; slot at offset 10 starts within that range
+		assert_err_ignore_postinfo!(
+			Pallet::<Test>::call_with_mappings(
+				RuntimeOrigin::signed(ALICE),
+				BOB_ADDR,
+				0u64,
+				WEIGHT_LIMIT,
+				0u64,
+				vec![0u8; 64],
+				vec![0u32, 10u32],
+			),
+			<Error<Test>>::MappingOffsetOverlap,
+		);
+	});
+}
+
+#[test]
+fn call_with_mappings_unsorted_offsets() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// offsets must be in ascending order; [32, 0] is not sorted
+		assert_err_ignore_postinfo!(
+			Pallet::<Test>::call_with_mappings(
+				RuntimeOrigin::signed(ALICE),
+				BOB_ADDR,
+				0u64,
+				WEIGHT_LIMIT,
+				0u64,
+				vec![0u8; 64],
+				vec![32u32, 0u32],
+			),
+			<Error<Test>>::MappingOffsetOverlap,
+		);
+	});
+}
+
+#[test]
+fn call_with_mappings_registers_mapping_and_calls_contract() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Build call data: a single 32-byte slot containing EVE's AccountId32 bytes.
+		// AccountId32 SCALE-encodes to its raw 32 bytes; EVE = [5u8; 32].
+		use codec::Encode;
+		let eve_encoded = EVE.encode(); // [5u8; 32]
+		assert_eq!(eve_encoded.len(), 32);
+		let data = eve_encoded.clone();
+
+		// EVE is not yet mapped
+		assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+		// Call the contract with address_mappings = [0]: offset 0 holds EVE's AccountId32
+		assert_ok!(Pallet::<Test>::call_with_mappings(
+			RuntimeOrigin::signed(ALICE),
+			addr,
+			0u64,
+			WEIGHT_LIMIT,
+			0u64,
+			data,
+			vec![0u32],
+		));
+
+		// EVE is now mapped (OriginalAccount entry was registered)
+		assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+		assert_eq!(<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR), EVE);
+
+		// ALICE (the caller) paid the deposit under ExternalAddressMapping
+		assert!(
+			<Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ExternalAddressMapping.into(),
+				&ALICE,
+			) > 0
+		);
+
+		// MappingDepositor records ALICE as the depositor for EVE's mapping (with deposit amount)
+		assert_eq!(
+			MappingDepositor::<Test>::get(&EVE_ADDR).map(|(a, _)| a),
+			Some(ALICE)
 		);
 	});
 }
