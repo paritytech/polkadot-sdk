@@ -9908,58 +9908,7 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-<<<<<<< HEAD
-version = "0.13.0"
-=======
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c666ef772d123a7643323ad4979c30dd825e9c68ec1aa5b387a6c9a9871c11ea"
-dependencies = [
- "async-trait",
- "bs58",
- "bytes",
- "cid 0.11.1",
- "ed25519-dalek",
- "futures",
- "futures-timer",
- "hickory-resolver 0.25.2",
- "indexmap 2.9.0",
- "libc",
- "mockall",
- "multiaddr 0.17.1",
- "multihash 0.17.0",
- "network-interface",
- "parking_lot 0.12.3",
- "pin-project",
- "prost 0.13.5",
- "prost-build 0.13.2",
- "rand 0.8.5",
- "serde",
- "sha2 0.10.9",
- "simple-dns 0.9.3",
- "smallvec",
- "snow",
- "socket2 0.5.9",
- "thiserror 2.0.12",
- "tokio",
- "tokio-stream",
- "tokio-tungstenite 0.27.0",
- "tokio-util",
- "tracing",
- "uint 0.10.0",
- "unsigned-varint 0.8.0",
- "url",
- "x25519-dalek",
- "x509-parser 0.17.0",
- "yamux 0.13.9",
- "yasna",
- "zeroize",
-]
-
-[[package]]
-name = "litep2p"
 version = "0.13.2"
->>>>>>> a5473371 (Upgrade litep2p v0.13.0 -> v0.13.2 (#11204))
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fb34d4675b8eadc4a473c46b788439d34d30c247cd5f3f286162ee25e3c4f97"
 dependencies = [
@@ -20295,11 +20244,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
-<<<<<<< HEAD
  "litep2p",
-=======
- "litep2p 0.13.2",
->>>>>>> a5473371 (Upgrade litep2p v0.13.0 -> v0.13.2 (#11204))
  "log",
  "mockall",
  "multistream-select",
@@ -20519,11 +20464,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
-<<<<<<< HEAD
  "litep2p",
-=======
- "litep2p 0.13.2",
->>>>>>> a5473371 (Upgrade litep2p v0.13.0 -> v0.13.2 (#11204))
  "log",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
