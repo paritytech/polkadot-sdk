@@ -24,6 +24,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
-subxt = { workspace = true, features = ["native", "jsonrpsee"] }
+subxt = { workspace = true, features = ["jsonrpsee", "native"] }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }

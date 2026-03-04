@@ -41,7 +41,9 @@ use jsonrpsee::{
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
-use sp_statement_store::{Statement, StatementEvent, StatementAllowance, SubmitResult, Topic, TopicFilter};
+use sp_statement_store::{
+	Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+};
 use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
 use subxt::{
 	config::{
