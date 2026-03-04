@@ -464,7 +464,6 @@ where
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
 				experimental_collator_protocol,
-				slot_duration_millis: slot_duration.as_millis(),
 				reputation_config,
 			})
 		};

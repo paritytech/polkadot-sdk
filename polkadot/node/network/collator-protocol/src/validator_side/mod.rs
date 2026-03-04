@@ -243,6 +243,10 @@ const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
 #[cfg(test)]
 const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
 
+/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
+/// All relay chains (Polkadot, Kusama, Westend, Rococo) use 6000ms.
+const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
 #[derive(Debug)]
 struct CollatingPeerState {
 	collator_id: CollatorId,
@@ -611,9 +615,6 @@ struct State {
 
 	/// Per active leaf scheduling info for V3 scheduling parent validation.
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
-
-	/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
-	slot_duration_millis: u64,
 
 	/// State tracked per scheduling parent in the implicit view.
 	/// Includes collation tracking, core assignment, and hold-off state.
@@ -1732,11 +1733,10 @@ where
 	//   leaf itself.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
 		let now = sp_timestamp::Timestamp::current();
-		let slot_duration_ms = state.slot_duration_millis;
 
 		let scheduling_parent_valid = state.leaf_scheduling_info.iter().any(|(leaf_hash, info)| {
 			let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
-			if slot_age_ms < slot_duration_ms {
+			if slot_age_ms < RELAY_CHAIN_SLOT_DURATION_MILLIS {
 				scheduling_parent == info.parent_hash
 			} else {
 				scheduling_parent == *leaf_hash
@@ -1986,9 +1986,9 @@ where
 			let babe_pre_digest =
 				header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest());
 			if let Some(pre_digest) = babe_pre_digest {
-				let slot_duration_ms = state.slot_duration_millis;
-				if let Some(slot_timestamp) =
-					pre_digest.slot().timestamp(SlotDuration::from_millis(slot_duration_ms))
+				if let Some(slot_timestamp) = pre_digest
+					.slot()
+					.timestamp(SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS))
 				{
 					state
 						.leaf_scheduling_info
@@ -2363,7 +2363,6 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
-	slot_duration_millis: u64,
 ) -> std::result::Result<(), SubsystemError> {
 	gum::info!(target: LOG_TARGET, "Running legacy collator protocol");
 	run_inner(
@@ -2375,7 +2374,6 @@ pub(crate) async fn run<Context>(
 		REPUTATION_CHANGE_INTERVAL,
 		ah_invulnerables,
 		hold_off_duration.unwrap_or(HOLD_OFF_DURATION_DEFAULT_VALUE),
-		slot_duration_millis,
 	)
 	.await
 }
@@ -2390,7 +2388,6 @@ async fn run_inner<Context>(
 	reputation_interval: Duration,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Duration,
-	slot_duration_millis: u64,
 ) -> std::result::Result<(), SubsystemError> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
@@ -2400,7 +2397,6 @@ async fn run_inner<Context>(
 		reputation,
 		ah_invulnerables,
 		hold_off_duration,
-		slot_duration_millis,
 		..Default::default()
 	};
 
