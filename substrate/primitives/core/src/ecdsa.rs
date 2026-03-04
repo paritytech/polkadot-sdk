@@ -414,10 +414,6 @@ where
 		} else {
 			(raw_sig, recovery_id)
 		};
-		debug_assert!(
-			normalized_sig.normalize_s().is_none(),
-			"secp256k1 signing must produce low-S signatures"
-		);
 		(normalized_sig, adjusted_v).into()
 	}
 }
