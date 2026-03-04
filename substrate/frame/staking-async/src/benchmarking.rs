@@ -949,6 +949,16 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_max_commission() {
+		let max_commission = Perbill::max_value();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, max_commission);
+
+		assert_eq!(MaxCommission::<T>::get(), Perbill::from_percent(100));
+	}
+
+	#[benchmark]
 	fn restore_ledger() -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
