@@ -1459,8 +1459,9 @@ pub mod pallet {
 		}
 
 		/// Kick a member from the society. Callable only by the Signed origin of the Founder.
+		///
 		/// The member is suspended and moved to the suspended members list.
-		/// Half of the member's unclaimed payouts are slashed.
+		/// All of the member's unclaimed payouts are slashed.
 		///
 		/// Parameters:
 		/// - `who`: The member to be suspended.
@@ -1477,7 +1478,7 @@ pub mod pallet {
 				.payouts
 				.iter()
 				.fold(BalanceOf::<T, I>::zero(), |acc, x| acc.saturating_add(x.1));
-			Self::slash_payout(&who, total_payout / 2u32.into());
+			Self::slash_payout(&who, total_payout);
 
 			Self::suspend_member(&who)?;
 			Ok(())
