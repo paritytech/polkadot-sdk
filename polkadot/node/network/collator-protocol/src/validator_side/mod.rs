@@ -1399,10 +1399,9 @@ impl AdvertisementError {
 			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
 				Some(COST_UNEXPECTED_MESSAGE)
 			},
-			UnknownPeer |
-			SecondedLimitReached |
-			BlockedByBacking |
-			SchedulingParentNotValid => None,
+			UnknownPeer | SecondedLimitReached | BlockedByBacking | SchedulingParentNotValid => {
+				None
+			},
 		}
 	}
 }
@@ -2395,13 +2394,8 @@ async fn run_inner<Context>(
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state = State {
-		metrics,
-		reputation,
-		ah_invulnerables,
-		hold_off_duration,
-		..Default::default()
-	};
+	let mut state =
+		State { metrics, reputation, ah_invulnerables, hold_off_duration, ..Default::default() };
 
 	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);
