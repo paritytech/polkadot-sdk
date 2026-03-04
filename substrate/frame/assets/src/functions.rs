@@ -993,7 +993,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					asset_id: id,
 					source: owner.clone(),
 					delegate: delegate.clone(),
-					amount,
+					new_amount: amount,
 				});
 				return Ok(());
 			}
@@ -1032,7 +1032,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			asset_id: id,
 			source: owner.clone(),
 			delegate: delegate.clone(),
-			amount,
+			new_amount: amount,
 		});
 
 		Ok(())

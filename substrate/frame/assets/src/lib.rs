@@ -691,12 +691,12 @@ pub mod pallet {
 		/// Some assets Debt was destroyed (and assets issued).
 		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
 		/// The approval amount for a delegate was set (replaced).
-		/// An `amount` of zero means the approval was revoked.
+		/// A `new_amount` of zero means the approval was revoked.
 		ApprovalSet {
 			asset_id: T::AssetId,
 			source: T::AccountId,
 			delegate: T::AccountId,
-			amount: T::Balance,
+			new_amount: T::Balance,
 		},
 	}
 
