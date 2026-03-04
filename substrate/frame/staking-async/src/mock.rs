@@ -83,6 +83,7 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
+	pub static VestingDurationBlocks: BlockNumber = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub static NominatorFastUnbondDuration: EraIndex = 2;
 	pub static HistoryDepth: u32 = 80;
@@ -439,39 +440,41 @@ impl EraPayoutV2<Balance> for OneTokenPerMillisecond {
 	}
 }
 
-impl crate::pallet::pallet::Config for Test {
-	type RuntimeHoldReason = RuntimeHoldReason;
+impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CurrencyBalance = Balance;
+	type CurrencyToVote = SaturatingCurrencyToVote;
+	type ElectionProvider = TestElectionProvider;
+	type NominationsQuota = WeightedNominationsQuota<16>;
+	type HistoryDepth = HistoryDepth;
 	type RewardRemainder = RewardRemainderMock;
+	type Slash = Dap;
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
-	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
-	type MaxExposurePageSize = MaxExposurePageSize;
-	type MaxValidatorSet = MaxValidatorSet;
-	type ElectionProvider = TestElectionProvider;
-	type VoterList = VoterBagsList;
-	type TargetList = UseValidatorsMap<Self>;
-	type NominationsQuota = WeightedNominationsQuota<16>;
-	type MaxUnlockingChunks = MaxUnlockingChunks;
-	type HistoryDepth = HistoryDepth;
+	type PlanningEraOffset = PlanningEraOffset;
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
+	type SlashDeferDuration = SlashDeferDuration;
+	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
+	type RewardProvider = Dap;
+	type UnclaimedRewardSink = Dap;
+	type EraPotAccountProvider = SequentialTest;
+	type MaxExposurePageSize = MaxExposurePageSize;
+	type MaxValidatorSet = MaxValidatorSet;
+	type VoterList = VoterBagsList;
+	type TargetList = UseValidatorsMap<Self>;
+	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
-	type PlanningEraOffset = PlanningEraOffset;
-	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;
-	type CurrencyBalance = Balance;
-	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = Dap;
-	type RewardProvider = Dap;
-	type UnclaimedRewardSink = Dap;
-	type EraPotAccountProvider = SequentialTest;
-	type StakerRewardCalculator = crate::reward::DefaultStakerRewardCalculator;
+	type Filter = MockedRestrictList;
+	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator;
+	type VestingDuration = VestingDurationBlocks;
+	type ValidatorIncentivePayout = ImmediateIncentivePayout<Balances>;
 	type WeightInfo = ();
 }
 
