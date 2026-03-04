@@ -987,7 +987,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Currency::unreserve(owner, approval.deposit);
 				d.approvals.saturating_dec();
 			} else {
-				// No approval to revoke, just return Ok.
+				// No approval to revoke — still emit event for consistency with the
+				// ERC-20 Approval log that the precompile always emits on success.
+				Self::deposit_event(Event::ApprovedSetAmount {
+					asset_id: id,
+					source: owner.clone(),
+					delegate: delegate.clone(),
+					amount,
+				});
 				return Ok(());
 			}
 		} else {
