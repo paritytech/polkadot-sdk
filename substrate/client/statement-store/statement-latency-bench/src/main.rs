@@ -40,7 +40,6 @@ use jsonrpsee::{
 };
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
-use serde_json;
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
 use sp_statement_store::{Statement, StatementEvent, StatementAllowance, SubmitResult, Topic, TopicFilter};
 use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
@@ -204,8 +203,6 @@ impl Config for BenchConfig {
 	type ExtrinsicParams = BenchExtrinsicParams<Self>;
 	type AssetId = <PolkadotConfig as Config>::AssetId;
 }
-
-const STATEMENT_EXPIRY_SECS: u32 = 600; // 10 minutes
 
 #[derive(Parser, Debug)]
 #[command(name = "statement-latency-bench")]
