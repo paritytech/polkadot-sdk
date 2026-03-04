@@ -49,11 +49,19 @@ fn staker_reward_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance
 
 /// Finds the validator incentive amount for a given stash from events.
 fn incentive_paid_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	incentive_paid_details(stash, events).map(|(amount, _)| amount)
+}
+
+/// Finds the validator incentive amount and destination for a given stash from events.
+fn incentive_paid_details(
+	stash: AccountId,
+	events: &[Event<Test>],
+) -> Option<(Balance, RewardDestination<AccountId>)> {
 	events.iter().find_map(|e| match e {
-		Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
 			if *validator_stash == stash =>
 		{
-			Some(*amount)
+			Some((*amount, dest.clone()))
 		},
 		_ => None,
 	})
@@ -336,7 +344,7 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		let alice_balance_before = asset::total_balance::<Test>(&alice);
 
 		// WHEN: Payout rewards
-		mock::make_all_reward_payment(2);
+		make_all_reward_payment(2);
 
 		// THEN: Validator receives both staker reward and incentive bonus
 		let events = staking_events_since_last_call();
@@ -527,8 +535,6 @@ fn changing_budget_allocation_affects_rewards() {
 		// GIVEN: Era 1 with no validator incentive
 		let alice = 11; // validator
 
-		setup_incentive_config();
-
 		// Era 1: 50% staker, 0% incentive
 		setup_incentive_with_budget(50, 0);
 
@@ -567,8 +573,6 @@ fn lowering_nominator_rewards_via_budget_adjustment() {
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
-		setup_incentive_config();
-
 		// GIVEN: Era 1 baseline with 45% staker rewards
 		setup_incentive_with_budget(45, 0);
 
@@ -588,7 +592,7 @@ fn lowering_nominator_rewards_via_budget_adjustment() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		mock::make_all_reward_payment(2);
+		make_all_reward_payment(2);
 		let era2_events = staking_events_since_last_call();
 		let bob_reward_era2 =
 			staker_reward_for(bob, &era2_events).expect("Bob should receive reward");
@@ -620,156 +624,270 @@ fn extreme_budget_scenarios_validator_heavy() {
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: Verify both staker rewards and validator incentive
-		let alice_staker_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-				_ => None,
-			})
-			.expect("Alice should receive staker reward");
+		// THEN: Incentive (40% budget) should exceed staker reward (10% budget)
+		let alice_staker_reward =
+			staker_reward_for(alice, &events).expect("Alice should receive staker reward");
+		let bob_staker_reward =
+			staker_reward_for(bob, &events).expect("Bob should receive staker reward");
+		let alice_incentive =
+			incentive_paid_for(alice, &events).expect("Alice should receive incentive");
 
-		let bob_staker_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive staker reward");
+		// Alice's total should be >2x Bob's (who only gets staker reward)
+		let alice_total = alice_staker_reward + alice_incentive;
+		assert!(
+			alice_total > bob_staker_reward * 2,
+			"Alice total ({alice_total}) should be >2x Bob's staker reward ({bob_staker_reward})"
+		);
 
-		// Validator incentive pot is 4x the staker pot, so incentive should be significant
-		let validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(2);
-		assert!(validator_allocation > 0, "Validator allocation should be non-zero");
-
-		let alice_validator_incentive_opt = events.iter().find_map(|e| match e {
-			Event::ValidatorIncentivePaid { validator_stash, amount, .. }
-				if *validator_stash == alice =>
-			{
-				Some(*amount)
-			},
-			_ => None,
-		});
-
-		// If the validator incentive pot was allocated, Alice should receive it
-		if let Some(alice_validator_incentive) = alice_validator_incentive_opt {
-			// Alice's total = staker_reward + validator_incentive
-			// This total should be much more than Bob's (who only gets staker reward)
-			let alice_total = alice_staker_reward + alice_validator_incentive;
-			assert!(
-				alice_total > bob_staker_reward * 2,
-				"Alice total (staker: {} + incentive: {} = {}) should be >2x Bob's staker reward ({})",
-				alice_staker_reward,
-				alice_validator_incentive,
-				alice_total,
-				bob_staker_reward
-			);
-
-			// Verify the incentive is actually substantial relative to staker reward
-			assert!(
-				alice_validator_incentive > alice_staker_reward,
-				"Validator incentive ({}) should exceed staker reward ({}) with 40% vs 10% budget",
-				alice_validator_incentive,
-				alice_staker_reward
-			);
-		} else {
-			// If no validator incentive was paid despite allocation, that's a problem
-			panic!(
-				"Validator incentive was allocated ({}) but not paid. Events: {:?}",
-				validator_allocation, events
-			);
-		}
+		// 40% incentive budget vs 10% staker budget
+		assert!(
+			alice_incentive > alice_staker_reward,
+			"Incentive ({alice_incentive}) should exceed staker reward ({alice_staker_reward})"
+		);
 	});
 }
 
 #[test]
 fn nominator_apy_decreases_as_validator_incentive_increases() {
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Three scenarios with increasing validator incentive
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		// WHEN: Scenario 1 - no validator incentive
-		let budget1 = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(50),
-			validator_self_stake_incentive: Perbill::from_percent(0),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget1);
-
+		// Scenario 1: 50% staker, 0% incentive
+		setup_incentive_with_budget(50, 0);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 		make_all_reward_payment(1);
-		let bob_reward_scenario1 = staking_events_since_last_call()
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive reward");
+		let events1 = staking_events_since_last_call();
+		let bob_s1 = staker_reward_for(bob, &events1).expect("Bob should receive reward");
 
-		// WHEN: Scenario 2 - moderate validator incentive
-		let budget2 = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(40),
-			validator_self_stake_incentive: Perbill::from_percent(10),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget2);
-
+		// Scenario 2: 40% staker, 10% incentive
+		setup_incentive_with_budget(40, 10);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
-		mock::make_all_reward_payment(2);
-		let bob_reward_scenario2 = staking_events_since_last_call()
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive reward");
+		make_all_reward_payment(2);
+		let events2 = staking_events_since_last_call();
+		let bob_s2 = staker_reward_for(bob, &events2).expect("Bob should receive reward");
 
-		// WHEN: Scenario 3 - high validator incentive
-		let budget3 = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(25),
-			validator_self_stake_incentive: Perbill::from_percent(25),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget3);
-
+		// Scenario 3: 25% staker, 25% incentive
+		setup_incentive_with_budget(25, 25);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(4);
 		let _ = staking_events_since_last_call();
-		mock::make_all_reward_payment(3);
-		let bob_reward_scenario3 = staking_events_since_last_call()
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive reward");
+		make_all_reward_payment(3);
+		let events3 = staking_events_since_last_call();
+		let bob_s3 = staker_reward_for(bob, &events3).expect("Bob should receive reward");
 
 		// THEN: Nominator rewards decrease as validator incentive increases
-		assert!(
-			bob_reward_scenario1 > bob_reward_scenario2,
-			"S1: {}, S2: {}",
-			bob_reward_scenario1,
-			bob_reward_scenario2
-		);
-		assert!(
-			bob_reward_scenario2 > bob_reward_scenario3,
-			"S2: {}, S3: {}",
-			bob_reward_scenario2,
-			bob_reward_scenario3
-		);
+		assert!(bob_s1 > bob_s2, "S1: {bob_s1}, S2: {bob_s2}");
+		assert!(bob_s2 > bob_s3, "S2: {bob_s2}, S3: {bob_s3}");
 
-		let ratio = bob_reward_scenario1 as f64 / bob_reward_scenario3 as f64;
-		assert!(ratio > 1.5, "Ratio: {}", ratio);
+		// 50% -> 25% staker budget means ~2x reduction in nominator reward
+		let ratio = bob_s1 as f64 / bob_s3 as f64;
+		assert!(ratio > 1.5, "Ratio: {ratio}");
+	});
+}
+
+// ===== Tests for RewardDestination variants =====
+
+#[test]
+fn validator_incentive_with_account_destination() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with RewardDestination::Account(other)
+		let alice = 11; // validator
+		let reward_account = 999; // custom reward account
+
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(reward_account)
+		));
+
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let reward_account_balance_before = asset::total_balance::<Test>(&reward_account);
+
+		// WHEN: Payout rewards
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: Incentive event records the custom account destination
+		let (incentive, dest) = incentive_paid_details(alice, &events)
+			.expect("Validator should receive incentive");
+		assert_eq!(dest, RewardDestination::Account(reward_account));
+
+		// Custom account receives both staker rewards and validator incentive
+		let reward_account_balance_after = asset::total_balance::<Test>(&reward_account);
+		let total_received = reward_account_balance_after - reward_account_balance_before;
+		assert!(
+			total_received >= incentive,
+			"Custom reward account should receive at least the incentive ({incentive}), got {total_received}",
+		);
+	});
+}
+
+#[test]
+fn validator_incentive_with_staked_destination() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with RewardDestination::Staked
+		let alice = 11; // validator
+
+		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Staked));
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let alice_balance_before = asset::total_balance::<Test>(&alice);
+
+		// WHEN: Payout rewards
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: Incentive event records Staked destination and balance increases
+		let (incentive, dest) = incentive_paid_details(alice, &events)
+			.expect("Validator should receive incentive");
+		assert_eq!(dest, RewardDestination::Staked);
+		assert!(incentive > 0, "Incentive amount should be non-zero");
+
+		let alice_balance_after = asset::total_balance::<Test>(&alice);
+		assert!(
+			alice_balance_after > alice_balance_before,
+			"Alice balance should increase from incentive payout"
+		);
+	});
+}
+
+// ===== Tests for edge cases =====
+
+#[test]
+fn validator_chills_before_payout() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator earns weight in era 2, then chills before payout
+		let alice = 11; // validator
+
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		assert!(ErasValidatorIncentive::<Test>::get(2, alice).is_some());
+
+		// WHEN: Alice chills before claiming payout
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+		assert!(!Validators::<Test>::contains_key(&alice));
+
+		// THEN: Alice can still claim incentive for era 2
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		assert!(
+			incentive_paid_for(alice, &events).is_some(),
+			"Chilled validator should still receive incentive for era they were active"
+		);
+	});
+}
+
+#[test]
+fn all_validators_zero_reward_points() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validators with self-stake weight but zero reward points
+		setup_incentive_with_budget(45, 5);
+
+		// Don't call reward_active_era — no reward points
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Try to claim payouts
+		make_all_reward_payment(1);
+		let events = staking_events_since_last_call();
+
+		// THEN: No incentive paid
+		let any_incentive =
+			events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. }));
+		assert!(!any_incentive, "No incentive when no validators earned reward points");
+	});
+}
+
+#[test]
+fn validator_payee_changes_before_payout() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with payee set to old_account during weight calculation
+		let alice = 11; // validator
+		let old_account = 888;
+		let new_account = 999;
+
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(old_account)
+		));
+
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Payee changes to new_account before payout
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(new_account)
+		));
+
+		let old_balance_before = asset::total_balance::<Test>(&old_account);
+		let new_balance_before = asset::total_balance::<Test>(&new_account);
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: Incentive uses payee at payout time (new_account)
+		let (incentive, dest) = incentive_paid_details(alice, &events)
+			.expect("Validator should receive incentive");
+		assert_eq!(dest, RewardDestination::Account(new_account));
+
+		assert_eq!(asset::total_balance::<Test>(&old_account), old_balance_before);
+		let new_balance_after = asset::total_balance::<Test>(&new_account);
+		assert!(
+			new_balance_after - new_balance_before >= incentive,
+			"New account should receive at least the incentive amount"
+		);
+	});
+}
+
+#[test]
+fn very_small_self_stake_weight() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with self-stake of 1000 (from mock), below optimum of 30_000.
+		// w(1000) = √1000 ≈ 31, so weight is small but non-zero.
+		let alice = 11; // validator
+
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// Verify weight was calculated (√1000 ≈ 31)
+		let weight = ErasValidatorIncentive::<Test>::get(2, alice).unwrap();
+		assert_eq!(weight, 31);
+
+		// WHEN: Payout
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: Incentive is paid (small but non-zero)
+		assert!(incentive_paid_for(alice, &events).is_some());
 	});
 }
