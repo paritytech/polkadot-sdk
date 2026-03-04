@@ -475,6 +475,7 @@ struct PendingBlock<Block: BlockT> {
 	body: Option<Vec<Block::Extrinsic>>,
 	indexed_body: Option<Vec<Vec<u8>>>,
 	leaf_state: NewBlockState,
+	register_as_leaf: bool,
 }
 
 // wrapper that implements trait required for state_db
@@ -947,10 +948,17 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		leaf_state: NewBlockState,
+		register_as_leaf: bool,
 	) -> ClientResult<()> {
 		assert!(self.pending_block.is_none(), "Only one block per operation is allowed");
-		self.pending_block =
-			Some(PendingBlock { header, body, indexed_body, justifications, leaf_state });
+		self.pending_block = Some(PendingBlock {
+			header,
+			body,
+			indexed_body,
+			justifications,
+			leaf_state,
+			register_as_leaf,
+		});
 		Ok(())
 	}
 
@@ -1754,7 +1762,9 @@ impl<Block: BlockT> Backend<Block> {
 
 			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
-				if number > last_finalized_num || last_finalized_num.is_zero() {
+				if pending_block.register_as_leaf &&
+					(number > last_finalized_num || last_finalized_num.is_zero())
+				{
 					let mut leaves = self.blockchain.leaves.write();
 					leaves.import(hash, number, parent_hash);
 					leaves.prepare_transaction(
@@ -2848,7 +2858,7 @@ pub(crate) mod tests {
 		op.update_db_storage(overlay).unwrap();
 		header.state_root = root.into();
 
-		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best)
+		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best, true)
 			.unwrap();
 
 		backend.commit_operation(op)?;
@@ -2877,6 +2887,7 @@ pub(crate) mod tests {
 			None,
 			None,
 			if best { NewBlockState::Best } else { NewBlockState::Normal },
+			true,
 		)
 		.unwrap();
 
@@ -2914,7 +2925,7 @@ pub(crate) mod tests {
 			.0;
 		header.state_root = root.into();
 
-		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal)
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal, true)
 			.unwrap();
 		backend.commit_operation(op).unwrap();
 
@@ -2945,7 +2956,7 @@ pub(crate) mod tests {
 						extrinsics_root: Default::default(),
 					};
 
-					op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
+					op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
 						.unwrap();
 					db.commit_operation(op).unwrap();
 				}
@@ -3007,7 +3018,7 @@ pub(crate) mod tests {
 				state_version,
 			)
 			.unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			db.commit_operation(op).unwrap();
@@ -3042,7 +3053,7 @@ pub(crate) mod tests {
 			header.state_root = root.into();
 
 			op.update_storage(storage, Vec::new()).unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			db.commit_operation(op).unwrap();
@@ -3084,7 +3095,7 @@ pub(crate) mod tests {
 			.unwrap();
 
 			key = op.db_updates.insert(EMPTY_PREFIX, b"hello");
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3121,7 +3132,7 @@ pub(crate) mod tests {
 
 			op.db_updates.insert(EMPTY_PREFIX, b"hello");
 			op.db_updates.remove(&key, EMPTY_PREFIX);
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3157,7 +3168,7 @@ pub(crate) mod tests {
 			let hash = header.hash();
 
 			op.db_updates.remove(&key, EMPTY_PREFIX);
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3190,7 +3201,7 @@ pub(crate) mod tests {
 				.into();
 			let hash = header.hash();
 
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3217,7 +3228,7 @@ pub(crate) mod tests {
 				.into();
 			let hash = header.hash();
 
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3509,6 +3520,158 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
 		}
 	}
+
+	#[test]
+	fn disconnected_blocks_do_not_become_leaves_and_warp_sync_scenario() {
+		// Simulate a realistic case:
+		//
+		// 1. Import genesis (block #0) normally — becomes a leaf.
+		// 2. Import warp sync proof blocks at #5, #10, #15 without leaf registration. Their parents
+		//    are NOT in the DB. They must NOT appear as leaves.
+		// 3. Import block #20 as Final. Its parent (#19) is not in the DB. Being Final, it updates
+		//    finalized number to 20.
+		// 4. Import blocks #1..#19 with Normal state (gap sync). Since last_finalized_num is now 20
+		//    and each block number < 20, the leaf condition (number > last_finalized_num ||
+		//    last_finalized_num.is_zero()) is FALSE — they must NOT become leaves.
+		// 5. Assert throughout and verify displaced_leaves_after_finalizing works cleanly with no
+		//    disconnected proof blocks in the displaced list.
+
+		let backend = Backend::<Block>::new_test(1000, 100);
+		let blockchain = backend.blockchain();
+
+		let insert_block_raw = |number: u64,
+		                        parent_hash: H256,
+		                        ext_root: H256,
+		                        state: NewBlockState,
+		                        register_as_leaf: bool|
+		 -> H256 {
+			use sp_runtime::testing::Digest;
+			let digest = Digest::default();
+			let header = Header {
+				number,
+				parent_hash,
+				state_root: Default::default(),
+				digest,
+				extrinsics_root: ext_root,
+			};
+			let mut op = backend.begin_operation().unwrap();
+			op.set_block_data(header.clone(), Some(vec![]), None, None, state, register_as_leaf)
+				.unwrap();
+			backend.commit_operation(op).unwrap();
+			header.hash()
+		};
+
+		// --- Step 1: import genesis ---
+		let genesis_hash = insert_header(&backend, 0, Default::default(), None, Default::default());
+		assert_eq!(blockchain.leaves().unwrap(), vec![genesis_hash]);
+
+		// --- Step 2: import warp sync proof blocks without leaf registration ---
+		// These simulate authority-set-change blocks from the warp sync proof.
+		// Their parents are NOT in the DB.
+		let _proof5_hash = insert_block_raw(
+			5,
+			H256::from([5; 32]),
+			H256::from([50; 32]),
+			NewBlockState::Normal,
+			false,
+		);
+		let _proof10_hash = insert_block_raw(
+			10,
+			H256::from([10; 32]),
+			H256::from([100; 32]),
+			NewBlockState::Normal,
+			false,
+		);
+		let _proof15_hash = insert_block_raw(
+			15,
+			H256::from([15; 32]),
+			H256::from([150; 32]),
+			NewBlockState::Normal,
+			false,
+		);
+
+		// Leaves must still only contain genesis.
+		assert_eq!(blockchain.leaves().unwrap(), vec![genesis_hash]);
+
+		// The disconnected blocks should still be retrievable from the DB.
+		assert!(blockchain.header(_proof5_hash).unwrap().is_some());
+		assert!(blockchain.header(_proof10_hash).unwrap().is_some());
+		assert!(blockchain.header(_proof15_hash).unwrap().is_some());
+
+		// --- Step 3: import warp sync target block #20 as Final ---
+		// Parent (#19) is not in the DB. Use the same low-level approach but with
+		// NewBlockState::Final. Being Final, it will be set as best + finalized.
+		let block20_hash = insert_block_raw(
+			20,
+			H256::from([19; 32]),
+			H256::from([200; 32]),
+			NewBlockState::Final,
+			true,
+		);
+
+		// Block #20 should now be a leaf (it's best and finalized).
+		let leaves = blockchain.leaves().unwrap();
+		assert!(leaves.contains(&block20_hash));
+		// Verify finalized number was updated to 20.
+		assert_eq!(blockchain.info().finalized_number, 20);
+		assert_eq!(blockchain.info().finalized_hash, block20_hash);
+		// Disconnected proof blocks must still not be leaves.
+		assert!(!leaves.contains(&_proof5_hash));
+		assert!(!leaves.contains(&_proof10_hash));
+		assert!(!leaves.contains(&_proof15_hash));
+
+		// --- Step 4: import gap sync blocks #1..#19 with Normal state ---
+		// Since last_finalized_num is 20, each block with number < 20 should NOT
+		// become a leaf (the condition `number > last_finalized_num` is false).
+		// Build the chain: genesis -> #1 -> #2 -> ... -> #19.
+		let mut prev_hash = genesis_hash;
+		let mut gap_hashes = Vec::new();
+		for n in 1..=19 {
+			let h = insert_disconnected_header(&backend, n, prev_hash, Default::default(), false);
+			gap_hashes.push(h);
+			prev_hash = h;
+		}
+
+		// Verify gap sync blocks did NOT create new leaves.
+		let leaves = blockchain.leaves().unwrap();
+		for (i, gap_hash) in gap_hashes.iter().enumerate() {
+			assert!(
+				!leaves.contains(gap_hash),
+				"Gap sync block #{} should not be a leaf, but it is",
+				i + 1,
+			);
+		}
+		// Block #20 should still be a leaf.
+		assert!(leaves.contains(&block20_hash));
+		// Disconnected proof blocks must still not be leaves.
+		assert!(!leaves.contains(&_proof5_hash));
+		assert!(!leaves.contains(&_proof10_hash));
+		assert!(!leaves.contains(&_proof15_hash));
+
+		// --- Step 5: verify displaced_leaves_after_finalizing works cleanly ---
+		// Call it for block #20 to verify no disconnected proof blocks appear
+		// in the displaced list and it completes without errors.
+		{
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(
+					block20_hash,
+					20,
+					H256::from([19; 32]), // parent hash of block #20
+				)
+				.unwrap();
+			// Disconnected proof blocks were never leaves, so they must not
+			// appear in displaced_leaves.
+			assert!(!displaced.displaced_leaves.iter().any(|(_, h)| *h == _proof5_hash),);
+			assert!(!displaced.displaced_leaves.iter().any(|(_, h)| *h == _proof10_hash),);
+			assert!(!displaced.displaced_leaves.iter().any(|(_, h)| *h == _proof15_hash),);
+			// None of the gap sync blocks should be displaced leaves either
+			// (they were never added as leaves).
+			for gap_hash in &gap_hashes {
+				assert!(!displaced.displaced_leaves.iter().any(|(_, h)| h == gap_hash),);
+			}
+		}
+	}
+
 	#[test]
 	fn displaced_leaves_after_finalizing_works() {
 		let backend = Backend::<Block>::new_test(1000, 100);
@@ -3845,7 +4008,7 @@ pub(crate) mod tests {
 				state_version,
 			)
 			.unwrap();
-			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3881,7 +4044,7 @@ pub(crate) mod tests {
 			let hash = header.hash();
 
 			op.update_storage(storage, Vec::new()).unwrap();
-			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Normal)
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Normal, true)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
@@ -3892,7 +4055,7 @@ pub(crate) mod tests {
 		{
 			let header = backend.blockchain().header(hash1).unwrap().unwrap();
 			let mut op = backend.begin_operation().unwrap();
-			op.set_block_data(header, None, None, None, NewBlockState::Best).unwrap();
+			op.set_block_data(header, None, None, None, NewBlockState::Best, true).unwrap();
 			backend.commit_operation(op).unwrap();
 		}
 
@@ -4378,13 +4541,13 @@ pub(crate) mod tests {
 			extrinsics_root: Default::default(),
 		};
 		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header, None, None, None, NewBlockState::Best).unwrap();
+		op.set_block_data(header, None, None, None, NewBlockState::Best, true).unwrap();
 		assert!(matches!(backend.commit_operation(op), Err(sp_blockchain::Error::SetHeadTooOld)));
 
 		// Insert 2 as best again.
 		let header = backend.blockchain().header(block2).unwrap().unwrap();
 		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header, None, None, None, NewBlockState::Best).unwrap();
+		op.set_block_data(header, None, None, None, NewBlockState::Best, true).unwrap();
 		backend.commit_operation(op).unwrap();
 		assert_eq!(backend.blockchain().info().best_hash, block2);
 	}
@@ -4402,7 +4565,7 @@ pub(crate) mod tests {
 		let header = backend.blockchain().header(block1).unwrap().unwrap();
 
 		let mut op = backend.begin_operation().unwrap();
-		op.set_block_data(header, None, None, None, NewBlockState::Final).unwrap();
+		op.set_block_data(header, None, None, None, NewBlockState::Final, true).unwrap();
 		backend.commit_operation(op).unwrap();
 
 		assert_eq!(backend.blockchain().info().finalized_hash, block1);
@@ -4465,8 +4628,15 @@ pub(crate) mod tests {
 				extrinsics_root: Default::default(),
 			};
 
-			op.set_block_data(header.clone(), Some(Vec::new()), None, None, NewBlockState::Normal)
-				.unwrap();
+			op.set_block_data(
+				header.clone(),
+				Some(Vec::new()),
+				None,
+				None,
+				NewBlockState::Normal,
+				true,
+			)
+			.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
@@ -4484,8 +4654,15 @@ pub(crate) mod tests {
 				extrinsics_root: Default::default(),
 			};
 
-			op.set_block_data(header.clone(), Some(Vec::new()), None, None, NewBlockState::Normal)
-				.unwrap();
+			op.set_block_data(
+				header.clone(),
+				Some(Vec::new()),
+				None,
+				None,
+				NewBlockState::Normal,
+				true,
+			)
+			.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
@@ -4503,8 +4680,15 @@ pub(crate) mod tests {
 				extrinsics_root: H256::from_low_u64_le(42),
 			};
 
-			op.set_block_data(header.clone(), Some(Vec::new()), None, None, NewBlockState::Normal)
-				.unwrap();
+			op.set_block_data(
+				header.clone(),
+				Some(Vec::new()),
+				None,
+				None,
+				NewBlockState::Normal,
+				true,
+			)
+			.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
@@ -4654,6 +4838,7 @@ pub(crate) mod tests {
 					None,
 					None,
 					NewBlockState::Normal,
+					true,
 				)
 				.unwrap();
 
@@ -4699,6 +4884,7 @@ pub(crate) mod tests {
 					None,
 					None,
 					NewBlockState::Normal,
+					true,
 				)
 				.unwrap();
 
@@ -4744,6 +4930,7 @@ pub(crate) mod tests {
 					None,
 					None,
 					NewBlockState::Best,
+					true,
 				)
 				.unwrap();
 
@@ -4781,6 +4968,7 @@ pub(crate) mod tests {
 					None,
 					None,
 					NewBlockState::Best,
+					true,
 				)
 				.unwrap();
 
