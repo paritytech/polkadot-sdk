@@ -35,6 +35,7 @@ use std::borrow::Cow;
 use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_client_api::backend::Backend;
+use sp_core::traits::CallContext;
 
 use crate::{
 	common::SizeType,
@@ -99,7 +100,7 @@ impl core::Benchmark for ImportBenchmark {
 
 		let _ = context
 			.client
-			.runtime_version_at(context.client.chain_info().genesis_hash)
+			.runtime_version_at(context.client.chain_info().genesis_hash, CallContext::Offchain)
 			.expect("Failed to get runtime version")
 			.spec_version;
 

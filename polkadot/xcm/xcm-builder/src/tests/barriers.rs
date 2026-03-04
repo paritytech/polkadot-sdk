@@ -930,12 +930,13 @@ fn deny_then_try_works() {
 			instructions.matcher().match_next_inst_while(
 				|_| true,
 				|inst| match inst {
-					ClearOrigin { .. } =>
+					ClearOrigin { .. } => {
 						if origin.clone() == Here.into_location() {
 							Err(ProcessMessageError::BadFormat)
 						} else {
 							Ok(ControlFlow::Continue(()))
-						},
+						}
+					},
 					_ => Ok(ControlFlow::Continue(())),
 				},
 			)?;

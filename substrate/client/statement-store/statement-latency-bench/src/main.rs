@@ -1,5 +1,20 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! CLI tool for distributed statement-store latency benchmarking.
 //!
@@ -27,7 +42,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
-use sp_statement_store::{Statement, StatementAllowance, SubmitResult, Topic, TopicFilter};
+use sp_statement_store::{Statement, StatementEvent, StatementAllowance, SubmitResult, Topic, TopicFilter};
 use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
 use subxt::{
 	config::{
@@ -210,7 +225,7 @@ struct Args {
 	messages_pattern: String,
 
 	/// Timeout for receiving messages in a batch (milliseconds)
-	#[arg(long, default_value = "30000")]
+	#[arg(long, default_value = "5000")]
 	receive_timeout_ms: u64,
 
 	/// Number of benchmark rounds
@@ -225,6 +240,9 @@ struct Args {
 	#[arg(long, default_value = "false")]
 	skip_sync: bool,
 
+	/// Statement expiry time in milliseconds (default: 10 minutes)
+	#[arg(long, default_value_t = 600_000)]
+	statement_expiry_ms: u64,
 	/// Sudo seed/SURI for setting statement allowances (e.g., "//Alice" or mnemonic phrase).
 	/// When provided, deterministic accounts are used and allowances are set on-chain.
 	#[arg(long)]
@@ -312,6 +330,7 @@ struct ClientConfig {
 	messages_pattern: Vec<(usize, usize)>,
 	receive_timeout_ms: u64,
 	interval_ms: u64,
+	statement_expiry_ms: u64,
 }
 
 async fn run_client(
@@ -329,6 +348,7 @@ async fn run_client(
 		messages_pattern,
 		receive_timeout_ms,
 		interval_ms,
+		statement_expiry_ms,
 	} = config;
 
 	let keyring = get_keypair(client_id);
@@ -359,22 +379,11 @@ async fn run_client(
 			.map(|idx| generate_topic(test_run_id, neighbour_id, round, idx).into())
 			.collect();
 
-		let bounded_topics: BoundedVec<Topic, ConstU32<128>> =
-			expected_topics
-				.clone()
-				.try_into()
-				.map_err(|_| anyhow!("Client {client_id}: Too many topics (max 128)"))?;
+		let bounded_topics: BoundedVec<Topic, ConstU32<128>> = expected_topics
+			.try_into()
+			.map_err(|_| anyhow!("Client {client_id}: Too many topics (max 128)"))?;
 
-		info!(
-			"Client {client_id}: Round {round}/{num_rounds}. \
-			 Subscribing to {expected_count} topics (neighbour_id={neighbour_id})"
-		);
-		for (idx, topic) in expected_topics.iter().enumerate() {
-			let hex: String = topic.iter().map(|b| format!("{b:02x}")).collect();
-			debug!("  subscribe topic[{idx}]: 0x{hex}");
-		}
-
-		let mut subscription: Subscription<serde_json::Value> = rpc_client
+		let mut subscription: Subscription<StatementEvent> = rpc_client
 			.subscribe(
 				"statement_subscribeStatement",
 				rpc_params![TopicFilter::MatchAny(bounded_topics)],
@@ -388,11 +397,11 @@ async fn run_client(
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
 				let channel = blake2_256(sent_count.to_le_bytes().as_ref());
 
-				let expiry_timestamp = std::time::SystemTime::now()
+				let expiry_timestamp = (std::time::SystemTime::now()
 					.duration_since(std::time::UNIX_EPOCH)
-					.unwrap_or_default()
-					.as_secs() as u32 +
-					STATEMENT_EXPIRY_SECS;
+					.unwrap_or_default() +
+					Duration::from_millis(statement_expiry_ms))
+				.as_secs() as u32;
 
 				let mut statement = Statement::new();
 				statement.set_channel(channel);
@@ -402,8 +411,6 @@ async fn run_client(
 				statement.set_plain_data(vec![0u8; size]);
 				statement.sign_sr25519_private(&keyring);
 
-				let expiry = statement.expiry();
-				let topic_hex: String = topic.iter().map(|b| format!("{b:02x}")).collect();
 				let encoded: Bytes = statement.encode().into();
 				let result: SubmitResult = rpc_client
 					.request("statement_submit", rpc_params![encoded])
@@ -411,21 +418,11 @@ async fn run_client(
 					.with_context(|| format!("Client {client_id}: Failed to submit statement"))?;
 
 				sent_count += 1;
-				match &result {
-					SubmitResult::New => {
-						info!(
-							"Client {client_id}: Round {round}/{num_rounds}. \
-							 Submitted statement {sent_count}/{expected_count}: New \
-							 (topic=0x{topic_hex:.16}.., expiry=0x{expiry:016x})"
-						);
-					},
-					other => {
-						return Err(anyhow!(
-							"Client {client_id}: Round {round}/{num_rounds}. \
-							 Statement {sent_count}/{expected_count} NOT accepted: {other:?} \
-							 (topic=0x{topic_hex:.16}.., expiry=0x{expiry:016x})"
-						));
-					},
+				if is_leader(client_id) {
+					debug!(
+						"Round {}/{}. Sent {} statement(s): {:?}",
+						round, num_rounds, sent_count, result
+					);
 				}
 			}
 		}
@@ -437,12 +434,17 @@ async fn run_client(
 				timeout(Duration::from_millis(receive_timeout_ms), subscription.next()).await;
 
 			match result {
-				Ok(Some(Ok(_))) => {
-					received_count += 1;
-					info!(
-						"Client {client_id}: Round {round}/{num_rounds}. \
-						 Received {received_count}/{expected_count} statement(s)"
-					);
+				Ok(Some(Ok(StatementEvent::NewStatements { statements, .. }))) => {
+					received_count += statements.len() as u32;
+					if is_leader(client_id) {
+						debug!(
+							"Round {}/{}. Received {} statement(s) (batch of {})",
+							round,
+							num_rounds,
+							received_count,
+							statements.len()
+						);
+					}
 				},
 				other => {
 					return Err(anyhow!(
@@ -719,6 +721,7 @@ async fn main() -> Result<(), anyhow::Error> {
 				messages_pattern: messages_pattern.clone(),
 				receive_timeout_ms: args.receive_timeout_ms,
 				interval_ms: args.interval_ms,
+				statement_expiry_ms: args.statement_expiry_ms,
 			};
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);

@@ -229,6 +229,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 1)]
 	pub statement_network_workers: usize,
 
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = 50_000)]
+	pub statement_rate_limit: u32,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -275,6 +284,7 @@ impl<Config: CliConfig> Cli<Config> {
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
 			statement_network_workers: self.statement_network_workers,
+			statement_rate_limit: self.statement_rate_limit,
 			storage_monitor: self.storage_monitor.clone(),
 		}
 	}

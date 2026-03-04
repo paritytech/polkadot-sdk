@@ -24,25 +24,25 @@
 
 #![cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 
-use crate::{metering::TransactionLimits, OriginFor};
+use crate::{OriginFor, metering::TransactionLimits};
 use alloy_core::{
 	primitives::{Address, U256 as EU256},
 	sol_types::*,
 };
 use frame_support::{
-	traits::{
-		tokens::{
-			fungible, fungibles, DepositConsequence, Fortitude, Precision, Preservation,
-			Provenance, WithdrawConsequence,
-		},
-		OriginTrait,
-	},
 	PalletId,
+	traits::{
+		OriginTrait,
+		tokens::{
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+			WithdrawConsequence, fungible, fungibles,
+		},
+	},
 };
 use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError};
+use sp_runtime::{DispatchError, traits::AccountIdConversion};
 
-use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
+use super::{Config, ContractResult, ExecConfig, Pallet, Weight, address::AddressMapper, pallet};
 use ethereum_standards::IERC20;
 
 const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 1000_000);
@@ -77,12 +77,10 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 			data,
 			&ExecConfig::new_substrate_tx(),
 		);
-		if let Ok(return_value) = result {
-			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
-				eu256.to::<u128>()
-			} else {
-				0
-			}
+		if let Ok(return_value) = result &&
+			let Ok(eu256) = EU256::abi_decode_validate(&return_value.data)
+		{
+			eu256.to::<u128>()
 		} else {
 			0
 		}
@@ -115,12 +113,10 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 			data,
 			&ExecConfig::new_substrate_tx(),
 		);
-		if let Ok(return_value) = result {
-			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
-				eu256.to::<u128>()
-			} else {
-				0
-			}
+		if let Ok(return_value) = result &&
+			let Ok(eu256) = EU256::abi_decode_validate(&return_value.data)
+		{
+			eu256.to::<u128>()
 		} else {
 			0
 		}
@@ -288,12 +284,12 @@ impl<T: Config> fungibles::Unbalanced<<T as frame_system::Config>::AccountId> fo
 mod tests {
 	use super::*;
 	use crate::{
-		test_utils::{builder::*, ALICE},
-		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 		AccountInfoOf, Code,
+		test_utils::{ALICE, builder::*},
+		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
 	};
 	use frame_support::assert_ok;
-	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
+	use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
 
 	#[test]
 	fn call_erc20_contract() {

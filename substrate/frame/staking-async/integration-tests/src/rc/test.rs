@@ -18,7 +18,8 @@
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
 use pallet_staking_async_ah_client::{
-	self as ah_client, Mode, OffenceSendQueue, OperatingMode, OutgoingSessionReport, UnexpectedKind,
+	self as ah_client, Mode, OffenceSendQueue, OperatingMode, OutgoingSessionReport,
+	SessionKeysUpdate, UnexpectedKind,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, Offence, SessionReport, ValidatorSetReport,
@@ -1584,10 +1585,18 @@ mod session_keys {
 				let stash: AccountId = 99;
 
 				// WHEN: Purging keys for an account that has none.
-				// THEN: Fails with NoKeys.
-				assert_noop!(
-					ah_client::Pallet::<Runtime>::purge_keys_from_ah(RuntimeOrigin::root(), stash,),
-					pallet_session::Error::<Runtime>::NoKeys
+				// THEN: Returns Ok but emits SessionKeysUpdateFailed with NoKeys error.
+				assert_ok!(ah_client::Pallet::<Runtime>::purge_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+				));
+				System::assert_has_event(
+					ah_client::Event::<Runtime>::SessionKeysUpdateFailed {
+						stash,
+						update: SessionKeysUpdate::Purged,
+						error: pallet_session::Error::<Runtime>::NoKeys.into(),
+					}
+					.into(),
 				);
 			})
 	}

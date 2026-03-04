@@ -27,8 +27,10 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-message-queue = { workspace = true }
+sp-api = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -89,8 +91,10 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-api/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-externalities/std",
 	"sp-inherents/std",
 	"sp-io/std",

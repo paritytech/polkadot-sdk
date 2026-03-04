@@ -126,6 +126,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEnc
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
+	defensive,
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
@@ -878,8 +879,9 @@ pub mod pallet {
 
 			match Self::can_set_code(&code, res.check_version) {
 				CanSetCodeResult::Ok => {},
-				CanSetCodeResult::MultiBlockMigrationsOngoing =>
-					return Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+				CanSetCodeResult::MultiBlockMigrationsOngoing => {
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+				},
 				CanSetCodeResult::InvalidVersion(error) => {
 					// The upgrade is invalid and there is no benefit in trying to apply this again.
 					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
@@ -1074,6 +1076,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
+
+	/// Number of blocks till the pending code upgrade is applied.
+	#[pallet::storage]
+	pub(super) type BlocksTillUpgrade<T: Config> = StorageValue<_, u8>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
@@ -1542,8 +1548,9 @@ impl<T: Config> CanSetCodeResult<T> {
 	pub fn into_result(self) -> Result<(), DispatchError> {
 		match self {
 			Self::Ok => Ok(()),
-			Self::MultiBlockMigrationsOngoing =>
-				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+			Self::MultiBlockMigrationsOngoing => {
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			},
 			Self::InvalidVersion(err) => Err(err.into()),
 		}
 	}
@@ -1578,15 +1585,50 @@ impl<T: Config> Pallet<T> {
 		Account::<T>::contains_key(who)
 	}
 
-	/// Write code to the storage and emit related events and digest items.
+	/// Write code to the storage and emit related events and digest items. Writes either directly
+	/// to the `:code` storage or to the `:pending_code` storage depending on the system version.
 	///
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
 	pub fn update_code_in_storage(code: &[u8]) {
-		storage::unhashed::put_raw(well_known_keys::CODE, code);
+		match T::Version::get().system_version {
+			0..=2 => {
+				storage::unhashed::put_raw(well_known_keys::CODE, code);
+			},
+			_ => {
+				BlocksTillUpgrade::<T>::put(2u8);
+				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+			},
+		}
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
+	}
+
+	/// Replace code with pending code if scheduled to enact in this block and in that case emit
+	/// related events and digest items.
+	///
+	/// This method is expected to be called in `on_finalize`.
+	pub fn maybe_apply_pending_code_upgrade() {
+		let Some(remaining) = BlocksTillUpgrade::<T>::get() else { return };
+
+		let remaining = remaining.saturating_sub(1);
+
+		if remaining > 0 {
+			BlocksTillUpgrade::<T>::put(remaining);
+			return;
+		}
+
+		BlocksTillUpgrade::<T>::kill();
+
+		let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
+			// should never happen
+			defensive!("BlocksTillUpgrade is set but no pending code found");
+			return;
+		};
+
+		storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
+		storage::unhashed::kill(well_known_keys::PENDING_CODE);
 	}
 
 	/// Whether all inherents have been applied.

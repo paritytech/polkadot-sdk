@@ -286,14 +286,15 @@ where
 
 			// manually hard code epoch descriptor
 			epoch_descriptor = match epoch_descriptor {
-				ViableEpochDescriptor::Signaled(identifier, _header) =>
+				ViableEpochDescriptor::Signaled(identifier, _header) => {
 					ViableEpochDescriptor::Signaled(
 						identifier,
 						EpochHeader {
 							start_slot: slot,
 							end_slot: (*slot * self.config.epoch_length).into(),
 						},
-					),
+					)
+				},
 				_ => unreachable!(
 					"we're not in the authorities, so this isn't the genesis epoch; qed"
 				),
