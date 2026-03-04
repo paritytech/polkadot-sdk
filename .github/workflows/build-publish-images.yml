@@ -59,7 +59,6 @@ jobs:
           mv ./target/testnet/polkadot ./artifacts/.
           mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
           mv ./target/testnet/polkadot-execute-worker ./artifacts/.
-          mv ./target/testnet/statement-latency-bench ./artifacts/.
           mv ./runtimes/ ./artifacts/.
           cd artifacts/
           sha256sum polkadot | tee polkadot.sha256

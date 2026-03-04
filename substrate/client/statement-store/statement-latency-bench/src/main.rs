@@ -42,7 +42,7 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
 use sp_statement_store::{
-	Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	statement_allowance_key, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
 };
 use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
 use subxt::{
@@ -98,12 +98,6 @@ impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
 	fn matches(identifier: &str, _type_id: u32, _types: &::scale_info::PortableRegistry) -> bool {
 		identifier == "VerifyMultiSignature" || identifier == "VerifySignature"
 	}
-}
-
-fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
-	let mut key = b":statement_allowance:".to_vec();
-	key.extend_from_slice(account_id.as_ref());
-	key
 }
 
 /// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`)
@@ -242,12 +236,12 @@ struct Args {
 	/// Statement expiry time in milliseconds (default: 10 minutes)
 	#[arg(long, default_value_t = 600_000)]
 	statement_expiry_ms: u64,
-	/// Sudo seed/SURI for setting statement allowances (e.g., "//Alice" or mnemonic phrase).
-	/// When provided, deterministic accounts are used and allowances are set on-chain.
+	/// Sudo seed/SURI for setting statement allowances (e.g., "//Alice" or mnemonic phrase)
+	/// When provided, deterministic accounts are used and allowances are set on-chain
 	#[arg(long)]
 	sudo_seed: Option<String>,
 
-	/// Number of accounts per allowance-setting transaction (default: 100).
+	/// Number of accounts per allowance-setting transaction (default: 100)
 	#[arg(long, default_value = "100")]
 	allowance_batch_size: u32,
 }
