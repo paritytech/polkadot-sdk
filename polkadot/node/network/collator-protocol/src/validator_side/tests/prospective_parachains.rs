@@ -24,7 +24,9 @@ use polkadot_primitives::{
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Header, MutateDescriptorV2,
 	SigningContext, ValidatorId,
 };
-use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+use polkadot_primitives_test_helpers::{
+	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3,
+};
 use rstest::rstest;
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 use sp_consensus_slots::Slot;
@@ -2068,8 +2070,8 @@ fn v3_scheduling_parent_accepted_on_stalled_relay_chain() {
 		)
 		.await;
 
-		// Create a V3 descriptor with scheduling_parent == leaf (head_b).
-		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		// Create a V3 descriptor with scheduling_parent == leaf == relay_parent (head_b).
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
@@ -2077,7 +2079,6 @@ fn v3_scheduling_parent_accepted_on_stalled_relay_chain() {
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
 		committed_candidate.descriptor.set_version(1);
-		committed_candidate.descriptor.set_scheduling_parent(head_b);
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let pov = PoV { block_data: BlockData(vec![1]) };
@@ -2157,6 +2158,8 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 	test_state
 		.node_features
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2164,10 +2167,11 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		let pair_a = CollatorPair::generate().0;
 
 		let head_b = Hash::from_low_u64_be(128);
-		// Use block 1 so the parent (block 0) has the correct core assignment
-		// (group_rotation_frequency=1, at block 0: group 0 → core 0 where para 1 is scheduled).
-		let head_b_num: u32 = 1;
+		// Use block 2 so the parent (block 1) is the scheduling_parent and the
+		// grandparent (block 0) serves as relay_parent.
+		let head_b_num: u32 = 2;
 		let head_b_parent = get_parent_hash(head_b);
+		let head_b_grandparent = get_parent_hash(head_b_parent);
 
 		// Use the current slot so slot_age < slot_duration (slot in progress).
 		let current_slot = Slot::from_timestamp(
@@ -2194,7 +2198,9 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		)
 		.await;
 
-		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		// relay_parent is the grandparent, scheduling_parent is the leaf's parent.
+		let mut committed_candidate =
+			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
@@ -2202,7 +2208,6 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
 		committed_candidate.descriptor.set_version(1);
-		committed_candidate.descriptor.set_scheduling_parent(head_b_parent);
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let pov = PoV { block_data: BlockData(vec![1]) };
@@ -2285,6 +2290,8 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 	test_state
 		.node_features
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2292,7 +2299,10 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		let pair_a = CollatorPair::generate().0;
 
 		let head_b = Hash::from_low_u64_be(128);
-		let head_b_num: u32 = 0;
+		// Use block 1 so the parent (block 0) can serve as relay_parent while
+		// the leaf itself (block 1) is the scheduling_parent.
+		let head_b_num: u32 = 1;
+		let head_b_parent = get_parent_hash(head_b);
 
 		// Use a slot from one slot_duration ago so slot_age >= slot_duration (finished).
 		let finished_slot = Slot::from_timestamp(
@@ -2321,15 +2331,14 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		)
 		.await;
 
-		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		// relay_parent is the parent, scheduling_parent is the leaf (finished slot).
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
 			.set_persisted_validation_data_hash(dummy_pvd().hash());
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
-		committed_candidate.descriptor.set_version(1);
-		committed_candidate.descriptor.set_scheduling_parent(head_b);
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let pov = PoV { block_data: BlockData(vec![1]) };
@@ -2408,6 +2417,8 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 	test_state
 		.node_features
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
@@ -2416,6 +2427,7 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 1;
+		let head_b_parent = get_parent_hash(head_b);
 
 		// Use the current slot so slot_age < slot_duration (slot in progress).
 		let current_slot = Slot::from_timestamp(
@@ -2442,16 +2454,15 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 		)
 		.await;
 
-		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		// Use the leaf itself as scheduling_parent — wrong for in-progress slot
+		// (should be leaf's parent). relay_parent is the leaf's parent.
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
 			.set_persisted_validation_data_hash(dummy_pvd().hash());
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
-		committed_candidate.descriptor.set_version(1);
-		// Use the leaf itself — wrong for in-progress slot (should be parent).
-		committed_candidate.descriptor.set_scheduling_parent(head_b);
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let candidate_hash = candidate.hash();
@@ -2492,6 +2503,8 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 	test_state
 		.node_features
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
+	test_state.group_rotation_info.group_rotation_frequency = 100;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
@@ -2499,8 +2512,11 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		let pair_a = CollatorPair::generate().0;
 
 		let head_b = Hash::from_low_u64_be(128);
-		let head_b_num: u32 = 1;
+		// Use block 2 so the parent (block 1) is the scheduling_parent and the
+		// grandparent (block 0) serves as relay_parent.
+		let head_b_num: u32 = 2;
 		let head_b_parent = get_parent_hash(head_b);
+		let head_b_grandparent = get_parent_hash(head_b_parent);
 
 		// Use a slot from one slot_duration ago so slot_age >= slot_duration (finished).
 		let finished_slot = Slot::from_timestamp(
@@ -2529,16 +2545,16 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		)
 		.await;
 
-		let mut committed_candidate = dummy_committed_candidate_receipt_v2(head_b);
+		// Use the parent as scheduling_parent — wrong for finished slot (should be leaf).
+		// relay_parent is the grandparent (older than scheduling_parent).
+		let mut committed_candidate =
+			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
 			.set_persisted_validation_data_hash(dummy_pvd().hash());
 		committed_candidate.descriptor.set_core_index(CoreIndex(0));
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
-		committed_candidate.descriptor.set_version(1);
-		// Use the parent — wrong for finished slot (should be leaf).
-		committed_candidate.descriptor.set_scheduling_parent(head_b_parent);
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
 		let candidate_hash = candidate.hash();
