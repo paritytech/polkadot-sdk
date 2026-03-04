@@ -305,10 +305,7 @@ fn generate_topic(test_run_id: u64, client_id: u32, round: usize, msg_idx: u32) 
 	blake2_256(topic_str.as_bytes())
 }
 
-/// Generate a deterministic keypair for a given client index.
-///
-/// Uses the same derivation path as the zombienet statement-store benchmarks
-/// so that accounts are identical across runs.
+/// Generate a deterministic keypair for a given client index
 fn get_keypair(idx: u32) -> sr25519::Pair {
 	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None)
 		.expect("Derivation path is always valid; qed")
@@ -538,11 +535,11 @@ async fn wait_for_sync_time() {
 }
 
 /// Set statement allowances for all deterministic benchmark accounts in a single
-/// `Sudo(Utility(batch_all { calls: [System(set_storage { items }), ...] }))` transaction.
+/// `Sudo(Utility(batch_all { calls: [System(set_storage { items }), ...] }))` transaction
 ///
 /// Storage items are grouped into inner `set_storage` calls of `batch_size` each to keep
 /// individual call payloads small, but all inner calls are submitted atomically in one
-/// `batch_all` wrapped in `Sudo`.
+/// `batch_all` wrapped in `Sudo`
 async fn set_allowances(
 	rpc_url: &str,
 	rpc_client: &WsClient,
@@ -622,13 +619,11 @@ async fn set_allowances(
 		}
 	}
 
-	// Verify that allowances were actually written to storage.
-	// The statement store reads allowances from the FINALIZED block
+	// Verify that allowances were actually written to storage
 	let finalized_hash: String = rpc_client
 		.request("chain_getFinalizedHead", rpc_params![])
 		.await
 		.context("Failed to get finalized head")?;
-	info!("Finalized head for verification: {finalized_hash}");
 
 	for i in 0..num_clients {
 		let pub_key = get_keypair(i).public();
