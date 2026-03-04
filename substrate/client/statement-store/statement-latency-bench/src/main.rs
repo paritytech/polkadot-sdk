@@ -90,10 +90,10 @@ fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
 	key
 }
 
-/// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`).
+/// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`)
 ///
 /// Empty types are automatically skipped by `AnyOf`, so our catch-all handlers must not claim
-/// them - otherwise they waste a slot that could be used for a non-empty unknown extension.
+/// them - otherwise they waste a slot that could be used for a non-empty unknown extension
 fn is_type_empty(type_id: u32, types: &::scale_info::PortableRegistry) -> bool {
 	use scale_info::TypeDef;
 	let Some(ty) = types.resolve(type_id) else {
@@ -383,43 +383,6 @@ async fn run_client(
 			.await
 			.with_context(|| format!("Client {client_id}: Failed to subscribe"))?;
 
-		// // Pre-flight check: verify the allowance is still readable at the current
-		// // finalized head right before submitting statements. This helps diagnose
-		// // NoAllowance errors by catching state changes between set_allowances()
-		// // verification and actual statement submission.
-		// if is_leader(client_id) && round == 1 {
-		// 	let pub_key = keyring.public();
-		// 	let storage_key = statement_allowance_key(pub_key.as_ref() as &[u8]);
-		// 	let hex_key: String = storage_key.iter().map(|b| format!("{b:02x}")).collect();
-
-		// 	let finalized_now: String = rpc_client
-		// 		.request("chain_getFinalizedHead", rpc_params![])
-		// 		.await
-		// 		.context("Pre-flight: failed to get finalized head")?;
-
-		// 	let allowance_now: Option<String> = rpc_client
-		// 		.request(
-		// 			"state_getStorage",
-		// 			rpc_params![format!("0x{hex_key}"), &finalized_now],
-		// 		)
-		// 		.await
-		// 		.with_context(|| {
-		// 			format!("Pre-flight: failed to query allowance at {finalized_now}")
-		// 		})?;
-
-		// 	info!(
-		// 		"Pre-flight check: client={client_id} finalized={finalized_now} \
-		// 		 storage_key=0x{hex_key} allowance={allowance_now:?}"
-		// 	);
-
-		// 	if allowance_now.is_none() {
-		// 		return Err(anyhow!(
-		// 			"Pre-flight: allowance missing at finalized={finalized_now} \
-		// 			 for account 0x{hex_key}. The node's statement store will reject submissions."
-		// 		));
-		// 	}
-		// }
-
 		for &(count, size) in &messages_pattern {
 			for _ in 0..count {
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
@@ -428,8 +391,8 @@ async fn run_client(
 				let expiry_timestamp = std::time::SystemTime::now()
 					.duration_since(std::time::UNIX_EPOCH)
 					.unwrap_or_default()
-					.as_secs() as u32
-					+ STATEMENT_EXPIRY_SECS;
+					.as_secs() as u32 +
+					STATEMENT_EXPIRY_SECS;
 
 				let mut statement = Statement::new();
 				statement.set_channel(channel);
@@ -655,9 +618,9 @@ async fn set_allowances(
 				);
 				break;
 			},
-			TxStatus::Error { message }
-			| TxStatus::Invalid { message }
-			| TxStatus::Dropped { message } => {
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => {
 				return Err(anyhow!("Allowance tx failed: {message}"));
 			},
 			_ => continue,
