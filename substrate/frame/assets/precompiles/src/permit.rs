@@ -51,6 +51,9 @@ pub(crate) const PERMIT_TYPEHASH: [u8; 32] = const_crypto::sha3::Keccak256::new(
 /// Used to ensure `s` is in the lower half to prevent signature malleability.
 /// n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 /// n/2 = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+///
+/// TODO: Replace usages with `sp_core::ecdsa::is_signature_normalized` once
+/// paritytech/polkadot-sdk#5841 lands.
 pub(crate) const SECP256K1_N_DIV_2: [u8; 32] = [
 	0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 	0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B, 0x20, 0xA0,
@@ -238,8 +241,10 @@ pub mod pallet {
 		///
 		/// This prevents signature malleability attacks where an attacker can
 		/// create a second valid signature by flipping `s` to `n - s`.
+		///
+		/// TODO: Replace with `sp_core::ecdsa::is_signature_normalized` once
+		/// paritytech/polkadot-sdk#5841 lands.
 		fn is_s_value_valid(s: &[u8; 32]) -> bool {
-			// Compare s with SECP256K1_N_DIV_2 (big-endian)
 			for i in 0..32 {
 				if s[i] < SECP256K1_N_DIV_2[i] {
 					return true;
