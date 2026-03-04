@@ -12,7 +12,10 @@ doc:
 crates:
 - name: sc-client-api
   bump: major
+  validate: false
 - name: sc-client-db
   bump: major
+  validate: false
 - name: sc-service
   bump: major
+  validate: false
