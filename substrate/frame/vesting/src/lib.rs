@@ -709,6 +709,32 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> frame_support::traits::tokens::VestedPayout<T::AccountId, BalanceOf<T>>
+	for Pallet<T>
+where
+	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
+{
+	type BlockNumber = BlockNumberFor<T>;
+
+	fn vested_transfer(
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: BalanceOf<T>,
+		duration: BlockNumberFor<T>,
+	) -> DispatchResult {
+		if duration.is_zero() {
+			// Zero duration means liquid transfer with no vesting schedule.
+			T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)
+		} else {
+			let now = T::BlockNumberProvider::current_block_number();
+			let duration_as_balance = T::BlockNumberToBalance::convert(duration);
+			let per_block = (amount / duration_as_balance.max(One::one())).max(One::one());
+			let schedule = VestingInfo::new(amount, per_block, now);
+			Self::do_vested_transfer(source, dest, schedule)
+		}
+	}
+}
+
 impl<T: Config> VestingSchedule<T::AccountId> for Pallet<T>
 where
 	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
