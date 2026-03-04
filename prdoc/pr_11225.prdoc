@@ -7,5 +7,7 @@ doc:
     \ that replaces the approval (or removes it when zero), and wires the precompile\
     \ to use it. The Substrate extrinsic approve_transfer is unchanged."
 crates:
+- name: pallet-assets
+  bump: minor
 - name: pallet-assets-precompiles
   bump: minor
