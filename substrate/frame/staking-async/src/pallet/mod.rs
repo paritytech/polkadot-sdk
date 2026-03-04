@@ -514,6 +514,20 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
+	/// The maximum commission that validators can set.
+	///
+	/// If not set, defaults to `Perbill::one()` (100%), i.e. no upper limit.
+	#[pallet::storage]
+	pub type MaxCommission<T: Config> = StorageValue<_, Perbill, ValueQuery, MaxCommissionDefault>;
+
+	/// Default for MaxCommission: 100% (no restriction).
+	pub struct MaxCommissionDefault;
+	impl Get<Perbill> for MaxCommissionDefault {
+		fn get() -> Perbill {
+			Perbill::one()
+		}
+	}
+
 	/// Optimum self-stake threshold for validators.
 	///
 	/// Validators with self-stake below this value receive full weightage in the validator
@@ -1495,6 +1509,9 @@ pub mod pallet {
 		LegacyMintingDisabled,
 		/// Optimum self-stake cannot be greater than hard cap.
 		OptimumGreaterThanCap,
+		/// Commission is higher than the allowed maximum `MaxCommission`.
+		CommissionTooHigh,
+
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1976,6 +1993,7 @@ pub mod pallet {
 
 			// ensure their commission is correct.
 			ensure!(prefs.commission >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+			ensure!(prefs.commission <= MaxCommission::<T>::get(), Error::<T>::CommissionTooHigh);
 
 			// Only check limits if they are not already a validator.
 			if !Validators::<T>::contains_key(stash) {
@@ -2683,9 +2701,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force a validator to have at least the minimum commission. This will not affect a
-		/// validator who already has a commission greater than or equal to the minimum. Any account
-		/// can call this.
+		/// Force a validator's commission to be within the allowed range
+		/// [`MinCommission`, `MaxCommission`]. Any account can call this.
 		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::force_apply_min_commission())]
 		pub fn force_apply_min_commission(
@@ -2694,12 +2711,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
+			let max_commission = MaxCommission::<T>::get();
 			Validators::<T>::try_mutate_exists(validator_stash, |maybe_prefs| {
 				maybe_prefs
 					.as_mut()
 					.map(|prefs| {
-						(prefs.commission < min_commission)
-							.then(|| prefs.commission = min_commission)
+						prefs.commission = prefs.commission.clamp(min_commission, max_commission);
 					})
 					.ok_or(Error::<T>::NotStash)
 			})?;
@@ -2714,7 +2731,21 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_min_commission())]
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(new <= MaxCommission::<T>::get(), Error::<T>::CommissionTooHigh);
 			MinCommission::<T>::put(new);
+			Ok(())
+		}
+
+		/// Sets the maximum commission that validators can set.
+		///
+		/// This call has lower privilege requirements than `set_staking_config` and can be called
+		/// by the `T::AdminOrigin`. Root can always call this.
+		#[pallet::call_index(35)]
+		#[pallet::weight(T::WeightInfo::set_min_commission())]
+		pub fn set_max_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(new >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+			MaxCommission::<T>::put(new);
 			Ok(())
 		}
 
