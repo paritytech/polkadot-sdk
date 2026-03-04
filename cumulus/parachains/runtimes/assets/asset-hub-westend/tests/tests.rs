@@ -2026,6 +2026,7 @@ fn staking_operator_filter_allows_validator_ops_and_session_keys() {
 	// StakingOperator can manage session keys
 	assert!(operator.filter(&RuntimeCall::StakingRcClient(RcClientCall::set_keys {
 		keys: Default::default(),
+		proof: Default::default(),
 		max_delivery_and_remote_execution_fee: None,
 	})));
 	assert!(operator.filter(&RuntimeCall::StakingRcClient(RcClientCall::purge_keys {

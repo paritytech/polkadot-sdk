@@ -2287,10 +2287,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					[AccountId32 { network: None, id: account.into() }].into()
 				}
 
-				fn generate_session_keys() -> Vec<u8> {
+				fn generate_session_keys_and_proof(_owner: Self::AccountId) -> (Vec<u8>, Vec<u8>) {
 					use staking::RelayChainSessionKeys;
-					// Note: Proof generation requires PR #1739 which is not backported to stable2512.
-					RelayChainSessionKeys::generate(None)
+					// Note: Proof validation is a no-op until we backport PR #1739.
+					(RelayChainSessionKeys::generate(None), vec![])
 				}
 
 				fn setup_validator() -> Self::AccountId {
