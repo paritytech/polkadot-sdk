@@ -287,6 +287,80 @@ where
 	}
 }
 
+/// Handles paying out the validator self-stake incentive reward.
+///
+/// Implementations may pay immediately (liquid) or via a vesting schedule.
+pub trait ValidatorIncentivePayout<AccountId, Balance, BlockNumber> {
+	/// Pay `amount` from `source` to `dest`.
+	///
+	/// `vesting_duration` is the number of blocks over which to vest the payment linearly.
+	/// If zero, pay liquid immediately.
+	///
+	/// Returns the amount paid, or an error.
+	fn payout(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		vesting_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError>;
+}
+
+/// Pays validator incentive immediately as liquid funds (no vesting).
+pub struct ImmediateIncentivePayout<Currency>(core::marker::PhantomData<Currency>);
+
+impl<AccountId, Balance, BlockNumber, Currency>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber>
+	for ImmediateIncentivePayout<Currency>
+where
+	AccountId: Eq,
+	Currency: frame_support::traits::fungible::Mutate<AccountId, Balance = Balance>,
+	Balance: Copy + sp_runtime::traits::Zero,
+{
+	fn payout(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		_vesting_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		Currency::transfer(
+			source,
+			dest,
+			amount,
+			frame_support::traits::tokens::Preservation::Expendable,
+		)?;
+		Ok(amount)
+	}
+}
+
+/// Pays validator incentive via a linear vesting schedule.
+///
+/// Type parameter:
+/// - `Vesting`: a [`frame_support::traits::tokens::VestedPayout`] implementor
+///   (e.g. `pallet_vesting::Pallet<T>`).
+pub struct VestedIncentivePayout<Vesting>(core::marker::PhantomData<Vesting>);
+
+impl<AccountId, Balance, BlockNumber, Vesting>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber>
+	for VestedIncentivePayout<Vesting>
+where
+	Balance: Copy + sp_runtime::traits::Zero,
+	Vesting: frame_support::traits::tokens::VestedPayout<
+		AccountId,
+		Balance,
+		BlockNumber = BlockNumber,
+	>,
+{
+	fn payout(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		vesting_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		Vesting::vested_transfer(source, dest, amount, vesting_duration)?;
+		Ok(amount)
+	}
+}
+
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
