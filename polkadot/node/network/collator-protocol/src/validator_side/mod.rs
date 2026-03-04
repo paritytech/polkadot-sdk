@@ -562,6 +562,22 @@ struct HeldOffAdvertisement {
 	prospective_candidate: Option<(CandidateHash, Hash)>,
 }
 
+/// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
+/// Determines whether a leaf's relay chain slot has finished, so the scheduling parent
+/// check can accept the last finished slot's block.
+struct LeafSchedulingInfo {
+	/// The parent hash of the leaf block.
+	parent_hash: Hash,
+	/// The BABE slot timestamp of the leaf block.
+	slot_timestamp: sp_timestamp::Timestamp,
+}
+
+impl LeafSchedulingInfo {
+	fn new(parent_hash: Hash, slot_timestamp: sp_timestamp::Timestamp) -> Self {
+		Self { parent_hash, slot_timestamp }
+	}
+}
+
 /// All state relevant for the validator side of the protocol lives here.
 #[derive(Default)]
 struct State {
@@ -593,10 +609,8 @@ struct State {
 	/// - `unfulfilled_claim_queue_entries()`: determines fetch priority based on CQ order
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 
-	/// Per active leaf: (parent_hash, babe_slot_timestamp).
-	/// Used to determine whether a leaf's relay chain slot has finished,
-	/// so the scheduling parent check can accept the last finished slot's block.
-	leaf_scheduling_info: HashMap<Hash, (Hash, sp_timestamp::Timestamp)>,
+	/// Per active leaf scheduling info for V3 scheduling parent validation.
+	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
 
 	/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
 	slot_duration_millis: u64,
@@ -1724,10 +1738,10 @@ where
 			state
 				.leaf_scheduling_info
 				.iter()
-				.any(|(leaf_hash, (parent_hash, slot_timestamp))| {
-					let slot_age_ms = (*now).saturating_sub(**slot_timestamp);
+				.any(|(leaf_hash, info)| {
+					let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
 					if slot_age_ms < slot_duration_ms {
-						scheduling_parent == *parent_hash
+						scheduling_parent == info.parent_hash
 					} else {
 						scheduling_parent == *leaf_hash
 					}
@@ -1980,7 +1994,10 @@ where
 				if let Some(slot_timestamp) =
 					pre_digest.slot().timestamp(SlotDuration::from_millis(slot_duration_ms))
 				{
-					state.leaf_scheduling_info.insert(*leaf, (header.parent_hash, slot_timestamp));
+					state.leaf_scheduling_info.insert(
+						*leaf,
+						LeafSchedulingInfo::new(header.parent_hash, slot_timestamp),
+					);
 				}
 			}
 		}
