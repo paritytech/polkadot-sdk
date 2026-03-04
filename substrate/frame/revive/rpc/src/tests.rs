@@ -321,11 +321,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
 		test_block_sync_fresh,
-		test_block_sync_resync,
 		test_block_sync_resume_interrupted,
-		test_block_sync_chain_mismatch,
-		test_block_sync_boundary_mismatch,
-		test_block_sync_receipts_queryable,
+		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
 	);
 
@@ -1011,10 +1008,7 @@ async fn create_sync_test_client() -> anyhow::Result<Client> {
 	Ok(client)
 }
 
-/// Fresh sync on an empty database should:
-/// - `prepare_sync()` returns `None` (no prior state)
-/// - `sync_past_blocks()` syncs all finalized blocks
-/// - Genesis, LowerBound, and UpperBound labels are persisted correctly
+/// Fresh sync: labels, hash mappings, and re-sync idempotency.
 async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
 
@@ -1080,31 +1074,24 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	assert!(evm_first.is_none(), "FirstEvmBlock should not be set when all blocks are EVM");
 	assert_eq!(client.receipt_provider().first_evm_block(), None);
 
-	log::debug!(
-		target: LOG_TARGET,
-		"Fresh sync OK: genesis={:?}, lower=#{}, upper=#{}",
-		genesis.block_hash,
-		lower_bound.block_number,
-		upper_bound.block_number
+	// Block hash mappings should be queryable after sync.
+	let finalized = client.latest_finalized_block().await;
+	let substrate_hash = finalized.hash();
+	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
+	assert!(
+		ethereum_hash.is_some(),
+		"Finalized block #{} should have an ethereum hash mapping after sync",
+		finalized.number(),
+	);
+	assert_eq!(
+		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
+		Some(substrate_hash),
+		"Reverse mapping should resolve back to the substrate hash"
 	);
 
-	Ok(())
-}
-
-/// Re-syncing an already-synced database should complete without errors
-/// and leave sync labels in the correct state.
-async fn test_block_sync_resync() -> anyhow::Result<()> {
-	let client = create_sync_test_client().await?;
-
-	// First: complete a fresh sync.
+	// Re-syncing should complete without errors (exercises the resume path).
 	let upper = client.prepare_sync().await?;
 	client.sync_past_blocks(upper).await?;
-
-	// Second: run sync again — exercises the (Some(lower), None) resume path.
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
-
-	// UpperBound should still be 0 (sync completed twice).
 	let upper_bound = client
 		.receipt_provider()
 		.get_sync_label(SyncLabel::UpperBound)
@@ -1203,43 +1190,13 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Overwriting the Genesis label with a fake hash should cause `sync_past_blocks`
-/// to return a `ChainMismatch` error.
-async fn test_block_sync_chain_mismatch() -> anyhow::Result<()> {
+/// Corrupted sync labels should be detected on resume:
+/// - Fake Genesis hash → `ChainMismatch`
+/// - Fake UpperBound hash → `SyncBoundaryMismatch`
+async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	use crate::{block_sync::SyncCheckpoint, client::ClientError};
 
-	let client = create_sync_test_client().await?;
-
-	// Complete a fresh sync so Genesis is stored.
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
-
-	// Overwrite Genesis with a fake hash.
-	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
-	client
-		.receipt_provider()
-		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
-		.await?;
-
-	// Re-sync should detect the mismatch and return ChainMismatch.
-	let upper = client.prepare_sync().await?;
-	let result = client.sync_past_blocks(upper).await;
-
-	assert!(result.is_err(), "sync_past_blocks should fail with ChainMismatch");
-	let err = result.unwrap_err();
-	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
-
-	log::debug!(target: LOG_TARGET, "ChainMismatch correctly detected");
-
-	Ok(())
-}
-
-/// Setting UpperBound to a valid block number but with a fake hash should cause
-/// `sync_past_blocks` to return a `SyncBoundaryMismatch` error during resume.
-async fn test_block_sync_boundary_mismatch() -> anyhow::Result<()> {
-	use crate::{block_sync::SyncCheckpoint, client::ClientError};
-
-	// Submit transactions so the chain has enough blocks for the test.
+	// Submit transactions so the chain has enough blocks for the boundary test.
 	submit_evm_transfers(2).await?;
 
 	let client = create_sync_test_client().await?;
@@ -1248,7 +1205,25 @@ async fn test_block_sync_boundary_mismatch() -> anyhow::Result<()> {
 	let upper = client.prepare_sync().await?;
 	client.sync_past_blocks(upper).await?;
 
-	// Fabricate a corrupted UpperBound: valid block number, fake hash.
+	// --- ChainMismatch: overwrite Genesis with a fake hash ---
+	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
+	client
+		.receipt_provider()
+		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
+		.await?;
+
+	let upper = client.prepare_sync().await?;
+	let err = client.sync_past_blocks(upper).await.unwrap_err();
+	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
+
+	// Restore the real genesis so we can test the next corruption.
+	let real_genesis = SyncCheckpoint::new(0, client.api().genesis_hash());
+	client
+		.receipt_provider()
+		.set_sync_label(ChainMetadata::Genesis, real_genesis)
+		.await?;
+
+	// --- SyncBoundaryMismatch: corrupted UpperBound hash ---
 	let chain_len = client.latest_finalized_block().await.number();
 	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
@@ -1256,7 +1231,6 @@ async fn test_block_sync_boundary_mismatch() -> anyhow::Result<()> {
 		.set_sync_label(SyncLabel::UpperBound, corrupted_upper)
 		.await?;
 
-	// prepare_sync sees UpperBound > 0 and returns it for resume.
 	let upper = client.prepare_sync().await?;
 	assert_eq!(
 		upper.unwrap(),
@@ -1264,55 +1238,10 @@ async fn test_block_sync_boundary_mismatch() -> anyhow::Result<()> {
 		"prepare_sync should return the corrupted UpperBound"
 	);
 
-	// sync_past_blocks should detect the hash mismatch during verify_boundary.
-	let result = client.sync_past_blocks(upper).await;
-
-	assert!(result.is_err(), "sync_past_blocks should fail with SyncBoundaryMismatch");
-	let err = result.unwrap_err();
+	let err = client.sync_past_blocks(upper).await.unwrap_err();
 	assert!(
 		matches!(err, ClientError::SyncBoundaryMismatch),
 		"Expected SyncBoundaryMismatch, got: {err:?}"
-	);
-
-	log::debug!(target: LOG_TARGET, "SyncBoundaryMismatch correctly detected");
-
-	Ok(())
-}
-
-/// After a sync, ethereum-to-substrate block mappings should be queryable
-/// in the test client's database.
-async fn test_block_sync_receipts_queryable() -> anyhow::Result<()> {
-	// Submit a transaction so the chain has EVM data to query.
-	submit_evm_transfers(1).await?;
-
-	let client = create_sync_test_client().await?;
-
-	// Sync all blocks.
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
-
-	// Pick the latest finalized block and look up its mapping.
-	let finalized = client.latest_finalized_block().await;
-	let substrate_hash = finalized.hash();
-
-	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
-	assert!(
-		ethereum_hash.is_some(),
-		"Finalized block #{} ({substrate_hash:?}) should have an ethereum hash mapping after sync",
-		finalized.number(),
-	);
-
-	// Reverse lookup should resolve back to the same substrate hash.
-	assert_eq!(
-		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
-		Some(substrate_hash),
-		"Reverse mapping should resolve back to the substrate hash"
-	);
-
-	log::debug!(
-		target: LOG_TARGET,
-		"Receipts queryable OK: verified mappings for block #{} and mid-chain",
-		finalized.number(),
 	);
 
 	Ok(())

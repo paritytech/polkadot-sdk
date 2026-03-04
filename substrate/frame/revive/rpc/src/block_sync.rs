@@ -111,7 +111,7 @@ impl Client {
 		let hash = checkpoint.block_hash;
 		match (num, hash) {
 			(0, None) => {
-				log::trace!(target: LOG_TARGET, "Boundary #{num}: genesis with no hash, OK");
+				log::trace!(target: LOG_TARGET, "Boundary #0: sync-complete sentinel, OK");
 				Ok(())
 			},
 			(_, None) => {

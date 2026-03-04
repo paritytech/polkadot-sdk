@@ -744,7 +744,7 @@ impl Client {
 		at: BlockNumberOrTag,
 		config: TracerType,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
-		if self.receipt_provider.is_before_receipt_floor(&at) {
+		if self.receipt_provider.is_before_earliest_block(&at) {
 			return Ok(vec![]);
 		}
 
@@ -808,7 +808,7 @@ impl Client {
 
 		if self
 			.receipt_provider
-			.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(block.number())))
+			.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(block.number())))
 		{
 			log::trace!(target: LOG_TARGET,
 				"Block #{} is before receipt floor, skipping", block.number());

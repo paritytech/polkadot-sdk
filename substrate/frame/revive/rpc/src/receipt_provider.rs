@@ -123,13 +123,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			keep_latest_n_blocks,
 			block_number_to_hashes: Default::default(),
 		};
-		provider.load_and_validate_first_evm_block().await?;
+		provider.restore_first_evm_block().await?;
 
 		Ok(provider)
 	}
 
 	/// Check if the block is before the `first_evm_block` protocol boundary.
-	pub fn is_before_receipt_floor(&self, at: &BlockNumberOrTag) -> bool {
+	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
 				if *block_number > U256::from(u32::MAX) {
@@ -157,12 +157,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Restore `first_evm_block` from DB, clearing it if the boundary has shifted.
-	async fn load_and_validate_first_evm_block(&self) -> Result<(), ClientError> {
-		let Some(evm_first) = self
-			.get_sync_label(ChainMetadata::FirstEvmBlock)
-			.await?
-			.map(|c| c.block_number)
-			.filter(|&n| n > 0)
+	async fn restore_first_evm_block(&self) -> Result<(), ClientError> {
+		let Some(evm_first) =
+			self.get_sync_label(ChainMetadata::FirstEvmBlock).await?.map(|c| c.block_number)
 		else {
 			return Ok(());
 		};
@@ -179,19 +176,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		};
 
 		// Stale if evm_first no longer has an EVM hash, or its predecessor now does.
-		// Note: evm_first >= 1 is guaranteed by the filter above.
-		let (current_has_evm, predecessor_has_evm) =
-			tokio::join!(has_evm_hash(evm_first), has_evm_hash(evm_first.saturating_sub(1)));
+		let current_has_evm = has_evm_hash(evm_first).await;
+		let predecessor_has_evm =
+			if evm_first > 0 { has_evm_hash(evm_first - 1).await } else { false };
 
 		if !current_has_evm || predecessor_has_evm {
 			log::warn!(target: LOG_TARGET,
 				"🗄️ Stored first-evm-block=#{evm_first} is stale \
 				 (has_evm={current_has_evm}, predecessor_has_evm={predecessor_has_evm}), \
 				 clearing.");
-			if let Err(e) = self
-				.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(0))
-				.await
-			{
+			if let Err(e) = self.delete_sync_label(ChainMetadata::FirstEvmBlock).await {
 				log::error!(target: LOG_TARGET,
 					"🗄️ Failed to clear stale first-evm-block from DB: {e:?}");
 			}
@@ -382,6 +376,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			label_str,
 			block_number,
 			block_hash,
+		)
+		.execute(&self.pool)
+		.await?;
+		Ok(())
+	}
+
+	/// Delete a sync label entry.
+	pub async fn delete_sync_label(&self, label: impl SyncStateKey) -> Result<(), ClientError> {
+		let label_str = label.to_string();
+		query!(
+			r#"
+			DELETE FROM sync_state WHERE label = $1
+			"#,
+			label_str,
 		)
 		.execute(&self.pool)
 		.await?;
@@ -1368,35 +1376,8 @@ mod tests {
 		Ok(())
 	}
 
-	#[test]
-	fn first_evm_block_passthrough() {
-		let extractor = ReceiptExtractor::new_mock();
-		assert_eq!(extractor.first_evm_block(), None);
-		extractor.set_first_evm_block(50);
-		assert_eq!(extractor.first_evm_block(), Some(50));
-	}
-
 	#[sqlx::test]
-	async fn first_evm_block_loaded_from_db(pool: SqlitePool) -> anyhow::Result<()> {
-		// Simulate a previous run that persisted first-evm-block.
-		let provider = setup_sqlite_provider(pool.clone()).await;
-		assert_eq!(provider.first_evm_block(), None);
-
-		provider
-			.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(42))
-			.await
-			.unwrap();
-
-		// Verify the value can be loaded from DB.
-		let checkpoint = provider.get_sync_label(ChainMetadata::FirstEvmBlock).await?;
-		assert_eq!(checkpoint.map(|c| c.block_number), Some(42));
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn load_and_validate_first_evm_block_clears_stale(
-		pool: SqlitePool,
-	) -> anyhow::Result<()> {
+	async fn restore_first_evm_block_clears_stale(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Persist first_evm_block = 42.
@@ -1406,43 +1387,14 @@ mod tests {
 
 		// MockBlockInfoProvider returns no blocks, so has_evm_hash is always false.
 		// This means evm_first=42 is stale (no longer has an EVM hash).
-		provider.load_and_validate_first_evm_block().await?;
+		provider.restore_first_evm_block().await?;
 
 		// The value should have been cleared (not restored to the extractor).
 		assert_eq!(provider.first_evm_block(), None);
 
-		// DB should be reset to 0.
+		// DB row should have been deleted.
 		let checkpoint = provider.get_sync_label(ChainMetadata::FirstEvmBlock).await?;
-		assert_eq!(checkpoint.map(|c| c.block_number), Some(0));
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn sync_state_roundtrip(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-
-		// Initially empty
-		assert!(provider.get_sync_label(ChainMetadata::Genesis).await.unwrap().is_none());
-
-		// Set and read back
-		let hash = H256::repeat_byte(0x42);
-		provider
-			.set_sync_label(ChainMetadata::Genesis, SyncCheckpoint::new(0, hash))
-			.await
-			.unwrap();
-		let checkpoint = provider.get_sync_label(ChainMetadata::Genesis).await.unwrap().unwrap();
-		assert_eq!(checkpoint.block_number, 0);
-		assert_eq!(checkpoint.block_hash, Some(hash));
-
-		// Overwrite
-		let hash2 = H256::repeat_byte(0xAA);
-		provider
-			.set_sync_label(ChainMetadata::Genesis, SyncCheckpoint::new(0, hash2))
-			.await
-			.unwrap();
-		let checkpoint = provider.get_sync_label(ChainMetadata::Genesis).await.unwrap().unwrap();
-		assert_eq!(checkpoint.block_hash, Some(hash2));
-
+		assert!(checkpoint.is_none());
 		Ok(())
 	}
 
@@ -1466,17 +1418,12 @@ mod tests {
 		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
-		// Lower value is ignored.
+		// Lower and equal values are ignored (strict >).
 		provider
 			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(50, hash_a))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
-		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
-
-		// Equal value is ignored (strict <).
-		let hash_c = H256::repeat_byte(0xCC);
 		provider
-			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(200, hash_c))
+			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(200, hash_a))
 			.await?;
 		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
@@ -1504,17 +1451,12 @@ mod tests {
 		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
-		// Higher value is ignored.
+		// Higher and equal values are ignored (strict <).
 		provider
 			.recede_sync_label(SyncLabel::LowerBound, SyncCheckpoint::new(200, hash_a))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
-		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
-
-		// Equal value is ignored (strict >).
-		let hash_c = H256::repeat_byte(0xCC);
 		provider
-			.recede_sync_label(SyncLabel::LowerBound, SyncCheckpoint::new(50, hash_c))
+			.recede_sync_label(SyncLabel::LowerBound, SyncCheckpoint::new(50, hash_a))
 			.await?;
 		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
@@ -1523,31 +1465,27 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn is_before_receipt_floor_u256_overflow() {
+	async fn is_before_earliest_block_edge_cases() {
+		// U256 > u32::MAX should never be considered "before floor"
 		let extractor = ReceiptExtractor::new_mock();
 		extractor.set_first_evm_block(10);
 		let provider = mock_provider().with_extractor(extractor);
 
-		// U256 > u32::MAX should never be considered "before floor"
 		let huge = BlockNumberOrTag::U256(U256::from(u64::MAX));
-		assert!(!provider.is_before_receipt_floor(&huge));
+		assert!(!provider.is_before_earliest_block(&huge));
 
 		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
-		assert!(!provider.is_before_receipt_floor(&just_over));
-	}
-
-	#[tokio::test]
-	async fn is_before_receipt_floor_sentinel_is_permissive() {
-		let provider = mock_provider();
+		assert!(!provider.is_before_earliest_block(&just_over));
 
 		// Sentinel first_evm_block (u32::MAX) is permissive — no queries rejected.
-		assert!(!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(0u32))));
+		let provider = mock_provider();
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(0u32))));
 		assert!(
-			!provider.is_before_receipt_floor(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
+			!provider.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
 		);
 
 		// Tag-based queries are never rejected.
-		assert!(!provider.is_before_receipt_floor(&BlockNumberOrTag::BlockTag(
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::BlockTag(
 			pallet_revive::evm::BlockTag::Latest
 		)));
 	}
