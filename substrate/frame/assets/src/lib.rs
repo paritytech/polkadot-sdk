@@ -690,8 +690,8 @@ pub mod pallet {
 		IssuedDebt { asset_id: T::AssetId, amount: T::Balance },
 		/// Some assets Debt was destroyed (and assets issued).
 		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
-		/// Funds have been approved for transfer to a destination account.
-		/// If there was a previous approval, then the amount was replaced (not incremented).
+		/// The approval amount for a delegate was set (replaced).
+		/// An `amount` of zero means the approval was revoked.
 		ApprovalSet {
 			asset_id: T::AssetId,
 			source: T::AccountId,
