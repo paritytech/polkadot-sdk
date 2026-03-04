@@ -18,6 +18,47 @@
 use super::*;
 use crate::session_rotation::Eras;
 
+/// Sets up the default validator self-stake incentive config used across tests.
+fn setup_incentive_config() {
+	assert_ok!(Staking::set_validator_self_stake_incentive_config(
+		RuntimeOrigin::root(),
+		ConfigOp::Set(30_000),
+		ConfigOp::Set(100_000),
+		ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+	));
+}
+
+/// Sets up incentive config and a budget allocation with the given percentages.
+fn setup_incentive_with_budget(staker_pct: u32, incentive_pct: u32) {
+	setup_incentive_config();
+	let budget = pallet_dap::BudgetConfig {
+		staker_rewards: Perbill::from_percent(staker_pct),
+		validator_self_stake_incentive: Perbill::from_percent(incentive_pct),
+		buffer: Perbill::from_percent(100 - staker_pct - incentive_pct),
+	};
+	pallet_dap::BudgetAllocation::<Test>::put(budget);
+}
+
+/// Finds the staker reward amount for a given stash from events.
+fn staker_reward_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	events.iter().find_map(|e| match e {
+		Event::Rewarded { stash: s, amount, .. } if *s == stash => Some(*amount),
+		_ => None,
+	})
+}
+
+/// Finds the validator incentive amount for a given stash from events.
+fn incentive_paid_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	events.iter().find_map(|e| match e {
+		Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+			if *validator_stash == stash =>
+		{
+			Some(*amount)
+		},
+		_ => None,
+	})
+}
+
 #[test]
 fn set_validator_self_stake_incentive_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -281,23 +322,10 @@ fn set_validator_self_stake_incentive_config_allows_setting_cap_when_optimum_is_
 fn validator_receives_both_staker_and_incentive_rewards() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Validator with incentive budget enabled
-		let alice = 11;
-		// nominator
-		let bob = 101;
+		let alice = 11; // validator
+		let bob = 101; // nominator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let budget = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(45),
-			validator_self_stake_incentive: Perbill::from_percent(5),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget);
+		setup_incentive_with_budget(45, 5);
 
 		// Era 2 has validator weights set by election
 		Session::roll_until_active_era(2);
@@ -313,48 +341,18 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		// THEN: Validator receives both staker reward and incentive bonus
 		let events = staking_events_since_last_call();
 
-		let staker_reward_amount = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-				_ => None,
-			})
-			.expect("Validator should receive staker reward");
+		let staker_reward =
+			staker_reward_for(alice, &events).expect("Validator should receive staker reward");
+		let incentive =
+			incentive_paid_for(alice, &events).expect("Validator should receive incentive bonus");
 
-		let incentive_amount = events
-			.iter()
-			.find_map(|e| match e {
-				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
-					if *validator_stash == alice =>
-				{
-					Some(*amount)
-				},
-				_ => None,
-			})
-			.expect("Validator should receive incentive bonus");
-
-		assert!(staker_reward_amount > 0);
-		assert!(incentive_amount > 0);
-
-		// alice balance increased by correct amount
+		// Alice balance increased by correct amount
 		let alice_balance_after = asset::total_balance::<Test>(&alice);
-		assert_eq!(
-			alice_balance_after - alice_balance_before,
-			staker_reward_amount + incentive_amount
-		);
+		assert_eq!(alice_balance_after - alice_balance_before, staker_reward + incentive);
 
-		// Bob (the nominator) also received staker reward
-		assert!(events
-			.iter()
-			.any(|e| matches!(e, Event::Rewarded { stash, .. } if *stash == bob)));
-
-		// But Bob did not receive any incentive reward
-		assert!(
-			!events.iter().any(
-				|e| matches!(e, Event::ValidatorIncentivePaid { validator_stash, .. } if *validator_stash == bob)
-			),
-			"Nominator should not receive validator incentive"
-		);
+		// Bob (the nominator) received staker reward but not incentive
+		assert!(staker_reward_for(bob, &events).is_some());
+		assert!(incentive_paid_for(bob, &events).is_none());
 	});
 }
 
@@ -365,19 +363,7 @@ fn nominator_reward_is_proportional_to_staker_budget() {
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let budget_with_incentive = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(40),
-			validator_self_stake_incentive: Perbill::from_percent(10),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_with_incentive);
+		setup_incentive_with_budget(40, 10);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(2);
@@ -387,26 +373,16 @@ fn nominator_reward_is_proportional_to_staker_budget() {
 		make_all_reward_payment(1);
 		let events = staking_events_since_last_call();
 
-		// THEN: Both receive rewards, validator gets more
-		let nominator_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Nominator should receive reward");
+		// THEN: Both receive rewards, validator gets more (higher stake = 1000 vs 500)
+		let nominator_reward =
+			staker_reward_for(bob, &events).expect("Nominator should receive reward");
+		let validator_reward =
+			staker_reward_for(alice, &events).expect("Validator should receive reward");
 
-		let validator_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-				_ => None,
-			})
-			.expect("Validator should receive reward");
-
-		assert!(nominator_reward > 0);
-		assert!(validator_reward > 0);
-		assert!(validator_reward > nominator_reward);
+		assert!(
+			validator_reward > nominator_reward,
+			"Validator ({validator_reward}) should earn more than nominator ({nominator_reward})"
+		);
 	});
 }
 
@@ -417,19 +393,7 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		let alice = 11; // validator
 		let bob = 21; // validator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let budget_with_incentive = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(45),
-			validator_self_stake_incentive: Perbill::from_percent(5),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_with_incentive);
+		setup_incentive_with_budget(45, 5);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
 		Session::roll_until_active_era(2);
@@ -479,25 +443,12 @@ fn multiple_validators_share_incentive_pot_correctly() {
 fn validator_incentive_prorated_across_pages() {
 	// Verifies that validator incentive is prorated across multiple pages:
 	// - ValidatorIncentivePaid event is emitted once per page
-	// - Each page receives page_stake_part * validator_total_incentive
 	// - Sum of all page incentives equals the validator's total share from the pot
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Validator with incentive enabled
 		let alice = 11; // validator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let budget_with_incentive = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(45),
-			validator_self_stake_incentive: Perbill::from_percent(5),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_with_incentive);
+		setup_incentive_with_budget(45, 5);
 
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
@@ -543,23 +494,11 @@ fn validator_incentive_prorated_across_pages() {
 #[test]
 fn validator_with_zero_reward_points_no_payout_triggered() {
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Alice and Bob are validators with self stake weight but only Bob has reward points
+		// GIVEN: Alice and Bob are validators, but only Bob has reward points
 		let alice = 11; // validator
 		let bob = 21; // validator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let budget_with_incentive = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(45),
-			validator_self_stake_incentive: Perbill::from_percent(5),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_with_incentive);
+		setup_incentive_with_budget(45, 5);
 
 		Eras::<Test>::reward_active_era(vec![(bob, 1)]);
 		Session::roll_until_active_era(2);
@@ -569,58 +508,16 @@ fn validator_with_zero_reward_points_no_payout_triggered() {
 		make_all_reward_payment(1);
 		let events = staking_events_since_last_call();
 
-		// THEN: Only Bob gets payout (Alice has no reward points)
-		let alice_reward = events.iter().find_map(|e| match e {
-			Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-			_ => None,
-		});
+		// THEN: Alice (no reward points) gets nothing
+		assert!(staker_reward_for(alice, &events).is_none());
+		assert!(incentive_paid_for(alice, &events).is_none());
 
-		let bob_reward = events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive reward");
+		// Bob (has reward points) gets staker reward
+		assert!(staker_reward_for(bob, &events).is_some());
 
-		assert!(alice_reward.is_none(), "Alice should not receive staker reward");
-		assert!(bob_reward > 0);
-
-		// Alice should not receive validator incentive either
-		let alice_incentive = events.iter().find_map(|e| match e {
-			Event::ValidatorIncentivePaid { validator_stash, amount, .. }
-				if *validator_stash == alice =>
-			{
-				Some(*amount)
-			},
-			_ => None,
-		});
-		assert!(alice_incentive.is_none(), "Alice should not receive validator incentive");
-
-		// Verify Bob receives validator incentive
-		let bob_incentive_events: Vec<_> = events
-			.iter()
-			.filter(|e| {
-				matches!(e, Event::ValidatorIncentivePaid { validator_stash, .. } if *validator_stash == bob)
-			})
-			.collect();
-
-		// Check if any validator got incentive at all
-		let any_incentive =
-			events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. }));
-
-		if any_incentive {
-			assert!(
-				!bob_incentive_events.is_empty(),
-				"Bob should receive validator incentive when he has reward points"
-			);
-		}
-
-		// Both have self stake weight allocated, but only Bob's is paid out
-		let alice_weight = ErasValidatorIncentive::<Test>::get(1, alice);
-		let bob_weight = ErasValidatorIncentive::<Test>::get(1, bob);
-		assert!(alice_weight.is_some());
-		assert!(bob_weight.is_some());
+		// Both have self-stake weight allocated, but only Bob's is paid out
+		assert!(ErasValidatorIncentive::<Test>::get(1, alice).is_some());
+		assert!(ErasValidatorIncentive::<Test>::get(1, bob).is_some());
 	});
 }
 
@@ -630,19 +527,10 @@ fn changing_budget_allocation_affects_rewards() {
 		// GIVEN: Era 1 with no validator incentive
 		let alice = 11; // validator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
+		setup_incentive_config();
 
-		let budget_era1 = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(50),
-			validator_self_stake_incentive: Perbill::from_percent(0),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_era1);
+		// Era 1: 50% staker, 0% incentive
+		setup_incentive_with_budget(50, 0);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(2);
@@ -650,27 +538,12 @@ fn changing_budget_allocation_affects_rewards() {
 
 		make_all_reward_payment(1);
 		let era1_events = staking_events_since_last_call();
-		let alice_reward_era1 = era1_events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-				_ => None,
-			})
-			.expect("Alice should receive reward in era 1");
 
-		// Era 1 should have no incentive event
-		let era1_incentive = era1_events
-			.iter()
-			.find(|e| matches!(e, Event::ValidatorIncentivePaid { era, .. } if *era == 1));
-		assert!(era1_incentive.is_none(), "Era 1 should not emit ValidatorIncentivePaid");
+		assert!(staker_reward_for(alice, &era1_events).is_some());
+		assert!(incentive_paid_for(alice, &era1_events).is_none());
 
-		// WHEN: Era 2 with validator incentive enabled
-		let budget_era2 = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(40),
-			validator_self_stake_incentive: Perbill::from_percent(10),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_era2);
+		// WHEN: Era 2 with validator incentive enabled (40% staker, 10% incentive)
+		setup_incentive_with_budget(40, 10);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(3);
@@ -678,100 +551,50 @@ fn changing_budget_allocation_affects_rewards() {
 
 		make_all_reward_payment(2);
 		let era2_events = staking_events_since_last_call();
-		let alice_reward_era2 = era2_events
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == alice => Some(*amount),
-				_ => None,
-			})
-			.expect("Alice should receive reward in era 2");
 
-		// Era 2 should have incentive event
-		let era2_incentive = era2_events
-			.iter()
-			.find_map(|e| match e {
-				Event::ValidatorIncentivePaid { era, validator_stash, amount, .. }
-					if *era == 2 && *validator_stash == alice =>
-				{
-					Some(*amount)
-				},
-				_ => None,
-			})
-			.expect("Era 2 should emit ValidatorIncentivePaid for Alice");
+		// THEN: Era 2 has both staker and incentive rewards
+		assert!(staker_reward_for(alice, &era2_events).is_some());
+		assert!(incentive_paid_for(alice, &era2_events).is_some());
 
-		// THEN: Budget change reflected in allocations and events
-		assert!(alice_reward_era1 > 0);
-		assert!(alice_reward_era2 > 0);
-		assert!(era2_incentive > 0, "Era 2 incentive should be non-zero");
-
-		let era1_validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(1);
-		let era2_validator_allocation = ErasValidatorIncentiveAllocation::<Test>::get(2);
-
-		assert_eq!(era1_validator_allocation, 0, "Era 1 should have 0% validator incentive");
-		assert!(era2_validator_allocation > 0, "Era 2 should have 10% validator incentive");
+		assert_eq!(ErasValidatorIncentiveAllocation::<Test>::get(1), 0);
+		assert!(ErasValidatorIncentiveAllocation::<Test>::get(2) > 0);
 	});
 }
 
 #[test]
 fn lowering_nominator_rewards_via_budget_adjustment() {
-	// Tests that reducing staker budget allocation reduces nominator rewards
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
+		setup_incentive_config();
 
-		// Era 1: baseline with 45% staker rewards
-		let budget_baseline = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(45),
-			validator_self_stake_incentive: Perbill::from_percent(0),
-			buffer: Perbill::from_percent(55),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_baseline);
+		// GIVEN: Era 1 baseline with 45% staker rewards
+		setup_incentive_with_budget(45, 0);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
 		make_all_reward_payment(1);
-		let bob_reward_era1 = staking_events_since_last_call()
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive reward");
+		let era1_events = staking_events_since_last_call();
+		let bob_reward_era1 =
+			staker_reward_for(bob, &era1_events).expect("Bob should receive reward");
 
-		// Era 2: reduced staker budget to 30%
-		let budget_reduced = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(30),
-			validator_self_stake_incentive: Perbill::from_percent(15),
-			buffer: Perbill::from_percent(55),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(budget_reduced);
+		// WHEN: Era 2 with reduced staker budget (30% staker, 15% incentive)
+		setup_incentive_with_budget(30, 15);
 
 		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
 		mock::make_all_reward_payment(2);
-		let bob_reward_era2 = staking_events_since_last_call()
-			.iter()
-			.find_map(|e| match e {
-				Event::Rewarded { stash, amount, .. } if *stash == bob => Some(*amount),
-				_ => None,
-			})
-			.expect("Bob should receive reward");
+		let era2_events = staking_events_since_last_call();
+		let bob_reward_era2 =
+			staker_reward_for(bob, &era2_events).expect("Bob should receive reward");
 
+		// THEN: Staker budget 45% -> 30% is a 33% reduction. Check at least 30% decrease.
 		assert!(bob_reward_era2 < bob_reward_era1);
-
-		// Staker budget decreased from 45% to 30%, which is a 33% reduction (15/45)
-		// We check for at least 30% decrease to account for rounding and other factors
 		let decrease_pct =
 			Perbill::from_rational(bob_reward_era1 - bob_reward_era2, bob_reward_era1);
 		assert!(decrease_pct >= Perbill::from_percent(30));
@@ -785,19 +608,7 @@ fn extreme_budget_scenarios_validator_heavy() {
 		let alice = 11; // validator
 		let bob = 101; // nominator
 
-		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
-			ConfigOp::Set(30_000),
-			ConfigOp::Set(100_000),
-			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-		));
-
-		let extreme_budget = pallet_dap::BudgetConfig {
-			staker_rewards: Perbill::from_percent(10),
-			validator_self_stake_incentive: Perbill::from_percent(40),
-			buffer: Perbill::from_percent(50),
-		};
-		pallet_dap::BudgetAllocation::<Test>::put(extreme_budget);
+		setup_incentive_with_budget(10, 40);
 
 		// Era 2 has validator weights set by election
 		Session::roll_until_active_era(2);

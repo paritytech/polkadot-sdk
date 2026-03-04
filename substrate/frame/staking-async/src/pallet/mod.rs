@@ -1511,7 +1511,6 @@ pub mod pallet {
 		OptimumGreaterThanCap,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
-
 	}
 
 	impl<T: Config> Pallet<T> {
