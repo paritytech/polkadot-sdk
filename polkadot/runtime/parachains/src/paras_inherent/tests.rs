@@ -39,6 +39,20 @@ fn default_config() -> MockGenesisConfig {
 	}
 }
 
+/// Enable the `CandidateReceiptV3` node feature in the genesis config.
+/// V1 and V2 don't require an additional feature flag.
+fn config_with_v3_feature(
+	mut config: MockGenesisConfig,
+	v3_enabled: bool,
+) -> MockGenesisConfig {
+	if v3_enabled {
+		let idx = FeatureIndex::CandidateReceiptV3 as usize;
+		config.configuration.config.node_features.resize(idx + 1, false);
+		config.configuration.config.node_features.set(idx, true);
+	}
+	config
+}
+
 // In order to facilitate benchmarks as tests we have a benchmark feature gated `WeightInfo` impl
 // that uses 0 for all the weights. Because all the weights are 0, the tests that rely on
 // weights for limiting data will fail, so we don't run them when using the benchmark feature.
@@ -160,18 +174,12 @@ mod enter {
 	// freed via becoming fully available, the backed candidates will not be filtered out in
 	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config = MockGenesisConfig::default();
+		let config = config_with_v3_feature(
+			MockGenesisConfig::default(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
-
 			let dispute_statements = BTreeMap::new();
 
 			let mut backed_and_concluding = BTreeMap::new();
@@ -263,17 +271,12 @@ mod enter {
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
 		// All of them are being made available in this block. Propose 5 more candidates (one for
 		// each core) and check that they're successfully backed and the old ones enacted.
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let dispute_statements = BTreeMap::new();
 
@@ -371,17 +374,12 @@ mod enter {
 		// Cores 1, 2 and 3 are being made available in this block. Propose 6 more candidates (one
 		// for each core) and check that the right ones are successfully backed and the old ones
 		// enacted.
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -1556,16 +1554,11 @@ mod enter {
 	fn test_backed_candidates_apply_weight_works_for_elastic_scaling(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
-
+		let config = config_with_v3_feature(
+			MockGenesisConfig::default(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
+		new_test_ext(config).execute_with(|| {
 			let seed = [
 				1, 0, 52, 0, 0, 0, 0, 0, 1, 0, 10, 0, 22, 32, 0, 0, 2, 0, 55, 49, 0, 11, 0, 0, 3,
 				0, 0, 0, 0, 0, 2, 92,
@@ -1721,17 +1714,12 @@ mod enter {
 	fn non_v1_descriptors_are_filtered(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 2);
@@ -2099,17 +2087,12 @@ mod enter {
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		#[case] has_approved_peer_signal: bool,
 	) {
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -2151,17 +2134,12 @@ mod enter {
 	fn elastic_scaling_mixed_descriptors(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -2201,17 +2179,12 @@ mod enter {
 	fn mixed_descriptors_with_optional_ump_signals(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -2371,22 +2344,16 @@ mod enter {
 	// Test that candidates that have neither an injected core index nor a v2/v3 descriptor are
 	// filtered.
 	fn candidate_without_core_index(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config = default_config();
+		let config = config_with_v3_feature(
+			default_config(),
+			descriptor_version == CandidateDescriptorVersionConfig::V3,
+		);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
 			backed_and_concluding.insert(2, 1);
-
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				configuration::Pallet::<Test>::set_node_feature(
-					RuntimeOrigin::root(),
-					FeatureIndex::CandidateReceiptV3 as u8,
-					true,
-				)
-				.unwrap();
-			}
 
 			let non_v1_descriptor_version =
 				descriptor_version != CandidateDescriptorVersionConfig::V1;
@@ -4182,15 +4149,11 @@ mod sanitizers {
 		fn test_with_multiple_cores_per_para(
 			#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		) {
-			new_test_ext(default_config()).execute_with(|| {
-				if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-					configuration::Pallet::<Test>::set_node_feature(
-						RuntimeOrigin::root(),
-						FeatureIndex::CandidateReceiptV3 as u8,
-						true,
-					)
-					.unwrap();
-				}
+			let config = config_with_v3_feature(
+				default_config(),
+				descriptor_version == CandidateDescriptorVersionConfig::V3,
+			);
+			new_test_ext(config).execute_with(|| {
 
 				let non_v1_descriptor_version =
 					descriptor_version != CandidateDescriptorVersionConfig::V1;
@@ -4387,15 +4350,11 @@ mod sanitizers {
 			#[case] multiple_cores_per_para: bool,
 			#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		) {
-			new_test_ext(default_config()).execute_with(|| {
-				if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-					configuration::Pallet::<Test>::set_node_feature(
-						RuntimeOrigin::root(),
-						FeatureIndex::CandidateReceiptV3 as u8,
-						true,
-					)
-					.unwrap();
-				}
+			let config = config_with_v3_feature(
+				default_config(),
+				descriptor_version == CandidateDescriptorVersionConfig::V3,
+			);
+			new_test_ext(config).execute_with(|| {
 
 				let non_v1_descriptor_version =
 					descriptor_version != CandidateDescriptorVersionConfig::V1;
@@ -4460,15 +4419,11 @@ mod sanitizers {
 		) {
 			// Mark the first candidate of paraid 1 as invalid. Its descendant should also
 			// be dropped. Also mark the candidate of paraid 3 as invalid.
-			new_test_ext(default_config()).execute_with(|| {
-				if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-					configuration::Pallet::<Test>::set_node_feature(
-						RuntimeOrigin::root(),
-						FeatureIndex::CandidateReceiptV3 as u8,
-						true,
-					)
-					.unwrap();
-				}
+			let config = config_with_v3_feature(
+				default_config(),
+				descriptor_version == CandidateDescriptorVersionConfig::V3,
+			);
+			new_test_ext(config).execute_with(|| {
 
 				let non_v1_descriptor_version =
 					descriptor_version != CandidateDescriptorVersionConfig::V1;
