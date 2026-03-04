@@ -823,6 +823,91 @@ fn approve_transfer_frozen_asset_should_not_work() {
 }
 
 #[test]
+fn set_approval_amount_rejects_nonzero_to_nonzero() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 50));
+		assert_noop!(
+			Assets::do_set_approval_amount(0, &1, &2, 100),
+			Error::<Test>::AllowanceAlreadySet
+		);
+		// Allowance unchanged.
+		assert_eq!(Approvals::<Test>::get((0, 1, 2)).unwrap().amount, 50);
+	});
+}
+
+#[test]
+fn set_approval_amount_lifecycle_with_transfer_approved() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		// Set approval to 100.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 100));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 1);
+		assert_eq!(Balances::reserved_balance(&1), 1);
+
+		// Spend 60 via transfer_approved.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 60));
+		assert_eq!(Approvals::<Test>::get((0, 1, 2)).unwrap().amount, 40);
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 1);
+
+		// Revoke remaining via set to zero.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 0));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+		assert!(!Approvals::<Test>::contains_key((0, 1, 2)));
+	});
+}
+
+#[test]
+fn set_approval_amount_approvals_counter_through_cycle() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		// Create approvals for two delegates.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 50));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 1);
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &3, 30));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 2);
+
+		// Revoke first, counter decrements.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 0));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 1);
+
+		// Re-create first (zero → non-zero), counter increments.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 25));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 2);
+
+		// Revoke both.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 0));
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &3, 0));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert_eq!(Balances::reserved_balance(&1), 0);
+	});
+}
+
+#[test]
+fn set_approval_amount_zero_on_nonexistent_is_noop() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		// Setting zero when no approval exists should succeed silently.
+		assert_ok!(Assets::do_set_approval_amount(0, &1, &2, 0));
+		assert_eq!(Asset::<Test>::get(0).unwrap().approvals, 0);
+		assert!(!Approvals::<Test>::contains_key((0, 1, 2)));
+	});
+}
+
+#[test]
 fn transferring_from_blocked_account_should_not_work() {
 	build_and_execute(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
