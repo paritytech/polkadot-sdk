@@ -21,7 +21,7 @@ use crate::{
 	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
 };
 use alloy::primitives::U256;
-use frame_support::{assert_ok, traits::Currency};
+use frame_support::{assert_ok, traits::{Currency, Get}};
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
@@ -335,17 +335,23 @@ fn approve_set_and_revoke(asset_index: u16) {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
+		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+
 		// First approve: set allowance to 100 (from zero — allowed).
 		call_approve(owner, asset_addr, spender_addr, U256::from(100));
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
 
-		// Approve to 0: must revoke the allowance entirely.
+		// Approve to 0: must revoke the allowance entirely and unreserve the deposit.
 		call_approve(owner, asset_addr, spender_addr, U256::from(0));
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
+		assert_eq!(Balances::reserved_balance(&owner), 0);
 
-		// Re-approve to 50 after zeroing — allowed.
+		// Re-approve to 50 after zeroing — allowed, deposit reserved again.
 		call_approve(owner, asset_addr, spender_addr, U256::from(50));
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
 	});
 }
 
