@@ -15303,6 +15303,7 @@ dependencies = [
  "sp-consensus",
  "sp-core 28.0.0",
  "sp-keyring",
+ "strum 0.26.3",
  "thiserror 1.0.65",
  "tracing-gum",
 ]
@@ -15482,6 +15483,7 @@ dependencies = [
  "futures-timer",
  "parity-scale-codec",
  "polkadot-node-core-pvf",
+ "polkadot-node-core-pvf-common",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -15650,6 +15652,7 @@ dependencies = [
  "polkadot-node-subsystem-test-helpers",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "procfs",
  "rand 0.8.5",
  "rococo-runtime",

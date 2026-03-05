@@ -487,6 +487,7 @@ where
 										validation_code_hash,
 										result_sender: None,
 										core_index,
+										scheduling_parent: None,
 									},
 								),
 								"SubmitCollation",
