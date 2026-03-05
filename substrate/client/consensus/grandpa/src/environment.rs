@@ -1097,7 +1097,7 @@ where
 		number: NumberFor<Block>,
 		round: RoundNumber,
 		commit: Commit<Block::Header>,
-	) -> Result<(), Self::Error> 
+	) -> Result<(), Self::Error> {
 		let result = finalize_block(
 			self.client.clone(),
 			&self.authority_set,
