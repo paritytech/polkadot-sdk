@@ -3,36 +3,6 @@
 This document describes how to write, run, and maintain fuzz tests in the Polkadot SDK repository.
 It covers tooling setup, input design best practices, CI integration, and common pitfalls.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Tooling: Ziggy](#tooling-ziggy)
-  - [Installation](#installation)
-  - [Running a Fuzzer](#running-a-fuzzer)
-  - [Generating Coverage Reports](#generating-coverage-reports)
-- [Existing Fuzzers](#existing-fuzzers)
-- [Writing a New Fuzzer](#writing-a-new-fuzzer)
-  - [Project Layout](#project-layout)
-  - [Cargo.toml Setup](#cargotoml-setup)
-  - [Harness Code](#harness-code)
-- [Input Design](#input-design)
-  - [Deterministic Byte Mapping](#deterministic-byte-mapping)
-  - [Structured Inputs with `arbitrary`](#structured-inputs-with-arbitrary)
-  - [What to Avoid](#what-to-avoid)
-- [Corpus Management](#corpus-management)
-  - [Seed Corpus](#seed-corpus)
-  - [Corpus Minimization](#corpus-minimization)
-  - [Preserving Corpora Across Runs](#preserving-corpora-across-runs)
-- [Effective Fuzzer Properties](#effective-fuzzer-properties)
-  - [State Invariant Checking](#state-invariant-checking)
-  - [Round-Trip / Differential Testing](#round-trip--differential-testing)
-  - [Action Sequences](#action-sequences)
-- [Performance Tips](#performance-tips)
-- [Multi-Core Fuzzing](#multi-core-fuzzing)
-- [Common Pitfalls](#common-pitfalls)
-- [CI Integration](#ci-integration)
-- [References](#references)
-
 ## Overview
 
 The Polkadot SDK contains fuzz targets for critical components including arithmetic primitives,
@@ -69,6 +39,7 @@ cargo ziggy fuzz -j 4 --no-honggfuzz -G 128
 ```
 
 Key flags:
+
 - `-j N` -- number of parallel AFL++ instances.
 - `--no-honggfuzz` -- skip honggfuzz backend (recommended for substrate runtime fuzzers).
 - `-G N` -- maximum input size in bytes. Keep this small to improve throughput.
@@ -102,20 +73,6 @@ browser.
 | sp-state-machine | `substrate/primitives/state-machine/fuzz` | fuzz_append | ziggy |
 
 ## Writing a New Fuzzer
-
-### Project Layout
-
-Place fuzzer crates adjacent to the code they test:
-
-```
-substrate/frame/my-pallet/
-├── src/
-├── Cargo.toml
-└── fuzzer/
-    ├── Cargo.toml
-    └── src/
-        └── main.rs
-```
 
 ### Cargo.toml Setup
 
@@ -436,6 +393,7 @@ In persistent mode, any state that persists between iterations can cause non-det
 tracks a "stability" metric -- if it drops below 90%, you likely have state leaks.
 
 Solutions:
+
 - Reset storage/state at the start of each iteration.
 - Use `ExtBuilder::default().build_and_execute(|| ziggy::fuzz!(...))` to wrap iterations in a
   fresh externalities context.
