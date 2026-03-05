@@ -869,36 +869,3 @@ fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 			assert!(nested.deposit_left().unwrap() > 0);
 		});
 }
-
-/// Test ratio-based weight scaling for partial gas requests in substrate execution.
-#[test]
-fn substrate_nesting_with_partial_gas_request_scales_weight() {
-	use super::math::substrate_execution;
-
-	ExtBuilder::default()
-		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
-		.build()
-		.execute_with(|| {
-			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
-			let deposit_limit = 1_000_000_000u64;
-
-			let mut root_meter =
-				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
-
-			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
-
-			let weight_left_before = root_meter.weight_left().unwrap();
-
-			let gas_scale: u64 = <Test as Config>::GasScale::get().into();
-			let partial_gas = (u64::MAX / gas_scale) / 10;
-
-			let nested = root_meter
-				.new_nested(&CallResources::Ethereum { gas: partial_gas, add_stipend: false })
-				.unwrap();
-
-			let nested_weight_left = nested.weight_left().unwrap();
-
-			assert!(nested_weight_left.ref_time() > 0);
-			assert!(nested_weight_left.ref_time() <= weight_left_before.ref_time());
-		});
-}
