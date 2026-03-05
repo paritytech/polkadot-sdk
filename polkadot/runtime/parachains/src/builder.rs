@@ -94,9 +94,13 @@ pub(crate) enum CandidateDescriptorVersionConfig {
 	V1,
 	/// V2 descriptor (versioned format, zeroed collator fields; commitments may include UMP
 	/// signals).
+	// TODO: benchmarks should exercise V2/V3 for accurate worst-case weights:
+	// https://github.com/paritytech/polkadot-sdk/issues/11275
+	#[allow(dead_code)]
 	V2,
 	/// V3 descriptor (adds explicit scheduling_parent field; commitments must include UMP
 	/// signals).
+	#[allow(dead_code)]
 	V3,
 }
 

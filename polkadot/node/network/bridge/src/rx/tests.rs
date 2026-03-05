@@ -1790,9 +1790,7 @@ fn assert_all_peer_set_versions_receive_view_updates(
 		handle.await_mode_switch().await;
 
 		for &(peer, version) in &peers {
-			network_handle
-				.connect_peer(peer, version, peer_set, ObservedRole::Full)
-				.await;
+			network_handle.connect_peer(peer, version, peer_set, ObservedRole::Full).await;
 		}
 
 		await_peer_connections(&shared, num_validation, num_collation).await;

@@ -80,7 +80,7 @@ where
 				msg:
 					CandidateBackingMessage::Second {
 						scheduling_parent: relay_parent,
-						candidate: ref candidate,
+						ref candidate,
 						pvd: ref validation_data,
 						pov: ref _pov,
 					},
