@@ -88,6 +88,8 @@
 //! - [ ] Decide on the final APIs and parsing methods. Need more APIs + research free tier usage
 //!   for each
 //! - [ ] Companion/manager binary to manage the OCW storage + submit transactions
+//! - [ ] Instead of relying on the runtime mortality, our tx-extension can simply invalidate stuff?
+//! - [ ] Dupe votes should be rejected rather than replaced, to make the weight saner
 //!
 //! - Rest
 //! - [ ] MaxDeviation metric for offchain workers: If the price they have queried is grossly
@@ -104,8 +106,9 @@
 //!   generate new session keys that are not the same as `derive("Alice")` etc and put them in the
 //!   keystore and register them. Alternatively, we can write some scripts that at startup. Without
 //!   this, our setup is not realistic
-//! - [ ] Randomness audit: Where does the OCW randomness come from? We must be sure that validators
+//! - [x] Randomness audit: Where does the OCW randomness come from? We must be sure that validators
 //!   don't all pick the same random endpoint for each block's OCW thread.
+//! 	- It is coming from the OS
 //! - [ ] Transaction tracing: can the OCW track the status of a previously submitted transaction?
 //!   If yes, it will be useful to prevent new OCW from running.
 //! - [ ] More integration tests in this crate (ocw running auto, using real tx-extensions/pool
