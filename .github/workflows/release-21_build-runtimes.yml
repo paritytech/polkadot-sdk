@@ -70,10 +70,12 @@ jobs:
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          RELEASE_TAG=$(validate_stable_tag "$INPUT_RELEASE_TAG")
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-runtimes:
