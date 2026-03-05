@@ -694,11 +694,28 @@ impl pallet_asset_rate::Config for Runtime {
 
 parameter_types! {
 	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+	pub DapBufferLocation: InteriorLocation = {
+		use sp_runtime::traits::AccountIdConversion;
+		Junction::AccountId32 {
+			network: None,
+			id: PalletId(*b"dap/buff").into_account_truncating(),
+		}
+		.into()
+	};
+	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
+	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
 impl pallet_dap_satellite::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
+	type XcmSender = xcm_config::XcmRouter;
+	type AssetTransactor = xcm_config::FungibleTransactor;
+	type AssetHubLocation = xcm_config::AssetHub;
+	type DapBufferLocation = DapBufferLocation;
+	type NativeAsset = xcm_config::WndLocation;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
