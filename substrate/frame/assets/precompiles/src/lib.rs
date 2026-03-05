@@ -326,7 +326,11 @@ where
 		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
 		use sp_runtime::traits::Zero;
 
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
+		env.charge(
+			<Runtime as Config<Instance>>::WeightInfo::approve_transfer()
+				.max(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
+				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance()),
+		)?;
 		let owner = Self::caller(env)?;
 		let owner_account =
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
