@@ -20,7 +20,6 @@ use crate::{
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	client::{Client, SubscriptionType, connect},
-	receipt_provider::MAX_CACHED_BLOCKS,
 };
 use clap::Parser;
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -33,6 +32,53 @@ use sc_service::{
 };
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::path::PathBuf;
+
+/// Specifies the eth-rpc pruning mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+pub enum EthPruningMode {
+	/// Persistent on-disk database with backward historical sync of all blocks.
+	#[display(fmt = "archive")]
+	Archive,
+	/// In-memory database keeping only the latest N blocks.
+	#[display(fmt = "{_0}")]
+	KeepLatest(usize),
+}
+
+impl EthPruningMode {
+	/// Returns `true` if this mode enables historical block sync.
+	pub fn is_archive(&self) -> bool {
+		matches!(self, Self::Archive)
+	}
+
+	/// Returns the number of blocks to keep, if in `KeepLatest` mode.
+	pub fn keep_latest(&self) -> Option<usize> {
+		match self {
+			Self::KeepLatest(n) => Some(*n),
+			_ => None,
+		}
+	}
+}
+
+impl std::str::FromStr for EthPruningMode {
+	type Err = String;
+
+	fn from_str(input: &str) -> Result<Self, Self::Err> {
+		match input {
+			"archive" => Ok(Self::Archive),
+			n => {
+				n.parse::<usize>()
+					.ok()
+					.filter(|&v| v >= 1)
+					.map(Self::KeepLatest)
+					.ok_or_else(|| {
+						format!(
+							"Invalid pruning mode '{n}': expected 'archive' or a positive integer"
+						)
+					})
+			},
+		}
+	}
+}
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -50,14 +96,13 @@ pub struct CliCommand {
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
 
-	/// Keep only the latest N blocks in the in-memory database.
-	/// When omitted, a persistent on-disk SQLite database is used instead.
-	#[clap(long, value_parser = clap::builder::RangedU64ValueParser::<usize>::new().range(1..))]
-	pub prune: Option<usize>,
-
-	/// Sync all historical blocks from the latest finalized block down to the first EVM block.
-	#[clap(long, conflicts_with = "prune")]
-	pub sync: bool,
+	/// Pruning mode for the eth-rpc receipt database.
+	///
+	/// - archive: Sync all historical blocks (requires an archive node).
+	/// - N (>= 1): In-memory database keeping only the latest N blocks.
+	/// - Omitted: Persistent database with live subscription only.
+	#[clap(long)]
+	pub eth_pruning: Option<EthPruningMode>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -114,14 +159,11 @@ fn resolve_db_dir(base_path: Option<BasePath>) -> PathBuf {
 }
 
 /// Resolve SQLite connection options from CLI arguments.
-///
-/// - If `is_in_memory` is true: returns in-memory SQLite options.
-/// - Otherwise: resolves the base path, creates the directory, and returns file-based options.
 fn resolve_db_options(
-	is_in_memory: bool,
+	eth_pruning: Option<EthPruningMode>,
 	base_path: Option<BasePath>,
 ) -> anyhow::Result<SqliteConnectOptions> {
-	if is_in_memory {
+	if eth_pruning.is_some_and(|m| !m.is_archive()) {
 		Ok(SqliteConnectOptions::new().in_memory(true))
 	} else {
 		let db_dir = resolve_db_dir(base_path);
@@ -136,10 +178,9 @@ fn resolve_db_options(
 
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
-	prune: Option<usize>,
+	eth_pruning: Option<EthPruningMode>,
 	node_rpc_url: &str,
 	db_options: SqliteConnectOptions,
-	is_in_memory_db: bool,
 	max_request_size: u32,
 	max_response_size: u32,
 	abort_signal: Signals,
@@ -148,9 +189,8 @@ fn build_client(
 		let (api, rpc_client, rpc) = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
-		let (pool, keep_latest_n_blocks) = if is_in_memory_db {
-			let max_retained_blocks = prune.unwrap_or(MAX_CACHED_BLOCKS);
-			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {max_retained_blocks} blocks in memory");
+		let (pool, keep_latest_n_blocks) = if let Some(max_blocks) = eth_pruning.and_then(|m| m.keep_latest()) {
+			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {max_blocks} blocks in memory");
 			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
 			let pool = SqlitePoolOptions::new()
 					.max_connections(1)
@@ -158,7 +198,7 @@ fn build_client(
 					.max_lifetime(None)
 					.connect_with(db_options).await?;
 
-			(pool, Some(max_retained_blocks))
+			(pool, Some(max_blocks))
 		} else {
 			(SqlitePoolOptions::new().connect_with(db_options).await?, None)
 		};
@@ -194,8 +234,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rpc_params,
 		prometheus_params,
 		node_rpc_url,
-		prune,
-		sync,
+		eth_pruning,
 		shared_params,
 		allow_unprotected_txs,
 		..
@@ -206,9 +245,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let is_dev = shared_params.dev;
 	let base_path = shared_params.base_path()?;
 
-	// When --prune is set, use an in-memory database; otherwise, use persistent storage.
-	let is_in_memory_db = prune.is_some();
-	let db_options = resolve_db_options(is_in_memory_db, base_path)?;
+	let db_options = resolve_db_options(eth_pruning, base_path)?;
 
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
@@ -242,10 +279,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	let client = build_client(
 		tokio_handle,
-		prune,
+		eth_pruning,
 		&node_rpc_url,
 		db_options,
-		is_in_memory_db,
 		rpc_config.max_request_size * 1024 * 1024,
 		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
@@ -262,9 +298,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	// Read the sync boundary before subscriptions start, so the finalized
 	// subscription cannot advance `Finalized` past actual contiguous coverage.
-	let upper_boundary = if sync {
+	let upper_boundary = if eth_pruning.is_some_and(|m| m.is_archive()) {
 		log::info!(target: "eth-rpc",
-			"🔄 Historical block sync enabled. For a complete sync, \
+			"🔄 Historical block sync enabled (--eth-pruning archive). For a complete sync, \
 			 the connected node should be an archive node.");
 		Some(tokio_runtime.block_on(client.prepare_sync())?)
 	} else {
@@ -345,7 +381,7 @@ mod tests {
 
 	#[test]
 	fn in_memory_returns_memory_options() {
-		let opts = resolve_db_options(true, None).unwrap();
+		let opts = resolve_db_options(Some(EthPruningMode::KeepLatest(256)), None).unwrap();
 		// In-memory options produce `:memory:` filename.
 		let filename = opts.get_filename();
 		assert_eq!(filename, std::path::Path::new(":memory:"));
@@ -355,14 +391,14 @@ mod tests {
 	fn persistent_with_explicit_base_path() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let opts = resolve_db_options(false, Some(base)).unwrap();
+		let opts = resolve_db_options(None, Some(base)).unwrap();
 		assert_eq!(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
 		assert!(tmp.path().exists());
 	}
 
 	#[test]
 	fn persistent_default_path() {
-		let opts = resolve_db_options(false, None).unwrap();
+		let opts = resolve_db_options(None, None).unwrap();
 		let filename = opts.get_filename().to_string_lossy().to_string();
 		assert!(filename.contains("eth-rpc"));
 		assert!(filename.contains(DEFAULT_DATABASE_NAME));
@@ -373,7 +409,20 @@ mod tests {
 		let tmp = TempDir::new().unwrap();
 		let nested = tmp.path().join("a").join("b");
 		let base = BasePath::new(&nested);
-		resolve_db_options(false, Some(base)).unwrap();
+		resolve_db_options(None, Some(base)).unwrap();
 		assert!(nested.exists());
+	}
+
+	#[test]
+	fn eth_pruning_mode() {
+		// CLI parsing
+		let cmd = CliCommand::try_parse_from(["eth-rpc", "--eth-pruning", "archive"]).unwrap();
+		assert_eq!(cmd.eth_pruning, Some(EthPruningMode::Archive));
+
+		let cmd = CliCommand::try_parse_from(["eth-rpc", "--eth-pruning", "256"]).unwrap();
+		assert_eq!(cmd.eth_pruning, Some(EthPruningMode::KeepLatest(256)));
+
+		let cmd = CliCommand::try_parse_from(["eth-rpc"]).unwrap();
+		assert_eq!(cmd.eth_pruning, None);
 	}
 }

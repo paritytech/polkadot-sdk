@@ -123,7 +123,7 @@ impl Client {
 				let block = self.block_provider().block_by_number(num).await?.ok_or_else(|| {
 					log::error!(target: LOG_TARGET,
 						"Boundary #{num}: block not found on chain \
-						 (node may have pruned it — use an archive node with --sync)");
+						 (node may have pruned it — use an archive node with --eth-pruning archive)");
 					ClientError::SyncBoundaryMismatch
 				})?;
 				if block.hash() != stored_hash {
