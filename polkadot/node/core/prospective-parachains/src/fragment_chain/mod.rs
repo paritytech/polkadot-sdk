@@ -1427,7 +1427,6 @@ impl FragmentChain {
 					// a new relay block arrives mid-slot), which is still valid.
 					// From the relay chain's perspective, we only require that the
 					// scheduling_parent is within allowed scheduling parents.
-
 					// don't add candidates if they're already present in the chain.
 					// this can never happen, as candidates can only be duplicated if there's a
 					// cycle and we shouldn't have allowed for a cycle to be chained.

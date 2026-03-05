@@ -83,6 +83,15 @@ mod enter {
 	use sp_core::ByteArray;
 	use sp_runtime::Perbill;
 
+	/// Helper to convert v2_descriptor bool to CandidateDescriptorVersionConfig
+	fn descriptor_version(v2: bool) -> CandidateDescriptorVersionConfig {
+		if v2 {
+			CandidateDescriptorVersionConfig::V2
+		} else {
+			CandidateDescriptorVersionConfig::V1
+		}
+	}
+
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,
 		dispute_sessions: Vec<u32>,

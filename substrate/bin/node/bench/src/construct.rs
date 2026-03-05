@@ -34,6 +34,7 @@ use sc_transaction_pool_api::{
 	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_consensus::{Environment, ProposeArgs, Proposer};
+use sp_core::traits::CallContext;
 use sp_inherents::InherentDataProvider;
 use sp_runtime::OpaqueExtrinsic;
 
@@ -112,7 +113,7 @@ impl core::Benchmark for ConstructionBenchmark {
 
 		let _ = context
 			.client
-			.runtime_version_at(context.client.chain_info().genesis_hash)
+			.runtime_version_at(context.client.chain_info().genesis_hash, CallContext::Offchain)
 			.expect("Failed to get runtime version")
 			.spec_version;
 

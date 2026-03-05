@@ -17350,6 +17350,8 @@ dependencies = [
  "env_logger 0.11.3",
  "ethabi-decode",
  "futures",
+ "hex",
+ "hex-literal",
  "log",
  "pallet-revive",
  "parity-scale-codec",
@@ -17361,7 +17363,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
+ "sp-maybe-compressed-blob 11.0.0",
  "substrate-build-script-utils",
  "subxt 0.44.2",
  "tokio",
@@ -24476,6 +24480,7 @@ dependencies = [
  "parity-wasm",
  "scale-info",
  "serde",
+ "sp-core 28.0.0",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
@@ -25020,6 +25025,23 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm",
  "tracing",
+]
+
+[[package]]
+name = "statement-latency-bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger 0.11.3",
+ "jsonrpsee",
+ "log",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-statement-store",
+ "tokio",
 ]
 
 [[package]]
