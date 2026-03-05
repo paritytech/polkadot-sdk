@@ -42,8 +42,6 @@ pub struct ValidationContext {
 	pub executor_params: ExecutorParams,
 	/// Execution timeout
 	pub exec_timeout: Duration,
-	/// Whether V3 features are enabled
-	pub v3_enabled: bool,
 }
 
 impl ValidationContext {
@@ -54,12 +52,12 @@ impl ValidationContext {
 
 	/// Get the scheduling parent hash from the candidate descriptor
 	pub fn scheduling_parent(&self) -> Hash {
-		self.candidate_receipt.descriptor.scheduling_parent(self.v3_enabled)
+		self.candidate_receipt.descriptor.scheduling_parent()
 	}
 
 	/// Get the candidate descriptor version
 	pub fn descriptor_version(&self) -> CandidateDescriptorVersion {
-		self.candidate_receipt.descriptor.version(self.v3_enabled)
+		self.candidate_receipt.descriptor.version()
 	}
 
 	/// Convert to an ExecuteRequest for sending to the worker.

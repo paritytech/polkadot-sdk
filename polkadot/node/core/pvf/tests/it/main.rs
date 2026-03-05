@@ -124,7 +124,6 @@ impl TestHost {
 			pov: Arc::new(pov),
 			executor_params: executor_params.clone(),
 			exec_timeout: TEST_EXECUTION_TIMEOUT,
-			v3_enabled: false,
 		};
 
 		self.host

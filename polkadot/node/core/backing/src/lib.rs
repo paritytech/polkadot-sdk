@@ -450,6 +450,18 @@ struct State {
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
 	keystore: KeystorePtr,
+	/// Monotonic flag: set to `true` once any activated leaf has the V3 candidate
+	/// descriptor feature enabled. Once set, never unset. Used for V3 gating checks
+	/// in backing — if V3 was never seen, reject V3 candidates and candidates where
+	/// old/new version detection disagrees.
+	///
+	/// Note: In theory a reorg could revert a leaf where V3 was enabled, making this
+	/// flag temporarily inaccurate. This is acceptable because:
+	/// 1. The runtime performs the same check and is always correct.
+	/// 2. The worst case is the backer signs a statement the runtime later rejects — the candidate
+	///    simply won't be included, no slashing occurs.
+	/// 3. This is an extremely short-lived edge case during reorgs.
+	v3_ever_seen: bool,
 }
 
 impl State {
@@ -464,6 +476,7 @@ impl State {
 			per_session_cache: PerSessionCache::default(),
 			background_validation_tx,
 			keystore,
+			v3_ever_seen: false,
 		}
 	}
 }
@@ -1053,6 +1066,9 @@ async fn handle_active_leaves_update<Context>(
 		.await?;
 
 		if let Some(per) = per {
+			if !state.v3_ever_seen && FeatureIndex::CandidateReceiptV3.is_set(&per.node_features) {
+				state.v3_ever_seen = true;
+			}
 			state.per_scheduling_parent.insert(maybe_new, per);
 		}
 	}
@@ -1380,8 +1396,7 @@ async fn get_executor_params(
 	sp_state: &PerSchedulingParentState,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 ) -> Result<Arc<ExecutorParams>, Error> {
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-	let session = descriptor.session_index(v3_enabled).unwrap_or(sp_state.session_index);
+	let session = descriptor.session_index().unwrap_or(sp_state.session_index);
 	per_session_cache
 		.executor_params(session, sp_state.parent, sender)
 		.await
@@ -1856,8 +1871,7 @@ async fn kick_off_validation_work<Context>(
 		candidate_hash,
 		pov_hash: attesting.pov_hash,
 	};
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-	let scheduling_parent = attesting.candidate.descriptor().scheduling_parent(v3_enabled);
+	let scheduling_parent = attesting.candidate.descriptor().scheduling_parent();
 
 	background_validate_and_make_available(
 		ctx,
@@ -1907,6 +1921,19 @@ async fn maybe_validate_and_import<Context>(
 			"Not importing statement because the sender is disabled"
 		);
 		return Ok(());
+	}
+
+	// Version consistency + V3 gating for Seconded statements (shared logic).
+	if let StatementWithPVD::Seconded(receipt, _) = statement.payload() {
+		if let Err(reason) = receipt.descriptor.check_version_acceptance(state.v3_ever_seen) {
+			gum::debug!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				"Not importing Seconded statement: {}",
+				reason,
+			);
+			return Ok(());
+		}
 	}
 
 	let res = import_statement(ctx, sp_state, &mut state.per_candidate, &statement).await;
@@ -2032,8 +2059,7 @@ async fn validate_and_second<Context>(
 	);
 
 	let bg_sender = ctx.sender().clone();
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-	let scheduling_parent = candidate.descriptor.scheduling_parent(v3_enabled);
+	let scheduling_parent = candidate.descriptor.scheduling_parent();
 	background_validate_and_make_available(
 		ctx,
 		sp_state,
@@ -2067,7 +2093,6 @@ async fn handle_second_message<Context>(
 	let _timer = metrics.time_process_second();
 
 	let candidate_hash = candidate.hash();
-	let relay_parent = candidate.descriptor().relay_parent();
 
 	if candidate.descriptor().persisted_validation_data_hash() != persisted_validation_data.hash() {
 		gum::warn!(
@@ -2079,25 +2104,19 @@ async fn handle_second_message<Context>(
 		return Ok(());
 	}
 
-	// First, determine v3_enabled by checking any available relay parent state
-	// (we need this to extract scheduling_parent correctly)
-	// Note: We use the relay parent for node feature detection, while later we use the scheduling
-	// parent. This is fine because:
-	//
-	// - We assume the node feature gets enabled and not disabled again.
-	// - The scheduling parent is never older than the relay parent.
-	//
-	// Thus if the feature was enabled at the relay parent, it will also be enabled at the
-	// scheduling parent. If it was not, it does not matter because then we have scheduling_parent
-	// == relay_parent.
-	let v3_enabled = state
-		.per_scheduling_parent
-		.get(&relay_parent)
-		.map(|sp_state| FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features))
-		.unwrap_or(false);
+	// Version consistency + V3 gating (shared logic from primitives).
+	if let Err(reason) = candidate.descriptor().check_version_acceptance(state.v3_ever_seen) {
+		gum::debug!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			"Not seconding candidate: {}",
+			reason,
+		);
+		return Ok(());
+	}
 
 	// The signing context should use scheduling_parent (for V1/V2, this equals relay_parent)
-	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+	let scheduling_parent = candidate.descriptor().scheduling_parent();
 
 	// Look up the PerSchedulingParentState using scheduling_parent - this is where we'll sign
 	let sp_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {

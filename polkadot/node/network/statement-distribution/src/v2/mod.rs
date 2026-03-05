@@ -44,13 +44,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, reputation::ReputationAggregator,
-	request_min_backing_votes, request_node_features, runtime::ClaimQueueSnapshot,
+	request_min_backing_votes, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex, transpose_claim_queue, AuthorityDiscoveryId, CandidateHash,
-	CompactStatement, CoreIndex, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
-	NodeFeatures, SessionIndex, SessionInfo, SignedStatement, SigningContext, TransposedClaimQueue,
-	UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	transpose_claim_queue, AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex,
+	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo,
+	SignedStatement, SigningContext, TransposedClaimQueue, UncheckedSignedStatement, ValidatorId,
+	ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;
@@ -222,17 +222,10 @@ struct PerSessionState {
 	// getting the topology from the gossip-support subsystem
 	grid_view: Option<grid::SessionTopologyView>,
 	local_validator: Option<LocalValidatorIndex>,
-	// Node features for this session
-	node_features: NodeFeatures,
 }
 
 impl PerSessionState {
-	fn new(
-		session_info: SessionInfo,
-		keystore: &KeystorePtr,
-		backing_threshold: u32,
-		node_features: NodeFeatures,
-	) -> Self {
+	fn new(session_info: SessionInfo, keystore: &KeystorePtr, backing_threshold: u32) -> Self {
 		let groups = Groups::new(session_info.validator_groups.clone(), backing_threshold);
 		let mut authority_lookup = HashMap::new();
 		for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
@@ -245,14 +238,7 @@ impl PerSessionState {
 		)
 		.map(|(_, index)| LocalValidatorIndex::Active(index));
 
-		PerSessionState {
-			session_info,
-			groups,
-			authority_lookup,
-			grid_view: None,
-			local_validator,
-			node_features,
-		}
+		PerSessionState { session_info, groups, authority_lookup, grid_view: None, local_validator }
 	}
 
 	fn supply_topology(
@@ -287,11 +273,6 @@ impl PerSessionState {
 	/// `false` is also returned if session topology is not known yet.
 	fn is_not_validator(&self) -> bool {
 		self.grid_view.is_some() && self.local_validator.is_none()
-	}
-
-	/// Returns `true` if v3 candidate receipts are enabled
-	fn v3_enabled(&self) -> bool {
-		FeatureIndex::CandidateReceiptV3.is_set(&self.node_features)
 	}
 }
 
@@ -602,17 +583,8 @@ async fn handle_active_leaf_update<Context>(
 				.await
 				.map_err(JfyiError::RuntimeApiUnavailable)?
 				.map_err(JfyiError::FetchMinimumBackingVotes)?;
-		let node_features = request_node_features(new_relay_parent, session_index, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchNodeFeatures)?;
-		let mut per_session_state = PerSessionState::new(
-			session_info,
-			&state.keystore,
-			minimum_backing_votes,
-			node_features,
-		);
+		let mut per_session_state =
+			PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
 		if let Some(topology) = state.unused_topologies.remove(&session_index) {
 			per_session_state.supply_topology(&topology.topology, topology.local_index);
 		}
@@ -2165,17 +2137,11 @@ async fn fragment_chain_update_inner<Context>(
 		{
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
 
-			// Get the session for the relay parent to determine v3_enabled.
-			// We need this to correctly extract the scheduling_parent from the descriptor.
-			let relay_parent = receipt.descriptor.relay_parent();
-			let session_via_relay_parent =
-				state.per_scheduling_parent.get(&relay_parent).map(|rp| rp.session);
-
-			let per_session =
-				session_via_relay_parent.and_then(|session| state.per_session.get(&session));
-			let v3_enabled = per_session.map_or(false, |ps| ps.v3_enabled());
-
-			let scheduling_parent = receipt.descriptor.scheduling_parent(v3_enabled);
+			let scheduling_parent = receipt.descriptor.scheduling_parent();
+			let per_session = state
+				.per_scheduling_parent
+				.get(&scheduling_parent)
+				.and_then(|p| state.per_session.get(&p.session));
 			let prs = state.per_scheduling_parent.get_mut(&scheduling_parent);
 
 			if let (Some(confirmed), Some(prs), Some(per_session)) =
@@ -3023,7 +2989,6 @@ pub(crate) async fn handle_response<Context>(
 			},
 			disabled_mask,
 			&scheduling_parent_state.transposed_cq,
-			per_session.v3_enabled(),
 		);
 
 		for (peer, rep) in res.reputation_changes {

@@ -29,8 +29,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer};
 use polkadot_node_subsystem_util::{metrics, nesting_sender::NestingSender, runtime::RuntimeInfo};
 use polkadot_primitives::{
-	node_features::FeatureIndex, AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex,
-	ValidatorIndex,
+	AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex, ValidatorIndex,
 };
 
 use super::error::{FatalError, Result};
@@ -236,19 +235,8 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		active_sessions: &HashMap<SessionIndex, Hash>,
 	) -> Result<HashSet<AuthorityDiscoveryId>> {
 		// For disputes, we need session info from the scheduling context
-		// First get a reference relay parent to fetch node features
-		let relay_parent = self.request.0.candidate_receipt.descriptor.relay_parent();
-
-		// Get node features to determine v3_enabled
-		let session_info_for_features = runtime
-			.get_session_info_by_index(ctx.sender(), relay_parent, self.request.0.session_index)
-			.await?;
-		let v3_enabled =
-			FeatureIndex::CandidateReceiptV3.is_set(&session_info_for_features.node_features);
-
 		// Use scheduling_parent to fetch the session info for dispute validators
-		let scheduling_parent =
-			self.request.0.candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+		let scheduling_parent = self.request.0.candidate_receipt.descriptor.scheduling_parent();
 
 		// Retrieve all authorities which participated in the parachain consensus of the session
 		// in which the candidate was backed (scheduling session).

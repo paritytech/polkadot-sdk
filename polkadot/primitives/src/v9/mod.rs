@@ -1852,6 +1852,27 @@ pub enum CandidateDescriptorVersion {
 	Unknown,
 }
 
+/// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VersionCheckError {
+	/// Old-style and new-style version detection disagree, and this is not the
+	/// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
+	Inconsistency,
+	/// The descriptor is V3 but the V3 feature is not enabled.
+	V3NotEnabled,
+}
+
+impl core::fmt::Display for VersionCheckError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::Inconsistency => {
+				write!(f, "Descriptor version detection inconsistency (old vs new rules disagree)")
+			},
+			Self::V3NotEnabled => write!(f, "V3 candidate descriptor but V3 feature not enabled"),
+		}
+	}
+}
+
 /// A unique descriptor of the candidate receipt.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct CandidateDescriptorV2<H = Hash> {
@@ -1947,17 +1968,71 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	///
 	/// # Arguments
 	///
-	/// * `v3_enabled` - Whether the V3 candidate descriptor version is enabled
-	/// via node features. When `true`, the function will properly detect and
-	/// return V3 descriptors. When `false`, the function preserves pre-V3
-	/// behavior for backwards compatibility - see explanation above.
-	pub fn version(&self, v3_enabled: bool) -> CandidateDescriptorVersion {
-		if v3_enabled {
-			self.v3_version()
-		} else {
-			// Preserve pre v3 behavior exactly:
-			self.v2_version()
+	/// Detect the version of the candidate descriptor.
+	///
+	/// Always uses the relaxed (v3-capable) detection logic. This means
+	/// version detection is self-contained and does not require knowing
+	/// whether the V3 node feature is enabled.
+	///
+	/// The safety invariant is maintained by the runtime and backing
+	/// subsystem: they reject candidates where `version()` and
+	/// `version_old_rules()` disagree when V3 is not yet enabled, and
+	/// reject V3 candidates outright when V3 is not enabled. This ensures
+	/// that any on-chain candidate has an unambiguous version, so approval
+	/// checkers and dispute participants never need to look up node features.
+	pub fn version(&self) -> CandidateDescriptorVersion {
+		self.v3_version()
+	}
+
+	/// Detect the version using the pre-V3 (stricter) rules.
+	///
+	/// Under these rules, all reserved fields, `scheduling_parent`, and
+	/// `scheduling_session_offset` must be zero for a descriptor to be
+	/// considered V2. Any non-zero value in those fields causes V1
+	/// detection. V3 descriptors appear as V1 under these rules.
+	///
+	/// Used together with `version()` in consistency checks: if the two
+	/// methods disagree, the candidate is ambiguous and must be rejected
+	/// when V3 is not enabled.
+	pub fn version_old_rules(&self) -> CandidateDescriptorVersion {
+		self.v2_version()
+	}
+
+	/// Returns `true` if the old-style and new-style version detection agree.
+	///
+	/// When V3 is not enabled, both runtime and backing must reject candidates
+	/// where this returns `false`, preventing ambiguous candidates from landing
+	/// on-chain. Once V3 is enabled, disagreement is expected for V3 candidates
+	/// (old rules see V1, new rules see V3) and this check is skipped.
+	pub fn check_version_consistency(&self) -> bool {
+		self.version() == self.version_old_rules()
+	}
+
+	/// Validates that the descriptor version is acceptable given whether V3 is enabled.
+	///
+	/// This is the single source of truth for version gating logic, used by both
+	/// the runtime (`check_descriptor_version_and_signals`) and the backing subsystem.
+	///
+	/// Checks two things:
+	/// 1. Old-style and new-style version detection must agree, unless the candidate is V3 and V3
+	///    is enabled (the expected disagreement: old rules see V1, new rules see V3).
+	/// 2. V3 candidates are rejected when V3 is not enabled.
+	pub fn check_version_acceptance(&self, v3_enabled: bool) -> Result<(), VersionCheckError> {
+		let version = self.version();
+
+		// Version consistency: old and new detection must agree, unless this is the
+		// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
+		let is_expected_v3_disagreement = version == CandidateDescriptorVersion::V3 && v3_enabled;
+		if !self.check_version_consistency() && !is_expected_v3_disagreement {
+			return Err(VersionCheckError::Inconsistency);
 		}
+
+		// V3 gating: reject V3 candidates before the feature is enabled.
+		if version == CandidateDescriptorVersion::V3 && !v3_enabled {
+			return Err(VersionCheckError::V3NotEnabled);
+		}
+
+		Ok(())
 	}
 
 	fn v2_version(&self) -> CandidateDescriptorVersion {
@@ -2038,11 +2113,9 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
-	///
-	/// Note: This method assumes v3_enabled = false and is only for test code.
 	#[cfg(feature = "test")]
 	pub fn collator(&self) -> Option<CollatorId> {
-		if self.version(false) == CandidateDescriptorVersion::V1 {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			Some(self.rebuild_collator_field())
 		} else {
 			None
@@ -2072,11 +2145,9 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
-	///
-	/// Note: This method assumes v3_enabled = false and is only for test code.
 	#[cfg(feature = "test")]
 	pub fn signature(&self) -> Option<CollatorSignature> {
-		if self.version(false) == CandidateDescriptorVersion::V1 {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			return Some(self.rebuild_signature_field());
 		}
 
@@ -2084,8 +2155,8 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the `core_index` of `V2` and `V3` candidate descriptors, `None` for `V1`.
-	pub fn core_index(&self, v3_enabled: bool) -> Option<CoreIndex> {
-		if self.version(v3_enabled) == CandidateDescriptorVersion::V1 {
+	pub fn core_index(&self) -> Option<CoreIndex> {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			return None;
 		}
 
@@ -2093,8 +2164,8 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	}
 
 	/// Returns the `session_index` of `V2` and `V3` candidate descriptors, `None` for `V1`.
-	pub fn session_index(&self, v3_enabled: bool) -> Option<SessionIndex> {
-		if self.version(v3_enabled) == CandidateDescriptorVersion::V1 {
+	pub fn session_index(&self) -> Option<SessionIndex> {
+		if self.version() == CandidateDescriptorVersion::V1 {
 			return None;
 		}
 
@@ -2106,8 +2177,8 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	///
 	/// On v1 and v2 this function will return the relay parent as under these versions the relay
 	/// parent is also the scheduling parent.
-	pub fn scheduling_parent(&self, v3_enabled: bool) -> H {
-		match self.version(v3_enabled) {
+	pub fn scheduling_parent(&self) -> H {
+		match self.version() {
 			CandidateDescriptorVersion::V1 => self.relay_parent,
 			CandidateDescriptorVersion::V2 => self.relay_parent,
 			CandidateDescriptorVersion::V3 => self.scheduling_parent,
@@ -2121,8 +2192,8 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// On v1: Return None.
 	/// On v2: Return the session index as it equals the scheduling session on v2.
 	/// On v3: Return the provided scheduling session index.
-	pub fn scheduling_session(&self, v3_enabled: bool) -> Option<SessionIndex> {
-		match self.version(v3_enabled) {
+	pub fn scheduling_session(&self) -> Option<SessionIndex> {
+		match self.version() {
 			CandidateDescriptorVersion::V1 => None,
 			CandidateDescriptorVersion::V2 => Some(self.session_index),
 			CandidateDescriptorVersion::V3 => {
@@ -2664,15 +2735,18 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 	/// Params:
 	/// - `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
 	/// a mapping between `ParaId` and the cores assigned per depth.
-	/// - `v3_enabled` - whether V3 candidate descriptors are enabled via node features.
+	///
+	/// NOTE: This must only be called in the runtime and backing - never in approval voting nor
+	/// disputes! At least not as long as nodes exist which don't understand v3 candidate
+	/// descriptors. Not checking there is fine, because it is checked by the runtime - if it can be
+	/// disputed, it has been checked already!
 	pub fn parse_ump_signals(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
-		v3_enabled: bool,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
 		let signals = self.commitments.ump_signals()?;
 
-		match self.descriptor.version(v3_enabled) {
+		match self.descriptor.version() {
 			CandidateDescriptorVersion::V1 => {
 				// If the parachain runtime started sending ump signals, v1 descriptors are no
 				// longer allowed.
@@ -2689,7 +2763,8 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 			},
 			_ if signals.is_empty() => {
 				// V3 and above require UMP signals.
-				// This is technically changed behavior, but can't be triggered without v3 enabled.
+				// This is technically changed behavior, but this is fine as it is only checked in
+				// the runtime and in backing!
 				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
 			},
 			_ => {},
@@ -3115,5 +3190,132 @@ pub mod tests {
 		let zero_u: usize = 0;
 
 		assert!(zero_b.leading_zeros() >= zero_u.leading_zeros());
+	}
+
+	fn make_v2_descriptor() -> CandidateDescriptorV2 {
+		CandidateDescriptorV2::new(
+			Id::from(1u32),
+			Hash::repeat_byte(1),
+			CoreIndex(0),
+			1,
+			Hash::repeat_byte(2),
+			Hash::repeat_byte(3),
+			Hash::repeat_byte(4),
+			Hash::repeat_byte(5),
+			ValidationCodeHash::from(Hash::repeat_byte(6)),
+		)
+	}
+
+	fn make_v3_descriptor() -> CandidateDescriptorV2 {
+		CandidateDescriptorV2::new_v3(
+			Id::from(1u32),
+			Hash::repeat_byte(1),
+			CoreIndex(0),
+			1,
+			Hash::repeat_byte(2),
+			Hash::repeat_byte(3),
+			Hash::repeat_byte(4),
+			Hash::repeat_byte(5),
+			ValidationCodeHash::from(Hash::repeat_byte(6)),
+			Hash::repeat_byte(7), // scheduling_parent
+		)
+	}
+
+	#[test]
+	fn check_version_acceptance_v1_consistent() {
+		// A V1 descriptor (created from old-style with non-zero collator fields)
+		// Both old and new rules agree → passes regardless of v3_enabled.
+		let mut desc = make_v2_descriptor();
+		// Put non-zero bytes in first 16 bytes of reserved1 to trigger V1 in both
+		// old and new detection.
+		desc.reserved1[0] = 0xFF;
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(desc.check_version_consistency());
+
+		assert!(desc.check_version_acceptance(false).is_ok());
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_v2_consistent() {
+		// A clean V2 descriptor: both rules agree → passes always.
+		let desc = make_v2_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V2);
+		assert!(desc.check_version_consistency());
+
+		assert!(desc.check_version_acceptance(false).is_ok());
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_v3_when_enabled() {
+		// V3 descriptor with v3_enabled=true → passes.
+		let desc = make_v3_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_v3_when_disabled() {
+		// V3 descriptor with v3_enabled=false → rejected.
+		// The consistency check fires first (old rules see V1, new rules see V3,
+		// and V3 disagreement is not expected when v3_enabled=false).
+		let desc = make_v3_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.check_version_acceptance(false), Err(VersionCheckError::Inconsistency));
+	}
+
+	#[test]
+	fn check_version_acceptance_ambiguous_rejected() {
+		// Craft descriptor where old rules see V1, new rules see V2.
+		// reserved1[16..24] non-zero, reserved1[0..16] all zero, version=0.
+		let mut desc = make_v2_descriptor();
+		desc.reserved1[16] = 0xFF; // triggers old V1 check but not new
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+
+		// Rejected regardless of v3_enabled.
+		assert_eq!(desc.check_version_acceptance(false), Err(VersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(true), Err(VersionCheckError::Inconsistency));
+	}
+
+	#[test]
+	fn check_version_consistency_v3_expected_disagreement() {
+		// V3 descriptor: version() returns V3, version_old_rules() returns V1.
+		// check_version_consistency() is false — but this is expected.
+		let desc = make_v3_descriptor();
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+		// Accepted when V3 is enabled.
+		assert!(desc.check_version_acceptance(true).is_ok());
+	}
+
+	#[test]
+	fn check_version_acceptance_ambiguous_scheduling_parent_nonzero() {
+		// Descriptor with scheduling_parent non-zero but version=0.
+		// Old rules: V1 (scheduling_parent non-zero triggers old_v1_detected).
+		// New rules: V2 (only checks reserved1[0..16], which is zero).
+		let mut desc = make_v2_descriptor();
+		desc.scheduling_parent = Hash::repeat_byte(0xAB);
+
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+		assert!(!desc.check_version_consistency());
+
+		assert_eq!(desc.check_version_acceptance(false), Err(VersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(true), Err(VersionCheckError::Inconsistency));
 	}
 }

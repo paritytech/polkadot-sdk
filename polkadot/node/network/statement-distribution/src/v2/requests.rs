@@ -568,7 +568,6 @@ impl UnhandledResponse {
 		allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 		disabled_mask: BitVec<u8, Lsb0>,
 		transposed_cq: &TransposedClaimQueue,
-		v3_enabled: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -655,7 +654,6 @@ impl UnhandledResponse {
 			allowed_para_lookup,
 			disabled_mask,
 			transposed_cq,
-			v3_enabled,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -677,7 +675,6 @@ fn validate_complete_response(
 	allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 	disabled_mask: BitVec<u8, Lsb0>,
 	transposed_cq: &TransposedClaimQueue,
-	v3_enabled: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -730,7 +727,7 @@ fn validate_complete_response(
 		let candidate_hash = response.candidate_receipt.hash();
 
 		// Validate the ump signals.
-		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq, v3_enabled) {
+		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq) {
 			gum::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
@@ -743,8 +740,7 @@ fn validate_complete_response(
 
 		// Check if `session_index` of relay parent matches candidate descriptor
 		// `session_index`.
-		if let Some(candidate_session_index) =
-			response.candidate_receipt.descriptor.session_index(v3_enabled)
+		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
 		{
 			if candidate_session_index != session {
 				gum::debug!(
@@ -1133,7 +1129,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask.clone(),
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1174,7 +1169,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1260,7 +1254,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1343,7 +1336,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1483,7 +1475,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask.clone(),
 				&Default::default(),
-				false,
 			);
 
 			// First request served successfully

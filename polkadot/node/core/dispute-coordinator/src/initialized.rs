@@ -44,10 +44,9 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex, slashing, BlockNumber, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
-	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
+	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -606,32 +605,11 @@ impl Initialized {
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			// First, fetch session info for the message session to get node_features
-			let extended_session_info = match self
-				.runtime_info
-				.get_session_info_by_index(ctx.sender(), relay_parent, session)
-				.await
-			{
-				Ok(info) => info,
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?session,
-						?err,
-						"Could not retrieve session info from RuntimeInfo",
-					);
-					return Ok(());
-				},
-			};
-
-			let v3_enabled =
-				FeatureIndex::CandidateReceiptV3.is_set(&extended_session_info.node_features);
-
 			// For V2/V3: Get scheduling session and parent from descriptor
 			// For V1: These methods return None/relay_parent, fall back to message session
 			let scheduling_session =
-				candidate_receipt.descriptor.scheduling_session(v3_enabled).unwrap_or(session);
-			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+				candidate_receipt.descriptor.scheduling_session().unwrap_or(session);
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
 
 			// Backing validators are from the scheduling context
 			// Fetch session info using scheduling_parent as the runtime API context

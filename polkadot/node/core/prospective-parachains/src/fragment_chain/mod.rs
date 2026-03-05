@@ -212,14 +212,12 @@ impl CandidateStorage {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
-		v3_enabled: bool,
 	) -> Result<(), Error> {
 		let entry = CandidateEntry::new(
 			candidate_hash,
 			candidate,
 			persisted_validation_data,
 			CandidateState::Backed,
-			v3_enabled,
 		)?;
 
 		self.add_candidate_entry(entry)
@@ -377,15 +375,8 @@ impl CandidateEntry {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
-		v3_enabled: bool,
 	) -> Result<Self, CandidateEntryError> {
-		Self::new(
-			candidate_hash,
-			candidate,
-			persisted_validation_data,
-			CandidateState::Seconded,
-			v3_enabled,
-		)
+		Self::new(candidate_hash, candidate, persisted_validation_data, CandidateState::Seconded)
 	}
 
 	pub fn hash(&self) -> CandidateHash {
@@ -397,7 +388,6 @@ impl CandidateEntry {
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
 		state: CandidateState,
-		v3_enabled: bool,
 	) -> Result<Self, CandidateEntryError> {
 		let para_id = candidate.descriptor.para_id();
 		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
@@ -413,7 +403,7 @@ impl CandidateEntry {
 		}
 
 		let relay_parent = candidate.descriptor.relay_parent();
-		let scheduling_parent = candidate.descriptor.scheduling_parent(v3_enabled);
+		let scheduling_parent = candidate.descriptor.scheduling_parent();
 
 		Ok(Self {
 			candidate_hash,

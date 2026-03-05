@@ -41,9 +41,8 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	node_features, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex,
-	GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData, ValidatorId,
-	ValidatorIndex,
+	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, GroupRotationInfo, HeadData,
+	PersistedValidationData, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_hash};
 
@@ -72,7 +71,6 @@ struct TestState {
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	scheduling_lookahead: u32,
-	node_features: NodeFeatures,
 	session_index: SessionIndex,
 	// Used by `update_view` to keep track of latest requested ancestor
 	last_known_block: Option<u32>,
@@ -117,10 +115,6 @@ impl Default for TestState {
 				.collect(),
 		);
 
-		let mut node_features = NodeFeatures::EMPTY;
-		node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
-		node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
-
 		Self {
 			chain_ids: Self::CHAIN_IDS.map(|id| ParaId::from(id)).to_vec(),
 			relay_parent,
@@ -130,7 +124,6 @@ impl Default for TestState {
 			group_rotation_info,
 			claim_queue,
 			scheduling_lookahead,
-			node_features,
 			session_index: 1,
 			last_known_block: None,
 		}

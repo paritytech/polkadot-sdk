@@ -1244,7 +1244,6 @@ pub(crate) mod tests {
 			pov,
 			executor_params: ExecutorParams::default(),
 			exec_timeout: TEST_EXECUTION_TIMEOUT,
-			v3_enabled: false,
 		}
 	}
 

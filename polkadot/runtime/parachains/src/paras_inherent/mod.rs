@@ -924,23 +924,39 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 
 /// Perform required checks for given candidate receipt.
 ///
-/// Returns `true` if candidate descriptor is version 1.
+/// Returns `true` if the candidate passes all version and signal checks.
 ///
-/// Otherwise returns `false` if:
-/// - version 2 descriptors are not allowed
-/// - the core index in descriptor doesn't match the one computed from the commitments
-/// - the `SelectCore` signal does not refer to a core at the top of claim queue
+/// Returns `false` if:
+/// - the descriptor version is unknown
+/// - version consistency check fails (old/new detection rules disagree unexpectedly)
+/// - version 3 descriptors are present but v3 is not enabled
+/// - the relay parent or scheduling parent is not in the allowed relay parents
+/// - UMP signal parsing fails
+/// - for V2/V3: the core index in descriptor doesn't match the one computed from the commitments,
+///   or the `SelectCore` signal does not refer to a core at the top of claim queue
 fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	v3_enabled: bool,
 ) -> bool {
-	let descriptor_version = candidate.descriptor().version(v3_enabled);
+	let descriptor_version = candidate.descriptor().version();
 
 	if descriptor_version == CandidateDescriptorVersion::Unknown {
 		log::debug!(
 			target: LOG_TARGET,
 			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false;
+	}
+
+	// Version consistency + V3 gating (shared logic from primitives).
+	if let Err(reason) = candidate.descriptor().check_version_acceptance(v3_enabled) {
+		log::debug!(
+			target: LOG_TARGET,
+			"{}. Dropping candidate {:?} for paraid {:?}.",
+			reason,
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id()
 		);
@@ -968,7 +984,7 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// movement of scheduling_parent is primarily a censorship resistance concern, handled
 	// by the collator protocol's active leaf check. The relay chain only requires validity
 	// (i.e., the scheduling_parent is in allowed relay parents).
-	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+	let scheduling_parent = candidate.descriptor().scheduling_parent();
 	let Some((sp_info, _)) = allowed_relay_parents.acquire_info(scheduling_parent, None) else {
 		log::debug!(
 			target: LOG_TARGET,
@@ -982,7 +998,7 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// UMP signals check uses scheduling parent's claim queue.
 	// For V1/V2: scheduling_parent == relay_parent, so uses same claim queue as before.
 	// For V3: uses the claim queue from the scheduling_parent.
-	if let Err(err) = candidate.candidate().parse_ump_signals(&sp_info.claim_queue, v3_enabled) {
+	if let Err(err) = candidate.candidate().parse_ump_signals(&sp_info.claim_queue) {
 		log::debug!(
 			target: LOG_TARGET,
 			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
@@ -1001,7 +1017,7 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// For V2/V3: Check scheduling session matches current session.
 	// For V2: scheduling_session() returns session_index (relay parent session).
 	// For V3: scheduling_session() returns scheduling_session_index.
-	let Some(scheduling_session) = candidate.descriptor().scheduling_session(v3_enabled) else {
+	let Some(scheduling_session) = candidate.descriptor().scheduling_session() else {
 		log::debug!(
 			target: LOG_TARGET,
 			"Invalid V2/V3 candidate receipt {:?} for paraid {:?}, missing scheduling session.",
@@ -1011,7 +1027,7 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 		return false;
 	};
 
-	let Some(session_index) = candidate.descriptor().session_index(v3_enabled) else {
+	let Some(session_index) = candidate.descriptor().session_index() else {
 		log::debug!(
 			target: LOG_TARGET,
 			"Invalid V2/V3 candidate receipt {:?} for paraid {:?}, missing session index.",
@@ -1112,12 +1128,8 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Map candidates to scheduled cores. Filter out any unscheduled candidates along with their
 	// descendants.
-	let mut backed_candidates_with_core = map_candidates_to_cores::<T>(
-		&allowed_relay_parents,
-		scheduled,
-		candidates_per_para,
-		v3_enabled,
-	);
+	let mut backed_candidates_with_core =
+		map_candidates_to_cores::<T>(&allowed_relay_parents, scheduled, candidates_per_para);
 
 	// Filter out backing statements from disabled validators. If by that we render a candidate with
 	// less backing votes than required, filter that candidate also. As all the other filtering
@@ -1448,7 +1460,6 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	candidates: BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
-	v3_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	let mut backed_candidates_with_core = BTreeMap::new();
 
@@ -1494,9 +1505,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 				break;
 			}
 
-			if let Some(core_index) =
-				get_core_index::<T>(allowed_relay_parents, &candidate, v3_enabled)
-			{
+			if let Some(core_index) = get_core_index::<T>(allowed_relay_parents, &candidate) {
 				if scheduled_cores.remove(&core_index) {
 					temp_backed_candidates.push((candidate, core_index));
 				} else {
@@ -1544,12 +1553,11 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 fn get_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
-	v3_enabled: bool,
 ) -> Option<CoreIndex> {
 	candidate
 		.candidate()
 		.descriptor
-		.core_index(v3_enabled)
+		.core_index()
 		.or_else(|| get_injected_core_index::<T>(allowed_relay_parents, &candidate))
 }
 

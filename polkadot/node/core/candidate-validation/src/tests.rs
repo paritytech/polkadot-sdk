@@ -554,7 +554,6 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
-		false,
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -644,7 +643,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -669,7 +667,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -694,7 +691,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -728,7 +724,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -758,7 +753,7 @@ fn invalid_session_or_ump_signals() {
 
 	perform_basic_checks(&descriptor, validation_data.max_pov_size, &pov, &validation_code.hash())
 		.unwrap();
-	assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V1);
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V1);
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	for exec_kind in
@@ -775,7 +770,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(Default::default()),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -800,7 +794,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Default::default(),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -851,7 +844,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -879,7 +871,6 @@ fn invalid_session_or_ump_signals() {
 			exec_kind,
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -897,9 +888,8 @@ fn invalid_session_or_ump_signals() {
 
 #[test]
 /// Tests V3 candidate descriptor validation:
-/// - V3 descriptor with UMP signals and v3_enabled=true is valid
-/// - V3 descriptor without UMP signals and v3_enabled=true is invalid (NoUMPSignalWithV3Descriptor)
-/// - V3 descriptor with v3_enabled=false is invalid (UnknownVersion)
+/// - V3 descriptor with UMP signals is valid
+/// - V3 descriptor without UMP signals is invalid (NoUMPSignalWithV3Descriptor)
 fn v3_descriptor_validation() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
@@ -923,10 +913,10 @@ fn v3_descriptor_validation() {
 		scheduling_parent,
 	);
 
-	// Verify it's detected as V3 when v3_enabled=true
-	assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V3);
-	// When v3_enabled=false, V3 descriptors (with non-zero scheduling_parent) are detected as V1
-	assert_eq!(descriptor.version(false), CandidateDescriptorVersion::V1);
+	// Verify it's detected as V3
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
+	// Under old rules, V3 (non-zero scheduling_parent) is detected as V1
+	assert_eq!(descriptor.version_old_rules(), CandidateDescriptorVersion::V1);
 
 	// Validation result WITH UMP signals (required for V3)
 	let mut validation_result_with_signals = WasmValidationResult {
@@ -974,7 +964,7 @@ fn v3_descriptor_validation() {
 	let mut cq = BTreeMap::new();
 	let _ = cq.insert(CoreIndex(0), vec![ParaId::from(1_u32)].into());
 
-	// Test 1: V3 descriptor + UMP signals + v3_enabled=true => Valid
+	// Test 1: V3 descriptor + UMP signals => Valid
 	{
 		let candidate_receipt = CandidateReceipt {
 			descriptor: descriptor.clone(),
@@ -994,7 +984,6 @@ fn v3_descriptor_validation() {
 			PvfExecKind::Backing(dummy_hash()),
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -1002,7 +991,7 @@ fn v3_descriptor_validation() {
 		assert_matches!(result, ValidationResult::Valid(_, _));
 	}
 
-	// Test 2: V3 descriptor + NO UMP signals + v3_enabled=true => Invalid
+	// Test 2: V3 descriptor + NO UMP signals => Invalid
 	// (NoUMPSignalWithV3Descriptor)
 	{
 		let candidate_receipt = CandidateReceipt {
@@ -1023,7 +1012,6 @@ fn v3_descriptor_validation() {
 			PvfExecKind::Backing(dummy_hash()),
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -1036,42 +1024,7 @@ fn v3_descriptor_validation() {
 		);
 	}
 
-	// Test 3: V3 descriptor + v3_enabled=false => Invalid (UMPSignalWithV1Descriptor)
-	// When v3_enabled=false, a V3 descriptor (with non-zero scheduling_parent) is detected as V1
-	{
-		let candidate_receipt = CandidateReceipt {
-			descriptor: descriptor.clone(),
-			commitments_hash: commitments_with_signals.hash(),
-		};
-
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_with_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			false, // v3_enabled=false: V3 descriptor detected as V1
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
-
-		// V3 detected as V1 when v3_enabled=false, rejected because V1 forbids UMP signals
-		assert_matches!(
-			result,
-			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-				CommittedCandidateReceiptError::UMPSignalWithV1Descriptor
-			))
-		);
-	}
-
-	// Test 4: V3 descriptor with scheduling_session_offset > 0, mismatched expected
+	// Test 3: V3 descriptor with scheduling_session_offset > 0, mismatched expected
 	// scheduling session => InvalidSessionIndex
 	{
 		let mut desc = descriptor.clone();
@@ -1097,7 +1050,6 @@ fn v3_descriptor_validation() {
 			PvfExecKind::Backing(dummy_hash()),
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true,
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -1131,7 +1083,6 @@ fn v3_descriptor_validation() {
 			PvfExecKind::Backing(dummy_hash()),
 			&Default::default(),
 			Some(ClaimQueueSnapshot(cq.clone())),
-			true,
 			VALIDATION_CODE_BOMB_LIMIT,
 		))
 		.unwrap();
@@ -1164,7 +1115,6 @@ fn v3_descriptor_validation() {
 				exec_kind,
 				&Default::default(),
 				Some(ClaimQueueSnapshot(cq.clone())),
-				true,
 				VALIDATION_CODE_BOMB_LIMIT,
 			))
 			.unwrap();
@@ -1216,7 +1166,6 @@ fn candidate_validation_bad_return_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1302,7 +1251,6 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1347,7 +1295,6 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		PvfExecKind::Approval,
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1466,7 +1413,6 @@ fn candidate_validation_retry_on_error_helper(
 		exec_kind,
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 }
@@ -1513,7 +1459,6 @@ fn candidate_validation_timeout_is_internal_error() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 
@@ -1564,7 +1509,6 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1618,7 +1562,6 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	))
 	.unwrap();
@@ -1681,7 +1624,6 @@ fn compressed_code_works() {
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
-		true, // v3_enabled
 		VALIDATION_CODE_BOMB_LIMIT,
 	));
 

@@ -49,7 +49,6 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	node_features::FeatureIndex,
 	transpose_claim_queue, AuthorityDiscoveryId, CandidateCommitments,
 	CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt,
@@ -207,39 +206,6 @@ where
 				return;
 			};
 
-			let v3_enabled =
-				match util::request_node_features(relay_parent, session_index, &mut sender)
-					.await
-					.await
-				{
-					Ok(Ok(features)) => FeatureIndex::CandidateReceiptV3.is_set(&features),
-					Ok(Err(e)) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							?relay_parent,
-							?session_index,
-							err = ?e,
-							"Failed to fetch node features from runtime"
-						);
-						let _ = response_sender
-							.send(Err(ValidationFailed("Node features not available".to_string())));
-						return;
-					},
-					Err(e) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							?relay_parent,
-							?session_index,
-							err = ?e,
-							"Failed to fetch node features, oneshot canceled"
-						);
-						let _ = response_sender.send(Err(ValidationFailed(
-							"Node features request canceled".to_string(),
-						)));
-						return;
-					},
-				};
-
 			// This will return a default value for the limit if runtime API is not available.
 			// however we still error out if there is a weird runtime API error.
 			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
@@ -264,7 +230,7 @@ where
 
 			// Claim queue is scheduling context — fetch it from the scheduling_parent.
 			// For V1/V2, scheduling_parent() returns relay_parent.
-			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
 			let maybe_claim_queue = claim_queue(scheduling_parent, &mut sender).await;
 
 			// Fetch the scheduling session index for validating the descriptor's
@@ -300,7 +266,6 @@ where
 				exec_kind,
 				&metrics,
 				maybe_claim_queue,
-				v3_enabled,
 				validation_code_bomb_limit,
 			)
 			.await;
@@ -921,7 +886,6 @@ async fn validate_candidate_exhaustive(
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
-	v3_enabled: bool,
 	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -942,7 +906,7 @@ async fn validate_candidate_exhaustive(
 	// check is left for later when we actually can: https://github.com/paritytech/polkadot-sdk/issues/11182
 	// TODO: Properly check session index in the runtime:
 	// https://github.com/paritytech/polkadot-sdk/issues/11033
-	match (exec_kind, candidate_receipt.descriptor.scheduling_session(v3_enabled)) {
+	match (exec_kind, candidate_receipt.descriptor.scheduling_session()) {
 		(
 			PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
 			Some(scheduling_session),
@@ -973,7 +937,6 @@ async fn validate_candidate_exhaustive(
 		pov: pov.clone(),
 		executor_params: executor_params.clone(),
 		exec_timeout: pvf_exec_timeout(&executor_params, exec_kind.into()),
-		v3_enabled,
 	};
 
 	let result = match exec_kind {
@@ -1120,10 +1083,9 @@ async fn validate_candidate_exhaustive(
 								return Err(ValidationFailed(error.into()));
 							};
 
-							if let Err(err) = committed_candidate_receipt.parse_ump_signals(
-								&transpose_claim_queue(claim_queue.0),
-								v3_enabled,
-							) {
+							if let Err(err) = committed_candidate_receipt
+								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
+							{
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),

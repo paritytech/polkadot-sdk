@@ -32,8 +32,8 @@ use polkadot_primitives::{
 	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys, CandidateDescriptor,
+	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt_v2, dummy_hash,
+	validator_pubkeys,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use sp_application_crypto::AppCrypto;
@@ -236,18 +236,17 @@ struct TestCandidateBuilder {
 impl TestCandidateBuilder {
 	fn build(self) -> CommittedCandidateReceipt {
 		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
-				para_id: self.para_id,
-				pov_hash: self.pov_hash,
-				relay_parent: self.relay_parent,
-				erasure_root: self.erasure_root,
-				collator: dummy_collator(),
-				signature: dummy_collator_signature(),
-				para_head: self.head_data.hash(),
-				validation_code_hash: ValidationCode(self.validation_code).hash(),
-				persisted_validation_data_hash: self.persisted_validation_data_hash,
-			}
-			.into(),
+			descriptor: polkadot_primitives::CandidateDescriptorV2::new(
+				self.para_id,
+				self.relay_parent,
+				CoreIndex(0),
+				1, // session_index (matches TestState default)
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				self.erasure_root,
+				self.head_data.hash(),
+				ValidationCode(self.validation_code).hash(),
+			),
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				upward_messages: Default::default(),
@@ -4191,6 +4190,116 @@ fn occupied_core_assignment() {
 		);
 
 		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
+		virtual_overseer
+	});
+}
+
+// Test that an ambiguous candidate (version consistency check fails) is silently rejected
+// when sent via CandidateBackingMessage::Second.
+#[test]
+fn ambiguous_candidate_rejected_on_second() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let mut candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		// Make the candidate ambiguous: set scheduling_parent to non-zero while keeping
+		// version=0. Old rules see V1 (non-zero scheduling_parent), new rules see V2.
+		candidate.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		// The candidate should be silently rejected — no validation work issued.
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		virtual_overseer
+	});
+}
+
+// Test that an ambiguous candidate (version consistency check fails) is silently rejected
+// when received as a Seconded statement from another validator via
+// CandidateBackingMessage::Statement.
+#[test]
+fn ambiguous_candidate_rejected_on_statement() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let mut candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		// Make the candidate ambiguous: set scheduling_parent to non-zero while keeping
+		// version=0. Old rules see V1 (non-zero scheduling_parent), new rules see V2.
+		candidate.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		// Sign as a Seconded statement from another validator.
+		let public = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[2].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed_statement = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+			&test_state.signing_context,
+			ValidatorIndex(2),
+			&public.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_statement,
+		};
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
+
+		// The candidate should be silently rejected — no validation work issued.
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
 
 		virtual_overseer
 	});

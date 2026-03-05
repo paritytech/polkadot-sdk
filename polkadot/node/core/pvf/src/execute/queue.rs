@@ -929,7 +929,6 @@ mod tests {
 			pov,
 			executor_params: ExecutorParams::default(),
 			exec_timeout: Duration::from_secs(10),
-			v3_enabled: false,
 		};
 
 		ExecuteJob {
@@ -1103,7 +1102,6 @@ mod tests {
 			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 			executor_params: ExecutorParams::default(),
 			exec_timeout: Duration::from_secs(1),
-			v3_enabled: false,
 		};
 		let relevant_job = ExecuteJob {
 			artifact: ArtifactPathId {
@@ -1125,7 +1123,6 @@ mod tests {
 				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 				executor_params: ExecutorParams::default(),
 				exec_timeout: Duration::from_secs(1),
-				v3_enabled: false,
 			};
 			let expired_job = ExecuteJob {
 				artifact: ArtifactPathId {

@@ -63,6 +63,12 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] use_v3_descriptor:
 		if use_v3_descriptor {
 			candidate.descriptor.set_version(1);
 			candidate.descriptor.set_scheduling_parent(relay_parent);
+			// V3 descriptors require UMP signals.
+			candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+			candidate
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
 		}
 
 		let candidate_hash = candidate.hash();

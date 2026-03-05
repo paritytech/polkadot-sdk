@@ -98,16 +98,6 @@ pub(super) async fn update_view(
 			}
 		);
 
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::NodeFeatures(_, tx)
-			)) => {
-				tx.send(Ok(test_state.node_features.clone())).unwrap();
-			}
-		);
-
 		// handle_our_view_change fetches claim queue for the leaf
 		// (stored in leaf_claim_queues for the new offset-based validation)
 		assert_matches!(
@@ -1802,23 +1792,10 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 }
 
 #[rstest]
-#[case(true, false)] // V3 enabled, not crafted
-#[case(false, false)] // V3 disabled, not crafted (detected as V1)
-#[case(false, true)] // V3 disabled, crafted with non-zero reserved (detected as Unknown)
-fn v3_descriptor(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool) {
+#[case(false)] // V3 descriptor accepted (version detection is now self-contained)
+#[case(true)] // Unknown version descriptor rejected
+fn v3_descriptor(#[case] crafted_unknown: bool) {
 	let mut test_state = TestState::default();
-
-	if v3_feature_enabled {
-		// Enable V3 feature for case_1
-		test_state
-			.node_features
-			.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-		test_state
-			.node_features
-			.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
-	} else {
-		test_state.node_features = NodeFeatures::EMPTY;
-	}
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -1851,18 +1828,12 @@ fn v3_descriptor(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
 
 		if crafted_unknown {
-			// Case 3: Create a crafted descriptor that will be detected as Unknown when
-			// v3_enabled=false. Set version field to 1 but keep scheduling_parent as zero.
-			// Since scheduling_parent is zero, old_v1_detected doesn't trigger (no backward
-			// compat). Then v2_version() checks the version field: version=1 is not recognized
-			// when v3_enabled=false (only version=0 is valid), so it returns Unknown.
-			committed_candidate.descriptor.set_version(1);
-			// Don't set scheduling_parent - keep it as default (zero)
+			// Create a descriptor with an unrecognized version field (version=2).
+			// version=0 is V2, version=1 is V3, anything else is Unknown.
+			committed_candidate.descriptor.set_version(2);
 		} else {
-			// Cases 1 & 2: Normal V3 descriptor
-			// Make it a V3 descriptor by setting version field to 1
+			// Normal V3 descriptor: version=1 with scheduling_parent set
 			committed_candidate.descriptor.set_version(1);
-			// Set scheduling_parent to head_b (which is in active leaves)
 			committed_candidate.descriptor.set_scheduling_parent(head_b);
 		}
 
@@ -1909,8 +1880,7 @@ fn v3_descriptor(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool
 			.expect("Sending response should succeed");
 
 		if crafted_unknown {
-			// Case 3: V3 disabled with crafted descriptor (zero reserved fields, non-zero version)
-			// Should be rejected as Unknown version
+			// Unknown version descriptor should be rejected
 			assert_matches!(
 				overseer_recv(&mut virtual_overseer).await,
 				AllMessages::NetworkBridgeTx(
@@ -1920,26 +1890,8 @@ fn v3_descriptor(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool
 					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
 				}
 			);
-		} else if v3_feature_enabled {
-			// Case 1: V3 is enabled, descriptor should be detected as V3 and accepted
-			assert_candidate_backing_second(
-				&mut virtual_overseer,
-				head_b,
-				test_state.chain_ids[0],
-				&pov,
-				CollationVersion::V2,
-			)
-			.await;
-
-			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
-				.await;
-
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V2)
-				.await;
 		} else {
-			// Case 2: V3 is disabled, a real V3 descriptor (with non-zero scheduling_parent)
-			// should be detected as V1 due to backwards compatibility.
-			// The old reserved fields have non-zero values, which triggers old_v1_detected.
+			// V3 descriptor accepted by collator-protocol (V3 gating is done in backing)
 			assert_candidate_backing_second(
 				&mut virtual_overseer,
 				head_b,
