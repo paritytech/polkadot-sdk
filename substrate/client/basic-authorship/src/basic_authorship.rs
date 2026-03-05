@@ -468,7 +468,7 @@ where
 
 			// Skip shielded txs we can't decrypt (wrong key or disabled via env var) without
 			// reporting them as invalid, they stay in the pool for the right block author to
-			// pick up.
+			// pick them up.
 			if let Some(shielded_tx) = &maybe_shielded_tx {
 				let using_current_key = api
 					.is_shielded_using_current_key(self.parent_hash, &shielded_tx.key_hash)
