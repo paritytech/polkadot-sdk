@@ -6,3 +6,4 @@ doc:
 crates:
 - name: pallet-society
   bump: minor
+  validate: false
