@@ -11,7 +11,8 @@ use codec::Encode;
 use log::info;
 use sp_core::{hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
-	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	statement_allowance_key, Channel, StatementAllowance, StatementEvent, SubmitResult, Topic,
+	TopicFilter,
 };
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
@@ -100,6 +101,127 @@ pub(super) async fn subscribe_topic(
 		)
 		.await?;
 	Ok(subscription)
+}
+
+/// Creates a statement with multiple topics set
+pub(super) fn create_multi_topic_statement(
+	keypair: &sr25519::Pair,
+	topics: &[Topic],
+	data: Vec<u8>,
+	expiry_ts: u32,
+	seq: u32,
+) -> sp_statement_store::Statement {
+	let mut statement = sp_statement_store::Statement::new();
+	for (i, topic) in topics.iter().enumerate() {
+		statement.set_topic(i, *topic);
+	}
+	statement.set_plain_data(data);
+	statement.set_expiry_from_parts(expiry_ts, seq);
+	statement.sign_sr25519_private(keypair);
+	statement
+}
+
+/// Creates a statement with a channel set
+pub(super) fn create_channel_statement(
+	keypair: &sr25519::Pair,
+	topic: Topic,
+	channel: Channel,
+	data: Vec<u8>,
+	expiry_ts: u32,
+	seq: u32,
+) -> sp_statement_store::Statement {
+	let mut statement = sp_statement_store::Statement::new();
+	statement.set_topic(0, topic);
+	statement.set_channel(channel);
+	statement.set_plain_data(data);
+	statement.set_expiry_from_parts(expiry_ts, seq);
+	statement.sign_sr25519_private(keypair);
+	statement
+}
+
+/// Subscribes to statements matching any of the given topics
+pub(super) async fn subscribe_topic_match_any(
+	rpc: &RpcClient,
+	topics: Vec<Topic>,
+) -> Result<
+	zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
+	anyhow::Error,
+> {
+	let subscription = rpc
+		.subscribe::<StatementEvent>(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::MatchAny(topics.try_into().expect("MatchAny topics"))],
+			"statement_unsubscribeStatement",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+/// Subscribes to all statements regardless of topic
+pub(super) async fn subscribe_all(
+	rpc: &RpcClient,
+) -> Result<
+	zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
+	anyhow::Error,
+> {
+	let subscription = rpc
+		.subscribe::<StatementEvent>(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::Any],
+			"statement_unsubscribeStatement",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+/// Collects `count` statements from a subscription without assuming arrival order
+///
+/// Handles multi-item `NewStatements` batches by collecting all items from each batch
+/// Returns the collected statements once the target count is reached
+pub(super) async fn expect_statements_unordered(
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		StatementEvent,
+	>,
+	count: usize,
+	timeout_secs: u64,
+) -> Result<Vec<Bytes>, anyhow::Error> {
+	let mut collected = Vec::with_capacity(count);
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
+
+	while collected.len() < count {
+		let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+		if remaining.is_zero() {
+			return Err(anyhow!(
+				"Timeout after {}s: collected {}/{} statements",
+				timeout_secs,
+				collected.len(),
+				count
+			));
+		}
+
+		let item = tokio::time::timeout(remaining, subscription.next())
+			.await
+			.map_err(|_| {
+				anyhow!(
+					"Timeout after {}s: collected {}/{} statements",
+					timeout_secs,
+					collected.len(),
+					count
+				)
+			})?
+			.ok_or_else(|| anyhow!("Subscription stream ended unexpectedly"))?
+			.map_err(|e| anyhow!("Subscription error: {}", e))?;
+
+		match item {
+			StatementEvent::NewStatements { statements: batch, .. } => {
+				for stmt in batch {
+					collected.push(stmt);
+				}
+			},
+		}
+	}
+
+	Ok(collected)
 }
 
 /// Creates a custom chain spec with uniform allowances for all participants.
