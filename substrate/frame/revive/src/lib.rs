@@ -48,20 +48,21 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
-		runtime::SetWeightLimit, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction,
-		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
+		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
+		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
+	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
+	BoundedVec,
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
 		Pays, PostDispatchInfo, RawOrigin,
@@ -69,35 +70,33 @@ use frame_support::{
 	ensure,
 	pallet_prelude::DispatchClass,
 	traits::{
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
 		fungible::{Balanced, Inspect, Mutate, MutateHold},
 		tokens::Balance,
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
 	},
 	weights::WeightMeter,
-	BoundedVec,
 };
 use frame_system::{
-	ensure_signed,
+	Pallet as System, ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
-	Pallet as System,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
+	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 	traits::{
 		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
 		UniqueSaturatedInto, Zero,
 	},
-	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 
 pub use crate::{
 	address::{
-		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
+		AccountId32Mapper, AddressMapper, TestAccountMapper, create1, create2, is_eth_derived,
 	},
 	debug::DebugSettings,
 	evm::{
-		block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, DryRunConfig,
-		ReceiptInfo,
+		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,
+		block_hash::ReceiptGasInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
@@ -114,7 +113,7 @@ pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
-pub use sp_core::{keccak_256, H160, H256, U256};
+pub use sp_core::{H160, H256, U256, keccak_256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
@@ -1108,10 +1107,10 @@ pub mod pallet {
 				&ExecConfig::new_substrate_tx(),
 			);
 
-			if let Ok(return_value) = &output.result {
-				if return_value.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
-				}
+			if let Ok(return_value) = &output.result &&
+				return_value.did_revert()
+			{
+				output.result = Err(<Error<T>>::ContractReverted.into());
 			}
 			dispatch_result(
 				output.result,
@@ -1152,10 +1151,10 @@ pub mod pallet {
 				salt,
 				&ExecConfig::new_substrate_tx(),
 			);
-			if let Ok(retval) = &output.result {
-				if retval.result.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
-				}
+			if let Ok(retval) = &output.result &&
+				retval.result.did_revert()
+			{
+				output.result = Err(<Error<T>>::ContractReverted.into());
 			}
 			dispatch_result(
 				output.result.map(|result| result.result),
@@ -1220,10 +1219,10 @@ pub mod pallet {
 				salt,
 				&ExecConfig::new_substrate_tx(),
 			);
-			if let Ok(retval) = &output.result {
-				if retval.result.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
-				}
+			if let Ok(retval) = &output.result &&
+				retval.result.did_revert()
+			{
+				output.result = Err(<Error<T>>::ContractReverted.into());
 			}
 			dispatch_result(
 				output.result.map(|result| result.result),
@@ -1600,7 +1599,6 @@ impl<T: Config> Pallet<T> {
 			Ok(transaction_meter) => transaction_meter,
 			Err(error) => return ContractResult { result: Err(error), ..Default::default() },
 		};
-
 		let mut storage_deposit = Default::default();
 
 		let try_call = || {
@@ -2040,11 +2038,7 @@ impl<T: Config> Pallet<T> {
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let number = BlockNumberFor::<T>::try_from(number).ok()?;
 		let hash = <BlockHash<T>>::get(number);
-		if hash == H256::zero() {
-			None
-		} else {
-			Some(hash)
-		}
+		if hash == H256::zero() { None } else { Some(hash) }
 	}
 
 	/// The details needed to reconstruct the receipt information offchain.

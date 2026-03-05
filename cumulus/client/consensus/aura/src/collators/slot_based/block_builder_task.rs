@@ -35,7 +35,7 @@ use cumulus_client_proof_size_recording::prepare_proof_size_recording_transactio
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, TargetBlockRate,
+	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -56,7 +56,7 @@ use sp_core::crypto::Pair;
 use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member, Saturating};
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
 	recorder::IgnoredNodes,
@@ -139,7 +139,8 @@ where
 		+ RelayParentOffsetApi<Block>
 		+ AuraUnincludedSegmentApi<Block>
 		+ TargetBlockRate<Block>
-		+ BlockBuilder<Block>,
+		+ BlockBuilder<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -244,7 +245,7 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((included_header, initial_parent)) = crate::collators::find_parent(
+			let Some(parent_search_result) = crate::collators::find_parent(
 				relay_parent,
 				para_id,
 				&*para_backend,
@@ -261,6 +262,13 @@ where
 			else {
 				continue;
 			};
+
+			let parent_hash = parent_search_result.best_parent_header.hash();
+			let included_header = parent_search_result.included_header;
+			let parent_header = parent_search_result.best_parent_header;
+			// Distance from included block to best parent (unincluded segment length).
+			let unincluded_segment_len =
+				parent_header.number().saturating_sub(*included_header.number());
 
 			let Ok(max_pov_size) = relay_chain_data_cache
 				.get_mut_relay_chain_data(relay_parent)
@@ -282,9 +290,7 @@ where
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
-			collator
-				.collator_service()
-				.check_block_status(initial_parent.hash, &initial_parent.header);
+			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
 			let Ok(relay_slot) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
@@ -296,7 +302,7 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			if let Ok(authorities) = para_client.runtime_api().authorities(initial_parent.hash) {
+			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
 				connection_helper.update::<P>(slot_info.slot, &authorities).await;
 			}
 
@@ -304,7 +310,7 @@ where
 				slot_info.slot,
 				relay_slot,
 				slot_info.timestamp,
-				initial_parent.hash,
+				parent_hash,
 				included_header_hash,
 				&*para_client,
 				&keystore,
@@ -313,12 +319,13 @@ where
 			else {
 				tracing::debug!(
 					target: crate::LOG_TARGET,
-					unincluded_segment_len = initial_parent.depth,
+					?unincluded_segment_len,
 					relay_parent = ?relay_parent,
 					relay_parent_num = %relay_parent_header.number(),
 					included_hash = ?included_header_hash,
 					included_num = %included_header.number(),
-					initial_parent = ?initial_parent.hash,
+					initial_parent_hash = ?parent_hash,
+					initial_parent_num = ?parent_header.number(),
 					slot = ?slot_info.slot,
 					"Not eligible to claim slot."
 				);
@@ -327,13 +334,14 @@ where
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				unincluded_segment_len = initial_parent.depth,
+				?unincluded_segment_len,
 				relay_parent = ?relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
 				included_hash = ?included_header_hash,
 				included_num = %included_header.number(),
-				initial_parent = ?initial_parent.hash,
+				initial_parent_hash = ?parent_hash,
+				initial_parent_num = ?parent_header.number(),
 				slot = ?slot_info.slot,
 				"Claiming slot."
 			);
@@ -366,21 +374,20 @@ where
 				},
 			};
 
-			let number_of_blocks =
-				match para_client.runtime_api().target_block_rate(initial_parent.hash) {
-					Ok(interval) => interval,
-					Err(error) => {
-						tracing::debug!(
-							target: crate::LOG_TARGET,
-							block = ?initial_parent.hash,
-							?error,
-							"Failed to fetch `slot_schedule`, assuming one block per core"
-						);
+			let number_of_blocks = match para_client.runtime_api().target_block_rate(parent_hash) {
+				Ok(interval) => interval,
+				Err(error) => {
+					tracing::debug!(
+						target: crate::LOG_TARGET,
+						block = ?parent_hash,
+						?error,
+						"Failed to fetch `slot_schedule`, assuming one block per core"
+					);
 
-						// Backwards compatible we use the number of cores as number of blocks.
-						cores.total_cores()
-					},
-				};
+					// Backwards compatible we use the number of cores as number of blocks.
+					cores.total_cores()
+				},
+			};
 
 			let blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
 
@@ -391,8 +398,8 @@ where
 				"Core configuration",
 			);
 
-			let mut pov_parent_header = initial_parent.header;
-			let mut pov_parent_hash = initial_parent.hash;
+			let mut pov_parent_header = parent_header;
+			let mut pov_parent_hash = parent_hash;
 			let block_time = Duration::from_secs(6) / number_of_blocks;
 
 			loop {
@@ -406,6 +413,7 @@ where
 					max_pov_size,
 					para_id,
 					relay_client: &relay_client,
+					para_client: para_client.as_ref(),
 					code_hash_provider: &code_hash_provider,
 					slot_claim: &slot_claim,
 					collator_sender: &collator_sender,
@@ -442,7 +450,18 @@ where
 }
 
 /// Parameters for [`build_collation_for_core`].
-struct BuildCollationParams<'a, Block: BlockT, P: Pair, RelayClient, BI, CIDP, Proposer, CS, CHP> {
+struct BuildCollationParams<
+	'a,
+	Block: BlockT,
+	P: Pair,
+	RelayClient,
+	ParaClient,
+	BI,
+	CIDP,
+	Proposer,
+	CS,
+	CHP,
+> {
 	pov_parent_header: Block::Header,
 	pov_parent_hash: Block::Hash,
 	relay_parent_header: &'a RelayHeader,
@@ -450,6 +469,7 @@ struct BuildCollationParams<'a, Block: BlockT, P: Pair, RelayClient, BI, CIDP, P
 	max_pov_size: u32,
 	para_id: ParaId,
 	relay_client: &'a RelayClient,
+	para_client: &'a ParaClient,
 	code_hash_provider: &'a CHP,
 	slot_claim: &'a SlotClaim<P::Public>,
 	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
@@ -470,7 +490,17 @@ struct BuildCollationParams<'a, Block: BlockT, P: Pair, RelayClient, BI, CIDP, P
 /// Build a collation for one core.
 ///
 /// One collation can be composed of multiple blocks.
-async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Proposer, CS, CHP>(
+async fn build_collation_for_core<
+	Block: BlockT,
+	P,
+	RelayClient,
+	ParaClient,
+	BI,
+	CIDP,
+	Proposer,
+	CS,
+	CHP,
+>(
 	BuildCollationParams {
 		pov_parent_header,
 		pov_parent_hash,
@@ -479,6 +509,7 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 		max_pov_size,
 		para_id,
 		relay_client,
+		para_client,
 		code_hash_provider,
 		slot_claim,
 		collator_sender,
@@ -493,10 +524,12 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 		collator_peer_id,
 		relay_parent_data,
 		total_number_of_blocks,
-	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP>,
+	}: BuildCollationParams<'_, Block, P, RelayClient, ParaClient, BI, CIDP, Proposer, CS, CHP>,
 ) -> Result<Option<Block::Header>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
+	ParaClient: ProvideRuntimeApi<Block> + 'static,
+	ParaClient::Api: KeyToIncludeInRelayProof<Block>,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -566,6 +599,8 @@ where
 			"Preparing to build block"
 		);
 
+		let relay_proof_request = super::super::get_relay_proof_request(&*para_client, parent_hash);
+
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data_with_rp_offset(
 				relay_parent_hash,
@@ -573,6 +608,7 @@ where
 				parent_hash,
 				slot_claim.timestamp(),
 				Some(relay_parent_data.clone()),
+				relay_proof_request,
 				collator_peer_id,
 			)
 			.await

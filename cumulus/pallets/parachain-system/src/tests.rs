@@ -872,7 +872,7 @@ fn hrmp_outbound_respects_used_bandwidth() {
 fn runtime_upgrade_events() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 1 {
+			if block_number == 2 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
 			}
 		})
@@ -895,8 +895,9 @@ fn runtime_upgrade_events() {
 			|| {
 				let events = System::events();
 
+				// system_version 1: update_code_in_storage writes :code directly,
+				// emitting both the digest and CodeUpdated event in the same block.
 				assert_eq!(events[0].event, RuntimeEvent::System(frame_system::Event::CodeUpdated));
-
 				assert_eq!(
 					events[1].event,
 					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {

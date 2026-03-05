@@ -43,8 +43,6 @@ parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = prod_or_fast!(7 * RC_DAYS, 1);
 }
 
-mod impls;
-
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
 	type RuntimeEvent = RuntimeEvent;
