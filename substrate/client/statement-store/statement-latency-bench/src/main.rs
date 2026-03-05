@@ -42,7 +42,8 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
 use sp_statement_store::{
-	statement_allowance_key, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	statement_allowance_key, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
+	TopicFilter,
 };
 use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
 use subxt::{
@@ -607,10 +608,8 @@ async fn set_allowances(
 		let batch_call = value! { Utility(batch_all { calls: chunk_calls }) };
 		let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
 		let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new().immortal().build();
-		let extensions = (
-			dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (),
-			(),
-		);
+		let extensions =
+			(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (), ());
 
 		let mut progress = client
 			.tx()
@@ -634,10 +633,7 @@ async fn set_allowances(
 				TxStatus::Error { message } |
 				TxStatus::Invalid { message } |
 				TxStatus::Dropped { message } => {
-					return Err(anyhow!(
-						"Allowance tx batch {} failed: {message}",
-						chunk_idx + 1
-					));
+					return Err(anyhow!("Allowance tx batch {} failed: {message}", chunk_idx + 1));
 				},
 				_ => continue,
 			}
