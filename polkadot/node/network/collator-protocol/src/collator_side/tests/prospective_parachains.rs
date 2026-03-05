@@ -733,7 +733,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 				.send(RawIncomingRequest {
 					peer,
 					payload: CollationFetchingRequest {
-						relay_parent: head_b,
+						scheduling_parent: head_b,
 						para_id: test_state.para_id,
 						candidate_hash: candidate.hash(),
 					}
@@ -868,7 +868,7 @@ fn advertise_and_send_collation_by_hash() {
 					.send(RawIncomingRequest {
 						peer,
 						payload: CollationFetchingRequest {
-							relay_parent: head_b,
+							scheduling_parent: head_b,
 							para_id: test_state.para_id,
 							candidate_hash: candidate.hash(),
 						}

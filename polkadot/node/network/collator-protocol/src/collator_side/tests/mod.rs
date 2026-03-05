@@ -723,7 +723,7 @@ fn advertise_and_send_collation() {
 				.send(RawIncomingRequest {
 					peer,
 					payload: CollationFetchingRequest {
-						relay_parent: test_state.scheduling_parent,
+						scheduling_parent: test_state.scheduling_parent,
 						candidate_hash: candidate.hash(),
 						para_id: test_state.para_id,
 					}
@@ -743,7 +743,7 @@ fn advertise_and_send_collation() {
 					.send(RawIncomingRequest {
 						peer,
 						payload: CollationFetchingRequest {
-							relay_parent: test_state.scheduling_parent,
+							scheduling_parent: test_state.scheduling_parent,
 							candidate_hash: candidate.hash(),
 							para_id: test_state.para_id,
 						}
@@ -802,7 +802,7 @@ fn advertise_and_send_collation() {
 				.send(RawIncomingRequest {
 					peer,
 					payload: CollationFetchingRequest {
-						relay_parent: old_scheduling_parent,
+						scheduling_parent: old_scheduling_parent,
 						candidate_hash: candidate.hash(),
 						para_id: test_state.para_id,
 					}
@@ -929,7 +929,7 @@ fn delay_reputation_change() {
 				.send(RawIncomingRequest {
 					peer,
 					payload: CollationFetchingRequest {
-						relay_parent: test_state.scheduling_parent,
+						scheduling_parent: test_state.scheduling_parent,
 						para_id: test_state.para_id,
 						candidate_hash: candidate.hash(),
 					}
@@ -949,7 +949,7 @@ fn delay_reputation_change() {
 					.send(RawIncomingRequest {
 						peer,
 						payload: CollationFetchingRequest {
-							relay_parent: test_state.scheduling_parent,
+							scheduling_parent: test_state.scheduling_parent,
 							para_id: test_state.para_id,
 							candidate_hash: candidate.hash(),
 						}
@@ -1483,7 +1483,7 @@ where
 				.send(RawIncomingRequest {
 					peer: validator_0,
 					payload: CollationFetchingRequest {
-						relay_parent: test_state.scheduling_parent,
+						scheduling_parent: test_state.scheduling_parent,
 						para_id: test_state.para_id,
 						candidate_hash: candidate.hash(),
 					}
@@ -1518,7 +1518,7 @@ where
 				.send(RawIncomingRequest {
 					peer: validator_1,
 					payload: CollationFetchingRequest {
-						relay_parent: test_state.scheduling_parent,
+						scheduling_parent: test_state.scheduling_parent,
 						para_id: test_state.para_id,
 						candidate_hash: candidate.hash(),
 					}
@@ -1628,7 +1628,7 @@ fn connect_to_group_in_view() {
 				.send(RawIncomingRequest {
 					peer,
 					payload: CollationFetchingRequest {
-						relay_parent: head_a,
+						scheduling_parent: head_a,
 						para_id: test_state.para_id,
 						candidate_hash: candidate.hash(),
 					}

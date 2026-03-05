@@ -362,7 +362,7 @@ async fn assert_collator_disconnect(virtual_overseer: &mut VirtualOverseer, expe
 /// Assert that a fetch collation request was send.
 async fn assert_fetch_collation_request(
 	virtual_overseer: &mut VirtualOverseer,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	candidate_hash: Option<CandidateHash>,
 ) -> ResponseSender {
@@ -377,7 +377,7 @@ async fn assert_fetch_collation_request(
 				req,
 				Requests::CollationFetchingV1(req) => {
 					let payload = req.payload;
-					assert_eq!(payload.relay_parent, relay_parent);
+					assert_eq!(payload.scheduling_parent, scheduling_parent);
 					assert_eq!(payload.para_id, para_id);
 					req.pending_response
 				}
@@ -386,7 +386,7 @@ async fn assert_fetch_collation_request(
 				req,
 				Requests::CollationFetchingV2(req) => {
 					let payload = req.payload;
-					assert_eq!(payload.relay_parent, relay_parent);
+					assert_eq!(payload.scheduling_parent, scheduling_parent);
 					assert_eq!(payload.para_id, para_id);
 					assert_eq!(payload.candidate_hash, candidate_hash);
 					req.pending_response

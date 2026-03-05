@@ -267,7 +267,7 @@ impl<B: Backend> State<B> {
 				Advertisement {
 					peer_id,
 					para_id: *para_id,
-					relay_parent,
+					scheduling_parent: relay_parent,
 					prospective_candidate: maybe_prospective_candidate,
 				},
 			)

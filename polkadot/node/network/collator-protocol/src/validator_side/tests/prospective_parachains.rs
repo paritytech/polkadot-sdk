@@ -3282,7 +3282,7 @@ mod ah_stop_gap {
 							reqs,
 							IfDisconnected::ImmediateError,
 						)) => {
-							let relay_parent = head;
+							let scheduling_parent = head;
 							let req = reqs
 								.into_iter()
 								.next()
@@ -3292,7 +3292,7 @@ mod ah_stop_gap {
 								req,
 								Requests::CollationFetchingV2(req) => {
 									let payload = req.payload;
-									assert_eq!(payload.relay_parent, relay_parent);
+									assert_eq!(payload.scheduling_parent, scheduling_parent);
 									assert_eq!(payload.para_id, ASSET_HUB_PARA_ID);
 									assert_eq!(
 										payload.candidate_hash,

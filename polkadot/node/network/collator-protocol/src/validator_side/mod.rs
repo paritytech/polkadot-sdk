@@ -955,21 +955,21 @@ async fn request_collation(
 	}
 
 	// Borrow fields we need from pending_collation
-	let relay_parent = pending_collation.scheduling_parent;
+	let scheduling_parent = pending_collation.scheduling_parent;
 	let para_id = pending_collation.para_id;
 	let peer_id = pending_collation.peer_id;
 	let prospective_candidate = pending_collation.prospective_candidate;
 
 	let per_scheduling_parent = state
 		.per_scheduling_parent
-		.get_mut(&relay_parent)
+		.get_mut(&scheduling_parent)
 		.ok_or(FetchError::RelayParentOutOfView)?;
 
 	let (requests, response_recv) = match (peer_protocol_version, prospective_candidate) {
 		(CollationVersion::V1, _) => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
-				request_v1::CollationFetchingRequest { relay_parent, para_id },
+				request_v1::CollationFetchingRequest { scheduling_parent, para_id },
 			);
 			let requests = Requests::CollationFetchingV1(req);
 			(requests, response_recv.boxed())
@@ -978,7 +978,7 @@ async fn request_collation(
 		(CollationVersion::V3, Some(ProspectiveCandidate { candidate_hash, .. })) => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
-				request_v2::CollationFetchingRequest { relay_parent, para_id, candidate_hash },
+				request_v2::CollationFetchingRequest { scheduling_parent, para_id, candidate_hash },
 			);
 			let requests = Requests::CollationFetchingV2(req);
 			(requests, response_recv.boxed())
@@ -1005,7 +1005,7 @@ async fn request_collation(
 		target: LOG_TARGET,
 		peer_id = %peer_id,
 		%para_id,
-		?relay_parent,
+		?scheduling_parent,
 		"Requesting collation",
 	);
 
@@ -1019,7 +1019,7 @@ async fn request_collation(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?scheduling_parent,
 		%para_id,
 		"Status set to Fetching",
 	);
