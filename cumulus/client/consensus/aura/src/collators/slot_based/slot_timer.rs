@@ -300,7 +300,6 @@ where
 	fn check_different_slot_authors(&self, slot: Slot, next_slot: Slot) -> bool {
 		let best_hash = self.client.usage_info().chain.best_hash;
 
-
 		let mut runtime_api = self.client.runtime_api();
 		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
 		let Ok(authorities) = runtime_api.authorities(best_hash) else {

@@ -204,13 +204,12 @@ where
 					Ok(Some(h)) => h,
 				};
 
-
-		let mut runtime_api = params.para_client.runtime_api();
-		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
-		let slot_duration = match runtime_api.slot_duration(parent_hash) {
-			Ok(d) => d,
-			Err(e) => reject_with_error!(e),
-		};
+			let mut runtime_api = params.para_client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+			let slot_duration = match runtime_api.slot_duration(parent_hash) {
+				Ok(d) => d,
+				Err(e) => reject_with_error!(e),
+			};
 
 			let claim = match collator_util::claim_slot::<_, _, P>(
 				&*params.para_client,

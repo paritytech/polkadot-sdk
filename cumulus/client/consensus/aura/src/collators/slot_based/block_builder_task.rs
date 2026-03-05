@@ -317,7 +317,6 @@ where
 
 			let included_header_hash = included_header.hash();
 
-
 			{
 				let mut runtime_api = para_client.runtime_api();
 				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);

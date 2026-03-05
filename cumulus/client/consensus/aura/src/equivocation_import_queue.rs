@@ -150,11 +150,10 @@ where
 				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
 			})?;
 
-
-		let mut runtime_api = self.client.runtime_api();
-		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
-		let slot_duration = runtime_api.slot_duration(parent_hash)
-			.map_err(|e| e.to_string())?;
+			let mut runtime_api = self.client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+			let slot_duration =
+				runtime_api.slot_duration(parent_hash).map_err(|e| e.to_string())?;
 
 			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(

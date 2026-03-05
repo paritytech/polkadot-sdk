@@ -365,7 +365,6 @@ where
 				continue;
 			}
 
-
 			// Trigger pre-connect to backing groups if necessary.
 			if let Some((slot_now, _relay_slot, _timestamp)) = get_parachain_slot::<_, _, P::Public>(
 				para_client,

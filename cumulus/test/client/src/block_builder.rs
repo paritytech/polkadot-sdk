@@ -131,8 +131,7 @@ fn init_block_builder(
 		}
 	});
 
-	let slot: Slot =
-		(timestamp / para_slot_duration.as_millis()).into();
+	let slot: Slot = (timestamp / para_slot_duration.as_millis()).into();
 
 	if relay_sproof_builder.current_slot == 0u64 {
 		relay_sproof_builder.current_slot = (timestamp / 6_000).into();
