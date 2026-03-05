@@ -561,7 +561,7 @@ mod benchmarks {
 	#[benchmark]
 	fn kick_member() -> Result<(), BenchmarkError> {
 		// Add member
-		let founder = setup_society::<T, I>()?;
+		let founder = setup_funded_society::<T, I>()?;
 		let member: T::AccountId = account("member", 0, 0);
 		let member_lookup: <T::Lookup as StaticLookup>::Source =
 			T::Lookup::unlookup(member.clone());
@@ -570,6 +570,11 @@ mod benchmarks {
 		let mut record = Members::<T, I>::get(&member).ok_or("Member not found")?;
 		record.vouching = Some(VouchingStatus::Vouching);
 		Members::<T, I>::insert(&member, &record);
+
+		// Populate payouts to max to cover worst-case slashing scenario
+		for i in 0..T::MaxPayouts::get() {
+			Society::<T, I>::bump_payout(&member, i.into(), 1u32.into());
+		}
 
 		// Add vouch to cover worst-case scenario
 		let vouched: T::AccountId = account("vouched", 0, 0);
