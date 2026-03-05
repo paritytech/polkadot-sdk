@@ -350,9 +350,8 @@ where
 
 		let mode = block_builder.extrinsic_inclusion_mode();
 		let end_reason = match mode {
-			ExtrinsicInclusionMode::AllExtrinsics => {
-				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?
-			},
+			ExtrinsicInclusionMode::AllExtrinsics =>
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
@@ -482,14 +481,14 @@ where
 			}
 
 			let pending_tx_data_size = if let Some(shielded_tx) = &maybe_shielded_tx {
-				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16 bytes
-				// for the tag (source: https://www.rfc-editor.org/rfc/rfc8439#section-2.8) so we need
+				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16
+				// bytes for the tag (source: https://www.rfc-editor.org/rfc/rfc8439#section-2.8) so we need
 				// to subtract it from the ciphertext length to get the plaintext length
 				const TAG_SIZE: usize = 16;
 				let unshielded_tx_size = shielded_tx.aead_ct.len().saturating_sub(TAG_SIZE);
 
-				// We will push the shielded tx wrapper and the unshielded inner tx to the block builder
-				// so we should account for both when estimating the block size
+				// We will push the shielded tx wrapper and the unshielded inner tx to the block
+				// builder so we should account for both when estimating the block size
 				pending_tx_data.encoded_size() + unshielded_tx_size
 			} else {
 				pending_tx_data.encoded_size()
@@ -1088,13 +1087,13 @@ mod tests {
 		.chain((1..extrinsics_num as u64).map(extrinsic))
 		.collect::<Vec<_>>();
 
-		let block_limit = genesis_header.encoded_size()
-			+ extrinsics
+		let block_limit = genesis_header.encoded_size() +
+			extrinsics
 				.iter()
 				.take(extrinsics_num - 1)
 				.map(Encode::encoded_size)
-				.sum::<usize>()
-			+ Vec::<Extrinsic>::new().encoded_size();
+				.sum::<usize>() +
+			Vec::<Extrinsic>::new().encoded_size();
 
 		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 
