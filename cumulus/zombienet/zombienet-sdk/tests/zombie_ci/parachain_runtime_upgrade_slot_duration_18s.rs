@@ -58,7 +58,7 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	while let Some(block) = finalized_blocks.next().await {
 		let block = block?;
 		let hash = block.hash();
-		log::info!("Block #{} ({hash})", block.header().number);
+		log::info!("Checking Block #{} ({hash})", block.header().number);
 		if block_hash_of_upgrade != hash {
 			break;
 		} else {
