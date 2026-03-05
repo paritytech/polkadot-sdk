@@ -1,25 +1,15 @@
-title: '[Pool] Claim trapped balance'
+title: '[Pool] Claim trapped balance via one-time migration'
 doc:
 - audience: Runtime User
   description: |-
-    New Extrinsic: claim_trapped_balance
-    Added to the nomination pools pallet. Permissionless - anyone can call it for any member. When a user has trapped balance, this will:
-    - Apply any pending slash for the member first
-    - Calculate trapped amount by checking actual held balance vs expected balance from points
-    - Release trapped funds instantly if present.
-    - Emits TrappedBalanceClaimed is successful.
-    - Returns `NoTrappedBalance` error if unsuccessful.
-    -  If there is no trapped balance but a pending slash exists, the extrinsic still succeeds. This is intentional - applying pending slashes is useful work that should be persisted.
+    One-time migration to recover trapped balance for an affected pool member.
+    A bug (CurrentEra vs ActiveEra mismatch) caused one pool member's balance to become trapped: their points were
+      dissolved but the held funds weren't released. This migration:
+    - Applies any pending slash for the member first
+    - Calculates trapped amount by checking actual held balance vs expected balance from points
+    - Releases trapped funds if present
 crates:
 - name: pallet-nomination-pools
   bump: minor
-- name: pallet-nomination-pools-benchmarking
-  bump: patch
-- name: pallet-staking-async
-  bump: patch
-- name: pallet-staking
-  bump: patch
-- name: sp-staking
-  bump: minor
-- name: pallet-fast-unstake
+- name: asset-hub-westend-runtime
   bump: patch
