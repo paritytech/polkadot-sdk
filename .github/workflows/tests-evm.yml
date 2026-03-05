@@ -40,14 +40,7 @@ jobs:
         run: apt-get update && apt-get install -y python3-pip python3
       - name: Install resolc
         id: download
-        run: |
-          VERSION=$(cat .github/env | grep RESOLC_VERSION | sed -E 's/RESOLC_VERSION="(.*)"/\1/')
-          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
-          echo "Downloading resolc v$VERSION from $ASSET_URL"
-          curl -Lsf --show-error -o /usr/local/bin/resolc "$ASSET_URL"
-          chmod +x /usr/local/bin/resolc
-          resolc --version
-          echo "resolc-path=/usr/local/bin/resolc" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/get-resolc
       - name: Run revive differential tests
         uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
         with:
