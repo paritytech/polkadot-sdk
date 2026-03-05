@@ -3,8 +3,9 @@ The following crates were updated to the corresponding versions:
 <details>
   <summary>Click to see crates list</summary>
 - pallet-election-provider-multi-block@0.6.1
-- pallet-staking-async-rc-client@0.7.2
-- pallet-staking-async@0.10.2
-- asset-hub-westend-runtime@0.42.1
+- pallet-staking-async-rc-client@0.7.3
+- pallet-staking-async@0.10.3
+- asset-hub-westend-runtime@0.42.2
 - pallet-session@45.2.0
+- pallet-society@45.1.0
 </details>
