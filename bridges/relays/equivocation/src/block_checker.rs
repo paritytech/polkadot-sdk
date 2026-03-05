@@ -23,6 +23,7 @@ use bp_header_chain::{FinalityProof, FindEquivocations as FindEquivocationsT};
 use finality_relay::FinalityProofsBuf;
 use futures::future::{BoxFuture, FutureExt};
 use num_traits::Saturating;
+use std::time::Duration;
 
 /// First step in the block checking state machine.
 ///
@@ -215,6 +216,35 @@ pub enum BlockChecker<P: EquivocationDetectionPipeline> {
 impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 	pub fn new(target_block_num: P::TargetNumber) -> Self {
 		Self::ReadSyncedHeaders(ReadSyncedHeaders { target_block_num })
+	}
+
+	pub async fn run_with_retry<'a, SC: SourceClient<P>, TC: TargetClient<P>>(
+		self,
+		source_client: &'a mut SC,
+		target_client: &'a mut TC,
+		finality_proofs_buf: &'a mut FinalityProofsBuf<P>,
+		reporter: &'a mut EquivocationsReporter<'_, P, SC>,
+		retry_params: (u32, u64),
+	) -> BoxFuture<'a, Result<(), Self>> {
+		let (retry_count, sleep_secs) = retry_params;
+		async move {
+			let mut block_checker = self;
+			for _ in 0..retry_count {
+				match block_checker
+					.run(source_client, target_client, finality_proofs_buf, reporter)
+					.await
+				{
+					Ok(_) => return Ok(()),
+					Err(err) => {
+						tokio::time::sleep(Duration::from_secs(sleep_secs)).await;
+						block_checker = err
+					},
+				}
+			}
+
+			Err(block_checker)
+		}
+		.boxed()
 	}
 
 	pub fn run<'a, SC: SourceClient<P>, TC: TargetClient<P>>(
