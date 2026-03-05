@@ -176,6 +176,7 @@ impl TransactionSigned {
 
 		// Reject high-S signatures per EIP-2 (signature malleability protection)
 		if !sp_core::ecdsa::is_signature_normalized(&signature) {
+			log::debug!(target: "evm", "Rejected high-S ECDSA signature (EIP-2 violation)");
 			return Err(());
 		}
 

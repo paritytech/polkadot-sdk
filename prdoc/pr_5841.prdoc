@@ -28,12 +28,13 @@ doc:
       `secp256k1::SecretKey`. The `secp256k1` crate is removed from `polkadot-runtime-common`.
 
       **pallet-revive** `recover_eth_address()` rejects high-S signatures before calling
-      `secp256k1_ecdsa_recover`, matching Ethereum post-Homestead validation (EIP-2). The
-      `ECRecover` precompile is intentionally unchanged. The unused `secp256k1` dev-dependency
-      is removed.
+      `secp256k1_ecdsa_recover`, matching Ethereum post-Homestead validation (EIP-2). A
+      `log::debug!` message is emitted when a high-S signature is rejected. The `ECRecover`
+      precompile is intentionally unchanged. The unused `secp256k1` dev-dependency is removed.
 
       **sp-consensus-beefy** `ecdsa_crypto::BeefyAuthorityId::verify()` rejects high-S
-      signatures before recovery, ensuring canonical form for Ethereum-side light clients.
+      signatures before recovery using `sp_core::ecdsa::is_signature_normalized()`, ensuring
+      canonical form for Ethereum-side light clients.
 
       **sp-runtime (MultiSignature)** `MultiSignature::verify()` now rejects high-S signatures
       for both `Ecdsa` and `Eth` variants before calling the recovery host functions. This
