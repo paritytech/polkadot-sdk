@@ -136,7 +136,7 @@ fn default_parachains_host_configuration(
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 3,
-			max_relay_parent_age: 3,
+			max_relay_parent_session_age: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()

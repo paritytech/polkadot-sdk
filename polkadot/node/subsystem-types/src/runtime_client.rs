@@ -366,8 +366,8 @@ pub trait RuntimeApiSubsystemClient {
 	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
 
 	// == v16 ==
-	/// Fetch the maximum relay parent age allowed for parachain blocks.
-	async fn max_relay_parent_age(&self, at: Hash) -> Result<u32, ApiError>;
+	/// Fetch the maximum relay parent session age allowed for parachain blocks.
+	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -673,8 +673,8 @@ where
 		self.client.runtime_api().para_ids(at)
 	}
 
-	async fn max_relay_parent_age(&self, at: Hash) -> Result<u32, ApiError> {
-		self.client.runtime_api().max_relay_parent_age(at)
+	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, ApiError> {
+		self.client.runtime_api().max_relay_parent_session_age(at)
 	}
 }
 

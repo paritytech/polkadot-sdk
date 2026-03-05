@@ -323,8 +323,8 @@ sp_api::decl_runtime_apis! {
 		fn unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
 
 		/***** Added in v16 *****/
-		/// Retrieve the maximum relay parent age allowed for parachain blocks.
+		/// Retrieve the maximum relay parent session age allowed for parachain blocks.
 		#[api_version(16)]
-		fn max_relay_parent_age() -> u32;
+		fn max_relay_parent_session_age() -> u32;
 	}
 }

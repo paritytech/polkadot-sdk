@@ -834,9 +834,9 @@ pub enum RuntimeApiRequest {
 	UnappliedSlashesV2(
 		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	),
-	/// Get the maximum relay parent age allowed for parachain blocks.
+	/// Get the maximum relay parent session age allowed for parachain blocks.
 	/// `V16`
-	MaxRelayParentAge(SessionIndex, RuntimeApiSender<u32>),
+	MaxRelayParentSessionAge(SessionIndex, RuntimeApiSender<u32>),
 }
 
 impl RuntimeApiRequest {
@@ -893,8 +893,8 @@ impl RuntimeApiRequest {
 	/// `UnappliedSlashesV2`
 	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 
-	/// `MaxRelayParentAge`
-	pub const MAX_RELAY_PARENT_AGE_RUNTIME_REQUIREMENT: u32 = 16;
+	/// `MaxRelayParentSessionAge`
+	pub const max_relay_parent_session_age_RUNTIME_REQUIREMENT: u32 = 16;
 }
 
 /// A message to the Runtime API subsystem.

@@ -1142,8 +1142,8 @@ sp_api::impl_runtime_apis! {
 			staging_runtime_impl::para_ids::<Runtime>()
 		}
 
-		fn max_relay_parent_age() -> u32 {
-			staging_runtime_impl::max_relay_parent_age::<Runtime>()
+		fn max_relay_parent_session_age() -> u32 {
+			staging_runtime_impl::max_relay_parent_session_age::<Runtime>()
 		}
 	}
 

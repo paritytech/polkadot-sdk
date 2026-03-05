@@ -101,7 +101,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 			group_rotation_frequency: 10,
 			paras_availability_period: 3,
 			lookahead: 2,
-			max_relay_parent_age: 3,
+			max_relay_parent_session_age: 3,
 			num_cores: 3,
 			max_availability_timeouts: 1,
 			..Default::default()

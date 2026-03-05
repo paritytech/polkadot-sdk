@@ -25,7 +25,7 @@ use crate::v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE;
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 ///
-/// Vstaging: added `max_relay_parent_age` field.
+/// Vstaging: added `max_relay_parent_session_age` field.
 #[derive(
 	Debug,
 	Copy,
@@ -83,9 +83,8 @@ pub struct SchedulerParams<BlockNumber> {
 	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
 	#[deprecated]
 	pub ttl: BlockNumber,
-	/// The maximum age of a relay parent that a parachain block can build upon, measured in
-	/// relay chain blocks.
-	pub max_relay_parent_age: u32,
+	/// The maximum session age of a relay parent that a parachain block can build upon.
+	pub max_relay_parent_session_age: u32,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
@@ -103,7 +102,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_base_fee: 10_000_000u128,
 			ttl: 5u32.into(),
-			max_relay_parent_age: 1,
+			max_relay_parent_session_age: 0,
 		}
 	}
 }

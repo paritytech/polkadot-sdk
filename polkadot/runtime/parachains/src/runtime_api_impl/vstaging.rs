@@ -26,9 +26,9 @@ pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
 	paras::Heads::<T>::iter_keys().collect()
 }
 
-/// Implementation of `max_relay_parent_age` runtime API.
-pub fn max_relay_parent_age<T: initializer::Config>() -> u32 {
-	configuration::ActiveConfig::<T>::get().scheduler_params.max_relay_parent_age
+/// Implementation of `max_relay_parent_session_age` runtime API.
+pub fn max_relay_parent_session_age<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().scheduler_params.max_relay_parent_session_age
 }
 
 /// Implementation of `unapplied_slashes_v2` runtime API

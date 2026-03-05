@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A module that is responsible for migration of storage for the configuration pallet.
-//! v12 -> v13: Added `max_relay_parent_age` field to `SchedulerParams`.
+//! v12 -> v13: Added `max_relay_parent_session_age` field to `SchedulerParams`.
 
 use crate::configuration::{self, Config, Pallet};
 use alloc::vec::Vec;
@@ -32,11 +32,11 @@ use sp_staking::SessionIndex;
 
 type V13HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 
-/// The v12 `SchedulerParams`, before the `max_relay_parent_age` field was added.
+/// The v12 `SchedulerParams`, before the `max_relay_parent_session_age` field was added.
 /// This is identical to `polkadot_primitives::v9::SchedulerParams`.
 pub type V12SchedulerParams<BlockNumber> = polkadot_primitives::v9::SchedulerParams<BlockNumber>;
 
-/// The v12 `HostConfiguration`, before the `max_relay_parent_age` field was added to
+/// The v12 `HostConfiguration`, before the `max_relay_parent_session_age` field was added to
 /// `SchedulerParams`.
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct V12HostConfiguration<BlockNumber> {
@@ -250,8 +250,8 @@ fn migrate_to_v13<T: Config>() -> Weight {
 							on_demand_fee_variability            : pre.scheduler_params.on_demand_fee_variability,
 							on_demand_base_fee                   : pre.scheduler_params.on_demand_base_fee,
 							ttl                                  : pre.scheduler_params.ttl,
-							// New field: default to the lookahead value.
-							max_relay_parent_age                 : pre.scheduler_params.lookahead,
+							// New field: default to 0 (only allowing backing of candidates with relay parent in the current session).
+							max_relay_parent_session_age         : 0,
 					}
 				}
 			};
@@ -349,8 +349,8 @@ mod tests {
 					assert_eq!(v12.scheduler_params.on_demand_fee_variability, v13.scheduler_params.on_demand_fee_variability);
 					assert_eq!(v12.scheduler_params.on_demand_base_fee      , v13.scheduler_params.on_demand_base_fee);
 					assert_eq!(v12.scheduler_params.ttl                     , v13.scheduler_params.ttl);
-					// New field should default to lookahead value.
-					assert_eq!(v12.scheduler_params.lookahead               , v13.scheduler_params.max_relay_parent_age);
+					// New field should default to zero.
+					assert_eq!(v13.scheduler_params.max_relay_parent_session_age, 0);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});

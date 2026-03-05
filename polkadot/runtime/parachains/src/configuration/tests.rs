@@ -249,27 +249,6 @@ fn invariants() {
 			Configuration::set_validation_upgrade_delay(RuntimeOrigin::root(), 0),
 			Error::<Test>::InvalidNewValue
 		);
-
-		// max_relay_parent_age must be >= lookahead
-		ActiveConfig::<Test>::put(HostConfiguration {
-			scheduler_params: SchedulerParams {
-				lookahead: 5,
-				max_relay_parent_age: 5,
-				..Default::default()
-			},
-			..Default::default()
-		});
-		assert_err!(
-			Configuration::set_scheduler_params(
-				RuntimeOrigin::root(),
-				SchedulerParams { lookahead: 5, max_relay_parent_age: 4, ..Default::default() },
-			),
-			Error::<Test>::InvalidNewValue
-		);
-		assert_err!(
-			Configuration::set_max_relay_parent_age(RuntimeOrigin::root(), 1,),
-			Error::<Test>::InvalidNewValue
-		);
 	});
 }
 
@@ -350,7 +329,7 @@ fn setting_pending_config_members() {
 				on_demand_fee_variability: Perbill::from_percent(3),
 				on_demand_target_queue_utilization: Perbill::from_percent(25),
 				ttl: 5u32,
-				max_relay_parent_age: 5,
+				max_relay_parent_session_age: 5,
 			},
 		};
 
@@ -395,9 +374,9 @@ fn setting_pending_config_members() {
 			new_config.scheduler_params.paras_availability_period,
 		)
 		.unwrap();
-		Configuration::set_max_relay_parent_age(
+		Configuration::set_max_relay_parent_session_age(
 			RuntimeOrigin::root(),
-			new_config.scheduler_params.max_relay_parent_age,
+			new_config.scheduler_params.max_relay_parent_session_age,
 		)
 		.unwrap();
 		Configuration::set_scheduling_lookahead(

@@ -332,7 +332,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
-	async fn max_relay_parent_age(&self, _: Hash) -> Result<u32, ApiError> {
+	async fn max_relay_parent_session_age(&self, _: Hash) -> Result<u32, ApiError> {
 		todo!("Not required for tests")
 	}
 }
