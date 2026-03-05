@@ -7,13 +7,11 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sp_core::{Bytes, Encode};
-use sp_statement_store::{
-	RejectionReason, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
-};
-use zombienet_sdk::subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params};
+use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
 
-use crate::zombie_ci::statement_store_bench::{
-	get_keypair, spawn_network, spawn_network_with_custom_allowances,
+use super::common::{
+	assert_no_more_statements, create_test_statement, expect_statement, get_keypair, spawn_network,
+	spawn_network_with_custom_allowances, submit_statement, subscribe_topic,
 };
 
 fn current_unix_time() -> u32 {
@@ -23,88 +21,10 @@ fn current_unix_time() -> u32 {
 		.as_secs() as u32
 }
 
-fn create_test_statement(
-	keypair: &sp_core::sr25519::Pair,
-	topic: Topic,
-	data: Vec<u8>,
-	expiry_ts: u32,
-	seq: u32,
-) -> sp_statement_store::Statement {
-	let mut statement = sp_statement_store::Statement::new();
-	statement.set_topic(0, topic);
-	statement.set_plain_data(data);
-	statement.set_expiry_from_parts(expiry_ts, seq);
-	statement.sign_sr25519_private(keypair);
-	statement
-}
-
-async fn submit_statement(
-	rpc: &RpcClient,
-	statement: &sp_statement_store::Statement,
-) -> Result<SubmitResult, anyhow::Error> {
-	let encoded: Bytes = statement.encode().into();
-	let result: SubmitResult = rpc.request("statement_submit", rpc_params![encoded]).await?;
-	Ok(result)
-}
-
-async fn expect_statement(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		StatementEvent,
-	>,
-	timeout_secs: u64,
-) -> Result<Bytes, anyhow::Error> {
-	loop {
-		let item = tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next())
-			.await
-			.map_err(|_| anyhow::anyhow!("Timeout waiting for statement after {}s", timeout_secs))?
-			.ok_or_else(|| anyhow::anyhow!("Subscription stream ended unexpectedly"))?
-			.map_err(|e| anyhow::anyhow!("Subscription error: {}", e))?;
-
-		match item {
-			StatementEvent::NewStatements { statements: batch, .. } => {
-				if batch.is_empty() {
-					continue;
-				}
-				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
-				return Ok(batch.into_iter().next().unwrap());
-			},
-		}
-	}
-}
-
-async fn assert_no_more_statements(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		StatementEvent,
-	>,
-	timeout_secs: u64,
-) -> Result<(), anyhow::Error> {
-	let result = tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next()).await;
-	assert!(result.is_err(), "Expected no more statements but received one");
-	Ok(())
-}
-
-/// Subscribes to statements matching a specific topic
-async fn subscribe_topic(
-	rpc: &RpcClient,
-	topic: Topic,
-) -> Result<
-	zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
-	anyhow::Error,
-> {
-	let subscription = rpc
-		.subscribe::<StatementEvent>(
-			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
-			"statement_unsubscribeStatement",
-		)
-		.await?;
-	Ok(subscription)
-}
-
-/// Tests multi-node statement propagation across 4 collator nodes.
+/// Tests multi-node statement propagation across 4 collator nodes
 ///
 /// Submits a statement to one node and verifies it propagates to 3 other nodes
-/// with data integrity, then checks no duplicate statements arrive.
+/// with data integrity, then checks no duplicate statements arrive
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_propagation_multi_node() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -161,10 +81,10 @@ async fn statement_store_propagation_multi_node() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Tests that expired statements are cleaned up by the enforcement cycle.
+/// Tests that expired statements are cleaned up by the enforcement cycle
 ///
 /// Submits a statement with a short expiry, waits for the enforcement cycle to
-/// evict it, then verifies the statement can be re-submitted as new.
+/// evict it, then verifies the statement can be re-submitted as new
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -222,7 +142,6 @@ async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 			log::info!("Statement re-submitted as New - original was fully purged");
 		},
 		SubmitResult::KnownExpired => {
-			// Maintenance hasn't purged the expired column yet, should wait and retry
 			log::info!("Got KnownExpired, waiting 30s more for maintenance purge");
 			tokio::time::sleep(Duration::from_secs(30)).await;
 			let result = submit_statement(&charlie_rpc, &fresh_statement).await?;
@@ -248,7 +167,7 @@ async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 /// Tests per-account quota enforcement at submission time.
 ///
 /// Verifies AccountFull, NoAllowance, DataTooLarge rejections and eviction
-/// of lower-priority statements when a higher-priority one is submitted.
+/// of lower-priority statements when a higher-priority one is submitted
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(

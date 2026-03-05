@@ -89,25 +89,25 @@
   needs-wasm-binary: true
 
 - job-name: "zombienet-cumulus-0016-statement_store_propagation"
-  test-filter: "zombie_ci::statement_store_integration::statement_store_propagation_multi_node"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_propagation_multi_node"
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0017-statement_store_expiration"
-  test-filter: "zombie_ci::statement_store_integration::statement_store_expiration"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_expiration"
   runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0018-statement_store_quota"
-  test-filter: "zombie_ci::statement_store_integration::statement_store_quota_enforcement"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_quota_enforcement"
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0019-statement_store_basic"
-  test-filter: "zombie_ci::statement_store::statement_store"
+  test-filter: "zombie_ci::statement_store::statement_store::statement_store"
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
