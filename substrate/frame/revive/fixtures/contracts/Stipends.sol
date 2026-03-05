@@ -36,6 +36,21 @@ contract ComplexReceiver {
 }
 
 /**
+ * @title ReentrancyAttacker
+ * @dev On receiving ETH, attempts to call back into the sender
+ */
+contract ReentrancyAttacker {
+    receive() external payable {
+        // Classic reentrancy: try to drain more ETH from the sender.
+        // We intentionally don't revert on failure so the outer transfer
+        // succeeds and the test can check the balance invariant.
+        msg.sender.call(
+            abi.encodeWithSignature("attemptTransfer(address,uint256)", address(this), msg.value)
+        );
+    }
+}
+
+/**
  * @title StipendTest
  * @dev Test contract that verifies stipend behavior for different receiver types
  */
@@ -43,12 +58,14 @@ contract StipendTest {
     DoNothingReceiver doNothingReceiver;
     SimpleReceiver simpleReceiver;
     ComplexReceiver complexReceiver;
+    ReentrancyAttacker reentrancyAttacker;
     address payable eoa;
 
     constructor() {
         doNothingReceiver = new DoNothingReceiver();
         simpleReceiver = new SimpleReceiver();
         complexReceiver = new ComplexReceiver();
+        reentrancyAttacker = new ReentrancyAttacker();
         eoa = payable(address(0x1234567890123456789012345678901234567890));
     }
 
@@ -174,6 +191,35 @@ contract StipendTest {
         require(success, "ComplexReceiver call failed");
         require(address(complexReceiver).balance == balanceBefore + amount, "ComplexReceiver balance not updated");
         require(complexReceiver.counter() == counterBefore + 1, "ComplexReceiver counter not incremented");
+    }
+
+    // Test that the transfer stipend prevents reentrancy. The attacker's receive()
+    // tries to call back into attemptTransfer() to drain more ETH, but the 2300
+    // gas stipend is not enough for an external call.
+    function testTransferReentrancy() public payable {
+        uint256 amount = msg.value / 4;
+        uint256 balanceBefore = address(reentrancyAttacker).balance;
+
+        // The attacker's receive() attempts an external call which exhausts
+        // the stipend, causing receive() to revert with out-of-gas.
+        bool failed = false;
+        try this.attemptTransfer(payable(address(reentrancyAttacker)), amount) {
+            failed = false;
+        } catch {
+            failed = true;
+        }
+        require(failed, "Transfer to reentrancy attacker should have failed");
+        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
+    }
+
+    // Test that the send stipend prevents reentrancy.
+    function testSendReentrancy() public payable {
+        uint256 amount = msg.value / 4;
+        uint256 balanceBefore = address(reentrancyAttacker).balance;
+
+        bool success = payable(address(reentrancyAttacker)).send(amount);
+        require(!success, "Send to reentrancy attacker should have failed");
+        require(address(reentrancyAttacker).balance == balanceBefore, "Attacker balance should not change");
     }
 
     receive() external payable {}

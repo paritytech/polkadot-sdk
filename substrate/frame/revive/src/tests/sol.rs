@@ -175,10 +175,11 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn eth_contract_too_large() {
-	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
-	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
-		.expect("usize value doesn't fit in u32");
-	let code = VmBinaryModule::evm_sized(contract_size).code;
+	// Create EVM init code that is one byte larger than the EIP-3860 limit.
+	// We take valid init code and pad it with STOP opcodes after the RETURN instruction
+	// (unreachable but makes the init code blob itself exceed MAX_INITCODE_SIZE).
+	let mut code = VmBinaryModule::evm_init_code_for_runtime_size(0).code;
+	code.resize(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1, revm::bytecode::opcode::STOP);
 
 	for (allow_unlimited_contract_size, debug_flag) in
 		[(true, false), (true, true), (false, false), (false, true)]
