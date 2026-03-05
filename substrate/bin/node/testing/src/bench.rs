@@ -275,7 +275,7 @@ impl<'a> BlockContentIterator<'a> {
 	fn new(content: BlockContent, keyring: &'a BenchKeyring, client: &Client) -> Self {
 		let genesis_hash = client.chain_info().genesis_hash;
 		let runtime_version = client
-			.runtime_version_at(genesis_hash)
+			.runtime_version_at(genesis_hash, sp_api::CallContext::Offchain)
 			.expect("There should be runtime version at 0");
 
 		BlockContentIterator { iteration: 0, content, keyring, runtime_version, genesis_hash }

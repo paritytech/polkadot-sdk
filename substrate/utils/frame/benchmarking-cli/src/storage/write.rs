@@ -34,8 +34,13 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use super::{cmd::StorageCmd, get_wasm_module, MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION};
-use crate::shared::{new_rng, BenchRecord};
+use super::{
+	cmd::StorageCmd,
+	get_wasm_module,
+	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
+	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
+};
+use crate::shared::BenchRecord;
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to write a single Storage item.
@@ -81,13 +86,17 @@ impl StorageCmd {
 		);
 
 		info!("Preparing keys from block {}", best_hash);
-		// Load all KV pairs and randomly shuffle them.
-		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
-		let (mut rng, _) = new_rng(None);
-		kvs.shuffle(&mut rng);
-		if kvs.is_empty() {
-			return Err("Can't process benchmarking with empty storage".into());
-		}
+		let (kvs, mut rng) = select_entries(
+			self.params.keys_limit,
+			self.params.random_seed,
+			|first_key_ref| {
+				let mut iter_args = sp_state_machine::IterArgs::default();
+				iter_args.start_at = first_key_ref;
+				Ok(trie.pairs(iter_args)?)
+			},
+			|| Ok(trie.pairs(Default::default())?),
+			|r| r.as_ref().map(|(k, _)| k.as_slice()).unwrap_or(&[]),
+		)?;
 
 		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
 		let remainder = kvs.len() % self.params.batch_size;
@@ -104,10 +113,29 @@ impl StorageCmd {
 			let (k, original_v) = key_value?;
 			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
 				(true, Some(info)) => {
-					let child_keys = client
-						.child_storage_keys(best_hash, info.clone(), None, None)?
-						.collect::<Vec<_>>();
-					child_nodes.push((child_keys, info.clone()));
+					match select_entries(
+						self.params.child_keys_limit,
+						self.params.random_seed,
+						|first_key_ref| {
+							let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+							Ok(client
+								.child_storage_keys(best_hash, info.clone(), None, fk.as_ref())?
+								.map(|ck| (ck, info.clone())))
+						},
+						|| {
+							Ok(client
+								.child_storage_keys(best_hash, info.clone(), None, None)?
+								.map(|ck| (ck, info.clone())))
+						},
+						|(key, _): &(sp_storage::StorageKey, ChildInfo)| key.0.as_slice(),
+					) {
+						Ok((entries, _)) => child_nodes.push((
+							entries.into_iter().map(|(ck, _)| ck).collect::<Vec<_>>(),
+							info.clone(),
+						)),
+						Err(SelectEntriesEmptyStorage::Input(_)) => {},
+						Err(e) => return Err(e),
+					}
 				},
 				_ => {
 					// regular key
