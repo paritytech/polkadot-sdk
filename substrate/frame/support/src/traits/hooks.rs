@@ -58,7 +58,7 @@ impl_for_tuples_attr! {
 	}
 }
 
-/// Provides a callback to execute logic before the all transactions.
+/// Provides a callback to execute logic after the all transactions.
 pub trait PostTransactions {
 	/// Called after all transactions were applied but before `on_finalize`.
 	fn post_transactions() {}
@@ -540,7 +540,7 @@ pub trait Hooks<BlockNumber> {
 	/// details on this.
 	///
 	/// Moreover, the code in this function has access to a wider range of host functions in
-	/// [`sp-io`], namely [`sp_io::offchain`]. This includes exotic operations such as HTTP calls
+	/// [`sp_io`], namely [`sp_io::offchain`]. This includes exotic operations such as HTTP calls
 	/// that are not really possible in the rest of the runtime code.
 	///
 	/// The execution of this hook is entirely optional and is left at the discretion of the

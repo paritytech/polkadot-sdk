@@ -57,7 +57,6 @@ impl From<Error> for ErrorObject<'static> {
 }
 
 /// The error type for errors that can never happen.
-//
 // NOTE: Can't use std::convert::Infallible because of the orphan-rule
 pub enum Infallible {}
 

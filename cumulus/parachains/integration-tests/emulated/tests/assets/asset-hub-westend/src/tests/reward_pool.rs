@@ -37,8 +37,9 @@ fn treasury_creates_asset_reward_pool() {
 
 		let events = AssetHubWestend::events();
 		match events.iter().last() {
-			Some(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet { who, .. })) =>
-				assert_eq!(*who, treasurer_account),
+			Some(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet { who, .. })) => {
+				assert_eq!(*who, treasurer_account)
+			},
 			_ => panic!("Expected Balances::BalanceSet event"),
 		}
 	});

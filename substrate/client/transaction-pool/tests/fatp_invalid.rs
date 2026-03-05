@@ -222,7 +222,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 		]
 	);
 
-	//todo: shall revalidation check finalized (fork's tip) view?
+	// todo: shall revalidation check finalized (fork's tip) view?
 	assert_eq!(pool.status_all()[&prev_header.hash()].ready, 0);
 }
 
@@ -265,7 +265,7 @@ fn fatp_watcher_invalid_many_revalidation() {
 	let header02 = api.push_block(2, vec![], true);
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 
-	//todo: shall revalidation check finalized (fork's tip) view?
+	// todo: shall revalidation check finalized (fork's tip) view?
 	assert_eq!(pool.status_all()[&header02.hash()].ready, 5);
 
 	let header03 = api.push_block(3, vec![xt0.clone(), xt1.clone(), xt2.clone()], true);

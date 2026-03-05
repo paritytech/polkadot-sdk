@@ -32,7 +32,6 @@
 //! The first new property of a real runtime that it must define its
 //! [`frame::runtime::prelude::RuntimeVersion`]:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", VERSION)]
-//!
 //! The version contains a number of very important fields, such as `spec_version` and `spec_name`
 //! that play an important role in identifying your runtime and its version, more importantly in
 //! runtime upgrades. More about runtime upgrades in
@@ -44,11 +43,9 @@
 //!
 //! In the case of our example:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", our_config_impl)]
-//!
 //! In this example, we bring in a number of other pallets from [`frame`] into the runtime, each of
 //! their `Config` need to be implemented for `struct Runtime`:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", config_impls)]
-//!
 //! Notice how we use [`frame::pallet_macros::derive_impl`] to provide "default" configuration items
 //! for each pallet. Feel free to dive into the definition of each default prelude (eg.
 //! [`frame::prelude::frame_system::pallet::config_preludes`]) to learn more which types are exactly
@@ -60,7 +57,6 @@
 //!
 //! Then, a familiar instance of `construct_runtime` amalgamates all of the pallets:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", cr)]
-//!
 //! Recall from [`crate::reference_docs::wasm_meta_protocol`] that every (real) runtime needs to
 //! implement a set of runtime APIs that will then let the node to communicate with it. The final
 //! steps of crafting a runtime are related to achieving exactly this.
@@ -70,7 +66,6 @@
 //! amalgamating all pallets and further types, implements some of the very very core pieces of the
 //! runtime logic, such as how blocks are executed and other runtime-api implementations.
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", runtime_types)]
-//!
 //! Finally, we use [`frame::runtime::prelude::impl_runtime_apis`] to implement all of the runtime
 //! APIs that the runtime wishes to expose. As you will see in the code, most of these runtime API
 //! implementations are merely forwarding calls to `RuntimeExecutive` which handles the actual
@@ -139,14 +134,12 @@
 //! 1. Expose one non-default preset, namely [`sp_genesis_builder::DEV_RUNTIME_PRESET`]. This means
 //!    our runtime has two "presets" of genesis state in total: `DEV_RUNTIME_PRESET` and `None`.
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", preset_names)]
-//!
 //! For `build_state` and `get_preset`, we use the helper functions provide by frame:
 //!
 //! * [`frame::runtime::prelude::build_state`] and [`frame::runtime::prelude::get_preset`].
 //!
 //! Indeed, our runtime needs to specify what its `DEV_RUNTIME_PRESET` genesis state should be like:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", development_config_genesis)]
-//!
 //! For more in-depth information about `GenesisConfig`, `ChainSpec`, the `GenesisBuilder` API and
 //! `chain-spec-builder`, see [`crate::reference_docs::chain_spec_genesis`].
 //!

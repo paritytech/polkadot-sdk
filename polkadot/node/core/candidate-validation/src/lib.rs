@@ -27,6 +27,7 @@ use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
+use polkadot_node_core_pvf_common::execute::ValidationContext;
 use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
@@ -48,6 +49,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
+	node_features::FeatureIndex,
 	transpose_claim_queue, AuthorityDiscoveryId, CandidateCommitments,
 	CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt,
@@ -192,7 +194,6 @@ where
 			let _timer = metrics.time_validate_from_exhaustive();
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
 			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
 				let error = "cannot fetch session index from the runtime";
 				gum::warn!(
@@ -203,8 +204,41 @@ where
 
 				let _ = response_sender
 					.send(Err(ValidationFailed("Session index not found".to_string())));
-				return
+				return;
 			};
+
+			let v3_enabled =
+				match util::request_node_features(relay_parent, session_index, &mut sender)
+					.await
+					.await
+				{
+					Ok(Ok(features)) => FeatureIndex::CandidateReceiptV3.is_set(&features),
+					Ok(Err(e)) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?session_index,
+							err = ?e,
+							"Failed to fetch node features from runtime"
+						);
+						let _ = response_sender
+							.send(Err(ValidationFailed("Node features not available".to_string())));
+						return;
+					},
+					Err(e) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?session_index,
+							err = ?e,
+							"Failed to fetch node features, oneshot canceled"
+						);
+						let _ = response_sender.send(Err(ValidationFailed(
+							"Node features request canceled".to_string(),
+						)));
+						return;
+					},
+				};
 
 			// This will return a default value for the limit if runtime API is not available.
 			// however we still error out if there is a weird runtime API error.
@@ -225,11 +259,38 @@ where
 				let _ = response_sender.send(Err(ValidationFailed(
 					"Validation code bomb limit not available".to_string(),
 				)));
-				return
+				return;
+			};
+
+			// Claim queue is scheduling context — fetch it from the scheduling_parent.
+			// For V1/V2, scheduling_parent() returns relay_parent.
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+			let maybe_claim_queue = claim_queue(scheduling_parent, &mut sender).await;
+
+			// Fetch the scheduling session index for validating the descriptor's
+			// scheduling_session claim. For V1/V2 scheduling_parent ==
+			// relay_parent so we reuse session_index.
+			let scheduling_session_index = if scheduling_parent == relay_parent {
+				session_index
+			} else {
+				match get_session_index(&mut sender, scheduling_parent).await {
+					Some(idx) => idx,
+					None => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?scheduling_parent,
+							"Cannot fetch scheduling session index from the runtime",
+						);
+						let _ = response_sender.send(Err(ValidationFailed(
+							"Scheduling session index not found".to_string(),
+						)));
+						return;
+					},
+				}
 			};
 
 			let res = validate_candidate_exhaustive(
-				session_index,
+				scheduling_session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -239,6 +300,7 @@ where
 				exec_kind,
 				&metrics,
 				maybe_claim_queue,
+				v3_enabled,
 				validation_code_bomb_limit,
 			)
 			.await;
@@ -262,7 +324,7 @@ where
 				);
 
 				let _ = response_sender.send(PreCheckOutcome::Failed);
-				return
+				return;
 			};
 
 			// This will return a default value for the limit if runtime API is not available.
@@ -282,7 +344,7 @@ where
 				);
 
 				let _ = response_sender.send(PreCheckOutcome::Failed);
-				return
+				return;
 			};
 
 			let precheck_result = precheck_pvf(
@@ -421,8 +483,9 @@ async fn handle_active_leaves_update<Sender>(
 
 	if let Some(activated) = update.activated {
 		let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
-			(Some(existing_index), Some(new_index)) =>
-				(new_index > existing_index).then_some(new_index),
+			(Some(existing_index), Some(new_index)) => {
+				(new_index > existing_index).then_some(new_index)
+			},
 			(None, Some(new_index)) => Some(new_index),
 			_ => None,
 		};
@@ -486,7 +549,7 @@ where
 			?relay_parent,
 			"cannot fetch session index from runtime API",
 		);
-		return None
+		return None;
 	};
 
 	Some(session_index)
@@ -510,7 +573,7 @@ where
 			?relay_parent,
 			"cannot fetch authorities from runtime API",
 		);
-		return false
+		return false;
 	};
 
 	// We need to exclude at least current session authority from the previous request
@@ -522,7 +585,7 @@ where
 			?relay_parent,
 			"cannot fetch session info from runtime API",
 		);
-		return false
+		return false;
 	};
 
 	let is_past_present_or_future_authority = authorities
@@ -557,7 +620,7 @@ where
 			?relay_parent,
 			"cannot fetch candidate events from runtime API",
 		);
-		return None
+		return None;
 	};
 	let code_hashes = events
 		.into_iter()
@@ -582,7 +645,7 @@ where
 			?relay_parent,
 			"cannot fetch executor params for the session",
 		);
-		return None
+		return None;
 	};
 	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 
@@ -637,7 +700,7 @@ where
 	}
 
 	if active_pvfs.is_empty() {
-		return None
+		return None;
 	}
 
 	if let Err(err) = validation_backend.heads_up(active_pvfs).await {
@@ -647,7 +710,7 @@ where
 			?err,
 			"cannot prepare PVF for the next session",
 		);
-		return None
+		return None;
 	};
 
 	gum::debug!(
@@ -695,21 +758,21 @@ async fn get_block_ancestors<Sender>(
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let Some((relay_parent, session_index)) = maybe_new_leaf else { return vec![] };
+	let Some((scheduling_parent, session_index)) = maybe_new_leaf else { return vec![] };
 	let scheduling_lookahead =
-		match fetch_scheduling_lookahead(relay_parent, session_index, sender).await {
+		match fetch_scheduling_lookahead(scheduling_parent, session_index, sender).await {
 			Ok(scheduling_lookahead) => scheduling_lookahead,
 			res => {
 				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
-				return vec![]
+				return vec![];
 			},
 		};
 
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
-			hash: relay_parent,
-			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
+			hash: scheduling_parent,
+			// Subtract 1 from the claim queue length, as it includes current `scheduling_parent`.
 			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})
@@ -800,7 +863,7 @@ where
 					?validation_code_hash,
 					"precheck: requested validation code is not found on-chain!",
 				);
-				return PreCheckOutcome::Failed
+				return PreCheckOutcome::Failed;
 			},
 		};
 
@@ -822,7 +885,7 @@ where
 			?validation_code_hash,
 			"precheck: failed to acquire executor params for the session, thus voting against.",
 		);
-		return PreCheckOutcome::Invalid
+		return PreCheckOutcome::Invalid;
 	};
 
 	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
@@ -837,17 +900,18 @@ where
 
 	match validation_backend.precheck_pvf(pvf).await {
 		Ok(_) => PreCheckOutcome::Valid,
-		Err(prepare_err) =>
+		Err(prepare_err) => {
 			if prepare_err.is_deterministic() {
 				PreCheckOutcome::Invalid
 			} else {
 				PreCheckOutcome::Failed
-			},
+			}
+		},
 	}
 }
 
 async fn validate_candidate_exhaustive(
-	expected_session_index: SessionIndex,
+	expected_scheduling_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -857,6 +921,7 @@ async fn validate_candidate_exhaustive(
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
+	v3_enabled: bool,
 	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -873,12 +938,19 @@ async fn validate_candidate_exhaustive(
 		"About to validate a candidate.",
 	);
 
-	// We only check the session index for backing.
-	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
-			if session_index != expected_session_index {
-				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
-			},
+	// Validate the scheduling session during backing. The relay parent session
+	// check is left for later when we actually can: https://github.com/paritytech/polkadot-sdk/issues/11182
+	// TODO: Properly check session index in the runtime:
+	// https://github.com/paritytech/polkadot-sdk/issues/11033
+	match (exec_kind, candidate_receipt.descriptor.scheduling_session(v3_enabled)) {
+		(
+			PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
+			Some(scheduling_session),
+		) => {
+			if scheduling_session != expected_scheduling_session_index {
+				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+			}
+		},
 		(_, _) => {},
 	};
 
@@ -889,16 +961,26 @@ async fn validate_candidate_exhaustive(
 		&validation_code_hash,
 	) {
 		gum::debug!(target: LOG_TARGET, ?para_id, ?candidate_hash, "Invalid candidate (basic checks)");
-		return Ok(ValidationResult::Invalid(e))
+		return Ok(ValidationResult::Invalid(e));
 	}
 
 	let persisted_validation_data = Arc::new(persisted_validation_data);
+
+	// Create the validation context shared by both backing and approval/dispute paths
+	let validation_context = ValidationContext {
+		candidate_receipt: candidate_receipt.clone(),
+		pvd: persisted_validation_data.clone(),
+		pov: pov.clone(),
+		executor_params: executor_params.clone(),
+		exec_timeout: pvf_exec_timeout(&executor_params, exec_kind.into()),
+		v3_enabled,
+	};
+
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
 		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
@@ -907,31 +989,19 @@ async fn validate_candidate_exhaustive(
 				validation_code_bomb_limit,
 			);
 
-			validation_backend
-				.validate_candidate(
-					pvf,
-					exec_timeout,
-					persisted_validation_data.clone(),
-					pov,
-					exec_kind.into(),
-					exec_kind,
-				)
-				.await
+			validation_backend.validate_candidate(pvf, validation_context, exec_kind).await
 		},
-		PvfExecKind::Approval | PvfExecKind::Dispute =>
+		PvfExecKind::Approval | PvfExecKind::Dispute => {
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					persisted_validation_data.clone(),
-					pov,
-					executor_params,
+					validation_context,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					exec_kind.into(),
 					exec_kind,
 					validation_code_bomb_limit,
 				)
-				.await,
+				.await
+		},
 	};
 
 	if let Err(ref error) = result {
@@ -949,27 +1019,35 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::PoVDecompressionFailure)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)),
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))
+		},
+		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e)))
+		},
+		Err(ValidationError::Invalid(WasmInvalidCandidate::PoVDecompressionFailure)) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure))
+		},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) => {
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
-			))),
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
-		Err(ValidationError::PossiblyInvalid(err @ PossiblyInvalidError::CorruptedArtifact)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err.to_string()))),
+			)))
+		},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err)))
+		},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err)))
+		},
+		Err(ValidationError::PossiblyInvalid(err @ PossiblyInvalidError::CorruptedArtifact)) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err.to_string())))
+		},
 
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) => {
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
 				"ambiguous job death: {err}"
-			)))),
+			))))
+		},
 		Err(ValidationError::Preparation(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -988,7 +1066,7 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Ok(res) =>
+		Ok(res) => {
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
@@ -1039,12 +1117,13 @@ async fn validate_candidate_exhaustive(
 									error
 								);
 
-								return Err(ValidationFailed(error.into()))
+								return Err(ValidationFailed(error.into()));
 							};
 
-							if let Err(err) = committed_candidate_receipt
-								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
-							{
+							if let Err(err) = committed_candidate_receipt.parse_ump_signals(
+								&transpose_claim_queue(claim_queue.0),
+								v3_enabled,
+							) {
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),
@@ -1053,7 +1132,7 @@ async fn validate_candidate_exhaustive(
 								);
 								return Ok(ValidationResult::Invalid(
 									InvalidCandidate::InvalidUMPSignals(err),
-								))
+								));
 							}
 						},
 						// No checks for approvals and disputes
@@ -1065,7 +1144,8 @@ async fn validate_candidate_exhaustive(
 						(*persisted_validation_data).clone(),
 					))
 				}
-			},
+			}
+		},
 	}
 }
 
@@ -1075,37 +1155,25 @@ trait ValidationBackend {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
 	/// been transient.
 	///
-	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
-	/// that `approval` context has priority over `backing` context.
-	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
 	async fn validate_candidate_with_retry(
 		&mut self,
 		code: Vec<u8>,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		executor_params: ExecutorParams,
+		validation_context: ValidationContext,
 		retry_delay: Duration,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
 		exec_kind: PvfExecKind,
 		validation_code_bomb_limit: u32,
 	) -> Result<WasmValidationResult, ValidationError> {
+		let exec_timeout = validation_context.exec_timeout;
+		let executor_params = validation_context.executor_params.clone();
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
@@ -1119,19 +1187,11 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		// Use `Priority::Critical` as finality trumps parachain liveliness.
 		let mut validation_result = self
-			.validate_candidate(
-				pvf.clone(),
-				exec_timeout,
-				pvd.clone(),
-				pov.clone(),
-				prepare_priority,
-				exec_kind,
-			)
+			.validate_candidate(pvf.clone(), validation_context.clone(), exec_kind)
 			.await;
 		if validation_result.is_ok() {
-			return validation_result
+			return validation_result;
 		}
 
 		macro_rules! break_if_no_retries_left {
@@ -1139,7 +1199,7 @@ trait ValidationBackend {
 				if $counter > 0 {
 					$counter -= 1;
 				} else {
-					break
+					break;
 				}
 			};
 		}
@@ -1152,7 +1212,7 @@ trait ValidationBackend {
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
-				break
+				break;
 			}
 			let mut retry_immediately = false;
 			match validation_result {
@@ -1161,11 +1221,13 @@ trait ValidationBackend {
 					PossiblyInvalidError::AmbiguousJobDeath(_),
 				)) => break_if_no_retries_left!(num_death_retries_left),
 
-				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
-					break_if_no_retries_left!(num_job_error_retries_left),
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) => {
+					break_if_no_retries_left!(num_job_error_retries_left)
+				},
 
-				Err(ValidationError::Internal(_)) =>
-					break_if_no_retries_left!(num_internal_retries_left),
+				Err(ValidationError::Internal(_)) => {
+					break_if_no_retries_left!(num_internal_retries_left)
+				},
 
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::RuntimeConstruction(_) |
@@ -1207,16 +1269,12 @@ trait ValidationBackend {
 					validation_result
 				);
 
-				validation_result = self
-					.validate_candidate(
-						pvf.clone(),
-						new_timeout,
-						pvd.clone(),
-						pov.clone(),
-						prepare_priority,
-						exec_kind,
-					)
-					.await;
+				// Update the validation context with the new timeout
+				let mut retry_context = validation_context.clone();
+				retry_context.exec_timeout = new_timeout;
+
+				validation_result =
+					self.validate_candidate(pvf.clone(), retry_context, exec_kind).await;
 			}
 		}
 
@@ -1240,24 +1298,18 @@ impl ValidationBackend for ValidationHost {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
-			.await
+		if let Err(err) =
+			self.execute_pvf(pvf, validation_context, exec_kind.into(), exec_kind, tx).await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
 				err
 			))
-			.into())
+			.into());
 		}
 
 		rx.await.map_err(|_| {
@@ -1271,7 +1323,7 @@ impl ValidationBackend for ValidationHost {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self.precheck_pvf(pvf, tx).await {
 			// Return an IO error if there was an error communicating with the host.
-			return Err(PrepareError::IoErr(err))
+			return Err(PrepareError::IoErr(err));
 		}
 
 		let precheck_result = rx.await.map_err(|err| PrepareError::IoErr(err.to_string()))?;
@@ -1304,15 +1356,15 @@ fn perform_basic_checks(
 
 	let encoded_pov_size = pov.encoded_size();
 	if encoded_pov_size > max_pov_size as usize {
-		return Err(InvalidCandidate::ParamsTooLarge(encoded_pov_size as u64))
+		return Err(InvalidCandidate::ParamsTooLarge(encoded_pov_size as u64));
 	}
 
 	if pov_hash != candidate.pov_hash() {
-		return Err(InvalidCandidate::PoVHashMismatch)
+		return Err(InvalidCandidate::PoVHashMismatch);
 	}
 
 	if *validation_code_hash != candidate.validation_code_hash() {
-		return Err(InvalidCandidate::CodeHashMismatch)
+		return Err(InvalidCandidate::CodeHashMismatch);
 	}
 
 	Ok(())
@@ -1321,15 +1373,15 @@ fn perform_basic_checks(
 /// To determine the amount of timeout time for the pvf execution.
 ///
 /// Precheck
-///	The time period after which the preparation worker is considered
+/// 	The time period after which the preparation worker is considered
 /// unresponsive and will be killed.
 ///
 /// Prepare
-///The time period after which the preparation worker is considered
+/// The time period after which the preparation worker is considered
 /// unresponsive and will be killed.
 fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_prep_timeout(kind) {
-		return timeout
+		return timeout;
 	}
 	match kind {
 		PvfPrepKind::Precheck => DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
@@ -1349,7 +1401,7 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 /// considered executable by approval checkers or dispute participants.
 fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
-		return timeout
+		return timeout;
 	}
 	match kind {
 		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,

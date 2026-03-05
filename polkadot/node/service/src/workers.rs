@@ -64,14 +64,14 @@ pub fn determine_workers_paths(
 			given_workers_path,
 			current_exe_path,
 			workers_names,
-		})
+		});
 	} else if workers_paths.len() > 1 {
 		log::warn!("multiple sets of worker binaries found ({:?})", workers_paths,);
 	}
 
 	let (prep_worker_path, exec_worker_path) = workers_paths.swap_remove(0);
 	if !prep_worker_path.is_executable() || !exec_worker_path.is_executable() {
-		return Err(Error::InvalidWorkerBinaries { prep_worker_path, exec_worker_path })
+		return Err(Error::InvalidWorkerBinaries { prep_worker_path, exec_worker_path });
 	}
 
 	// Do the version check.
@@ -82,7 +82,7 @@ pub fn determine_workers_paths(
 				worker_version,
 				node_version,
 				worker_path: prep_worker_path,
-			})
+			});
 		}
 
 		let worker_version = polkadot_node_core_pvf::get_worker_version(&exec_worker_path)?;
@@ -91,7 +91,7 @@ pub fn determine_workers_paths(
 				worker_version,
 				node_version,
 				worker_path: exec_worker_path,
-			})
+			});
 		}
 	} else {
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
@@ -110,7 +110,7 @@ fn list_workers_paths(
 		log::trace!("Using explicitly provided workers path {:?}", path);
 
 		if path.is_executable() {
-			return Ok(vec![(path.clone(), path)])
+			return Ok(vec![(path.clone(), path)]);
 		}
 
 		let (prep_worker, exec_worker) = build_worker_paths(path, workers_names);
@@ -120,7 +120,7 @@ fn list_workers_paths(
 			Ok(vec![(prep_worker, exec_worker)])
 		} else {
 			Ok(vec![])
-		}
+		};
 	}
 
 	// Workers path not provided, check all possible valid locations.

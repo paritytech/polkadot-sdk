@@ -371,14 +371,14 @@ pub mod pallet {
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx > epoch_length / 2 {
 				warn!(target: LOG_TARGET, "Tickets shall be submitted in the first epoch half",);
-				return Err("Tickets shall be submitted in the first epoch half".into())
+				return Err("Tickets shall be submitted in the first epoch half".into());
 			}
 
 			let Some(verifier) =
 				RingVerifierData::<T>::get().map(|vk| vrf::RingContext::verifier_no_context(vk))
 			else {
 				warn!(target: LOG_TARGET, "Ring verifier key not initialized");
-				return Err("Ring verifier key not initialized".into())
+				return Err("Ring verifier key not initialized".into());
 			};
 
 			let next_authorities = NextAuthorities::<T>::get();
@@ -406,13 +406,13 @@ pub mod pallet {
 				let ticket_id = vrf::make_ticket_id(&ticket.signature.pre_output);
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
-					continue
+					continue;
 				}
 
 				// Check for duplicates
 				if TicketsData::<T>::contains_key(ticket_id) {
 					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:032x})", ticket_id);
-					continue
+					continue;
 				}
 
 				// Check ring signature
@@ -421,7 +421,7 @@ pub mod pallet {
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 				if !ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:032x})", ticket_id);
-					continue
+					continue;
 				}
 
 				if let Ok(_) = valid_tickets.try_push(ticket_id).defensive_proof(
@@ -469,7 +469,7 @@ pub mod pallet {
 
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			let Call::submit_tickets { tickets } = call else {
-				return InvalidTransaction::Call.into()
+				return InvalidTransaction::Call.into();
 			};
 
 			// Discard tickets not coming from the local node or that are not included in a block
@@ -478,7 +478,7 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"Rejecting unsigned `submit_tickets` transaction from external source",
 				);
-				return InvalidTransaction::BadSigner.into()
+				return InvalidTransaction::BadSigner.into();
 			}
 
 			// Current slot should be less than half of epoch length.
@@ -486,7 +486,7 @@ pub mod pallet {
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx > epoch_length / 2 {
 				warn!(target: LOG_TARGET, "Tickets shall be proposed in the first epoch half",);
-				return InvalidTransaction::Stale.into()
+				return InvalidTransaction::Stale.into();
 			}
 
 			// This should be set such that it is discarded after the first epoch half
@@ -552,7 +552,7 @@ impl<T: Config> Pallet<T> {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
 			debug!(target: LOG_TARGET, "Ring context not initialized");
-			return
+			return;
 		};
 
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
@@ -704,7 +704,7 @@ impl<T: Config> Pallet<T> {
 		if !prev_authorities.is_empty() {
 			// This function has already been called.
 			if prev_authorities.as_slice() == authorities {
-				return
+				return;
 			} else {
 				panic!("Authorities were already initialized");
 			}
@@ -794,7 +794,7 @@ impl<T: Config> Pallet<T> {
 	/// Before importing the first block this returns `None`.
 	pub fn slot_ticket_id(slot: Slot) -> Option<TicketId> {
 		if frame_system::Pallet::<T>::block_number().is_zero() {
-			return None
+			return None;
 		}
 		let epoch_idx = EpochIndex::<T>::get();
 		let epoch_len = T::EpochLength::get();
@@ -828,7 +828,7 @@ impl<T: Config> Pallet<T> {
 				TicketsMeta::<T>::set(metadata);
 			}
 		} else if slot_idx >= 2 * epoch_len {
-			return None
+			return None;
 		}
 
 		let ticket_idx = get_ticket_idx(slot_idx);
