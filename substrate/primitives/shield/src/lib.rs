@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use sp_inherents::InherentIdentifier;
-use sp_runtime::{BoundedVec, traits::ConstU32};
+use sp_runtime::{traits::ConstU32, BoundedVec};
 
 mod keystore;
 mod runtime_api;
