@@ -509,29 +509,12 @@ macro_rules! implement_fixed {
 
 			/// Convert into a `Perbill` value. Will saturate if above one or below zero.
 			pub const fn into_perbill(self) -> Perbill {
-				if self.0 <= 0 {
-					Perbill::zero()
-				} else if self.0 >= $div {
-					Perbill::one()
-				} else {
-					match multiply_by_rational_with_rounding(
-						self.0 as u128,
-						1_000_000_000,
-						Self::DIV as u128,
-						Rounding::NearestPrefDown,
-					) {
-						Some(value) => {
-							if value > (u32::max_value() as u128) {
-								panic!(
-									"prior logic ensures 0<self.0<DIV; \
-									multiply ensures 0<self.0<1000000000; \
-									qed"
-								);
-							}
-							Perbill::from_parts(value as u32)
-						},
-						None => Perbill::zero(),
-					}
+				match self.try_into_perbill() {
+					Ok(v) => v,
+					// Saturate: values below zero or above one are clamped, and
+					// intermediate overflow is not possible for valid fixed-point
+					// representations, so this fallback is purely defensive.
+					Err(_) => Perbill::zero(),
 				}
 			}
 
@@ -539,23 +522,23 @@ macro_rules! implement_fixed {
 			///
 			/// Returns `Err(ArithmeticError::Overflow)` if the conversion results in a value
 			/// that cannot be represented by `Perbill` or if an intermediate calculation overflows.
-			pub fn try_into_perbill(self) -> Result<Perbill, ArithmeticError> {
+			pub const fn try_into_perbill(self) -> Result<Perbill, ArithmeticError> {
 				if self.0 <= 0 {
 					Ok(Perbill::zero())
 				} else if self.0 >= Self::DIV {
 					Ok(Perbill::one())
 				} else {
-					let value = checked_multiply_by_rational_with_rounding(
+					match checked_multiply_by_rational_with_rounding(
 						self.0 as u128,
 						1_000_000_000,
 						Self::DIV as u128,
 						Rounding::NearestPrefDown,
-					)?;
-
-					if value > (u32::MAX as u128) {
-						return Err(ArithmeticError::Overflow);
+					) {
+						Ok(value) if value > (u32::MAX as u128) =>
+							Err(ArithmeticError::Overflow),
+						Ok(value) => Ok(Perbill::from_parts(value as u32)),
+						Err(e) => Err(e),
 					}
-					Ok(Perbill::from_parts(value as u32))
 				}
 			}
 
@@ -743,15 +726,9 @@ macro_rules! implement_fixed {
 			/// WARNING: This is a `const` function designed for convenient use at build time and
 			/// will panic on overflow. Ensure that any inputs are sensible.
 			pub const fn from_rational_with_rounding(a: u128, b: u128, rounding: Rounding) -> Self {
-				if b == 0 {
-					panic!("attempt to divide by zero in from_rational")
-				}
-				match multiply_by_rational_with_rounding(Self::DIV as u128, a, b, rounding) {
-					Some(value) => match Self::from_i129(I129 { value, negative: false }) {
-						Some(x) => x,
-						None => panic!("overflow in from_rational"),
-					},
-					None => panic!("overflow in from_rational"),
+				match Self::checked_from_rational_with_rounding(a, b, rounding) {
+					Ok(x) => x,
+					Err(_) => panic!("overflow or division by zero in from_rational"),
 				}
 			}
 
@@ -761,7 +738,7 @@ macro_rules! implement_fixed {
 			/// Returns `Err(ArithmeticError::DivisionByZero)` if `b` is zero.
 			/// Returns `Err(ArithmeticError::Overflow)` if any intermediate calculation overflows
 			/// or if the final result does not fit into the fixed-point type.
-			pub fn checked_from_rational_with_rounding(
+			pub const fn checked_from_rational_with_rounding(
 				a: u128,
 				b: u128,
 				rounding: Rounding,
@@ -770,12 +747,20 @@ macro_rules! implement_fixed {
 					return Err(ArithmeticError::DivisionByZero);
 				}
 
-				let value =
-					checked_multiply_by_rational_with_rounding(Self::DIV as u128, a, b, rounding)?;
+				let value = match checked_multiply_by_rational_with_rounding(
+					Self::DIV as u128,
+					a,
+					b,
+					rounding,
+				) {
+					Ok(v) => v,
+					Err(e) => return Err(e),
+				};
 
-				let i129_value = I129 { value, negative: false };
-
-				Self::from_i129(i129_value).ok_or(ArithmeticError::Overflow)
+				match Self::from_i129(I129 { value, negative: false }) {
+					Some(x) => Ok(x),
+					None => Err(ArithmeticError::Overflow),
+				}
 			}
 
 			/// Multiply by another value, returning `None` in the case of an error.

@@ -897,13 +897,7 @@ macro_rules! implement_per_thing {
 					+ $crate::MultiplyRational,
 				Self::Inner: Into<N>
 			{
-				// q cannot be zero.
-				if q.is_zero() { return Err(()) }
-				// p should not be bigger than q.
-				if p > q { return Err(()) }
-
-				let max: N = $max.into();
-				max.multiply_rational(p, q, r).ok_or(())?.try_into().map(|x| $name(x)).map_err(|_| ())
+				Self::checked_from_rational_with_rounding(p, q, r).map_err(|_| ())
 			}
 
 			fn checked_from_rational_with_rounding<N>(p: N, q: N, r: Rounding) -> Result<Self, ArithmeticError>
@@ -1105,11 +1099,7 @@ macro_rules! implement_per_thing {
 
 			/// See [`PerThing::checked_int_div`].
 			pub fn checked_int_div(self, b: Self) -> Result<$type, ArithmeticError> {
-				if b.is_zero() {
-					Err(ArithmeticError::DivisionByZero)
-				} else {
-					self.deconstruct().checked_div(b.deconstruct()).ok_or(ArithmeticError::DivisionByZero)
-				}
+				PerThing::checked_int_div(self, b)
 			}
 
 			/// Saturating division. Compute `self / rhs`, saturating at one if `rhs < self`.
