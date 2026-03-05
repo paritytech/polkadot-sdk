@@ -419,7 +419,7 @@ mod tests {
 				.try_accept(
 					|peer_id, para_id| async move {
 						if peer_id == second_peer && para_id == ParaId::from(100) {
-							Score::new(10).unwrap()
+							Score::new(10)
 						} else {
 							Score::default()
 						}
@@ -447,7 +447,7 @@ mod tests {
 				.try_accept(
 					|peer_id, para_id| async move {
 						if peer_id == third_peer && para_id == third_peer_para_id {
-							Score::new(10).unwrap()
+							Score::new(10)
 						} else {
 							Score::default()
 						}
@@ -466,7 +466,7 @@ mod tests {
 			assert!(per_para.contains(&third_peer));
 
 			if para_id == &third_peer_para_id {
-				assert_eq!(per_para.get_score(&third_peer).unwrap(), Score::new(10).unwrap());
+				assert_eq!(per_para.get_score(&third_peer).unwrap(), Score::new(10));
 			} else {
 				assert_eq!(per_para.get_score(&third_peer).unwrap(), Score::default());
 			}
@@ -480,7 +480,7 @@ mod tests {
 				.try_accept(
 					|peer_id, _para_id| async move {
 						if peer_id == rejected_peer {
-							Score::new(10).unwrap()
+							Score::new(10)
 						} else {
 							Score::default()
 						}
@@ -509,7 +509,7 @@ mod tests {
 				.try_accept(
 					|peer_id, para_id| async move {
 						if peer_id == fourth_peer && para_id == fourth_peer_para_id {
-							Score::new(10).unwrap()
+							Score::new(10)
 						} else {
 							Score::default()
 						}
@@ -537,7 +537,7 @@ mod tests {
 		for (para_id, per_para) in connected.per_para.iter() {
 			if para_id == &fourth_peer_para_id {
 				assert!(per_para.contains(&fourth_peer));
-				assert_eq!(per_para.get_score(&fourth_peer).unwrap(), Score::new(10).unwrap());
+				assert_eq!(per_para.get_score(&fourth_peer).unwrap(), Score::new(10));
 			} else {
 				assert!(!per_para.contains(&fourth_peer));
 				assert_eq!(per_para.get_score(&fourth_peer), None);
@@ -570,16 +570,10 @@ mod tests {
 
 		let rep_query_fn = |peer_id, para_id| async move {
 			match (peer_id, para_id) {
-				(peer_id, _para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
-					Score::new(20).unwrap()
-				},
-				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
-					Score::new(20).unwrap()
-				},
-				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
-					Score::new(5).unwrap()
-				},
+				(peer_id, _para_id) if peer_id == first_peer => Score::new(10),
+				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => Score::new(20),
+				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => Score::new(20),
+				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => Score::new(5),
 
 				(_, _) => Score::default(),
 			}
@@ -626,10 +620,10 @@ mod tests {
 		assert_eq!(per_para_1.per_peer_score.len(), 2);
 		assert_eq!(per_para_1.sorted_scores.len(), 2);
 
-		assert_eq!(connected.peer_score(&first_peer, &para_1).unwrap(), Score::new(10).unwrap());
-		assert_eq!(connected.peer_score(&second_peer, &para_1).unwrap(), Score::new(20).unwrap());
-		assert_eq!(connected.peer_score(&first_peer, &para_2).unwrap(), Score::new(10).unwrap());
-		assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(20).unwrap());
+		assert_eq!(connected.peer_score(&first_peer, &para_1).unwrap(), Score::new(10));
+		assert_eq!(connected.peer_score(&second_peer, &para_1).unwrap(), Score::new(20));
+		assert_eq!(connected.peer_score(&first_peer, &para_2).unwrap(), Score::new(10));
+		assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(20));
 		assert_eq!(connected.peer_score(&second_peer, &para_2), None);
 		assert_eq!(connected.peer_score(&new_peer, &para_1), None);
 		assert_eq!(connected.peer_score(&new_peer, &para_2), None);
@@ -681,7 +675,7 @@ mod tests {
 			let mut connected = connected.clone();
 			let rep_query_fn = |peer_id, _para_id| async move {
 				if peer_id == new_peer {
-					Score::new(30).unwrap()
+					Score::new(30)
 				} else {
 					Score::default()
 				}
@@ -694,19 +688,13 @@ mod tests {
 			assert_eq!(connected.peer_info(&first_peer), None);
 
 			assert_eq!(connected.peer_score(&first_peer, &para_1), None);
-			assert_eq!(
-				connected.peer_score(&second_peer, &para_1).unwrap(),
-				Score::new(20).unwrap()
-			);
+			assert_eq!(connected.peer_score(&second_peer, &para_1).unwrap(), Score::new(20));
 			assert_eq!(connected.peer_score(&first_peer, &para_2), None);
-			assert_eq!(
-				connected.peer_score(&third_peer, &para_2).unwrap(),
-				Score::new(20).unwrap()
-			);
+			assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(20));
 			assert_eq!(connected.peer_score(&third_peer, &para_1), None);
 			assert_eq!(connected.peer_score(&second_peer, &para_2), None);
-			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(30).unwrap());
-			assert_eq!(connected.peer_score(&new_peer, &para_2).unwrap(), Score::new(30).unwrap());
+			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(30));
+			assert_eq!(connected.peer_score(&new_peer, &para_2).unwrap(), Score::new(30));
 		}
 
 		// Trying to accept an undeclared peer when all other peers have lower reputations ->
@@ -721,17 +709,17 @@ mod tests {
 
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
-					(peer_id, _para_id) if peer_id == first_peer => Score::new(10).unwrap(),
+					(peer_id, _para_id) if peer_id == first_peer => Score::new(10),
 					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
-						Score::new(20).unwrap()
+						Score::new(20)
 					},
 					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
-						Score::new(20).unwrap()
+						Score::new(20)
 					},
 					(peer_id, para_id) if peer_id == fourth_peer && para_id == para_2 => {
-						Score::new(15).unwrap()
+						Score::new(15)
 					},
-					(peer_id, _para_id) if peer_id == new_peer => Score::new(30).unwrap(),
+					(peer_id, _para_id) if peer_id == new_peer => Score::new(30),
 
 					(_, _) => Score::default(),
 				}
@@ -793,22 +781,16 @@ mod tests {
 			assert_eq!(connected.peer_info(&new_peer).unwrap(), &default_connected_state());
 
 			assert_eq!(connected.peer_score(&first_peer, &para_1), None);
-			assert_eq!(
-				connected.peer_score(&second_peer, &para_1).unwrap(),
-				Score::new(20).unwrap()
-			);
+			assert_eq!(connected.peer_score(&second_peer, &para_1).unwrap(), Score::new(20));
 			assert_eq!(connected.peer_score(&third_peer, &para_1), None);
 			assert_eq!(connected.peer_score(&fourth_peer, &para_1), None);
-			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(30).unwrap());
+			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(30));
 
 			assert_eq!(connected.peer_score(&first_peer, &para_2), None);
 			assert_eq!(connected.peer_score(&second_peer, &para_2), None);
-			assert_eq!(
-				connected.peer_score(&third_peer, &para_2).unwrap(),
-				Score::new(20).unwrap()
-			);
+			assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(20));
 			assert_eq!(connected.peer_score(&fourth_peer, &para_2), None);
-			assert_eq!(connected.peer_score(&new_peer, &para_2).unwrap(), Score::new(30).unwrap());
+			assert_eq!(connected.peer_score(&new_peer, &para_2).unwrap(), Score::new(30));
 		}
 
 		// Trying to accept a declared peer when all other peers have lower reputations ->
@@ -819,7 +801,7 @@ mod tests {
 			let mut connected = connected.clone();
 			let rep_query_fn = |peer_id, _para_id| async move {
 				if peer_id == new_peer {
-					Score::new(30).unwrap()
+					Score::new(30)
 				} else {
 					Score::default()
 				}
@@ -843,20 +825,11 @@ mod tests {
 			);
 			assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
 			assert_eq!(connected.peer_score(&first_peer, &para_1), None);
-			assert_eq!(
-				connected.peer_score(&second_peer, &para_1).unwrap(),
-				Score::new(20).unwrap()
-			);
-			assert_eq!(
-				connected.peer_score(&first_peer, &para_2).unwrap(),
-				Score::new(10).unwrap()
-			);
-			assert_eq!(
-				connected.peer_score(&third_peer, &para_2).unwrap(),
-				Score::new(20).unwrap()
-			);
+			assert_eq!(connected.peer_score(&second_peer, &para_1).unwrap(), Score::new(20));
+			assert_eq!(connected.peer_score(&first_peer, &para_2).unwrap(), Score::new(10));
+			assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(20));
 			assert_eq!(connected.peer_score(&second_peer, &para_2), None);
-			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(30).unwrap());
+			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(30));
 			assert_eq!(connected.peer_score(&new_peer, &para_2), None);
 		}
 
@@ -874,16 +847,14 @@ mod tests {
 
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
-					(peer_id, _para_id) if peer_id == first_peer => Score::new(10).unwrap(),
+					(peer_id, _para_id) if peer_id == first_peer => Score::new(10),
 					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
-						Score::new(5).unwrap()
+						Score::new(5)
 					},
 					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
-						Score::new(5).unwrap()
+						Score::new(5)
 					},
-					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
-						Score::new(8).unwrap()
-					},
+					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => Score::new(8),
 
 					(_, _) => Score::default(),
 				}
@@ -925,18 +896,12 @@ mod tests {
 			);
 			assert_eq!(connected.peer_info(&new_peer).unwrap(), &peer_info);
 
-			assert_eq!(
-				connected.peer_score(&first_peer, &para_1).unwrap(),
-				Score::new(10).unwrap()
-			);
+			assert_eq!(connected.peer_score(&first_peer, &para_1).unwrap(), Score::new(10));
 			assert_eq!(connected.peer_score(&second_peer, &para_1), None);
-			assert_eq!(
-				connected.peer_score(&first_peer, &para_2).unwrap(),
-				Score::new(10).unwrap()
-			);
-			assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(5).unwrap());
+			assert_eq!(connected.peer_score(&first_peer, &para_2).unwrap(), Score::new(10));
+			assert_eq!(connected.peer_score(&third_peer, &para_2).unwrap(), Score::new(5));
 			assert_eq!(connected.peer_score(&second_peer, &para_2), None);
-			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(8).unwrap());
+			assert_eq!(connected.peer_score(&new_peer, &para_1).unwrap(), Score::new(8));
 			assert_eq!(connected.peer_score(&new_peer, &para_2), None);
 		}
 	}
@@ -1170,7 +1135,7 @@ mod tests {
 		connected.update_reputation(ReputationUpdate {
 			peer_id: first_peer,
 			para_id: ParaId::from(1),
-			value: Score::new(100).unwrap(),
+			value: Score::new(100),
 			kind: ReputationUpdateKind::Slash,
 		});
 
@@ -1186,7 +1151,7 @@ mod tests {
 				.try_accept(
 					|peer_id, _| async move {
 						if peer_id == first_peer {
-							Score::new(10).unwrap()
+							Score::new(10)
 						} else {
 							Score::default()
 						}
@@ -1200,26 +1165,26 @@ mod tests {
 		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
 		for per_para in connected.per_para.values() {
 			assert!(per_para.contains(&first_peer));
-			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10));
 		}
 
 		connected.update_reputation(ReputationUpdate {
 			peer_id: first_peer,
 			para_id: ParaId::from(100),
-			value: Score::new(100).unwrap(),
+			value: Score::new(100),
 			kind: ReputationUpdateKind::Slash,
 		});
 		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
 		for per_para in connected.per_para.values() {
 			assert!(per_para.contains(&first_peer));
-			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+			assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10));
 		}
 
 		// Test a slash for only one para, even though peer has reputation for all.
 		connected.update_reputation(ReputationUpdate {
 			peer_id: first_peer,
 			para_id: ParaId::from(1),
-			value: Score::new(100).unwrap(),
+			value: Score::new(100),
 			kind: ReputationUpdateKind::Slash,
 		});
 		assert_eq!(connected.peer_info(&first_peer).unwrap(), &default_connected_state());
@@ -1227,9 +1192,9 @@ mod tests {
 			assert!(per_para.contains(&first_peer));
 
 			if para_id == &ParaId::from(1) {
-				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(0).unwrap());
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(0));
 			} else {
-				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10));
 			}
 		}
 
@@ -1247,7 +1212,7 @@ mod tests {
 		connected.update_reputation(ReputationUpdate {
 			peer_id: first_peer,
 			para_id: ParaId::from(1),
-			value: Score::new(100).unwrap(),
+			value: Score::new(100),
 			kind: ReputationUpdateKind::Bump,
 		});
 		assert_eq!(
@@ -1261,7 +1226,7 @@ mod tests {
 		for (para_id, per_para) in connected.per_para.iter() {
 			if para_id == &ParaId::from(5) {
 				assert!(per_para.contains(&first_peer));
-				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10).unwrap());
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(10));
 			} else {
 				assert!(!per_para.contains(&first_peer));
 				assert_eq!(per_para.get_score(&first_peer), None);
@@ -1271,7 +1236,7 @@ mod tests {
 		connected.update_reputation(ReputationUpdate {
 			peer_id: first_peer,
 			para_id: ParaId::from(5),
-			value: Score::new(50).unwrap(),
+			value: Score::new(50),
 			kind: ReputationUpdateKind::Bump,
 		});
 		assert_eq!(
@@ -1285,7 +1250,7 @@ mod tests {
 		for (para_id, per_para) in connected.per_para.iter() {
 			if para_id == &ParaId::from(5) {
 				assert!(per_para.contains(&first_peer));
-				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(60).unwrap());
+				assert_eq!(per_para.get_score(&first_peer).unwrap(), Score::new(60));
 			} else {
 				assert!(!per_para.contains(&first_peer));
 				assert_eq!(per_para.get_score(&first_peer), None);

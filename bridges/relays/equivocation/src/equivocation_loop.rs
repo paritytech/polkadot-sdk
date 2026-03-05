@@ -122,7 +122,7 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 
 			select_biased! {
 				_ = exit_signal => return,
-				_ = async_std::task::sleep(tick).fuse() => {},
+				_ = tokio::time::sleep(tick).fuse() => {},
 			}
 		}
 	}
@@ -197,7 +197,7 @@ mod tests {
 		result
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn multiple_blocks_are_checked_correctly() {
 		let best_finalized_headers = Arc::new(Mutex::new(VecDeque::from([Ok(10), Ok(12), Ok(13)])));
 		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
@@ -267,7 +267,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn blocks_following_error_are_checked_correctly() {
 		let best_finalized_headers = Mutex::new(VecDeque::from([Ok(10), Ok(11)]));
 		let (exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
