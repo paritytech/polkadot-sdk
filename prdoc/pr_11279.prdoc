@@ -1,0 +1,12 @@
+title: '[pallet-assets] Fix ERC-20 approve semantics in precompile'
+doc:
+- audience: Runtime Dev
+  description: "The ERC-20 approve(spender, amount) spec sets the allowance to amount.\
+    \ The precompile was calling do_approve_transfer, which adds to the existing allowance\
+    \ \u2014 breaking ERC-20 compliance.\n\nThis PR fixes the precompile's approve\
+    \ to use set semantics by composing existing pallet-assets primitives. No changes\
+    \ to pallet-assets itself.\n\nIncludes non-zero \u2192 non-zero rejection as front-running\
+    \ mitigation (the standard \"safe approve\" pattern)."
+crates:
+- name: pallet-assets-precompiles
+  bump: major
