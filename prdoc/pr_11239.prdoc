@@ -12,10 +12,10 @@ crates:
 - name: polkadot-node-core-prospective-parachains
   bump: patch 
 - name: polkadot-collator-protocol
-  bump: major 
+  bump: minor 
 - name: polkadot-runtime-parachains
   bump: patch 
 - name: polkadot-primitives
-  bump: patch 
+  bump: minor 
 - name: polkadot-primitives-test-helpers
-  bump: patch
+  bump: minor 
