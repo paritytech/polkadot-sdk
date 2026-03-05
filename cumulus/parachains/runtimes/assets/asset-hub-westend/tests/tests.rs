@@ -2463,7 +2463,7 @@ mod remote_test {
 				let trapped = actual.saturating_sub(expected);
 
 				// Ignore dust amounts (< 1 DOT) — only claim meaningful trapped balances.
-			if trapped >= DOT_DECIMALS {
+				if trapped >= DOT_DECIMALS {
 					assert_ok!(NominationPools::<Runtime>::do_claim_trapped_balance(
 						&member_account
 					));
