@@ -899,11 +899,7 @@ impl Store {
 	//
 	// Statements are considered expired when their priority (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
-<<<<<<< backport-10823-to-stable2603
 	fn enforce_limits(&self) {
-=======
-	fn check_expiration(&self) {
->>>>>>> stable2603
 		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 
@@ -939,11 +935,7 @@ impl Store {
 
 		let mut expired = 0;
 
-<<<<<<< backport-10823-to-stable2603
 		for hash in to_evict {
-=======
-		for hash in needs_expiry {
->>>>>>> stable2603
 			if let Err(e) = self.remove(&hash) {
 				log::debug!(
 					target: LOG_TARGET,
