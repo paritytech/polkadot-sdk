@@ -41,7 +41,7 @@ jobs:
       - name: Install resolc
         id: download
         run: |
-          VERSION="1.0.0"
+          VERSION=$(cat .github/env | grep RESOLC_VERSION | sed -E 's/RESOLC_VERSION="(.*)"/\1/')
           ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
           echo "Downloading resolc v$VERSION from $ASSET_URL"
           curl -Lsf --show-error -o /usr/local/bin/resolc "$ASSET_URL"
