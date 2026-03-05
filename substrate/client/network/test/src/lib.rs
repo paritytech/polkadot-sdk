@@ -856,11 +856,8 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.make_verifier(PeersClient { client: client.clone(), backend: backend.clone() }, &data);
 		let verifier = VerifierAdapter::new(verifier);
 
-		let justification_import = if config.disable_justification_import {
-			None
-		} else {
-			justification_import
-		};
+		let justification_import =
+			if config.disable_justification_import { None } else { justification_import };
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
 			Box::new(block_import.clone()),
