@@ -207,7 +207,7 @@ pub(super) async fn spawn_network(
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	// Headroom for the ~5,000 subscriptions that
 	// actually end up on each pooled conn (500 participants * 10 subscriptions each).
-	let max_subs_per_conn = participant_count / RPC_POOL_SIZE as u32 * 16;
+	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
