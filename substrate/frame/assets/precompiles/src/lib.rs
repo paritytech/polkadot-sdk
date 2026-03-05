@@ -348,6 +348,13 @@ where
 				// Revoke: remove the approval entry and unreserve the deposit.
 				let mut d = pallet_assets::Asset::<Runtime, Instance>::get(&asset_id)
 					.ok_or(Error::Revert(Revert { reason: "Unknown asset".into() }))?;
+
+				// Enforce the same AssetStatus::Live guard as `cancel_approval`.
+				if d.status != pallet_assets::AssetStatus::Live {
+					return Err(Error::Revert(Revert {
+						reason: "Asset is not live".into(),
+					}));
+				}
 				let approval = pallet_assets::Approvals::<Runtime, Instance>::take((
 					asset_id.clone(),
 					&owner_account,
