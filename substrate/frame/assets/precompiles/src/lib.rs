@@ -410,9 +410,6 @@ where
 		call: &IERC20::permitCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Charge for the full end-to-end permit flow: asset name read, ECDSA recovery,
-		// nonce write, and approval write. Weight is benchmarked end-to-end in
-		// permit_benchmarks::permit().
 		env.charge(<Runtime as permit::Config>::WeightInfo::permit())?;
 
 		let owner_h160: H160 = call.owner.into_array().into();
