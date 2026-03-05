@@ -112,7 +112,7 @@ impl Default for TestState {
 			.insert(CoreIndex(0), std::iter::repeat(para_id).take(SCHEDULING_LOOKAHEAD).collect());
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 
-		let relay_parent = Hash::random();
+		let scheduling_parent = Hash::random();
 
 		let local_peer_id = PeerId::random();
 		let collator_pair = CollatorPair::generate().0;
@@ -136,7 +136,7 @@ impl Default for TestState {
 			},
 			group_rotation_info,
 			validator_peer_id,
-			scheduling_parent: relay_parent,
+			scheduling_parent,
 			claim_queue,
 			local_peer_id,
 			collator_pair,

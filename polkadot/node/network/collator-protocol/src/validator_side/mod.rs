@@ -678,8 +678,6 @@ impl State {
 			.filter(|fc| fc.scheduling_parent == *scheduling_parent && fc.para_id == *para_id)
 			.count();
 
-		// Get v3_enabled for this relay parent to correctly extract scheduling_parent from
-		// descriptors
 		let v3_enabled = self
 			.per_scheduling_parent
 			.get(scheduling_parent)
@@ -1509,21 +1507,21 @@ async fn second_unblocked_collations<Context>(
 ///
 /// Returns Ok if there's a free slot on at least one path, Err otherwise.
 fn is_slot_available(
-	relay_parent: &Hash,
+	scheduling_parent: &Hash,
 	para_id: ParaId,
 	state: &State,
 ) -> std::result::Result<(), AdvertisementError> {
-	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
+	let paths = state.implicit_view.paths_via_relay_parent(scheduling_parent);
 
 	let per_scheduling_parent = state
 		.per_scheduling_parent
-		.get(relay_parent)
+		.get(scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 	let current_core = per_scheduling_parent.current_core;
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?scheduling_parent,
 		?para_id,
 		?current_core,
 		?paths,
@@ -1542,7 +1540,7 @@ fn is_slot_available(
 		else {
 			gum::warn!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?leaf,
 				?current_core,
 				"Leaf claim queue not found, skipping path",
@@ -1570,7 +1568,7 @@ fn is_slot_available(
 			let ancestor_valid_len = lookahead.saturating_sub(ancestor_offset);
 			let seconded_pending = state.seconded_and_pending_for_para(ancestor, &para_id);
 			let waiting = state.in_waiting_queue_for_para(ancestor, &para_id);
-			let is_relay_parent = ancestor == relay_parent;
+			let is_relay_parent = ancestor == scheduling_parent;
 			if is_relay_parent {
 				found_relay_parent = true;
 			}
@@ -1595,7 +1593,7 @@ fn is_slot_available(
 				gum::trace!(
 					target: LOG_TARGET,
 					?ancestor,
-					?relay_parent,
+					?scheduling_parent,
 					?para_id,
 					?leaf,
 					to_allocate,
@@ -1606,7 +1604,7 @@ fn is_slot_available(
 		}
 		gum::trace!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?scheduling_parent,
 			?para_id,
 			?leaf,
 			"Slot is available on this path",
@@ -1616,7 +1614,7 @@ fn is_slot_available(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?scheduling_parent,
 		?para_id,
 		"No slot available on any path",
 	);
@@ -1812,7 +1810,7 @@ where
 async fn enqueue_collation<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	peer_id: PeerId,
 	collator_id: CollatorId,
@@ -1826,10 +1824,10 @@ where
 		target: LOG_TARGET,
 		peer_id = ?peer_id,
 		%para_id,
-		?relay_parent,
+		?scheduling_parent,
 		"Received advertise collation",
 	);
-	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&relay_parent) {
+	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(sp_state) => sp_state,
 		None => {
 			// Race happened, not an error.
@@ -1837,7 +1835,7 @@ where
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
 				%para_id,
-				?relay_parent,
+				?scheduling_parent,
 				?prospective_candidate,
 				"Candidate relay parent went out of view for valid advertisement",
 			);
@@ -1852,7 +1850,7 @@ where
 
 	let collations = &mut per_scheduling_parent.collations;
 	let pending_collation = PendingCollation::new(
-		relay_parent,
+		scheduling_parent,
 		para_id,
 		&peer_id,
 		prospective_candidate,
@@ -1863,7 +1861,7 @@ where
 		target: LOG_TARGET,
 		peer_id = ?peer_id,
 		%para_id,
-		?relay_parent,
+		?scheduling_parent,
 		status = ?collations.status,
 		"Enqueue: status check",
 	);
@@ -1874,7 +1872,7 @@ where
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
 				%para_id,
-				?relay_parent,
+				?scheduling_parent,
 				"Added collation to the pending list"
 			);
 			collations.add_to_waiting_queue((pending_collation, collator_id));
