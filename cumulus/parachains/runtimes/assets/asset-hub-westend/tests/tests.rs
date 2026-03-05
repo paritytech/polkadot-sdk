@@ -2382,12 +2382,11 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 
 mod remote_test {
 	use super::*;
-	use sp_runtime::traits::Dispatchable;
 
 	/// Test claim_trapped_balance for all pool members using a state snapshot.
 	///
-	/// The test iterates through all pool members and attempts to claim trapped balance.
-	/// Only successful claims are printed.
+	/// The test iterates through all pool members, computes trapped amounts, and calls
+	/// `do_claim_trapped_balance` for those with trapped funds. Only successful claims are printed.
 	///
 	/// Run with:
 	/// ```bash
@@ -2401,10 +2400,9 @@ mod remote_test {
 	#[tokio::test]
 	#[ignore]
 	async fn np_claim_trapped_balance() {
-		use pallet_nomination_pools::PoolMembers;
+		use pallet_nomination_pools::{Pallet as NominationPools, PoolMembers};
 		use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
 
-		// Get snapshot path from environment (required)
 		let snap_path =
 			std::env::var("SNAP").expect("SNAP env var not set. Please provide snapshot path.");
 
@@ -2417,61 +2415,50 @@ mod remote_test {
 			.expect("Failed to load snapshot");
 
 		ext.execute_with(|| {
+			use sp_staking::StakeStrategy;
+
 			const DOT_DECIMALS: u128 = 10_000_000_000; // 10 decimals for DOT
 
-			println!("\n🔍 Checking trapped balance for all pool members...\n");
+			println!("\nChecking trapped balance for all pool members...\n");
 
-			// Track event count before dispatching any calls
-			let event_count_before = System::event_count();
-			let total_members = PoolMembers::<Runtime>::iter().count();
-
-			// Dispatch claim_trapped_balance for all members
-			for (member_account, _pool_member) in PoolMembers::<Runtime>::iter() {
-				let call = RuntimeCall::NominationPools(
-					pallet_nomination_pools::Call::claim_trapped_balance {
-						member_account: member_account.clone().into(),
-					},
-				);
-
-				// Dispatch and ignore result - we'll check events instead
-				let _ = call.dispatch(RuntimeOrigin::signed(member_account.clone()));
-			}
-
-			// Process all new events emitted during the dispatches
-			let all_events = System::events();
-			let new_events = &all_events[event_count_before as usize..];
-
-			let mut total_claimed = 0u128;
+			let mut total_members = 0u32;
 			let mut success_count = 0u32;
+			let mut total_claimed = 0u128;
 
-			// Print table header
-			println!("| Member | Pool | Trapped DOT |");
-			println!("|--------|------|-------------|");
+			println!("member,pool_id,trapped_dot");
 
-			for event_record in new_events {
-				if let RuntimeEvent::NominationPools(
-					pallet_nomination_pools::Event::TrappedBalanceClaimed {
-						member,
-						pool_id,
-						amount,
-					},
-				) = &event_record.event
-				{
+			for (member_account, member_data) in PoolMembers::<Runtime>::iter() {
+				total_members += 1;
+
+				// Compute trapped amount before calling the helper
+				let expected = member_data.total_balance();
+				let actual = <Runtime as pallet_nomination_pools::Config>::StakeAdapter
+					::member_delegation_balance(sp_staking::Member::from(
+						member_account.clone(),
+					))
+					.unwrap_or_default();
+				let trapped = actual.saturating_sub(expected);
+
+				if trapped > 0 {
+					assert_ok!(
+						NominationPools::<Runtime>::do_claim_trapped_balance(&member_account)
+					);
+
 					success_count += 1;
-					total_claimed += amount;
-
-					// Format with 2 decimal places for DOT
-					let whole = amount / DOT_DECIMALS;
-					let fraction = (amount % DOT_DECIMALS) / (DOT_DECIMALS / 100);
-
-					println!("| {:?} | {} | {}.{:02} |", member, pool_id, whole, fraction);
+					total_claimed += trapped;
+					let whole = trapped / DOT_DECIMALS;
+					let fraction = (trapped % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+					println!(
+						"{:?},{},{}.{:02}",
+						member_account, member_data.pool_id, whole, fraction
+					);
 				}
 			}
 
-			// Print summary
 			let total_whole = total_claimed / DOT_DECIMALS;
 			let total_fraction = (total_claimed % DOT_DECIMALS) / (DOT_DECIMALS / 100);
 
+			println!("\n--- Summary ---");
 			println!("Total members: {}", total_members);
 			println!("Successful claims: {}", success_count);
 			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
