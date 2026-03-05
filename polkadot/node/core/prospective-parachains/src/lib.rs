@@ -594,7 +594,6 @@ async fn handle_introduce_seconded_candidate(
 	// that are still retained, so that their upcoming children may see these candidates.
 	for (relay_parent, rp_data) in view.per_relay_parent.iter_mut() {
 		let Some(chain) = rp_data.fragment_chains.get_mut(&para) else { continue };
-		let is_active_leaf = view.active_leaves.contains(relay_parent);
 
 		para_scheduled = true;
 
@@ -607,7 +606,6 @@ async fn handle_introduce_seconded_candidate(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
-					?is_active_leaf,
 					"Attempting to introduce an already known candidate: {:?}",
 					candidate_hash
 				);
@@ -619,7 +617,6 @@ async fn handle_introduce_seconded_candidate(
 					?para,
 					?relay_parent,
 					?candidate_hash,
-					?is_active_leaf,
 					"Cannot introduce seconded candidate: {}",
 					err
 				)
@@ -671,7 +668,6 @@ async fn handle_candidate_backed(
 	// that are still retained, so that their upcoming children may see these candidates.
 	for (relay_parent, rp_data) in view.per_relay_parent.iter_mut() {
 		let Some(chain) = rp_data.fragment_chains.get_mut(&para) else { continue };
-		let is_active_leaf = view.active_leaves.contains(relay_parent);
 
 		found_para = true;
 		if chain.is_candidate_backed(&candidate_hash) {
@@ -679,7 +675,6 @@ async fn handle_candidate_backed(
 				target: LOG_TARGET,
 				?para,
 				?candidate_hash,
-				?is_active_leaf,
 				"Received redundant instruction to mark as backed an already backed candidate",
 			);
 			found_candidate = true;
@@ -692,7 +687,6 @@ async fn handle_candidate_backed(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para,
-				?is_active_leaf,
 				?candidate_hash,
 				"Candidate backed. Candidate chain for para: {:?}",
 				chain.candidate_hashes()
@@ -702,7 +696,6 @@ async fn handle_candidate_backed(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para,
-				?is_active_leaf,
 				"Potential candidate storage for para: {:?}",
 				chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 			);
