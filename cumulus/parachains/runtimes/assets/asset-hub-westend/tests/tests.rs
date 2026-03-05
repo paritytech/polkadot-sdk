@@ -2437,7 +2437,7 @@ mod remote_test {
 			.expect("Failed to load snapshot");
 
 		ext.execute_with(|| {
-			use sp_staking::StakeStrategy;
+			use pallet_nomination_pools::adapter::{Member, StakeStrategy};
 
 			const DOT_DECIMALS: u128 = 10_000_000_000; // 10 decimals for DOT
 
@@ -2455,7 +2455,7 @@ mod remote_test {
 				// Compute trapped amount before calling the helper
 				let expected = member_data.total_balance();
 				let actual = <Runtime as pallet_nomination_pools::Config>::StakeAdapter
-					::member_delegation_balance(sp_staking::Member::from(
+					::member_delegation_balance(Member::from(
 						member_account.clone(),
 					))
 					.unwrap_or_default();
