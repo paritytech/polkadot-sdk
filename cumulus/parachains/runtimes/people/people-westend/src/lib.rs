@@ -585,9 +585,29 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub DapBufferLocation: InteriorLocation = {
+		use sp_runtime::traits::AccountIdConversion;
+		Junction::AccountId32 {
+			network: None,
+			id: PalletId(*b"dap/buff").into_account_truncating(),
+		}
+		.into()
+	};
+	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
+	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
+}
+
 impl pallet_dap_satellite::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
+	type XcmSender = xcm_config::XcmRouter;
+	type AssetTransactor = xcm_config::FungibleTransactor;
+	type AssetHubLocation = testnet_parachains_constants::westend::locations::AssetHubLocation;
+	type DapBufferLocation = DapBufferLocation;
+	type NativeAsset = xcm_config::RelayLocation;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
