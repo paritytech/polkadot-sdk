@@ -285,13 +285,13 @@ impl CollationManager {
 		sender: &mut Sender,
 		advertisement: Advertisement,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
+		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.scheduling_parent) else {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
 		// V1 advertisements are only allowed on active leaves.
 		if advertisement.prospective_candidate.is_none() &&
-			!self.implicit_view.contains_leaf(&advertisement.relay_parent)
+			!self.implicit_view.contains_leaf(&advertisement.scheduling_parent)
 		{
 			return Err(AdvertisementError::V1AdvertisementForImplicitParent);
 		}
@@ -300,7 +300,7 @@ impl CollationManager {
 
 		let max_assignments = self
 			.claim_queue_state
-			.count_all_slots_for_para_at(&advertisement.relay_parent, &advertisement.para_id);
+			.count_all_slots_for_para_at(&advertisement.scheduling_parent, &advertisement.para_id);
 
 		if max_assignments == 0 {
 			return Err(AdvertisementError::InvalidAssignment);
@@ -386,7 +386,7 @@ impl CollationManager {
 
 				// This here may also claim a slot of another leaf if eligible.
 				if self.claim_queue_state.claim_pending_slot(
-					&advertisement.relay_parent,
+					&advertisement.scheduling_parent,
 					&para_id,
 					advertisement.candidate_hash(),
 				) {
@@ -394,7 +394,7 @@ impl CollationManager {
 						target: LOG_TARGET,
 						peer_id = ?advertisement.peer_id,
 						?para_id,
-						relay_parent = ?advertisement.relay_parent,
+						relay_parent = ?advertisement.scheduling_parent,
 						maybe_candidate_hash = ?advertisement.candidate_hash(),
 						"Requesting collation",
 					);
@@ -442,10 +442,10 @@ impl CollationManager {
 
 		self.fetching.note_completed(&advertisement);
 
-		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
+		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.scheduling_parent) else {
 			gum::debug!(
 				target: LOG_TARGET,
-				hash = ?advertisement.relay_parent,
+				hash = ?advertisement.scheduling_parent,
 				para_id = ?advertisement.para_id,
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent out of view"
@@ -654,7 +654,7 @@ impl CollationManager {
 			gum::debug!(
 				target: LOG_TARGET,
 				peer_id = ?best_advertisement.adv.peer_id,
-				relay_parent = ?best_advertisement.adv.relay_parent,
+				relay_parent = ?best_advertisement.adv.scheduling_parent,
 				para_id = ?best_advertisement.adv.para_id,
 				?elapsed_since_activation,
 				?delay,
@@ -880,7 +880,8 @@ impl FetchedCollation {
 			},
 		}
 
-		if advertised.relay_parent != candidate_receipt.descriptor.relay_parent() {
+		// TODO: Should be scheduling_parent
+		if advertised.scheduling_parent != candidate_receipt.descriptor.relay_parent() {
 			return Err(SecondingError::SchedulingParentMismatch);
 		}
 
@@ -954,7 +955,7 @@ impl PerRelayParent {
 				// Only fetch an advertisement if it's either a V2 advertisement or it's a V1
 				// advertisement on the active leaf.
 				let is_v2_or_on_active_leaf = (adv.prospective_candidate.is_none() &&
-					leaf == adv.relay_parent) ||
+					leaf == adv.scheduling_parent) ||
 					adv.prospective_candidate.is_some();
 
 				let already_fetched = adv
@@ -1046,7 +1047,7 @@ where
 	// experimental module (relay_parent == scheduling_parent before V3).
 	let request = CanSecondRequest {
 		candidate_para_id: advertisement.para_id,
-		candidate_scheduling_parent: advertisement.relay_parent,
+		candidate_scheduling_parent: advertisement.scheduling_parent,
 		candidate_hash: prospective_candidate.candidate_hash,
 		parent_head_data_hash: prospective_candidate.parent_head_data_hash,
 	};
@@ -1057,7 +1058,7 @@ where
 		gum::warn!(
 			target: LOG_TARGET,
 			?err,
-			relay_parent = ?advertisement.relay_parent,
+			relay_parent = ?advertisement.scheduling_parent,
 			para_id = ?advertisement.para_id,
 			candidate_hash = ?prospective_candidate.candidate_hash,
 			"CanSecond-request responder was dropped",
@@ -1243,11 +1244,11 @@ mod tests {
 		let now = Instant::now();
 		let later = now + Duration::from_secs(1);
 
-		let relay_parent = Hash::random();
+		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 
 		let make_adv = |peer_id: PeerId| Advertisement {
-			relay_parent,
+			scheduling_parent,
 			para_id,
 			peer_id,
 			prospective_candidate: None,
@@ -1409,7 +1410,7 @@ mod tests {
 
 	#[test]
 	fn pick_best_advertisement_works() {
-		let relay_parent = Hash::random();
+		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 		let score = |val: u16| Score::new(val);
 
@@ -1424,7 +1425,7 @@ mod tests {
 		let peer_c = PeerId::random();
 
 		let make_adv = |peer: PeerId| Advertisement {
-			relay_parent,
+			scheduling_parent,
 			para_id,
 			peer_id: peer,
 			prospective_candidate: None,
@@ -1433,7 +1434,10 @@ mod tests {
 		let new_collation_manager_instance = || CollationManager {
 			implicit_view: ImplicitView::new(),
 			claim_queue_state: PerLeafClaimQueueState::new(),
-			per_relay_parent: HashMap::from([(relay_parent, PerRelayParent::new(0, CoreIndex(0)))]),
+			per_relay_parent: HashMap::from([(
+				scheduling_parent,
+				PerRelayParent::new(0, CoreIndex(0)),
+			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
@@ -1448,8 +1452,8 @@ mod tests {
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
-					&[relay_parent],
+					scheduling_parent,
+					&[scheduling_parent],
 					para_id,
 					score(100),
 					&get_rep,
@@ -1465,15 +1469,15 @@ mod tests {
 
 			collation_manager
 				.per_relay_parent
-				.get_mut(&relay_parent)
+				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
-					&[relay_parent],
+					scheduling_parent,
+					&[scheduling_parent],
 					para_id,
 					score(100), // highest_rep == peer's score, so delay = 0
 					&get_rep,
@@ -1489,7 +1493,7 @@ mod tests {
 
 			collation_manager
 				.per_relay_parent
-				.get_mut(&relay_parent)
+				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), recent_timestamp);
 
@@ -1497,8 +1501,8 @@ mod tests {
 			// MAX_FETCH_DELAY
 			let result = collation_manager.pick_best_advertisement(
 				now,
-				relay_parent,
-				&[relay_parent],
+				scheduling_parent,
+				&[scheduling_parent],
 				para_id,
 				score(100),
 				&get_rep,
@@ -1525,7 +1529,7 @@ mod tests {
 				}
 			};
 
-			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.add_advertisement(make_adv(peer_a), old_timestamp);
 			per_rp.add_advertisement(make_adv(peer_b), old_timestamp);
 			per_rp.add_advertisement(make_adv(peer_c), old_timestamp);
@@ -1534,8 +1538,8 @@ mod tests {
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
-					&[relay_parent],
+					scheduling_parent,
+					&[scheduling_parent],
 					para_id,
 					score(100),
 					&get_rep,
@@ -1552,7 +1556,7 @@ mod tests {
 			let earlier = old_timestamp;
 			let later = old_timestamp + Duration::from_secs(1);
 
-			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.add_advertisement(make_adv(peer_a), later);
 			per_rp.add_advertisement(make_adv(peer_b), earlier);
 
@@ -1560,8 +1564,8 @@ mod tests {
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
-					&[relay_parent],
+					scheduling_parent,
+					&[scheduling_parent],
 					para_id,
 					score(100),
 					&get_rep,
@@ -1577,15 +1581,15 @@ mod tests {
 
 			collation_manager
 				.per_relay_parent
-				.get_mut(&relay_parent)
+				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
-					&[relay_parent],
+					scheduling_parent,
+					&[scheduling_parent],
 					para_id,
 					score(100),
 					&get_rep,
@@ -1602,7 +1606,7 @@ mod tests {
 
 			collation_manager
 				.per_relay_parent
-				.get_mut(&relay_parent)
+				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
@@ -1610,7 +1614,7 @@ mod tests {
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
+					scheduling_parent,
 					&[other_relay_parent], // relay_parent not included
 					para_id,
 					score(100),
@@ -1629,7 +1633,7 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
 			// Set activated_at far enough in the past that any delay has elapsed.
-			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY * 2).unwrap();
 
 			// Advertisement arrives now (recent), but the leaf has been active long enough.
@@ -1640,8 +1644,8 @@ mod tests {
 			assert_eq!(
 				collation_manager.pick_best_advertisement(
 					now,
-					relay_parent,
-					&[relay_parent],
+					scheduling_parent,
+					&[scheduling_parent],
 					para_id,
 					score(100),
 					&get_rep,
@@ -1658,15 +1662,15 @@ mod tests {
 			// Set activated_at so that only part of the delay has elapsed.
 			// score(0) < INSTANT_FETCH_REP_THRESHOLD and < highest_rep => delay = MAX_FETCH_DELAY
 			// activated_at = MAX_FETCH_DELAY / 4 ago => remaining = MAX_FETCH_DELAY * 3/4
-			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY / 4).unwrap();
 
 			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
 
 			let result = collation_manager.pick_best_advertisement(
 				now,
-				relay_parent,
-				&[relay_parent],
+				scheduling_parent,
+				&[scheduling_parent],
 				para_id,
 				score(100),
 				&get_rep,

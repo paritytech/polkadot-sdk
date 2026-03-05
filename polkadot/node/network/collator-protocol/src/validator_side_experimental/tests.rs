@@ -109,7 +109,10 @@ fn dummy_candidate(
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
 
-	(ccr, Advertisement { peer_id, para_id, relay_parent, prospective_candidate })
+	(
+		ccr,
+		Advertisement { peer_id, para_id, scheduling_parent: relay_parent, prospective_candidate },
+	)
 }
 
 #[derive(Clone)]
@@ -583,7 +586,7 @@ impl TestState {
 			state.handle_advertisement(
 				&mut sender,
 				adv.peer_id,
-				adv.relay_parent,
+				adv.scheduling_parent,
 				adv.prospective_candidate
 			),
 			async move {
@@ -627,7 +630,7 @@ impl TestState {
 							let adv = advertisements.iter().find(|adv| {
 								if let Some(ProspectiveCandidate { candidate_hash, .. }) = adv.prospective_candidate {
 									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
-										req.payload.relay_parent == adv.relay_parent &&
+										req.payload.scheduling_parent == adv.scheduling_parent &&
 										req.payload.para_id == adv.para_id &&
 										req.payload.candidate_hash == candidate_hash
 								} else {
@@ -645,7 +648,7 @@ impl TestState {
 							let adv = advertisements.iter().find(|adv| {
 								adv.prospective_candidate.is_none() &&
 									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
-									req.payload.relay_parent == adv.relay_parent &&
+									req.payload.scheduling_parent == adv.scheduling_parent &&
 									req.payload.para_id == adv.para_id
 
 							}).copied().unwrap();
@@ -672,7 +675,7 @@ impl TestState {
 		if let Some(prospective_candidate) = adv.prospective_candidate {
 			let expected_req = CanSecondRequest {
 				candidate_para_id: adv.para_id,
-				candidate_scheduling_parent: adv.relay_parent,
+				candidate_scheduling_parent: adv.scheduling_parent,
 				candidate_hash: prospective_candidate.candidate_hash,
 				parent_head_data_hash: prospective_candidate.parent_head_data_hash,
 			};
@@ -715,7 +718,7 @@ impl TestState {
 					}, tx)
 				) => {
 					assert_eq!(para_id, adv.para_id);
-					assert_eq!(candidate_relay_parent, adv.relay_parent);
+					assert_eq!(candidate_relay_parent, adv.scheduling_parent);
 
 					assert!(
 						matches!(
@@ -743,7 +746,7 @@ impl TestState {
 					)
 				)) => {
 					assert_eq!(para_id, adv.para_id);
-					assert_eq!(rp, adv.relay_parent);
+					assert_eq!(rp, adv.scheduling_parent);
 					tx.send(Ok(pvd)).unwrap();
 				}
 			);
@@ -1866,7 +1869,7 @@ async fn test_advertisement_rejections() {
 	let adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
-		relay_parent: active_leaf,
+		scheduling_parent: active_leaf,
 		prospective_candidate,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -1982,7 +1985,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2008,7 +2011,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate: if version == CollationVersion::V2 {
 				prospective_candidate
 			} else {
@@ -2041,7 +2044,7 @@ async fn test_collation_fetch_failure() {
 		let mut adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2054,7 +2057,7 @@ async fn test_collation_fetch_failure() {
 		test_state.assert_collation_request(adv).await;
 
 		// Modify the relay parent.
-		adv.relay_parent = get_hash(8);
+		adv.scheduling_parent = get_hash(8);
 		let res = Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov()));
 		state.handle_fetched_collation(&mut sender, (adv, res)).await;
 		state.try_launch_new_fetch_requests(&mut sender).await;
@@ -2077,7 +2080,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2111,7 +2114,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2139,7 +2142,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate: None,
 		};
 
@@ -2178,7 +2181,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2221,7 +2224,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2259,7 +2262,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2400,7 +2403,7 @@ async fn v1_descriptor_compatibility() {
 	let adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
-		relay_parent: active_leaf,
+		scheduling_parent: active_leaf,
 		prospective_candidate,
 	};
 
@@ -2552,7 +2555,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			Advertisement {
 				peer_id: first_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -2591,7 +2594,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			Advertisement {
 				peer_id: second_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -2790,7 +2793,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			Advertisement {
 				peer_id: first_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -2829,7 +2832,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			Advertisement {
 				peer_id: second_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)

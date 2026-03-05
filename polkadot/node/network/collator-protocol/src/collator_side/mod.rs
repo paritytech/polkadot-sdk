@@ -1306,8 +1306,8 @@ async fn handle_incoming_request<Context>(
 					None => {
 						gum::debug!(
 							target: LOG_TARGET,
-							relay_parent = %scheduling_parent,
-							"received a `RequestCollation` for a relay parent out of our view",
+							%scheduling_parent,
+							"received a `RequestCollation` for a scheduling parent out of our view",
 						);
 
 						return Ok(());
