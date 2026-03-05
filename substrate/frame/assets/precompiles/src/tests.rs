@@ -358,41 +358,6 @@ fn approve_set_and_revoke(asset_index: u16) {
 	});
 }
 
-#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
-#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn approve_rejects_nonzero_to_nonzero(asset_index: u16) {
-	use frame_support::traits::fungibles::approvals::Inspect;
-
-	new_test_ext().execute_with(|| {
-		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(asset_index));
-
-		let owner = 123456789u64;
-		let spender = 987654321u64;
-
-		Balances::make_free_balance_be(&owner, 100);
-		Balances::make_free_balance_be(&spender, 100);
-
-		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
-
-		setup_asset_for_prefix(asset_id, asset_index);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
-
-		// Set allowance to 100.
-		call_approve(owner, asset_addr, spender_addr, U256::from(100));
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
-
-		// Attempt to change directly from 100 to 50 — must fail (front-running mitigation).
-		let result = raw_approve(owner, asset_addr, spender_addr, U256::from(50));
-		let reverted = result.result.as_ref().map_or(true, |v| v.did_revert());
-		assert!(reverted, "non-zero to non-zero approve should be rejected");
-
-		// Allowance must remain unchanged.
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
-	});
-}
-
 /// After a partial `transferFrom`, the allowance is reduced but the storage entry (with its
 /// deposit) remains. Revoking via `approve(spender, 0)` must remove that entry and unreserve
 /// the deposit — not just zero the amount. This matters because the precompile's cancel path

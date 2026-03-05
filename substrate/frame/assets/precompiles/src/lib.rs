@@ -357,13 +357,18 @@ where
 			}
 			// If current is also zero, this is a no-op (still emit the ERC-20 event below).
 		} else {
-			// Front-running mitigation: reject non-zero → non-zero transitions.
+			// If there's an existing non-zero allowance, cancel it first so we
+			// overwrite (not accumulate) — matching ERC-20 spec semantics.
+			// NOTE: This does not mitigate the well-known ERC-20 approve front-running
+			// race condition. Callers concerned about this should approve to 0 first,
+			// or use increaseAllowance/decreaseAllowance if available.
 			if !current.is_zero() {
-				return Err(Error::Revert(Revert {
-					reason: "ERC20: approve from non-zero to non-zero allowance".into(),
-				}));
+				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+					asset_id.clone(),
+					&owner_account,
+					&spender_account,
+				)?;
 			}
-			// Zero → non-zero: use existing pallet function (adds new_amount to 0).
 			pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 				asset_id,
 				&owner_account,
