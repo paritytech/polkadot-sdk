@@ -118,6 +118,7 @@ fn polkadot_testnet_genesis(
 
 	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
 	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
+	node_features.set(node_features::FeatureIndex::FastErasureCoding as u8 as usize, true);
 
 	serde_json::json!({
 		"balances": {

@@ -126,6 +126,7 @@ impl FetchChunks {
 					.map(|(c_index, chunk)| (c_index, chunk.chunk))
 					.collect(),
 				avilable_data_tx,
+				common_params.node_features.clone(),
 			))
 			.await
 			.map_err(|_| RecoveryError::ChannelClosed)?;

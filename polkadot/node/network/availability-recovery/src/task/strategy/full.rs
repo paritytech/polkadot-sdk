@@ -107,6 +107,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 									common_params.erasure_root,
 									data,
 									reencode_tx,
+									common_params.node_features.clone(),
 								))
 								.await
 								.map_err(|_| RecoveryError::ChannelClosed)?;
