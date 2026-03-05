@@ -552,6 +552,7 @@ async fn wait_for_sync_time() {
 /// individual call payloads small. The inner calls are then chunked into groups of at most
 /// `max_batch_calls` and each group is submitted as a separate `Sudo(batch_all(...))` transaction
 /// to stay within the runtime's batched calls limit
+#[allow(clippy::too_many_arguments)]
 async fn set_allowances(
 	rpc_url: &str,
 	rpc_client: &WsClient,
@@ -625,7 +626,7 @@ async fn set_allowances(
 					info!(
 						"Batch {}/{} finalized in block {:#?}",
 						chunk_idx + 1,
-						(num_inner_calls + max_batch_calls - 1) / max_batch_calls,
+						num_inner_calls.div_ceil(max_batch_calls),
 						tx_in_block.block_hash()
 					);
 					break;
