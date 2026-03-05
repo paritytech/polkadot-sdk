@@ -482,7 +482,7 @@ impl<T: Encode> Encode for TrailingOption<T> {
 }
 
 impl<T> TrailingOption<T> {
-	/// Extract the inner Option<T>.
+	/// Extract the inner `Option<T>`.
 	pub fn into_inner(self) -> Option<T> {
 		self.0
 	}

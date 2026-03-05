@@ -1873,7 +1873,7 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	/// The session index is provided as an offset to the provided session_index
 	/// of the relay parent to save space:
 	///
-	/// ```rust
+	/// ```text
 	///   let scheduling_session = session_index + scheduling_session_offset;
 	/// ```
 	scheduling_session_offset: u8, // Introduced in v3

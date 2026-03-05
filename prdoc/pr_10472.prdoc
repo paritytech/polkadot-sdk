@@ -65,6 +65,8 @@ crates:
   - name: polkadot-node-collation-generation
     bump: major
   - name: polkadot-node-subsystem-util
+    bump: minor
+  - name: polkadot-overseer
     bump: patch
   - name: cumulus-client-consensus-aura
     bump: major
