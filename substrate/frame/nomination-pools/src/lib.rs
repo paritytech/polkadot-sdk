@@ -3245,7 +3245,6 @@ pub mod pallet {
 			Self::migrate_to_delegate_stake(pool_id)?;
 			Ok(Pays::No.into())
 		}
-
 	}
 
 	#[pallet::hooks]

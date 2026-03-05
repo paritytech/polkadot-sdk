@@ -2440,9 +2440,9 @@ mod remote_test {
 				let trapped = actual.saturating_sub(expected);
 
 				if trapped > 0 {
-					assert_ok!(
-						NominationPools::<Runtime>::do_claim_trapped_balance(&member_account)
-					);
+					assert_ok!(NominationPools::<Runtime>::do_claim_trapped_balance(
+						&member_account
+					));
 
 					success_count += 1;
 					total_claimed += trapped;

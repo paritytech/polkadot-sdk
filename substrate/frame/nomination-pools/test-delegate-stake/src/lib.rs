@@ -1990,4 +1990,3 @@ fn do_claim_trapped_balance_applies_pending_slash_first() {
 		assert_eq!(Pools::api_member_pending_slash(alice), 0);
 	});
 }
-

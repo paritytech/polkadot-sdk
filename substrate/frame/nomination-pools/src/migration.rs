@@ -253,12 +253,7 @@ pub mod unversioned {
 					log!(info, "Successfully claimed trapped balance for {:?}", member_account);
 				},
 				Err(e) => {
-					log!(
-						info,
-						"No trapped balance to claim for {:?}: {:?}",
-						member_account,
-						e
-					);
+					log!(info, "No trapped balance to claim for {:?}: {:?}", member_account, e);
 				},
 			}
 
@@ -273,10 +268,9 @@ pub mod unversioned {
 			let expected = PoolMembers::<T>::get(&member_account)
 				.map(|m| m.total_balance())
 				.unwrap_or_default();
-			let actual = T::StakeAdapter::member_delegation_balance(Member::from(
-				member_account.clone(),
-			))
-			.unwrap_or_default();
+			let actual =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+					.unwrap_or_default();
 
 			log!(
 				info,
@@ -298,10 +292,9 @@ pub mod unversioned {
 				Decode::decode(&mut &data[..])
 					.map_err(|_| TryRuntimeError::Other("Failed to decode pre_upgrade data"))?;
 
-			let post_actual = T::StakeAdapter::member_delegation_balance(Member::from(
-				member_account.clone(),
-			))
-			.unwrap_or_default();
+			let post_actual =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+					.unwrap_or_default();
 
 			let post_expected = PoolMembers::<T>::get(&member_account)
 				.map(|m| m.total_balance())
@@ -322,9 +315,7 @@ pub mod unversioned {
 			if pre_actual > pre_expected {
 				ensure!(
 					post_actual == post_expected,
-					TryRuntimeError::Other(
-						"Trapped balance was not fully claimed after migration"
-					)
+					TryRuntimeError::Other("Trapped balance was not fully claimed after migration")
 				);
 			}
 

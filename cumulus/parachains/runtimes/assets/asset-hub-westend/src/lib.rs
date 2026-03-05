@@ -1556,7 +1556,10 @@ pub type Migrations = (
 	>,
 	// unreleased
 	// no-op if member has no trapped balance, so second run is safe.
-	pallet_nomination_pools::migration::unversioned::ClaimTrappedBalance<Runtime, TrappedBalanceMember>,
+	pallet_nomination_pools::migration::unversioned::ClaimTrappedBalance<
+		Runtime,
+		TrappedBalanceMember,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,

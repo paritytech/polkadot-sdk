@@ -7772,17 +7772,11 @@ mod claim_trapped_balance_migration {
 			assert_ok!(Pools::do_claim_trapped_balance(&member));
 
 			// Verify balance corrected: delegator_balance should now match points (100)
-			assert_eq!(
-				DelegateMock::delegator_balance(Delegator::from(member)),
-				Some(100)
-			);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
 
 			// Calling again is a no-op (no state change)
 			assert_ok!(Pools::do_claim_trapped_balance(&member));
-			assert_eq!(
-				DelegateMock::delegator_balance(Delegator::from(member)),
-				Some(100)
-			);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
 		});
 	}
 
@@ -7793,19 +7787,14 @@ mod claim_trapped_balance_migration {
 			let member = 20;
 			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
 
-			let balance_before =
-				DelegateMock::delegator_balance(Delegator::from(member));
+			let balance_before = DelegateMock::delegator_balance(Delegator::from(member));
 			let member_before = PoolMembers::<Runtime>::get(member).unwrap();
 
 			assert_ok!(Pools::do_claim_trapped_balance(&member));
 
 			// Verify no state changed
-			assert_eq!(
-				DelegateMock::delegator_balance(Delegator::from(member)),
-				balance_before
-			);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), balance_before);
 			assert_eq!(PoolMembers::<Runtime>::get(member).unwrap(), member_before);
 		});
 	}
 }
-
