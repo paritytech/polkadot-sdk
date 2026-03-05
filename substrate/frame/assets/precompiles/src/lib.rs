@@ -313,22 +313,70 @@ where
 	}
 
 	/// Execute the approve call.
+	///
+	/// Implements ERC-20 set semantics: `approve(spender, N)` sets the allowance to exactly `N`
+	/// rather than adding to it. To prevent the ERC-20 approve front-running attack, transitions
+	/// from one non-zero allowance to another are rejected — callers must first set the allowance
+	/// to zero, then set it to the new value.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		use frame_support::traits::{
+			fungibles::approvals::Inspect as ApprovalsInspect, ReservableCurrency,
+		};
+		use sp_runtime::{traits::Zero, Saturating};
+
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
 		let owner = Self::caller(env)?;
-		let spender = call.spender.into_array().into();
-		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+		let owner_account =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
+		let spender: H160 = call.spender.into_array().into();
+		let spender_account =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+		let new_amount = Self::to_balance(call.value)?;
 
-		pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
-			asset_id,
-			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner),
-			&spender,
-			Self::to_balance(call.value)?,
-		)?;
+		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
+			asset_id.clone(),
+			&owner_account,
+			&spender_account,
+		);
+
+		if new_amount.is_zero() {
+			if !current.is_zero() {
+				// Revoke: remove the approval entry and unreserve the deposit.
+				let mut d = pallet_assets::Asset::<Runtime, Instance>::get(&asset_id)
+					.ok_or(Error::Revert(Revert { reason: "Unknown asset".into() }))?;
+				let approval = pallet_assets::Approvals::<Runtime, Instance>::take((
+					asset_id.clone(),
+					&owner_account,
+					&spender_account,
+				))
+				.ok_or(Error::Revert(Revert { reason: "No approval to revoke".into() }))?;
+				<Runtime as Config<Instance>>::Currency::unreserve(
+					&owner_account,
+					approval.deposit,
+				);
+				d.approvals.saturating_dec();
+				pallet_assets::Asset::<Runtime, Instance>::insert(&asset_id, d);
+			}
+			// If current is also zero, this is a no-op (still emit the ERC-20 event below).
+		} else {
+			// Front-running mitigation: reject non-zero → non-zero transitions.
+			if !current.is_zero() {
+				return Err(Error::Revert(Revert {
+					reason: "ERC20: approve from non-zero to non-zero allowance".into(),
+				}));
+			}
+			// Zero → non-zero: use existing pallet function (adds new_amount to 0).
+			pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
+				asset_id,
+				&owner_account,
+				&spender_account,
+				new_amount,
+			)?;
+		}
 
 		Self::deposit_event(
 			env,

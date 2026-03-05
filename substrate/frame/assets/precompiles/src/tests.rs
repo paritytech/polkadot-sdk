@@ -21,7 +21,10 @@ use crate::{
 	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
 };
 use alloy::primitives::U256;
-use frame_support::{assert_ok, traits::Currency};
+use frame_support::{
+	assert_ok,
+	traits::{Currency, Get},
+};
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
@@ -287,5 +290,188 @@ fn approval_works(asset_index: u16) {
 				value: U256::from(10),
 			}),
 		);
+	});
+}
+
+/// Helper to call approve via the precompile. Returns the bare call result.
+fn raw_approve(
+	owner: u64,
+	asset_addr: H160,
+	spender_addr: H160,
+	value: U256,
+) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64> {
+	let data = IERC20::approveCall { spender: spender_addr.0.into(), value }.abi_encode();
+	pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(owner),
+		asset_addr,
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		data,
+		&ExecConfig::new_substrate_tx(),
+	)
+}
+
+/// Helper to call approve via the precompile, asserting success.
+fn call_approve(owner: u64, asset_addr: H160, spender_addr: H160, value: U256) {
+	let result = raw_approve(owner, asset_addr, spender_addr, value);
+	assert!(result.result.is_ok(), "approve precompile call failed: {:?}", result);
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_set_and_revoke(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+
+		// First approve: set allowance to 100 (from zero — allowed).
+		call_approve(owner, asset_addr, spender_addr, U256::from(100));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+
+		// Approve to 0: must revoke the allowance entirely and unreserve the deposit.
+		call_approve(owner, asset_addr, spender_addr, U256::from(0));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+
+		// Re-approve to 50 after zeroing — allowed, deposit reserved again.
+		call_approve(owner, asset_addr, spender_addr, U256::from(50));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+	});
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_rejects_nonzero_to_nonzero(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Set allowance to 100.
+		call_approve(owner, asset_addr, spender_addr, U256::from(100));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+
+		// Attempt to change directly from 100 to 50 — must fail (front-running mitigation).
+		let result = raw_approve(owner, asset_addr, spender_addr, U256::from(50));
+		let reverted = result.result.as_ref().map_or(true, |v| v.did_revert());
+		assert!(reverted, "non-zero to non-zero approve should be rejected");
+
+		// Allowance must remain unchanged.
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+	});
+}
+
+/// After a partial `transferFrom`, the allowance is reduced but the storage entry (with its
+/// deposit) remains. Revoking via `approve(spender, 0)` must remove that entry and unreserve
+/// the deposit — not just zero the amount. This matters because the precompile's cancel path
+/// directly removes the `Approvals` entry; if it only checked the allowance amount it could
+/// leave a dangling entry with a locked deposit.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_revoke_after_partial_transfer(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		let dest = 1122334455u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&dest, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+
+		// Approve 100.
+		call_approve(owner, asset_addr, spender_addr, U256::from(100));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+
+		// Spender uses 60 via transfer_approved, leaving 40 remaining.
+		assert_ok!(Assets::transfer_approved(
+			RuntimeOrigin::signed(spender),
+			asset_id,
+			owner,
+			dest,
+			60
+		));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 40);
+		// Deposit is still held — the approval entry still exists.
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+
+		// Revoke the remaining allowance via approve(0).
+		call_approve(owner, asset_addr, spender_addr, U256::from(0));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
+		// Deposit must be unreserved and entry removed.
+		assert_eq!(Balances::reserved_balance(&owner), 0);
+	});
+}
+
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_zero_on_nonexistent_is_noop(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Setting zero when no approval exists should succeed silently.
+		call_approve(owner, asset_addr, spender_addr, U256::from(0));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
+		assert_eq!(Balances::reserved_balance(&owner), 0);
 	});
 }
