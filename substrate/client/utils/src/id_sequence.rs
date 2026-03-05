@@ -51,3 +51,15 @@ impl IDSequence {
 		id
 	}
 }
+
+impl Into<u64> for SeqID {
+	fn into(self) -> u64 {
+		self.0
+	}
+}
+
+impl From<u64> for SeqID {
+	fn from(value: u64) -> Self {
+		SeqID(value)
+	}
+}

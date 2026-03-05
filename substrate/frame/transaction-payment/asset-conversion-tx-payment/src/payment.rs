@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Traits and default implementation for paying transaction fees in assets.
+/// ! Traits and default implementation for paying transaction fees in assets.
 use super::*;
 use crate::Config;
 
@@ -161,7 +161,7 @@ where
 			Err((credit_in, _)) => {
 				defensive!("Fee swap should pass for the quoted amount");
 				let _ = F::resolve(who, credit_in).defensive_proof("Should resolve the credit");
-				return Err(InvalidTransaction::Payment.into())
+				return Err(InvalidTransaction::Payment.into());
 			},
 		};
 
@@ -184,15 +184,8 @@ where
 		if asset_id == A::get() {
 			// The `asset_id` is the target asset, we do not need to swap.
 			match F::can_withdraw(asset_id.clone(), who, fee) {
-				WithdrawConsequence::BalanceLow |
-				WithdrawConsequence::UnknownAsset |
-				WithdrawConsequence::Underflow |
-				WithdrawConsequence::Overflow |
-				WithdrawConsequence::Frozen =>
-					return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
-				WithdrawConsequence::Success |
-				WithdrawConsequence::ReducedToZero(_) |
-				WithdrawConsequence::WouldDie => return Ok(()),
+				WithdrawConsequence::Success => return Ok(()),
+				_ => return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
 			}
 		}
 
@@ -202,15 +195,8 @@ where
 
 		// Ensure we can withdraw enough `asset_id` for the swap.
 		match F::can_withdraw(asset_id.clone(), who, asset_fee) {
-			WithdrawConsequence::BalanceLow |
-			WithdrawConsequence::UnknownAsset |
-			WithdrawConsequence::Underflow |
-			WithdrawConsequence::Overflow |
-			WithdrawConsequence::Frozen =>
-				return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
-			WithdrawConsequence::Success |
-			WithdrawConsequence::ReducedToZero(_) |
-			WithdrawConsequence::WouldDie => {},
+			WithdrawConsequence::Success => {},
+			_ => return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
 		};
 
 		Ok(())
@@ -285,7 +271,7 @@ where
 							// expected to be exactly equal to the amount of `refund_asset` credit.
 							_ => {
 								defensive!("Debt should be equal to the refund credit");
-								return Err(InvalidTransaction::Payment.into())
+								return Err(InvalidTransaction::Payment.into());
 							},
 						};
 						(
@@ -301,7 +287,7 @@ where
 							// The error should not occur as the `debt` was just withdrawn above.
 							Err(_) => {
 								defensive!("Should settle the debt");
-								return Err(InvalidTransaction::Payment.into())
+								return Err(InvalidTransaction::Payment.into());
 							},
 						};
 						let adjusted_paid = adjusted_paid.merge(refund).map_err(|_| {

@@ -705,7 +705,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_source_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok(data.source_state.clone())
@@ -718,7 +718,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_source_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.source_latest_generated_nonce))
@@ -850,7 +850,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok(data.target_state.clone())
@@ -863,7 +863,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_received_nonce))
@@ -891,7 +891,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_confirmed_received_nonce))
@@ -914,7 +914,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			data.receive_messages(maybe_batch_tx, proof);
 			(self.post_tick)(&mut data);

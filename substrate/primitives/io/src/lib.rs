@@ -139,15 +139,8 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
-mod global_alloc_wasm;
-
-#[cfg(all(
-	not(feature = "disable_allocator"),
-	substrate_runtime,
-	any(target_arch = "riscv32", target_arch = "riscv64")
-))]
-mod global_alloc_riscv;
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
+mod global_alloc;
 
 #[cfg(not(substrate_runtime))]
 const LOG_TARGET: &str = "runtime::io";
@@ -325,6 +318,7 @@ impl AsMut<[u8]> for StorageIterations {
 }
 
 /// A workaround for 512-bit values (`[u8; 64]`) not implementing `Default`.
+#[repr(transparent)]
 pub struct Val512(pub [u8; 64]);
 
 impl Default for Val512 {
@@ -351,6 +345,7 @@ pub type Hash512 = Val512;
 pub type Pubkey512 = Val512;
 
 /// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
+#[repr(transparent)]
 pub struct Pubkey264(pub [u8; 33]);
 
 impl Default for Pubkey264 {
@@ -372,6 +367,7 @@ impl AsMut<[u8]> for Pubkey264 {
 }
 
 /// Represents an opaque network peer ID
+#[repr(transparent)]
 pub struct NetworkPeerId(pub [u8; 38]);
 
 impl Default for NetworkPeerId {
@@ -411,6 +407,7 @@ impl LessThan64BitPositiveInteger for u32 {
 /// Used to return less-than-64-bit passed as `i64` through the FFI boundary. `-1_i64` is used to
 /// represent `None`.
 #[derive(Copy, Clone)]
+#[repr(transparent)]
 pub struct RIIntOption<T>(Option<T>);
 
 impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for Option<T> {
@@ -606,6 +603,22 @@ impl<R: TryFrom<i64> + LessThan64BitPositiveInteger, E: TryFrom<i64> + strum::En
 	}
 }
 
+impl<E: Into<i64> + strum::EnumCount> From<RIIntResult<VoidResult, E>> for i32 {
+	fn from(value: RIIntResult<VoidResult, E>) -> Self {
+		match value {
+			RIIntResult::Ok(_) => 0,
+			RIIntResult::Err(e) => {
+				let error_code: i64 = e.into();
+				assert!(
+					error_code > 0 && error_code <= E::COUNT as i64,
+					"Error variant index out of bounds"
+				);
+				-(error_code as i32)
+			},
+		}
+	}
+}
+
 /// Interface for accessing the storage from within the runtime.
 #[runtime_interface]
 pub trait Storage {
@@ -787,7 +800,7 @@ pub trait Storage {
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
-		counters: PassPointerAndWrite<&mut StorageIterations, 12>,
+		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
 		let removal_results = Externalities::clear_prefix(
 			*self,
@@ -802,9 +815,9 @@ pub trait Storage {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
 		}
-		counters.backend = removal_results.backend;
-		counters.unique = removal_results.unique;
-		counters.loops = removal_results.loops;
+		counters_out.backend = removal_results.backend;
+		counters_out.unique = removal_results.unique;
+		counters_out.loops = removal_results.loops;
 		cursor_out_len as u32
 	}
 
@@ -877,15 +890,18 @@ pub trait Storage {
 	///
 	/// The hashing algorithm is defined by the `Block`.
 	///
-	/// Fills provided output buffer with the SCALE encoded hash.
+	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
+	/// value is known to the caller, this function requires the provided buffer to be large enough
+	/// to store the entire value; otherwise, it will panic.
 	#[version(3)]
 	#[wrapped]
-	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
 		let root = self.storage_root(StateVersion::V0);
-		if out.len() >= root.len() {
-			out[..root.len()].copy_from_slice(&root[..]);
-		}
-		root.len() as u32
+		assert!(
+			out.len() >= root.len(),
+			"Output buffer provided to store the storage root hash must be large enough"
+		);
+		out[..root.len()].copy_from_slice(&root[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1183,7 +1199,7 @@ pub trait DefaultChildStorage {
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
-		counters: PassPointerAndWrite<&mut StorageIterations, 12>,
+		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let removal_results = self.kill_child_storage(
@@ -1198,9 +1214,9 @@ pub trait DefaultChildStorage {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
 		}
-		counters.backend = removal_results.backend;
-		counters.unique = removal_results.unique;
-		counters.loops = removal_results.loops;
+		counters_out.backend = removal_results.backend;
+		counters_out.unique = removal_results.unique;
+		counters_out.loops = removal_results.loops;
 		cursor_out_len as u32
 	}
 
@@ -1289,7 +1305,7 @@ pub trait DefaultChildStorage {
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
-		counters: PassPointerAndWrite<&mut StorageIterations, 12>,
+		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let removal_results = self.clear_child_prefix(
@@ -1305,9 +1321,9 @@ pub trait DefaultChildStorage {
 				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
 			}
 		}
-		counters.backend = removal_results.backend;
-		counters.unique = removal_results.unique;
-		counters.loops = removal_results.loops;
+		counters_out.backend = removal_results.backend;
+		counters_out.unique = removal_results.unique;
+		counters_out.loops = removal_results.loops;
 		cursor_out_len as u32
 	}
 
@@ -1382,20 +1398,21 @@ pub trait DefaultChildStorage {
 	/// "Commit" all existing operations and compute the resulting child storage root.
 	/// The hashing algorithm is defined by the `Block`.
 	///
-	/// Fills provided output buffer with the SCALE encoded hash.
+	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
+	/// value is known to the caller, this function requires the provided buffer to be large enough
+	/// to store the entire value; otherwise, it will panic.
 	#[version(3)]
 	#[wrapped]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
-	) -> u32 {
+	) {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
 		if out.len() >= root.len() {
 			out[..root.len()].copy_from_slice(&root[..]);
 		}
-		root.len() as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1424,7 +1441,6 @@ pub trait DefaultChildStorage {
 		self.next_child_storage_key(&child_info, key)
 	}
 
-	// TODO: Interface changed, reflect in RFC
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
@@ -1852,9 +1868,12 @@ pub trait Misc {
 	}
 
 	/// Get the last storage cursor stored by `storage::clear_prefix`,
-	/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`.
-	///
-	/// Returns the length of the cursor or `None` if no cursor is stored.
+/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`. The length
+	/// of the cursor is known to the caller from the result of the call to aforementioned
+	/// functions, so the caller is required to provide the buffer of sufficient length, otherwise,
+	/// it will panic.
+	// ERRATA: The RFC requires passing a raw pointer without a length, which is not safe.
+	// Currently, we accept a fat pointer and panic safely if the buffer is too small.
 	fn last_cursor(
 		&mut self,
 		out: PassFatPointerAndWrite<&mut [u8]>,
@@ -1913,29 +1932,23 @@ pub trait Crypto {
 			.ed25519_public_keys(id)
 	}
 
-	/// Returns the number of `ed25519` public keys for the given key type in the keystore.
-	fn ed25519_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ed25519_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `ed25519` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn ed25519_public_key(
+	/// Stores all `ed25519` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[version(2, register_only)]
+	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut ed25519::Public, 32>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.ed25519_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [ed25519::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ed25519_public_keys(id);
+		if out.len() >= keys.len() {
+			out.copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<ed25519::Public>()) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
@@ -1976,6 +1989,8 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Stores the public key in the provided output buffer.
+	// ERRATA: The RFC mentions the `seed` is `i32` in the prototype section, but in the description
+	// it calls for a pointer-size. Applies to all the *_generate functions.
 	#[version(2)]
 	#[wrapped]
 	fn ed25519_generate(
@@ -2024,6 +2039,7 @@ pub trait Crypto {
 	/// key type in the keystore.
 	///
 	/// Returns the signature.
+	// ERRATA: The RFC erroneously declares `out` to be `i64`. Applies to all *_sign_* functions.
 	#[version(2)]
 	#[wrapped]
 	fn ed25519_sign(
@@ -2032,7 +2048,7 @@ pub trait Crypto {
 		pub_key: PassPointerAndRead<&ed25519::Public, 32>,
 		msg: PassFatPointerAndRead<&[u8]>,
 		out: PassPointerAndWrite<&mut ed25519::Signature, 64>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_sign(id, pub_key, msg)
@@ -2074,7 +2090,7 @@ pub trait Crypto {
 			use ed25519_dalek::Verifier;
 
 			let Ok(public_key) = ed25519_dalek::VerifyingKey::from_bytes(&pub_key.0) else {
-				return false
+				return false;
 			};
 
 			let sig = ed25519_dalek::Signature::from_bytes(&sig.0);
@@ -2202,29 +2218,23 @@ pub trait Crypto {
 			.sr25519_public_keys(id)
 	}
 
-	/// Returns the number of `sr25519` public keys for the given key type in the keystore.
-	fn sr25519_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.sr25519_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `sr25519` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn sr25519_public_key(
+	/// Stores all `sr25519` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[version(2, register_only)]
+	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut sr25519::Public, 32>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.sr25519_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [sr25519::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.sr25519_public_keys(id);
+		if out.len() >= keys.len() {
+			out.copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<sr25519::Public>()) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
@@ -2321,7 +2331,7 @@ pub trait Crypto {
 		pub_key: PassPointerAndRead<&sr25519::Public, 32>,
 		msg: PassFatPointerAndRead<&[u8]>,
 		out: PassPointerAndWrite<&mut sr25519::Signature, 64>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_sign(id, pub_key, msg)
@@ -2369,29 +2379,23 @@ pub trait Crypto {
 			.ecdsa_public_keys(id)
 	}
 
-	/// Returns the number of `ecdsa` public keys for the given key type in the keystore.
-	fn ecdsa_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ecdsa_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `ecdsa` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn ecdsa_public_key(
+	/// Stores all `ecdsa` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[version(2, register_only)]
+	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut ecdsa::Public, 33>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.ecdsa_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [ecdsa::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_public_keys(id);
+		if out.len() >= keys.len() {
+			out.copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<ecdsa::Public>()) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
@@ -2488,7 +2492,7 @@ pub trait Crypto {
 		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
 		msg: PassFatPointerAndRead<&[u8]>,
 		out: PassPointerAndWrite<&mut ecdsa::Signature, 65>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_sign(id, pub_key, msg)
@@ -2541,7 +2545,7 @@ pub trait Crypto {
 		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 		out: PassPointerAndWrite<&mut ecdsa::Signature, 65>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_sign_prehashed(id, pub_key, msg)
@@ -2687,7 +2691,7 @@ pub trait Crypto {
 	) -> ConvertAndReturnAs<
 		Result<(), EcdsaVerifyError>,
 		RIIntResult<VoidResult, RIEcdsaVerifyError>,
-		i64,
+		i32,
 	> {
 		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
@@ -2776,7 +2780,7 @@ pub trait Crypto {
 	) -> ConvertAndReturnAs<
 		Result<(), EcdsaVerifyError>,
 		RIIntResult<VoidResult, RIEcdsaVerifyError>,
-		i64,
+		i32,
 	> {
 		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
@@ -3149,7 +3153,7 @@ pub trait Offchain {
 	fn submit_transaction(
 		&mut self,
 		data: PassFatPointerAndRead<Vec<u8>>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
 		self.extension::<TransactionPoolExt>()
 			.expect(
 				"submit_transaction can be called only in the offchain call context with
@@ -3170,7 +3174,7 @@ pub trait Offchain {
 	fn network_peer_id(
 		&mut self,
 		out: PassPointerAndWrite<&mut NetworkPeerId, 38>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
 		let peer_id = self
 			.extension::<OffchainWorkerExt>()
 			.expect("network_state can be called only in the offchain worker context")
@@ -3373,11 +3377,12 @@ pub trait Offchain {
 		&mut self,
 		method: PassFatPointerAndRead<&str>,
 		uri: PassFatPointerAndRead<&str>,
-		meta: PassFatPointerAndRead<&[u8]>,
+		meta: PassFatPointerAndDecode<Vec<u8>>,
 	) -> ConvertAndReturnAs<Result<HttpRequestId, ()>, RIIntResult<u16, VoidError>, i64> {
+		assert!(meta.is_empty(), "Meta must be empty in http_request_start");
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_start can be called only in the offchain worker context")
-			.http_request_start(method, uri, meta)
+			.http_request_start(method, uri, &[])
 			.into()
 	}
 
@@ -3478,7 +3483,11 @@ pub trait Offchain {
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 		out: PassFatPointerAndWrite<&mut [u32]>,
 	) {
-		assert_eq!(out.len(), ids.len());
+		assert_eq!(
+			out.len(),
+			ids.len(),
+			"Output buffer length must match input ids length in http_response_wait"
+		);
 		let statuses = self
 			.extension::<OffchainWorkerExt>()
 			.expect("http_response_wait can be called only in the offchain worker context")
@@ -3625,12 +3634,12 @@ pub trait Offchain {
 	fn http_response_read_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
-		buffer: PassFatPointerAndWrite<&mut [u8]>,
+		buffer_out: PassFatPointerAndWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> ConvertAndReturnAs<Result<u32, HttpError>, RIIntResult<u32, RIHttpError>, i64> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
-			.http_response_read_body(request_id, buffer, deadline)
+			.http_response_read_body(request_id, buffer_out, deadline)
 			.map(|r| r as u32)
 	}
 

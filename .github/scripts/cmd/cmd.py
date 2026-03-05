@@ -153,7 +153,7 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend --fail-fast
  
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
- %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+ %(prog)s --runtime westend --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
 parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -420,6 +420,7 @@ def main():
                     f"--no-storage-info --no-min-squares --no-median-slopes " \
                     f"{config['bench_flags']}"
                 print(f'-- Running: {cmd} \n')
+                os.environ['RUNTIME_LOG'] = 'off' # Turn off annoying logs during benchmarking
                 status = os.system(cmd)
 
                 if status != 0 and args.fail_fast:

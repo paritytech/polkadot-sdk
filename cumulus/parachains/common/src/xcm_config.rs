@@ -100,7 +100,7 @@ impl<SystemParachainMatcher: Contains<Location>, Runtime: parachain_info::Config
 		let self_para_id: u32 = parachain_info::Pallet::<Runtime>::get().into();
 		if let (0, [Parachain(para_id)]) = l.unpack() {
 			if *para_id == self_para_id {
-				return false
+				return false;
 			}
 		}
 		matches!(l.unpack(), (1, [])) || SystemParachainMatcher::contains(l)

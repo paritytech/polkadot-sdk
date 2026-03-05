@@ -304,8 +304,9 @@ where
 
 		let mode = block_builder.extrinsic_inclusion_mode();
 		let end_reason = match mode {
-			ExtrinsicInclusionMode::AllExtrinsics =>
-				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
+			ExtrinsicInclusionMode::AllExtrinsics => {
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?
+			},
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
 		let (block, storage_changes) = block_builder.build()?.into_inner();
@@ -355,7 +356,7 @@ where
 					error!(
 						"❌️ Mandatory inherent extrinsic returned error. Block cannot be produced."
 					);
-					return Err(ApplyExtrinsicFailed(Validity(e)))
+					return Err(ApplyExtrinsicFailed(Validity(e)));
 				},
 				Err(e) => {
 					warn!(
@@ -405,7 +406,7 @@ where
 					"No more transactions, proceeding with proposing."
 				);
 
-				break limit_hit_reason.unwrap_or(EndProposingReason::NoMoreTransactions)
+				break limit_hit_reason.unwrap_or(EndProposingReason::NoMoreTransactions);
 			};
 
 			let now = (self.now)();
@@ -415,7 +416,7 @@ where
 					"Consensus deadline reached when pushing block transactions, \
 				proceeding with proposing."
 				);
-				break limit_hit_reason.unwrap_or(EndProposingReason::HitDeadline)
+				break limit_hit_reason.unwrap_or(EndProposingReason::HitDeadline);
 			}
 
 			let pending_tx_data = (**pending_tx.data()).clone();
@@ -433,7 +434,7 @@ where
 					 but will try {} more transactions before quitting.",
 						MAX_SKIPPED_TRANSACTIONS - skipped,
 					);
-					continue
+					continue;
 				} else if now < soft_deadline {
 					debug!(
 						target: LOG_TARGET,
@@ -441,13 +442,13 @@ where
 					 but we still have time before the soft deadline, so \
 					 we will try a bit more."
 					);
-					continue
+					continue;
 				} else {
 					debug!(
 						target: LOG_TARGET,
 						"Reached block size limit, proceeding with proposing."
 					);
-					break EndProposingReason::HitBlockSizeLimit
+					break EndProposingReason::HitBlockSizeLimit;
 				}
 			}
 
@@ -477,7 +478,7 @@ where
 							target: LOG_TARGET,
 							"Reached block weight limit, proceeding with proposing."
 						);
-						break EndProposingReason::HitBlockWeightLimit
+						break EndProposingReason::HitBlockWeightLimit;
 					}
 				},
 				Err(e) => {
@@ -651,7 +652,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1
+					return value.1;
 				}
 				let old = value.1;
 				let new = old + time::Duration::from_secs(1);
@@ -696,7 +697,7 @@ mod tests {
 				let mut value = cell.lock();
 				if !value.0 {
 					value.0 = true;
-					return value.1
+					return value.1;
 				}
 				let new = value.1 + time::Duration::from_secs(160);
 				*value = (true, new);

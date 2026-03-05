@@ -379,7 +379,8 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			ClaimedRewards,
 			ErasValidatorReward,
 			ErasRewardPoints,
-			ErasTotalStake,
+			SingleEntryCleanups,
+			ValidatorSlashInEra,
 		];
 
 		let _ = staking_events_since_last_call();
@@ -450,22 +451,38 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					0,
 					"{expected_step:?} should be empty after completing step"
 				),
-				ErasValidatorReward => assert!(
-					!crate::ErasValidatorReward::<T>::contains_key(1),
-					"{expected_step:?} should be empty after completing step"
-				),
-				ErasRewardPoints => assert!(
-					!crate::ErasRewardPoints::<T>::contains_key(1),
-					"{expected_step:?} should be empty after completing step"
-				),
-				ErasTotalStake => assert!(
-					!crate::ErasTotalStake::<T>::contains_key(1),
+				ErasValidatorReward => {
+					assert!(
+						!crate::ErasValidatorReward::<T>::contains_key(1),
+						"{expected_step:?} should be empty after completing step"
+					);
+				},
+				ErasRewardPoints => {
+					assert!(
+						!crate::ErasRewardPoints::<T>::contains_key(1),
+						"{expected_step:?} should be empty after completing step"
+					);
+				},
+				SingleEntryCleanups => {
+					assert!(
+						!crate::ErasTotalStake::<T>::contains_key(1),
+						"{expected_step:?} should be empty after completing step"
+					);
+					// Also verify ErasNominatorsSlashable is cleaned (piggybacks on this step)
+					assert!(
+						!crate::ErasNominatorsSlashable::<T>::contains_key(1),
+						"ErasNominatorsSlashable should be empty after completing SingleEntryCleanups step"
+					);
+				},
+				ValidatorSlashInEra => assert_eq!(
+					crate::ValidatorSlashInEra::<T>::iter_prefix_values(1).count(),
+					0,
 					"{expected_step:?} should be empty after completing step"
 				),
 			}
 		}
 
-		// After final step (ErasTotalStake), the EraPruningState should be removed
+		// After final step (ValidatorSlashInEra), the EraPruningState should be removed
 		assert!(
 			EraPruningState::<T>::get(1).is_none(),
 			"EraPruningState should be removed after final step"
@@ -569,6 +586,7 @@ mod inflation {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Set(Percent::from_percent(10)),
+				ConfigOp::Noop,
 			));
 
 			assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));

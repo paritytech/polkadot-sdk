@@ -217,8 +217,9 @@ impl Litep2pNetworkBackend {
 						.map_or(None, |peer| Some((peer, Some(address)))),
 					_ => None,
 				},
-				Some(Protocol::P2p(multihash)) =>
-					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None))),
+				Some(Protocol::P2p(multihash)) => {
+					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None)))
+				},
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -236,7 +237,7 @@ impl Litep2pNetworkBackend {
 			.filter_map(|(peer, addresses)| {
 				// `peers` contained multiaddress in the form `/p2p/<peer ID>`
 				if addresses.is_empty() {
-					return Some(peer)
+					return Some(peer);
 				}
 
 				if self.litep2p.add_known_address(peer.into(), addresses.clone().into_iter()) == 0 {
@@ -244,7 +245,7 @@ impl Litep2pNetworkBackend {
 						target: LOG_TARGET,
 						"couldn't add any addresses for {peer:?} and it won't be added as reserved peer",
 					);
-					return None
+					return None;
 				}
 
 				self.peerstore_handle.add_known_peer(peer);
@@ -294,14 +295,15 @@ impl Litep2pNetworkBackend {
 							"unknown protocol {protocol:?}, ignoring {address:?}",
 						);
 
-						return None
+						return None;
 					},
 				}
 
 				match iter.next() {
 					Some(Protocol::Tcp(_)) => match iter.next() {
-						Some(Protocol::Ws(_) | Protocol::Wss(_)) =>
-							Some((None, Some(address.clone()))),
+						Some(Protocol::Ws(_) | Protocol::Wss(_)) => {
+							Some((None, Some(address.clone())))
+						},
 						Some(Protocol::P2p(_)) | None => Some((Some(address.clone()), None)),
 						protocol => {
 							log::error!(
@@ -484,8 +486,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				use sc_network_types::multiaddr::Protocol;
 
 				let address = match address.iter().last() {
-					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
-						address.with(Protocol::P2p(peer.into())),
+					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) => {
+						address.with(Protocol::P2p(peer.into()))
+					},
 					Some(Protocol::P2p(_)) => address,
 					_ => return acc,
 				};

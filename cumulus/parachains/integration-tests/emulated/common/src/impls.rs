@@ -860,7 +860,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 							<Self as [<$chain ParaPallet>]>::ForeignAssets::set_reserves(
 								owner_origin,
 								id.clone(),
-								reserves,
+								reserves.try_into().unwrap(),
 							)
 						);
 					});

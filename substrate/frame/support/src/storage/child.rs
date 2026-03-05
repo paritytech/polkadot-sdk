@@ -112,8 +112,9 @@ pub fn take_or_else<T: Codec + Sized, F: FnOnce() -> T>(
 /// Check to see if `key` has an explicit entry in storage.
 pub fn exists(child_info: &ChildInfo, key: &[u8]) -> bool {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::exists(child_info.storage_key(), key),
+		ChildType::ParentKeyId => {
+			sp_io::default_child_storage::exists(child_info.storage_key(), key)
+		},
 	}
 }
 
@@ -182,8 +183,9 @@ pub fn get_raw(child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 /// Put a raw byte slice into storage.
 pub fn put_raw(child_info: &ChildInfo, key: &[u8], value: &[u8]) {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::set(child_info.storage_key(), key, value),
+		ChildType::ParentKeyId => {
+			sp_io::default_child_storage::set(child_info.storage_key(), key, value)
+		},
 	}
 }
 
