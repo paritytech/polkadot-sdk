@@ -9,14 +9,16 @@ use std::{
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
-use sp_core::{Bytes, Pair, hexdisplay::HexDisplay, sr25519};
+use sp_core::{hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
-	StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter, statement_allowance_key,
+	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
 };
 use zombienet_sdk::{
-	LocalFileSystem, Network, NetworkConfigBuilder,
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
+	LocalFileSystem, Network, NetworkConfigBuilder,
 };
+
+pub(super) const RPC_POOL_SIZE: usize = 10000;
 
 pub(super) fn get_keypair(idx: u32) -> sr25519::Pair {
 	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
@@ -67,7 +69,7 @@ pub(super) async fn expect_statement(
 				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
 				Ok(batch.into_iter().next().unwrap())
 			},
-		}
+		};
 	}
 }
 
@@ -205,7 +207,7 @@ pub(super) async fn spawn_network(
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	// Headroom for the ~5,000 subscriptions that
 	// actually end up on each pooled conn (500 participants * 10 subscriptions each).
-	let max_subs_per_conn = participant_count / 10000 as u32 * 16;
+	let max_subs_per_conn = participant_count / RPC_POOL_SIZE as u32 * 16;
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
