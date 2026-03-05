@@ -10,5 +10,6 @@
     "fixtures/solidity/simple/yul_instructions/revert.sol::61::Y M0": "Failed",
     "fixtures/solidity/simple/yul_instructions/revert.sol::61::Y M3": "Failed",
     "fixtures/solidity/simple/yul_instructions/revert.sol::75::Y M0": "Failed",
-    "fixtures/solidity/simple/yul_instructions/revert.sol::75::Y M3": "Failed"
+    "fixtures/solidity/simple/yul_instructions/revert.sol::75::Y M3": "Failed",
+    "fixtures/solidity/complex/array_one_element/test.json::0::Y M0": "Failed"
 }
