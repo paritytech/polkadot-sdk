@@ -41,7 +41,7 @@ impl WeightToken<Test> for TestToken {
 
 enum Charge {
 	W(u64, u64),
-	D(i64),
+	D(i128),
 }
 
 #[test]
@@ -165,10 +165,10 @@ fn substrate_metering_initialization_works() {
 
 	let tests = vec![
 		(
-			5_000_000_000u64,
+			5_000_000_000u128,
 			1_000_000_000,
 			2_000,
-			Some((2999999500u64, 1499999750, 11107, 599999900)),
+			Some((2999999500u128, 1499999750, 11107, 599999900)),
 		),
 		(6_000_000_000, 1_000_000_000, 2_000, Some((3999999500, 1999999750, 13728, 799999900))),
 		(6_000_000_000, 1_000_000_000, 10_000, Some((2185302235, 1999999750, 5728, 437060447))),
@@ -248,10 +248,10 @@ fn substrate_metering_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000),
+			(5_000_000_000u128, 1_000_000_000, 2_000),
 			vec![(
 				W(1000, 100),
-				Some((2999997500u64, 1499998750, 11007, 599999500, 2000002500u64)),
+				Some((2999997500u128, 1499998750, 11007, 599999500, 2000002500u128)),
 			)],
 		),
 		(
@@ -333,9 +333,9 @@ fn substrate_metering_charges_works() {
 						D(deposit_charge) => transaction_meter
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -378,8 +378,8 @@ fn substrate_nesting_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-			Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
+			((5_000_000_000u128, 1_000_000_000, 2_000, 1000, 1000, 1000i128), NoLimits),
+			Some((2999992500u128, 1499996250, 10107, 599998500, 2000007500u128)),
 		),
 		(
 			((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
@@ -555,9 +555,9 @@ fn substrate_nesting_works() {
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund(-deposit_charge as u64)
+							StorageDeposit::Refund(-deposit_charge as u128)
 						}),
 					)
 					.unwrap();
@@ -604,9 +604,9 @@ fn substrate_nesting_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
+			(5_000_000_000u128, 1_000_000_000, 2_000, 1000, 100, 1000i128, 1000u128),
 			vec![
-				(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
+				(W(100, 100), Some((800u128, 400, 3042, 160, 2000007700u128))),
 				(D(100), Some((300, 150, 3042, 60, 2000008200))),
 			],
 		),
@@ -659,9 +659,9 @@ fn substrate_nesting_charges_works() {
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund((-deposit_charge) as u64)
+							StorageDeposit::Refund((-deposit_charge) as u128)
 						}),
 					)
 					.unwrap();
@@ -685,9 +685,9 @@ fn substrate_nesting_charges_works() {
 						D(deposit_charge) => nested
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -759,7 +759,7 @@ fn catch_constructor_test() {
 
 		assert_ok!(second_estimate);
 
-		let make_call = |eth_gas_limit: u64| {
+		let make_call = |eth_gas_limit: u128| {
 			builder::bare_call(test_address)
 				.data(
 					CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
@@ -773,7 +773,7 @@ fn catch_constructor_test() {
 				.build()
 		};
 
-		let results = make_call(u64::MAX);
+		let results = make_call(u128::MAX);
 
 		let mut tracer =
 			CallTracer::new(CallTracerConfig { with_logs: true, only_top_call: false });
