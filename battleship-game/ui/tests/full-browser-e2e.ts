@@ -1,7 +1,7 @@
-import { chromium, Page } from "playwright";
+import { chromium, type Page } from "playwright";
 
 const BASE_URL = "http://localhost:3000";
-const CHROMIUM_PATH = "/nix/store/g245pzpbacazlrca1fb7crb9883rhhs3-chromium-144.0.7559.59/bin/chromium";
+const CHROMIUM_PATH = "/nix/store/hwjzmx82i8dzm2c5l7hyj8yd62222ifq-chromium-145.0.7632.109/bin/chromium";
 
 async function waitForText(page: Page, text: string, timeout = 30000) {
   await page.waitForFunction(
@@ -228,25 +228,30 @@ async function isGameOver(page: Page): Promise<{ over: boolean; status: string }
 }
 
 async function clickEnemyBoard(page: Page, gridX: number, gridY: number) {
-  const canvas = page.locator("#enemy-board");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("Enemy board not found");
-  
   // Isometric grid constants (from types/index.ts)
   const TILE_WIDTH = 64;
   const TILE_HEIGHT = 32;
   const BOARD_OFFSET_X = 320;
   const BOARD_OFFSET_Y = 40;
-  
-  // gridToScreen conversion (from IsoUtils.ts)
-  const screenX = BOARD_OFFSET_X + (gridX - gridY) * (TILE_WIDTH / 2);
-  const screenY = BOARD_OFFSET_Y + (gridX + gridY) * (TILE_HEIGHT / 2);
-  
-  // Click at center of tile (offset by half tile height for isometric center)
-  const clickX = box.x + screenX;
-  const clickY = box.y + screenY + (TILE_HEIGHT / 2);
-  
-  await page.mouse.click(clickX, clickY);
+
+  // gridToScreen gives top corner; add TILE_HEIGHT/2 to hit center of diamond
+  const canvasX = BOARD_OFFSET_X + (gridX - gridY) * (TILE_WIDTH / 2);
+  const canvasY = BOARD_OFFSET_Y + (gridX + gridY) * (TILE_HEIGHT / 2) + (TILE_HEIGHT / 2);
+
+  // Dispatch click directly on the canvas element with canvas-local coords,
+  // bypassing getBoundingClientRect offset errors from page.mouse.click.
+  await page.evaluate(({ cx, cy }) => {
+    const canvas = document.getElementById("enemy-board") as HTMLCanvasElement;
+    if (!canvas) throw new Error("enemy-board not found");
+    const rect = canvas.getBoundingClientRect();
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + cx,
+      clientY: rect.top + cy,
+    });
+    canvas.dispatchEvent(event);
+  }, { cx: canvasX, cy: canvasY });
 }
 
 async function playTurn(page: Page, attackCoords: { x: number; y: number }[]) {
@@ -270,22 +275,224 @@ async function playTurn(page: Page, attackCoords: { x: number; y: number }[]) {
   }
 }
 
-async function test() {
-  console.log("=".repeat(60));
-  console.log("FULL BROWSER E2E TEST");
-  console.log("=".repeat(60));
+async function waitForLobby(page: Page, label: string) {
+  for (let i = 0; i < 120; i++) {
+    const lobby = await page.locator('#game-lobby.active').isVisible().catch(() => false);
+    if (lobby) return;
+    await page.waitForTimeout(1000);
+  }
+  throw new Error(`${label} failed to return to lobby`);
+}
 
-  console.log("Launching browser...");
+async function playSingleGame(
+  alicePage: Page,
+  bobPage: Page,
+  gameNum: number,
+): Promise<{ winner: string; totalAttacks: number }> {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`GAME ${gameNum}`);
+  console.log('='.repeat(60));
+
+  console.log('\n--- Create and join game ---');
+  await createGame(alicePage, '1');
+  console.log('✓ Alice created game');
+
+  await joinGame(bobPage);
+  console.log('✓ Bob joined game');
+
+  console.log('\n--- Enter game screen ---');
+  await Promise.all([
+    waitForGameScreen(alicePage),
+    waitForGameScreen(bobPage),
+  ]);
+  console.log('✓ Both players in game screen');
+
+  console.log('\n--- Setup phase - place ships ---');
+  await Promise.all([
+    waitForSetupPhase(alicePage),
+    waitForSetupPhase(bobPage),
+  ]);
+  console.log('✓ Both players in setup phase');
+
+  await placeShipsRandomly(alicePage);
+  console.log('✓ Alice placed ships randomly');
+
+  await placeShipsRandomly(bobPage);
+  console.log('✓ Bob placed ships randomly');
+
+  console.log('\n--- Commit grids ---');
+  await Promise.all([
+    commitGrid(alicePage),
+    commitGrid(bobPage),
+  ]);
+  console.log('✓ Both players committed grids');
+
+  console.log('\n--- Battle phase ---');
+  await Promise.all([
+    waitForBattlePhase(alicePage),
+    waitForBattlePhase(bobPage),
+  ]);
+  console.log('✓ Battle started!');
+
+  const checkerboardCoords: { x: number; y: number }[] = [];
+  const remainingCoords: { x: number; y: number }[] = [];
+  for (let y = 0; y < 10; y++) {
+    for (let x = 0; x < 10; x++) {
+      if ((x + y) % 2 === 0) {
+        checkerboardCoords.push({ x, y });
+      } else {
+        remainingCoords.push({ x, y });
+      }
+    }
+  }
+  const allCoords = [...checkerboardCoords, ...remainingCoords];
+
+  console.log('\n--- Play battle ---');
+
+  let aliceCoordIdx = 0;
+  let bobCoordIdx = 0;
+  let gameOver = false;
+  let aliceFinalStatus = '';
+  let bobFinalStatus = '';
+  const battleStart = Date.now();
+  const BATTLE_TIMEOUT_MS = 900000;
+
+  async function waitForTurnChange(pg: Page, label: string): Promise<boolean> {
+    for (let w = 0; w < 80; w++) {
+      await pg.waitForTimeout(250);
+      const s = await pg.locator('#status').textContent() || '';
+      if (s.includes("Opponent's turn") || s.includes('Waiting for') ||
+          s.includes('Victory') || s.includes('Defeat') ||
+          s.includes('All') || s.includes('won') || s.includes('lost') ||
+          s.includes('Game ended') || s.includes('surrendered') ||
+          s.includes('cheated') || s.includes('Cheating') || s.includes('invalid ship')) {
+        return true;
+      }
+    }
+    console.log(`  ${label}: turn change not detected in 20s`);
+    return false;
+  }
+
+  for (let round = 0; round < 40000 && !gameOver; round++) {
+    if (Date.now() - battleStart > BATTLE_TIMEOUT_MS) {
+      throw new Error(`Battle timed out after ${BATTLE_TIMEOUT_MS / 1000}s`);
+    }
+
+    await alicePage.waitForTimeout(250);
+
+    const aliceStatus = await alicePage.locator('#status').textContent() || '';
+    const bobStatus = await bobPage.locator('#status').textContent() || '';
+
+    if (round % 40 === 0) {
+      const elapsed = ((Date.now() - battleStart) / 1000).toFixed(0);
+      console.log(`  [${elapsed}s] Alice="${aliceStatus.slice(0,50)}" Bob="${bobStatus.slice(0,50)}" (A=${aliceCoordIdx}, B=${bobCoordIdx})`);
+    }
+
+    const aliceGameOver = await isGameOver(alicePage);
+    const bobGameOver = await isGameOver(bobPage);
+    if (aliceGameOver.over || bobGameOver.over) {
+      let aliceFinal = aliceGameOver;
+      let bobFinal = bobGameOver;
+
+      if (!aliceGameOver.over || !bobGameOver.over) {
+        for (let i = 0; i < 60; i++) {
+          await alicePage.waitForTimeout(1000);
+          if (!aliceFinal.over) aliceFinal = await isGameOver(alicePage);
+          if (!bobFinal.over) bobFinal = await isGameOver(bobPage);
+          if (aliceFinal.over && bobFinal.over) break;
+        }
+      }
+
+      console.log(`  Game ended: Alice="${aliceFinal.status}", Bob="${bobFinal.status}"`);
+      aliceFinalStatus = aliceFinal.status;
+      bobFinalStatus = bobFinal.status;
+      gameOver = true;
+      break;
+    }
+
+    const aliceCanAttack = aliceStatus.includes('Your turn') && !aliceStatus.includes('failed');
+    const bobCanAttack = bobStatus.includes('Your turn') && !bobStatus.includes('failed');
+
+    if (aliceCanAttack && aliceCoordIdx < 100) {
+      const coord = allCoords[aliceCoordIdx];
+      console.log(`  Alice attacks (${coord.x}, ${coord.y})`);
+      await clickEnemyBoard(alicePage, coord.x, coord.y);
+      const turned = await waitForTurnChange(alicePage, 'Alice');
+      if (turned) aliceCoordIdx++;  // only advance if attack registered
+    } else if (bobCanAttack && bobCoordIdx < 100) {
+      const coord = allCoords[bobCoordIdx];
+      console.log(`  Bob attacks (${coord.x}, ${coord.y})`);
+      await clickEnemyBoard(bobPage, coord.x, coord.y);
+      const turned = await waitForTurnChange(bobPage, 'Bob');
+      if (turned) bobCoordIdx++;  // only advance if attack registered
+    }
+  }
+
+  console.log('\n--- Verify game ended ---');
+
+  const totalAttacks = aliceCoordIdx + bobCoordIdx;
+  console.log(`  Total attacks made: ${totalAttacks} (Alice: ${aliceCoordIdx}, Bob: ${bobCoordIdx})`);
+
+  const aliceStatus = aliceFinalStatus || await alicePage.locator('#status').textContent() || '';
+  const bobStatus = bobFinalStatus || await bobPage.locator('#status').textContent() || '';
+  console.log(`  Alice final status: "${aliceStatus}"`);
+  console.log(`  Bob final status: "${bobStatus}"`);
+
+  if (aliceStatus.includes('cheated') || aliceStatus.includes('Cheating') ||
+      bobStatus.includes('cheated') || bobStatus.includes('Cheating') ||
+      aliceStatus.includes('invalid ship') || bobStatus.includes('invalid ship') ||
+      aliceStatus.includes('Invalid merkle') || bobStatus.includes('Invalid merkle')) {
+    throw new Error(`Game ${gameNum} ended with cheating/InvalidMerkleProof! Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
+  }
+
+  if (aliceStatus.includes('surrendered') || bobStatus.includes('surrendered') ||
+      aliceStatus.includes('timed out') || bobStatus.includes('timed out')) {
+    throw new Error(`Game ${gameNum} ended with surrender/timeout. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
+  }
+
+  const validWinPatterns = ['Victory', 'All enemy ships sunk'];
+  const validLosePatterns = ['Defeat', 'All ships sunk'];
+
+  const aliceWon = validWinPatterns.some(p => aliceStatus.includes(p));
+  const aliceLost = validLosePatterns.some(p => aliceStatus.includes(p));
+  const bobWon = validWinPatterns.some(p => bobStatus.includes(p));
+  const bobLost = validLosePatterns.some(p => bobStatus.includes(p));
+
+  if (!((aliceWon && bobLost) || (bobWon && aliceLost))) {
+    throw new Error(`Game ${gameNum}: Invalid outcome. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
+  }
+
+  const winner = aliceWon ? 'Alice' : 'Bob';
+  console.log(`  Winner: ${winner}`);
+
+  // Wait for both to return to lobby (game auto-returns after 3s)
+  console.log('\n--- Waiting for lobby return ---');
+  await Promise.all([
+    waitForLobby(alicePage, 'Alice'),
+    waitForLobby(bobPage, 'Bob'),
+  ]);
+  console.log('✓ Both players back in lobby');
+
+  return { winner, totalAttacks };
+}
+
+async function test() {
+  const NUM_GAMES = 2;
+  console.log('='.repeat(60));
+  console.log(`MULTI-GAME BROWSER E2E TEST (${NUM_GAMES} games, same instance)`);
+  console.log('='.repeat(60));
+
+  console.log('Launching browser...');
   const browser = await chromium.launch({
     headless: true,
     executablePath: CHROMIUM_PATH,
     args: [
-      "--disable-background-timer-throttling",
-      "--disable-backgrounding-occluded-windows",
-      "--disable-renderer-backgrounding",
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
     ],
   });
-  console.log("Browser launched");
+  console.log('Browser launched');
 
   const aliceContext = await browser.newContext();
   const bobContext = await browser.newContext();
@@ -293,236 +500,68 @@ async function test() {
   const alicePage = await aliceContext.newPage();
   const bobPage = await bobContext.newPage();
 
-  alicePage.on("console", (msg) => {
-    if (msg.type() === "error") console.log(`[Alice ERROR] ${msg.text()}`);
+  alicePage.on('console', (msg) => {
+    if (msg.type() === 'error') console.log(`[Alice ERROR] ${msg.text()}`);
     console.log(`[Alice] ${msg.text()}`);
   });
-  alicePage.on("pageerror", (err) => console.log(`[Alice PAGE ERROR] ${err.message}`));
-  bobPage.on("console", (msg) => {
-    if (msg.type() === "error") console.log(`[Bob ERROR] ${msg.text()}`);
+  alicePage.on('pageerror', (err) => console.log(`[Alice PAGE ERROR] ${err.message}`));
+  bobPage.on('console', (msg) => {
+    if (msg.type() === 'error') console.log(`[Bob ERROR] ${msg.text()}`);
     console.log(`[Bob] ${msg.text()}`);
   });
-  bobPage.on("pageerror", (err) => console.log(`[Bob PAGE ERROR] ${err.message}`));
+  bobPage.on('pageerror', (err) => console.log(`[Bob PAGE ERROR] ${err.message}`));
 
   try {
-    console.log("\n--- PHASE 1: Connect to lobby ---");
+    console.log('\n--- Connect to lobby ---');
     await alicePage.goto(`${BASE_URL}/?devMode=true`);
     await bobPage.goto(`${BASE_URL}/?devMode=true`);
 
-    await selectDevPlayer(alicePage, "alice");
-    console.log("✓ Alice connected to lobby");
-    
-    await selectDevPlayer(bobPage, "bob");
-    console.log("✓ Bob connected to lobby");
+    await selectDevPlayer(alicePage, 'alice');
+    console.log('✓ Alice connected to lobby');
 
-    console.log("\n--- PHASE 2: Create and join game ---");
-    await createGame(alicePage, "1");
-    console.log("✓ Alice created game");
+    await selectDevPlayer(bobPage, 'bob');
+    console.log('✓ Bob connected to lobby');
 
-    await joinGame(bobPage);
-    console.log("✓ Bob joined game");
+    const results: { winner: string; totalAttacks: number }[] = [];
 
-    console.log("\n--- PHASE 3: Enter game screen ---");
-    await Promise.all([
-      waitForGameScreen(alicePage),
-      waitForGameScreen(bobPage),
-    ]);
-    console.log("✓ Both players in game screen");
+    for (let g = 1; g <= NUM_GAMES; g++) {
+      const result = await playSingleGame(alicePage, bobPage, g);
+      results.push(result);
+      console.log(`\nGame ${g} complete: ${result.winner} won (${result.totalAttacks} attacks)`);
 
-    console.log("\n--- PHASE 4: Setup phase - place ships ---");
-    await Promise.all([
-      waitForSetupPhase(alicePage),
-      waitForSetupPhase(bobPage),
-    ]);
-    console.log("✓ Both players in setup phase");
-
-    await placeShipsRandomly(alicePage);
-    console.log("✓ Alice placed ships randomly");
-    
-    await placeShipsRandomly(bobPage);
-    console.log("✓ Bob placed ships randomly");
-
-    console.log("\n--- PHASE 5: Commit grids ---");
-    await Promise.all([
-      commitGrid(alicePage),
-      commitGrid(bobPage),
-    ]);
-    console.log("✓ Both players committed grids");
-
-    console.log("\n--- PHASE 6: Battle phase ---");
-    await Promise.all([
-      waitForBattlePhase(alicePage),
-      waitForBattlePhase(bobPage),
-    ]);
-    console.log("✓ Battle started!");
-
-    // Checkerboard pattern: ships are ≥2 cells, so alternating cells guarantee hits
-    const checkerboardCoords: { x: number; y: number }[] = [];
-    const remainingCoords: { x: number; y: number }[] = [];
-    for (let y = 0; y < 10; y++) {
-      for (let x = 0; x < 10; x++) {
-        if ((x + y) % 2 === 0) {
-          checkerboardCoords.push({ x, y });
-        } else {
-          remainingCoords.push({ x, y });
-        }
+      if (g < NUM_GAMES) {
+        console.log('\n--- Pausing 5s before next game ---');
+        await alicePage.waitForTimeout(5000);
       }
     }
-    const allCoords = [...checkerboardCoords, ...remainingCoords];
 
-    console.log("\n--- PHASE 7: Play battle (this may take a while) ---");
-
-    let aliceCoordIdx = 0;
-    let bobCoordIdx = 0;
-    let gameOver = false;
-    let aliceFinalStatus = "";
-    let bobFinalStatus = "";
-    const battleStart = Date.now();
-    const BATTLE_TIMEOUT_MS = 900000; // 15 minutes
-
-    async function waitForTurnChange(pg: Page, label: string): Promise<boolean> {
-      for (let w = 0; w < 80; w++) {
-        await pg.waitForTimeout(250);
-        const s = await pg.locator("#status").textContent() || "";
-        if (s.includes("Opponent's turn") || s.includes("Waiting for") ||
-            s.includes("Victory") || s.includes("Defeat") ||
-            s.includes("All") || s.includes("won") || s.includes("lost") ||
-            s.includes("Game ended") || s.includes("surrendered") ||
-            s.includes("cheated") || s.includes("Cheating") || s.includes("invalid ship")) {
-          return true;
-        }
-      }
-      console.log(`  ${label}: turn change not detected in 20s`);
-      return false;
+    console.log('\n' + '='.repeat(60));
+    console.log('ALL GAMES PASSED!');
+    for (let i = 0; i < results.length; i++) {
+      console.log(`  Game ${i + 1}: ${results[i].winner} won (${results[i].totalAttacks} attacks)`);
     }
-
-    for (let round = 0; round < 40000 && !gameOver; round++) {
-      if (Date.now() - battleStart > BATTLE_TIMEOUT_MS) {
-        throw new Error(`Battle timed out after ${BATTLE_TIMEOUT_MS / 1000}s`);
-      }
-
-      await alicePage.waitForTimeout(250);
-
-      const aliceStatus = await alicePage.locator("#status").textContent() || "";
-      const bobStatus = await bobPage.locator("#status").textContent() || "";
-
-      if (round % 40 === 0) {
-        const elapsed = ((Date.now() - battleStart) / 1000).toFixed(0);
-        console.log(`  [${elapsed}s] Alice="${aliceStatus.slice(0,50)}" Bob="${bobStatus.slice(0,50)}" (A=${aliceCoordIdx}, B=${bobCoordIdx})`);
-      }
-
-      const aliceGameOver = await isGameOver(alicePage);
-      const bobGameOver = await isGameOver(bobPage);
-      if (aliceGameOver.over || bobGameOver.over) {
-        let aliceFinal = aliceGameOver;
-        let bobFinal = bobGameOver;
-
-        if (!aliceGameOver.over || !bobGameOver.over) {
-          for (let i = 0; i < 60; i++) {
-            await alicePage.waitForTimeout(1000);
-            if (!aliceFinal.over) aliceFinal = await isGameOver(alicePage);
-            if (!bobFinal.over) bobFinal = await isGameOver(bobPage);
-            if (aliceFinal.over && bobFinal.over) break;
-          }
-        }
-
-        console.log(`  Game ended: Alice="${aliceFinal.status}", Bob="${bobFinal.status}"`);
-        aliceFinalStatus = aliceFinal.status;
-        bobFinalStatus = bobFinal.status;
-        gameOver = true;
-        break;
-      }
-
-      const aliceCanAttack = aliceStatus.includes("Your turn") && !aliceStatus.includes("failed");
-      const bobCanAttack = bobStatus.includes("Your turn") && !bobStatus.includes("failed");
-
-      if (aliceCanAttack && aliceCoordIdx < 100) {
-        const coord = allCoords[aliceCoordIdx];
-        console.log(`  Alice attacks (${coord.x}, ${coord.y})`);
-        await clickEnemyBoard(alicePage, coord.x, coord.y);
-        aliceCoordIdx++;
-        await waitForTurnChange(alicePage, "Alice");
-      } else if (bobCanAttack && bobCoordIdx < 100) {
-        const coord = allCoords[bobCoordIdx];
-        console.log(`  Bob attacks (${coord.x}, ${coord.y})`);
-        await clickEnemyBoard(bobPage, coord.x, coord.y);
-        bobCoordIdx++;
-        await waitForTurnChange(bobPage, "Bob");
-      }
-    }
-    
-    console.log("\n--- PHASE 8: Verify game ended ---");
-    
-    const totalAttacks = aliceCoordIdx + bobCoordIdx;
-    console.log(`  Total attacks made: ${totalAttacks} (Alice: ${aliceCoordIdx}, Bob: ${bobCoordIdx})`);
-    
-    const aliceStatus = aliceFinalStatus || await alicePage.locator("#status").textContent() || "";
-    const bobStatus = bobFinalStatus || await bobPage.locator("#status").textContent() || "";
-    console.log(`  Alice final status: "${aliceStatus}"`);
-    console.log(`  Bob final status: "${bobStatus}"`);
-
-    const MIN_ATTACKS_FOR_WIN = 17;
-    if (totalAttacks < MIN_ATTACKS_FOR_WIN) {
-      throw new Error(`Game ended too early! Only ${totalAttacks} attacks made, need at least ${MIN_ATTACKS_FOR_WIN} to sink all ships.`);
-    }
-
-    const validWinPatterns = ["Victory", "All enemy ships sunk"];
-    const validLosePatterns = ["Defeat", "All ships sunk"];
-    
-    const aliceWon = validWinPatterns.some(p => aliceStatus.includes(p));
-    const aliceLost = validLosePatterns.some(p => aliceStatus.includes(p));
-    const bobWon = validWinPatterns.some(p => bobStatus.includes(p));
-    const bobLost = validLosePatterns.some(p => bobStatus.includes(p));
-
-    console.log(`  Alice: won=${aliceWon}, lost=${aliceLost}`);
-    console.log(`  Bob: won=${bobWon}, lost=${bobLost}`);
-
-    if (aliceStatus.includes("cheated") || aliceStatus.includes("Cheating") || 
-        bobStatus.includes("cheated") || bobStatus.includes("Cheating") ||
-        aliceStatus.includes("invalid ship") || bobStatus.includes("invalid ship")) {
-      throw new Error(`Game ended with cheating detection (InvalidHitPattern or similar). Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
-    }
-
-    if (aliceStatus.includes("surrendered") || bobStatus.includes("surrendered") ||
-        aliceStatus.includes("timed out") || bobStatus.includes("timed out")) {
-      throw new Error(`Game ended with surrender/timeout, not AllShipsSunk. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
-    }
-
-    if (aliceStatus.includes("unexpectedly") || bobStatus.includes("unexpectedly")) {
-      throw new Error(`Game ended unexpectedly. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
-    }
-
-    if (!((aliceWon && bobLost) || (bobWon && aliceLost))) {
-      throw new Error(`Invalid game outcome. Expected AllShipsSunk win/loss. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
-    }
-
-    const winner = aliceWon ? "Alice" : "Bob";
-    console.log(`  Winner: ${winner}`);
-
-    console.log("\n" + "=".repeat(60));
-    console.log("FULL BROWSER E2E TEST PASSED!");
-    console.log("=".repeat(60));
+    console.log('='.repeat(60));
 
   } catch (error) {
-    console.error("\nTest failed:", error);
-    
+    console.error('\nTest failed:', error);
+
     const aliceScreenshot = await alicePage.screenshot().catch(() => null);
     const bobScreenshot = await bobPage.screenshot().catch(() => null);
-    
+
     if (aliceScreenshot) {
-      require("fs").writeFileSync("alice-failure.png", aliceScreenshot);
-      console.log("  Saved alice-failure.png");
+      require('fs').writeFileSync('alice-failure.png', aliceScreenshot);
+      console.log('  Saved alice-failure.png');
     }
     if (bobScreenshot) {
-      require("fs").writeFileSync("bob-failure.png", bobScreenshot);
-      console.log("  Saved bob-failure.png");
+      require('fs').writeFileSync('bob-failure.png', bobScreenshot);
+      console.log('  Saved bob-failure.png');
     }
-    
-    const aliceContent = await alicePage.locator("#status").textContent().catch(() => "N/A");
-    const bobContent = await bobPage.locator("#status").textContent().catch(() => "N/A");
-    console.log("  Alice status:", aliceContent);
-    console.log("  Bob status:", bobContent);
-    
+
+    const aliceContent = await alicePage.locator('#status').textContent().catch(() => 'N/A');
+    const bobContent = await bobPage.locator('#status').textContent().catch(() => 'N/A');
+    console.log('  Alice status:', aliceContent);
+    console.log('  Bob status:', bobContent);
+
     throw error;
   } finally {
     await browser.close();

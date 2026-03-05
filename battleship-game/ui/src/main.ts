@@ -4,7 +4,7 @@ import { InputHandler } from "./input/InputHandler.ts";
 import { isDevMode, getPlayerFromUrl, getDevPlayerAccount, type PlayerAccount } from "./chain/accounts.ts";
 import { getWalletManager, WalletManager, type WalletInfo, type WalletAccount } from "./chain/wallet.ts";
 import { getChainClient } from "./chain/client.ts";
-import { BattleshipClient } from "./chain/battleship.ts";
+import { BattleshipClient, resetLocalNonce } from "./chain/battleship.ts";
 import type { Position, Player } from "./types/index.ts";
 
 type Screen = "wallet-connect" | "game-lobby" | "game";
@@ -29,6 +29,7 @@ class BattleshipApp {
   private selectedPotAmount: bigint = 0n;
   private lobbyRefreshInterval: number | null = null;
   private devModePlayer: Player = "alice";
+  private buttonAbortController: AbortController | null = null;
 
   constructor() {
     this.walletManager = getWalletManager();
@@ -769,6 +770,11 @@ class BattleshipApp {
   }
 
   private setupButtons(): void {
+    // Abort previous listeners to prevent duplicate handlers across games
+    this.buttonAbortController?.abort();
+    this.buttonAbortController = new AbortController();
+    const { signal } = this.buttonAbortController;
+
     const rotateBtn = document.getElementById("rotate-btn");
     const randomBtn = document.getElementById("random-btn");
     const commitBtn = document.getElementById("commit-btn");
@@ -780,7 +786,7 @@ class BattleshipApp {
       if (state.phase === "setup") {
         this.game.toggleOrientation();
       }
-    });
+    }, { signal });
 
     randomBtn?.addEventListener("click", () => {
       if (!this.game) return;
@@ -789,7 +795,7 @@ class BattleshipApp {
         this.game.placeShipsRandomly();
         this.updateButtons();
       }
-    });
+    }, { signal });
 
     commitBtn?.addEventListener("click", async () => {
       if (!this.game) return;
@@ -797,7 +803,7 @@ class BattleshipApp {
         await this.game.commitGrid();
         this.updateButtons();
       }
-    });
+    }, { signal });
 
     surrenderBtn?.addEventListener("click", async () => {
       if (!this.game) return;
@@ -806,7 +812,7 @@ class BattleshipApp {
       if (canSurrender) {
         await this.game.surrender();
       }
-    });
+    }, { signal });
   }
 
   private updateUI(): void {
@@ -891,9 +897,19 @@ class BattleshipApp {
   }
 
   private returnToLobby(): void {
+    console.log('[returnToLobby] Cleaning up and returning to lobby');
     if (this.game) {
       this.game.reset();
       this.game = null;
+    }
+
+    // Abort game button listeners to prevent duplicate handlers in next game
+    this.buttonAbortController?.abort();
+    this.buttonAbortController = null;
+
+    // Reset nonce cache to avoid stale nonce issues in next game
+    if (this.currentAccount) {
+      resetLocalNonce(this.currentAccount.address);
     }
 
     this.playerHover = null;

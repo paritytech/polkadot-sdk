@@ -3,7 +3,7 @@
   "descriptorPath": ".papi/descriptors",
   "entries": {
     "battleship": {
-      "wsUrl": "ws://localhost:35105"
+      "wsUrl": "ws://127.0.0.1:35755"
     }
   }
 }

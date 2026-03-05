@@ -9,6 +9,8 @@ import {
 import {
   buildMerkleTree,
   generateProof,
+  verifyProof,
+  getCellLeafHash,
   createChainCells,
   coordToIndex,
   type MerkleTree,
@@ -86,6 +88,7 @@ export class OnchainGame {
     this.account = account ?? getDevPlayerAccount(player as "alice" | "bob");
     this.ourBoard = new Board();
     this.opponentBoard = new Board();
+    console.log(`[${player}] === NEW OnchainGame instance created ===${account ? ' addr=' + account.address.slice(0, 8) : ''}`);
   }
 
   async initialize(): Promise<void> {
@@ -342,10 +345,16 @@ export class OnchainGame {
   }
 
   // Commit grid to chain
+  private isCommitting = false;
+
   async commitGrid(): Promise<boolean> {
     if (!this.battleshipClient || this.gameId === null) return false;
     if (!this.ourBoard.allShipsPlaced()) return false;
-
+    if (this.isCommitting) {
+      console.log(`[${this.player}] commitGrid already in progress, skipping duplicate call`);
+      return false;
+    }
+    this.isCommitting = true;
     this.setMessage("Committing grid...");
 
     // Build chain cells from our board
@@ -360,6 +369,18 @@ export class OnchainGame {
     this.ourCells = createChainCells(occupiedIndices);
     this.merkleTree = buildMerkleTree(this.ourCells);
 
+    // Verify all 100 cells locally
+    let allCellsValid = true;
+    for (let i = 0; i < 100; i++) {
+      const p = generateProof(this.merkleTree, i);
+      const lh = getCellLeafHash(this.ourCells[i]);
+      const ok = verifyProof(this.merkleTree.root, p, 100, i, lh);
+      if (!ok) {
+        console.error(`[${this.player}] COMMIT: Cell ${i} proof INVALID locally!`);
+        allCellsValid = false;
+      }
+    }
+    console.log(`[${this.player}] COMMIT: All 100 cell proofs valid locally: ${allCellsValid}`);
     console.log(`[${this.player}] Merkle root:`, Array.from(this.merkleTree.root).map(b => b.toString(16).padStart(2, '0')).join(''));
     console.log(`[${this.player}] Occupied indices:`, Array.from(occupiedIndices));
 
@@ -377,6 +398,7 @@ export class OnchainGame {
       return true;
     }
 
+    this.isCommitting = false;
     this.setMessage("Failed to commit grid");
     return false;
   }
@@ -464,6 +486,32 @@ export class OnchainGame {
 
     const cell = this.ourCells[index];
     const proof = generateProof(this.merkleTree, index);
+
+    // LOCAL PROOF VERIFICATION (debug)
+    const leafHash = getCellLeafHash(cell);
+    const localValid = verifyProof(this.merkleTree.root, proof, 100, index, leafHash);
+    const rootHex = Array.from(this.merkleTree.root).map(b => b.toString(16).padStart(2, '0')).join('');
+    const saltHex = Array.from(cell.salt).map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log(`[${this.player}] REVEAL DEBUG: gameId=${this.gameId}, index=${index}, coord=(${coord.x},${coord.y}), occupied=${cell.isOccupied}, round=${this.currentRound}`);
+    console.log(`[${this.player}] REVEAL DEBUG: root=${rootHex}`);
+    console.log(`[${this.player}] REVEAL DEBUG: salt=${saltHex}, proofLen=${proof.length}, localVerify=${localValid}`);
+    if (!localValid) {
+      console.error(`[${this.player}] *** LOCAL PROOF VERIFICATION FAILED! This will fail on-chain too! ***`);
+      console.error(`[${this.player}] ourCells.length=${this.ourCells.length}, merkleTree.layers.length=${this.merkleTree.layers.length}`);
+    }
+
+    // Query on-chain root for comparison
+    try {
+      const playerData = await this.battleshipClient!.getPlayerData(this.gameId!, this.account.address);
+      if (playerData && playerData.grid_root) {
+        const onChainRoot = playerData.grid_root;
+        const onChainRootHex = typeof onChainRoot === 'string' ? onChainRoot : Array.from(onChainRoot as Uint8Array).map((b: number) => b.toString(16).padStart(2, '0')).join('');
+        console.log(`[${this.player}] REVEAL DEBUG: on-chain root=${onChainRootHex}`);
+        console.log(`[${this.player}] REVEAL DEBUG: roots match=${rootHex === onChainRootHex}`);
+      }
+    } catch (e) {
+      console.log(`[${this.player}] REVEAL DEBUG: Could not query on-chain root:`, e);
+    }
 
     console.log(`[${this.player}] Revealing cell ${String.fromCharCode(65 + coord.x)}${coord.y + 1} (index ${index}), occupied=${cell.isOccupied}, round=${this.currentRound}`);
 
@@ -977,6 +1025,7 @@ export class OnchainGame {
     this.lastAttackRound = -1;
     this._lastAttackTime = 0;
     this._lastAttackPos = null;
+    this.isCommitting = false;
     this.setPhase("menu");
     this.setMessage("");
     this.stopPolling();

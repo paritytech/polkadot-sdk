@@ -1,6 +1,5 @@
 import { createClient } from "polkadot-api";
-import { getWsProvider } from "polkadot-api/ws-provider/node";
-import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
+import { getWsProvider } from "polkadot-api/ws";
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import {
   DEV_PHRASE,
@@ -8,7 +7,7 @@ import {
   mnemonicToEntropy,
 } from "@polkadot-labs/hdkd-helpers";
 import { getPolkadotSigner, PolkadotSigner } from "polkadot-api/signer";
-import { Binary } from "polkadot-api";
+
 import { firstValueFrom, filter, tap } from "rxjs";
 import {
   buildMerkleTree,
@@ -18,6 +17,11 @@ import {
   verifyProof,
   getCellLeafHash,
 } from "../src/chain/merkle.ts";
+
+function toHex(bytes: Uint8Array): string {
+  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 
 const WS_URL = process.env.WS_URL || "ws://localhost:36647";
 
@@ -75,7 +79,7 @@ async function test() {
   console.log("=".repeat(60));
 
   const provider = getWsProvider(WS_URL);
-  const client = createClient(withPolkadotSdkCompat(provider));
+  const client = createClient(provider);
   const api = client.getUnsafeApi();
 
   async function cleanupPlayer(player: Player): Promise<boolean> {
@@ -171,14 +175,14 @@ async function test() {
   console.log("=".repeat(60));
 
   {
-    const tx = api.tx.Battleship.commit_grid({ game_id: gameId, grid_root: Binary.fromBytes(p1Tree.root) });
+    const tx = api.tx.Battleship.commit_grid({ game_id: gameId, grid_root: p1Tree.root });
     const result = await submitAndWaitBestBlock(tx, player1.signer, `${player1.name}:commit`);
     if (!result.ok) throw new Error(`commit failed: ${JSON.stringify(result.dispatchError)}`);
     console.log(`✓ ${player1.name} committed`);
   }
 
   {
-    const tx = api.tx.Battleship.commit_grid({ game_id: gameId, grid_root: Binary.fromBytes(p2Tree.root) });
+    const tx = api.tx.Battleship.commit_grid({ game_id: gameId, grid_root: p2Tree.root });
     const result = await submitAndWaitBestBlock(tx, player2.signer, `${player2.name}:commit`);
     if (!result.ok) throw new Error(`commit failed: ${JSON.stringify(result.dispatchError)}`);
     console.log(`✓ ${player2.name} committed`);
@@ -238,7 +242,8 @@ async function test() {
     console.log(`\n--- Turn ${turn}: ${attacker.name} attacks (${target.x}, ${target.y}) ---`);
 
     {
-      const tx = api.tx.Battleship.attack({ game_id: gameId, coordinate: { x: target.x, y: target.y } });
+      const currentRound = game.phase.value.round;
+      const tx = api.tx.Battleship.attack({ game_id: gameId, coordinate: { x: target.x, y: target.y }, expected_round: currentRound });
       const result = await submitAndWaitBestBlock(tx, attacker.signer, `${attacker.name}:attack`);
       if (!result.ok) {
         const game = await api.query.Battleship.Games.getValue(gameId, { at: "best" });
@@ -269,12 +274,16 @@ async function test() {
       
       console.log(`  Reveal: idx=${index}, occupied=${cell.isOccupied}, localOk=${localOk}`);
 
+      const gameAfterAttack = await api.query.Battleship.Games.getValue(gameId, { at: "best" });
+      const revealRound = gameAfterAttack.phase.value.round;
       const tx = api.tx.Battleship.reveal_cell({
         game_id: gameId,
         reveal: {
-          cell: { salt: Binary.fromBytes(cell.salt), is_occupied: cell.isOccupied },
-          proof: proof.map((p) => Binary.fromBytes(p)),
+          cell: { salt: cell.salt, is_occupied: cell.isOccupied },
+          proof: proof,
+          coord: { x: target.x, y: target.y },
         },
+        expected_round: revealRound,
       });
       const result = await submitAndWaitBestBlock(tx, defender.signer, `${defender.name}:reveal`);
       if (!result.ok) {
@@ -329,7 +338,7 @@ async function test() {
     
     const tx = api.tx.Battleship.reveal_winner_grid({
       game_id: gameId,
-      full_grid: winnerCells.map((c) => ({ salt: Binary.fromBytes(c.salt), is_occupied: c.isOccupied })),
+      full_grid: winnerCells.map((c) => ({ salt: c.salt, is_occupied: c.isOccupied })),
     });
     const result = await submitAndWaitBestBlock(tx, winner.signer, `${winner.name}:reveal_grid`);
     if (!result.ok) throw new Error("Reveal grid failed");

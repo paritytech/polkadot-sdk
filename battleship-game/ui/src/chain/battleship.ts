@@ -118,7 +118,7 @@ export interface TxResult {
   ok: boolean;
 }
 
-const TX_TIMEOUT_MS = 60000;
+// const TX_TIMEOUT_MS = 60000;
 
 const localNonceMap = new Map<string, number>();
 
