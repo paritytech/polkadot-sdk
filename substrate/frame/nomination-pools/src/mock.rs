@@ -366,9 +366,7 @@ impl DelegationInterface for DelegateMock {
 
 impl DelegateMock {
 	pub fn set_agent_balance(who: AccountId, delegated: Balance) {
-		let mut agents = AgentBalanceMap::get();
-		agents.insert(who, (delegated, 0, 0));
-		AgentBalanceMap::set(&agents);
+		Self::set_agent_balance_full(who, delegated, 0, 0);
 	}
 
 	/// Set the agent balance with explicit control over delegated, unclaimed_withdrawals, and

@@ -1955,7 +1955,7 @@ fn pool_members_need_full_bonding_duration_when_nominators_slashable() {
 }
 
 #[test]
-fn claim_trapped_balance_applies_pending_slash_first() {
+fn do_claim_trapped_balance_applies_pending_slash_first() {
 	new_test_ext().execute_with(|| {
 		let alice = 100;
 		assert_ok!(Balances::mint_into(&alice, 300));
@@ -1982,11 +1982,12 @@ fn claim_trapped_balance_applies_pending_slash_first() {
 		assert!(Pools::api_pool_pending_slash(1) > 0);
 		assert!(Pools::api_member_pending_slash(alice) > 0);
 
-		// claim_trapped_balance succeeds by applying the slash, even though there's no trapped
-		// balance. This is useful work - anyone can call this to apply a member's pending slash.
-		assert_ok!(Pools::claim_trapped_balance(RuntimeOrigin::signed(alice), alice));
+		// do_claim_trapped_balance applies the slash as a side effect, even though there's
+		// no trapped balance (returns Ok as a no-op for the trapped balance part).
+		assert_ok!(Pools::do_claim_trapped_balance(&alice));
 
 		// Verify slash was applied
 		assert_eq!(Pools::api_member_pending_slash(alice), 0);
 	});
 }
+

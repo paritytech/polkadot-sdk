@@ -7740,94 +7740,72 @@ mod filter {
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(alice), BondExtra::Rewards));
 		});
 	}
+}
 
-	mod claim_trapped_balance {
-		use super::*;
-		use sp_staking::Delegator;
+mod claim_trapped_balance_migration {
+	use super::*;
+	use sp_staking::Delegator;
 
-		/// Test that claim_trapped_balance successfully recovers trapped funds.
-		///
-		/// Simulates trapped funds by setting delegator_balance higher than what member's
-		/// points indicate. This mimics scenarios where points were dissolved but funds
-		/// remained held (e.g., due to the CurrentEra/ActiveEra mismatch bug).
-		#[test]
-		fn claim_trapped_balance_recovers_trapped_funds() {
-			ExtBuilder::default().build_and_execute(|| {
-				let member = 20;
+	/// Test that do_claim_trapped_balance successfully recovers trapped funds.
+	#[test]
+	fn migration_recovers_trapped_funds() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
 
-				// Member joins with 100
-				assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+			// Member joins with 100
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
 
-				// Verify initial state: points and delegator_balance match
-				let member_data = PoolMembers::<Runtime>::get(member).unwrap();
-				assert_eq!(member_data.total_balance(), 100);
-				assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
 
-				// SIMULATE TRAPPED FUNDS: Manually increase delegator_balance
-				// This simulates a scenario where funds are held but not accounted for in points
-				// (e.g., points were dissolved during withdrawal but funds weren't released)
-				let pool_account = BondedPool::<Runtime>::get(1).unwrap().bonded_account();
+			// Simulate trapped funds: delegator_balance > points
+			let pool_account = BondedPool::<Runtime>::get(1).unwrap().bonded_account();
+			DelegateMock::set_delegator_balance(member, 150);
+			DelegateMock::set_agent_balance_full(pool_account, 100, 50, 0);
 
-				// Set delegator balance to 150 (100 from points + 50 trapped)
-				DelegateMock::set_delegator_balance(member, 150);
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(150));
 
-				// Set agent (pool) to have 50 in unclaimed_withdrawals.
-				// Current: (100 delegated, 0 unclaimed, 0 pending_slash)
-				// Update to: (100 delegated, 50 unclaimed, 0 pending_slash)
-				DelegateMock::set_agent_balance_full(pool_account, 100, 50, 0);
+			// Call the helper directly
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
 
-				// Verify trapped state:
-				// - member.total_balance() = 100 (from points)
-				// - delegator_balance = 150 (held funds)
-				// - trapped = 150 - 100 = 50
-				let member_data = PoolMembers::<Runtime>::get(member).unwrap();
-				assert_eq!(member_data.total_balance(), 100);
-				assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(150));
+			// Verify balance corrected: delegator_balance should now match points (100)
+			assert_eq!(
+				DelegateMock::delegator_balance(Delegator::from(member)),
+				Some(100)
+			);
 
-				// Call claim_trapped_balance to recover the 50 trapped funds
-				assert_ok!(Pools::claim_trapped_balance(RuntimeOrigin::signed(member), member));
+			// Calling again is a no-op (no state change)
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+			assert_eq!(
+				DelegateMock::delegator_balance(Delegator::from(member)),
+				Some(100)
+			);
+		});
+	}
 
-				// Verify the correct event was emitted
-				System::assert_last_event(tests::RuntimeEvent::Pools(
-					Event::TrappedBalanceClaimed { member, pool_id: 1, amount: 50 },
-				));
+	/// Test that do_claim_trapped_balance is a no-op when no trapped balance.
+	#[test]
+	fn migration_no_op_when_no_trapped_balance() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
 
-				// Verify trapped funds were recovered: delegator_balance should now match points
-				// (100)
-				assert_eq!(
-					DelegateMock::delegator_balance(Delegator::from(member)),
-					Some(100) // 150 - 50 = 100
-				);
+			let balance_before =
+				DelegateMock::delegator_balance(Delegator::from(member));
+			let member_before = PoolMembers::<Runtime>::get(member).unwrap();
 
-				// Calling again fails - no more trapped balance
-				assert_noop!(
-					Pools::claim_trapped_balance(RuntimeOrigin::signed(member), member),
-					Error::<Runtime>::NoTrappedBalance
-				);
-			});
-		}
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
 
-		/// Test basic error conditions for claim_trapped_balance.
-		#[test]
-		fn claim_trapped_balance_basic_checks() {
-			ExtBuilder::default().build_and_execute(|| {
-				let member = 20;
-
-				// Non-existent member cannot claim
-				assert_noop!(
-					Pools::claim_trapped_balance(RuntimeOrigin::signed(member), member),
-					Error::<Runtime>::PoolMemberNotFound
-				);
-
-				// Member joins pool
-				assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
-
-				// Member with no trapped balance cannot claim
-				assert_noop!(
-					Pools::claim_trapped_balance(RuntimeOrigin::signed(member), member),
-					Error::<Runtime>::NoTrappedBalance
-				);
-			});
-		}
+			// Verify no state changed
+			assert_eq!(
+				DelegateMock::delegator_balance(Delegator::from(member)),
+				balance_before
+			);
+			assert_eq!(PoolMembers::<Runtime>::get(member).unwrap(), member_before);
+		});
 	}
 }
+
