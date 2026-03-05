@@ -591,7 +591,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(founder), member_lookup);
 
 		assert!(!Members::<T, I>::contains_key(&member));
-		assert!(SuspendedMembers::<T, I>::contains_key(&member));
+		assert!(!SuspendedMembers::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
