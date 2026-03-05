@@ -22,6 +22,8 @@ frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -42,6 +44,8 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"xcm/std",
+	"xcm-executor/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
