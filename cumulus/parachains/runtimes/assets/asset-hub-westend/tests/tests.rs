@@ -2416,9 +2416,10 @@ mod remote_test {
 	/// -- --ignored --nocapture
 	/// ```
 	///
-	/// Note: If you want to test this with PAH snapshot, ensure (locally, DO NOT COMMIT) WAH
-	/// staking pallet indices align with PAH. Also, ensure WAH ED is same as PAH (decrease it by
-	/// 10x in `../../../constants/src/westend.rs`).
+	/// Note: If you want to test this with PAH snapshot, ensure (locally, DO NOT COMMIT)
+	/// 1) WAH staking pallet indices align with PAH
+	/// 2) WAH ED is same as PAH (decrease it by 10x in `../../../constants/src/westend.rs`)
+	/// 3) Staking Bonding Duration is 28 eras.
 	#[tokio::test]
 	#[ignore]
 	async fn np_claim_trapped_balance() {
@@ -2461,7 +2462,8 @@ mod remote_test {
 					.unwrap_or_default();
 				let trapped = actual.saturating_sub(expected);
 
-				if trapped > 0 {
+				// Ignore dust amounts (< 1 DOT) — only claim meaningful trapped balances.
+			if trapped >= DOT_DECIMALS {
 					assert_ok!(NominationPools::<Runtime>::do_claim_trapped_balance(
 						&member_account
 					));
