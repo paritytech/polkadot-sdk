@@ -791,7 +791,7 @@ where
 		Request::MaxRelayParentSessionAge(index, sender) => query!(
 			MaxRelayParentSessionAge,
 			max_relay_parent_session_age(),
-			ver = Request::max_relay_parent_session_age_RUNTIME_REQUIREMENT,
+			ver = Request::MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
 		),

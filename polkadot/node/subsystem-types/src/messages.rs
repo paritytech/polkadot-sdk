@@ -894,7 +894,7 @@ impl RuntimeApiRequest {
 	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 
 	/// `MaxRelayParentSessionAge`
-	pub const max_relay_parent_session_age_RUNTIME_REQUIREMENT: u32 = 16;
+	pub const MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT: u32 = 16;
 }
 
 /// A message to the Runtime API subsystem.
