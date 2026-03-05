@@ -39,7 +39,9 @@ use std::{
 /// Base interval between escalation steps (time before launching a parallel fetch).
 ///
 /// With a POV of 10MB and bandwidth of 500Mbit/s, the fetch should complete
-/// within ~160ms + some time for advertise ≈ 300ms
+/// within ~160ms. The additional buffer accounts for the fact that bandwidth is shared
+/// with other networking activities. We also need to account for latency between nodes and the
+/// fact that bandwidth between two nodes can vary and is not always at its maximum.
 #[cfg(not(test))]
 pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(300);
 
@@ -47,76 +49,68 @@ pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(300);
 #[cfg(test)]
 pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(50);
 
-/// Key identifying a parallel fetch group.
-pub type GroupKey = (Hash, ParaId);
-
-/// Tracks the escalation state for a single `(relay_parent, para_id)` group.
-struct GroupState {
-	/// The deadline at which the next parallel fetch should be launched.
-	next_escalation_at: Instant,
-}
+/// Key identifying a parallel fetch by `(relay_parent, para_id)`.
+pub type FetchKey = (Hash, ParaId);
 
 /// Coordinates parallel collation fetching with reputation-based escalation.
 ///
-/// For each `(relay_parent, para_id)` with an active fetch, tracks whether it's time
-/// to escalate by launching additional parallel fetches from other collators.
+/// For each `(relay_parent, para_id)` with an active fetch, tracks the deadline at which
+/// the next parallel fetch should be launched.
 #[derive(Default)]
 pub struct ParallelFetchState {
-	groups: HashMap<GroupKey, GroupState>,
+	next_escalation_at: HashMap<FetchKey, Instant>,
 }
 
 impl ParallelFetchState {
-	/// Records that a fetch has been launched for the given group key.
+	/// Records that a fetch has been launched for the given key.
 	///
-	/// If the group doesn't exist yet, creates it with an escalation deadline of
+	/// If the key isn't tracked yet, sets an escalation deadline of
 	/// `now + ESCALATION_TIMEOUT`. If it already exists (parallel fetch was launched),
-	/// this is a no-op, use [`note_escalated`] to update the deadline instead.
-	pub fn note_launched(&mut self, key: GroupKey, now: Instant) {
-		self.groups
-			.entry(key)
-			.or_insert(GroupState { next_escalation_at: now + ESCALATION_TIMEOUT });
+	/// this is a no-op — use [`note_escalated`] to update the deadline instead.
+	pub fn note_launched(&mut self, key: FetchKey, now: Instant) {
+		self.next_escalation_at.entry(key).or_insert(now + ESCALATION_TIMEOUT);
 	}
 
-	/// Updates the escalation deadline for an existing group.
+	/// Updates the escalation deadline for an existing key.
 	///
 	/// Called after launching a parallel fetch to schedule the next escalation.
-	pub fn note_escalated(&mut self, key: &GroupKey, next_escalation_at: Instant) {
-		if let Some(state) = self.groups.get_mut(key) {
-			state.next_escalation_at = next_escalation_at;
+	pub fn note_escalated(&mut self, key: &FetchKey, deadline: Instant) {
+		if let Some(entry) = self.next_escalation_at.get_mut(key) {
+			*entry = deadline;
 		}
 	}
 
-	/// Removes tracking for a group (e.g., when a fetch succeeds or all fetches fail).
-	pub fn note_resolved(&mut self, key: &GroupKey) {
-		self.groups.remove(key);
+	/// Removes tracking for a key (e.g., when a fetch succeeds or all fetches fail).
+	pub fn note_completed(&mut self, key: &FetchKey) {
+		self.next_escalation_at.remove(key);
 	}
 
-	/// Returns group keys whose escalation deadline has passed.
-	pub fn ready_for_escalation(&self, now: Instant) -> Vec<GroupKey> {
-		self.groups
+	/// Returns fetch keys whose escalation deadline has passed.
+	pub fn ready_for_escalation(&self, now: Instant) -> Vec<FetchKey> {
+		self.next_escalation_at
 			.iter()
-			.filter(|(_, state)| now >= state.next_escalation_at)
+			.filter(|(_, deadline)| now >= **deadline)
 			.map(|(key, _)| *key)
 			.collect()
 	}
 
-	/// Returns the earliest escalation deadline across all groups.
+	/// Returns the earliest escalation deadline across all active fetches.
 	///
-	/// Returns `None` if there are no active groups. The caller can use this to set
+	/// Returns `None` if there are no active fetches. The caller can use this to set
 	/// a timer for the next escalation check.
 	pub fn next_deadline(&self) -> Option<Instant> {
-		self.groups.values().map(|s| s.next_escalation_at).min()
+		self.next_escalation_at.values().copied().min()
 	}
 
-	/// Returns `true` if a group exists for the given key.
-	pub fn has_group(&self, key: &GroupKey) -> bool {
-		self.groups.contains_key(key)
+	/// Returns `true` if there is an active fetch for the given key.
+	pub fn has_active_fetch(&self, key: &FetchKey) -> bool {
+		self.next_escalation_at.contains_key(key)
 	}
 
-	/// Removes all groups associated with the given relay parent (e.g., when it goes
-	/// out of view).
+	/// Removes all active fetches associated with the given relay parent (e.g., when it
+	/// goes out of view).
 	pub fn remove_relay_parent(&mut self, relay_parent: &Hash) {
-		self.groups.retain(|(rp, _), _| rp != relay_parent);
+		self.next_escalation_at.retain(|(rp, _), _| rp != relay_parent);
 	}
 }
 
@@ -124,34 +118,34 @@ impl ParallelFetchState {
 mod tests {
 	use super::*;
 
-	fn make_key(byte: u8, para: u32) -> GroupKey {
+	fn make_key(byte: u8, para: u32) -> FetchKey {
 		(Hash::repeat_byte(byte), ParaId::from(para))
 	}
 
 	#[test]
-	fn note_launched_creates_group() {
+	fn note_launched_starts_tracking() {
 		let mut state = ParallelFetchState::default();
 		let key = make_key(1, 100);
 		let now = Instant::now();
 
-		assert!(!state.has_group(&key));
+		assert!(!state.has_active_fetch(&key));
 		state.note_launched(key, now);
-		assert!(state.has_group(&key));
+		assert!(state.has_active_fetch(&key));
 	}
 
 	#[test]
-	fn note_launched_does_not_overwrite_existing_group() {
+	fn note_launched_does_not_overwrite_existing_deadline() {
 		let mut state = ParallelFetchState::default();
 		let key = make_key(1, 100);
 		let now = Instant::now();
 		let later = now + Duration::from_secs(10);
 
 		state.note_launched(key, now);
-		let original_deadline = state.groups[&key].next_escalation_at;
+		let original_deadline = state.next_escalation_at[&key];
 
 		// Launching again should not overwrite.
 		state.note_launched(key, later);
-		assert_eq!(state.groups[&key].next_escalation_at, original_deadline);
+		assert_eq!(state.next_escalation_at[&key], original_deadline);
 	}
 
 	#[test]
@@ -165,19 +159,19 @@ mod tests {
 		let new_deadline = now + Duration::from_secs(5);
 		state.note_escalated(&key, new_deadline);
 
-		assert_eq!(state.groups[&key].next_escalation_at, new_deadline);
+		assert_eq!(state.next_escalation_at[&key], new_deadline);
 	}
 
 	#[test]
-	fn note_resolved_removes_group() {
+	fn note_completed_stops_tracking() {
 		let mut state = ParallelFetchState::default();
 		let key = make_key(1, 100);
 
 		state.note_launched(key, Instant::now());
-		assert!(state.has_group(&key));
+		assert!(state.has_active_fetch(&key));
 
-		state.note_resolved(&key);
-		assert!(!state.has_group(&key));
+		state.note_completed(&key);
+		assert!(!state.has_active_fetch(&key));
 	}
 
 	#[test]
@@ -188,13 +182,9 @@ mod tests {
 		let now = Instant::now();
 
 		// key1: deadline in the past.
-		state
-			.groups
-			.insert(key1, GroupState { next_escalation_at: now - Duration::from_millis(1) });
+		state.next_escalation_at.insert(key1, now - Duration::from_millis(1));
 		// key2: deadline in the future.
-		state
-			.groups
-			.insert(key2, GroupState { next_escalation_at: now + Duration::from_secs(10) });
+		state.next_escalation_at.insert(key2, now + Duration::from_secs(10));
 
 		let ready = state.ready_for_escalation(now);
 		assert_eq!(ready, vec![key1]);
@@ -206,7 +196,7 @@ mod tests {
 		let key = make_key(1, 100);
 		let now = Instant::now();
 
-		state.groups.insert(key, GroupState { next_escalation_at: now });
+		state.next_escalation_at.insert(key, now);
 
 		let ready = state.ready_for_escalation(now);
 		assert_eq!(ready, vec![key]);
@@ -219,8 +209,8 @@ mod tests {
 		let early = now + Duration::from_millis(100);
 		let late = now + Duration::from_millis(500);
 
-		state.groups.insert(make_key(1, 100), GroupState { next_escalation_at: late });
-		state.groups.insert(make_key(2, 200), GroupState { next_escalation_at: early });
+		state.next_escalation_at.insert(make_key(1, 100), late);
+		state.next_escalation_at.insert(make_key(2, 200), early);
 
 		assert_eq!(state.next_deadline(), Some(early));
 	}
@@ -232,7 +222,7 @@ mod tests {
 	}
 
 	#[test]
-	fn remove_relay_parent_cleans_up_groups() {
+	fn remove_relay_parent_cleans_up_fetches() {
 		let mut state = ParallelFetchState::default();
 		let rp = Hash::repeat_byte(1);
 		let key1 = (rp, ParaId::from(100u32));
@@ -245,9 +235,9 @@ mod tests {
 
 		state.remove_relay_parent(&rp);
 
-		assert!(!state.has_group(&key1));
-		assert!(!state.has_group(&key2));
-		assert!(state.has_group(&key3));
+		assert!(!state.has_active_fetch(&key1));
+		assert!(!state.has_active_fetch(&key2));
+		assert!(state.has_active_fetch(&key3));
 	}
 
 	#[test]

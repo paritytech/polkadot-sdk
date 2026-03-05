@@ -102,7 +102,7 @@ pub struct CollationManager {
 	// Collection of active collation fetch requests.
 	fetching: PendingRequests,
 
-	// Tracks parallel fetch escalation state for active (relay_parent, para_id) groups.
+	// Tracks parallel fetch escalation state for active (relay_parent, para_id) pairs.
 	parallel_state: ParallelFetchState,
 
 	// Key store.
@@ -354,8 +354,8 @@ impl CollationManager {
 
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
-		// Track which groups we've already escalated to avoid duplicates across leaves.
-		let mut escalated_groups = HashSet::<parallel_fetch::GroupKey>::new();
+		// Track which keys we've already escalated to avoid duplicates across leaves.
+		let mut escalated_keys = HashSet::<parallel_fetch::FetchKey>::new();
 
 		for leaf in &leaves {
 			let free_slots = self.claim_queue_state.free_slots(leaf);
@@ -410,7 +410,7 @@ impl CollationManager {
 					let req = self.fetching.launch(&advertisement, create_timer_fn());
 					requests.push(req);
 
-					// Track this as a parallel fetch group for future escalation.
+					// Track this fetch for future escalation.
 					self.parallel_state.note_launched((advertisement.relay_parent, para_id), now);
 					continue;
 				} else {
@@ -424,9 +424,9 @@ impl CollationManager {
 				}
 			}
 
-			let ready_groups = self.parallel_state.ready_for_escalation(now);
-			for key @ (rp, para_id) in ready_groups {
-				if escalated_groups.contains(&key) {
+			let ready_keys = self.parallel_state.ready_for_escalation(now);
+			for key @ (rp, para_id) in ready_keys {
+				if escalated_keys.contains(&key) {
 					continue;
 				}
 				// Only process if the relay parent is in this leaf's allowed ancestry.
@@ -443,8 +443,8 @@ impl CollationManager {
 
 				match candidate {
 					Some((adv, _score)) => {
-						// A fetch is already in-flight for this group, so launch the
-						// escalation candidate.
+						// A fetch is already in-flight, so launch the escalation
+						// candidate.
 						gum::debug!(
 							target: LOG_TARGET,
 							?leaf,
@@ -459,17 +459,17 @@ impl CollationManager {
 						// Schedule the next escalation.
 						let next = now + ESCALATION_TIMEOUT;
 						self.parallel_state.note_escalated(&key, next);
-						escalated_groups.insert(key);
+						escalated_keys.insert(key);
 					},
 					None => {
 						// No escalation candidates right now (the only advertised collation
-						// is already in-flight). Keep the group alive so that:
+						// is already in-flight). Keep tracking so that:
 						// 1. If the in-flight fetch fails, note_fetched can correctly release the
-						//    claim queue slot (has_group = true → No path).
+						//    claim queue slot (has_active_fetch = true → No path).
 						// 2. If a new advertisement arrives before then, we will escalate to it on
 						//    the next timer tick.
 						self.parallel_state.note_escalated(&key, now + ESCALATION_TIMEOUT);
-						escalated_groups.insert(key);
+						escalated_keys.insert(key);
 					},
 				}
 			}
@@ -513,7 +513,7 @@ impl CollationManager {
 
 		self.fetching.note_completed(&advertisement);
 
-		let group_key = (advertisement.relay_parent, advertisement.para_id);
+		let fetch_key = (advertisement.relay_parent, advertisement.para_id);
 
 		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
 			gum::debug!(
@@ -577,36 +577,36 @@ impl CollationManager {
 					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
-				// Validation passed: resolve the parallel fetch group.
+				// Sanity checks passed: mark the parallel fetch as completed.
 				// Note: we don't cancel other in-flight fetches for this (relay_parent,
 				// para_id) because they may belong to different claim queue slots.
 				// Parallel siblings will naturally resolve when they complete and find
-				// the group already removed.
-				self.parallel_state.note_resolved(&group_key);
+				// the key already removed.
+				self.parallel_state.note_completed(&fetch_key);
 
 				self.can_begin_seconding(sender, fetched_collation, true, reject_info).await
 			},
 			Err(rep_change) => {
-				// Check if the group was already resolved by a prior successful
-				// parallel fetch. If so, the slot is already in use by the successful
-				// fetch — don't release it.
-				if !self.parallel_state.has_group(&group_key) {
+				// Check if this parallel fetch was already completed by a prior
+				// successful sibling. If so, the slot is already in use by the
+				// successful fetch, don't release it.
+				if !self.parallel_state.has_active_fetch(&fetch_key) {
 					gum::trace!(
 						target: LOG_TARGET,
 						?advertisement,
-						"Parallel fetch failed/cancelled but group already resolved by success",
+						"Parallel fetch failed/cancelled but already completed by a sibling",
 					);
 					CanSecond::NoKeepSlot(rep_change, reject_info)
 				} else {
-					// The group is still active. Check if there are other in-flight
-					// fetches for this exact group.
+					// The fetch is still active. Check if there are other in-flight
+					// fetches for this (relay_parent, para_id).
 					let others_active = self
 						.fetching
 						.has_in_flight_for(&advertisement.relay_parent, &advertisement.para_id);
 
 					if !others_active {
-						// No other fetches are running for this group. Clean up.
-						self.parallel_state.note_resolved(&group_key);
+						// No other fetches are running. Clean up.
+						self.parallel_state.note_completed(&fetch_key);
 					}
 					// Release the claim queue slot. For escalation fetches (which
 					// don't claim their own slot), this is a no-op since

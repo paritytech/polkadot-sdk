@@ -3249,7 +3249,7 @@ async fn test_view_update_preserves_relay_parent_state() {
 
 #[tokio::test]
 // When the escalation timer fires but there are no other candidates to escalate to (the only
-// advertised collation is already in-flight), the parallel fetch group must stay alive.
+// advertised collation is already in-flight), the parallel fetch must stay tracked.
 // This ensures that if the in-flight Phase 1 fetch later fails, the claim queue slot is
 // correctly released rather than being stuck as NoKeepSlot.
 async fn test_escalation_no_candidates_slot_released_on_failure() {
@@ -3309,12 +3309,12 @@ async fn test_escalation_no_candidates_slot_released_on_failure() {
 	test_state.assert_no_messages().await;
 
 	// Now trigger another escalation — no more candidates, so None branch fires.
-	// The group must stay alive (not resolved) so the failure path still works.
+	// The fetch must stay tracked (not completed) so the failure path still works.
 	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// The original Phase 1 fetch (first_adv) fails. Because the group is still alive,
+	// The original Phase 1 fetch (first_adv) fails. Because the fetch is still tracked,
 	// the failure path returns CanSecond::No and releases the slot (not NoKeepSlot).
 	state
 		.handle_fetched_collation(
@@ -3485,15 +3485,15 @@ async fn test_parallel_fetch_winner_keeps_slot() {
 	test_state.assert_collation_request(second_adv).await;
 	test_state.assert_no_messages().await;
 
-	// Phase 2 (second_adv) arrives first and succeeds. This resolves the parallel fetch group
+	// Phase 2 (second_adv) arrives first and succeeds. This completes the parallel fetch
 	// and sends a Second message to candidate backing.
 	test_state
 		.handle_fetched_collation(&mut state, second_adv, second_ccr.to_plain(), None)
 		.await;
 	test_state.assert_no_messages().await;
 
-	// Phase 1 (first_adv) was cancelled. Because the group is already resolved by second_adv's
-	// success, note_fetched returns NoKeepSlot — the slot is NOT released again.
+	// Phase 1 (first_adv) was cancelled. Because the parallel fetch was already completed by
+	// second_adv's success, note_fetched returns NoKeepSlot — the slot is NOT released again.
 	state
 		.handle_fetched_collation(&mut sender, (first_adv, Err(CollationFetchError::Cancelled)))
 		.await;
@@ -3502,7 +3502,7 @@ async fn test_parallel_fetch_winner_keeps_slot() {
 
 #[tokio::test]
 // Phase 1 (initial fetch) succeeds before the escalation timer fires.
-// Verifies that the parallel fetch group is resolved and no escalation fetch is launched
+// Verifies that the parallel fetch is completed and no escalation fetch is launched
 // for the waiting second_peer.
 async fn test_phase1_succeeds_before_escalation() {
 	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
@@ -3567,14 +3567,14 @@ async fn test_phase1_succeeds_before_escalation() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// Phase 1 succeeds before the escalation timeout — group is resolved.
+	// Phase 1 succeeds before the escalation timeout — fetch completed.
 	test_state
 		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), None)
 		.await;
 	test_state.assert_no_messages().await;
 
-	// Even after the escalation timeout, no parallel fetch is launched because the group
-	// was already resolved when Phase 1 succeeded.
+	// Even after the escalation timeout, no parallel fetch is launched because the fetch
+	// was already completed when Phase 1 succeeded.
 	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -3653,14 +3653,14 @@ async fn test_phase1_wins_race_after_phase2_launched() {
 	test_state.assert_collation_request(second_adv).await;
 	test_state.assert_no_messages().await;
 
-	// Phase 1 arrives first and succeeds — resolves the parallel fetch group.
+	// Phase 1 arrives first and succeeds — completes the parallel fetch.
 	test_state
 		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), None)
 		.await;
 	test_state.assert_no_messages().await;
 
-	// Phase 2 subsequently completes (network failure). Since the group was already resolved
-	// by Phase 1's success, note_fetched returns NoKeepSlot — the slot is NOT released again.
+	// Phase 2 subsequently completes (network failure). Since the parallel fetch was already
+	// completed by Phase 1's success, note_fetched returns NoKeepSlot — the slot is NOT released again.
 	state
 		.handle_fetched_collation(
 			&mut sender,
@@ -3678,8 +3678,8 @@ async fn test_phase1_wins_race_after_phase2_launched() {
 #[tokio::test]
 // Both Phase 1 and Phase 2 fail. Verifies that the slot is released by Phase 1's failure
 // and Phase 2's failure is a no-op for slot management (it never held a slot).
-// The parallel fetch group must be cleaned up after the last in-flight fetch completes.
-async fn test_both_fetches_fail_group_cleaned_up() {
+// The parallel fetch must be cleaned up after the last in-flight fetch completes.
+async fn test_both_fetches_fail_cleaned_up() {
 	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
 
 	let mut test_state = TestState::default();
@@ -3748,7 +3748,7 @@ async fn test_both_fetches_fail_group_cleaned_up() {
 	test_state.assert_collation_request(second_adv).await;
 	test_state.assert_no_messages().await;
 
-	// Phase 1 fails. The group is still alive (Phase 2 in-flight) → No returned.
+	// Phase 1 fails. The fetch is still tracked (Phase 2 in-flight) → No returned.
 	// Phase 1's claim queue slot is released.
 	state
 		.handle_fetched_collation(
@@ -3763,7 +3763,7 @@ async fn test_both_fetches_fail_group_cleaned_up() {
 		.await;
 	test_state.assert_no_messages().await;
 
-	// Phase 2 also fails. No other fetches are in-flight → group cleaned up.
+	// Phase 2 also fails. No other fetches are in-flight → cleaned up.
 	// Phase 2 never claimed a slot, so release_slot is a no-op.
 	state
 		.handle_fetched_collation(
@@ -3782,7 +3782,7 @@ async fn test_both_fetches_fail_group_cleaned_up() {
 #[tokio::test]
 // When the escalation candidate has zero reputation but a fetch is already in-flight,
 // the escalation launches immediately, no deferral. Zero-rep postponement only applies
-// when no fetch has ever been started for the group.
+// when no fetch has ever been started for the (relay_parent, para_id).
 async fn test_zero_rep_escalation_launches_immediately() {
 	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
 
@@ -3939,8 +3939,8 @@ async fn test_multiple_para_ids_escalate_independently() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// Both groups hit their escalation deadline simultaneously.
-	// Each group independently launches its Phase 2: adv_c for para 100, adv_d for para 200.
+	// Both paras hit their escalation deadline simultaneously.
+	// Each independently launches its Phase 2: adv_c for para 100, adv_d for para 200.
 	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_requests([adv_c, adv_d].into()).await;
