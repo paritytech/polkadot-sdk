@@ -844,7 +844,7 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
 		// Use a very large deposit limit to trigger the bug scenario
-		let large_deposit_limit = u64::MAX;
+		let large_deposit_limit: u128 = u64::MAX as _;
 
 		let result = builder::bare_call(caller_addr)
 			.data(

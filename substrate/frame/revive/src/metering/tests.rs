@@ -16,16 +16,16 @@
 // limitations under the License.
 
 use crate::{
+	storage::AccountInfo,
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	tests::{builder, ExtBuilder, Test},
 	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
 	TransactionMeter, WeightToken,
-	storage::AccountInfo,
-	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
-	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	CatchConstructorTest, DepositPrecompile, FixtureType, compile_module_with_type,
+	compile_module_with_type, CatchConstructorTest, DepositPrecompile, FixtureType,
 };
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;
@@ -827,9 +827,6 @@ fn dry_run_bounded_execution_runs_out_of_gas() {
 /// When deposit_left is very large (u128::MAX in production), remaining_gas becomes huge,
 /// causing ratio = gas_limit / remaining_gas ≈ 0. This resulted in nested calls receiving
 /// almost no weight. The fix caps remaining_gas to u64::MAX since Ethereum gas is u64.
-///
-/// Note: This test uses Balance = u64, so the bug doesn't fully manifest here.
-/// The fix is a no-op in u64 configs but critical for u128 production configs.
 #[test]
 fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 	use super::math::substrate_execution;
@@ -839,7 +836,7 @@ fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 		.build()
 		.execute_with(|| {
 			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
-			let deposit_limit = u64::MAX;
+			let deposit_limit: u128 = u64::MAX as _;
 
 			let mut root_meter =
 				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
@@ -848,24 +845,11 @@ fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 			root_meter.charge_deposit(&StorageDeposit::Charge(1000)).unwrap();
 
 			let weight_left_before = root_meter.weight_left().unwrap();
-
-			let gas_scale: u64 = <Test as Config>::GasScale::get().into();
-			let max_eth_gas = u64::MAX / gas_scale;
-
 			let nested = root_meter
-				.new_nested(&CallResources::Ethereum { gas: max_eth_gas, add_stipend: false })
+				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false })
 				.unwrap();
 
 			let nested_weight_left = nested.weight_left().unwrap();
-
-			assert!(
-				nested_weight_left.ref_time() >= weight_left_before.ref_time() / 2,
-				"Nested meter should get at least 50% of remaining weight. \
-				Got ref_time: {}, expected at least: {}",
-				nested_weight_left.ref_time(),
-				weight_left_before.ref_time() / 2
-			);
-
-			assert!(nested.deposit_left().unwrap() > 0);
+			assert!(nested_weight_left.eq(&weight_left_before));
 		});
 }
