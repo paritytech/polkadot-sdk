@@ -40,7 +40,7 @@ use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
-use sp_api::{CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
@@ -204,10 +204,13 @@ where
 					Ok(Some(h)) => h,
 				};
 
-			let slot_duration = match params.para_client.runtime_api().slot_duration(parent_hash) {
-				Ok(d) => d,
-				Err(e) => reject_with_error!(e),
-			};
+
+		let mut runtime_api = params.para_client.runtime_api();
+		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+		let slot_duration = match runtime_api.slot_duration(parent_hash) {
+			Ok(d) => d,
+			Err(e) => reject_with_error!(e),
+		};
 
 			let claim = match collator_util::claim_slot::<_, _, P>(
 				&*params.para_client,
