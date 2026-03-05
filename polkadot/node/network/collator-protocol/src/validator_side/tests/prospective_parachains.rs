@@ -154,7 +154,7 @@ pub(super) async fn update_view_with_slot(
 			AllMessages::ChainApi(ChainApiMessage::BlockHeader(hash, tx)) if hash == leaf_hash => {
 				let slot = leaf_slot.unwrap_or_else(|| Slot::from_timestamp(
 					sp_timestamp::Timestamp::current(),
-					sp_consensus_slots::SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+					sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
 				));
 				let pre_digest = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 					authority_index: 0,
@@ -2176,7 +2176,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		// Use the current slot so slot_age < slot_duration (slot in progress).
 		let current_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::current(),
-			sp_consensus_slots::SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
 		);
 
 		update_view_with_slot(
@@ -2307,9 +2307,9 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		// Use a slot from one slot_duration ago so slot_age >= slot_duration (finished).
 		let finished_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::new(
-				*sp_timestamp::Timestamp::current() - SLOT_DURATION_MILLIS,
+				*sp_timestamp::Timestamp::current() - RELAY_CHAIN_SLOT_DURATION_MILLIS,
 			),
-			sp_consensus_slots::SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
 		);
 
 		update_view_with_slot(
@@ -2432,7 +2432,7 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 		// Use the current slot so slot_age < slot_duration (slot in progress).
 		let current_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::current(),
-			sp_consensus_slots::SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
 		);
 
 		update_view_with_slot(
@@ -2521,9 +2521,9 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		// Use a slot from one slot_duration ago so slot_age >= slot_duration (finished).
 		let finished_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::new(
-				*sp_timestamp::Timestamp::current() - SLOT_DURATION_MILLIS,
+				*sp_timestamp::Timestamp::current() - RELAY_CHAIN_SLOT_DURATION_MILLIS,
 			),
-			sp_consensus_slots::SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
 		);
 
 		update_view_with_slot(
