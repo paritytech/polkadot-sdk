@@ -323,10 +323,8 @@ where
 		call: &IERC20::approveCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		use frame_support::traits::{
-			fungibles::approvals::Inspect as ApprovalsInspect, ReservableCurrency,
-		};
-		use sp_runtime::{traits::Zero, Saturating};
+		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
+		use sp_runtime::traits::Zero;
 
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::approve_transfer())?;
 		let owner = Self::caller(env)?;
@@ -345,28 +343,13 @@ where
 
 		if new_amount.is_zero() {
 			if !current.is_zero() {
-				// Revoke: remove the approval entry and unreserve the deposit.
-				let mut d = pallet_assets::Asset::<Runtime, Instance>::get(&asset_id)
-					.ok_or(Error::Revert(Revert { reason: "Unknown asset".into() }))?;
-
-				// Enforce the same AssetStatus::Live guard as `cancel_approval`.
-				if d.status != pallet_assets::AssetStatus::Live {
-					return Err(Error::Revert(Revert {
-						reason: "Asset is not live".into(),
-					}));
-				}
-				let approval = pallet_assets::Approvals::<Runtime, Instance>::take((
-					asset_id.clone(),
+				// Revoke: use the pallet's cancel logic to remove the approval and
+				// unreserve the deposit.
+				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+					asset_id,
 					&owner_account,
 					&spender_account,
-				))
-				.ok_or(Error::Revert(Revert { reason: "No approval to revoke".into() }))?;
-				<Runtime as Config<Instance>>::Currency::unreserve(
-					&owner_account,
-					approval.deposit,
-				);
-				d.approvals.saturating_dec();
-				pallet_assets::Asset::<Runtime, Instance>::insert(&asset_id, d);
+				)?;
 			}
 			// If current is also zero, this is a no-op (still emit the ERC-20 event below).
 		} else {
