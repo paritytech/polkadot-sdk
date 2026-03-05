@@ -1942,6 +1942,7 @@ fn process_expired_collations(
 		let candidate_hash = expired_collation.candidate_hash();
 		let pov_hash = expired_collation.pov_hash();
 		let relay_parent = expired_collation.relay_parent();
+		let built_on_fork = expired_collation.is_built_on_fork();
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,
 			?age,
@@ -1951,6 +1952,7 @@ fn process_expired_collations(
 			head = ?expired_collation.head(),
 			?candidate_hash,
 			?pov_hash,
+			?built_on_fork,
 			"Collation expired",
 		);
 
@@ -1959,7 +1961,7 @@ fn process_expired_collations(
 		if let Some(latency) = expired_collation.backed() {
 			metrics.on_collation_backed(latency as f64);
 		}
-		metrics.on_collation_expired(age as f64, collation_state);
+		metrics.on_collation_expired(age as f64, collation_state, built_on_fork);
 	}
 }
 

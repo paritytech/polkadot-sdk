@@ -91,9 +91,14 @@ impl Metrics {
 
 	/// Record the time a collation took before expiring.
 	/// Collations can expire in the following states: "advertised, fetched or backed"
-	pub fn on_collation_expired(&self, latency: f64, state: &'static str) {
+	/// The `fork` label indicates if the collation was built on a relay chain fork.
+	pub fn on_collation_expired(&self, latency: f64, state: &'static str, built_on_fork: bool) {
 		if let Some(metrics) = &self.0 {
-			metrics.collation_expired_total.with_label_values(&[state]).observe(latency);
+			let fork_label = if built_on_fork { "true" } else { "false" };
+			metrics
+				.collation_expired_total
+				.with_label_values(&[state, fork_label])
+				.observe(latency);
 		}
 	}
 }
@@ -216,7 +221,7 @@ impl metrics::Metrics for Metrics {
 						"How many collations expired (not backed or not included)",
 					)
 					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
-					&["state"],
+					&["state", "fork"],
 				)?,
 				registry,
 			)?,
@@ -384,11 +389,17 @@ impl CollationTracker {
 			.values()
 			.find(|entry| entry.relay_parent_number == stats.relay_parent_number)
 		{
+			// Collations are built on a fork when numbers match, but hashes don't.
+			let is_fork = entry.relay_parent != stats.relay_parent;
+			if is_fork {
+				stats.built_on_fork = true;
+			}
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
 				?stats.relay_parent_number,
 				?stats.relay_parent,
 				entry_relay_parent = ?entry.relay_parent,
+				?is_fork,
 				"Collation built on a fork",
 			);
 		}
@@ -426,6 +437,8 @@ pub(crate) struct CollationStats {
 	candidate_hash: Hash,
 	/// The Collation PoV hash
 	pov_hash: Hash,
+	/// Collation built on a relay fork.
+	built_on_fork: bool,
 }
 
 impl CollationStats {
@@ -452,6 +465,7 @@ impl CollationStats {
 			backed_latency_metric: None,
 			candidate_hash,
 			pov_hash,
+			built_on_fork: false,
 		}
 	}
 
@@ -566,6 +580,11 @@ impl CollationStats {
 		} else {
 			"none"
 		}
+	}
+
+	/// Returns true if the collation was built on a relay chain fork.
+	pub fn is_built_on_fork(&self) -> bool {
+		self.built_on_fork
 	}
 
 	/// Returns true if the collation is expired.
