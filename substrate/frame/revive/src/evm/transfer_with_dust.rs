@@ -197,12 +197,12 @@ mod tests {
 			description: &'static str,
 			from: H160,
 			to: H160,
-			from_balance: BalanceWithDust<u64>,
-			to_balance: BalanceWithDust<u64>,
-			amount: BalanceWithDust<u64>,
-			expected_from_balance: BalanceWithDust<u64>,
-			expected_to_balance: BalanceWithDust<u64>,
-			total_issuance_diff: i64,
+			from_balance: BalanceWithDust<u128>,
+			to_balance: BalanceWithDust<u128>,
+			amount: BalanceWithDust<u128>,
+			expected_from_balance: BalanceWithDust<u128>,
+			expected_to_balance: BalanceWithDust<u128>,
+			total_issuance_diff: i128,
 			expected_error: Option<DispatchError>,
 		}
 
@@ -380,8 +380,8 @@ mod tests {
 				);
 
 				assert_eq!(
-					total_issuance as i64 - total_issuance_diff,
-					<Test as Config>::Currency::total_issuance() as i64,
+					total_issuance as i128 - total_issuance_diff,
+					<Test as Config>::Currency::total_issuance() as i128,
 					"{description}: total issuance should match"
 				);
 			});

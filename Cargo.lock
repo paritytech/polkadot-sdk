@@ -1517,16 +1517,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-attributes"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
-dependencies = [
- "quote 1.0.40",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1576,41 +1566,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-global-executor"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1b6f5d7df27bd294849f8eec66ecfc63d11814df7a4f5d74168a2394467b776"
-dependencies = [
- "async-channel 1.9.0",
- "async-executor",
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "blocking",
- "futures-lite 1.13.0",
- "once_cell",
-]
-
-[[package]]
-name = "async-io"
-version = "1.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fc5b45d93ef0529756f812ca52e44c221b35341892d3dcc34132ac02f3dd2af"
-dependencies = [
- "async-lock 2.8.0",
- "autocfg",
- "cfg-if",
- "concurrent-queue",
- "futures-lite 1.13.0",
- "log",
- "parking",
- "polling 2.8.0",
- "rustix 0.37.23",
- "slab",
- "socket2 0.4.9",
- "waker-fn",
-]
-
-[[package]]
 name = "async-io"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1655,7 +1610,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b948000fad4873c1c9339d60f2623323a0cfd3816e5181033c6a5cb68b2accf7"
 dependencies = [
- "async-io 2.3.3",
+ "async-io",
  "blocking",
  "futures-lite 2.3.0",
 ]
@@ -1667,7 +1622,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63255f1dc2381611000436537bbedfe83183faa303a5a0edaf191edef06526bb"
 dependencies = [
  "async-channel 2.3.0",
- "async-io 2.3.3",
+ "async-io",
  "async-lock 3.4.0",
  "async-signal",
  "async-task",
@@ -1685,7 +1640,7 @@ version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfb3634b73397aa844481f814fad23bbf07fdb0eabec10f2eb95e58944b1ec32"
 dependencies = [
- "async-io 2.3.3",
+ "async-io",
  "async-lock 3.4.0",
  "atomic-waker",
  "cfg-if",
@@ -1695,33 +1650,6 @@ dependencies = [
  "signal-hook-registry",
  "slab",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "async-std"
-version = "1.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62565bb4402e926b29953c785397c6dc0391b7b446e45008b0049eb43cec6f5d"
-dependencies = [
- "async-attributes",
- "async-channel 1.9.0",
- "async-global-executor",
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "crossbeam-utils",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-lite 1.13.0",
- "gloo-timers",
- "kv-log-macro",
- "log",
- "memchr",
- "once_cell",
- "pin-project-lite",
- "pin-utils",
- "slab",
- "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -5221,7 +5149,7 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "socket2 0.5.9",
+ "socket2",
  "windows-sys 0.52.0",
 ]
 
@@ -6130,13 +6058,13 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 name = "equivocation-detector"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "bp-header-chain",
  "finality-relay",
  "futures",
  "num-traits",
  "relay-utils",
+ "tokio",
  "tracing",
 ]
 
@@ -6463,7 +6391,6 @@ dependencies = [
 name = "finality-relay"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "backoff",
  "bp-header-chain",
@@ -6471,6 +6398,7 @@ dependencies = [
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
+ "tokio",
  "tracing",
 ]
 
@@ -7848,7 +7776,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand 0.8.5",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 1.0.65",
  "tinyvec",
  "tokio",
@@ -8101,7 +8029,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
@@ -8206,7 +8134,7 @@ dependencies = [
  "http-body 1.0.0",
  "hyper 1.6.0",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
@@ -8406,7 +8334,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6b0422c86d7ce0e97169cc42e04ae643caf278874a7a3c87b8150a220dc7e1e"
 dependencies = [
- "async-io 2.3.3",
+ "async-io",
  "core-foundation 0.9.4",
  "fnv",
  "futures",
@@ -8612,7 +8540,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2 0.5.9",
+ "socket2",
  "widestring",
  "windows-sys 0.48.0",
  "winreg",
@@ -9202,15 +9130,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kv-log-macro"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0de8b303297635ad57c9f5059fd9cee7a47f8e8daa09df0fcd07dd39fb22977f"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "kvdb"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9536,7 +9455,7 @@ dependencies = [
  "libp2p-swarm",
  "rand 0.8.5",
  "smallvec",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tracing",
  "void",
@@ -9622,7 +9541,7 @@ dependencies = [
  "rand 0.8.5",
  "ring 0.17.14",
  "rustls 0.23.34",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
@@ -9696,7 +9615,7 @@ dependencies = [
  "libc",
  "libp2p-core",
  "libp2p-identity",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tracing",
 ]
@@ -9974,7 +9893,7 @@ dependencies = [
  "simple-dns 0.9.3",
  "smallvec",
  "snow",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
@@ -10024,7 +9943,7 @@ dependencies = [
  "simple-dns 0.11.0",
  "smallvec",
  "snow",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
@@ -10313,7 +10232,6 @@ dependencies = [
 name = "messages-relay"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "bp-messages",
  "finality-relay",
@@ -10324,6 +10242,7 @@ dependencies = [
  "relay-utils",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
+ "tokio",
  "tracing",
 ]
 
@@ -14467,13 +14386,13 @@ dependencies = [
 name = "parachains-relay"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "bp-polkadot-core",
  "futures",
  "relay-substrate-client",
  "relay-utils",
  "sp-core 28.0.0",
+ "tokio",
  "tracing",
 ]
 
@@ -18273,7 +18192,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls 0.23.34",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
@@ -18304,7 +18223,7 @@ checksum = "8bffec3605b73c6f1754535084a85229fa8a30f86014e6c81aeec4abb68b0285"
 dependencies = [
  "libc",
  "once_cell",
- "socket2 0.5.9",
+ "socket2",
  "tracing",
  "windows-sys 0.52.0",
 ]
@@ -18649,7 +18568,7 @@ checksum = "e898588f33fdd5b9420719948f9f2a32c922a246964576f71ba7f24f80610fbc"
 name = "relay-substrate-client"
 version = "0.1.0"
 dependencies = [
- "async-std",
+ "async-channel 1.9.0",
  "async-trait",
  "bp-header-chain",
  "bp-messages",
@@ -18690,7 +18609,6 @@ name = "relay-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "backoff",
  "bp-runtime",
@@ -22307,7 +22225,7 @@ dependencies = [
  "async-channel 2.3.0",
  "async-executor",
  "async-fs",
- "async-io 2.3.3",
+ "async-io",
  "async-lock 3.4.0",
  "async-net",
  "async-process",
@@ -23046,16 +22964,6 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
-]
-
-[[package]]
-name = "socket2"
-version = "0.4.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64a4a911eed85daf18834cfaa86a79b7d266ff93ff5ba14005426219480ed662"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -25289,7 +25197,7 @@ name = "substrate-relay-helper"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
+ "async-channel 1.9.0",
  "async-trait",
  "bp-header-chain",
  "bp-messages",
@@ -25323,6 +25231,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "strum 0.26.3",
  "thiserror 1.0.65",
+ "tokio",
  "tracing",
 ]
 
@@ -26635,7 +26544,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.9",
+ "socket2",
  "tokio-macros",
  "windows-sys 0.52.0",
 ]
