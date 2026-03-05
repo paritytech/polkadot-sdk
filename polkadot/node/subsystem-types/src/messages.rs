@@ -130,7 +130,7 @@ pub enum CandidateBackingMessage {
 	Second {
 		/// The scheduling parent hash (determines validator group assignment).
 		/// TODO: Once node feature is assumed to be enabled, remove this redundant field and use
-		/// scheduling_parent of the descriptor directly: https://github.com/paritytech/polkadot-sdk/issues/10883#issue-3844123650
+		/// scheduling_parent of the descriptor directly: <https://github.com/paritytech/polkadot-sdk/issues/10883#issue-3844123650>
 		scheduling_parent: Hash,
 		/// The candidate to second.
 		candidate: CandidateReceipt,
