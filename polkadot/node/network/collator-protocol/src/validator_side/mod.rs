@@ -170,7 +170,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	node_features, CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId,
 	CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	SessionIndex,
+	SessionIndex, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use sp_consensus_babe::digests::CompatibleDigestItem;
 use sp_consensus_slots::SlotDuration;
@@ -242,10 +242,6 @@ const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
 #[cfg(test)]
 const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
-
-/// Relay chain slot duration in milliseconds, used for V3 scheduling parent validation.
-/// All relay chains (Polkadot, Kusama, Westend, Rococo) use 6000ms.
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
 
 #[derive(Debug)]
 struct CollatingPeerState {

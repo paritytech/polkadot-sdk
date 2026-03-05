@@ -52,7 +52,6 @@ mod prospective_parachains;
 const ACTIVITY_TIMEOUT: Duration = Duration::from_millis(500);
 const DECLARE_TIMEOUT: Duration = Duration::from_millis(25);
 const REPUTATION_CHANGE_TEST_INTERVAL: Duration = Duration::from_millis(10);
-const SLOT_DURATION_MILLIS: u64 = 6000;
 
 fn dummy_pvd() -> PersistedValidationData {
 	PersistedValidationData {

@@ -427,6 +427,10 @@ pub mod well_known_keys {
 	}
 }
 
+/// Relay chain slot duration in milliseconds, which is same
+/// value accros all networks (e.g. Polkadot, Kusama, Westend, Rococo).
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
 /// Unique identifier for the Parachains Inherent
 pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 
