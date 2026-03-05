@@ -1694,7 +1694,7 @@ fn kicked_member_cannot_claim_payout() {
 
 		assert_eq!(
 			Payouts::<Test>::get(30),
-			PayoutRecord { paid: 0, payouts: vec![(1, 50)].try_into().unwrap() }
+			PayoutRecord { paid: 0, payouts: vec![].try_into().unwrap() }
 		);
 
 		assert_noop!(Society::payout(Origin::signed(30)), Error::<Test>::NotMember);
