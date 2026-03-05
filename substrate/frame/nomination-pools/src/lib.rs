@@ -1977,8 +1977,6 @@ pub mod pallet {
 			max_members_per_pool: Option<u32>,
 			global_max_commission: Option<Perbill>,
 		},
-		/// A member has successfully claimed their trapped balance.
-		TrappedBalanceClaimed { member: T::AccountId, pool_id: PoolId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -2069,8 +2067,6 @@ pub mod pallet {
 		/// Account is restricted from participation in pools. This may happen if the account is
 		/// staking in another way already.
 		Restricted,
-		/// The member has no trapped balance to claim.
-		NoTrappedBalance,
 	}
 
 	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, Debug)]
@@ -3250,106 +3246,6 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Claim trapped balance for a pool member.
-		///
-		/// In rare scenarios, pool members may have excess held balance that is not accounted
-		/// for in their pool points. This can occur when points are incorrectly dissolved
-		/// without releasing the corresponding held funds. This extrinsic allows affected
-		/// members to recover such trapped funds.
-		///
-		/// The extrinsic calculates the expected balance based on the member's points and
-		/// compares it with their actual held balance. If there's a positive difference, that
-		/// amount is released back to the member.
-		///
-		/// If the pool has any pending slash, it will be applied to the member first before
-		/// claiming the trapped balance. This ensures slashes are always accounted for before
-		/// releasing funds.
-		///
-		/// This call can be dispatched permissionlessly (i.e. by anyone). The caller pays the
-		/// transaction fee, but the recovered funds always go to the member.
-		///
-		/// # Errors
-		/// - `NoTrappedBalance`: The member has no trapped balance to claim.
-		#[pallet::call_index(26)]
-		#[pallet::weight(
-			T::WeightInfo::apply_slash()
-				.saturating_add(T::WeightInfo::withdraw_unbonded_update(T::MaxUnbonding::get()))
-		)]
-		pub fn claim_trapped_balance(
-			origin: OriginFor<T>,
-			member_account: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			ensure!(
-				T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
-				Error::<T>::NotSupported
-			);
-
-			let _ = ensure_signed(origin)?;
-			let member_account = T::Lookup::lookup(member_account)?;
-
-			// Fail-fast: verify member exists before performing expensive operations
-			let member =
-				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-
-			// Fetch the bonded pool to get the pool account for withdrawal operations
-			let bonded_pool =
-				BondedPool::<T>::get(member.pool_id).ok_or(Error::<T>::PoolNotFound)?;
-
-			// Apply any pending slash first. Track if we applied a slash so we can succeed
-			// even if there's no trapped balance afterward (applying slash is useful work).
-			let slash_applied = match Self::do_apply_slash(&member_account, None, false) {
-				Ok(_) => true,
-				Err(e) => {
-					let no_pending_slash: DispatchResult = Err(Error::<T>::NothingToSlash.into());
-					// NothingToSlash is expected and fine, continue. Any other error is defensive.
-					if Err(e) != no_pending_slash {
-						return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
-					}
-					false
-				},
-			};
-
-			// Re-fetch member after potential slash application
-			let member =
-				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-
-			// Calculate expected balance from ALL points (bonded + unbonding).
-			// This is the balance the member should have based on their pool accounting.
-			let expected_balance = member.total_balance();
-
-			// Get actual delegated balance (what's actually held in delegated staking)
-			let actual_balance =
-				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
-					.unwrap_or_default();
-
-			// Calculate trapped amount: funds held but not accounted for in points
-			let trapped_amount = actual_balance.saturating_sub(expected_balance);
-
-			// If there's trapped balance, release it
-			if !trapped_amount.is_zero() {
-				// Release the trapped funds from delegation back to the member's free balance.
-				// Since these funds are not tracked in pool accounting (points), we can safely
-				// release them without affecting the pool's integrity.
-				T::StakeAdapter::member_withdraw(
-					Member::from(member_account.clone()),
-					Pool::from(bonded_pool.bonded_account()),
-					trapped_amount,
-					0, // No slashing spans needed: these funds were never properly accounted for
-				)?;
-
-				Self::deposit_event(Event::<T>::TrappedBalanceClaimed {
-					member: member_account.clone(),
-					pool_id: member.pool_id,
-					amount: trapped_amount,
-				});
-			}
-
-			// Succeed if we applied a slash OR claimed trapped balance.
-			// Fail only if we did neither (nothing useful was done).
-			ensure!(slash_applied || !trapped_amount.is_zero(), Error::<T>::NoTrappedBalance);
-
-			Ok(())
-		}
 	}
 
 	#[pallet::hooks]
@@ -3388,6 +3284,71 @@ impl<T: Config> Pallet<T> {
 			.max(MinJoinBond::<T>::get())
 			.max(T::Currency::minimum_balance())
 	}
+
+	/// Claim trapped balance for a pool member.
+	///
+	/// In rare scenarios, pool members may have excess held balance that is not accounted
+	/// for in their pool points. This can occur when points are incorrectly dissolved
+	/// without releasing the corresponding held funds.
+	///
+	/// If the pool has any pending slash, it will be applied to the member first before
+	/// claiming the trapped balance.
+	///
+	/// Safe to call multiple times or for non-existent members — returns `Ok(())` as a
+	/// no-op when there is nothing to do.
+	pub fn do_claim_trapped_balance(member_account: &T::AccountId) -> DispatchResult {
+		ensure!(
+			T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+			Error::<T>::NotSupported
+		);
+
+		// Apply any pending slash first. Ignore NothingToSlash and PoolMemberNotFound
+		// (member existence is validated below).
+		match Self::do_apply_slash(member_account, None, false) {
+			Ok(_) => {},
+			Err(e) => {
+				let nothing_to_slash: DispatchError = Error::<T>::NothingToSlash.into();
+				let member_not_found: DispatchError = Error::<T>::PoolMemberNotFound.into();
+				if e != nothing_to_slash && e != member_not_found {
+					return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
+				}
+			},
+		};
+
+		let member = match PoolMembers::<T>::get(member_account) {
+			Some(m) => m,
+			None => return Ok(()),
+		};
+
+		let expected_balance = member.total_balance();
+		let actual_balance =
+			T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+				.unwrap_or_default();
+
+		let trapped_amount = actual_balance.saturating_sub(expected_balance);
+
+		if trapped_amount.is_zero() {
+			return Ok(());
+		}
+
+		T::StakeAdapter::member_withdraw(
+			Member::from(member_account.clone()),
+			Pool::from(Self::generate_bonded_account(member.pool_id)),
+			trapped_amount,
+			0,
+		)?;
+
+		log!(
+			info,
+			"Claimed trapped balance for member {:?}, pool {:?}, amount {:?}",
+			member_account,
+			member.pool_id,
+			trapped_amount
+		);
+
+		Ok(())
+	}
+
 	/// Remove everything related to the given bonded pool.
 	///
 	/// Metadata and all of the sub-pools are also deleted. All accounts are dusted and the leftover
