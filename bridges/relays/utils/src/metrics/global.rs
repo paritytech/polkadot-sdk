@@ -21,10 +21,10 @@ use crate::metrics::{
 	StandaloneMetric, F64, U64,
 };
 
-use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use sysinfo::{RefreshKind, System};
+use tokio::sync::Mutex;
 
 /// Global metrics update interval.
 const UPDATE_INTERVAL: Duration = Duration::from_secs(10);
