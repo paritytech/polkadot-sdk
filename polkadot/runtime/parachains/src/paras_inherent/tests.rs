@@ -271,10 +271,8 @@ mod enter {
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
 		// All of them are being made available in this block. Propose 5 more candidates (one for
 		// each core) and check that they're successfully backed and the old ones enacted.
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -373,10 +371,8 @@ mod enter {
 		// Cores 1, 2 and 3 are being made available in this block. Propose 6 more candidates (one
 		// for each core) and check that the right ones are successfully backed and the old ones
 		// enacted.
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -1712,10 +1708,8 @@ mod enter {
 	fn non_v1_descriptors_are_filtered(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2084,10 +2078,8 @@ mod enter {
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		#[case] has_approved_peer_signal: bool,
 	) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2130,10 +2122,8 @@ mod enter {
 	fn elastic_scaling_mixed_descriptors(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2174,10 +2164,8 @@ mod enter {
 	fn mixed_descriptors_with_optional_ump_signals(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2338,10 +2326,8 @@ mod enter {
 	// Test that candidates that have neither an injected core index nor a v2/v3 descriptor are
 	// filtered.
 	fn candidate_without_core_index(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			default_config(),
-			descriptor_version,
-		);
+		let config =
+			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
