@@ -580,6 +580,10 @@ impl<T: Config> Pallet<T> {
 	// Attempts to recover the Ethereum address from a message signature signed by using
 	// the Ethereum RPC's `personal_sign` and `eth_sign`.
 	fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
+		// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
+		if !sp_core::ecdsa::is_signature_normalized(&s.0) {
+			return None;
+		}
 		let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
 		let mut res = EthereumAddress::default();
 		res.0

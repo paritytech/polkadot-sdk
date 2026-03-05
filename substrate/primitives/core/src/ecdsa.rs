@@ -724,17 +724,19 @@ mod test {
 	fn sign_prehashed_works() {
 		let (pair, _, _) = Pair::generate_with_phrase(Some("password"));
 
-		// `msg` shouldn't be mangled
+		// sign_prehashed always produces a low-S (normalized) signature
 		let msg = [0u8; 32];
 		let sig1 = pair.sign_prehashed(&msg);
-		let sig2: Signature = pair
-			.secret
-			.sign_prehash_recoverable(&msg)
-			.expect("signing may not fail. qed.")
-			.into();
-		assert_eq!(sig1, sig2);
+		assert!(
+			is_signature_normalized(&sig1.0),
+			"sign_prehashed should always produce a low-S signature"
+		);
 
-		// signature is actually different
+		// sign_prehashed is deterministic
+		let sig1_again = pair.sign_prehashed(&msg);
+		assert_eq!(sig1, sig1_again, "sign_prehashed should be deterministic");
+
+		// prehashed signature differs from sign() (which blake2-hashes first)
 		let sig2 = pair.sign(&msg);
 		assert_ne!(sig1, sig2);
 

@@ -23,14 +23,18 @@ doc:
       explicit low-S normalization and includes a debug assertion. The `Drop` impl for
       `GenericPair` is removed since k256's `SigningKey` implements `ZeroizeOnDrop`.
 
-      **claims-pallet** Migrated from `secp256k1` to `k256`. The test/benchmark helpers
-      (`secp_utils`, `mock.rs`, `benchmarking.rs`) now use `k256::ecdsa::SigningKey` instead of
-      `secp256k1::SecretKey`. The `secp256k1` crate is removed from `polkadot-runtime-common`.
+      **claims-pallet** Migrated from `secp256k1` to `k256`. `eth_recover()` now rejects
+      high-S signatures using `sp_core::ecdsa::is_signature_normalized()` before calling
+      `secp256k1_ecdsa_recover`, enforcing EIP-2 / BIP-62 canonical signatures for DOT claim
+      requests. The test/benchmark helpers (`secp_utils`, `mock.rs`, `benchmarking.rs`) now use
+      `k256::ecdsa::SigningKey` instead of `secp256k1::SecretKey`. The `secp256k1` crate is
+      removed from `polkadot-runtime-common`.
 
       **pallet-revive** `recover_eth_address()` rejects high-S signatures before calling
       `secp256k1_ecdsa_recover`, matching Ethereum post-Homestead validation (EIP-2). A
       `log::debug!` message is emitted when a high-S signature is rejected. The `ECRecover`
-      precompile is intentionally unchanged. The unused `secp256k1` dev-dependency is removed.
+      precompile now also rejects high-S signatures. The `ecdsa_recover()` syscall exposed to
+      smart contracts enforces low-S as well. The unused `secp256k1` dev-dependency is removed.
 
       **sp-consensus-beefy** `ecdsa_crypto::BeefyAuthorityId::verify()` rejects high-S
       signatures before recovery using `sp_core::ecdsa::is_signature_normalized()`, ensuring
@@ -44,6 +48,12 @@ doc:
       `secp256k1_ecdsa_recover`, `secp256k1_ecdsa_recover_compressed`) now document that they
       do **not** enforce low-S normalization. Callers should check
       `sp_core::ecdsa::is_signature_normalized()` before calling if canonical signatures are required.
+
+      **pallet-contracts** The `ecdsa_recover()` syscall now rejects high-S signatures before
+      calling `secp256k1_ecdsa_recover_compressed`.
+
+      **sp-application-crypto** `RuntimePublic::verify()` and `RuntimePublic::verify_proof_of_possession()`
+      for ECDSA keys now reject high-S signatures before calling the `ecdsa_verify` host function.
 
       `Pair::verify()` and `Pair::verify_prehashed()` are not changed to preserve backward
       compatibility with historical block verification.
@@ -77,4 +87,8 @@ crates:
   - name: pallet-revive
     bump: patch
   - name: sp-consensus-beefy
+    bump: patch
+  - name: pallet-contracts
+    bump: patch
+  - name: sp-application-crypto
     bump: patch
