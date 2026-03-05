@@ -244,6 +244,18 @@ struct Args {
 	/// Number of accounts per allowance-setting transaction (default: 100)
 	#[arg(long, default_value = "100")]
 	allowance_batch_size: u32,
+
+	/// Maximum number of statements allowed per account
+	#[arg(long, default_value_t = 100_000)]
+	allowance_max_count: u32,
+
+	/// Maximum total size of statements in bytes per account
+	#[arg(long, default_value_t = 1_000_000)]
+	allowance_max_size: u32,
+
+	/// Maximum number of calls in a single batch_all transaction
+	#[arg(long, default_value_t = 100)]
+	max_batch_calls: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -534,18 +546,21 @@ async fn wait_for_sync_time() {
 	info!("Sync time reached, starting benchmark");
 }
 
-/// Set statement allowances for all deterministic benchmark accounts in a single
-/// `Sudo(Utility(batch_all { calls: [System(set_storage { items }), ...] }))` transaction
+/// Set statement allowances for all deterministic benchmark accounts
 ///
 /// Storage items are grouped into inner `set_storage` calls of `batch_size` each to keep
-/// individual call payloads small, but all inner calls are submitted atomically in one
-/// `batch_all` wrapped in `Sudo`
+/// individual call payloads small. The inner calls are then chunked into groups of at most
+/// `max_batch_calls` and each group is submitted as a separate `Sudo(batch_all(...))` transaction
+/// to stay within the runtime's batched calls limit
 async fn set_allowances(
 	rpc_url: &str,
 	rpc_client: &WsClient,
 	sudo_seed: &str,
 	num_clients: u32,
 	batch_size: u32,
+	max_count: u32,
+	max_size: u32,
+	max_batch_calls: usize,
 ) -> Result<(), anyhow::Error> {
 	let client = OnlineClient::<BenchConfig>::from_insecure_url(rpc_url).await?;
 
@@ -553,7 +568,7 @@ async fn set_allowances(
 	let sudo_key =
 		SubxtKeypair::from_uri(&uri).map_err(|e| anyhow!("Failed to derive sudo keypair: {e}"))?;
 
-	let allowance_value = StatementAllowance::new(100_000, 1_000_000).encode();
+	let allowance_value = StatementAllowance::new(max_count, max_size).encode();
 
 	let storage_calls: Vec<Value> = (0..num_clients)
 		.step_by(batch_size as usize)
@@ -581,41 +596,50 @@ async fn set_allowances(
 
 	let num_inner_calls = storage_calls.len();
 	info!(
-		"Submitting {} set_storage calls for {} accounts in a single Sudo(batch_all) transaction",
-		num_inner_calls, num_clients
+		"Submitting {} set_storage calls for {} accounts (max_batch_calls={})",
+		num_inner_calls, num_clients, max_batch_calls
 	);
 
-	let batch_call = value! { Utility(batch_all { calls: storage_calls }) };
-	let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
-	let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new().immortal().build();
-	let extensions =
-		(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (), ());
-
-	let mut progress = client
-		.tx()
-		.create_signed(&tx, &sudo_key, extensions)
-		.await?
-		.submit_and_watch()
-		.await?;
-
 	use subxt::tx::TxStatus;
-	while let Some(status) = progress.next().await.transpose()? {
-		match status {
-			TxStatus::InFinalizedBlock(tx_in_block) => {
-				tx_in_block.wait_for_success().await?;
-				info!(
-					"All {} account allowances finalized in block {:#?}",
-					num_clients,
-					tx_in_block.block_hash()
-				);
-				break;
-			},
-			TxStatus::Error { message } |
-			TxStatus::Invalid { message } |
-			TxStatus::Dropped { message } => {
-				return Err(anyhow!("Allowance tx failed: {message}"));
-			},
-			_ => continue,
+	for (chunk_idx, chunk) in storage_calls.chunks(max_batch_calls).enumerate() {
+		let chunk_calls: Vec<Value> = chunk.to_vec();
+		let batch_call = value! { Utility(batch_all { calls: chunk_calls }) };
+		let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
+		let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new().immortal().build();
+		let extensions = (
+			dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (),
+			(),
+		);
+
+		let mut progress = client
+			.tx()
+			.create_signed(&tx, &sudo_key, extensions)
+			.await?
+			.submit_and_watch()
+			.await?;
+
+		while let Some(status) = progress.next().await.transpose()? {
+			match status {
+				TxStatus::InFinalizedBlock(tx_in_block) => {
+					tx_in_block.wait_for_success().await?;
+					info!(
+						"Batch {}/{} finalized in block {:#?}",
+						chunk_idx + 1,
+						(num_inner_calls + max_batch_calls - 1) / max_batch_calls,
+						tx_in_block.block_hash()
+					);
+					break;
+				},
+				TxStatus::Error { message } |
+				TxStatus::Invalid { message } |
+				TxStatus::Dropped { message } => {
+					return Err(anyhow!(
+						"Allowance tx batch {} failed: {message}",
+						chunk_idx + 1
+					));
+				},
+				_ => continue,
+			}
 		}
 	}
 
@@ -690,6 +714,9 @@ async fn main() -> Result<(), anyhow::Error> {
 			sudo_seed,
 			args.num_clients,
 			args.allowance_batch_size,
+			args.allowance_max_count,
+			args.allowance_max_size,
+			args.max_batch_calls,
 		)
 		.await?;
 	}
