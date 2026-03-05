@@ -469,7 +469,8 @@ mod tests {
 			offset,
 		);
 
-		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch."); // Should wait 5 seconds
+		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch.");
+		// Should wait 5 seconds
 	}
 
 	#[rstest]
