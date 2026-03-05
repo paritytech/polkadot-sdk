@@ -17,7 +17,6 @@
 use super::*;
 
 use crate::{
-	builder::CandidateDescriptorVersionConfig,
 	configuration::{self, HostConfiguration},
 	mock::{MockGenesisConfig, Scheduler},
 };
@@ -46,7 +45,7 @@ fn default_config() -> MockGenesisConfig {
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
-		builder::{Bench, BenchBuilder, CandidateModifier},
+		builder::{Bench, BenchBuilder, CandidateDescriptorVersionConfig, CandidateModifier},
 		disputes::clear_dispute_storage,
 		initializer::BufferedSessionChange,
 		mock::{new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},

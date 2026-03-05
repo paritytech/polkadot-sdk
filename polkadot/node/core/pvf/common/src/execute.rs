@@ -28,7 +28,7 @@ use std::{sync::Arc, time::Duration};
 /// This reduces parameter explosion and keeps related data together.
 ///
 /// Use this struct when passing validation data through the system. When sending
-/// to the execute worker, use [`ValidationContext::to_execute_request`] to extract
+/// to the execute worker, use [`ValidationContext::into_execute_request`] to extract
 /// only the data needed by the worker.
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct ValidationContext {
