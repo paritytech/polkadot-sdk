@@ -1,20 +1,19 @@
-title: 'relay_chain: add max_relay_parent_age runtime API and HostConfiguration field'
+title: 'relay_chain: add max_relay_parent_session_age runtime API and HostConfiguration field'
 doc:
 - audience: [Runtime Dev, Node Dev]
   description: |
-    Adds a new `max_relay_parent_age` field to `HostConfiguration` and runtime API,
-    representing the maximum age of a relay parent that a parachain block can build upon,
-    measured in relay chain blocks.
+    Adds a new `max_relay_parent_session_age` field to `HostConfiguration` and runtime API,
+    representing the maximum age of the session that a parachain block can build upon,
+    in terms of relay parent of the candidate.
 
-    Includes a storage migration (v12 -> v13) that initialises the new field to the current
-    `scheduling_lookahead` value.
+    Includes a storage migration (v12 -> v13) that initialises the new field to zero.
 
 migrations:
   runtime:
   - reference: polkadot-runtime-parachains
     description: |
-      v12 -> v13 configuration migration. Adds the `max_relay_parent_age` field to
-      `SchedulerParams`, initialised to the existing `scheduling_lookahead` value.
+      v12 -> v13 configuration migration. Adds the `max_relay_parent_session_age` field to
+      `SchedulerParams`, initialising it to zero.
 
 crates:
 - name: polkadot-primitives
