@@ -38,7 +38,7 @@ jobs:
 
       - name: install parity-publish
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
           cargo install parity-publish@0.10.10 --locked -q
 
       - name: set current PR's prdoc name in a variable

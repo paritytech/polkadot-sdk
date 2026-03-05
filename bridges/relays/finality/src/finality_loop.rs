@@ -456,7 +456,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 						e.fail_if_connection_error()?;
 					}
 				},
-				_ = async_std::task::sleep(next_tick).fuse() => {},
+				_ = tokio::time::sleep(next_tick).fuse() => {},
 				_ = exit_signal => return Ok(()),
 			}
 		}
@@ -621,7 +621,7 @@ mod tests {
 		let sync_params = test_sync_params();
 
 		let clients_data = source_client.data.clone();
-		let result = async_std::task::block_on(FinalityLoop::run(
+		let result = tokio::runtime::Runtime::new().unwrap().block_on(FinalityLoop::run(
 			source_client,
 			target_client,
 			sync_params,
@@ -698,7 +698,7 @@ mod tests {
 			.into_iter()
 			.collect(),
 		);
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let mut finality_loop = FinalityLoop::new(
 				source_client,
 				target_client,
@@ -782,7 +782,7 @@ mod tests {
 		);
 
 		let metrics_sync = SyncLoopMetrics::new(None, "source", "target").unwrap();
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let mut finality_loop = FinalityLoop::new(
 				source_client,
 				target_client,

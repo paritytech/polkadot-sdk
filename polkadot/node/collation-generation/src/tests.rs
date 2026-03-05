@@ -176,6 +176,7 @@ fn submit_collation_is_no_op_before_initialization() {
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent: Hash::repeat_byte(0),
+					scheduling_parent: Some(Hash::repeat_byte(0)),
 					collation: test_collation(),
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash: Hash::repeat_byte(1).into(),
@@ -209,11 +210,19 @@ fn submit_collation_leads_to_distribution() {
 			})
 			.await;
 
+		let mut collation = test_collation();
+		collation.upward_messages.force_push(UMP_SEPARATOR);
+		// Add a core selector signal to make this V3-compatible
+		collation
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
 		virtual_overseer
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
-					collation: test_collation(),
+					scheduling_parent: Some(relay_parent),
+					collation,
 					parent_head: dummy_head_data(),
 					validation_code_hash,
 					result_sender: None,
@@ -458,6 +467,7 @@ fn v2_receipts_failed_core_index_check() {
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
+					scheduling_parent: Some(relay_parent),
 					collation: test_collation(),
 					parent_head: dummy_head_data(),
 					validation_code_hash,
@@ -515,6 +525,7 @@ fn approved_peer_signal() {
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
+					scheduling_parent: Some(relay_parent),
 					collation,
 					parent_head: dummy_head_data(),
 					validation_code_hash,
@@ -545,7 +556,7 @@ fn approved_peer_signal() {
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
 				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
-				assert_eq!(descriptor.version(), CandidateDescriptorVersion::V2);
+				assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V3);
 			}
 		);
 

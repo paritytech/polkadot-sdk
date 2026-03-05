@@ -304,8 +304,12 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			if let Ok(authorities) = para_client.runtime_api().authorities(initial_parent_hash) {
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			{
+				let mut runtime_api = para_client.runtime_api();
+				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				if let Ok(authorities) = runtime_api.authorities(initial_parent_hash) {
+					connection_helper.update::<P>(para_slot.slot, &authorities).await;
+				}
 			}
 
 			let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
