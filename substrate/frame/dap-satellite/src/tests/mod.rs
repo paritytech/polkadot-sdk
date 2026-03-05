@@ -20,3 +20,4 @@
 mod deal_with_fees_split;
 mod genesis;
 mod on_unbalanced;
+mod xcm_transfer;
