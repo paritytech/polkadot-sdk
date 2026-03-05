@@ -38,10 +38,13 @@ fn default_config() -> MockGenesisConfig {
 	}
 }
 
-/// Enable the `CandidateReceiptV3` node feature in the genesis config.
-/// V1 and V2 don't require an additional feature flag.
-fn config_with_v3_feature(mut config: MockGenesisConfig, v3_enabled: bool) -> MockGenesisConfig {
-	if v3_enabled {
+/// Enable the `CandidateReceiptV3` node feature in the genesis config when the
+/// descriptor version is V3. V1 and V2 don't require an additional feature flag.
+fn maybe_set_candidate_descriptor_v3_node_feature(
+	mut config: MockGenesisConfig,
+	descriptor_version: CandidateDescriptorVersionConfig,
+) -> MockGenesisConfig {
+	if descriptor_version == CandidateDescriptorVersionConfig::V3 {
 		let idx = FeatureIndex::CandidateReceiptV3 as usize;
 		config.configuration.config.node_features.resize(idx + 1, false);
 		config.configuration.config.node_features.set(idx, true);
@@ -170,9 +173,9 @@ mod enter {
 	// freed via becoming fully available, the backed candidates will not be filtered out in
 	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			MockGenesisConfig::default(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -267,9 +270,9 @@ mod enter {
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
 		// All of them are being made available in this block. Propose 5 more candidates (one for
 		// each core) and check that they're successfully backed and the old ones enacted.
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -369,9 +372,9 @@ mod enter {
 		// Cores 1, 2 and 3 are being made available in this block. Propose 6 more candidates (one
 		// for each core) and check that the right ones are successfully backed and the old ones
 		// enacted.
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -1548,9 +1551,9 @@ mod enter {
 	fn test_backed_candidates_apply_weight_works_for_elastic_scaling(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			MockGenesisConfig::default(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 		new_test_ext(config).execute_with(|| {
 			let seed = [
@@ -1708,9 +1711,9 @@ mod enter {
 	fn non_v1_descriptors_are_filtered(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -2080,9 +2083,9 @@ mod enter {
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		#[case] has_approved_peer_signal: bool,
 	) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -2126,9 +2129,9 @@ mod enter {
 	fn elastic_scaling_mixed_descriptors(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -2170,9 +2173,9 @@ mod enter {
 	fn mixed_descriptors_with_optional_ump_signals(
 		#[case] descriptor_version: CandidateDescriptorVersionConfig,
 	) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -2334,9 +2337,9 @@ mod enter {
 	// Test that candidates that have neither an injected core index nor a v2/v3 descriptor are
 	// filtered.
 	fn candidate_without_core_index(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config = config_with_v3_feature(
+		let config = maybe_set_candidate_descriptor_v3_node_feature(
 			default_config(),
-			descriptor_version == CandidateDescriptorVersionConfig::V3,
+			descriptor_version,
 		);
 
 		new_test_ext(config).execute_with(|| {
@@ -4139,9 +4142,9 @@ mod sanitizers {
 		fn test_with_multiple_cores_per_para(
 			#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		) {
-			let config = config_with_v3_feature(
+			let config = maybe_set_candidate_descriptor_v3_node_feature(
 				default_config(),
-				descriptor_version == CandidateDescriptorVersionConfig::V3,
+				descriptor_version,
 			);
 			new_test_ext(config).execute_with(|| {
 				let non_v1_descriptor_version =
@@ -4339,9 +4342,9 @@ mod sanitizers {
 			#[case] multiple_cores_per_para: bool,
 			#[case] descriptor_version: CandidateDescriptorVersionConfig,
 		) {
-			let config = config_with_v3_feature(
+			let config = maybe_set_candidate_descriptor_v3_node_feature(
 				default_config(),
-				descriptor_version == CandidateDescriptorVersionConfig::V3,
+				descriptor_version,
 			);
 			new_test_ext(config).execute_with(|| {
 				let non_v1_descriptor_version =
@@ -4407,9 +4410,9 @@ mod sanitizers {
 		) {
 			// Mark the first candidate of paraid 1 as invalid. Its descendant should also
 			// be dropped. Also mark the candidate of paraid 3 as invalid.
-			let config = config_with_v3_feature(
+			let config = maybe_set_candidate_descriptor_v3_node_feature(
 				default_config(),
-				descriptor_version == CandidateDescriptorVersionConfig::V3,
+				descriptor_version,
 			);
 			new_test_ext(config).execute_with(|| {
 				let non_v1_descriptor_version =
