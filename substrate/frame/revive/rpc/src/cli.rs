@@ -21,7 +21,7 @@ use crate::{
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	client::{Client, SubscriptionType, connect},
 };
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, future::BoxFuture, pin_mut};
 use jsonrpsee::server::RpcModule;
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
@@ -120,6 +120,40 @@ pub struct CliCommand {
 	/// instruct the RPC to ignore this check.
 	#[arg(long)]
 	pub allow_unprotected_txs: bool,
+}
+
+impl CliCommand {
+	/// Parse CLI args, rejecting any removed flags with a helpful message.
+	pub fn parse_cli() -> anyhow::Result<Self> {
+		let removed_flags =
+			["database-url", "cache-size", "index-last-n-blocks", "earliest-receipt-block"];
+
+		let cmd = removed_flags.iter().fold(Self::command(), |cmd, name| {
+			cmd.arg(
+				clap::Arg::new(*name)
+					.long(*name)
+					.num_args(0..=1)
+					.hide(true)
+					.action(clap::ArgAction::Set),
+			)
+		});
+		let matches = cmd.get_matches();
+
+		let used: Vec<_> = removed_flags
+			.iter()
+			.filter(|f| matches.contains_id(f))
+			.map(|f| format!("--{f}"))
+			.collect();
+		if !used.is_empty() {
+			anyhow::bail!(
+				"[{}] have been removed. \
+				 Check polkadot-sdk PR #11153 for the CLI migration guide.",
+				used.join(", "),
+			);
+		}
+
+		Ok(Self::from_arg_matches(&matches).expect("already validated by clap"))
+	}
 }
 
 /// Initialize the logger
