@@ -315,9 +315,8 @@ where
 	/// Execute the approve call.
 	///
 	/// Implements ERC-20 set semantics: `approve(spender, N)` sets the allowance to exactly `N`
-	/// rather than adding to it. To prevent the ERC-20 approve front-running attack, transitions
-	/// from one non-zero allowance to another are rejected — callers must first set the allowance
-	/// to zero, then set it to the new value.
+	/// rather than adding to it. When overwriting a non-zero allowance, the existing approval is
+	/// cancelled first so the new value replaces (not accumulates with) the old one.
 	fn approve(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::approveCall,
@@ -328,7 +327,7 @@ where
 
 		env.charge(
 			<Runtime as Config<Instance>>::WeightInfo::approve_transfer()
-				.max(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
+				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
 				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance()),
 		)?;
 		let owner = Self::caller(env)?;
