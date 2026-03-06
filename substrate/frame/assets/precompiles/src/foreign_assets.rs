@@ -115,9 +115,8 @@ pub mod pallet {
 
 		/// Remove an asset mapping if it exists, else this function has no effect.
 		pub fn remove_asset_mapping(asset_id: &T::ForeignAssetId) {
-			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::get(asset_id) {
+			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::take(asset_id) {
 				AssetIndexToForeignAssetId::<T>::remove(asset_index);
-				ForeignAssetIdToAssetIndex::<T>::remove(asset_id);
 			}
 		}
 	}

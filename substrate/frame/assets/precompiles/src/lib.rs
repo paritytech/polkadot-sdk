@@ -78,7 +78,7 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
-		Ok(index.into())
+		Ok(index)
 	}
 }
 
@@ -142,7 +142,8 @@ where
 	Call<Runtime, Instance>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 	alloy::primitives::U256: TryInto<<Runtime as Config<Instance>>::Balance>,
 
-	// Note: can't use `From` as it's not implemented for `alloy::primitives::U256` for unsigned types
+	// Note: can't use `From` as it's not implemented for `alloy::primitives::U256` for unsigned
+	// types
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
 {
 	type T = Runtime;
@@ -189,7 +190,8 @@ where
 	Call<Runtime, Instance>: Into<<Runtime as pallet_revive::Config>::RuntimeCall>,
 	alloy::primitives::U256: TryInto<<Runtime as Config<Instance>>::Balance>,
 
-	// Note: can't use `From` as it's not implemented for `alloy::primitives::U256` for unsigned types
+	// Note: can't use `From` as it's not implemented for `alloy::primitives::U256` for unsigned
+	// types
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
 {
 	/// Get the caller as an `H160` address.

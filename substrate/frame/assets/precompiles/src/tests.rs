@@ -91,7 +91,7 @@ fn precompile_transfer_works(asset_index: u16) {
 
 		pallet_revive::Pallet::<Test>::bare_call(
 			RuntimeOrigin::signed(from),
-			H160::from(asset_addr),
+			asset_addr,
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
@@ -133,7 +133,7 @@ fn total_supply_works(asset_index: u16) {
 
 		let data = pallet_revive::Pallet::<Test>::bare_call(
 			RuntimeOrigin::signed(owner),
-			H160::from(asset_addr),
+			asset_addr,
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
@@ -168,7 +168,7 @@ fn balance_of_works(asset_index: u16) {
 
 		let data = pallet_revive::Pallet::<Test>::bare_call(
 			RuntimeOrigin::signed(owner),
-			H160::from(asset_addr),
+			asset_addr,
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
@@ -216,7 +216,7 @@ fn approval_works(asset_index: u16) {
 
 		pallet_revive::Pallet::<Test>::bare_call(
 			RuntimeOrigin::signed(owner),
-			H160::from(asset_addr),
+			asset_addr,
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
@@ -241,7 +241,7 @@ fn approval_works(asset_index: u16) {
 
 		let data = pallet_revive::Pallet::<Test>::bare_call(
 			RuntimeOrigin::signed(owner),
-			H160::from(asset_addr),
+			asset_addr,
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
@@ -266,7 +266,7 @@ fn approval_works(asset_index: u16) {
 
 		pallet_revive::Pallet::<Test>::bare_call(
 			RuntimeOrigin::signed(spender),
-			H160::from(asset_addr),
+			asset_addr,
 			0u32.into(),
 			TransactionLimits::WeightAndDeposit {
 				weight_limit: Weight::MAX,
