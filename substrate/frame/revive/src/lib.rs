@@ -1355,18 +1355,72 @@ pub mod pallet {
 			encoded_len: u32,
 			authorization_list: Vec<evm::AuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
-			Self::eth_call_impl(
-				origin,
+			let signer = Self::ensure_eth_signed(origin)?;
+			let origin = OriginFor::<T>::signed(signer.clone());
+
+			Self::ensure_non_contract_if_signed(&origin)?;
+
+			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
 				weight_limit,
 				eth_gas_limit,
-				data,
-				transaction_encoded,
+				data: data.clone(),
+				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
-				authorization_list,
-			)
+				authorization_list: authorization_list.clone(),
+			}
+			.into();
+			let info = T::FeeInfo::dispatch_info(&call);
+			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
+			drop(call);
+
+			// Process authorizations OUTSIDE the transaction context
+			// so delegation changes persist even if the call fails.
+			let exec_config =
+				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let auth_result = if !authorization_list.is_empty() {
+				evm::eip7702::process_authorizations::<T>(
+					&authorization_list,
+					&signer,
+					&exec_config,
+				)
+				.inspect_err(|e| {
+					log::error!(target: LOG_TARGET, "process_authorizations failed: {e:?}. This is a bug: the transaction should have failed validation.");
+				})?
+			} else {
+				Default::default()
+			};
+			let extra_weight =
+				base_info.total_weight().saturating_sub(auth_result.weight_refund);
+			let base_call_weight =
+				base_info.call_weight.saturating_sub(auth_result.weight_refund);
+
+			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
+				let output = Self::bare_call(
+					origin,
+					dest,
+					value,
+					TransactionLimits::EthereumGas {
+						eth_gas_limit: eth_gas_limit.saturated_into(),
+						weight_limit,
+						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: auth_result.deposit,
+					},
+					data,
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+				);
+
+				block_storage::EthereumCallResult::new::<T>(
+					signer,
+					output,
+					base_call_weight,
+					encoded_len,
+					&info,
+					effective_gas_price,
+				)
+			})
 		}
 
 		/// Executes a Substrate runtime call from an Ethereum transaction.
@@ -1559,80 +1613,6 @@ fn dispatch_result<R>(
 }
 
 impl<T: Config> Pallet<T> {
-	fn eth_call_impl(
-		origin: OriginFor<T>,
-		dest: H160,
-		value: U256,
-		weight_limit: Weight,
-		eth_gas_limit: U256,
-		data: Vec<u8>,
-		transaction_encoded: Vec<u8>,
-		effective_gas_price: U256,
-		encoded_len: u32,
-		authorization_list: Vec<evm::AuthorizationListEntry>,
-	) -> DispatchResultWithPostInfo {
-		let signer = Self::ensure_eth_signed(origin)?;
-		let origin = OriginFor::<T>::signed(signer.clone());
-
-		Self::ensure_non_contract_if_signed(&origin)?;
-
-		let mut call = Call::<T>::eth_call {
-			dest,
-			value,
-			weight_limit,
-			eth_gas_limit,
-			data: data.clone(),
-			transaction_encoded: transaction_encoded.clone(),
-			effective_gas_price,
-			encoded_len,
-			authorization_list: authorization_list.clone(),
-		}
-		.into();
-		let info = T::FeeInfo::dispatch_info(&call);
-		let base_info = T::FeeInfo::base_dispatch_info(&mut call);
-		drop(call);
-
-		// Process authorizations OUTSIDE the transaction context
-		// so delegation changes persist even if the call fails.
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
-		let auth_result = if !authorization_list.is_empty() {
-			evm::eip7702::process_authorizations::<T>(&authorization_list, &signer, &exec_config)
-				.inspect_err(|e| {
-					log::error!(target: LOG_TARGET, "process_authorizations failed: {e:?}. This is a bug: the transaction should have failed validation.");
-				})?
-		} else {
-			Default::default()
-		};
-		let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
-		let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
-
-		block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-			let output = Self::bare_call(
-				origin,
-				dest,
-				value,
-				TransactionLimits::EthereumGas {
-					eth_gas_limit: eth_gas_limit.saturated_into(),
-					weight_limit,
-					eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
-					authorization_deposit: auth_result.deposit,
-				},
-				data,
-				&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
-			);
-
-			block_storage::EthereumCallResult::new::<T>(
-				signer,
-				output,
-				base_call_weight,
-				encoded_len,
-				&info,
-				effective_gas_price,
-			)
-		})
-	}
-
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
