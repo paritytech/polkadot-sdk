@@ -40,7 +40,7 @@ use frame_support::{
 	DefaultNoBound, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
+	traits::{ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_revive_fixtures::compile_module;
@@ -130,16 +130,16 @@ pub mod test_utils {
 		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash).unwrap();
 		AccountInfo::<Test>::insert_contract(&address, contract);
 	}
-	pub fn set_balance(who: &AccountIdOf<Test>, amount: u64) {
+	pub fn set_balance(who: &AccountIdOf<Test>, amount: u128) {
 		let _ = <Test as Config>::Currency::set_balance(who, amount);
 	}
-	pub fn get_balance(who: &AccountIdOf<Test>) -> u64 {
+	pub fn get_balance(who: &AccountIdOf<Test>) -> u128 {
 		<Test as Config>::Currency::free_balance(who)
 	}
 	pub fn get_balance_on_hold(
 		reason: &<Test as Config>::RuntimeHoldReason,
 		who: &AccountIdOf<Test>,
-	) -> u64 {
+	) -> u128 {
 		<Test as Config>::Currency::balance_on_hold(reason.into(), who)
 	}
 	pub fn get_contract(addr: &H160) -> ContractInfo<Test> {
@@ -156,14 +156,14 @@ pub mod test_utils {
 	}
 	pub fn contract_base_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
-		let info_size = contract_info.encoded_size() as u64;
+		let info_size = contract_info.encoded_size() as u128;
 		let code_deposit = CodeHashLockupDepositPercent::get()
 			.mul_ceil(get_code_deposit(&contract_info.code_hash));
 		let deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get())
 			.saturating_add(code_deposit);
-		let immutable_size = contract_info.immutable_data_len() as u64;
+		let immutable_size = contract_info.immutable_data_len() as u128;
 		if immutable_size > 0 {
 			let immutable_deposit = DepositPerByte::get()
 				.saturating_mul(immutable_size)
@@ -173,12 +173,12 @@ pub mod test_utils {
 			deposit
 		}
 	}
-	pub fn expected_deposit(code_len: usize) -> u64 {
+	pub fn expected_deposit(code_len: usize) -> u128 {
 		// For code_info, the deposit for max_encoded_len is taken.
-		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
+		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u128;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
+		DepositPerByte::get().saturating_mul(code_len as u128 + code_info_len) +
 			DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
@@ -267,7 +267,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
-	pub static ExistentialDeposit: u64 = 1;
+	pub static ExistentialDeposit: u128 = 1;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -276,11 +276,12 @@ impl frame_system::Config for Test {
 	type BlockWeights = BlockWeights;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = pallet_balances::AccountData<u128>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
+	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
@@ -301,14 +302,14 @@ impl pallet_proxy::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ();
-	type ProxyDepositBase = ConstU64<1>;
-	type ProxyDepositFactor = ConstU64<1>;
+	type ProxyDepositBase = ConstU128<1>;
+	type ProxyDepositFactor = ConstU128<1>;
 	type MaxProxies = ConstU32<32>;
 	type WeightInfo = ();
 	type MaxPending = ConstU32<32>;
 	type CallHasher = BlakeTwo256;
-	type AnnouncementDepositBase = ConstU64<1>;
-	type AnnouncementDepositFactor = ConstU64<1>;
+	type AnnouncementDepositBase = ConstU128<1>;
+	type AnnouncementDepositFactor = ConstU128<1>;
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
@@ -319,7 +320,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<2, 1, Self, u64>;
+	type WeightToFee = BlockRatioFee<2, 1, Self, u128>;
 	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -335,7 +336,7 @@ parameter_types! {
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
 	fn convert(w: Weight) -> BalanceOf<Self> {
-		w.ref_time()
+		w.ref_time().into()
 	}
 }
 
@@ -385,7 +386,7 @@ impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
 impl Config for Test {
 	type Time = Timestamp;
 	type AddressMapper = AccountId32Mapper<Self>;
-	type Balance = u64;
+	type Balance = u128;
 	type Currency = Balances;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
@@ -429,7 +430,7 @@ impl SetWeightLimit for RuntimeCall {
 }
 
 pub struct ExtBuilder {
-	existential_deposit: u64,
+	existential_deposit: u128,
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
 	genesis_config: Option<crate::GenesisConfig<Test>>,
@@ -456,7 +457,7 @@ impl ExtBuilder {
 		self.genesis_config = config;
 		self
 	}
-	pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
+	pub fn existential_deposit(mut self, existential_deposit: u128) -> Self {
 		self.existential_deposit = existential_deposit;
 		self
 	}

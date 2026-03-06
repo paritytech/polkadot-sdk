@@ -46,7 +46,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
@@ -317,8 +317,12 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			{
+				let mut runtime_api = para_client.runtime_api();
+				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
+					connection_helper.update::<P>(para_slot.slot, &authorities).await;
+				}
 			}
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(

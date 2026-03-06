@@ -300,7 +300,7 @@ mod tests {
 		}
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn block_checker_works() {
 		let mut source_client = TestSourceClient { ..Default::default() };
 		let mut target_client = TestTargetClient {
@@ -350,7 +350,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn block_checker_works_with_empty_context() {
 		let mut target_client = TestTargetClient {
 			best_synced_header_hash: HashMap::from([(9, Ok(None))]),
@@ -381,7 +381,7 @@ mod tests {
 		assert_eq!(*source_client.reported_equivocations.lock().unwrap(), HashMap::default());
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn read_synced_headers_handles_errors() {
 		let mut target_client = TestTargetClient {
 			synced_headers_finality_info: HashMap::from([
@@ -425,7 +425,7 @@ mod tests {
 		assert_eq!(target_client.num_reconnects, 1);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn read_context_handles_errors() {
 		let mut target_client = TestTargetClient {
 			synced_headers_finality_info: HashMap::from([(10, Ok(vec![])), (11, Ok(vec![]))]),

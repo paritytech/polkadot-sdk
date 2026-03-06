@@ -13,6 +13,7 @@ use cumulus_zombienet_sdk_helpers::{
 	assert_blocks_are_being_finalized, assert_para_throughput, create_runtime_upgrade_call,
 	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
 };
+use futures::StreamExt;
 use polkadot_primitives::Id as ParaId;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
@@ -48,7 +49,22 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	submit_extrinsic_and_wait_for_finalization_success(&collator_client, &call, &dev::alice())
 		.await?;
 
-	wait_for_runtime_upgrade(&collator_client).await?;
+	let block_hash_of_upgrade = wait_for_runtime_upgrade(&collator_client).await?;
+
+	// since https://github.com/paritytech/polkadot-sdk/pull/6029
+	// we need to wait to the next block to get the slot duration updated.
+	log::info!("Waiting for next finalized block for parachain {PARA_ID}...");
+	let mut finalized_blocks = collator_client.blocks().subscribe_finalized().await?.take(2);
+	while let Some(block) = finalized_blocks.next().await {
+		let block = block?;
+		let hash = block.hash();
+		log::info!("Checking Block #{} ({hash})", block.header().number);
+		if block_hash_of_upgrade != hash {
+			break;
+		} else {
+			log::info!("Same block where the upgrade was detected, waiting one more...");
+		}
+	}
 
 	let slot_duration = get_slot_duration(&collator_client).await?;
 	assert_ne!(
