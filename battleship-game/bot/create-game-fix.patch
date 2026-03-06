@@ -1,0 +1,48 @@
+--- a/src/battleship.ts
++++ b/src/battleship.ts
+@@ -155,21 +155,36 @@ export class BattleshipClient {
+   async createGame(signer: PolkadotSigner, potAmount: bigint): Promise<bigint | null> {
+     try {
+       const nextId = await this.api.query.Battleship.NextGameId.getValue({ at: "best" });
+       const predictedId = typeof nextId === "bigint" ? nextId : BigInt(nextId);
+       
++      // Get current player game BEFORE creating (to detect new game)
++      const pubkey = (signer as any).publicKey;
++      const address = AccountId().dec(pubkey);
++      const oldPlayerGame = await this.api.query.Battleship.PlayerGame.getValue(address, { at: "best" });
++      const oldGameId = oldPlayerGame ? (typeof oldPlayerGame === "bigint" ? oldPlayerGame : BigInt(oldPlayerGame)) : null;
++      
+       const tx = this.api.tx.Battleship.create_game({ pot_amount: potAmount });
+       await submitTx(tx, signer, this.client, "create_game", this.api);
+       
+-      // Poll for confirmation
+-      const pubkey = (signer as any).publicKey;
+-      const address = AccountId().dec(pubkey);
+-      
++      // Poll for NEW game (different from old)
+       for (let i = 0; i < 20; i++) {
+         await new Promise(r => setTimeout(r, 1500));
+         const playerGame = await this.api.query.Battleship.PlayerGame.getValue(address, { at: "best" });
+         if (playerGame !== null && playerGame !== undefined) {
+           const gameId = typeof playerGame === "bigint" ? playerGame : BigInt(playerGame);
+-          console.log(`[create_game] Confirmed gameId=${gameId}`);
+-          return gameId;
++          // Only return if it's a NEW game or no old game existed
++          if (oldGameId === null || gameId !== oldGameId) {
++            console.log(`[create_game] Confirmed NEW gameId=${gameId}`);
++            return gameId;
++          }
+         }
+       }
+       
++      // Fallback: assume the predicted ID if NextGameId increased
++      const newNextId = await this.api.query.Battleship.NextGameId.getValue({ at: "best" });
++      const newNext = typeof newNextId === "bigint" ? newNextId : BigInt(newNextId);
++      if (newNext > predictedId) {
++        console.log(`[create_game] Using predicted gameId=${predictedId}`);
++        return predictedId;
++      }
++      
+       return null;
+     } catch (e) {
+       console.error("[create_game] Error:", e);

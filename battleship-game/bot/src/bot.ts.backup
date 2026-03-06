@@ -1,0 +1,318 @@
+import { BattleshipClient } from "./battleship.js";
+import { BotAccount } from "./accounts.js";
+import { placeShipsRandomly, selectAttackTarget } from "./game.js";
+import { buildMerkleTree } from "./merkle.js";
+import { GRID_SIZE } from "./types.js";
+import type { Position } from "./types.js";
+
+interface GameState {
+  gameId: bigint;
+  myAddress: string;
+  opponentAddress: string;
+  myGrid: any[];
+  myRoot: Uint8Array;
+  opponentHits: Set<string>;
+  myAttacks: Map<string, boolean>;
+  round: number;
+  committed: boolean;
+  lastAttackRound: number; // Track last round we attacked
+}
+
+export class BattleshipBot {
+  private client: BattleshipClient;
+  private account: BotAccount;
+  private games: Map<bigint, GameState> = new Map();
+  private initializing: Set<bigint> = new Set();
+
+  constructor(client: BattleshipClient, account: BotAccount) {
+    this.client = client;
+    this.account = account;
+  }
+
+  async run(): Promise<void> {
+    console.log(`[Bot] Starting with address ${this.account.address}`);
+
+    while (true) {
+      try {
+        // Only create/join if we're not already in a game
+        if (this.games.size === 0) {
+          // Check for waiting games to join (that aren't ours)
+          const waitingGames = await this.client.findWaitingGames();
+          let joinedGame = false;
+          
+          for (const gameId of waitingGames) {
+            if (this.initializing.has(gameId)) continue;
+            
+            const game = await this.client.getGame(gameId);
+            if (!game) continue;
+            
+            const player1 = game.player1?.toString();
+            if (player1 === this.account.address) {
+              // This is our game, skip it (we're waiting for opponent)
+              continue;
+            }
+            
+            // Found a game to join!
+            console.log(`[Bot] Found waiting game ${gameId}, joining...`);
+            this.initializing.add(gameId);
+            const success = await this.client.joinGame(this.account.signer, gameId);
+            
+            if (success) {
+              await this.initializeGame(gameId);
+              joinedGame = true;
+              break;
+            } else {
+              this.initializing.delete(gameId);
+            }
+          }
+          
+          // If we didn't join any game, create one
+          if (!joinedGame) {
+            console.log("[Bot] No available games to join, creating new game...");
+            const gameId = await this.client.createGame(this.account.signer, 1000000000000n);
+            
+            if (gameId !== null) {
+              console.log(`[Bot] Created game ${gameId}, waiting for opponent`);
+              this.initializing.add(gameId);
+              await this.initializeGame(gameId);
+            } else {
+              console.log("[Bot] Failed to create game, retrying...");
+              await new Promise(r => setTimeout(r, 5000));
+            }
+          }
+        }
+
+        // Play all active games
+        await this.playActiveGames();
+
+        // Wait before next iteration
+        await new Promise(r => setTimeout(r, 3000));
+      } catch (e) {
+        console.error("[Bot] Error in main loop:", e);
+        await new Promise(r => setTimeout(r, 5000));
+      }
+    }
+  }
+
+  private async initializeGame(gameId: bigint): Promise<void> {
+    console.log(`[Bot] Initializing game ${gameId}...`);
+
+    // Skip if already initialized
+    if (this.games.has(gameId)) {
+      console.log(`[Bot] Game ${gameId} already initialized, skipping`);
+      this.initializing.delete(gameId);
+      return;
+    }
+
+    const game = await this.client.getGame(gameId);
+    if (!game) {
+      console.log(`[Bot] Game ${gameId} not found`);
+      this.initializing.delete(gameId);
+      return;
+    }
+
+    const player1 = game.player1?.toString();
+    const player2 = game.player2?.toString();
+    
+    const myAddress = this.account.address;
+    
+    // Check if we're actually in this game
+    if (player1 !== myAddress && player2 !== myAddress) {
+      console.log(`[Bot] Not a player in game ${gameId}`);
+      this.initializing.delete(gameId);
+      return;
+    }
+    
+    const opponentAddress = player1 === myAddress ? player2 : player1;
+
+    // Generate grid and place ships IMMEDIATELY
+    const myGrid = placeShipsRandomly();
+    const { root, proofs } = buildMerkleTree(myGrid);
+
+    // Store game state IMMEDIATELY (even if no opponent yet)
+    this.games.set(gameId, {
+      gameId,
+      myAddress,
+      opponentAddress: opponentAddress || "", // Will be empty if no opponent yet
+      myGrid,
+      myRoot: root,
+      opponentHits: new Set(),
+      myAttacks: new Map(),
+      round: 0,
+      committed: false,
+      lastAttackRound: -1,
+    });
+
+    // If no opponent yet, just wait - we'll commit when they join
+    if (!opponentAddress) {
+      console.log(`[Bot] Game ${gameId} waiting for opponent`);
+      this.initializing.delete(gameId);
+      return;
+    }
+
+    // Generate grid and place ships
+    const myGrid = placeShipsRandomly();
+    const { root, proofs } = buildMerkleTree(myGrid);
+
+    // Store game state
+    this.games.set(gameId, {
+      gameId,
+      myAddress,
+      opponentAddress,
+      myGrid,
+      myRoot: root,
+      opponentHits: new Set(),
+      myAttacks: new Map(),
+      round: 0,
+      committed: false,
+      lastAttackRound: -1, // Haven't attacked yet
+    });
+
+    // Commit grid
+    console.log(`[Bot] Committing grid for game ${gameId}...`);
+    const success = await this.client.commitGrid(this.account.signer, gameId, root);
+    
+    if (success) {
+      const state = this.games.get(gameId);
+      if (state) {
+        state.committed = true;
+      }
+      console.log(`[Bot] Game ${gameId} initialized and grid committed`);
+    } else {
+      console.log(`[Bot] Failed to commit grid for game ${gameId}`);
+      this.games.delete(gameId);
+    }
+    
+    this.initializing.delete(gameId);
+  }
+
+  private async playActiveGames(): Promise<void> {
+    const gameIds = Array.from(this.games.keys());
+
+    for (const gameId of gameIds) {
+      try {
+        await this.playGame(gameId);
+      } catch (e) {
+        console.error(`[Bot] Error playing game ${gameId}:`, e);
+      }
+    }
+  }
+
+  private async playGame(gameId: bigint): Promise<void> {
+    const state = this.games.get(gameId);
+    if (!state) return;
+
+    const game = await this.client.getGame(gameId);
+    if (!game) {
+      console.log(`[Bot] Game ${gameId} not found, removing from active games`);
+      this.games.delete(gameId);
+      return;
+    }
+
+    const phase = game.phase?.type;
+
+    if (phase === "Finished") {
+      console.log(`[Bot] Game ${gameId} finished`);
+      this.games.delete(gameId);
+      return;
+    }
+
+    if (phase === "Setup" || phase === "WaitingForOpponent") {
+      // Still in setup, waiting for game to start
+      return;
+    }
+
+    if (phase !== "Playing") {
+      // Not in playing phase yet
+      return;
+    }
+
+    // Check whose turn it is
+    const currentRound = game.round_number ?? 0;
+    const lastAttacker = game.last_attacker?.toString();
+    const pendingReveal = game.pending_reveal;
+
+    // If there's a pending reveal and it's for us, reveal the cell
+    if (pendingReveal) {
+      const targetPlayer = pendingReveal.target_player?.toString();
+      if (targetPlayer === state.myAddress) {
+        await this.revealAttackedCell(gameId, state, pendingReveal.coordinate);
+        return;
+      }
+    }
+
+    // Check if it's our turn to attack
+    // We can attack if:
+    // 1. No one has attacked yet (lastAttacker is null), OR
+    // 2. The opponent was the last attacker
+    const isMyTurn = !lastAttacker || lastAttacker === state.opponentAddress;
+
+    // Only attack if it's our turn AND we haven't attacked this round yet
+    if (isMyTurn && state.lastAttackRound < currentRound) {
+      await this.makeAttack(gameId, state, currentRound);
+    }
+  }
+
+  private async makeAttack(gameId: bigint, state: GameState, round: number): Promise<void> {
+    // Select target using AI strategy
+    const target = selectAttackTarget(state.myAttacks);
+    
+    console.log(`[Bot] Attacking (${target.x}, ${target.y}) in game ${gameId}, round ${round}`);
+    
+    const success = await this.client.attack(
+      this.account.signer,
+      gameId,
+      target.x,
+      target.y,
+      round
+    );
+
+    if (success) {
+      // Mark that we've attacked this round
+      state.lastAttackRound = round;
+      // We don't know if it's a hit yet, will be revealed
+      state.myAttacks.set(`${target.x},${target.y}`, false);
+      console.log(`[Bot] Attack submitted successfully for round ${round}`);
+    } else {
+      console.log(`[Bot] Attack failed for round ${round}`);
+    }
+  }
+
+  private async revealAttackedCell(
+    gameId: bigint,
+    state: GameState,
+    coordinate: { x: number; y: number }
+  ): Promise<void> {
+    const { x, y } = coordinate;
+    const index = y * GRID_SIZE + x;
+    const cell = state.myGrid[index];
+
+    console.log(`[Bot] Revealing cell (${x}, ${y}) in game ${gameId}`);
+
+    // Build merkle tree to get proof
+    const { proofs } = buildMerkleTree(state.myGrid);
+    const proof = proofs[index];
+
+    const game = await this.client.getGame(gameId);
+    const currentRound = game?.round_number ?? 0;
+
+    const success = await this.client.revealCell(
+      this.account.signer,
+      gameId,
+      cell,
+      proof,
+      coordinate,
+      currentRound
+    );
+
+    if (success) {
+      state.opponentHits.add(`${x},${y}`);
+      
+      if (cell.isOccupied) {
+        console.log(`[Bot] Revealed HIT at (${x}, ${y})`);
+      } else {
+        console.log(`[Bot] Revealed MISS at (${x}, ${y})`);
+      }
+    }
+  }
+}

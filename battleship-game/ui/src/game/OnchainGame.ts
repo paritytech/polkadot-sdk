@@ -726,7 +726,7 @@ export class OnchainGame {
         this.phase === "waiting_commit" ||
         this.phase === "waiting_opponent";
       if (canClaimTimeout) {
-        await this.checkAndClaimTimeout(lastActionBlock, TURN_TIMEOUT, phase);
+        await this.checkAndClaimTimeout(game, lastActionBlock, TURN_TIMEOUT, phase);
       }
     }
 
@@ -775,7 +775,7 @@ export class OnchainGame {
         await this.updateOpponentBoardFromChain();
       }
 
-      const weArePlayer1 = this.player === "alice";
+      const weArePlayer1 = game.player1?.toString() === this.account.address;
       const isPlayer1Turn = currentTurn?.type === "Player1";
       this.isOurTurn = weArePlayer1 === isPlayer1Turn;
 
@@ -842,7 +842,7 @@ export class OnchainGame {
 
     if (phase.type === "PendingWinnerReveal") {
       const winnerRole = phase.value?.winner;
-      const weArePlayer1 = this.player === "alice";
+      const weArePlayer1 = game.player1?.toString() === this.account.address;
       const weAreWinner =
         (winnerRole?.type === "Player1" && weArePlayer1) ||
         (winnerRole?.type === "Player2" && !weArePlayer1);
@@ -861,7 +861,7 @@ export class OnchainGame {
     if (phase.type === "Finished") {
       const winnerRole = phase.value?.winner;
       const reason = phase.value?.reason?.type || "unknown";
-      const weArePlayer1 = this.player === "alice";
+      const weArePlayer1 = game.player1?.toString() === this.account.address;
       const weWon =
         (winnerRole?.type === "Player1" && weArePlayer1) ||
         (winnerRole?.type === "Player2" && !weArePlayer1);
@@ -900,7 +900,7 @@ export class OnchainGame {
   private isClaimingTimeout = false;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async checkAndClaimTimeout(lastActionBlock: number, timeout: number, phase: any): Promise<void> {
+  private async checkAndClaimTimeout(game: any, lastActionBlock: number, timeout: number, phase: any): Promise<void> {
     if (!this.battleshipClient || this.gameId === null) return;
     if (this.isClaimingTimeout) return;
 
@@ -913,7 +913,7 @@ export class OnchainGame {
       canClaim = true; // Creator can cancel
     } else if (phase.type === "Setup") {
       // Can claim if we already committed but opponent hasn't
-      const weArePlayer1 = this.player === "alice";
+      const weArePlayer1 = game.player1?.toString() === this.account.address;
       const p1Ready = phase.value?.player1_ready ?? false;
       const p2Ready = phase.value?.player2_ready ?? false;
       canClaim = (weArePlayer1 && p1Ready && !p2Ready) || (!weArePlayer1 && p2Ready && !p1Ready);
