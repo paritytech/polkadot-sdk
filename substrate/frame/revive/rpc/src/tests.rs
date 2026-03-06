@@ -90,6 +90,7 @@ impl SharedResources {
 			"--node-rpc-url=ws://localhost:45789",
 			"--no-prometheus",
 			"-linfo,eth-rpc=debug",
+			"--eth-pruning=256",
 		]);
 
 		let _rpc_handle = thread::spawn(move || {

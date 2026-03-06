@@ -98,11 +98,10 @@ pub struct CliCommand {
 
 	/// Pruning mode for the eth-rpc receipt database.
 	///
-	/// - archive: Sync all historical blocks (requires an archive node).
+	/// - archive (default): Sync all historical blocks (requires an archive node).
 	/// - N (>= 1): In-memory database keeping only the latest N blocks.
-	/// - Omitted: Persistent database with live subscription only.
-	#[clap(long)]
-	pub eth_pruning: Option<EthPruningMode>,
+	#[clap(long, default_value = "archive")]
+	pub eth_pruning: EthPruningMode,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -160,12 +159,10 @@ fn resolve_db_dir(base_path: Option<BasePath>) -> PathBuf {
 
 /// Resolve SQLite connection options from CLI arguments.
 fn resolve_db_options(
-	eth_pruning: Option<EthPruningMode>,
+	eth_pruning: EthPruningMode,
 	base_path: Option<BasePath>,
 ) -> anyhow::Result<SqliteConnectOptions> {
-	if eth_pruning.is_some_and(|m| !m.is_archive()) {
-		Ok(SqliteConnectOptions::new().in_memory(true))
-	} else {
+	if eth_pruning.is_archive() {
 		let db_dir = resolve_db_dir(base_path);
 		std::fs::create_dir_all(&db_dir).map_err(|e| {
 			anyhow::anyhow!("Failed to create database directory {}: {e}", db_dir.display())
@@ -173,12 +170,14 @@ fn resolve_db_options(
 		let db_path = db_dir.join(DEFAULT_DATABASE_NAME);
 		log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
 		Ok(SqliteConnectOptions::new().filename(&db_path).create_if_missing(true))
+	} else {
+		Ok(SqliteConnectOptions::new().in_memory(true))
 	}
 }
 
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
-	eth_pruning: Option<EthPruningMode>,
+	eth_pruning: EthPruningMode,
 	node_rpc_url: &str,
 	db_options: SqliteConnectOptions,
 	max_request_size: u32,
@@ -186,36 +185,47 @@ fn build_client(
 	abort_signal: Signals,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) = connect(node_rpc_url, max_request_size, max_response_size).await?;
-		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
+		let (api, rpc_client, rpc) =
+			connect(node_rpc_url, max_request_size, max_response_size).await?;
+		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
-		let (pool, keep_latest_n_blocks) = if let Some(max_blocks) = eth_pruning.and_then(|m| m.keep_latest()) {
-			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {max_blocks} blocks in memory");
-			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
-			let pool = SqlitePoolOptions::new()
+		let (pool, keep_latest_n_blocks) = match eth_pruning {
+			EthPruningMode::Archive => {
+				(SqlitePoolOptions::new().connect_with(db_options).await?, None)
+			},
+			EthPruningMode::KeepLatest(max_blocks) => {
+				log::info!(target: LOG_TARGET,
+					"💾 Using in-memory database, keeping only {max_blocks} blocks");
+				// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+				let pool = SqlitePoolOptions::new()
 					.max_connections(1)
 					.idle_timeout(None)
 					.max_lifetime(None)
-					.connect_with(db_options).await?;
-
-			(pool, Some(max_blocks))
-		} else {
-			(SqlitePoolOptions::new().connect_with(db_options).await?, None)
+					.connect_with(db_options)
+					.await?;
+				(pool, Some(max_blocks))
+			},
 		};
 
 		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
 
 		let receipt_provider = ReceiptProvider::new(
-				pool,
-				block_provider.clone(),
-				receipt_extractor.clone(),
-				keep_latest_n_blocks,
-			)
-			.await?;
+			pool,
+			block_provider.clone(),
+			receipt_extractor.clone(),
+			keep_latest_n_blocks,
+		)
+		.await?;
 
-		let is_archive = eth_pruning.is_some_and(|m| m.is_archive());
-		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, is_archive).await?;
+		let client = Client::new(
+			api,
+			rpc_client,
+			rpc,
+			block_provider,
+			receipt_provider,
+			eth_pruning.is_archive(),
+		)
+		.await?;
 
 		Ok(client)
 	}
@@ -244,7 +254,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	#[cfg(not(test))]
 	init_logger(&shared_params)?;
 	let is_dev = shared_params.dev;
+	let explicit_base_path = shared_params.base_path.is_some();
 	let base_path = shared_params.base_path()?;
+
+	if is_dev && eth_pruning.is_archive() && !explicit_base_path {
+		log::warn!(
+			target: LOG_TARGET,
+			"⚠️  Running in --dev mode with --eth-pruning=archive but no --base-path. \
+			 The database will be stored in a temporary directory and lost on exit. \
+			 Use --base-path to persist the database."
+		);
+	}
 
 	let db_options = resolve_db_options(eth_pruning, base_path)?;
 
@@ -299,7 +319,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	// Read the sync boundary before subscriptions start, so the finalized
 	// subscription cannot advance `Finalized` past actual contiguous coverage.
-	let upper_boundary = if eth_pruning.is_some_and(|m| m.is_archive()) {
+	let upper_boundary = if eth_pruning.is_archive() {
 		log::info!(target: "eth-rpc",
 			"🔄 Historical block sync enabled (--eth-pruning archive). For a complete sync, \
 			 the connected node should be an archive node.");
@@ -382,7 +402,7 @@ mod tests {
 
 	#[test]
 	fn in_memory_returns_memory_options() {
-		let opts = resolve_db_options(Some(EthPruningMode::KeepLatest(256)), None).unwrap();
+		let opts = resolve_db_options(EthPruningMode::KeepLatest(256), None).unwrap();
 		// In-memory options produce `:memory:` filename.
 		let filename = opts.get_filename();
 		assert_eq!(filename, std::path::Path::new(":memory:"));
@@ -392,14 +412,14 @@ mod tests {
 	fn persistent_with_explicit_base_path() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let opts = resolve_db_options(None, Some(base)).unwrap();
+		let opts = resolve_db_options(EthPruningMode::Archive, Some(base)).unwrap();
 		assert_eq!(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
 		assert!(tmp.path().exists());
 	}
 
 	#[test]
 	fn persistent_default_path() {
-		let opts = resolve_db_options(None, None).unwrap();
+		let opts = resolve_db_options(EthPruningMode::Archive, None).unwrap();
 		let filename = opts.get_filename().to_string_lossy().to_string();
 		assert!(filename.contains("eth-rpc"));
 		assert!(filename.contains(DEFAULT_DATABASE_NAME));
@@ -410,7 +430,7 @@ mod tests {
 		let tmp = TempDir::new().unwrap();
 		let nested = tmp.path().join("a").join("b");
 		let base = BasePath::new(&nested);
-		resolve_db_options(None, Some(base)).unwrap();
+		resolve_db_options(EthPruningMode::Archive, Some(base)).unwrap();
 		assert!(nested.exists());
 	}
 
@@ -418,12 +438,13 @@ mod tests {
 	fn eth_pruning_mode() {
 		// CLI parsing
 		let cmd = CliCommand::try_parse_from(["eth-rpc", "--eth-pruning", "archive"]).unwrap();
-		assert_eq!(cmd.eth_pruning, Some(EthPruningMode::Archive));
+		assert_eq!(cmd.eth_pruning, EthPruningMode::Archive);
 
 		let cmd = CliCommand::try_parse_from(["eth-rpc", "--eth-pruning", "256"]).unwrap();
-		assert_eq!(cmd.eth_pruning, Some(EthPruningMode::KeepLatest(256)));
+		assert_eq!(cmd.eth_pruning, EthPruningMode::KeepLatest(256));
 
+		// Default is archive
 		let cmd = CliCommand::try_parse_from(["eth-rpc"]).unwrap();
-		assert_eq!(cmd.eth_pruning, None);
+		assert_eq!(cmd.eth_pruning, EthPruningMode::Archive);
 	}
 }
