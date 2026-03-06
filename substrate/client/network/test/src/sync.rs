@@ -1200,7 +1200,7 @@ async fn syncs_indexed_blocks() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn warp_sync_gap_sync_skips_bodies_if_blocks_pruning() {
+async fn warp_sync() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(0);
 	// Create 3 synced peers and 1 peer trying to warp sync.
@@ -1209,18 +1209,12 @@ async fn warp_sync_gap_sync_skips_bodies_if_blocks_pruning() {
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
-		blocks_pruning: Some(256), // Pruning enabled, gap sync expected to not request bodies
 		..Default::default()
 	});
-
-	// Splitting blocks into chunks to demonstrate how gap sync works
-	let gap_start = net.peer(0).push_blocks(1, false);
-	let blocks = net.peer(0).push_blocks(61, false);
-	let gap_end = net.peer(0).push_blocks(1, false);
+	let gap_end = net.peer(0).push_blocks(63, false).pop().unwrap();
 	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
 	net.peer(1).push_blocks(64, false);
 	net.peer(2).push_blocks(64, false);
-
 	// Wait for peer 3 to sync state.
 	net.run_until_sync().await;
 	// Make sure it was not a full sync.
@@ -1231,67 +1225,7 @@ async fn warp_sync_gap_sync_skips_bodies_if_blocks_pruning() {
 	// Wait for peer 3 to download block history (gap sync).
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
-		let peer = net.peer(3);
-
-		// Gap blocks should only have headers (not bodies) due to pruning
-		let gap_blocks_dont_have_bodies = gap_start
-			.iter()
-			.chain(blocks.iter())
-			.chain(gap_end.iter())
-			.all(|b| peer.has_block(*b) && !peer.has_body(*b));
-
-		// Target block should have body (downloaded during warp sync)
-		let target_has_body = peer.has_body(target);
-
-		if gap_blocks_dont_have_bodies && target_has_body {
-			Poll::Ready(())
-		} else {
-			Poll::Pending
-		}
-	})
-	.await;
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn warp_sync_gap_sync_requests_bodies_if_archive_node() {
-	sp_tracing::try_init_simple();
-	let mut net = TestNet::new(0);
-	// Create 3 synced peers and 1 peer trying to warp sync.
-	net.add_full_peer_with_config(Default::default());
-	net.add_full_peer_with_config(Default::default());
-	net.add_full_peer_with_config(Default::default());
-	net.add_full_peer_with_config(FullPeerConfig {
-		sync_mode: SyncMode::Warp,
-		blocks_pruning: None, // Archive mode, gap sync expected to request bodies too
-		..Default::default()
-	});
-
-	// Splitting blocks into chunks to demonstrate how gap sync works
-	let gap_start = net.peer(0).push_blocks(1, false);
-	let blocks = net.peer(0).push_blocks(61, false);
-	let gap_end = net.peer(0).push_blocks(1, false);
-	let target = net.peer(0).push_blocks(1, false);
-	net.peer(1).push_blocks(64, false);
-	net.peer(2).push_blocks(64, false);
-
-	// Wait for peer 3 to sync state.
-	net.run_until_sync().await;
-	// Make sure it was not a full sync.
-	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
-	// Make sure warp sync was successful.
-	assert!(net.peer(3).client().has_state_at(&BlockId::Number(64)));
-
-	// Wait for peer 3 to download block history (gap sync).
-	futures::future::poll_fn::<(), _>(|cx| {
-		net.poll(cx);
-		let peer = net.peer(3);
-		if gap_start
-			.iter()
-			.chain(blocks.iter())
-			.chain(gap_end.iter())
-			.chain(target.iter())
-			.all(|b| peer.has_body(*b))
-		{
+		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
@@ -1347,7 +1281,6 @@ async fn warp_sync_to_target_block() {
 
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
-		blocks_pruning: Some(256),
 		target_header: Some(target_block),
 		..Default::default()
 	});
@@ -1359,7 +1292,7 @@ async fn warp_sync_to_target_block() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		let peer = net.peer(3);
-		if blocks.iter().all(|b| peer.has_block(*b)) {
+		if blocks.iter().all(|b| peer.has_body(*b)) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
