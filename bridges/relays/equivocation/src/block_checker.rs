@@ -226,19 +226,29 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 		reporter: &'a mut EquivocationsReporter<P, SC>,
 		retry_params: (u32, Duration),
 	) -> BoxFuture<'a, Result<(), Self>> {
-		let (retry_count, retry_tick) = retry_params;
+		let (max_attempts, retry_tick) = retry_params;
 		async move {
 			let mut block_checker = self;
-			for _ in 0..retry_count {
-				match block_checker
+			let mut retry_range = (0..max_attempts).peekable();
+			while let Some(_) = retry_range.next() {
+				block_checker = match block_checker
 					.run(source_client, target_client, finality_proofs_buf, reporter)
 					.await
 				{
 					Ok(_) => return Ok(()),
-					Err(err) => {
-						tokio::time::sleep(retry_tick).await;
-						block_checker = err
-					},
+					Err(err) => err,
+				};
+
+				// We don't need to sleep after the last attempt
+				if retry_range.peek().is_some() {
+					tracing::error!(
+						target: "bridge",
+						source=%P::SOURCE_NAME,
+						target=%P::TARGET_NAME,
+						state=?&block_checker,
+						"Error running block checker for block. Retrying."
+					);
+					tokio::time::sleep(retry_tick).await;
 				}
 			}
 
