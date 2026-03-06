@@ -14,12 +14,12 @@ use sp_statement_store::{
 };
 use zombienet_sdk::{
 	subxt::{
-		config::polkadot::PolkadotExtrinsicParamsBuilder,
+		config::{Config, DefaultExtrinsicParamsBuilder},
 		dynamic::Value,
 		ext::{scale_value::value, subxt_rpcs::rpc_params},
 		tx::{signer::Signer, DynamicPayload, TxStatus},
 		utils::H256,
-		OnlineClient, PolkadotConfig,
+		OnlineClient,
 	},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
@@ -27,7 +27,7 @@ use zombienet_sdk::{
 use super::common::{
 	assert_no_more_statements, create_channel_statement, create_multi_topic_statement,
 	create_test_statement, expect_statement, expect_statements_unordered, get_keypair,
-	submit_statement, subscribe_all, subscribe_topic, subscribe_topic_match_any,
+	submit_statement, subscribe_all, subscribe_topic, subscribe_topic_match_any, BenchConfig,
 };
 
 /// Creates storage items for custom per-participant allowances
@@ -74,17 +74,22 @@ fn create_set_storage_call(items: Vec<(Vec<u8>, Vec<u8>)>) -> DynamicPayload {
 	)
 }
 
-/// Submits an extrinsic with an explicit nonce and waits for it to be included in a block
-async fn submit_sudo_extrinsic<S: Signer<PolkadotConfig>>(
-	client: &OnlineClient<PolkadotConfig>,
+/// Submits an extrinsic with an explicit nonce and waits for it to be included in a block.
+async fn submit_sudo_extrinsic<S: Signer<BenchConfig>>(
+	client: &OnlineClient<BenchConfig>,
 	call: &DynamicPayload,
 	signer: &S,
 	nonce: u64,
 ) -> Result<
-	zombienet_sdk::subxt::tx::TxProgress<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+	zombienet_sdk::subxt::tx::TxProgress<BenchConfig, OnlineClient<BenchConfig>>,
 	anyhow::Error,
 > {
-	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().nonce(nonce).build();
+	let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new()
+		.immortal()
+		.nonce(nonce)
+		.build();
+	let extensions =
+		(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (), ());
 
 	let mut tx = client
 		.tx()
@@ -103,9 +108,9 @@ async fn submit_sudo_extrinsic<S: Signer<PolkadotConfig>>(
 				tx_in_block.wait_for_success().await?;
 				return Ok(tx);
 			},
-			TxStatus::Error { message } |
-			TxStatus::Invalid { message } |
-			TxStatus::Dropped { message } => {
+			TxStatus::Error { message }
+			| TxStatus::Invalid { message }
+			| TxStatus::Dropped { message } => {
 				return Err(anyhow!("Error submitting sudo tx: {message}"));
 			},
 			_ => continue,
@@ -123,7 +128,7 @@ async fn wait_for_tx_finalization<Tx>(
 where
 	Tx: futures::Stream<
 			Item = Result<
-				TxStatus<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+				TxStatus<BenchConfig, OnlineClient<BenchConfig>>,
 				zombienet_sdk::subxt::Error,
 			>,
 		> + Unpin,
@@ -135,9 +140,9 @@ where
 					tx_in_block.wait_for_success().await?;
 					return Ok(tx_in_block.block_hash());
 				},
-				TxStatus::Error { message } |
-				TxStatus::Invalid { message } |
-				TxStatus::Dropped { message } => {
+				TxStatus::Error { message }
+				| TxStatus::Invalid { message }
+				| TxStatus::Dropped { message } => {
 					return Err(anyhow!("Tx error during finalization: {message}"));
 				},
 				_ => continue,
@@ -153,8 +158,8 @@ where
 
 /// Gets the current nonce for an account
 async fn get_account_nonce(
-	client: &OnlineClient<PolkadotConfig>,
-	account_id: &<PolkadotConfig as zombienet_sdk::subxt::Config>::AccountId,
+	client: &OnlineClient<BenchConfig>,
+	account_id: &<BenchConfig as Config>::AccountId,
 ) -> Result<u64, anyhow::Error> {
 	let nonce = client.tx().account_nonce(account_id).await?;
 	Ok(nonce)
@@ -162,15 +167,14 @@ async fn get_account_nonce(
 
 /// Sets statement allowances via sudo -> frame_system::set_storage extrinsic
 async fn set_allowances_via_sudo(
-	para_client: &OnlineClient<PolkadotConfig>,
+	para_client: &OnlineClient<BenchConfig>,
 	items: Vec<(Vec<u8>, Vec<u8>)>,
 ) -> Result<(), anyhow::Error> {
 	info!("Setting {} statement allowances via sudo...", items.len());
 
 	let alice = zombienet_sdk::subxt_signer::sr25519::dev::alice();
-	let alice_account_id = <zombienet_sdk::subxt_signer::sr25519::Keypair as Signer<
-		PolkadotConfig,
-	>>::account_id(&alice);
+	let alice_account_id =
+		<zombienet_sdk::subxt_signer::sr25519::Keypair as Signer<BenchConfig>>::account_id(&alice);
 
 	let current_nonce = get_account_nonce(para_client, &alice_account_id).await?;
 	let set_storage_call = create_set_storage_call(items);
@@ -255,7 +259,7 @@ async fn spawn_network_sudo(
 	info!("Parachain is producing blocks");
 
 	// Set statement allowances via sudo
-	let para_client = node.wait_client::<PolkadotConfig>().await?;
+	let para_client = node.wait_client::<BenchConfig>().await?;
 	set_allowances_via_sudo(&para_client, allowance_items).await?;
 
 	Ok(network)
@@ -275,6 +279,8 @@ async fn statement_store_concurrent_multi_account_submission() -> Result<(), any
 	let items = create_uniform_allowance_items(10, allowance);
 
 	let network = spawn_network_sudo(&["alice", "bob"], items).await?;
+
+	info!("Network is running...");
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;

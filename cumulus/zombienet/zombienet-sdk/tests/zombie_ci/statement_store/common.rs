@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{
+	any::Any,
 	path::{Path, PathBuf},
 	time::Duration,
 };
@@ -15,7 +16,20 @@ use sp_statement_store::{
 	TopicFilter,
 };
 use zombienet_sdk::{
-	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
+	subxt::{
+		backend::rpc::RpcClient,
+		config::{
+			transaction_extensions::{
+				AnyOf, ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis,
+				CheckMetadataHash, CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion,
+				TransactionExtension, VerifySignatureDetails,
+			},
+			Config, ExtrinsicParams, ExtrinsicParamsEncoder,
+		},
+		ext::subxt_rpcs::rpc_params,
+		utils::Static,
+		PolkadotConfig,
+	},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
@@ -448,4 +462,142 @@ pub(super) async fn spawn_network_with_custom_allowances(
 	assert!(network.wait_until_is_up(60).await.is_ok());
 
 	Ok(network)
+}
+
+pub(super) struct VerifyMultiSignature<T: Config>(VerifySignatureDetails<T>);
+
+impl<T: Config> ExtrinsicParams<T> for VerifyMultiSignature<T> {
+	type Params = ();
+
+	fn new(
+		_client: &zombienet_sdk::subxt::client::ClientState<T>,
+		_params: Self::Params,
+	) -> Result<Self, zombienet_sdk::subxt::config::ExtrinsicParamsError> {
+		Ok(VerifyMultiSignature(VerifySignatureDetails::Disabled))
+	}
+}
+
+impl<T: Config> ExtrinsicParamsEncoder for VerifyMultiSignature<T> {
+	fn encode_value_to(&self, v: &mut Vec<u8>) {
+		self.0.encode_to(v);
+	}
+
+	fn inject_signature(&mut self, account: &dyn Any, signature: &dyn Any) {
+		let account = account
+			.downcast_ref::<T::AccountId>()
+			.expect("A T::AccountId should have been provided")
+			.clone();
+		let signature = signature
+			.downcast_ref::<T::Signature>()
+			.expect("A T::Signature should have been provided")
+			.clone();
+		self.0 = VerifySignatureDetails::Signed { signature, account };
+	}
+}
+
+impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
+	type Decoded = Static<VerifySignatureDetails<T>>;
+
+	fn matches(identifier: &str, _type_id: u32, _types: &::scale_info::PortableRegistry) -> bool {
+		identifier == "VerifyMultiSignature" || identifier == "VerifySignature"
+	}
+}
+
+/// Check whether a type requires 0 bytes to encode
+///
+/// Empty types are automatically skipped by `AnyOf`, so catch-all handlers must not claim them
+fn is_type_empty(type_id: u32, types: &::scale_info::PortableRegistry) -> bool {
+	use scale_info::TypeDef;
+	let Some(ty) = types.resolve(type_id) else {
+		return false;
+	};
+	match &ty.type_def {
+		TypeDef::Composite(c) => c.fields.iter().all(|f| is_type_empty(f.ty.id, types)),
+		TypeDef::Array(a) => a.len == 0 || is_type_empty(a.type_param.id, types),
+		TypeDef::Tuple(t) => t.fields.iter().all(|f| is_type_empty(f.id, types)),
+		_ => false,
+	}
+}
+
+macro_rules! define_skip_unknown_extensions {
+	($($name:ident),+ $(,)?) => { $(
+		pub(super) struct $name;
+
+		impl<T: Config> ExtrinsicParams<T> for $name {
+			type Params = ();
+
+			fn new(
+				_client: &zombienet_sdk::subxt::client::ClientState<T>,
+				_params: Self::Params,
+			) -> Result<Self, zombienet_sdk::subxt::config::ExtrinsicParamsError> {
+				Ok($name)
+			}
+		}
+
+		impl ExtrinsicParamsEncoder for $name {
+			fn encode_value_to(&self, v: &mut Vec<u8>) {
+				v.push(0x00);
+			}
+		}
+
+		impl<T: Config> TransactionExtension<T> for $name {
+			type Decoded = Static<u8>;
+
+			fn matches(
+				_identifier: &str,
+				type_id: u32,
+				types: &::scale_info::PortableRegistry,
+			) -> bool {
+				!is_type_empty(type_id, types)
+			}
+		}
+	)+ };
+}
+
+define_skip_unknown_extensions!(
+	SkipUnknown1,
+	SkipUnknown2,
+	SkipUnknown3,
+	SkipUnknown4,
+	SkipUnknown5,
+	SkipUnknown6,
+	SkipUnknown7,
+	SkipUnknown8,
+);
+
+pub(super) type BenchExtrinsicParams<T> = AnyOf<
+	T,
+	(
+		VerifyMultiSignature<T>,
+		CheckSpecVersion,
+		CheckTxVersion,
+		CheckNonce,
+		CheckGenesis<T>,
+		CheckMortality<T>,
+		ChargeAssetTxPayment<T>,
+		ChargeTransactionPayment,
+		CheckMetadataHash,
+		SkipUnknown1,
+		SkipUnknown2,
+		SkipUnknown3,
+		SkipUnknown4,
+		SkipUnknown5,
+		SkipUnknown6,
+		SkipUnknown7,
+		SkipUnknown8,
+	),
+>;
+
+/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`BenchExtrinsicParams`]
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub(super) enum BenchConfig {}
+
+impl Config for BenchConfig {
+	type AccountId = <PolkadotConfig as Config>::AccountId;
+	type Address = <PolkadotConfig as Config>::Address;
+	type Signature = <PolkadotConfig as Config>::Signature;
+	type Hasher = <PolkadotConfig as Config>::Hasher;
+	type Header = <PolkadotConfig as Config>::Header;
+	type ExtrinsicParams = BenchExtrinsicParams<Self>;
+	type AssetId = <PolkadotConfig as Config>::AssetId;
 }

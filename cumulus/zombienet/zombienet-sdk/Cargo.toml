@@ -29,6 +29,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
 
 [features]

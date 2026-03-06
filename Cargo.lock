@@ -5124,6 +5124,7 @@ dependencies = [
  "polkadot-primitives",
  "rstest",
  "sc-statement-store",
+ "scale-info",
  "serde",
  "serde_json",
  "sp-consensus-aura",
