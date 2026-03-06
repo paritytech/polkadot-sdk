@@ -239,6 +239,8 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
+	/// Whether archive mode is enabled
+	is_archive: bool,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -297,6 +299,7 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
+		is_archive: bool,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -316,6 +319,7 @@ impl Client {
 			block_notifier: automine
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
+			is_archive,
 		};
 
 		Ok(client)
@@ -416,7 +420,7 @@ impl Client {
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			match (subscription_type, &self.block_notifier) {
-				(SubscriptionType::FinalizedBlocks, _) => {
+				(SubscriptionType::FinalizedBlocks, _) if self.is_archive => {
 					// Track finalized block in sync_state (monotonic advance).
 					if let Err(err) = self
 						.receipt_provider

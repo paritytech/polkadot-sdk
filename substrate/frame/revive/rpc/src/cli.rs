@@ -213,8 +213,9 @@ fn build_client(
 			)
 			.await?;
 
+		let is_archive = eth_pruning.is_some_and(|m| m.is_archive());
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, is_archive).await?;
 
 		Ok(client)
 	}

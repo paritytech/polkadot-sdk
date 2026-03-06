@@ -1004,7 +1004,7 @@ async fn create_sync_test_client() -> anyhow::Result<Client> {
 	let receipt_provider =
 		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
 
-	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider, true).await?;
 	Ok(client)
 }
 
