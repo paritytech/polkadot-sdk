@@ -71,7 +71,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets_precompiles::{InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -130,7 +130,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
+	NetworkId, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
 
 /// Build with an offset of 1 behind the relay chain.
@@ -163,7 +163,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_021_003,
+	spec_version: 1_021_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -590,6 +590,13 @@ parameter_types! {
 	pub const ForeignAssetsMetadataDepositPerByte: Balance = MetadataDepositPerByte::get();
 }
 
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
+	// must match the AssetId type used by the `ForeignAssets` instance
+	type ForeignAssetId = <Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = ForeignAssetsInstance;
+}
+
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set
 /// an individual, local account as a proxy for the issuance of their assets. This issuance should
@@ -622,7 +629,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -733,7 +740,7 @@ pub enum ProxyType {
 	/// destinations, or nominate.
 	///
 	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
-	/// and `Utility` pallets.
+	/// and `Utility` batching calls (batch, batch_all, force_batch).
 	StakingOperator,
 }
 impl Default for ProxyType {
@@ -892,7 +899,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Utility { .. }
+				) | RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
 		}
 	}
@@ -1246,6 +1255,7 @@ impl pallet_revive::Config for Runtime {
 	type Precompiles = (
 		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
+		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
@@ -1280,6 +1290,10 @@ impl pallet_migrations::Config for Runtime {
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
+		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
+			Runtime,
+			ForeignAssetsInstance,
+		>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1422,6 +1436,7 @@ construct_runtime!(
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
+		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -2530,26 +2545,42 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(PeopleLocation::get())
 				}
-				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
+				fn worst_case_holding(depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
-					let holding_fungibles = holding_non_fungibles - 2; // -2 for two `iter::once` bellow
+					let holding_fungibles = holding_non_fungibles - 2; // -2 for two `iter::once` below
 					let fungibles_amount: u128 = 100;
-					(0..holding_fungibles)
-						.map(|i| {
-							Asset {
-								id: AssetId(GeneralIndex(i as u128).into()),
-								fun: Fungible(fungibles_amount * (i + 1) as u128), // non-zero amount
-							}
-						})
-						.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
-						.chain(core::iter::once(Asset { id: AssetId(WestendLocation::get()), fun: Fungible(1_000_000 * UNITS) }))
-						.chain((0..holding_non_fungibles).map(|i| Asset {
-							id: AssetId(GeneralIndex(i as u128).into()),
-							fun: NonFungible(asset_instance_from(i)),
-						}))
-						.collect::<Vec<_>>()
-						.into()
+
+					let mut holding = xcm_executor::AssetsInHolding::new();
+
+					// Add fungible assets with MockCredit
+					for i in 0..holding_fungibles {
+						holding.fungible.insert(
+							AssetId(GeneralIndex(i as u128).into()),
+							alloc::boxed::Box::new(MockCredit(fungibles_amount * (i + 1) as u128)),
+						);
+					}
+
+					// Add two more fungible assets
+					holding.fungible.insert(
+						AssetId(Here.into()),
+						alloc::boxed::Box::new(MockCredit(u128::MAX)),
+					);
+					holding.fungible.insert(
+						AssetId(WestendLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+
+					// Add non-fungible assets
+					for i in 0..holding_non_fungibles {
+						holding.non_fungible.insert((
+							AssetId(GeneralIndex(i as u128).into()),
+							asset_instance_from(i),
+						));
+					}
+
+					holding
 				}
 			}
 

@@ -82,9 +82,11 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID_1)
@@ -115,6 +117,13 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 					("--experimental-send-approved-peer").into(),
 				])
 				.with_collator(|n| n.with_name("collator-2"))
+		})
+		.with_global_settings(|global_settings| {
+			let global_settings = match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+				Ok(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			};
+			global_settings.with_tear_down_on_failure(false)
 		})
 		.build()
 		.map_err(|e| {

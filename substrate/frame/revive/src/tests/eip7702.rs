@@ -18,11 +18,11 @@
 //! Tests for EIP-7702: Set EOA Account Code
 
 use crate::{
-	evm::{eip7702::AuthorizationResult, fees::InfoT, AuthorizationListEntry},
+	Code, CodeInfoOf, Config, ExecConfig, HoldReason,
+	evm::{AuthorizationListEntry, eip7702::AuthorizationResult, fees::InfoT},
 	storage::AccountInfo,
 	test_utils::builder::Contract,
-	tests::{builder, test_utils::*, TestSigner, *},
-	Code, CodeInfoOf, Config, ExecConfig, HoldReason,
+	tests::{TestSigner, builder, test_utils::*, *},
 };
 use frame_support::{
 	assert_ok,
@@ -174,7 +174,12 @@ fn valid_signature_is_verified_correctly() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth]),
-			AuthorizationResult { existing_accounts: 1, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 1,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
@@ -201,7 +206,12 @@ fn invalid_chain_id_rejects_authorization() {
 		// Authorization with wrong chain_id should be skipped (not error)
 		assert_eq!(
 			test_process_authorizations(&[auth]),
-			AuthorizationResult { existing_accounts: 0, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() }
+			AuthorizationResult {
+				existing_accounts: 0,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			}
 		);
 
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
@@ -229,7 +239,12 @@ fn nonce_mismatch_rejects_authorization() {
 		// Authorization with wrong nonce should be skipped (not error)
 		assert_eq!(
 			test_process_authorizations(&[auth]),
-			AuthorizationResult { existing_accounts: 0, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() }
+			AuthorizationResult {
+				existing_accounts: 0,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			}
 		);
 
 		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
@@ -261,7 +276,12 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth1, auth2, auth3]),
-			AuthorizationResult { existing_accounts: 1, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 1,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
@@ -288,7 +308,12 @@ fn authorization_increments_nonce() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth]),
-			AuthorizationResult { existing_accounts: 1, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 1,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		let nonce_after = frame_system::Pallet::<Test>::account_nonce(&authority_id);
@@ -313,7 +338,12 @@ fn chain_id_zero_accepts_any_chain() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth]),
-			AuthorizationResult { existing_accounts: 1, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 1,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
@@ -337,7 +367,12 @@ fn new_account_sets_delegation() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth]),
-			AuthorizationResult { existing_accounts: 0, new_accounts: 1, deposit: 1, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 0,
+				new_accounts: 1,
+				deposit: 1,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
@@ -365,7 +400,12 @@ fn clearing_delegation_with_zero_address() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth1]),
-			AuthorizationResult { existing_accounts: 1, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 1,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
@@ -374,7 +414,12 @@ fn clearing_delegation_with_zero_address() {
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
 		assert_eq!(
 			test_process_authorizations(&[auth2]),
-			AuthorizationResult { existing_accounts: 1, new_accounts: 0, deposit: 0, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 1,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
@@ -415,7 +460,12 @@ fn process_multiple_authorizations_from_different_signers() {
 
 		assert_eq!(
 			test_process_authorizations(&[auth1, auth2, auth3]),
-			AuthorizationResult { existing_accounts: 2, new_accounts: 1, deposit: 1, weight_refund: Weight::zero() },
+			AuthorizationResult {
+				existing_accounts: 2,
+				new_accounts: 1,
+				deposit: 1,
+				weight_refund: Weight::zero()
+			},
 		);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority1));
@@ -543,7 +593,7 @@ fn test_runtime_delegation_resolution() {
 #[test]
 fn redelegation_preserves_storage() {
 	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{compile_module_with_type, Counter, FixtureType};
+	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
 
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 
@@ -609,7 +659,7 @@ fn redelegation_preserves_storage() {
 #[test]
 fn cleared_delegation_does_not_execute_code() {
 	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{compile_module_with_type, Counter, FixtureType};
+	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
 
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 
@@ -790,7 +840,7 @@ fn authorization_ed_gas_check() {
 #[test]
 fn delegation_chain_does_not_execute() {
 	use alloy_core::sol_types::SolCall;
-	use pallet_revive_fixtures::{compile_module_with_type, Caller, Counter, FixtureType};
+	use pallet_revive_fixtures::{Caller, Counter, FixtureType, compile_module_with_type};
 
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
@@ -873,7 +923,7 @@ fn delegation_chain_does_not_execute() {
 #[test]
 fn selfdestruct_on_delegated_account() {
 	use alloy_core::sol_types::{SolCall, SolConstructor};
-	use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Terminate};
+	use pallet_revive_fixtures::{FixtureType, Terminate, compile_module_with_type};
 
 	let (code, _) = compile_module_with_type("Terminate", FixtureType::Solc).unwrap();
 
@@ -1100,7 +1150,7 @@ fn redelegation_updates_refcounts() {
 			.build_and_unwrap_contract();
 
 		// Deploy a different contract so it has a different code hash
-		use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
+		use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
 		let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 		let target_b =
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
@@ -1263,10 +1313,12 @@ fn runtime_delegation_deposit_roundtrip() {
 		// Set delegation via eth_call
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth = signer.sign_authorization(chain_id, target.addr, nonce);
-		assert_ok!(builder::eth_call_with_authorization_list(target.addr)
-			.authorization_list(vec![auth])
-			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-			.build());
+		assert_ok!(
+			builder::eth_call_with_authorization_list(target.addr)
+				.authorization_list(vec![auth])
+				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
+				.build()
+		);
 
 		let hold_after_set =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
@@ -1275,10 +1327,12 @@ fn runtime_delegation_deposit_roundtrip() {
 		// Clear delegation via eth_call (zero address)
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth = signer.sign_authorization(chain_id, H160::zero(), nonce);
-		assert_ok!(builder::eth_call_with_authorization_list(target.addr)
-			.authorization_list(vec![auth])
-			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-			.build());
+		assert_ok!(
+			builder::eth_call_with_authorization_list(target.addr)
+				.authorization_list(vec![auth])
+				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
+				.build()
+		);
 
 		let hold_after_clear =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);

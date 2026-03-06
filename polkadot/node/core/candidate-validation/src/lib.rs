@@ -27,6 +27,7 @@ use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
+use polkadot_node_core_pvf_common::execute::ValidationContext;
 use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
@@ -48,6 +49,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
+	node_features::FeatureIndex,
 	transpose_claim_queue, AuthorityDiscoveryId, CandidateCommitments,
 	CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt,
@@ -192,7 +194,6 @@ where
 			let _timer = metrics.time_validate_from_exhaustive();
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
 			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
 				let error = "cannot fetch session index from the runtime";
 				gum::warn!(
@@ -205,6 +206,39 @@ where
 					.send(Err(ValidationFailed("Session index not found".to_string())));
 				return;
 			};
+
+			let v3_enabled =
+				match util::request_node_features(relay_parent, session_index, &mut sender)
+					.await
+					.await
+				{
+					Ok(Ok(features)) => FeatureIndex::CandidateReceiptV3.is_set(&features),
+					Ok(Err(e)) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?session_index,
+							err = ?e,
+							"Failed to fetch node features from runtime"
+						);
+						let _ = response_sender
+							.send(Err(ValidationFailed("Node features not available".to_string())));
+						return;
+					},
+					Err(e) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?relay_parent,
+							?session_index,
+							err = ?e,
+							"Failed to fetch node features, oneshot canceled"
+						);
+						let _ = response_sender.send(Err(ValidationFailed(
+							"Node features request canceled".to_string(),
+						)));
+						return;
+					},
+				};
 
 			// This will return a default value for the limit if runtime API is not available.
 			// however we still error out if there is a weird runtime API error.
@@ -228,8 +262,35 @@ where
 				return;
 			};
 
+			// Claim queue is scheduling context — fetch it from the scheduling_parent.
+			// For V1/V2, scheduling_parent() returns relay_parent.
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+			let maybe_claim_queue = claim_queue(scheduling_parent, &mut sender).await;
+
+			// Fetch the scheduling session index for validating the descriptor's
+			// scheduling_session claim. For V1/V2 scheduling_parent ==
+			// relay_parent so we reuse session_index.
+			let scheduling_session_index = if scheduling_parent == relay_parent {
+				session_index
+			} else {
+				match get_session_index(&mut sender, scheduling_parent).await {
+					Some(idx) => idx,
+					None => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?scheduling_parent,
+							"Cannot fetch scheduling session index from the runtime",
+						);
+						let _ = response_sender.send(Err(ValidationFailed(
+							"Scheduling session index not found".to_string(),
+						)));
+						return;
+					},
+				}
+			};
+
 			let res = validate_candidate_exhaustive(
-				session_index,
+				scheduling_session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -239,6 +300,7 @@ where
 				exec_kind,
 				&metrics,
 				maybe_claim_queue,
+				v3_enabled,
 				validation_code_bomb_limit,
 			)
 			.await;
@@ -696,9 +758,9 @@ async fn get_block_ancestors<Sender>(
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let Some((relay_parent, session_index)) = maybe_new_leaf else { return vec![] };
+	let Some((scheduling_parent, session_index)) = maybe_new_leaf else { return vec![] };
 	let scheduling_lookahead =
-		match fetch_scheduling_lookahead(relay_parent, session_index, sender).await {
+		match fetch_scheduling_lookahead(scheduling_parent, session_index, sender).await {
 			Ok(scheduling_lookahead) => scheduling_lookahead,
 			res => {
 				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
@@ -709,8 +771,8 @@ where
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
-			hash: relay_parent,
-			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
+			hash: scheduling_parent,
+			// Subtract 1 from the claim queue length, as it includes current `scheduling_parent`.
 			k: scheduling_lookahead.saturating_sub(1) as usize,
 			response_channel: tx,
 		})
@@ -849,7 +911,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
-	expected_session_index: SessionIndex,
+	expected_scheduling_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -859,6 +921,7 @@ async fn validate_candidate_exhaustive(
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
+	v3_enabled: bool,
 	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -875,10 +938,16 @@ async fn validate_candidate_exhaustive(
 		"About to validate a candidate.",
 	);
 
-	// We only check the session index for backing.
-	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
-			if session_index != expected_session_index {
+	// Validate the scheduling session during backing. The relay parent session
+	// check is left for later when we actually can: https://github.com/paritytech/polkadot-sdk/issues/11182
+	// TODO: Properly check session index in the runtime:
+	// https://github.com/paritytech/polkadot-sdk/issues/11033
+	match (exec_kind, candidate_receipt.descriptor.scheduling_session(v3_enabled)) {
+		(
+			PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
+			Some(scheduling_session),
+		) => {
+			if scheduling_session != expected_scheduling_session_index {
 				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
 			}
 		},
@@ -896,12 +965,22 @@ async fn validate_candidate_exhaustive(
 	}
 
 	let persisted_validation_data = Arc::new(persisted_validation_data);
+
+	// Create the validation context shared by both backing and approval/dispute paths
+	let validation_context = ValidationContext {
+		candidate_receipt: candidate_receipt.clone(),
+		pvd: persisted_validation_data.clone(),
+		pov: pov.clone(),
+		executor_params: executor_params.clone(),
+		exec_timeout: pvf_exec_timeout(&executor_params, exec_kind.into()),
+		v3_enabled,
+	};
+
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
 		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
@@ -910,27 +989,14 @@ async fn validate_candidate_exhaustive(
 				validation_code_bomb_limit,
 			);
 
-			validation_backend
-				.validate_candidate(
-					pvf,
-					exec_timeout,
-					persisted_validation_data.clone(),
-					pov,
-					exec_kind.into(),
-					exec_kind,
-				)
-				.await
+			validation_backend.validate_candidate(pvf, validation_context, exec_kind).await
 		},
 		PvfExecKind::Approval | PvfExecKind::Dispute => {
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					persisted_validation_data.clone(),
-					pov,
-					executor_params,
+					validation_context,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					exec_kind.into(),
 					exec_kind,
 					validation_code_bomb_limit,
 				)
@@ -1054,9 +1120,10 @@ async fn validate_candidate_exhaustive(
 								return Err(ValidationFailed(error.into()));
 							};
 
-							if let Err(err) = committed_candidate_receipt
-								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
-							{
+							if let Err(err) = committed_candidate_receipt.parse_ump_signals(
+								&transpose_claim_queue(claim_queue.0),
+								v3_enabled,
+							) {
 								gum::warn!(
 									target: LOG_TARGET,
 									candidate_hash = ?candidate_receipt.hash(),
@@ -1088,37 +1155,25 @@ trait ValidationBackend {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
 	/// been transient.
 	///
-	/// The `prepare_priority` is relevant in the context of the caller. Currently we expect
-	/// that `approval` context has priority over `backing` context.
-	///
 	/// NOTE: Should retry only on errors that are a result of execution itself, and not of
 	/// preparation.
 	async fn validate_candidate_with_retry(
 		&mut self,
 		code: Vec<u8>,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		executor_params: ExecutorParams,
+		validation_context: ValidationContext,
 		retry_delay: Duration,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
 		exec_kind: PvfExecKind,
 		validation_code_bomb_limit: u32,
 	) -> Result<WasmValidationResult, ValidationError> {
+		let exec_timeout = validation_context.exec_timeout;
+		let executor_params = validation_context.executor_params.clone();
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
 		let pvf = PvfPrepData::from_code(
@@ -1132,16 +1187,8 @@ trait ValidationBackend {
 		// long.
 		let total_time_start = Instant::now();
 
-		// Use `Priority::Critical` as finality trumps parachain liveliness.
 		let mut validation_result = self
-			.validate_candidate(
-				pvf.clone(),
-				exec_timeout,
-				pvd.clone(),
-				pov.clone(),
-				prepare_priority,
-				exec_kind,
-			)
+			.validate_candidate(pvf.clone(), validation_context.clone(), exec_kind)
 			.await;
 		if validation_result.is_ok() {
 			return validation_result;
@@ -1222,16 +1269,12 @@ trait ValidationBackend {
 					validation_result
 				);
 
-				validation_result = self
-					.validate_candidate(
-						pvf.clone(),
-						new_timeout,
-						pvd.clone(),
-						pov.clone(),
-						prepare_priority,
-						exec_kind,
-					)
-					.await;
+				// Update the validation context with the new timeout
+				let mut retry_context = validation_context.clone();
+				retry_context.exec_timeout = new_timeout;
+
+				validation_result =
+					self.validate_candidate(pvf.clone(), retry_context, exec_kind).await;
 			}
 		}
 
@@ -1255,18 +1298,12 @@ impl ValidationBackend for ValidationHost {
 	async fn validate_candidate(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
-		// The priority for the preparation job.
-		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The kind for the execution job.
+		validation_context: ValidationContext,
 		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
-			.await
+		if let Err(err) =
+			self.execute_pvf(pvf, validation_context, exec_kind.into(), exec_kind, tx).await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
