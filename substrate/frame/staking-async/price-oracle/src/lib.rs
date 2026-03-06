@@ -89,7 +89,8 @@
 //!   for each
 //! - [ ] Companion/manager binary to manage the OCW storage + submit transactions
 //! - [ ] Instead of relying on the runtime mortality, our tx-extension can simply invalidate stuff?
-//! - [ ] Dupe votes should be rejected rather than replaced, to make the weight saner
+//! - [ ] Dupe votes should be rejected rather than replaced, to make the weight saner. Or in general we need a way to make sure a single collator cannot solely spam the chain.
+//! - [ ] Confidence v2 for price: `struct How { vote_count, standard_deviation, confidence }`
 //!
 //! - Rest
 //! - [ ] MaxDeviation metric for offchain workers: If the price they have queried is grossly

@@ -24,7 +24,7 @@ use frame_support::{pallet_prelude::*, testing_prelude::*, traits::Get};
 use sp_runtime::{DispatchError, FixedU128, Percent};
 use substrate_test_utils::assert_eq_uvec;
 
-mod setup {
+mod genesis_setup {
 	use super::*;
 	#[test]
 	fn basic() {
@@ -860,48 +860,83 @@ mod asset_management {
 	#[test]
 	fn registers_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given 1 initial asset
+			assert_eq!(StorageManager::<Runtime>::tracked_assets().len(), 1);
+
+			// when registering a new asset
 			assert_ok!(PriceOracle::register_asset(
 				RuntimeOrigin::root(),
 				2,
 				vec![Endpoint::default()]
 			));
-			System::assert_has_event(Event::<Runtime>::AssetRegistered { asset_id: 2 }.into());
-			assert!(StorageManager::<Runtime>::tracked_assets_with_endpoints()
-				.contains(&(2, vec![Endpoint::default()])));
+
+			// then
+			assert_eq!(
+				oracle_events_since_last_call(),
+				vec![Event::<Runtime>::AssetRegistered { asset_id: 2 }]
+			);
+			assert_eq!(StorageManager::<Runtime>::tracked_assets(), vec![1, 2]);
 		});
 	}
 
 	#[test]
 	fn deregisters_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given 1 initial asset
+			assert_eq!(StorageManager::<Runtime>::tracked_assets(), vec![1]);
+
+			// when deregistering it
 			assert_ok!(PriceOracle::deregister_asset(RuntimeOrigin::root(), 1));
-			System::assert_has_event(Event::<Runtime>::AssetDeregistered { asset_id: 1 }.into());
-			assert!(StorageManager::<Runtime>::tracked_assets_with_endpoints().is_empty());
+
+			// then
+			assert_eq!(
+				oracle_events_since_last_call(),
+				vec![Event::<Runtime>::AssetDeregistered { asset_id: 1 }]
+			);
+			assert!(StorageManager::<Runtime>::tracked_assets().is_empty());
 		});
 	}
 
 	#[test]
 	fn adds_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given 1 asset with 1 endpoint
+			assert_eq!(StorageManager::<Runtime>::tracked_assets_with_endpoints().len(), 1);
+
+			// when adding another endpoint
 			assert_ok!(PriceOracle::add_endpoint(RuntimeOrigin::root(), 1, Endpoint::default()));
-			System::assert_has_event(
-				Event::<Runtime>::EndpointAdded { asset_id: 1, endpoint: Endpoint::default() }
-					.into(),
+
+			// then
+			assert_eq!(
+				oracle_events_since_last_call(),
+				vec![Event::<Runtime>::EndpointAdded {
+					asset_id: 1,
+					endpoint: Endpoint::default()
+				}]
 			);
-			let assets = StorageManager::<Runtime>::tracked_assets_with_endpoints();
-			assert!(assets
-				.iter()
-				.any(|(asset_id, endpoints)| *asset_id == 1 &&
-					endpoints.contains(&Endpoint::default())));
+			assert_eq!(
+				StorageManager::<Runtime>::tracked_assets_with_endpoints(),
+				vec![(1, vec![ExtBuilder::default_endpoint(), Endpoint::default()])]
+			);
 		});
 	}
 
 	#[test]
 	fn removes_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given 1 asset with 1 endpoint
+			assert_eq!(
+				StorageManager::<Runtime>::tracked_assets_with_endpoints(),
+				vec![(1, vec![ExtBuilder::default_endpoint()])]
+			);
+
+			// when removing the endpoint
 			assert_ok!(PriceOracle::remove_endpoint(RuntimeOrigin::root(), 1, 0));
-			System::assert_has_event(
-				Event::<Runtime>::EndpointRemoved { asset_id: 1, index: 0 }.into(),
+
+			// then
+			assert_eq!(
+				oracle_events_since_last_call(),
+				vec![Event::<Runtime>::EndpointRemoved { asset_id: 1, index: 0 }]
 			);
 			assert_eq!(
 				StorageManager::<Runtime>::tracked_assets_with_endpoints(),
@@ -913,6 +948,7 @@ mod asset_management {
 	#[test]
 	fn rejects_invalid_signer_register_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// when a non-root origin tries to register
 			assert_noop!(
 				PriceOracle::register_asset(RuntimeOrigin::signed(1), 1, vec![Endpoint::default()]),
 				DispatchError::BadOrigin
@@ -923,6 +959,7 @@ mod asset_management {
 	#[test]
 	fn rejects_invalid_signer_deregister_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// when a non-root origin tries to deregister
 			assert_noop!(
 				PriceOracle::deregister_asset(RuntimeOrigin::signed(1), 1),
 				DispatchError::BadOrigin
@@ -933,6 +970,7 @@ mod asset_management {
 	#[test]
 	fn rejects_invalid_signer_add_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
+			// when a non-root origin tries to add an endpoint
 			assert_noop!(
 				PriceOracle::add_endpoint(RuntimeOrigin::signed(1), 1, Endpoint::default()),
 				DispatchError::BadOrigin
@@ -943,6 +981,7 @@ mod asset_management {
 	#[test]
 	fn rejects_invalid_signer_remove_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
+			// when a non-root origin tries to remove an endpoint
 			assert_noop!(
 				PriceOracle::remove_endpoint(RuntimeOrigin::signed(1), 1, 0),
 				DispatchError::BadOrigin
@@ -953,6 +992,10 @@ mod asset_management {
 	#[test]
 	fn adds_existing_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given asset 1 already exists
+			assert_eq!(StorageManager::<Runtime>::tracked_assets(), vec![1]);
+
+			// when trying to register the same asset
 			assert_noop!(
 				PriceOracle::register_asset(RuntimeOrigin::root(), 1, vec![]),
 				Error::<Runtime>::AssetAlreadyTracked
@@ -963,8 +1006,11 @@ mod asset_management {
 	#[test]
 	fn rejects_too_many_endpoints() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given the max endpoints per asset
 			let max_endpoints_per_asset =
 				<<Runtime as crate::oracle::Config>::MaxEndpointsPerAsset as Get<u32>>::get();
+
+			// when trying to register an asset with too many endpoints
 			assert_noop!(
 				PriceOracle::register_asset(
 					RuntimeOrigin::root(),
@@ -979,6 +1025,8 @@ mod asset_management {
 	#[test]
 	fn adds_invalid_endpoint() {
 		ExtBuilder::default().build_and_execute(|| {
+			// when trying to add an endpoint that is invalid (requires an API key but has not
+			// offchain db reference in it)
 			assert_noop!(
 				PriceOracle::add_endpoint(
 					RuntimeOrigin::root(),
@@ -993,6 +1041,10 @@ mod asset_management {
 	#[test]
 	fn deregister_non_existent_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given only asset 1 exists
+			assert_eq!(StorageManager::<Runtime>::tracked_assets(), vec![1]);
+
+			// when trying to deregister a non-existent asset
 			assert_noop!(
 				PriceOracle::deregister_asset(RuntimeOrigin::root(), 2),
 				Error::<Runtime>::AssetNotTracked
@@ -1003,6 +1055,10 @@ mod asset_management {
 	#[test]
 	fn adds_endpoint_to_non_existent_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given only asset 1 exists
+			assert_eq!(StorageManager::<Runtime>::tracked_assets(), vec![1]);
+
+			// when trying to add an endpoint to a non-existent asset
 			assert_noop!(
 				PriceOracle::add_endpoint(RuntimeOrigin::root(), 2, Endpoint::default()),
 				Error::<Runtime>::AssetNotTracked
@@ -1013,15 +1069,16 @@ mod asset_management {
 	#[test]
 	fn adds_too_many_endpoints() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given an asset registered at max endpoint capacity
+			let max_endpoints_per_asset =
+				<<Runtime as crate::oracle::Config>::MaxEndpointsPerAsset as Get<u32>>::get();
 			assert_ok!(PriceOracle::register_asset(
 				RuntimeOrigin::root(),
 				2,
-				vec![
-					Endpoint::default();
-					<<Runtime as crate::oracle::Config>::MaxEndpointsPerAsset as Get<u32>>::get()
-						as usize
-				]
+				vec![Endpoint::default(); max_endpoints_per_asset as usize]
 			));
+
+			// when trying to add one more endpoint
 			assert_noop!(
 				PriceOracle::add_endpoint(RuntimeOrigin::root(), 2, Endpoint::default()),
 				Error::<Runtime>::TooManyEndpoints
@@ -1032,6 +1089,10 @@ mod asset_management {
 	#[test]
 	fn remove_endpoint_from_non_existent_asset() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given only asset 1 exists
+			assert_eq!(StorageManager::<Runtime>::tracked_assets(), vec![1]);
+
+			// when trying to remove an endpoint from a non-existent asset
 			assert_noop!(
 				PriceOracle::remove_endpoint(RuntimeOrigin::root(), 2, 0),
 				Error::<Runtime>::AssetNotTracked
@@ -1042,6 +1103,13 @@ mod asset_management {
 	#[test]
 	fn remove_endpoint_at_non_existent_index() {
 		ExtBuilder::default().build_and_execute(|| {
+			// given asset 1 has only 1 endpoint (index 0)
+			assert_eq!(
+				StorageManager::<Runtime>::tracked_assets_with_endpoints(),
+				vec![(1, vec![ExtBuilder::default_endpoint()])]
+			);
+
+			// when trying to remove at an out-of-bounds index
 			assert_noop!(
 				PriceOracle::remove_endpoint(RuntimeOrigin::root(), 1, 1),
 				Error::<Runtime>::EndpointNotFound

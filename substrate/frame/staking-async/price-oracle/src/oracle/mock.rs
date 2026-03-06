@@ -207,7 +207,7 @@ impl pallet_price_oracle::OnPriceUpdate<AssetId, BlockNumber, Moment> for OnPric
 parameter_types! {
 	pub static PriceUpdateInterval: u64 = 5;
 	pub static HistoryDepth: u32 = 4;
-	pub static MaxVotesPerBlock: u32 = 8;
+	pub static MaxVotesPerBlock: u32 = 4;
 	pub static MaxVoteAge: u64 = 4;
 	pub static NextTallyFails: Option<TallyOuterError<()>> = None;
 	pub static Authorities: Option<Vec<(u64, Percent)>> = None;
@@ -294,16 +294,7 @@ impl Default for ExtBuilder {
 		Self {
 			assets: vec![(
 				1,
-				vec![Endpoint {
-					body: Default::default(),
-					headers: Default::default(),
-					deadline: None,
-					confidence: Default::default(),
-					method: Method::Get,
-					parsing_method: ParsingMethod::CryptoCompareFree,
-					requires_api_key: false,
-					url: "ocw.local.io/price".to_string().into_bytes().try_into().unwrap(),
-				}],
+				vec![Self::default_endpoint()],
 			)],
 		}
 	}
@@ -354,6 +345,19 @@ impl ExtBuilder {
 }
 
 impl ExtBuilder {
+	pub (crate) fn default_endpoint() -> Endpoint {
+		Endpoint {
+			body: Default::default(),
+			headers: Default::default(),
+			deadline: None,
+			confidence: Default::default(),
+			method: Method::Get,
+			parsing_method: ParsingMethod::CryptoCompareFree,
+			requires_api_key: false,
+			url: "ocw.local.io/price".to_string().into_bytes().try_into().unwrap(),
+		}
+	}
+
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage =

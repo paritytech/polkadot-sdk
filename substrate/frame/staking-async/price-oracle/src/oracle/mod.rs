@@ -315,14 +315,14 @@ pub mod pallet {
 		/// In milliseconds.
 		type DefaultRequestDeadline: Get<u64>;
 
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: crate::oracle::benchmarking::BenchmarkHelper<Self>;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: super::WeightInfo;
 
 		/// Origin for the oracle pallet.
 		type OracleOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Origin>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: crate::oracle::benchmarking::BenchmarkHelper<Self>;
 	}
 
 	#[pallet::event]
@@ -383,6 +383,12 @@ pub mod pallet {
 		StorageValue<_, BoundedBTreeMap<T::AccountId, Percent, T::MaxAuthorities>, ValueQuery>;
 
 	/// Wrapper struct managing the price-related storage items in this pallet.
+	///
+	/// Underlying storage items are:
+	/// * `Endpoints`
+	/// * `Price`
+	/// * `PriceHistory`
+	/// * `BlockVotes`
 	pub(crate) struct StorageManager<T: Config>(core::marker::PhantomData<T>);
 
 	impl<T: Config> StorageManager<T> {
@@ -427,7 +433,7 @@ pub mod pallet {
 			Endpoints::<T>::remove(asset_id);
 			Price::<T>::remove(asset_id);
 			PriceHistory::<T>::remove(asset_id);
-			// Note: Safe because we are deleting at most `ConfigHistoryDepth` keys here.
+			// Note: Safe because we are deleting at most `Config::HistoryDepth` keys here.
 			let cleared = BlockVotes::<T>::clear_prefix(asset_id, u32::MAX, None);
 			debug_assert!(cleared.maybe_cursor.is_none(), "should clear all votes");
 			Ok(())
@@ -774,7 +780,9 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
+		/// Assets to track and their endpoints.
 		pub tracked_assets: Vec<(T::AssetId, Vec<Endpoint>)>,
+		/// Authorities to track and their confidence.
 		pub maybe_authorities: Option<Vec<(T::AccountId, Percent)>>,
 	}
 
@@ -829,6 +837,13 @@ pub mod pallet {
 		fn offchain_worker(block_number: BlockNumberFor<T>) {
 			let res = offchain::OracleOffchainWorker::<T>::offchain_worker(block_number);
 			log!(debug, "offchain worker result: {:?}", res);
+		}
+
+		fn integrity_test() {
+			assert!(
+				T::MaxVotesPerBlock::get() <= T::MaxAuthorities::get(),
+				"MaxVotesPerBlock must be less than or equal to MaxAuthorities"
+			);
 		}
 
 		#[cfg(feature = "try-runtime")]
