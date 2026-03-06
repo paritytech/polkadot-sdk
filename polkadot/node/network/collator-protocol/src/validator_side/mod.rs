@@ -3102,9 +3102,7 @@ pub fn descriptor_version_sanity_check_with_params(
 			if descriptor.version(v3_enabled) == CandidateDescriptorVersion::V3 &&
 				collator_protocol_version != CollationVersion::V3
 			{
-				return Err(SecondingError::InvalidReceiptVersion(
-					CandidateDescriptorVersion::V3,
-				));
+				return Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V3));
 			}
 
 			if let Some(core_index) = descriptor.core_index(v3_enabled) {

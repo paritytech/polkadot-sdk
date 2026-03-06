@@ -1943,17 +1943,12 @@ fn v3_descriptor_version_detection(
 		// V1 advertisement has no candidate hash; V2 includes it
 		let advertisement_candidate = match collation_version {
 			CollationVersion::V1 => None,
-			CollationVersion::V2 | CollationVersion::V3 =>
-				Some((candidate_hash, parent_head_data_hash)),
+			CollationVersion::V2 | CollationVersion::V3 => {
+				Some((candidate_hash, parent_head_data_hash))
+			},
 		};
 
-		advertise_collation(
-			&mut virtual_overseer,
-			peer_a,
-			head_b,
-			advertisement_candidate,
-		)
-		.await;
+		advertise_collation(&mut virtual_overseer, peer_a, head_b, advertisement_candidate).await;
 
 		// V2 advertisements trigger CanSecond check
 		if collation_version != CollationVersion::V1 {
@@ -1983,12 +1978,14 @@ fn v3_descriptor_version_detection(
 
 		// V1 uses request_v1, V2 uses request_v2
 		let encoded_response = match collation_version {
-			CollationVersion::V1 =>
+			CollationVersion::V1 => {
 				request_v1::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
-					.encode(),
-			CollationVersion::V2 | CollationVersion::V3 =>
+					.encode()
+			},
+			CollationVersion::V2 | CollationVersion::V3 => {
 				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
-					.encode(),
+					.encode()
+			},
 		};
 		response_channel
 			.send(Ok((encoded_response, ProtocolName::from(""))))
@@ -2034,13 +2031,8 @@ fn v3_descriptor_version_detection(
 			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
 				.await;
 
-			assert_collation_seconded(
-				&mut virtual_overseer,
-				head_b,
-				peer_a,
-				collation_version,
-			)
-			.await;
+			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, collation_version)
+				.await;
 		}
 
 		virtual_overseer
