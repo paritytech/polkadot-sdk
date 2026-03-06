@@ -1301,7 +1301,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
-						authorisation_deposit: Default::default(),
+						authorization_deposit: Default::default(),
 					},
 					Code::Upload(code),
 					data,
@@ -1648,7 +1648,7 @@ impl<T: Config> Pallet<T> {
 					eth_gas_limit: eth_gas_limit.saturated_into(),
 					weight_limit,
 					eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
-					authorisation_deposit: auth_result.deposit,
+					authorization_deposit: auth_result.deposit,
 				},
 				data,
 				&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
@@ -1954,7 +1954,7 @@ impl<T: Config> Pallet<T> {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
 			weight_limit: Self::evm_max_extrinsic_weight(),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
-			authorisation_deposit: actual_auth_deposit,
+			authorization_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call

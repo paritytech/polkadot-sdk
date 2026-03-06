@@ -162,7 +162,7 @@ fn valid_signature_is_verified_correctly() {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
@@ -193,7 +193,7 @@ fn invalid_chain_id_rejects_authorization() {
 		let wrong_chain_id = U256::from(999);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -224,7 +224,7 @@ fn nonce_mismatch_rejects_authorization() {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -259,7 +259,7 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 		let target2 = H160::from([0x22; 20]);
 		let target3 = H160::from([0x33; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -296,7 +296,7 @@ fn authorization_increments_nonce() {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -326,7 +326,7 @@ fn chain_id_zero_accepts_any_chain() {
 	ExtBuilder::default().build().execute_with(|| {
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -357,7 +357,7 @@ fn new_account_sets_delegation() {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -388,7 +388,7 @@ fn clearing_delegation_with_zero_address() {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -487,7 +487,7 @@ fn test_runtime_set_and_clear_authorization() {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
@@ -551,7 +551,7 @@ fn test_runtime_delegation_resolution() {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
-		let seed = H256::random();
+		let seed = H256::default();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 

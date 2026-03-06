@@ -52,8 +52,12 @@ fn convert_to_free_balance(total_balance: u128) -> U256 {
 
 /// Create a delegated EOA that points to the given target contract
 fn create_delegated_eoa(target: &H160) -> H160 {
+	use core::sync::atomic::{AtomicU32, Ordering};
+	static COUNTER: AtomicU32 = AtomicU32::new(1);
 	let chain_id = U256::from(<Test as Config>::ChainId::get());
-	let seed = H256::random();
+	let mut seed_bytes = [0u8; 32];
+	seed_bytes[..4].copy_from_slice(&COUNTER.fetch_add(1, Ordering::Relaxed).to_le_bytes());
+	let seed = H256::from(seed_bytes);
 	let signer = TestSigner::new(&seed.0);
 	let authority = signer.address;
 

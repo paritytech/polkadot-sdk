@@ -125,7 +125,7 @@ pub enum TransactionLimits<T: Config> {
 		eth_tx_info: EthTxInfo<T>,
 		/// Deposit consumed by EIP-7702 authorization processing before contract execution.
 		/// Recorded on the meter at creation to correctly reduce the available deposit budget.
-		authorisation_deposit: BalanceOf<T>,
+		authorization_deposit: BalanceOf<T>,
 	},
 	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
 	/// limit
@@ -499,12 +499,12 @@ impl<T: Config> TransactionMeter<T> {
 				eth_gas_limit,
 				weight_limit,
 				eth_tx_info,
-				authorisation_deposit,
+				authorization_deposit,
 			} => {
 				let mut meter =
 					math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)?;
-				if !authorisation_deposit.is_zero() {
-					meter.deposit.record_charge(&StorageDeposit::Charge(authorisation_deposit));
+				if !authorization_deposit.is_zero() {
+					meter.deposit.record_charge(&StorageDeposit::Charge(authorization_deposit));
 				}
 				meter
 			},
