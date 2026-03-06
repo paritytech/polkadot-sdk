@@ -206,6 +206,16 @@ pub mod pallet {
 		Admin,
 	}
 
+	impl Origin {
+		fn ensure_admin(&self) -> Result<(), sp_runtime::traits::BadOrigin> {
+			if matches!(self, Origin::Admin) {
+				Ok(())
+			} else {
+				Err(sp_runtime::traits::BadOrigin)
+			}
+		}
+	}
+
 	/// Interface to be implemented by the tally algorithm that we intend to use here.
 	pub trait Tally {
 		/// The asset-id type.
@@ -826,10 +836,11 @@ pub mod pallet {
 
 			#[cfg(test)]
 			let _ = Self::do_try_state(local_block_number)
-				.defensive_proof("try_state should not fail; qed");
+				.defensive_proof("try_state should not fail at end of each block; qed");
 		}
 
 		fn on_initialize(_local_block_number: BlockNumberFor<T>) -> Weight {
+			// register the weight for each asset that we are tallying.
 			let assets_to_tally = StorageManager::<T>::tracked_assets().len() as u32;
 			T::WeightInfo::on_finalize_per_asset().saturating_mul(assets_to_tally as u64)
 		}
@@ -897,7 +908,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			endpoints: Vec<Endpoint>,
 		) -> DispatchResult {
-			T::OracleOrigin::ensure_origin(origin)?;
+			T::OracleOrigin::ensure_origin(origin).and_then(|origin| origin.ensure_admin())?;
 
 			let bounded_endpoints = BoundedVec::<_, T::MaxEndpointsPerAsset>::try_from(endpoints)
 				.map_err(|_| Error::<T>::TooManyEndpoints)?;
@@ -910,7 +921,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight({(1000, DispatchClass::Operational)})]
 		pub fn deregister_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
-			T::OracleOrigin::ensure_origin(origin)?;
+			T::OracleOrigin::ensure_origin(origin).and_then(|origin| origin.ensure_admin())?;
 
 			StorageManager::<T>::deregister_asset(asset_id)?;
 			Self::deposit_event(Event::<T>::AssetDeregistered { asset_id });
@@ -925,7 +936,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			endpoint: Endpoint,
 		) -> DispatchResult {
-			T::OracleOrigin::ensure_origin(origin)?;
+			T::OracleOrigin::ensure_origin(origin).and_then(|origin| origin.ensure_admin())?;
 
 			StorageManager::<T>::add_endpoint(asset_id, endpoint.clone())?;
 			Self::deposit_event(Event::<T>::EndpointAdded { asset_id, endpoint });
@@ -940,7 +951,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			index: u32,
 		) -> DispatchResult {
-			T::OracleOrigin::ensure_origin(origin)?;
+			T::OracleOrigin::ensure_origin(origin).and_then(|origin| origin.ensure_admin())?;
 
 			StorageManager::<T>::remove_endpoint_at(asset_id, index as usize)?;
 			Self::deposit_event(Event::<T>::EndpointRemoved { asset_id, index });
@@ -958,6 +969,7 @@ pub mod pallet {
 				.collect::<Vec<_>>();
 			let vote_count = votes.len() as u32;
 			log!(debug, "tallying asset {:?} with {} votes", asset_id, vote_count);
+
 			match T::TallyManager::tally(asset_id, votes) {
 				Ok((price, confidence)) => {
 					// will store the new price, and prune old voting data as per `HistoryDepth`.
