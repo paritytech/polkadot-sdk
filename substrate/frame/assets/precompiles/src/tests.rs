@@ -315,6 +315,7 @@ fn raw_approve(
 fn call_approve(owner: u64, asset_addr: H160, spender_addr: H160, value: U256) {
 	let result = raw_approve(owner, asset_addr, spender_addr, value);
 	assert!(result.result.is_ok(), "approve precompile call failed: {:?}", result);
+	assert!(!result.result.unwrap().did_revert(), "approve call reverted");
 }
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
