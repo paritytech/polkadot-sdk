@@ -42,10 +42,18 @@ struct DelegationTestSetup {
 
 impl DelegationTestSetup {
 	fn new(seed: [u8; 32]) -> Self {
+		let setup = Self::new_unfunded(seed);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
+			&setup.authority_id,
+			100_000_000,
+		);
+		setup
+	}
+
+	fn new_unfunded(seed: [u8; 32]) -> Self {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let signer = TestSigner::new(&seed);
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&signer.address);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 		let origin = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xFF; 20]));
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&origin, 10_000_000_000);
@@ -64,20 +72,6 @@ impl DelegationTestSetup {
 	fn nonce(&self) -> U256 {
 		U256::from(frame_system::Pallet::<Test>::account_nonce(&self.authority_id))
 	}
-}
-
-/// Helper to call process_authorizations with a funded origin and exec_config.
-fn test_process_authorizations(
-	auths: &[AuthorizationListEntry],
-) -> AuthorizationResult<crate::BalanceOf<Test>> {
-	let origin = <Test as Config>::AddressMapper::to_account_id(&H160::from([0xFF; 20]));
-	let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&origin, 10_000_000_000);
-	<Test as Config>::FeeInfo::deposit_txfee(<<Test as Config>::Currency as Balanced<_>>::issue(
-		10_000_000_000,
-	));
-	let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
-	crate::evm::eip7702::process_authorizations::<Test>(auths, &origin, &exec_config)
-		.expect("process_authorizations failed")
 }
 
 #[test]
@@ -159,21 +153,13 @@ fn eip3607_rejects_regular_contract_originating_transactions() {
 #[test]
 fn valid_signature_is_verified_correctly() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth = signer.sign_authorization(chain_id, target, nonce);
+		let auth = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
 
 		assert_eq!(
-			test_process_authorizations(&[auth]),
+			setup.process(&[auth]),
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
@@ -182,30 +168,22 @@ fn valid_signature_is_verified_correctly() {
 			},
 		);
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 	});
 }
 
 #[test]
 fn invalid_chain_id_rejects_authorization() {
 	ExtBuilder::default().build().execute_with(|| {
-		let wrong_chain_id = U256::from(999);
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth = signer.sign_authorization(wrong_chain_id, target, nonce);
+		let auth = setup.signer.sign_authorization(U256::from(999), target, setup.nonce());
 
 		// Authorization with wrong chain_id should be skipped (not error)
 		assert_eq!(
-			test_process_authorizations(&[auth]),
+			setup.process(&[auth]),
 			AuthorizationResult {
 				existing_accounts: 0,
 				new_accounts: 0,
@@ -214,31 +192,22 @@ fn invalid_chain_id_rejects_authorization() {
 			}
 		);
 
-		assert!(!AccountInfo::<Test>::is_delegated(&authority));
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
 	});
 }
 
 #[test]
 fn nonce_mismatch_rejects_authorization() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let current_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let wrong_nonce = current_nonce.saturating_add(U256::from(1));
-
-		let auth = signer.sign_authorization(chain_id, target, wrong_nonce);
+		let wrong_nonce = setup.nonce().saturating_add(U256::from(1));
+		let auth = setup.signer.sign_authorization(setup.chain_id, target, wrong_nonce);
 
 		// Authorization with wrong nonce should be skipped (not error)
 		assert_eq!(
-			test_process_authorizations(&[auth]),
+			setup.process(&[auth]),
 			AuthorizationResult {
 				existing_accounts: 0,
 				new_accounts: 0,
@@ -247,35 +216,28 @@ fn nonce_mismatch_rejects_authorization() {
 			}
 		);
 
-		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
 	});
 }
 
 #[test]
 fn multiple_authorizations_from_same_authority_first_wins() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target1 = H160::from([0x11; 20]);
 		let target2 = H160::from([0x22; 20]);
 		let target3 = H160::from([0x33; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+		let nonce = setup.nonce();
 
 		// All have the same nonce, but only the first will succeed
 		// (subsequent ones will fail due to nonce mismatch after first increments it)
-		let auth1 = signer.sign_authorization(chain_id, target1, nonce);
-		let auth2 = signer.sign_authorization(chain_id, target2, nonce);
-		let auth3 = signer.sign_authorization(chain_id, target3, nonce);
+		let auth1 = setup.signer.sign_authorization(setup.chain_id, target1, nonce);
+		let auth2 = setup.signer.sign_authorization(setup.chain_id, target2, nonce);
+		let auth3 = setup.signer.sign_authorization(setup.chain_id, target3, nonce);
 
 		assert_eq!(
-			test_process_authorizations(&[auth1, auth2, auth3]),
+			setup.process(&[auth1, auth2, auth3]),
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
@@ -284,30 +246,29 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 			},
 		);
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
 		// First authorization wins since we process blindly
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target1));
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&setup.signer.address),
+			Some(target1)
+		);
 	});
 }
 
 #[test]
 fn authorization_increments_nonce() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let nonce_before = frame_system::Pallet::<Test>::account_nonce(&authority_id);
-		let auth = signer.sign_authorization(chain_id, target, U256::from(nonce_before));
+		let nonce_before = frame_system::Pallet::<Test>::account_nonce(&setup.authority_id);
+		let auth =
+			setup
+				.signer
+				.sign_authorization(setup.chain_id, target, U256::from(nonce_before));
 
 		assert_eq!(
-			test_process_authorizations(&[auth]),
+			setup.process(&[auth]),
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
@@ -316,7 +277,7 @@ fn authorization_increments_nonce() {
 			},
 		);
 
-		let nonce_after = frame_system::Pallet::<Test>::account_nonce(&authority_id);
+		let nonce_after = frame_system::Pallet::<Test>::account_nonce(&setup.authority_id);
 		assert_eq!(nonce_after, nonce_before + 1);
 	});
 }
@@ -324,20 +285,13 @@ fn authorization_increments_nonce() {
 #[test]
 fn chain_id_zero_accepts_any_chain() {
 	ExtBuilder::default().build().execute_with(|| {
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth = signer.sign_authorization(U256::zero(), target, nonce);
+		let auth = setup.signer.sign_authorization(U256::zero(), target, setup.nonce());
 
 		assert_eq!(
-			test_process_authorizations(&[auth]),
+			setup.process(&[auth]),
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
@@ -346,27 +300,21 @@ fn chain_id_zero_accepts_any_chain() {
 			},
 		);
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 	});
 }
 
 #[test]
 fn new_account_sets_delegation() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new_unfunded([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth = signer.sign_authorization(chain_id, target, nonce);
+		let auth = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
 
 		assert_eq!(
-			test_process_authorizations(&[auth]),
+			setup.process(&[auth]),
 			AuthorizationResult {
 				existing_accounts: 0,
 				new_accounts: 1,
@@ -375,9 +323,9 @@ fn new_account_sets_delegation() {
 			},
 		);
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
-		let balance = <<Test as Config>::Currency as Inspect<_>>::balance(&authority_id);
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
+		let balance = <<Test as Config>::Currency as Inspect<_>>::balance(&setup.authority_id);
 		assert!(balance >= Pallet::<Test>::min_balance());
 	});
 }
@@ -385,21 +333,13 @@ fn new_account_sets_delegation() {
 #[test]
 fn clearing_delegation_with_zero_address() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed = H256::from([1u8; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth1 = signer.sign_authorization(chain_id, target, nonce);
+		let auth1 = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
 
 		assert_eq!(
-			test_process_authorizations(&[auth1]),
+			setup.process(&[auth1]),
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
@@ -408,12 +348,11 @@ fn clearing_delegation_with_zero_address() {
 			},
 		);
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
 
-		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
+		let auth2 = setup.signer.sign_authorization(setup.chain_id, H160::zero(), setup.nonce());
 		assert_eq!(
-			test_process_authorizations(&[auth2]),
+			setup.process(&[auth2]),
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
@@ -422,44 +361,25 @@ fn clearing_delegation_with_zero_address() {
 			},
 		);
 
-		assert!(!AccountInfo::<Test>::is_delegated(&authority));
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), None);
 	});
 }
 
 #[test]
 fn process_multiple_authorizations_from_different_signers() {
 	ExtBuilder::default().build().execute_with(|| {
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let setup1 = DelegationTestSetup::new([1u8; 32]);
+		let setup2 = DelegationTestSetup::new([2u8; 32]);
+		let setup3 = DelegationTestSetup::new_unfunded([3u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let seed1 = H256::from([1u8; 32]);
-		let seed2 = H256::from([2u8; 32]);
-		let seed3 = H256::from([3u8; 32]);
-
-		let signer1 = TestSigner::new(&seed1.0);
-		let signer2 = TestSigner::new(&seed2.0);
-		let signer3 = TestSigner::new(&seed3.0);
-
-		let authority1 = signer1.address;
-		let authority2 = signer2.address;
-		let authority3 = signer3.address;
-
-		let authority1_id = <Test as Config>::AddressMapper::to_account_id(&authority1);
-		let authority2_id = <Test as Config>::AddressMapper::to_account_id(&authority2);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority1_id, 1_000_000);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority2_id, 1_000_000);
-
-		let nonce1 = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority1_id));
-		let nonce2 = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority2_id));
-		let nonce3 = U256::zero();
-
-		let auth1 = signer1.sign_authorization(chain_id, target, nonce1);
-		let auth2 = signer2.sign_authorization(chain_id, target, nonce2);
-		let auth3 = signer3.sign_authorization(chain_id, target, nonce3);
+		let auth1 = setup1.signer.sign_authorization(setup1.chain_id, target, setup1.nonce());
+		let auth2 = setup2.signer.sign_authorization(setup2.chain_id, target, setup2.nonce());
+		let auth3 = setup3.signer.sign_authorization(setup3.chain_id, target, setup3.nonce());
 
 		assert_eq!(
-			test_process_authorizations(&[auth1, auth2, auth3]),
+			setup1.process(&[auth1, auth2, auth3]),
 			AuthorizationResult {
 				existing_accounts: 2,
 				new_accounts: 1,
@@ -468,9 +388,9 @@ fn process_multiple_authorizations_from_different_signers() {
 			},
 		);
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority1));
-		assert!(AccountInfo::<Test>::is_delegated(&authority2));
-		assert!(AccountInfo::<Test>::is_delegated(&authority3));
+		assert!(AccountInfo::<Test>::is_delegated(&setup1.signer.address));
+		assert!(AccountInfo::<Test>::is_delegated(&setup2.signer.address));
+		assert!(AccountInfo::<Test>::is_delegated(&setup3.signer.address));
 	});
 }
 
