@@ -3305,12 +3305,11 @@ impl<T: Config> Pallet<T> {
 		// (member existence is validated below).
 		match Self::do_apply_slash(member_account, None, false) {
 			Ok(_) => {},
-			Err(e) => {
-				let nothing_to_slash: DispatchError = Error::<T>::NothingToSlash.into();
-				let member_not_found: DispatchError = Error::<T>::PoolMemberNotFound.into();
-				if e != nothing_to_slash && e != member_not_found {
-					return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
-				}
+			Err(e)
+				if e == Error::<T>::NothingToSlash.into()
+					|| e == Error::<T>::PoolMemberNotFound.into() => {},
+			Err(_) => {
+				return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
 			},
 		};
 
