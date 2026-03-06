@@ -9,5 +9,7 @@ doc:
     \ so the new value replaces (not accumulates with) the old one.\n\nAlso extracts\
     \ do_cancel_approval from pallet-assets for reuse by the precompile."
 crates:
+- name: pallet-assets
+  bump: patch
 - name: pallet-assets-precompiles
   bump: major
