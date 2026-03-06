@@ -13,18 +13,19 @@ runs:
       id: install
       shell: bash
       run: |
-        VERSION=$(cat .github/env | grep RESOLC_VERSION | sed -E 's/RESOLC_VERSION="(.*)"/\1/')
+        source .github/env
 
         if [[ "${{ runner.os }}" == "Linux" ]]; then
           ASSET_NAME="resolc-x86_64-unknown-linux-musl"
           INSTALL_DIR="/usr/local/bin"
         else
+          source "$HOME/.cargo/env"
           ASSET_NAME="resolc-universal-apple-darwin"
           INSTALL_DIR="$HOME/.cargo/bin"
         fi
 
-        ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/$ASSET_NAME"
-        echo "Downloading resolc v$VERSION from $ASSET_URL"
+        ASSET_URL="https://github.com/paritytech/revive/releases/download/v$RESOLC_VERSION/$ASSET_NAME"
+        echo "Downloading resolc v$RESOLC_VERSION from $ASSET_URL"
         curl -Lsf --show-error -o "$INSTALL_DIR/resolc" "$ASSET_URL"
         chmod +x "$INSTALL_DIR/resolc"
 
