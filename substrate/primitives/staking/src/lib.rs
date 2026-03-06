@@ -29,7 +29,7 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	BoundedVec, Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
 pub mod offence;
@@ -734,33 +734,6 @@ pub struct EraRewardAllocation<Balance> {
 	pub validator_incentive: Balance,
 }
 
-/// Trait for managing staking rewards across eras.
-///
-/// The provider is responsible for computing inflation, minting rewards, and funding
-/// separate pot accounts for different reward categories.
-pub trait StakingRewardProvider<AccountId, Balance> {
-	/// Allocate rewards for a new era based on staking state and duration.
-	///
-	/// The provider should mint the computed rewards and fund the provided pot accounts.
-	///
-	/// # Parameters
-	/// - `era`: The era index being finalized
-	/// - `total_staked`: Total amount staked in this era
-	/// - `era_duration_millis`: Duration of the era in milliseconds
-	/// - `staker_pot`: The pot account to fund with staker rewards
-	/// - `validator_incentive_pot`: The pot account to fund with validator self-stake incentive
-	///
-	/// # Returns
-	/// The allocation breakdown showing amounts minted into each pot
-	fn allocate_era_rewards(
-		era: EraIndex,
-		total_staked: Balance,
-		era_duration_millis: u64,
-		staker_pot: &AccountId,
-		validator_incentive_pot: &AccountId,
-	) -> EraRewardAllocation<Balance>;
-}
-
 /// Trait for receiving unclaimed staking rewards.
 ///
 /// This specifies where the unclaimed rewards should be transferred when era pot accounts are
@@ -859,6 +832,77 @@ where
 		staker_payout + remainder
 	}
 }
+
+/// Maximum length of a budget key identifier.
+pub const MAX_BUDGET_KEY_LEN: u32 = 32;
+
+/// Identifier for a budget category in the inflation distribution system.
+///
+/// Each budget recipient (e.g., staker rewards, validator incentive, buffer) is identified
+/// by a unique key. Keys are bounded to [`MAX_BUDGET_KEY_LEN`] bytes.
+pub type BudgetKey = BoundedVec<u8, sp_core::ConstU32<MAX_BUDGET_KEY_LEN>>;
+
+/// Computes inflation for a given time period.
+///
+/// Unlike [`EraPayoutV2`], this trait does not depend on staking state (`total_staked`).
+/// Inflation is purely a function of total issuance and elapsed time.
+pub trait InflationCurve<Balance> {
+	/// Compute how much new tokens to mint for the given period.
+	///
+	/// # Parameters
+	/// - `total_issuance`: Current total token supply
+	/// - `elapsed_millis`: Time elapsed since last inflation drip, in milliseconds
+	fn inflation(total_issuance: Balance, elapsed_millis: u64) -> Balance;
+}
+
+/// A recipient of inflation budget.
+///
+/// Pallets that want a share of inflation implement this trait, providing a unique key
+/// and a pot account where minted funds are deposited.
+pub trait BudgetRecipient<AccountId> {
+	/// Unique identifier for this budget category.
+	fn budget_key() -> BudgetKey;
+	/// The account that receives minted inflation funds.
+	fn pot_account() -> AccountId;
+}
+
+/// Aggregates multiple [`BudgetRecipient`]s into a list.
+///
+/// Implemented for tuples of `BudgetRecipient` types, allowing runtime configuration like:
+/// ```ignore
+/// type BudgetRecipients = (Dap, StakerRewardRecipient, ValidatorIncentiveRecipient);
+/// ```
+pub trait BudgetRecipientList<AccountId> {
+	/// Collect all registered recipients as `(key, account)` pairs.
+	fn recipients() -> Vec<(BudgetKey, AccountId)>;
+}
+
+impl<AccountId> BudgetRecipientList<AccountId> for () {
+	fn recipients() -> Vec<(BudgetKey, AccountId)> {
+		vec![]
+	}
+}
+
+/// Implement `BudgetRecipientList` for tuples of `BudgetRecipient` types.
+macro_rules! impl_budget_recipient_list {
+	( $first:ident $(, $rest:ident )* ) => {
+		impl<AccountId, $first: BudgetRecipient<AccountId> $(, $rest: BudgetRecipient<AccountId>)*>
+			BudgetRecipientList<AccountId> for ($first, $($rest,)*)
+		{
+			fn recipients() -> Vec<(BudgetKey, AccountId)> {
+				vec![
+					($first::budget_key(), $first::pot_account()),
+					$(($rest::budget_key(), $rest::pot_account()),)*
+				]
+			}
+		}
+
+		impl_budget_recipient_list!( $($rest),* );
+	};
+	() => {};
+}
+
+impl_budget_recipient_list!(A, B, C, D, E, F, G, H, I, J);
 
 /// Result of staker reward calculation.
 #[derive(Debug, Clone, PartialEq, Eq)]

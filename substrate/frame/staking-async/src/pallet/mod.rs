@@ -257,11 +257,14 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Provider for era reward allocation.
+		/// Provider for general (non-era) reward pot accounts.
 		///
-		/// This handles allocating rewards at era start by minting into the era system accounts.
-		#[pallet::no_default_bounds]
-		type RewardProvider: sp_staking::StakingRewardProvider<Self::AccountId, BalanceOf<Self>>;
+		/// DAP drips inflation into these pots. At era boundaries, staking snapshots
+		/// and transfers the balances to era-specific pots.
+		///
+		/// Use [`crate::Seed`] for production (derives from PalletId), or a custom
+		/// implementation for tests with small AccountId types.
+		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
 
 		/// Sink for unclaimed era rewards.
 		///
@@ -465,7 +468,7 @@ pub mod pallet {
 			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
-			type RewardProvider = ();
+			type GeneralPots = crate::Seed<StakingAsyncPalletId>;
 			type UnclaimedRewardSink = ();
 			type EraPotAccountProvider = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;
@@ -1026,8 +1029,8 @@ pub mod pallet {
 	/// Set to the first era where reward provider is active. Once set, this value can only be
 	/// updated to a lower value (ensuring write-once semantics in production).
 	///
-	/// We use this as a way to hard deprecate minting tokens in this pallet and depend on
-	/// [`Config::RewardProvider`] to transfer staking rewards.
+	/// We use this as a way to hard deprecate minting tokens in this pallet and rely on
+	/// era pot transfers for staking rewards.
 	#[pallet::storage]
 	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
 

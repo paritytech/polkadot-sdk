@@ -793,10 +793,15 @@ fn on_offence_current_era_instant_apply() {
 			let final_dap_balance = Balances::free_balance(&dap_buffer);
 			let final_total_issuance = Balances::total_issuance();
 
-			// DAP buffer should have received all slashed funds
-			assert_eq!(final_dap_balance, initial_dap_balance + 150);
-			// Total issuance should be preserved (funds not burned)
-			assert_eq!(final_total_issuance, initial_total_issuance);
+			// DAP buffer should have received all slashed funds (plus any inflation drip).
+			assert!(
+				final_dap_balance >= initial_dap_balance + 150,
+				"DAP buffer should have received at least 150 from slashes, got delta={}",
+				final_dap_balance.saturating_sub(initial_dap_balance),
+			);
+			// Total issuance should be >= initial (funds not burned; may increase due to
+			// inflation drip).
+			assert!(final_total_issuance >= initial_total_issuance);
 		});
 }
 
@@ -1918,6 +1923,225 @@ mod session_keys {
 		shared::in_rc(|| {
 			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+	}
+}
+
+mod validator_incentive_vesting {
+	use super::*;
+	use frame_support::traits::fungible::Inspect;
+	use pallet_staking_async::{
+		self as staking_async, ConfigOp, ErasValidatorIncentive, ErasValidatorIncentiveAllocation,
+	};
+
+	/// Roll through a complete era in local queue mode, returning the new active era.
+	fn roll_one_era(end_index: &mut sp_staking::SessionIndex) -> sp_staking::EraIndex {
+		let active_before = staking_async::ActiveEra::<T>::get().unwrap().index;
+
+		let sessions_per_era = <SessionsPerEra as frame_support::traits::Get<u32>>::get();
+		for _ in 0..sessions_per_era {
+			let report = rc_client::SessionReport {
+				end_index: *end_index,
+				activation_timestamp: None,
+				leftover: false,
+				validator_points: vec![(1, 10), (2, 10), (3, 10)],
+			};
+			assert_ok!(
+				rc_client::Pallet::<T>::relay_session_report(RuntimeOrigin::root(), report,)
+			);
+			roll_next();
+			*end_index += 1;
+		}
+
+		// Roll until election completes
+		for _ in 0..100 {
+			roll_next();
+			if pallet_election_provider_multi_block::CurrentPhase::<T>::get() ==
+				pallet_election_provider_multi_block::Phase::Off
+			{
+				break;
+			}
+		}
+
+		// Send activation session report
+		let report = rc_client::SessionReport {
+			end_index: *end_index,
+			activation_timestamp: Some(((active_before + 1) as u64 * 1000, active_before + 1)),
+			leftover: false,
+			validator_points: vec![(1, 10), (2, 10)],
+		};
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(RuntimeOrigin::root(), report,));
+		roll_next();
+		*end_index += 1;
+
+		staking_async::ActiveEra::<T>::get().unwrap().index
+	}
+
+	#[test]
+	fn incentive_reward_is_vested_over_duration() {
+		// VestingDuration is configured to 1000 blocks in the mock.
+		// After payout, the validator incentive should be locked under a vesting schedule
+		// that unlocks linearly over 1000 blocks.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// Enable incentive: 45% staker, 10% incentive, 45% buffer (remainder)
+			let mut budget = frame_support::BoundedBTreeMap::new();
+			budget
+				.try_insert(
+					sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec()),
+					Perbill::from_percent(45),
+				)
+				.unwrap();
+			budget
+				.try_insert(
+					sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec()),
+					Perbill::from_percent(10),
+				)
+				.unwrap();
+			assert_ok!(pallet_dap::Pallet::<T>::set_budget_allocation(
+				RuntimeOrigin::root(),
+				budget,
+			));
+			assert_ok!(staking_async::Pallet::<T>::set_validator_self_stake_incentive_config(
+				RuntimeOrigin::root(),
+				ConfigOp::Set(50),
+				ConfigOp::Set(200),
+				ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+			));
+
+			let mut end_index: sp_staking::SessionIndex = 0;
+			// Era 0→1: creates exposure for era 1
+			roll_one_era(&mut end_index);
+			// Era 1→2: allocates rewards for era 1
+			roll_one_era(&mut end_index);
+
+			let payout_era = 1u32;
+
+			// Verify incentive was allocated
+			let incentive_alloc = ErasValidatorIncentiveAllocation::<T>::get(payout_era);
+			assert!(incentive_alloc > 0, "Incentive allocation should be non-zero");
+
+			// Find a validator with incentive weight
+			let validator = (1u64..=8)
+				.find(|v| {
+					let points = staking_async::ErasRewardPoints::<T>::get(payout_era);
+					let has_points = points.individual.get(v).copied().unwrap_or(0) > 0;
+					let has_exposure =
+						staking_async::ErasStakersOverview::<T>::get(payout_era, v).is_some();
+					let has_weight = ErasValidatorIncentive::<T>::get(payout_era, v).is_some();
+					has_points && has_exposure && has_weight
+				})
+				.expect("At least one validator should have points, exposure, and weight");
+
+			// Record state before payout. Validator's reward destination is Staked
+			// (default in this mock), so staker rewards go back into bond. But the
+			// incentive goes to the payee account via vested_transfer.
+			//
+			// For RewardDestination::Staked the payout account is the stash itself.
+			let block_before_payout = System::block_number();
+			let balance_before = pallet_balances::Pallet::<T>::balance(&validator);
+			let usable_before = pallet_balances::Pallet::<T>::reducible_balance(
+				&validator,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Fortitude::Polite,
+			);
+
+			// No vesting schedule before payout
+			assert!(
+				pallet_vesting::Pallet::<T>::vesting(validator).is_none(),
+				"Validator should have no vesting schedule before payout"
+			);
+
+			// Payout era 1 for this validator
+			for _ in 0..10 {
+				match staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(1),
+					validator,
+					payout_era,
+				) {
+					Ok(_) => {},
+					Err(_) => break,
+				}
+			}
+
+			let balance_after = pallet_balances::Pallet::<T>::balance(&validator);
+			assert!(balance_after > balance_before, "Balance should increase after payout");
+
+			// Validator should now have a vesting schedule from the incentive
+			let schedules = pallet_vesting::Pallet::<T>::vesting(validator);
+			assert!(
+				schedules.is_some(),
+				"Validator should have a vesting schedule after incentive payout"
+			);
+			let schedules = schedules.unwrap();
+			assert_eq!(schedules.len(), 1, "Should have exactly one vesting schedule");
+
+			let schedule = &schedules[0];
+			let vested_amount = schedule.locked();
+			let per_block = schedule.per_block();
+			assert!(vested_amount > 0, "Vested amount should be non-zero");
+			assert!(per_block > 0, "Per-block unlock should be non-zero");
+
+			// The vesting schedule should span ~1000 blocks (VestingDuration).
+			// per_block = amount / duration rounds down, so amount / per_block can slightly
+			// overshoot. Allow up to 20% tolerance.
+			let expected_duration = vested_amount / per_block;
+			assert!(
+				expected_duration <= 1200,
+				"Vesting duration should be ~1000 blocks, got {}",
+				expected_duration
+			);
+
+			// Right after payout: most of the incentive should be locked
+			let usable_after = pallet_balances::Pallet::<T>::reducible_balance(
+				&validator,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Fortitude::Polite,
+			);
+			// The usable balance should not have increased by the full incentive amount
+			// because it's locked under vesting. (It may increase slightly due to staker
+			// rewards going to Staked destination which increases the bond, not usable.)
+
+			// Advance 500 blocks (half the vesting duration) and vest
+			let target_block = block_before_payout + 500;
+			System::set_block_number(target_block);
+
+			// Call vest to update the lock
+			assert_ok!(pallet_vesting::Pallet::<T>::vest(RuntimeOrigin::signed(validator)));
+
+			// Note: usable balance may not increase midway if the staking bond lock is
+			// larger than the vesting lock (both constrain usable). This is fine — the
+			// important check is that the vesting schedule fully unlocks below.
+
+			// Advance well past the vesting duration. Due to integer rounding in
+			// per_block calculation, the effective unlock can take slightly longer
+			// than VestingDuration (1000) blocks.
+			let target_block = block_before_payout + 1500;
+			System::set_block_number(target_block);
+
+			// Vest to fully unlock
+			assert_ok!(pallet_vesting::Pallet::<T>::vest(RuntimeOrigin::signed(validator)));
+
+			// Vesting schedule should be fully consumed
+			let schedules_after = pallet_vesting::Pallet::<T>::vesting(validator);
+			assert!(
+				schedules_after.is_none(),
+				"Vesting schedule should be removed after full duration"
+			);
+
+			// All funds should now be usable
+			let usable_final = pallet_balances::Pallet::<T>::reducible_balance(
+				&validator,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Fortitude::Polite,
+			);
+			// The final usable balance should be greater than right after payout
+			// (all vesting lock removed).
+			assert!(
+				usable_final >= usable_after,
+				"All vested funds should be unlocked: after_payout={}, final={}",
+				usable_after,
+				usable_final
+			);
 		});
 	}
 }

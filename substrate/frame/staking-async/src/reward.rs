@@ -51,30 +51,66 @@ impl<T: Config> EraRewardManager<T> {
 		pot_account
 	}
 
-	/// Allocates era rewards by creating pots and asking the reward provider to mint into them.
+	/// Snapshots the general reward pots and transfers their balances into era-specific pots.
 	///
-	/// Creates both staker and validator incentive pots, then calls the configured
-	/// reward provider to compute inflation and mint rewards into the respective pots.
+	/// DAP drips inflation continuously into the general pots. At era boundary, this method:
+	/// 1. Creates era-specific pot accounts
+	/// 2. Reads balance from general pots (accumulated since last era)
+	/// 3. Transfers from general → era-specific pots
 	///
 	/// # Returns
-	/// The allocation breakdown showing amounts minted into each pot.
-	pub fn allocate_rewards(
-		era: EraIndex,
-		total_staked: BalanceOf<T>,
-		era_duration_millis: u64,
-	) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
-		// Create both pot accounts
-		let staker_pot = Self::create(era, EraPotType::StakerRewards);
-		let validator_incentive_pot = Self::create(era, EraPotType::ValidatorSelfStake);
+	/// The allocation breakdown showing amounts transferred into each era pot.
+	pub fn snapshot_era_rewards(era: EraIndex) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
+		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
+		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 
-		// Ask reward provider to mint and allocate
-		T::RewardProvider::allocate_era_rewards(
-			era,
-			total_staked,
-			era_duration_millis,
-			&staker_pot,
-			&validator_incentive_pot,
-		)
+		// Read accumulated balances from general pots.
+		let general_staker_pot = T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_incentive_pot =
+			T::GeneralPots::general_pot_account(GeneralPotType::ValidatorIncentive);
+
+		let staker_balance = T::Currency::reducible_balance(
+			&general_staker_pot,
+			Preservation::Preserve,
+			frame_support::traits::tokens::Fortitude::Polite,
+		);
+		let incentive_balance = T::Currency::reducible_balance(
+			&general_incentive_pot,
+			Preservation::Preserve,
+			frame_support::traits::tokens::Fortitude::Polite,
+		);
+
+		// Transfer from general pots to era-specific pots, keeping general pots alive.
+		if !staker_balance.is_zero() {
+			let _ = T::Currency::transfer(
+				&general_staker_pot,
+				&staker_era_pot,
+				staker_balance,
+				Preservation::Preserve,
+			)
+			.defensive();
+		}
+
+		if !incentive_balance.is_zero() {
+			let _ = T::Currency::transfer(
+				&general_incentive_pot,
+				&incentive_era_pot,
+				incentive_balance,
+				Preservation::Preserve,
+			)
+			.defensive();
+		}
+
+		log::info!(
+			target: crate::LOG_TARGET,
+			"Era {era}: snapshotted staker_rewards={staker_balance:?}, \
+			 validator_incentive={incentive_balance:?}"
+		);
+
+		sp_staking::EraRewardAllocation {
+			staker_rewards: staker_balance,
+			validator_incentive: incentive_balance,
+		}
 	}
 
 	/// Destroys an era pot account by transferring out unclaimed rewards and removing the provider.

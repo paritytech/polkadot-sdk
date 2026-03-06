@@ -59,6 +59,7 @@ construct_runtime! {
 		MultiBlockUnsigned: multi_block::unsigned,
 
 		Dap: pallet_dap,
+		Vesting: pallet_vesting,
 	}
 }
 
@@ -83,6 +84,8 @@ pub fn roll_next() {
 		RcClient::on_initialize(next),
 		DispatchClass::Mandatory,
 	);
+	// Drip inflation into budget recipients.
+	Dap::on_initialize(next);
 
 	let mut meter = NextPollWeight::take()
 		.map(WeightMeter::with_limit)
@@ -460,8 +463,8 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
-	type RewardProvider = Dap;
 	type UnclaimedRewardSink = Dap;
+	type GeneralPots = TestGeneralPots;
 	type EraPotAccountProvider = pallet_staking_async::SequentialTest;
 	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
@@ -482,8 +485,8 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = RcClient;
 	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator;
 
-	type VestingDuration = ConstU64<0>;
-	type ValidatorIncentivePayout = pallet_staking_async::ImmediateIncentivePayout<Balances>;
+	type VestingDuration = ConstU64<1000>;
+	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<Vesting>;
 
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
@@ -512,29 +515,77 @@ parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 }
 
-pub struct TestEraPayout;
-impl sp_staking::EraPayout<Balance> for TestEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		// Simple test implementation: return a fixed amount for testing
-		// If era_duration is 0 (e.g., activation_timestamp is None), use a default amount
-		let total = if era_duration_millis == 0 {
-			10_000 // Default test amount when duration is unknown
+pub struct TestInflationCurve;
+impl sp_staking::InflationCurve<Balance> for TestInflationCurve {
+	fn inflation(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		// 1 token per millisecond elapsed (same rate as old TestEraPayout).
+		if elapsed_millis == 0 {
+			10_000
 		} else {
-			era_duration_millis as Balance
-		};
-		(total / 2, total / 2)
+			elapsed_millis as Balance
+		}
 	}
+}
+
+/// Mock time provider backed by block number (1 block = 6000ms).
+pub struct MockTime;
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		(System::block_number() as u64) * 6_000
+	}
+}
+
+pub const GENERAL_STAKER_POT: AccountId = 300_000;
+pub const GENERAL_INCENTIVE_POT: AccountId = 300_001;
+
+pub struct TestGeneralPots;
+impl pallet_staking_async::GeneralPotAccountProvider<AccountId> for TestGeneralPots {
+	fn general_pot_account(pot_type: pallet_staking_async::GeneralPotType) -> AccountId {
+		match pot_type {
+			pallet_staking_async::GeneralPotType::StakerRewards => GENERAL_STAKER_POT,
+			pallet_staking_async::GeneralPotType::ValidatorIncentive => GENERAL_INCENTIVE_POT,
+		}
+	}
+}
+
+parameter_types! {
+	pub const TestInflationCadence: u64 = 0; // drip every block
+	pub const TestMaxInflationPerDrip: Balance = 1_000_000_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type InflationCurve = TestInflationCurve;
+	type BudgetRecipients = (
+		Dap,
+		pallet_staking_async::StakerRewardRecipient<TestGeneralPots>,
+		pallet_staking_async::ValidatorIncentiveRecipient<TestGeneralPots>,
+	);
+	type Time = MockTime;
+	type InflationCadence = TestInflationCadence;
+	type MaxInflationPerDrip = TestMaxInflationPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
-	type EraPayout = TestEraPayout;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = 1;
+	pub UnvestedFundsAllowedWithdrawReasons: frame_support::traits::WithdrawReasons =
+		frame_support::traits::WithdrawReasons::except(
+			frame_support::traits::WithdrawReasons::TRANSFER | frame_support::traits::WithdrawReasons::RESERVE
+		);
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = frame_support::sp_runtime::traits::ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = ();
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
 parameter_types! {
@@ -830,6 +881,9 @@ impl ExtBuilder {
 		use frame_support::sp_runtime::traits::AccountIdConversion;
 		let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
 		balances.push((dap_buffer, 1));
+		// Fund general pot accounts with ED so they stay alive.
+		balances.push((GENERAL_STAKER_POT, 1));
+		balances.push((GENERAL_INCENTIVE_POT, 1));
 
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
@@ -848,6 +902,21 @@ impl ExtBuilder {
 		let mut state: TestState = t.into();
 
 		state.execute_with(|| {
+			// Set budget allocation: 50% staker rewards (rest goes to buffer).
+			let mut budget = frame_support::BoundedBTreeMap::new();
+			budget
+				.try_insert(
+					sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec()),
+					Perbill::from_percent(50),
+				)
+				.unwrap();
+			pallet_dap::BudgetAllocation::<Runtime>::put(budget);
+			// Initialize DAP's LastInflationTimestamp.
+			pallet_dap::LastInflationTimestamp::<Runtime>::put(
+				<MockTime as frame_support::traits::Time>::now(),
+			);
+			// Disable legacy minting from era 0.
+			pallet_staking_async::DisableLegacyMintingEra::<Runtime>::put(0u32);
 			// initialises events
 			roll_next();
 		});

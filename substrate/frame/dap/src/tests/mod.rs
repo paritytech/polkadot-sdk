@@ -18,6 +18,22 @@
 //! Tests for the DAP pallet.
 
 mod budget;
+mod drip;
 mod genesis;
 mod on_unbalanced;
-mod reward_provider;
+
+use crate::BudgetAllocationMap;
+use sp_runtime::{BoundedBTreeMap, Perbill};
+use sp_staking::BudgetKey;
+
+fn key(name: &[u8]) -> BudgetKey {
+	BudgetKey::truncate_from(name.to_vec())
+}
+
+fn budget_map(entries: &[(&[u8], u32)]) -> BudgetAllocationMap {
+	let mut map = BoundedBTreeMap::new();
+	for (name, pct) in entries {
+		map.try_insert(key(name), Perbill::from_percent(*pct)).unwrap();
+	}
+	map
+}

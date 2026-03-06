@@ -130,7 +130,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn validate() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn kick(_: u32) -> Weight {
 		unreachable!()
@@ -172,7 +172,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn payout_stakers_alive_staked(_: u32) -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn rebond(_: u32) -> Weight {
 		unreachable!()
@@ -190,10 +190,13 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn force_apply_min_commission() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn set_min_commission() -> Weight {
-		unreachable!()
+		Default::default()
+	}
+	fn set_max_commission() -> Weight {
+		Default::default()
 	}
 	fn restore_ledger() -> Weight {
 		unreachable!()

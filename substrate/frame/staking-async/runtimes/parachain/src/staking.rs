@@ -382,29 +382,24 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type MaxAutoRebagPerBlock = ();
 }
 
-pub struct EraPayout;
-impl sp_staking::EraPayout<Balance> for EraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
+/// Polkadot inflation curve: 8% annual on a fixed baseline issuance.
+///
+/// Returns the total inflation for the given elapsed time. The split between stakers,
+/// validator incentive, and buffer is handled by the DAP budget allocation map.
+pub struct PolkadotInflationCurve;
+impl sp_staking::InflationCurve<Balance> for PolkadotInflationCurve {
+	fn inflation(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		// A normal-sized era will have 1 / 365.25 here:
-		let relative_era_len =
-			FixedU128::from_rational(era_duration_millis.into(), MILLISECONDS_PER_YEAR.into());
+		let relative_period =
+			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
 
-		// Fixed total TI that we use as baseline for the issuance.
+		// Fixed baseline issuance for inflation computation.
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
-		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		let period_emission = relative_period.saturating_mul_int(yearly_emission);
+		period_emission.saturated_into()
 	}
 }
 
@@ -447,7 +442,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type RewardProvider = Dap;
+	type GeneralPots = pallet_staking_async::Seed<StakingPalletId>;
 	type UnclaimedRewardSink = Dap;
 	type EraPotAccountProvider = pallet_staking_async::Seed<StakingPalletId>;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -501,13 +496,29 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	/// Drip inflation every 60 seconds.
+	pub const InflationCadence: u64 = 60_000;
+	/// Safety ceiling: max ~2x expected per-minute emission.
+	/// Yearly emission ≈ 417M DOT → per minute ≈ 793 DOT → ceiling ≈ 2000 DOT.
+	/// Value in plancks (1 DOT = 10^10 plancks).
+	pub const MaxInflationPerDrip: Balance = 2_000 * 10_000_000_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type InflationCurve = PolkadotInflationCurve;
+	type BudgetRecipients = (
+		Dap,
+		pallet_staking_async::StakerRewardRecipient<pallet_staking_async::Seed<StakingPalletId>>,
+		pallet_staking_async::ValidatorIncentiveRecipient<
+			pallet_staking_async::Seed<StakingPalletId>,
+		>,
+	);
+	type Time = Timestamp;
+	type InflationCadence = InflationCadence;
+	type MaxInflationPerDrip = MaxInflationPerDrip;
 	type BudgetOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
 }
 
 parameter_types! {

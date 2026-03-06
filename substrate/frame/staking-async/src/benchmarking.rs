@@ -118,19 +118,17 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	ErasRewardPoints::<T>::insert(planned_era, reward);
 
-	// Allocate era rewards through the reward manager
-	// Each participant stakes ED * 10, so total_staked = ED * 10 * (1 + upper_bound)
-	let total_staked = asset::existential_deposit::<T>()
-		.saturating_mul(10u32.into())
-		.saturating_mul((1 + upper_bound).into());
+	// Fund general pots (simulating what DAP drip would do) and snapshot into era pots.
+	let ed = asset::existential_deposit::<T>();
+	let reward_amount = ed.saturating_mul(1000u32.into());
+	let general_staker_pot =
+		T::GeneralPots::general_pot_account(crate::GeneralPotType::StakerRewards);
+	let general_incentive_pot =
+		T::GeneralPots::general_pot_account(crate::GeneralPotType::ValidatorIncentive);
+	let _ = asset::mint_creating::<T>(&general_staker_pot, reward_amount);
+	let _ = asset::mint_creating::<T>(&general_incentive_pot, ed);
 
-	let allocation = crate::reward::EraRewardManager::<T>::allocate_rewards(
-		planned_era,
-		total_staked,
-		100_000_000u64,
-	);
-
-	// Store the staker rewards amount
+	let allocation = crate::reward::EraRewardManager::<T>::snapshot_era_rewards(planned_era);
 	<ErasValidatorReward<T>>::insert(planned_era, allocation.staker_rewards);
 
 	Ok((v_stash, nominators, planned_era))
