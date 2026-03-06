@@ -1,4 +1,4 @@
-title: '[WIP][pallet-assets-precompiles] Add EIP-2612 permit support for gasless approvals'
+title: '[pallet-assets-precompiles] Add EIP-2612 permit support for gasless approvals'
 doc:
 - audience: Runtime Dev
   description: |-
