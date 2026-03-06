@@ -456,6 +456,50 @@ fn approve_revoke_rejected_on_frozen_asset(asset_index: u16) {
 	});
 }
 
+/// Directly overwriting a non-zero allowance with a different non-zero value must use set
+/// semantics (cancel + re-approve). The allowance must equal the new value — not the sum of
+/// old and new — and only a single deposit should be reserved.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn approve_nonzero_to_nonzero(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+
+		// Approve 100 (0 → 100).
+		call_approve(owner, asset_addr, spender_addr, U256::from(100));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+
+		// Overwrite with 50 directly (100 → 50), no zeroing in between.
+		call_approve(owner, asset_addr, spender_addr, U256::from(50));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 50);
+		// Deposit reserved exactly once — cancel unreserved the old one, approve re-reserved.
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+
+		// Overwrite upward (50 → 200) to confirm it works in both directions.
+		call_approve(owner, asset_addr, spender_addr, U256::from(200));
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 200);
+		assert_eq!(Balances::reserved_balance(&owner), deposit);
+	});
+}
+
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn approve_zero_on_nonexistent_is_noop(asset_index: u16) {
