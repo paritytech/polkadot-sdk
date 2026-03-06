@@ -260,16 +260,20 @@ impl<T: Config> AccountInfo<T> {
 		let mut new_deposit: BalanceOf<T> = Zero::zero();
 		let mut old_deposit: BalanceOf<T> = Zero::zero();
 
-		// Helper: create a fresh ContractInfo for the target and compute its base deposit.
-		let make_contract_info = |new_deposit: &mut BalanceOf<T>| {
-			target_code_hash.map(|ch| {
-				let mut info = ContractInfo::<T>::new_for_delegation(address, ch);
-				if let Some(cd) = code_deposit {
-					*new_deposit = info.update_base_deposit(cd);
+		// Update or create ContractInfo for the delegation target.
+		// Preserves existing contract_info when present, only updating code_hash and deposit.
+		let update_contract_info =
+			|contract_info: &mut Option<ContractInfo<T>>, new_deposit: &mut BalanceOf<T>| {
+				if let Some(code_hash) = target_code_hash {
+					let info = contract_info.get_or_insert_with(|| {
+						ContractInfo::<T>::new_for_delegation(address, code_hash)
+					});
+					info.code_hash = code_hash;
+					if let Some(cd) = code_deposit {
+						*new_deposit = info.update_base_deposit(cd);
+					}
 				}
-				info
-			})
-		};
+			};
 
 		let old_code_hash = AccountInfoOf::<T>::mutate(address, |account| {
 			let mut old_code_hash = None;
@@ -283,28 +287,24 @@ impl<T: Config> AccountInfo<T> {
 							.map(|ci| ci.storage_base_deposit)
 							.unwrap_or_default();
 						*delegate_target = Some(target);
-						if let Some(code_hash) = target_code_hash {
-							let info = contract_info.get_or_insert_with(|| {
-								ContractInfo::<T>::new_for_delegation(address, code_hash)
-							});
-							info.code_hash = code_hash;
-							if let Some(code_deposit) = code_deposit {
-								new_deposit = info.update_base_deposit(code_deposit);
-							}
-						}
+						update_contract_info(contract_info, &mut new_deposit);
 					},
 					_ => {
+						let mut contract_info = None;
+						update_contract_info(&mut contract_info, &mut new_deposit);
 						account.account_type = AccountType::EOA {
 							delegate_target: Some(target),
-							contract_info: make_contract_info(&mut new_deposit),
+							contract_info,
 						};
 					},
 				}
 			} else {
+				let mut contract_info = None;
+				update_contract_info(&mut contract_info, &mut new_deposit);
 				*account = Some(AccountInfo {
 					account_type: AccountType::EOA {
 						delegate_target: Some(target),
-						contract_info: make_contract_info(&mut new_deposit),
+						contract_info,
 					},
 					dust: 0,
 				});
