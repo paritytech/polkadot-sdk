@@ -864,7 +864,7 @@ fn channel_message(sender: &sr25519::Public, receiver: &sr25519::Public) -> Chan
 }
 
 pub fn get_keypair(idx: u32) -> sr25519::Pair {
-	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
+	sr25519::Pair::from_string(&format!("//StatementStoreClient//{idx}"), None).expect("Valid seed")
 }
 
 struct LatencyBenchConfig {
@@ -1209,4 +1209,19 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	);
 
 	Ok(())
+}
+
+// Runs small statement store network for manual testing and debugging.
+//
+// Spawns a network with 3 collators and then sleeps for 24 hours.
+// The chain spec is generated with statement allowances for 100 clients.
+#[tokio::test(flavor = "multi_thread")]
+async fn small_statement_store_network() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let _network = spawn_network(&["alice", "bob", "charlie"], 100).await?;
+
+	tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
 }
