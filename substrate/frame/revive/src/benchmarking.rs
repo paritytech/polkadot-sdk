@@ -166,7 +166,7 @@ mod benchmarks {
 	}
 
 	// Benchmark for processing N EIP-7702 authorizations with existing accounts
-	// Parameter `n`: number of authorizations to process (0 to 255 as per EIP-7702)
+	// Parameter `n`: number of authorizations to process
 	#[benchmark(pov_mode = Measured)]
 	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
 		use crate::evm::eip7702;

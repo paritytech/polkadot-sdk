@@ -1388,10 +1388,8 @@ pub mod pallet {
 			.inspect_err(|e| {
 				log::error!(target: LOG_TARGET, "process_authorizations failed: {e:?}. This is a bug: the transaction should have failed validation.");
 			})?;
-			let extra_weight =
-				base_info.total_weight().saturating_sub(auth_result.weight_refund);
-			let base_call_weight =
-				base_info.call_weight.saturating_sub(auth_result.weight_refund);
+			let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
+			let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let output = Self::bare_call(
