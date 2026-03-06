@@ -25,7 +25,7 @@ use log::trace;
 use codec::Codec;
 
 use sc_client_api::UsageProvider;
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::Result as CResult;
 use sp_consensus::Error as ConsensusError;
@@ -62,7 +62,9 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	client.runtime_api().slot_duration(block_hash).map_err(|err| err.into())
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api.slot_duration(block_hash).map_err(|err| err.into())
 }
 
 /// Get the slot author for given block along with authorities.
@@ -203,7 +205,7 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
 
 	match compatibility_mode {
 		CompatibilityMode::None => {},
@@ -226,6 +228,7 @@ where
 		},
 	}
 
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
 	runtime_api
 		.authorities(parent_hash)
 		.ok()
@@ -243,8 +246,9 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	client
-		.runtime_api()
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api
 		.authorities(parent_hash)
 		.ok()
 		.ok_or(ConsensusError::InvalidAuthoritiesSet)

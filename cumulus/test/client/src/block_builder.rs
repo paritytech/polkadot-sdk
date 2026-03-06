@@ -22,7 +22,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::{ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 use sp_trie::proof_size_extension::ProofSizeExt;
@@ -109,6 +109,10 @@ fn init_block_builder(
 	extra_pre_digests: Option<Vec<DigestItem>>,
 	ignored_nodes: Option<ProofRecorderIgnoredNodes<Block>>,
 ) -> BlockBuilderAndSupportData<'_> {
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	let para_slot_duration = runtime_api.slot_duration(at).unwrap();
+
 	let timestamp = timestamp.unwrap_or_else(|| {
 		let last_timestamp =
 			client.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
@@ -123,12 +127,11 @@ fn init_block_builder(
 					.as_millis() as u64
 			}
 		} else {
-			last_timestamp + client.runtime_api().slot_duration(at).unwrap().as_millis()
+			last_timestamp + para_slot_duration.as_millis()
 		}
 	});
 
-	let slot: Slot =
-		(timestamp / client.runtime_api().slot_duration(at).unwrap().as_millis()).into();
+	let slot: Slot = (timestamp / para_slot_duration.as_millis()).into();
 
 	if relay_sproof_builder.current_slot == 0u64 {
 		relay_sproof_builder.current_slot = (timestamp / 6_000).into();
