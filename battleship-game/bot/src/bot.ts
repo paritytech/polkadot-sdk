@@ -54,6 +54,32 @@ export class BattleshipBot {
   }
 
   private async findOrCreateGame(): Promise<void> {
+    // Check if we're already in a game on-chain
+    const existingGameId = await this.client.getPlayerGame(this.account.address);
+    if (existingGameId !== null) {
+      const game = await this.client.getGame(existingGameId);
+      if (game) {
+        const phase = game.phase?.type;
+        if (phase === "Finished") {
+          // Game is finished but PlayerGame not cleaned up yet - surrender to clear
+          console.log(`[Bot] Found finished game ${existingGameId}, surrendering to clean up...`);
+          await this.client.surrender(this.account.signer, existingGameId);
+          await new Promise(r => setTimeout(r, 6000));
+          return;
+        }
+        // Resume the existing game
+        console.log(`[Bot] Found existing on-chain game ${existingGameId} (phase=${phase}), resuming...`);
+        await this.initializeGame(existingGameId);
+        return;
+      } else {
+        // Game storage gone but PlayerGame still set - surrender to clean up
+        console.log(`[Bot] PlayerGame points to missing game ${existingGameId}, surrendering to clean up...`);
+        await this.client.surrender(this.account.signer, existingGameId);
+        await new Promise(r => setTimeout(r, 6000));
+        return;
+      }
+    }
+
     // Look for games to join (that aren't ours)
     const waitingGames = await this.client.findWaitingGames();
     
@@ -71,7 +97,7 @@ export class BattleshipBot {
       
       if (success) {
         await this.initializeGame(gameId);
-        return; // Successfully joined, done
+        return;
       }
     }
     

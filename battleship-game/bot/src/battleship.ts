@@ -296,6 +296,16 @@ export class BattleshipClient {
     }
   }
 
+  async getPlayerGame(address: string): Promise<bigint | null> {
+    try {
+      const val = await this.api.query.Battleship.PlayerGame.getValue(address, { at: "best" });
+      if (val === null || val === undefined) return null;
+      return typeof val === "bigint" ? val : BigInt(val);
+    } catch {
+      return null;
+    }
+  }
+
   async findWaitingGames(): Promise<bigint[]> {
     try {
       const nextId = await this.api.query.Battleship.NextGameId.getValue({ at: "best" });

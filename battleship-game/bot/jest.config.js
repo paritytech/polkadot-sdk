@@ -6,15 +6,13 @@ export default {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   transform: {
-    '^.+\\.tsx?$': [
+    '^.+\.[jt]sx?$': [
       'ts-jest',
       {
         useESM: true,
       },
     ],
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(@polkadot-api|@polkadot-labs|@scure|polkadot-api|smoldot|scale-ts)/)',
-  ],
+  transformIgnorePatterns: [],
   testTimeout: 180000,
 };
