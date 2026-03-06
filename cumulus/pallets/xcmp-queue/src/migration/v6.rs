@@ -62,20 +62,20 @@ mod unversioned {
 
 impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV5ToV6<T> {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		let translate = |pre: BoundedVec<
-			v5::OutboundChannelDetails,
-			<T as Config>::MaxActiveOutboundChannels,
-		>|
+		// We use `Vec` instead of `BoundedVec` for `pre` in order to avoid any decoding error
+		// in case `T::MaxActiveOutboundChannels` is decreased in the same runtime upgrade where
+		// the migration is executed.
+		let translate = |pre: Vec<v5::OutboundChannelDetails>|
 		 -> BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels> {
-			BoundedVec::truncate_from(
-				pre.into_inner()
-					.iter()
+			BoundedVec::defensive_truncate_from(
+				pre.iter()
 					.map(|pre_channel_details| OutboundChannelDetails {
 						recipient: pre_channel_details.recipient,
 						state: pre_channel_details.state,
 						signals_exist: pre_channel_details.signals_exist,
 						first_index: pre_channel_details.first_index,
 						last_index: pre_channel_details.last_index,
+						// The new field added by the migration.
 						flags: OutboundChannelFlags::empty(),
 					})
 					.collect(),
@@ -83,13 +83,19 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV5ToV
 		};
 
 		if OutboundXcmpStatus::<T>::translate(|pre| pre.map(translate)).is_err() {
-			tracing::error!(
-				target: LOG_TARGET,
+			defensive!(
 				"unexpected error when performing translation of the OutboundXcmpStatus type \
 				during storage upgrade to v6"
 			);
 		}
 
-		T::DbWeight::get().reads_writes(1, 1)
+		// We need to account for the proof size and ref time of reading and writing
+		// `OutboundChannelDetails` once.
+		let proof_size = 2 * BoundedVec::<
+			OutboundChannelDetails,
+			<T as Config>::MaxActiveOutboundChannels,
+		>::max_encoded_len();
+		Weight::from_parts(0, proof_size as u64)
+			.saturating_add(T::DbWeight::get().reads_writes(1, 1))
 	}
 }

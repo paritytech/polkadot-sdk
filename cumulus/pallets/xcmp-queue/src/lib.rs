@@ -383,17 +383,15 @@ bitflags! {
 }
 
 impl OutboundChannelFlags {
+	// Check whether the recipient supports `ConcatenatedOpaqueVersionedXcm`.
 	fn has_concatenated_opaque_versioned_xcm_support(&self) -> bool {
 		*self & Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT != Self::empty()
 	}
-	fn notice_concatenated_opaque_versioned_xcm_support(&mut self) {
-		*self = *self |
-			Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT |
-			Self::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
-	}
 
+	// Check whether we should send a notification to the recipient, advertising that we support
+	// `ConcatenatedOpaqueVersionedXcm`.
 	fn should_send_concatenated_opaque_versioned_xcm_notification(&self) -> bool {
-		if *self & Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT != Self::empty() {
+		if self.has_concatenated_opaque_versioned_xcm_support() {
 			return false;
 		}
 
@@ -402,6 +400,16 @@ impl OutboundChannelFlags {
 		}
 
 		true
+	}
+
+	// Remember that the recipient supports `ConcatenatedOpaqueVersionedXcm`.
+	fn notice_concatenated_opaque_versioned_xcm_support(&mut self) {
+		*self = *self | Self::CONCATENATED_OPAQUE_VERSIONED_XCM_SUPPORT;
+	}
+
+	// Remember that we advertised the `ConcatenatedOpaqueVersionedXcm` support to the recipient.
+	fn notice_concatenated_opaque_versioned_xcm_notification_sent(&mut self) {
+		*self = *self | Self::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
 	}
 }
 
@@ -589,7 +597,8 @@ impl<T: Config> Pallet<T> {
 			tracing::debug!(target: LOG_TARGET, ?error, "Failed to create bounded message page");
 			MessageSendError::TooBig
 		})?;
-		let page_count = (channel_details.last_index - channel_details.first_index) as u32;
+		let page_count =
+			channel_details.last_index.saturating_sub(channel_details.first_index) as u32;
 		let last_page_size = current_page.len();
 		<OutboundXcmpMessages<T>>::insert(recipient, channel_details.last_index - 1, current_page);
 		<OutboundXcmpStatus<T>>::put(all_channels);
@@ -1128,7 +1137,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				if flags.should_send_concatenated_opaque_versioned_xcm_notification() {
 					match WeakBoundedVec::try_from(XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm.encode()) {
 						Ok(page) => {
-							*flags = *flags | OutboundChannelFlags::CONCATENATED_OPAQUE_VERSIONED_XCM_NOTIFICATION_SENT;
+							flags.notice_concatenated_opaque_versioned_xcm_notification_sent();
 							break 'page_fetch page;
 						},
 						Err(_) => {
@@ -1237,6 +1246,9 @@ impl<T: Config> SendXcm for Pallet<T> {
 			Self::try_get_or_insert_outbound_channel(&mut all_channels, recipient)
 		{
 			if channel_details.flags.has_concatenated_opaque_versioned_xcm_support() {
+				channel_details
+					.flags
+					.notice_concatenated_opaque_versioned_xcm_notification_sent();
 				encoding = XcmEncoding::Double;
 			}
 		}
