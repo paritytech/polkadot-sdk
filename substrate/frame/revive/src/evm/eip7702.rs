@@ -22,42 +22,47 @@
 //! authorization tuples attached to transactions.
 
 use crate::{
-	Config, ExecConfig, HoldReason, LOG_TARGET, Pallet,
+	BalanceOf, Config, ExecConfig, HoldReason, LOG_TARGET, Pallet, RuntimeCosts,
 	address::AddressMapper,
 	evm::api::{AuthorizationListEntry, recover_eth_address_from_message},
+	metering,
 	primitives::StorageDeposit,
 	storage::AccountInfo,
 };
 use alloc::vec::Vec;
-use frame_support::traits::fungible::Inspect;
+use frame_support::{traits::fungible::Inspect, weights::Weight};
 use sp_core::{Get, H160, U256};
-use sp_runtime::{SaturatedConversion, traits::Zero};
+use sp_runtime::{SaturatedConversion, Saturating, traits::Zero};
 
 /// EIP-7702: Magic value for authorization signature message
 const EIP7702_MAGIC: u8 = 0x05;
 
 /// Result of processing EIP-7702 authorization tuples.
 #[derive(Default, Debug, PartialEq, Eq)]
-pub struct AuthorizationResult {
+pub struct AuthorizationResult<Balance: Default> {
 	/// Number of authorizations that created new accounts.
 	pub new_accounts: u32,
 	/// Number of authorizations that applied to existing accounts.
 	pub existing_accounts: u32,
+	/// Total deposit charged from the origin during authorization processing.
+	pub deposit: Balance,
+	/// Weight to refund for authorizations that hit existing accounts.
+	pub weight_refund: Weight,
 }
 
 /// Process a list of EIP-7702 authorization tuples.
 ///
 /// For new accounts the ED is charged from `origin` via [`Pallet::charge_deposit`].
-/// The caller should account for the authorization list weight via pre-dispatch
-/// and refund based on the number of authorizations that did not create new accounts.
+/// The pre-dispatch weight assumes all authorizations create new accounts (worst case).
+/// The returned `weight_refund` accounts for authorizations that hit existing accounts.
 pub fn process_authorizations<T: Config>(
 	authorization_list: &[AuthorizationListEntry],
 	origin: &T::AccountId,
 	exec_config: &ExecConfig<T>,
-) -> Result<AuthorizationResult, sp_runtime::DispatchError> {
+) -> Result<AuthorizationResult<BalanceOf<T>>, sp_runtime::DispatchError> {
 	let chain_id = U256::from(T::ChainId::get());
 	let ed = <T::Currency as Inspect<T::AccountId>>::minimum_balance();
-	let mut result = AuthorizationResult::default();
+	let mut result: AuthorizationResult<BalanceOf<T>> = Default::default();
 
 	for auth in authorization_list.iter() {
 		if !auth.chain_id.is_zero() && auth.chain_id != chain_id {
@@ -90,6 +95,7 @@ pub fn process_authorizations<T: Config>(
 
 		if !frame_system::Account::<T>::contains_key(&account_id) {
 			Pallet::<T>::charge_deposit(None, origin, &account_id, ed, exec_config)?;
+			result.deposit.saturating_accrue(ed);
 			result.new_accounts = result.new_accounts.saturating_add(1);
 		} else {
 			result.existing_accounts = result.existing_accounts.saturating_add(1);
@@ -103,25 +109,35 @@ pub fn process_authorizations<T: Config>(
 		};
 
 		match deposit {
-			StorageDeposit::Charge(amount) if !amount.is_zero() => Pallet::<T>::charge_deposit(
-				Some(HoldReason::StorageDepositReserve),
-				origin,
-				&account_id,
-				amount,
-				exec_config,
-			)?,
-			StorageDeposit::Refund(amount) if !amount.is_zero() => Pallet::<T>::refund_deposit(
-				HoldReason::StorageDepositReserve,
-				&account_id,
-				origin,
-				amount,
-				Some(exec_config),
-			)?,
+			StorageDeposit::Charge(amount) if !amount.is_zero() => {
+				Pallet::<T>::charge_deposit(
+					Some(HoldReason::StorageDepositReserve),
+					origin,
+					&account_id,
+					amount,
+					exec_config,
+				)?;
+				result.deposit.saturating_accrue(amount);
+			},
+			StorageDeposit::Refund(amount) if !amount.is_zero() => {
+				Pallet::<T>::refund_deposit(
+					HoldReason::StorageDepositReserve,
+					&account_id,
+					origin,
+					amount,
+					Some(exec_config),
+				)?;
+				result.deposit = result.deposit.saturating_sub(amount);
+			},
 			_ => {},
 		}
 
 		frame_system::Pallet::<T>::inc_account_nonce(&account_id);
 	}
+
+	result.weight_refund = <RuntimeCosts as metering::Token<T>>::weight(
+		&RuntimeCosts::DelegationRefunds(result.existing_accounts),
+	);
 
 	Ok(result)
 }

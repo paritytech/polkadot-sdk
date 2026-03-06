@@ -192,6 +192,7 @@ fn substrate_metering_initialization_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorisation_deposit: 0,
 					});
 
 				if let Some((gas_left, ref_time_left, proof_size_left, deposit_left)) = remaining {
@@ -230,6 +231,7 @@ fn substrate_metering_initialization_works() {
 						eth_gas_limit: 5_000_000_000 / gas_scale,
 						weight_limit: Weight::from_parts(ref_time_limit, proof_size_limit),
 						eth_tx_info,
+						authorisation_deposit: 0,
 					})
 					.unwrap();
 
@@ -322,6 +324,7 @@ fn substrate_metering_charges_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorisation_deposit: 0,
 					})
 					.unwrap();
 
@@ -549,6 +552,7 @@ fn substrate_nesting_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info: eth_tx_info.clone(),
+						authorisation_deposit: 0,
 					})
 					.unwrap();
 
@@ -653,6 +657,7 @@ fn substrate_nesting_charges_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorisation_deposit: 0,
 					})
 					.unwrap();
 
@@ -769,6 +774,7 @@ fn catch_constructor_test() {
 					eth_gas_limit: eth_gas_limit.into(),
 					weight_limit: Weight::MAX,
 					eth_tx_info: crate::EthTxInfo::new(0, Default::default()),
+					authorisation_deposit: 0,
 				})
 				.build()
 		};

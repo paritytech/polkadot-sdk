@@ -1301,6 +1301,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorisation_deposit: Default::default(),
 					},
 					Code::Upload(code),
 					data,
@@ -1627,13 +1628,16 @@ impl<T: Config> Pallet<T> {
 		// so delegation changes persist even if the call fails.
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
-		let (_auth_result, refund) =
-			Self::process_authorization_list(&authorization_list, &signer, &exec_config)
+		let auth_result = if !authorization_list.is_empty() {
+			evm::eip7702::process_authorizations::<T>(&authorization_list, &signer, &exec_config)
 				.inspect_err(|e| {
 					log::error!(target: LOG_TARGET, "process_authorizations failed: {e:?}. This is a bug: the transaction should have failed validation.");
-				})?;
-		let extra_weight = base_info.total_weight().saturating_sub(refund);
-		let base_call_weight = base_info.call_weight.saturating_sub(refund);
+				})?
+		} else {
+			Default::default()
+		};
+		let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
+		let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
 
 		block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 			let output = Self::bare_call(
@@ -1644,6 +1648,7 @@ impl<T: Config> Pallet<T> {
 					eth_gas_limit: eth_gas_limit.saturated_into(),
 					weight_limit,
 					eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+					authorisation_deposit: auth_result.deposit,
 				},
 				data,
 				&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
@@ -1658,26 +1663,6 @@ impl<T: Config> Pallet<T> {
 				effective_gas_price,
 			)
 		})
-	}
-
-	/// Process EIP-7702 authorization list and compute the weight refund.
-	///
-	/// The pre-dispatch weight assumes all authorizations create new accounts (worst case).
-	/// Returns the result and the refund weight for authorizations that hit existing accounts.
-	fn process_authorization_list(
-		authorization_list: &[evm::AuthorizationListEntry],
-		origin: &T::AccountId,
-		exec_config: &ExecConfig<T>,
-	) -> Result<(evm::eip7702::AuthorizationResult, Weight), sp_runtime::DispatchError> {
-		let auth_result = if !authorization_list.is_empty() {
-			evm::eip7702::process_authorizations::<T>(authorization_list, origin, exec_config)?
-		} else {
-			Default::default()
-		};
-		let refund = <RuntimeCosts as metering::Token<T>>::weight(
-			&RuntimeCosts::DelegationRefunds(auth_result.existing_accounts),
-		);
-		Ok((auth_result, refund))
 	}
 
 	/// A generalized version of [`Self::call`].
@@ -1950,11 +1935,15 @@ impl<T: Config> Pallet<T> {
 		// Process authorizations and adjust base_weight before creating limits.
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
-		let (_auth_result, refund) =
-			Self::process_authorization_list(&authorization_list, &origin, &exec_config)
-				.map_err(|err| extract_error(err).unwrap_err())?;
-		base_weight = base_weight.saturating_sub(refund);
-		let auth_deposit = Self::worst_case_delegation_deposit()
+		let auth_result = if !authorization_list.is_empty() {
+			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config)
+				.map_err(|err| extract_error(err).unwrap_err())?
+		} else {
+			Default::default()
+		};
+		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
+		let actual_auth_deposit = auth_result.deposit;
+		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
 			.saturating_mul(authorization_list.len().saturated_into());
 
 		let exec_config =
@@ -1965,6 +1954,7 @@ impl<T: Config> Pallet<T> {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
 			weight_limit: Self::evm_max_extrinsic_weight(),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+			authorisation_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call
@@ -2064,9 +2054,10 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		// Include ED consumed by authorization account creation in the storage deposit estimate
-		dry_run.storage_deposit = dry_run.storage_deposit.saturating_add(auth_deposit);
-		dry_run.max_storage_deposit = dry_run.max_storage_deposit.saturating_add(auth_deposit);
+		// Ensure max_storage_deposit covers worst-case authorization cost for pool validation.
+		// The meter already includes the actual auth deposit; this bumps it to worst case
+		// so that the gas estimate produces a transaction that passes pool validation.
+		dry_run.max_storage_deposit = dry_run.max_storage_deposit.max(worst_case_auth_deposit);
 
 		// replace the weight passed in the transaction with the dry_run result
 		call_info.call.set_weight_limit(dry_run.weight_required);

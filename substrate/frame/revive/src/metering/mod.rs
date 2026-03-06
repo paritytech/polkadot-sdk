@@ -123,6 +123,9 @@ pub enum TransactionLimits<T: Config> {
 		weight_limit: Weight,
 		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
+		/// Deposit consumed by EIP-7702 authorization processing before contract execution.
+		/// Recorded on the meter at creation to correctly reduce the available deposit budget.
+		authorisation_deposit: BalanceOf<T>,
 	},
 	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
 	/// limit
@@ -492,13 +495,23 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } => {
-				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)
+			TransactionLimits::EthereumGas {
+				eth_gas_limit,
+				weight_limit,
+				eth_tx_info,
+				authorisation_deposit,
+			} => {
+				let mut meter =
+					math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)?;
+				if !authorisation_deposit.is_zero() {
+					meter.deposit.record_charge(&StorageDeposit::Charge(authorisation_deposit));
+				}
+				meter
 			},
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => {
-				math::substrate_execution::new_root(weight_limit, deposit_limit)
+				math::substrate_execution::new_root(weight_limit, deposit_limit)?
 			},
-		}?;
+		};
 
 		transaction_meter.adjust_effective_weight_limit()?;
 

@@ -267,13 +267,13 @@ impl GenericTransaction {
 		// EIP-7702: Ensure enough gas to cover worst-case deposits for authorizations
 		// (ED + contract storage deposit + code lockup per authorization).
 		if !self.authorization_list.is_empty() {
-			let auth_cost = <Pallet<T>>::worst_case_delegation_deposit()
-				.saturating_mul(self.authorization_list.len().saturated_into());
-
 			let info = <T as Config>::FeeInfo::dispatch_info(&call);
 			let extra_weight = info.total_weight().saturating_sub(weight_limit);
 			let max_deposit =
 				EthTxInfo::<T>::new(encoded_len, extra_weight).max_deposit(gas.saturated_into());
+
+			let auth_cost = <Pallet<T>>::worst_case_delegation_deposit()
+				.saturating_mul(self.authorization_list.len().saturated_into());
 
 			if max_deposit < auth_cost {
 				log::debug!(
