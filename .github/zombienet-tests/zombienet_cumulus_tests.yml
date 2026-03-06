@@ -123,3 +123,33 @@
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0022-statement_store_multi_topic_and_subscriptions"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_multi_topic_and_subscriptions"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0023-statement_store_channel_replacement"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_channel_replacement"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0024-statement_store_subscriber_isolation"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_subscriber_isolation"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0025-statement_store_high_throughput_propagation"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_high_throughput_propagation"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0026-statement_store_deduplication"
+  test-filter: "zombie_ci::statement_store::statement_store_integration::statement_store_deduplication"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
