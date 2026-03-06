@@ -1341,41 +1341,9 @@ pub mod pallet {
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
-		)]
-		pub fn eth_call(
-			origin: OriginFor<T>,
-			dest: H160,
-			value: U256,
-			weight_limit: Weight,
-			eth_gas_limit: U256,
-			data: Vec<u8>,
-			transaction_encoded: Vec<u8>,
-			effective_gas_price: U256,
-			encoded_len: u32,
-		) -> DispatchResultWithPostInfo {
-			Self::eth_call_impl(
-				origin,
-				dest,
-				value,
-				weight_limit,
-				eth_gas_limit,
-				data,
-				transaction_encoded,
-				effective_gas_price,
-				encoded_len,
-				vec![],
-			)
-		}
-
-		/// Same as [`Self::eth_call`] but with EIP-7702 authorization list support.
-		#[pallet::call_index(13)]
-		#[pallet::weight(
-			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
-			.saturating_add(*weight_limit)
-			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 			.saturating_add(T::WeightInfo::process_new_account_authorization(authorization_list.len() as u32))
 		)]
-		pub fn eth_call_with_authorization_list(
+		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
 			value: U256,
@@ -1608,7 +1576,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::ensure_non_contract_if_signed(&origin)?;
 
-		let mut call = Call::<T>::eth_call_with_authorization_list {
+		let mut call = Call::<T>::eth_call {
 			dest,
 			value,
 			weight_limit,
@@ -2853,7 +2821,6 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				match self {
 					Self::$Revive(
 						ReviveCall::eth_call{ weight_limit, .. } |
-						ReviveCall::eth_call_with_authorization_list{ weight_limit, .. } |
 						ReviveCall::eth_instantiate_with_code{ weight_limit, .. }
 					) => {
 						let old = *weight_limit;

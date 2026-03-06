@@ -538,7 +538,7 @@ mod test {
 			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
 
 		match call {
-			RuntimeCall::Contracts(crate::Call::eth_call_with_authorization_list::<Test> {
+			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
 				dest,
 				value,
 				weight_limit,

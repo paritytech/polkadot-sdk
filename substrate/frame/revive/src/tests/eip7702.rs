@@ -500,7 +500,7 @@ fn test_runtime_set_and_clear_authorization() {
 		// Set delegation
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth1 = signer.sign_authorization(chain_id, target_contract.addr, nonce);
-		let result1 = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result1 = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth1])
 			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
 			.build();
@@ -515,7 +515,7 @@ fn test_runtime_set_and_clear_authorization() {
 		// Clear delegation via zero address
 		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
-		let result2 = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result2 = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth2])
 			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
 			.build();
@@ -564,7 +564,7 @@ fn test_runtime_delegation_resolution() {
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
-		let result = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth])
 			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
 			.build();
@@ -782,7 +782,7 @@ fn dry_run_gas_estimate_produces_valid_transaction() {
 		let info = dry_run.expect("dry run should succeed");
 
 		// Submit with the estimated gas — should succeed
-		let result = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth])
 			.eth_gas_limit(info.eth_gas)
 			.build();
@@ -1314,7 +1314,7 @@ fn runtime_delegation_deposit_roundtrip() {
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth = signer.sign_authorization(chain_id, target.addr, nonce);
 		assert_ok!(
-			builder::eth_call_with_authorization_list(target.addr)
+			builder::eth_call(target.addr)
 				.authorization_list(vec![auth])
 				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
 				.build()
@@ -1328,7 +1328,7 @@ fn runtime_delegation_deposit_roundtrip() {
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth = signer.sign_authorization(chain_id, H160::zero(), nonce);
 		assert_ok!(
-			builder::eth_call_with_authorization_list(target.addr)
+			builder::eth_call(target.addr)
 				.authorization_list(vec![auth])
 				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
 				.build()
