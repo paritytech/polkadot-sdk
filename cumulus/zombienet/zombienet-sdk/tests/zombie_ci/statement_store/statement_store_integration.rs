@@ -4,9 +4,7 @@
 use codec::Encode;
 use log::info;
 use sp_core::Bytes;
-use sp_statement_store::{
-	Channel, RejectionReason, StatementAllowance, SubmitResult, Topic,
-};
+use sp_statement_store::{Channel, RejectionReason, StatementAllowance, SubmitResult, Topic};
 use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 
 use super::common::{

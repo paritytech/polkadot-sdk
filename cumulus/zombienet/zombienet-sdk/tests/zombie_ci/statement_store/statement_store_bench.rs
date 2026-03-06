@@ -23,7 +23,7 @@ const MESSAGE_COUNT: usize = 1;
 const RETRY_DELAY_MS: u64 = 500;
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 
-/// Single-node benchmark
+/// Single-node benchmark.
 ///
 /// Tests statement-store performance of a single node without relying on statement gossip between
 /// nodes. Measures the maximum speed of statement exchange. Network spawned with only 2 collator
@@ -34,7 +34,7 @@ const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
 /// Logs aggregated statistics across all participants:
 /// - Average messages sent/received per participant
 /// - Execution time (min/avg/max) across all participants
-/// - Retry attempts (min/avg/max) needed for statement propagation
+/// - Retry attempts (min/avg/max) needed for statement propagation.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(

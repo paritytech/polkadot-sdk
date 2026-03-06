@@ -98,7 +98,6 @@ async fn statement_store_propagation_multi_node() -> Result<(), anyhow::Error> {
 		log::info!("Statement received on {} with correct data", name);
 	}
 
-	// Assert no duplicates arrive on any subscriber
 	for (name, sub) in
 		[("bob", &mut bob_sub), ("charlie", &mut charlie_sub), ("dave", &mut dave_sub)]
 	{
