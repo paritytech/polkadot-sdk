@@ -9,7 +9,7 @@ MEV Shield primitives for the Subtensor runtime. Defines the shared interface be
 - **`ShieldKeystore` trait** — interface for keystore operations: key rotation (`roll_for_next_slot`), encapsulation key retrieval (`next_enc_key`), and decapsulation key retrieval (`current_dec_key`).
 - **`ShieldedTransaction`** — structure representing an encrypted transaction (KEM ciphertext + AEAD ciphertext + nonce).
 - **`ShieldApi` runtime API** — allows the node to call into the runtime to decode and decrypt shielded extrinsics. The decapsulation key is passed as a parameter so no host functions are needed.
-- Common constants and type aliases (`ShieldPublicKey`, `InherentType`, `INHERENT_IDENTIFIER`).
+- Common constants and type aliases (`ShieldEncKey`, `MLKEM768_ENC_KEY_LEN`, `InherentType`, `INHERENT_IDENTIFIER`).
 
 `no_std`-compatible.
 
