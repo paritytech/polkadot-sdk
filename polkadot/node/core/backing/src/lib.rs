@@ -1464,7 +1464,7 @@ async fn handle_validated_candidate_command<Context>(
 
 							// Ensure the collator is reported.
 							ctx.send_message(CollatorProtocolMessage::Invalid(
-								candidate.descriptor().relay_parent(),
+								sp_state.parent,
 								candidate,
 							))
 							.await;

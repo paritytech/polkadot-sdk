@@ -43,12 +43,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_session_index_for_child, request_validator_groups,
-	request_validators, runtime::recv_runtime,
+	request_claim_queue, request_node_features, request_session_index_for_child,
+	request_validator_groups, request_validators, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
+	node_features, CandidateDescriptorVersion, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
+	HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
 };
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
@@ -76,6 +77,8 @@ pub enum AdvertisementError {
 	BlockedByBacking,
 	#[error("V1 advertisements are only allowed on active leaves")]
 	V1AdvertisementForImplicitParent,
+	#[error("For V3 candidate descriptors, scheduling_parent must be an active leaf")]
+	SchedulingParentNotActiveLeaf,
 }
 
 pub struct CollationManager {
@@ -94,7 +97,7 @@ pub struct CollationManager {
 	blocked_from_seconding: HashMap<BlockedCollationId, Vec<FetchedCollation>>,
 
 	// Information kept per relay parent.
-	per_relay_parent: HashMap<Hash, PerRelayParent>,
+	per_scheduling_parent: HashMap<Hash, PerSchedulingParent>,
 
 	// Session info cache.
 	per_session: LruMap<SessionIndex, PerSessionInfo>,
@@ -115,7 +118,7 @@ impl CollationManager {
 		let mut instance = Self {
 			implicit_view: ImplicitView::new(),
 			claim_queue_state: PerLeafClaimQueueState::new(),
-			per_relay_parent: HashMap::new(),
+			per_scheduling_parent: HashMap::new(),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
@@ -174,7 +177,7 @@ impl CollationManager {
 
 			for deactivated in deactivated_ancestry.iter() {
 				// Remove the fetching collations and advertisements for the deactivated RPs.
-				if let Some(deactivated_rp) = self.per_relay_parent.remove(deactivated) {
+				if let Some(deactivated_rp) = self.per_scheduling_parent.remove(deactivated) {
 					for advertisement in deactivated_rp.all_advertisements() {
 						gum::trace!(
 							target: LOG_TARGET,
@@ -194,9 +197,7 @@ impl CollationManager {
 		let mut removed_blocked = vec![];
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
-				let remove = !self
-					.per_relay_parent
-					.contains_key(&collation.candidate_receipt.descriptor.relay_parent());
+				let remove = !self.per_scheduling_parent.contains_key(&collation.scheduling_parent);
 
 				if remove {
 					removed_blocked.push(collation.candidate_receipt.hash());
@@ -227,7 +228,7 @@ impl CollationManager {
 
 			// Includes the leaf
 			for (idx, ancestor) in allowed_ancestry.iter().enumerate() {
-				if self.per_relay_parent.contains_key(&ancestor) {
+				if self.per_scheduling_parent.contains_key(&ancestor) {
 					continue;
 				}
 
@@ -243,6 +244,23 @@ impl CollationManager {
 						},
 					};
 
+				// DQ_Alex: Should this be per leaf or per ancestor?
+				// Node features are session scopes so it should not matter
+				let v3_enabled = match recv_runtime(
+					request_node_features(*ancestor, session_index, sender).await,
+				)
+				.await
+				.map_err(Error::Runtime)
+				{
+					Ok(node_features) => {
+						node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features)
+					},
+					Err(err) => {
+						err.split()?.log();
+						continue;
+					},
+				};
+
 				let core = match self.get_our_core(sender, leaf, session_index).await {
 					Ok(assignments) => assignments,
 					Err(err) => {
@@ -251,8 +269,8 @@ impl CollationManager {
 					},
 				};
 
-				self.per_relay_parent
-					.insert(*ancestor, PerRelayParent::new(session_index, core));
+				self.per_scheduling_parent
+					.insert(*ancestor, PerSchedulingParent::new(session_index, core, v3_enabled));
 
 				if idx == 0 && ancestor == leaf {
 					let mut claim_queues =
@@ -285,7 +303,8 @@ impl CollationManager {
 		sender: &mut Sender,
 		advertisement: Advertisement,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.scheduling_parent) else {
+		let Some(per_rp) = self.per_scheduling_parent.get_mut(&advertisement.scheduling_parent)
+		else {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
@@ -294,6 +313,14 @@ impl CollationManager {
 			!self.implicit_view.contains_leaf(&advertisement.scheduling_parent)
 		{
 			return Err(AdvertisementError::V1AdvertisementForImplicitParent);
+		}
+
+		// V3 candidate descriptors require scheduling_parent to be an active leaf.
+		// For V1/V2 candidate descriptors sent over V3 protocol, we have to be more lenient.
+		if advertisement.advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) &&
+			!self.implicit_view.contains_leaf(&advertisement.scheduling_parent)
+		{
+			return Err(AdvertisementError::SchedulingParentNotActiveLeaf);
 		}
 
 		let now = Instant::now();
@@ -394,7 +421,7 @@ impl CollationManager {
 						target: LOG_TARGET,
 						peer_id = ?advertisement.peer_id,
 						?para_id,
-						relay_parent = ?advertisement.scheduling_parent,
+						scheduling_parent = ?advertisement.scheduling_parent,
 						maybe_candidate_hash = ?advertisement.candidate_hash(),
 						"Requesting collation",
 					);
@@ -417,7 +444,7 @@ impl CollationManager {
 	}
 
 	pub fn remove_peer(&mut self, peer: &PeerId) {
-		for per_rp in self.per_relay_parent.values_mut() {
+		for per_rp in self.per_scheduling_parent.values_mut() {
 			// No need to reset now the statuses of claims that were pending fetch for these
 			// candidates, or even cancel the futures as the requests will soon conclude with a
 			// network error.
@@ -442,7 +469,8 @@ impl CollationManager {
 
 		self.fetching.note_completed(&advertisement);
 
-		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.scheduling_parent) else {
+		let Some(per_sp) = self.per_scheduling_parent.get_mut(&advertisement.scheduling_parent)
+		else {
 			gum::debug!(
 				target: LOG_TARGET,
 				hash = ?advertisement.scheduling_parent,
@@ -453,13 +481,13 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info);
 		};
 
-		per_rp.remove_advertisement(&advertisement);
+		per_sp.remove_advertisement(&advertisement);
 
-		match process_collation_fetch_result(res) {
+		match process_collation_fetch_result(res, per_sp.v3_enabled) {
 			Ok(fetched_collation) => {
 				// It can't be a duplicate, because we check before initiating fetch. For the old
 				// protocol version, we anyway only fetch one per relay parent.
-				per_rp
+				per_sp
 					.fetched_collations
 					.insert(fetched_collation.candidate_receipt.hash(), advertisement.peer_id);
 
@@ -467,7 +495,9 @@ impl CollationManager {
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
-				if let Err(err) = fetched_collation.ensure_matches_advertisement(&advertisement) {
+				if let Err(err) = fetched_collation
+					.ensure_matches_advertisement(&advertisement, per_sp.v3_enabled)
+				{
 					gum::warn!(
 						target: LOG_TARGET,
 						?advertisement,
@@ -480,9 +510,9 @@ impl CollationManager {
 				// Sanity check of the candidate receipt version.
 				if let Err(err) = descriptor_version_sanity_check_with_params(
 					fetched_collation.candidate_receipt.descriptor(),
-					false, // v3_enabled - experimental module doesn't support V3 yet
-					per_rp.core_index,
-					per_rp.session_index,
+					per_sp.v3_enabled,
+					per_sp.core_index,
+					per_sp.session_index,
 				) {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -501,7 +531,7 @@ impl CollationManager {
 
 	pub fn release_slot(
 		&mut self,
-		relay_parent: &Hash,
+		scheduling_parent: &Hash,
 		para_id: ParaId,
 		maybe_candidate_hash: Option<&CandidateHash>,
 		maybe_output_head_hash: Option<Hash>,
@@ -510,17 +540,17 @@ impl CollationManager {
 			if !self.claim_queue_state.release_claims_for_candidate(candidate_hash) {
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?candidate_hash,
 					?para_id,
 					"Could not release slot for candidate, it wasn't claimed",
 				);
 			}
 		} else {
-			if !self.claim_queue_state.release_claims_for_relay_parent(relay_parent) {
+			if !self.claim_queue_state.release_claims_for_relay_parent(scheduling_parent) {
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?para_id,
 					"Could not release slot for candidate, it wasn't claimed",
 				);
@@ -538,26 +568,27 @@ impl CollationManager {
 
 	pub fn get_fetched_collation_peer_id(
 		&self,
-		relay_parent: &Hash,
+		scheduling_parent: &Hash,
 		candidate_hash: &CandidateHash,
 	) -> Option<&PeerId> {
-		self.per_relay_parent
-			.get(relay_parent)
+		self.per_scheduling_parent
+			.get(scheduling_parent)
 			.and_then(|per_rp| per_rp.fetched_collations.get(candidate_hash))
 	}
 
 	pub async fn note_seconded<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		relay_parent: &Hash,
+		scheduling_parent: &Hash,
 		para_id: &ParaId,
 		candidate_hash: &CandidateHash,
 		output_head_hash: Hash,
 	) -> (Option<PeerId>, Vec<CanSecond>) {
-		let peer_id = self.get_fetched_collation_peer_id(relay_parent, candidate_hash).copied();
+		let peer_id =
+			self.get_fetched_collation_peer_id(scheduling_parent, candidate_hash).copied();
 
 		self.claim_queue_state
-			.claim_seconded_slot(relay_parent, para_id, candidate_hash);
+			.claim_seconded_slot(scheduling_parent, para_id, candidate_hash);
 
 		// See if we've unblocked other collations here too.
 		let maybe_unblocked = self.blocked_from_seconding.remove(&BlockedCollationId {
@@ -569,7 +600,7 @@ impl CollationManager {
 		let mut unblocked_can_second = Vec::with_capacity(unblocked.len());
 		for fetched_collation in unblocked {
 			let reject_info = SecondingRejectionInfo {
-				relay_parent: fetched_collation.candidate_receipt.descriptor.relay_parent(),
+				scheduling_parent: fetched_collation.scheduling_parent,
 				peer_id: fetched_collation.peer_id,
 				para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
 				maybe_output_head_hash: Some(
@@ -611,7 +642,7 @@ impl CollationManager {
 		connected_rep_query_fn: &RepQueryFn,
 	) -> Either<Option<Advertisement>, Duration> {
 		let advertisements = self
-			.per_relay_parent
+			.per_scheduling_parent
 			.iter()
 			// Only check advertisements for relay parents within the view of this leaf.
 			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
@@ -654,7 +685,7 @@ impl CollationManager {
 			gum::debug!(
 				target: LOG_TARGET,
 				peer_id = ?best_advertisement.adv.peer_id,
-				relay_parent = ?best_advertisement.adv.scheduling_parent,
+				scheduling_parent = ?best_advertisement.adv.scheduling_parent,
 				para_id = ?best_advertisement.adv.para_id,
 				?elapsed_since_activation,
 				?delay,
@@ -726,7 +757,7 @@ impl CollationManager {
 		queue_blocked_collations: bool,
 		reject_info: SecondingRejectionInfo,
 	) -> CanSecond {
-		let relay_parent = fetched_collation.candidate_receipt.descriptor.relay_parent();
+		let scheduling_parent = fetched_collation.scheduling_parent;
 		let candidate_hash = fetched_collation.candidate_receipt.hash();
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
 
@@ -735,6 +766,7 @@ impl CollationManager {
 			&fetched_collation.candidate_receipt,
 			fetched_collation.maybe_parent_head_data_hash,
 			fetched_collation.maybe_parent_head_data.clone(),
+			fetched_collation.scheduling_parent,
 		)
 		.await;
 		let can_second = match fetch_pvd_res {
@@ -743,18 +775,23 @@ impl CollationManager {
 				// protocol v2 but in case of v1, the claim was made on the relay parent but
 				// without a candidate hash.
 				self.claim_queue_state.mark_pending_slot_with_candidate(
-					&relay_parent,
+					&scheduling_parent,
 					&para_id,
 					&candidate_hash,
 				);
-				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
+				CanSecond::Yes(
+					fetched_collation.scheduling_parent,
+					fetched_collation.candidate_receipt,
+					fetched_collation.pov,
+					pvd,
+				)
 			},
 			Err(error) => match error {
 				SecondingError::BlockedOnParent(parent) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						?candidate_hash,
-						?relay_parent,
+						?scheduling_parent,
 						?para_id,
 						"Collation having parent head data hash {} is blocked from seconding. Waiting on its parent to be validated.",
 						parent
@@ -771,7 +808,7 @@ impl CollationManager {
 					// protocol v2 but in case of v1, the claim was made on the relay parent but
 					// without a candidate hash.
 					self.claim_queue_state.mark_pending_slot_with_candidate(
-						&relay_parent,
+						&scheduling_parent,
 						&para_id,
 						&candidate_hash,
 					);
@@ -782,7 +819,7 @@ impl CollationManager {
 					gum::warn!(
 						target: LOG_TARGET,
 						?candidate_hash,
-						?relay_parent,
+						?scheduling_parent,
 						?para_id,
 						"Failed persisted validation data checks: {}",
 						err
@@ -805,10 +842,10 @@ impl CollationManager {
 
 		for collation in blocked {
 			let candidate_hash = collation.candidate_receipt.hash();
-			let relay_parent = collation.candidate_receipt.descriptor.relay_parent();
+			let scheduling_parent = collation.scheduling_parent;
 			gum::debug!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
 				para_id = ?id.para_id,
 				parent_head_hash = ?id.parent_head_data_hash,
@@ -818,7 +855,7 @@ impl CollationManager {
 			if !self.claim_queue_state.release_claims_for_candidate(&candidate_hash) {
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?candidate_hash,
 					para_id = ?id.para_id,
 					"Could not release slot for candidate, it wasn't claimed",
@@ -829,7 +866,7 @@ impl CollationManager {
 
 	#[cfg(test)]
 	pub fn advertisements(&self) -> BTreeSet<Advertisement> {
-		self.per_relay_parent
+		self.per_scheduling_parent
 			.values()
 			.flat_map(|per_rp| {
 				per_rp
@@ -855,13 +892,34 @@ struct FetchedCollation {
 	pub maybe_parent_head_data_hash: Option<Hash>,
 	/// The peer that sent this collation.
 	pub peer_id: PeerId,
+	/// Candidate's scheduling parent.
+	pub scheduling_parent: Hash,
 }
 
 impl FetchedCollation {
+	pub fn new(
+		candidate_receipt: CandidateReceipt,
+		pov: PoV,
+		maybe_parent_head_data: Option<HeadData>,
+		maybe_parent_head_data_hash: Option<Hash>,
+		peer_id: PeerId,
+		v3_enabled: bool,
+	) -> Self {
+		Self {
+			scheduling_parent: candidate_receipt.descriptor().scheduling_parent(v3_enabled),
+			candidate_receipt,
+			pov,
+			maybe_parent_head_data,
+			maybe_parent_head_data_hash,
+			peer_id,
+		}
+	}
+
 	/// Performs a sanity check between advertised and fetched collations.
 	fn ensure_matches_advertisement(
 		&self,
 		advertised: &Advertisement,
+		v3_enabled: bool,
 	) -> std::result::Result<(), SecondingError> {
 		let candidate_receipt = &self.candidate_receipt;
 
@@ -880,9 +938,19 @@ impl FetchedCollation {
 			},
 		}
 
-		// TODO: Should be scheduling_parent
-		if advertised.scheduling_parent != candidate_receipt.descriptor.relay_parent() {
+		if advertised.scheduling_parent !=
+			candidate_receipt.descriptor.scheduling_parent(v3_enabled)
+		{
 			return Err(SecondingError::SchedulingParentMismatch);
+		}
+		if let Some(advertised_version) = &advertised.advertised_descriptor_version {
+			let fetched_version = candidate_receipt.descriptor().version(v3_enabled);
+			if advertised_version != &fetched_version {
+				return Err(SecondingError::DescriptorVersionMismatch(
+					*advertised_version,
+					fetched_version,
+				));
+			}
 		}
 
 		Ok(())
@@ -918,7 +986,7 @@ impl<'a> PartialOrd for AcceptedAdvertisement<'a> {
 	}
 }
 
-struct PerRelayParent {
+struct PerSchedulingParent {
 	peer_advertisements: HashMap<PeerId, PeerAdvertisements>,
 	// Only kept to make sure that we don't re-request the same collations and so that we know who
 	// to punish for supplying an invalid collation.
@@ -928,16 +996,18 @@ struct PerRelayParent {
 	// The time at which this relay parent was activated. Used to calculate fetch
 	// delays relative to leaf activation.
 	activated_at: Instant,
+	v3_enabled: bool,
 }
 
-impl PerRelayParent {
-	fn new(session_index: SessionIndex, core_index: CoreIndex) -> Self {
+impl PerSchedulingParent {
+	fn new(session_index: SessionIndex, core_index: CoreIndex, v3_enabled: bool) -> Self {
 		Self {
 			session_index,
 			core_index,
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
 			activated_at: Instant::now(),
+			v3_enabled,
 		}
 	}
 
@@ -1043,8 +1113,6 @@ where
 		return true;
 	};
 
-	// TODO: use the actual scheduling_parent once V3 is supported in the
-	// experimental module (relay_parent == scheduling_parent before V3).
 	let request = CanSecondRequest {
 		candidate_para_id: advertisement.para_id,
 		candidate_scheduling_parent: advertisement.scheduling_parent,
@@ -1058,7 +1126,7 @@ where
 		gum::warn!(
 			target: LOG_TARGET,
 			?err,
-			relay_parent = ?advertisement.scheduling_parent,
+			scheduling_parent = ?advertisement.scheduling_parent,
 			para_id = ?advertisement.para_id,
 			candidate_hash = ?prospective_candidate.candidate_hash,
 			"CanSecond-request responder was dropped",
@@ -1073,6 +1141,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 	receipt: &CandidateReceipt,
 	maybe_parent_head_data_hash: Option<Hash>,
 	maybe_parent_head_data: Option<HeadData>,
+	scheduling_parent: Hash,
 ) -> std::result::Result<PersistedValidationData, SecondingError> {
 	let para_id = receipt.descriptor.para_id();
 
@@ -1080,7 +1149,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 		Some(parent_head_data_hash) => {
 			let maybe_pvd = request_prospective_validation_data(
 				sender,
-				receipt.descriptor.relay_parent(),
+				scheduling_parent,
 				parent_head_data_hash,
 				para_id,
 				maybe_parent_head_data.clone(),
@@ -1118,6 +1187,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 
 fn process_collation_fetch_result(
 	(advertisement, res): CollationFetchResponse,
+	v3_enabled: bool,
 ) -> std::result::Result<FetchedCollation, Option<Score>> {
 	match res {
 		Err(CollationFetchError::Cancelled) => {
@@ -1166,15 +1236,14 @@ fn process_collation_fetch_result(
 				"Received collation",
 			);
 
-			Ok(FetchedCollation {
+			Ok(FetchedCollation::new(
 				candidate_receipt,
 				pov,
-				peer_id: advertisement.peer_id,
-				maybe_parent_head_data: None,
-				maybe_parent_head_data_hash: advertisement
-					.prospective_candidate
-					.map(|p| p.parent_head_data_hash),
-			})
+				None,
+				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
+				advertisement.peer_id,
+				v3_enabled,
+			))
 		},
 		Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
 			receipt,
@@ -1187,15 +1256,14 @@ fn process_collation_fetch_result(
 				"Received collation with parent head data",
 			);
 
-			Ok(FetchedCollation {
-				candidate_receipt: receipt,
+			Ok(FetchedCollation::new(
+				receipt,
 				pov,
-				peer_id: advertisement.peer_id,
-				maybe_parent_head_data: Some(parent_head_data),
-				maybe_parent_head_data_hash: advertisement
-					.prospective_candidate
-					.map(|p| p.parent_head_data_hash),
-			})
+				Some(parent_head_data),
+				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
+				advertisement.peer_id,
+				v3_enabled,
+			))
 		},
 	}
 }
@@ -1252,6 +1320,7 @@ mod tests {
 			para_id,
 			peer_id,
 			prospective_candidate: None,
+			advertised_descriptor_version: None,
 		};
 
 		let peer_1 = PeerId::random();
@@ -1429,14 +1498,15 @@ mod tests {
 			para_id,
 			peer_id: peer,
 			prospective_candidate: None,
+			advertised_descriptor_version: None,
 		};
 
 		let new_collation_manager_instance = || CollationManager {
 			implicit_view: ImplicitView::new(),
 			claim_queue_state: PerLeafClaimQueueState::new(),
-			per_relay_parent: HashMap::from([(
+			per_scheduling_parent: HashMap::from([(
 				scheduling_parent,
-				PerRelayParent::new(0, CoreIndex(0)),
+				PerSchedulingParent::new(0, CoreIndex(0), false),
 			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
@@ -1468,7 +1538,7 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 
 			collation_manager
-				.per_relay_parent
+				.per_scheduling_parent
 				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), old_timestamp);
@@ -1492,7 +1562,7 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
 			collation_manager
-				.per_relay_parent
+				.per_scheduling_parent
 				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), recent_timestamp);
@@ -1529,7 +1599,8 @@ mod tests {
 				}
 			};
 
-			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
+			let per_rp =
+				collation_manager.per_scheduling_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.add_advertisement(make_adv(peer_a), old_timestamp);
 			per_rp.add_advertisement(make_adv(peer_b), old_timestamp);
 			per_rp.add_advertisement(make_adv(peer_c), old_timestamp);
@@ -1556,7 +1627,8 @@ mod tests {
 			let earlier = old_timestamp;
 			let later = old_timestamp + Duration::from_secs(1);
 
-			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
+			let per_rp =
+				collation_manager.per_scheduling_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.add_advertisement(make_adv(peer_a), later);
 			per_rp.add_advertisement(make_adv(peer_b), earlier);
 
@@ -1580,7 +1652,7 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| -> Option<Score> { None };
 
 			collation_manager
-				.per_relay_parent
+				.per_scheduling_parent
 				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), old_timestamp);
@@ -1605,7 +1677,7 @@ mod tests {
 			let other_relay_parent = Hash::random();
 
 			collation_manager
-				.per_relay_parent
+				.per_scheduling_parent
 				.get_mut(&scheduling_parent)
 				.unwrap()
 				.add_advertisement(make_adv(peer_a), old_timestamp);
@@ -1633,7 +1705,8 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(0));
 
 			// Set activated_at far enough in the past that any delay has elapsed.
-			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
+			let per_rp =
+				collation_manager.per_scheduling_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY * 2).unwrap();
 
 			// Advertisement arrives now (recent), but the leaf has been active long enough.
@@ -1662,7 +1735,8 @@ mod tests {
 			// Set activated_at so that only part of the delay has elapsed.
 			// score(0) < INSTANT_FETCH_REP_THRESHOLD and < highest_rep => delay = MAX_FETCH_DELAY
 			// activated_at = MAX_FETCH_DELAY / 4 ago => remaining = MAX_FETCH_DELAY * 3/4
-			let per_rp = collation_manager.per_relay_parent.get_mut(&scheduling_parent).unwrap();
+			let per_rp =
+				collation_manager.per_scheduling_parent.get_mut(&scheduling_parent).unwrap();
 			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY / 4).unwrap();
 
 			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);

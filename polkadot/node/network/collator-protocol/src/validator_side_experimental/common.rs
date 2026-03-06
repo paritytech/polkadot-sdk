@@ -22,8 +22,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
-	PersistedValidationData,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Id as ParaId, PersistedValidationData,
 };
 use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
@@ -209,7 +209,7 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
@@ -220,6 +220,18 @@ pub struct Advertisement {
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
+	/// Advertised candidate descriptor version (for V3 protocol).
+	/// None for V1/V2 protocols.
+	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+}
+
+impl std::hash::Hash for Advertisement {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.scheduling_parent.hash(state);
+		self.para_id.hash(state);
+		self.peer_id.hash(state);
+		self.prospective_candidate.hash(state);
+	}
 }
 
 impl Advertisement {
@@ -249,7 +261,7 @@ pub enum CanSecond {
 	/// collation info.
 	No(Option<Score>, SecondingRejectionInfo),
 	/// Seconding can begin. Returns all the needed data for seconding.
-	Yes(CandidateReceipt, PoV, PersistedValidationData),
+	Yes(Hash, CandidateReceipt, PoV, PersistedValidationData),
 	/// Seconding is blocked because we are waiting for the parent to be seconded.
 	/// Returns the hash of the parent candidate header, together with the rejected collation info.
 	BlockedOnParent(Hash, SecondingRejectionInfo),
@@ -258,7 +270,7 @@ pub enum CanSecond {
 /// Information that identifies a collation that was rejected from seconding.
 #[derive(Debug)]
 pub struct SecondingRejectionInfo {
-	pub relay_parent: Hash,
+	pub scheduling_parent: Hash,
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
 	pub maybe_output_head_hash: Option<Hash>,
@@ -268,7 +280,7 @@ pub struct SecondingRejectionInfo {
 impl From<&Advertisement> for SecondingRejectionInfo {
 	fn from(advertisement: &Advertisement) -> Self {
 		SecondingRejectionInfo {
-			relay_parent: advertisement.scheduling_parent,
+			scheduling_parent: advertisement.scheduling_parent,
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
 			maybe_output_head_hash: None,

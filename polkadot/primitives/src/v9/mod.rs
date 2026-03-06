@@ -1832,7 +1832,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 /// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug, PartialOrd, Ord)]
 pub enum CandidateDescriptorVersion {
 	/// with deprecated collator id and collator signature.
 	V1,

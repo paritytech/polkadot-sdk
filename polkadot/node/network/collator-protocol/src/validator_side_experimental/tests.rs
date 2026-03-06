@@ -46,7 +46,8 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, sender_receiver, TestSubsystemSender};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features::FeatureIndex, ApprovedPeerId, BlockNumber,
+	node_features::{self, FeatureIndex},
+	ApprovedPeerId, BlockNumber, CandidateDescriptorVersion,
 	CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupRotationInfo, Hash,
 	HeadData, Header, Id as ParaId, MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption,
@@ -111,7 +112,47 @@ fn dummy_candidate(
 
 	(
 		ccr,
-		Advertisement { peer_id, para_id, scheduling_parent: relay_parent, prospective_candidate },
+		Advertisement {
+			peer_id,
+			para_id,
+			scheduling_parent: relay_parent,
+			prospective_candidate,
+			advertised_descriptor_version: None,
+		},
+	)
+}
+
+fn dummy_candidate_v3(
+	relay_parent: Hash,
+	scheduling_parent: Hash,
+	para_id: ParaId,
+	peer_id: PeerId,
+	core: CoreIndex,
+	session: SessionIndex,
+	pvd_hash: Hash,
+) -> (CommittedCandidateReceipt, Advertisement) {
+	let mut ccr = dummy_committed_candidate_receipt_v2(relay_parent);
+	ccr.descriptor.set_para_id(para_id);
+	ccr.descriptor.set_persisted_validation_data_hash(pvd_hash);
+	ccr.descriptor.set_core_index(core);
+	ccr.descriptor.set_session_index(session);
+	ccr.descriptor.set_version(1);
+	ccr.descriptor.set_scheduling_parent(scheduling_parent);
+
+	let receipt = ccr.to_plain();
+	let prospective_candidate = Some(ProspectiveCandidate {
+		candidate_hash: receipt.hash(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+	});
+	(
+		ccr,
+		Advertisement {
+			peer_id,
+			para_id,
+			scheduling_parent,
+			prospective_candidate,
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		},
 	)
 }
 
@@ -144,6 +185,7 @@ struct TestState {
 	candidates_pending_availability: HashMap<Hash, Vec<CommittedCandidateReceipt>>,
 	candidate_nonce: u64,
 	keystore: KeystorePtr,
+	node_features: NodeFeatures,
 }
 
 impl Default for TestState {
@@ -239,6 +281,8 @@ impl Default for TestState {
 
 		let (sender, recv) = sender_receiver();
 
+		let mut node_features = NodeFeatures::EMPTY;
+		node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
 		Self {
 			session_info,
 			rp_info,
@@ -249,6 +293,7 @@ impl Default for TestState {
 			candidates_pending_availability: HashMap::new(),
 			candidate_nonce: 0,
 			keystore,
+			node_features,
 		}
 	}
 }
@@ -405,9 +450,7 @@ impl TestState {
 				)) => {
 					let session_index = self.rp_info.get(&rp).unwrap().session_index;
 					assert_eq!(session_index, s_index);
-					let mut node_features = NodeFeatures::EMPTY;
-					node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
-					tx.send(Ok(node_features)).unwrap();
+					tx.send(Ok(self.node_features.clone())).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
@@ -587,7 +630,8 @@ impl TestState {
 				&mut sender,
 				adv.peer_id,
 				adv.scheduling_parent,
-				adv.prospective_candidate
+				adv.prospective_candidate,
+				adv.advertised_descriptor_version
 			),
 			async move {
 				if adv.prospective_candidate.is_some() {
@@ -758,6 +802,7 @@ impl TestState {
 		expected_receipt: CandidateReceipt,
 		expected_pvd: PersistedValidationData,
 		expected_pov: PoV,
+		expected_scheduling_parent: Hash,
 	) {
 		let msg = match self.buffered_msg.take() {
 			Some(msg) => msg,
@@ -769,8 +814,7 @@ impl TestState {
 			AllMessages::CandidateBacking(
 				CandidateBackingMessage::Second { scheduling_parent, candidate, pvd, pov }
 			) => {
-				// TODO: This should use scheduling_parent(): https://github.com/paritytech/polkadot-sdk/issues/11084
-				assert_eq!(scheduling_parent, candidate.descriptor.relay_parent());
+				assert_eq!(scheduling_parent, expected_scheduling_parent);
 				assert_eq!(candidate, expected_receipt);
 				assert_eq!(pvd, expected_pvd);
 				assert_eq!(pov, expected_pov);
@@ -796,7 +840,8 @@ impl TestState {
 			self.assert_pvd_request(adv, Some(pvd.clone()))
 		);
 
-		self.assert_seconding_kickoff(receipt, pvd, dummy_pov()).await;
+		self.assert_seconding_kickoff(receipt, pvd, dummy_pov(), adv.scheduling_parent)
+			.await;
 	}
 
 	async fn assert_collation_seconded_notification(
@@ -845,8 +890,14 @@ impl TestState {
 						);
 					},
 					CollationVersion::V3 => {
-						// TODO: https://github.com/paritytech/polkadot-sdk/issues/11084
-						panic!("CollationVersion::V3 is not yet supported in tests");
+						assert_matches!(
+							msg,
+							CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
+								protocol_v3::CollatorProtocolMessage::CollationSeconded(_rp, stmt)
+							)) => {
+								assert_eq!(statement, stmt);
+							}
+						)
 					}
 				};
 			}
@@ -859,9 +910,12 @@ impl TestState {
 		peer_id: PeerId,
 		version: CollationVersion,
 		ccr: CommittedCandidateReceipt,
+		scheduling_parent: Hash,
 	) {
 		let statement = make_seconded_statement(&self.keystore, ccr);
-		state.handle_seconded_collation(&mut self.sender, statement.clone()).await;
+		state
+			.handle_seconded_collation(&mut self.sender, statement.clone(), scheduling_parent)
+			.await;
 		self.assert_collation_seconded_notification(peer_id, version, statement.into())
 			.await;
 	}
@@ -1388,9 +1442,10 @@ async fn test_peer_disconnects_after_fetch() {
 	// The collation was seconded, the claim will still not be freed but we won't be able to send
 	// back a notification to the collator.
 
+	let parent = third_ccr.descriptor.scheduling_parent(false);
 	let statement = make_seconded_statement(&test_state.keystore, third_ccr);
 
-	state.handle_seconded_collation(&mut sender, statement).await;
+	state.handle_seconded_collation(&mut sender, statement, parent).await;
 	test_state.assert_no_messages().await;
 
 	assert_eq!(state.advertisements(), [first_adv, second_adv].into());
@@ -1814,7 +1869,7 @@ async fn test_advertisement_rejections() {
 	let prospective_candidate = adv.prospective_candidate;
 
 	// Send advertisement from a peer that is not connected. Will be dropped.
-	state.handle_advertisement(&mut sender, peer_id, active_leaf, None).await;
+	state.handle_advertisement(&mut sender, peer_id, active_leaf, None, None).await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1823,7 +1878,7 @@ async fn test_advertisement_rejections() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
 		.await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1837,7 +1892,7 @@ async fn test_advertisement_rejections() {
 
 	// Relay parent outside view.
 	state
-		.handle_advertisement(&mut sender, peer_id, get_hash(11), prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, get_hash(11), prospective_candidate, None)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1847,7 +1902,13 @@ async fn test_advertisement_rejections() {
 	// of this peer (which is 2).
 	for _ in 0..2 {
 		futures::join!(
-			state.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate),
+			state.handle_advertisement(
+				&mut sender,
+				peer_id,
+				active_leaf,
+				prospective_candidate,
+				None
+			),
 			test_state.assert_can_second_request(adv, false)
 		);
 		state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1857,7 +1918,7 @@ async fn test_advertisement_rejections() {
 
 	// Here comes a valid advertisement, will be rejected because we reached the limit.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
 		.await;
 
 	// Let's add a new peerid then.
@@ -1871,13 +1932,14 @@ async fn test_advertisement_rejections() {
 		para_id: 100.into(),
 		scheduling_parent: active_leaf,
 		prospective_candidate,
+		advertised_descriptor_version: None,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	assert_eq!(state.advertisements(), [adv].into());
 
 	// Duplicate advertisement. Only one fetch request will be launched.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1887,7 +1949,7 @@ async fn test_advertisement_rejections() {
 
 	// We still detect the duplicate advertisement with a fetching collation.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1898,19 +1960,20 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
 	// We still detect the duplicate advertisement with a seconded collation.
+	let parent = ccr.descriptor.relay_parent();
 	test_state
-		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr)
+		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr, parent)
 		.await;
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	assert!(state.advertisements().is_empty());
@@ -1920,7 +1983,7 @@ async fn test_advertisement_rejections() {
 	let peer_id = PeerId::random();
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
-	state.handle_advertisement(&mut sender, peer_id, get_hash(9), None).await;
+	state.handle_advertisement(&mut sender, peer_id, get_hash(9), None, None).await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1987,6 +2050,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2017,6 +2081,7 @@ async fn test_collation_fetch_failure() {
 			} else {
 				None
 			},
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2046,6 +2111,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2082,6 +2148,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2116,6 +2183,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2144,6 +2212,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate: None,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
@@ -2183,6 +2252,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2226,6 +2296,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2264,6 +2335,7 @@ async fn test_collation_fetch_failure() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2405,6 +2477,7 @@ async fn v1_descriptor_compatibility() {
 		para_id: 100.into(),
 		scheduling_parent: active_leaf,
 		prospective_candidate,
+		advertised_descriptor_version: None,
 	};
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2418,8 +2491,9 @@ async fn v1_descriptor_compatibility() {
 	test_state.handle_fetched_collation(&mut state, adv, receipt.into(), None).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
+	let parent = ccr.descriptor.relay_parent;
 	test_state
-		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr.into())
+		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr.into(), parent)
 		.await;
 	test_state.assert_no_messages().await;
 }
@@ -2492,7 +2566,8 @@ async fn test_invalid_collation() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	state.handle_invalid_collation(bad_receipt).await;
+	let parent = bad_receipt.descriptor.scheduling_parent(false);
+	state.handle_invalid_collation(bad_receipt, parent).await;
 
 	// Bad peer was slashed.
 	assert_eq!(db.witnessed_slash().unwrap(), (bad_peer, 100.into(), INVALID_COLLATION_SLASH));
@@ -2557,6 +2632,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				para_id,
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 		)
 	};
@@ -2596,6 +2672,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				para_id,
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 		)
 	};
@@ -2660,11 +2737,12 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	test_state.assert_no_messages().await;
 
 	if valid_parent {
+		let parent = first_ccr.descriptor.relay_parent();
 		let statement = make_seconded_statement(&test_state.keystore, first_ccr);
 
 		futures::join!(
 			async {
-				state.handle_seconded_collation(&mut sender, statement.clone()).await;
+				state.handle_seconded_collation(&mut sender, statement.clone(), parent).await;
 			},
 			test_state.assert_pvd_request(second_adv, Some(second_pvd.clone()))
 		);
@@ -2678,13 +2756,15 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			.await;
 
 		// Second collation was unblocked and it began being seconded.
+		let parent = second_ccr.descriptor.relay_parent();
 		test_state
-			.assert_seconding_kickoff(second_ccr.to_plain(), second_pvd, dummy_pov())
+			.assert_seconding_kickoff(second_ccr.to_plain(), second_pvd, dummy_pov(), parent)
 			.await;
 
 		test_state.assert_no_messages().await;
+		let parent = second_ccr.descriptor.relay_parent();
 		test_state
-			.second_collation(&mut state, second_peer, CollationVersion::V2, second_ccr)
+			.second_collation(&mut state, second_peer, CollationVersion::V2, second_ccr, parent)
 			.await;
 		test_state.assert_no_messages().await;
 
@@ -2693,7 +2773,8 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_no_messages().await;
 	} else {
-		state.handle_invalid_collation(first_ccr.to_plain()).await;
+		let parent = first_ccr.descriptor.relay_parent();
+		state.handle_invalid_collation(first_ccr.to_plain(), parent).await;
 		assert_eq!(
 			db.witnessed_slash().unwrap(),
 			(first_peer, 100.into(), INVALID_COLLATION_SLASH)
@@ -2795,6 +2876,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				para_id,
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 		)
 	};
@@ -2834,6 +2916,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				para_id,
 				scheduling_parent: active_leaf,
 				prospective_candidate,
+				advertised_descriptor_version: None,
 			},
 		)
 	};
@@ -2912,9 +2995,11 @@ async fn test_outdated_blocked_collations_are_pruned() {
 
 	// Even if we do end up getting a valid statement for the collation that would unblock the
 	// second collation, it's already been dropped.
+
+	let parent = first_ccr.descriptor.relay_parent();
 	let statement = make_seconded_statement(&test_state.keystore, first_ccr);
 
-	state.handle_seconded_collation(&mut sender, statement).await;
+	state.handle_seconded_collation(&mut sender, statement, parent).await;
 
 	test_state.assert_no_messages().await;
 }
@@ -3138,8 +3223,9 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
+	let parent = first_ccr.descriptor.relay_parent();
 	test_state
-		.second_collation(&mut state, first_peer, CollationVersion::V1, first_ccr)
+		.second_collation(&mut state, first_peer, CollationVersion::V1, first_ccr, parent)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -3204,6 +3290,236 @@ async fn test_view_update_preserves_relay_parent_state() {
 
 	// Advertisement A should still be there
 	assert_eq!(state.advertisements(), [adv_a].into());
+}
+
+#[tokio::test]
+// Test that a V3 candidate descriptor is correctly accepted and
+// seconded when the CandidateReceiptV3 node feature is enabled.
+async fn v3_descriptor_accepted_when_v3_enabled() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let (ccr, adv) = dummy_candidate_v3(
+		get_hash(9),
+		get_hash(10),
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	// Advertise the v3 candidate
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V3, ccr, active_leaf)
+		.await;
+}
+
+#[tokio::test]
+// Test that V3 advertisement is rejected when the scheduling
+// parent is not an active leaf.
+async fn v3_advertisement_rejected_when_sp_not_active_leaf() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let (_ccr, adv) = dummy_candidate_v3(
+		get_hash(9),
+		get_hash(8),
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	state
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			adv.scheduling_parent,
+			adv.prospective_candidate,
+			Some(CandidateDescriptorVersion::V3),
+		)
+		.await;
+	assert!(state.advertisements().is_empty());
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Test that a V3 descriptor is treated as V1 via backward compatibility
+// when the CandidateReceiptV3 is not enabled.
+async fn v3_descriptor_backwards_compat_without_v3() {
+	let mut test_state = TestState::default();
+
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let mut ccr = dummy_committed_candidate_receipt_v2(active_leaf);
+	ccr.descriptor.set_para_id(100.into());
+	ccr.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
+	ccr.descriptor.set_core_index(leaf_info.assigned_core);
+	ccr.descriptor.set_session_index(leaf_info.session_index);
+	ccr.descriptor.set_version(1);
+	ccr.descriptor.set_scheduling_parent(active_leaf);
+
+	let receipt = ccr.to_plain();
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		}),
+		advertised_descriptor_version: None,
+	};
+
+	// Advertise the v3 candidate
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr, active_leaf)
+		.await;
+}
+
+#[tokio::test]
+// Test that a collator advertising a V3 descriptor but fetching a V2 candidate
+// is rejected due to descriptor version mismatch and the peer is slashed.
+async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	// Create a V2-style candidate (version=0, no scheduling_parent set).
+	let (ccr, _) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	let receipt = ccr.to_plain();
+
+	// Advertise as V3 but the actual fetched candidate is V2.
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		}),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+	let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+	state.handle_fetched_collation(&mut sender, (adv, res)).await;
+	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Test that a crafted descriptor is rejected as Unknown version when
+// CandidateReceiptV3 feature is disabled.
+async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
+	let mut test_state = TestState::default();
+
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let mut ccr = dummy_committed_candidate_receipt_v2(active_leaf);
+	ccr.descriptor.set_para_id(100.into());
+	ccr.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
+	ccr.descriptor.set_core_index(leaf_info.assigned_core);
+	ccr.descriptor.set_session_index(leaf_info.session_index);
+	ccr.descriptor.set_version(1);
+
+	let receipt = ccr.to_plain();
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent: active_leaf,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		}),
+		advertised_descriptor_version: None,
+	};
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+	let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+	state.handle_fetched_collation(&mut sender, (adv, res)).await;
+	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+	test_state.assert_no_messages().await;
 }
 
 // Launching new collations:
