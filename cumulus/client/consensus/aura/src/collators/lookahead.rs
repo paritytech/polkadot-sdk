@@ -56,7 +56,7 @@ use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
@@ -365,17 +365,18 @@ where
 				continue;
 			}
 
-			// Trigger pre-conect to backing groups if necessary.
-			if let (Some((slot_now, _relay_slot, _timestamp)), Ok(authorities)) = (
-				get_parachain_slot::<_, _, P::Public>(
-					para_client,
-					parent_hash,
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				),
-				para_client.runtime_api().authorities(parent_hash),
+			// Trigger pre-connect to backing groups if necessary.
+			if let Some((slot_now, _relay_slot, _timestamp)) = get_parachain_slot::<_, _, P::Public>(
+				para_client,
+				parent_hash,
+				&relay_parent_header,
+				params.relay_chain_slot_duration,
 			) {
-				connection_helper.update::<P>(slot_now, &authorities).await;
+				let mut runtime_api = para_client.runtime_api();
+				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
+					connection_helper.update::<P>(slot_now, &authorities).await;
+				}
 			}
 
 			// This needs to change to support elastic scaling, but for continuously
