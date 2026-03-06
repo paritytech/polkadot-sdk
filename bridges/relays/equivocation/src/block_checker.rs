@@ -241,12 +241,11 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 
 				// We don't need to sleep after the last attempt
 				if retry_range.peek().is_some() {
-					tracing::error!(
+					tracing::warn!(
 						target: "bridge",
 						source=%P::SOURCE_NAME,
 						target=%P::TARGET_NAME,
-						state=?&block_checker,
-						"Error running block checker for block. Retrying."
+						"Error running block checker. Retrying."
 					);
 					tokio::time::sleep(retry_tick).await;
 				}
