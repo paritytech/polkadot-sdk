@@ -2678,7 +2678,11 @@ async fn kick_off_seconding<Context>(
 		};
 
 	// Sanity check of the candidate receipt version.
-	descriptor_version_sanity_check(candidate_receipt.descriptor(), per_scheduling_parent)?;
+	descriptor_version_sanity_check(
+		candidate_receipt.descriptor(),
+		per_scheduling_parent,
+		collation_event.collator_protocol_version,
+	)?;
 
 	let collations = &mut per_scheduling_parent.collations;
 
@@ -3089,10 +3093,20 @@ pub fn descriptor_version_sanity_check_with_params(
 	v3_enabled: bool,
 	expected_core: CoreIndex,
 	expected_session: SessionIndex,
+	collator_protocol_version: CollationVersion,
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version(v3_enabled) {
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
+			// V3 descriptors must only arrive via V3 protocol.
+			if descriptor.version(v3_enabled) == CandidateDescriptorVersion::V3 &&
+				collator_protocol_version != CollationVersion::V3
+			{
+				return Err(SecondingError::InvalidReceiptVersion(
+					CandidateDescriptorVersion::V3,
+				));
+			}
+
 			if let Some(core_index) = descriptor.core_index(v3_enabled) {
 				if core_index != expected_core {
 					return Err(SecondingError::InvalidCoreIndex(core_index.0, expected_core.0));
@@ -3118,12 +3132,14 @@ pub fn descriptor_version_sanity_check_with_params(
 fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
 	per_scheduling_parent: &PerSchedulingParent,
+	collator_protocol_version: CollationVersion,
 ) -> std::result::Result<(), SecondingError> {
 	descriptor_version_sanity_check_with_params(
 		descriptor,
 		per_scheduling_parent.v3_enabled,
 		per_scheduling_parent.current_core,
 		per_scheduling_parent.session_index,
+		collator_protocol_version,
 	)
 }
 

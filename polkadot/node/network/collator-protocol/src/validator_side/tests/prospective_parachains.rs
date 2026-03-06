@@ -1863,12 +1863,16 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 }
 
 #[rstest]
-#[case(true, false)] // V3 enabled, not crafted
-#[case(false, false)] // V3 disabled, not crafted (detected as V1)
-#[case(false, true)] // V3 disabled, crafted with non-zero reserved (detected as Unknown)
+#[case(true, false, CollationVersion::V1)] // V3 enabled, not crafted, V1 protocol
+#[case(true, false, CollationVersion::V2)] // V3 enabled, not crafted, V2 protocol
+#[case(false, false, CollationVersion::V1)] // V3 disabled, not crafted (detected as V1), V1 protocol
+#[case(false, false, CollationVersion::V2)] // V3 disabled, not crafted (detected as V1), V2 protocol
+#[case(false, true, CollationVersion::V1)] // V3 disabled, crafted unknown, V1 protocol
+#[case(false, true, CollationVersion::V2)] // V3 disabled, crafted unknown, V2 protocol
 fn v3_descriptor_version_detection(
 	#[case] v3_feature_enabled: bool,
 	#[case] crafted_unknown: bool,
+	#[case] collation_version: CollationVersion,
 ) {
 	let mut test_state = TestState::default();
 
@@ -1901,7 +1905,7 @@ fn v3_descriptor_version_detection(
 			peer_a,
 			pair_a.clone(),
 			test_state.chain_ids[0],
-			CollationVersion::V2,
+			collation_version,
 		)
 		.await;
 
@@ -1915,7 +1919,7 @@ fn v3_descriptor_version_detection(
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
 
 		if crafted_unknown {
-			// Case 3: Create a crafted descriptor that will be detected as Unknown when
+			// Create a crafted descriptor that will be detected as Unknown when
 			// v3_enabled=false. Set version field to 1 but keep scheduling_parent as zero.
 			// Since scheduling_parent is zero, old_v1_detected doesn't trigger (no backward
 			// compat). Then v2_version() checks the version field: version=1 is not recognized
@@ -1923,7 +1927,7 @@ fn v3_descriptor_version_detection(
 			committed_candidate.descriptor.set_version(1);
 			// Don't set scheduling_parent - keep it as default (zero)
 		} else {
-			// Cases 1 & 2: Normal V3 descriptor
+			// Normal V3 descriptor
 			// Make it a V3 descriptor by setting version field to 1
 			committed_candidate.descriptor.set_version(1);
 			// Set scheduling_parent to head_b (which is in active leaves)
@@ -1936,40 +1940,58 @@ fn v3_descriptor_version_detection(
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
+		// V1 advertisement has no candidate hash; V2 includes it
+		let advertisement_candidate = match collation_version {
+			CollationVersion::V1 => None,
+			CollationVersion::V2 | CollationVersion::V3 =>
+				Some((candidate_hash, parent_head_data_hash)),
+		};
+
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
 			head_b,
-			Some((candidate_hash, parent_head_data_hash)),
+			advertisement_candidate,
 		)
 		.await;
 
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CandidateBacking(
-				CandidateBackingMessage::CanSecond(request, tx),
-			) => {
-				assert_eq!(request.candidate_hash, candidate_hash);
-				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
-				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
-				tx.send(true).expect("receiving side should be alive");
-			}
-		);
+		// V2 advertisements trigger CanSecond check
+		if collation_version != CollationVersion::V1 {
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::CandidateBacking(
+					CandidateBackingMessage::CanSecond(request, tx),
+				) => {
+					assert_eq!(request.candidate_hash, candidate_hash);
+					assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+					assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+					tx.send(true).expect("receiving side should be alive");
+				}
+			);
+		}
 
 		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
 			head_b,
 			test_state.chain_ids[0],
-			Some(candidate_hash),
+			match collation_version {
+				CollationVersion::V1 => None,
+				_ => Some(candidate_hash),
+			},
 		)
 		.await;
 
-		response_channel
-			.send(Ok((
+		// V1 uses request_v1, V2 uses request_v2
+		let encoded_response = match collation_version {
+			CollationVersion::V1 =>
+				request_v1::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+			CollationVersion::V2 | CollationVersion::V3 =>
 				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
 					.encode(),
-				ProtocolName::from(""),
-			)))
+		};
+		response_channel
+			.send(Ok((encoded_response, ProtocolName::from(""))))
 			.expect("Sending response should succeed");
 
 		if crafted_unknown {
@@ -1985,23 +2007,19 @@ fn v3_descriptor_version_detection(
 				}
 			);
 		} else if v3_feature_enabled {
-			// Case 1: V3 is enabled, descriptor should be detected as V3 and accepted
-			assert_candidate_backing_second(
-				&mut virtual_overseer,
-				head_b,
-				test_state.chain_ids[0],
-				&pov,
-				CollationVersion::V2,
-			)
-			.await;
-
-			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
-				.await;
-
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V2)
-				.await;
+			// V3 is enabled but descriptor arrived via V1/V2 protocol.
+			// V3 descriptors must only be sent via V3 protocol, so this should be rejected.
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+				) => {
+					assert_eq!(peer_a, peer_id);
+					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+				}
+			);
 		} else {
-			// Case 2: V3 is disabled, a real V3 descriptor (with non-zero scheduling_parent)
+			// V3 is disabled, a real V3 descriptor (with non-zero scheduling_parent)
 			// should be detected as V1 due to backwards compatibility.
 			// The old reserved fields have non-zero values, which triggers old_v1_detected.
 			assert_candidate_backing_second(
@@ -2009,15 +2027,20 @@ fn v3_descriptor_version_detection(
 				head_b,
 				test_state.chain_ids[0],
 				&pov,
-				CollationVersion::V2,
+				collation_version,
 			)
 			.await;
 
 			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
 				.await;
 
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V2)
-				.await;
+			assert_collation_seconded(
+				&mut virtual_overseer,
+				head_b,
+				peer_a,
+				collation_version,
+			)
+			.await;
 		}
 
 		virtual_overseer
