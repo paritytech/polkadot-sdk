@@ -276,7 +276,7 @@ where
 		// it doesn't make sense to perform one more loop iteration.
 		select_biased! {
 			_ = exit_signal => return Ok(()),
-			_ = async_std::task::sleep(min_block_interval).fuse() => {},
+			_ = tokio::time::sleep(min_block_interval).fuse() => {},
 		}
 
 		// if source client is not yet synced, we'll need to sleep. Otherwise we risk submitting too
@@ -689,12 +689,12 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use async_std::sync::{Arc, Mutex};
 	use futures::{SinkExt, StreamExt};
 	use relay_substrate_client::test_chain::{TestChain, TestParachain};
 	use relay_utils::{HeaderId, MaybeConnectionError};
 	use sp_core::H256;
-	use std::collections::HashMap;
+	use std::{collections::HashMap, sync::Arc};
+	use tokio::sync::Mutex;
 
 	const PARA_10_HASH: ParaHash = H256([10u8; 32]);
 	const PARA_20_HASH: ParaHash = H256([20u8; 32]);
@@ -889,7 +889,7 @@ mod tests {
 		test_source_client.source_sync_status = Err(TestError::Error);
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(test_source_client),
 				TestClient::from(TestClientData::minimal()),
 				None,
@@ -906,7 +906,7 @@ mod tests {
 		test_target_client.target_best_block = Err(TestError::Error);
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
@@ -923,7 +923,7 @@ mod tests {
 		test_target_client.target_head = Err(TestError::Error);
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
@@ -940,7 +940,7 @@ mod tests {
 		test_target_client.target_best_finalized_source_block = Err(TestError::Error);
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
@@ -957,7 +957,7 @@ mod tests {
 		test_source_client.source_head.insert(0, Err(TestError::Error));
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(test_source_client),
 				TestClient::from(TestClientData::minimal()),
 				None,
@@ -974,7 +974,7 @@ mod tests {
 		test_source_client.source_proof = Err(TestError::Error);
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(test_source_client),
 				TestClient::from(TestClientData::minimal()),
 				None,
@@ -991,7 +991,7 @@ mod tests {
 		test_target_client.target_submit_result = Err(TestError::Error);
 
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(test_target_client),
 				None,
@@ -1006,7 +1006,7 @@ mod tests {
 	fn minimal_working_case() {
 		let (exit_signal_sender, exit_signal) = futures::channel::mpsc::unbounded();
 		assert_eq!(
-			async_std::task::block_on(run_until_connection_lost(
+			tokio::runtime::Runtime::new().unwrap().block_on(run_until_connection_lost(
 				TestClient::from(TestClientData::minimal()),
 				TestClient::from(TestClientData::with_exit_signal_sender(exit_signal_sender)),
 				None,
@@ -1017,7 +1017,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn free_headers_are_relayed() {
 		// prepare following case:
 		// 1) best source relay at target: 95
@@ -1095,7 +1095,7 @@ mod tests {
 				target_client.clone(),
 				None,
 				true,
-				async_std::task::sleep(std::time::Duration::from_millis(100)),
+				tokio::time::sleep(std::time::Duration::from_millis(100)),
 			)
 			.await,
 			Ok(()),
@@ -1128,7 +1128,7 @@ mod tests {
 		}
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn tx_tracker_update_when_head_at_target_has_none_value() {
 		assert_eq!(
 			Some(()),
@@ -1139,7 +1139,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn tx_tracker_update_when_head_at_target_has_old_value() {
 		assert_eq!(
 			Some(()),
@@ -1150,7 +1150,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn tx_tracker_update_when_head_at_target_has_same_value() {
 		assert!(matches!(
 			test_tx_tracker()
@@ -1160,7 +1160,7 @@ mod tests {
 		));
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn tx_tracker_update_when_head_at_target_has_better_value() {
 		assert!(matches!(
 			test_tx_tracker()
@@ -1170,7 +1170,7 @@ mod tests {
 		));
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn tx_tracker_update_when_tx_is_lost() {
 		let mut tx_tracker = test_tx_tracker();
 		tx_tracker.transaction_tracker =
@@ -1183,7 +1183,7 @@ mod tests {
 		));
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn tx_tracker_update_when_tx_is_finalized_but_heads_are_not_updated() {
 		let mut tx_tracker = test_tx_tracker();
 		tx_tracker.transaction_tracker =
