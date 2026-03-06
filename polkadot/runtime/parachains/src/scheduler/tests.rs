@@ -103,7 +103,6 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 			lookahead: 2,
 			max_relay_parent_session_age: 3,
 			num_cores: 3,
-			max_availability_timeouts: 1,
 			..Default::default()
 		},
 		..Default::default()
