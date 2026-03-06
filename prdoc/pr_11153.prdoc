@@ -8,11 +8,10 @@ doc:
     - Auto-discovers and persists `first_evm_block` — the lowest block with EVM support on the chain.
     - Chain identity verification: Store genesis hash in sync_state and validate on startup; detect stale boundaries after reorgs.
 
-    ### CLI rework (breaking)
-    - Replace `--database-url` with `--base-path` (database file is auto-named `eth-rpc.db`)
-    - Replace `--index-last-n-blocks` with `--sync` (syncs all finalized blocks down to the first EVM block)
-    - Replace `--cache-size` with `--prune` (in-memory DB, keeps latest N blocks)
-    - Remove `--earliest-receipt-block` (replaced by auto-discovered `first_evm_block`)
+    ### CLI rework
+    New `--eth-pruning` flag replaces `--database-url`, `--cache-size`, `--index-last-n-blocks`, and `--earliest-receipt-block`:
+    - `--eth-pruning archive` (default): persistent on-disk DB with backward historical sync.
+    - `--eth-pruning <N>`: in-memory DB keeping the latest N blocks.
 crates:
 - name: pallet-revive-eth-rpc
   bump: minor
