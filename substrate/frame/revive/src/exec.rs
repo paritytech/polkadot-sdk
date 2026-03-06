@@ -1155,7 +1155,13 @@ where
 		let code_address = delegate
 			.as_ref()
 			.map(|d| d.callee)
-			.or_else(|| AccountInfo::<T>::get_delegation_target(&address))
+			.or_else(|| {
+				// Constructors can't be delegated, skip the storage read.
+				if entry_point == ExportedFunction::Constructor {
+					return None;
+				}
+				AccountInfo::<T>::get_delegation_target(&address)
+			})
 			.unwrap_or(address);
 
 		let frame = Frame {
