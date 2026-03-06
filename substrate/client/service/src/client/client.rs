@@ -567,7 +567,6 @@ where
 		let status = self.backend.blockchain().status(hash)?;
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
-
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -595,11 +594,7 @@ where
 			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast => {
 				true
 			},
-			BlockOrigin::Genesis |
-			BlockOrigin::NetworkInitialSync |
-			BlockOrigin::File |
-			BlockOrigin::WarpSync |
-			BlockOrigin::GapSync => false,
+			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
 		};
 
 		let storage_changes = match storage_changes {
@@ -821,10 +816,10 @@ where
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
-			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::Unknown, _) => {
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent))
 			},
+			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::InChainPruned, StateAction::Execute) => {
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState))
 			},
