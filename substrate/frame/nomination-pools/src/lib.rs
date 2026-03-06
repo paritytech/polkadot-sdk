@@ -3306,8 +3306,8 @@ impl<T: Config> Pallet<T> {
 		match Self::do_apply_slash(member_account, None, false) {
 			Ok(_) => {},
 			Err(e)
-				if e == Error::<T>::NothingToSlash.into()
-					|| e == Error::<T>::PoolMemberNotFound.into() => {},
+				if e == Error::<T>::NothingToSlash.into() ||
+					e == Error::<T>::PoolMemberNotFound.into() => {},
 			Err(_) => {
 				return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
 			},
