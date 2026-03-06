@@ -18,9 +18,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::permit::{pallet::Config, Pallet};
+use ethereum_standards::IERC20;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Currency;
-use pallet_revive::{precompiles::H160, AddressMapper};
+use pallet_revive::{
+	precompiles::{alloy, H160},
+	AddressMapper,
+};
 use sp_core::U256;
 use sp_runtime::traits::StaticLookup;
 
@@ -47,10 +51,13 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 		<T as pallet_assets::Config>::AssetId: From<u32>,
 		<T as pallet_assets::Config>::Balance: From<u32>,
 		<T as pallet_assets::Config>::AssetIdParameter: From<<T as pallet_assets::Config>::AssetId>,
+		pallet_assets::Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
+		alloy::primitives::U256: TryInto<<T as pallet_assets::Config>::Balance>,
+		alloy::primitives::U256: TryFrom<<T as pallet_assets::Config>::Balance>,
 )]
 mod benchmarks {
 	use super::*;
-	use frame_support::traits::{fungibles::metadata::Inspect as FungiblesMetadata, Get};
+	use frame_support::traits::Get;
 
 	#[benchmark]
 	fn nonces() {
@@ -79,69 +86,15 @@ mod benchmarks {
 		assert_ne!(result, sp_core::H256::zero());
 	}
 
-	#[benchmark]
-	fn use_permit() {
-		// Pre-computed valid permit signature for chain_id=31337
-		// Generated using Hardhat account #0 private key
-		//
-		// Parameters:
-		// - Chain ID: 31337
-		// - Token Name: "Asset Permit"
-		// - Owner: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
-		// - Verifying Contract: 0x0000000000000000000000000000000012345678
-		// - Spender: 0x0000000000000000000000000000000098765432
-		// - Value: 1000
-		// - Nonce: 0
-		// - Deadline: 18446744073709551615 (u64::MAX)
-		//
-		// NOTE: If you change TEST_TOKEN_NAME or other parameters, you must regenerate
-		// this signature using the Hardhat account #0 private key:
-		// 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-		let verifying_contract = test_verifying_contract();
-		let name = TEST_TOKEN_NAME;
-		let owner = test_owner();
-		let spender = H160::from_low_u64_be(0x9876_5432);
-		let value: [u8; 32] = U256::from(1000).to_big_endian();
-		let deadline: [u8; 32] = U256::from(u64::MAX).to_big_endian();
-
-		let v = 27u8;
-		let r: [u8; 32] = [
-			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
-			121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
-		];
-		let s: [u8; 32] = [
-			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
-			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
-		];
-
-		#[block]
-		{
-			Pallet::<T>::use_permit(
-				&verifying_contract,
-				name,
-				&owner,
-				&spender,
-				&value,
-				&deadline,
-				v,
-				&r,
-				&s,
-			)
-			.expect("permit should be valid");
-		}
-
-		// Verify nonce was incremented
-		assert_eq!(Pallet::<T>::nonce(&verifying_contract, &owner), U256::one());
-	}
-
 	/// End-to-end benchmark for the full `permit()` precompile call (EIP-2612).
 	///
 	/// Measures all operations performed by the ERC20 permit precompile in a single
-	/// call: asset name DB read, ECDSA recovery + nonce write, and approval write.
-	/// This is the weight that must be charged up-front before executing a permit.
+	/// call: asset name DB read, ECDSA recovery + nonce write, approval write, and
+	/// event deposit. This is the weight that must be charged up-front before
+	/// executing a permit.
 	///
-	/// Pre-computed signature parameters match those of `use_permit` (chain_id=31337,
-	/// mock::Test config). See `use_permit` docs for regeneration instructions.
+	/// Pre-computed signature parameters use chain_id=31337 (mock::Test config).
+	/// See signature comment block for regeneration instructions.
 	#[benchmark]
 	fn permit() {
 		// ── Setup: asset ────────────────────────────────────────────────────────
@@ -181,12 +134,9 @@ mod benchmarks {
 		);
 
 		let spender = H160::from_low_u64_be(0x9876_5432);
-		let spender_account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
-		// ── Permit signature (same as use_permit benchmark) ──────────────────
+		// ── Permit signature ─────────────────────────────────────────────────
 		let verifying_contract = test_verifying_contract();
-		let value: [u8; 32] = U256::from(1000).to_big_endian();
-		let deadline: [u8; 32] = U256::from(u64::MAX).to_big_endian();
 		let v = 27u8;
 		let r: [u8; 32] = [
 			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
@@ -197,36 +147,30 @@ mod benchmarks {
 			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
 		];
 
+		// Build the permitCall with alloy types.
+		let call = IERC20::permitCall {
+			owner: alloy::primitives::Address::from(owner.0),
+			spender: alloy::primitives::Address::from(spender.0),
+			value: alloy::primitives::U256::from(1000u64),
+			deadline: alloy::primitives::U256::from(u64::MAX),
+			v,
+			r: alloy::primitives::FixedBytes(r),
+			s: alloy::primitives::FixedBytes(s),
+		};
+
+		// Create env like pallet-revive benchmarks do.
+		let mut call_setup = pallet_revive::call_builder::CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
 		#[block]
 		{
-			// 1. Asset name DB read (same as lib.rs::permit()).
-			let token_name = <pallet_assets::Pallet<T> as FungiblesMetadata<T::AccountId>>::name(
-				asset_id.clone(),
-			);
-
-			// 2. Permit digest computation, ECDSA recovery, and nonce write.
-			Pallet::<T>::use_permit(
-				&verifying_contract,
-				&token_name,
-				&owner,
-				&spender,
-				&value,
-				&deadline,
-				v,
-				&r,
-				&s,
-			)
-			.expect("permit should be valid");
-
-			// 3. Approval record write (do_approve_transfer reads Asset + Approvals, writes
-			//    Approvals + Asset, and reserves the deposit from owner).
-			pallet_assets::Pallet::<T>::do_approve_transfer(
+			crate::ERC20::<T, crate::InlineIdConfig<0x0120>>::permit(
 				asset_id,
-				&owner_account,
-				&spender_account,
-				1u32.into(),
+				verifying_contract,
+				&call,
+				&mut ext,
 			)
-			.expect("approval should succeed");
+			.expect("permit should succeed");
 		}
 
 		// Verify nonce was incremented, confirming the full flow ran.

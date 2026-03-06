@@ -404,7 +404,7 @@ where
 	///
 	/// This verifies the signature, consumes the permit (increments nonce),
 	/// and sets the approval.
-	fn permit(
+	pub(crate) fn permit(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
 		call: &IERC20::permitCall,
