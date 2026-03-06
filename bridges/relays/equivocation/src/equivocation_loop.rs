@@ -114,7 +114,7 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 						&mut self.target_client,
 						&mut self.finality_proofs_buf,
 						&mut self.reporter,
-						(5, 10),
+						(5, tick),
 					)
 					.await;
 				current_block_number = current_block_number.saturating_add(1.into());
