@@ -1012,8 +1012,9 @@ pub mod v2 {
 			// all reward accounts must have more than ED.
 			RewardPools::<T>::iter().try_for_each(|(id, _)| -> Result<(), TryRuntimeError> {
 				ensure!(
-					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(&Pallet::<T>::generate_reward_account(id)) >=
-						T::Currency::minimum_balance(),
+					<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(
+						&Pallet::<T>::generate_reward_account(id)
+					) >= T::Currency::minimum_balance(),
 					"Reward accounts must have greater balance than ED."
 				);
 				Ok(())

@@ -2265,6 +2265,28 @@ fn staking_operator_filter_allows_validator_ops_and_session_keys() {
 
 	// StakingOperator can batch operations
 	assert!(operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })));
+	assert!(
+		operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch_all { calls: vec![] }))
+	);
+	assert!(
+		operator.filter(&RuntimeCall::Utility(pallet_utility::Call::force_batch { calls: vec![] }))
+	);
+
+	// StakingOperator cannot use non-batching utility calls
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::as_derivative {
+		index: 0,
+		call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+	})));
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::dispatch_as {
+		as_origin: Box::new(asset_hub_westend_runtime::OriginCaller::system(
+			frame_system::RawOrigin::Root,
+		)),
+		call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+	})));
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::with_weight {
+		call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+		weight: Default::default(),
+	})));
 
 	// StakingOperator cannot manage funds or nominations
 	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::bond {
