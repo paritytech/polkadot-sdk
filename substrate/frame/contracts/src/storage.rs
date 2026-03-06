@@ -336,7 +336,7 @@ impl<T: Config> ContractInfo<T> {
 
 			if outcome.maybe_cursor.is_some() {
 				remaining_key_budget.saturating_reduce(outcome.backend);
-				break
+				break;
 			} else {
 				entry.remove();
 				// charge at least one key even if none were removed.

@@ -909,12 +909,15 @@ pub trait Storage {
 	#[wrapper]
 	fn root() -> Vec<u8> {
 		let mut root_out = vec![0u8; 256];
-		let len = root__wrapped(&mut root_out[..]);
-		if len as usize > root_out.len() {
-			root_out.resize(len as usize, 0);
-			root__wrapped(&mut root_out[..]);
-		}
-		root_out.truncate(len as usize);
+		root__wrapped(&mut root_out[..]);
+		// Determine total length of the SCALE-encoded hash from the compact length prefix.
+		let mut input = &root_out[..];
+		let before = input.len();
+		let data_len = codec::Compact::<u32>::decode(&mut input)
+			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
+			.0 as usize;
+		let prefix_len = before - input.len();
+		root_out.truncate(prefix_len + data_len);
 		root_out
 	}
 
@@ -1420,12 +1423,15 @@ pub trait DefaultChildStorage {
 	#[wrapper]
 	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
 		let mut root_out = vec![0u8; 256];
-		let len = root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		if len as usize > root_out.len() {
-			root_out.resize(len as usize, 0);
-			root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		}
-		root_out.truncate(len as usize);
+		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
+		// Determine total length of the SCALE-encoded hash from the compact length prefix.
+		let mut input = &root_out[..];
+		let before = input.len();
+		let data_len = codec::Compact::<u32>::decode(&mut input)
+			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
+			.0 as usize;
+		let prefix_len = before - input.len();
+		root_out.truncate(prefix_len + data_len);
 		root_out
 	}
 
@@ -1868,7 +1874,7 @@ pub trait Misc {
 	}
 
 	/// Get the last storage cursor stored by `storage::clear_prefix`,
-/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`. The length
+	/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`. The length
 	/// of the cursor is known to the caller from the result of the call to aforementioned
 	/// functions, so the caller is required to provide the buffer of sufficient length, otherwise,
 	/// it will panic.
@@ -1922,7 +1928,6 @@ impl Default for UseDalekExt {
 #[runtime_interface]
 pub trait Crypto {
 	/// Returns all `ed25519` public keys for the given key id from the keystore.
-	#[version(1, register_only)]
 	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1935,7 +1940,8 @@ pub trait Crypto {
 	/// Stores all `ed25519` public keys for the given key id from the keystore into the output
 	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
 	/// of whether the buffer was written or not.
-	#[version(2, register_only)]
+	#[version(2)]
+	#[wrapped]
 	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1951,17 +1957,14 @@ pub trait Crypto {
 		(keys.len() * core::mem::size_of::<ed25519::Public>()) as u32
 	}
 
-	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `ed25519_public_keys` host function
 	#[wrapper]
 	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
-		let num_keys = ed25519_num_public_keys(id);
-		let mut keys = Vec::new();
-		for i in 0..num_keys {
-			let mut key = ed25519::Public::default();
-			ed25519_public_key(id, i, &mut key);
-			keys.push(key);
-		}
+		let num_bytes = ed25519_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<ed25519::Public>();
+		let mut keys = vec![ed25519::Public::default(); num_keys];
+		ed25519_public_keys__wrapped(id, &mut keys);
 		keys
 	}
 
@@ -2208,7 +2211,6 @@ pub trait Crypto {
 	}
 
 	/// Returns all `sr25519` public keys for the given key id from the keystore.
-	#[version(1, register_only)]
 	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2221,7 +2223,8 @@ pub trait Crypto {
 	/// Stores all `sr25519` public keys for the given key id from the keystore into the output
 	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
 	/// of whether the buffer was written or not.
-	#[version(2, register_only)]
+	#[version(2)]
+	#[wrapped]
 	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2237,17 +2240,14 @@ pub trait Crypto {
 		(keys.len() * core::mem::size_of::<sr25519::Public>()) as u32
 	}
 
-	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `sr25519_public_keys` host function
 	#[wrapper]
 	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
-		let num_keys = sr25519_num_public_keys(id);
-		let mut keys = Vec::new();
-		for i in 0..num_keys {
-			let mut key = sr25519::Public::default();
-			sr25519_public_key(id, i, &mut key);
-			keys.push(key);
-		}
+		let num_bytes = sr25519_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<sr25519::Public>();
+		let mut keys = vec![sr25519::Public::default(); num_keys];
+		sr25519_public_keys__wrapped(id, &mut keys);
 		keys
 	}
 
@@ -2369,7 +2369,6 @@ pub trait Crypto {
 	}
 
 	/// Returns all `ecdsa` public keys for the given key id from the keystore.
-	#[version(1, register_only)]
 	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2382,7 +2381,8 @@ pub trait Crypto {
 	/// Stores all `ecdsa` public keys for the given key id from the keystore into the output
 	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
 	/// of whether the buffer was written or not.
-	#[version(2, register_only)]
+	#[version(2)]
+	#[wrapped]
 	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2398,17 +2398,14 @@ pub trait Crypto {
 		(keys.len() * core::mem::size_of::<ecdsa::Public>()) as u32
 	}
 
-	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `ecdsa_public_keys` host function
 	#[wrapper]
 	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
-		let num_keys = ecdsa_num_public_keys(id);
-		let mut keys = Vec::new();
-		for i in 0..num_keys {
-			let mut key = ecdsa::Public::default();
-			ecdsa_public_key(id, i, &mut key);
-			keys.push(key);
-		}
+		let num_bytes = ecdsa_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<ecdsa::Public>();
+		let mut keys = vec![ecdsa::Public::default(); num_keys];
+		ecdsa_public_keys__wrapped(id, &mut keys);
 		keys
 	}
 
