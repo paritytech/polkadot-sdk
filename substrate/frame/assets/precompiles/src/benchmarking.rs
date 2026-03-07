@@ -60,13 +60,12 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 		T: pallet_assets::Config<T::AssetsInstance, AssetId = <T as Config>::ForeignAssetId>,
 		T::ForeignAssetId: From<u32>,
 		// Permit bounds
-		T: crate::permit::Config + pallet_assets::Config + pallet_revive::Config,
-		<T as pallet_assets::Config>::AssetId: From<u32>,
-		<T as pallet_assets::Config>::Balance: From<u32>,
-		<T as pallet_assets::Config>::AssetIdParameter: From<<T as pallet_assets::Config>::AssetId>,
-		pallet_assets::Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
-		alloy::primitives::U256: TryInto<<T as pallet_assets::Config>::Balance>,
-		alloy::primitives::U256: TryFrom<<T as pallet_assets::Config>::Balance>,
+		T: crate::permit::Config + pallet_revive::Config,
+		<T as pallet_assets::Config<T::AssetsInstance>>::Balance: From<u32>,
+		<T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter: From<<T as pallet_assets::Config<T::AssetsInstance>>::AssetId>,
+		pallet_assets::Call<T, T::AssetsInstance>: Into<<T as pallet_revive::Config>::RuntimeCall>,
+		alloy::primitives::U256: TryInto<<T as pallet_assets::Config<T::AssetsInstance>>::Balance>,
+		alloy::primitives::U256: TryFrom<<T as pallet_assets::Config<T::AssetsInstance>>::Balance>,
 )]
 mod benchmarks {
 	use super::*;
@@ -164,13 +163,13 @@ mod benchmarks {
 	#[benchmark]
 	fn permit() {
 		// ── Setup: asset ────────────────────────────────────────────────────────
-		let asset_id: <T as pallet_assets::Config>::AssetId = 42u32.into();
-		let asset_id_param: <T as pallet_assets::Config>::AssetIdParameter =
+		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId = 42u32.into();
+		let asset_id_param: <T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter =
 			asset_id.clone().into();
 		let admin: T::AccountId = whitelisted_caller();
 		let admin_lookup = <T as frame_system::Config>::Lookup::unlookup(admin.clone());
 
-		pallet_assets::Pallet::<T>::force_create(
+		pallet_assets::Pallet::<T, T::AssetsInstance>::force_create(
 			frame_system::RawOrigin::Root.into(),
 			asset_id_param.clone(),
 			admin_lookup,
@@ -180,7 +179,7 @@ mod benchmarks {
 		.expect("asset creation should succeed");
 
 		// Set the asset name so that the name() DB read in permit() is warm/cold as expected.
-		pallet_assets::Pallet::<T>::force_set_metadata(
+		pallet_assets::Pallet::<T, T::AssetsInstance>::force_set_metadata(
 			frame_system::RawOrigin::Root.into(),
 			asset_id_param,
 			TEST_TOKEN_NAME.to_vec(),
@@ -193,8 +192,8 @@ mod benchmarks {
 		// ── Setup: owner native balance for the approval deposit ─────────────
 		let owner = test_owner();
 		let owner_account = <T as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
-		let deposit = <T as pallet_assets::Config>::ApprovalDeposit::get();
-		<T as pallet_assets::Config>::Currency::make_free_balance_be(
+		let deposit = <T as pallet_assets::Config<T::AssetsInstance>>::ApprovalDeposit::get();
+		<T as pallet_assets::Config<T::AssetsInstance>>::Currency::make_free_balance_be(
 			&owner_account,
 			deposit + deposit,
 		);
@@ -230,7 +229,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::ERC20::<T, crate::InlineIdConfig<0x0120>>::permit(
+			crate::ERC20::<T, crate::InlineIdConfig<0x0120>, T::AssetsInstance>::permit(
 				asset_id,
 				verifying_contract,
 				&call,
