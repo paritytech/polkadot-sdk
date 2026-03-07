@@ -23,6 +23,7 @@ use bp_header_chain::{FinalityProof, FindEquivocations as FindEquivocationsT};
 use finality_relay::FinalityProofsBuf;
 use futures::future::{BoxFuture, FutureExt};
 use num_traits::Saturating;
+use std::time::Duration;
 
 /// First step in the block checking state machine.
 ///
@@ -215,6 +216,44 @@ pub enum BlockChecker<P: EquivocationDetectionPipeline> {
 impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 	pub fn new(target_block_num: P::TargetNumber) -> Self {
 		Self::ReadSyncedHeaders(ReadSyncedHeaders { target_block_num })
+	}
+
+	pub fn run_with_retry<'a, SC: SourceClient<P>, TC: TargetClient<P>>(
+		self,
+		source_client: &'a mut SC,
+		target_client: &'a mut TC,
+		finality_proofs_buf: &'a mut FinalityProofsBuf<P>,
+		reporter: &'a mut EquivocationsReporter<P, SC>,
+		retry_params: (u32, Duration),
+	) -> BoxFuture<'a, Result<(), Self>> {
+		let (max_attempts, retry_tick) = retry_params;
+		async move {
+			let mut block_checker = self;
+			let mut retry_range = (0..max_attempts).peekable();
+			while let Some(_) = retry_range.next() {
+				block_checker = match block_checker
+					.run(source_client, target_client, finality_proofs_buf, reporter)
+					.await
+				{
+					Ok(_) => return Ok(()),
+					Err(err) => err,
+				};
+
+				// We don't need to sleep after the last attempt
+				if retry_range.peek().is_some() {
+					tracing::warn!(
+						target: "bridge",
+						source=%P::SOURCE_NAME,
+						target=%P::TARGET_NAME,
+						"Error running block checker. Retrying."
+					);
+					tokio::time::sleep(retry_tick).await;
+				}
+			}
+
+			Err(block_checker)
+		}
+		.boxed()
 	}
 
 	pub fn run<'a, SC: SourceClient<P>, TC: TargetClient<P>>(
