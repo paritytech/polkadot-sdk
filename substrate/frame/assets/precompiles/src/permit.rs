@@ -35,7 +35,6 @@ use pallet_revive::precompiles::H160;
 use sp_core::{H256, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
-pub use crate::weights::PermitWeightInfo;
 pub use pallet::*;
 
 /// EIP-712 type hash for Permit.
@@ -80,7 +79,7 @@ pub mod pallet {
 		type ChainId: Get<u64>;
 
 		/// Weight information for permit operations.
-		type WeightInfo: PermitWeightInfo;
+		type WeightInfo: crate::weights::WeightInfo;
 	}
 
 	#[pallet::pallet]

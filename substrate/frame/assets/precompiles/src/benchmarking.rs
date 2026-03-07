@@ -15,12 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Benchmarks for `pallet_assets_precompiles`.
+//!
+//! All benchmarks are registered under `foreign_assets::Pallet` so that a single
+//! `frame-omni-bencher --pallet=pallet_assets_precompiles` run generates one
+//! `weights.rs` containing every weight function.
+
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::permit::{pallet::Config, Pallet};
+use crate::{
+	foreign_assets::pallet::{Config, Pallet},
+	migration::MigrateForeignAssetPrecompileMappings,
+};
 use ethereum_standards::IERC20;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Currency;
+use frame_support::{migrations::SteppedMigration, traits::Currency, weights::WeightMeter};
 use pallet_revive::{
 	precompiles::{alloy, H160},
 	AddressMapper,
@@ -30,8 +39,8 @@ use sp_runtime::traits::StaticLookup;
 
 /// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
 const TEST_OWNER: [u8; 20] = [
-	0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6, 0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79, 0xcf,
-	0xff, 0xb9, 0x22, 0x66,
+	0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6, 0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79,
+	0xcf, 0xff, 0xb9, 0x22, 0x66,
 ];
 
 fn test_verifying_contract() -> H160 {
@@ -47,7 +56,11 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 
 #[benchmarks(
 	where
-		T: pallet_assets::Config + pallet_revive::Config,
+		// Migration bounds
+		T: pallet_assets::Config<T::AssetsInstance, AssetId = <T as Config>::ForeignAssetId>,
+		T::ForeignAssetId: From<u32>,
+		// Permit bounds
+		T: crate::permit::Config + pallet_assets::Config + pallet_revive::Config,
 		<T as pallet_assets::Config>::AssetId: From<u32>,
 		<T as pallet_assets::Config>::Balance: From<u32>,
 		<T as pallet_assets::Config>::AssetIdParameter: From<<T as pallet_assets::Config>::AssetId>,
@@ -59,6 +72,58 @@ mod benchmarks {
 	use super::*;
 	use frame_support::traits::Get;
 
+	// ==================== Migration benchmarks ====================
+
+	/// Benchmark one complete `step()` invocation of the
+	/// [`MigrateForeignAssetPrecompileMappings`] stepped migration.
+	#[benchmark]
+	fn migrate_foreign_asset_step() {
+		// Clear any pre-existing assets from genesis so that only our
+		// benchmark asset is present during the migration step.
+		let _ = pallet_assets::Asset::<T, T::AssetsInstance>::clear(u32::MAX, None);
+
+		// Create one asset in pallet_assets storage.
+		let caller: T::AccountId = whitelisted_caller();
+		let caller_lookup = <T as frame_system::Config>::Lookup::unlookup(caller);
+		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId = 42u32.into();
+		let asset_id_param: <T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter =
+			asset_id.into();
+
+		pallet_assets::Pallet::<T, T::AssetsInstance>::force_create(
+			frame_system::RawOrigin::Root.into(),
+			asset_id_param,
+			caller_lookup,
+			true,
+			1u32.into(),
+		)
+		.unwrap();
+
+		// Verify no precompile mapping exists yet.
+		let foreign_asset_id: T::ForeignAssetId = 42u32.into();
+		assert!(Pallet::<T>::asset_index_of(&foreign_asset_id).is_none());
+
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			MigrateForeignAssetPrecompileMappings::<T, T::AssetsInstance, ()>::step(
+				None, &mut meter,
+			)
+			.unwrap();
+		}
+
+		// Verify the asset was migrated.
+		assert!(Pallet::<T>::asset_index_of(&foreign_asset_id).is_some());
+		// The step consumes the weight twice: once for migrating the asset and once for
+		// discovering that there are no more assets to migrate.
+		assert_eq!(
+			meter.consumed(),
+			<() as crate::weights::WeightInfo>::migrate_foreign_asset_step() * 2
+		);
+	}
+
+	// ==================== Permit benchmarks ====================
+
 	#[benchmark]
 	fn nonces() {
 		let verifying_contract = test_verifying_contract();
@@ -68,7 +133,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = Pallet::<T>::nonce(&verifying_contract, &owner);
+			result = crate::permit::Pallet::<T>::nonce(&verifying_contract, &owner);
 		}
 		assert_eq!(result, U256::from(42));
 	}
@@ -81,7 +146,8 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = Pallet::<T>::compute_domain_separator(&verifying_contract, name);
+			result =
+				crate::permit::Pallet::<T>::compute_domain_separator(&verifying_contract, name);
 		}
 		assert_ne!(result, sp_core::H256::zero());
 	}
@@ -139,12 +205,12 @@ mod benchmarks {
 		let verifying_contract = test_verifying_contract();
 		let v = 27u8;
 		let r: [u8; 32] = [
-			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
-			121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
+			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215,
+			220, 121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
 		];
 		let s: [u8; 32] = [
-			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
-			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
+			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27,
+			5, 147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
 		];
 
 		// Build the permitCall with alloy types.
@@ -174,7 +240,10 @@ mod benchmarks {
 		}
 
 		// Verify nonce was incremented, confirming the full flow ran.
-		assert_eq!(Pallet::<T>::nonce(&verifying_contract, &owner), U256::one());
+		assert_eq!(
+			crate::permit::Pallet::<T>::nonce(&verifying_contract, &owner),
+			U256::one()
+		);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

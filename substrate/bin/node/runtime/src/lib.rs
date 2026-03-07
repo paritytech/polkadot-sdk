@@ -1471,7 +1471,7 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 
 impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type ChainId = ConstU64<420_420_420>;
-	type WeightInfo = pallet_assets_precompiles::weights::PermitWeight<Runtime>;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_tips::Config for Runtime {

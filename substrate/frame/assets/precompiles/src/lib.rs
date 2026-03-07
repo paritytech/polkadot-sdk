@@ -27,7 +27,8 @@ use ethereum_standards::{
 	IERC20::{IERC20Calls, IERC20Events},
 };
 use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
-use pallet_assets::{weights::WeightInfo, Call, Config, TransferFlags};
+use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
+use weights::WeightInfo as _;
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -39,12 +40,11 @@ use pallet_revive::precompiles::{
 
 pub mod foreign_assets;
 pub mod migration;
-#[cfg(feature = "runtime-benchmarks")]
-pub(crate) mod migration_benchmarks;
 pub mod permit;
-#[cfg(feature = "runtime-benchmarks")]
-pub(crate) mod permit_benchmarks;
 pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) mod benchmarking;
 
 #[cfg(test)]
 mod foreign_assets_tests;
@@ -60,7 +60,6 @@ mod tests;
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
 pub use migration::MigrateForeignAssetPrecompileMappings;
 pub use permit::pallet::Config as PermitConfig;
-pub use weights::{PermitWeight, PermitWeightInfo};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {

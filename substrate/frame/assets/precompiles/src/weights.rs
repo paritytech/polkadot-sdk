@@ -72,21 +72,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_assets_precompiles`.
 pub trait WeightInfo {
 	fn migrate_foreign_asset_step() -> Weight;
-}
-
-/// Weight functions needed for `pallet_assets_precompiles::permit`.
-pub trait PermitWeightInfo {
-	/// Weight for reading a nonce from storage.
 	fn nonces() -> Weight;
-	/// Weight for computing the EIP-712 domain separator.
 	fn domain_separator() -> Weight;
-	/// Weight for the full end-to-end `permit()` precompile call (EIP-2612).
-	///
-	/// Covers all operations performed by the permit precompile in a single call:
-	/// - Asset metadata name read (`pallet_assets::Metadata` r:1)
-	/// - Permit digest computation, ECDSA recovery, and nonce read + write (`Nonces` r:1 w:1)
-	/// - Approval record read + write (`pallet_assets::Approvals` r:1 w:1)
-	/// - Asset record read + write for approval count (`pallet_assets::Asset` r:1 w:1)
 	fn permit() -> Weight;
 }
 
@@ -100,6 +87,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 8_247_000 picoseconds.
 		Weight::from_parts(8_630_000, 0)
 	}
+
+	fn nonces() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `76`
+		//  Estimated: `3541`
+		// Minimum execution time: 3_000_000 picoseconds.
+		Weight::from_parts(3_500_000, 3541)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+
+	fn domain_separator() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(5_500_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+
+	fn permit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `374`
+		//  Estimated: `6850`
+		// Minimum execution time: 70_000_000 picoseconds.
+		Weight::from_parts(70_000_000, 6850)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -111,52 +126,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 8_247_000 picoseconds.
 		Weight::from_parts(8_630_000, 0)
 	}
-}
 
-/// Weights for permit operations using the Substrate node and recommended hardware.
-pub struct PermitWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> PermitWeightInfo for PermitWeight<T> {
-	/// Weight for reading a nonce from storage.
-	/// Storage: `Nonces` (r:1 w:0)
-	fn nonces() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `76`
-		//  Estimated: `3541`
-		// Minimum execution time: 3_000_000 picoseconds.
-		Weight::from_parts(3_500_000, 3541)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-	}
-
-	/// Weight for computing the EIP-712 domain separator.
-	/// Storage: `pallet_assets::Metadata` (r:1 w:0)
-	fn domain_separator() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 5_000_000 picoseconds.
-		Weight::from_parts(5_500_000, 0)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-	}
-
-	/// Weight for the full end-to-end `permit()` precompile call (EIP-2612).
-	///
-	/// Storage: `pallet_assets::Metadata` (r:1), `Nonces` (r:1 w:1),
-	///          `pallet_assets::Approvals` (r:1 w:1), `pallet_assets::Asset` (r:1 w:1)
-	fn permit() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `374`
-		//  Estimated: `6850`
-		// Minimum execution time: 70_000_000 picoseconds.
-		// Includes: asset name DB read, keccak256 hashes, secp256k1 recovery,
-		// nonce ops, and approval write with deposit reserve.
-		Weight::from_parts(70_000_000, 6850)
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
-	}
-}
-
-// For backwards compatibility and tests.
-impl PermitWeightInfo for () {
 	fn nonces() -> Weight {
 		Weight::from_parts(3_500_000, 3541)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
