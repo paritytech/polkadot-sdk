@@ -1977,9 +1977,15 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// The safety invariant is maintained by the runtime and backing
 	/// subsystem: they reject candidates where `version()` and
 	/// `version_old_rules()` disagree when V3 is not yet enabled, and
-	/// reject V3 candidates outright when V3 is not enabled. This ensures
-	/// that any on-chain candidate has an unambiguous version, so approval
-	/// checkers and dispute participants never need to look up node features.
+	/// reject V3 candidates outright when V3 is not enabled.
+	///
+	/// During the V3 transition, approval checkers, dispute participants,
+	/// and on-chain vote scrapers must use [`Self::version_for_approval_dispute`]
+	/// (and the corresponding `scheduling_parent_for_approval_dispute` /
+	/// `scheduling_session_for_approval_dispute`) instead of `version()`
+	/// directly. This ensures they match old backer semantics before the V3
+	/// node feature is confirmed enabled. See those methods for the full
+	/// safety argument.
 	pub fn version(&self) -> CandidateDescriptorVersion {
 		self.v3_version()
 	}
@@ -2194,6 +2200,67 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// On v3: Return the provided scheduling session index.
 	pub fn scheduling_session(&self) -> Option<SessionIndex> {
 		match self.version() {
+			CandidateDescriptorVersion::V1 => None,
+			CandidateDescriptorVersion::V2 => Some(self.session_index),
+			CandidateDescriptorVersion::V3 => {
+				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
+			},
+			CandidateDescriptorVersion::Unknown => None,
+		}
+	}
+
+	/// Version for use in approval checking, disputes, and on-chain vote scraping
+	/// during the V3 transition period.
+	///
+	/// Before the `CandidateReceiptV3` node feature is observed on any leaf,
+	/// uses [`Self::version_old_rules`] to match old backer behavior. After
+	/// the feature is seen, trusts [`Self::version`].
+	///
+	/// This prevents slashing honest old backers when a malicious collator crafts
+	/// a pseudo-V3 descriptor that old nodes interpret as V1 but new nodes would
+	/// interpret as V3 (different PVF inputs → dispute → 100% slash).
+	///
+	/// Safety argument: The node feature can only be enabled well after the runtime
+	/// upgrade that adds `check_version_acceptance()` protection at inclusion time.
+	/// Once the feature is seen on any leaf, the runtime has long been rejecting
+	/// pseudo-V3 candidates, so no ambiguous candidates can exist on-chain.
+	///
+	/// Only needed during the V3 transition. Once V3 is universally deployed,
+	/// callers can switch to [`Self::version`] directly.
+	pub fn version_for_approval_dispute(
+		&self,
+		v3_ever_seen: bool,
+	) -> CandidateDescriptorVersion {
+		if v3_ever_seen {
+			self.version()
+		} else {
+			self.version_old_rules()
+		}
+	}
+
+	/// Scheduling parent for use in approval checking, disputes, and on-chain
+	/// vote scraping during the V3 transition period.
+	///
+	/// See [`Self::version_for_approval_dispute`] for the safety argument.
+	pub fn scheduling_parent_for_approval_dispute(&self, v3_ever_seen: bool) -> H
+	where
+		H: Copy,
+	{
+		match self.version_for_approval_dispute(v3_ever_seen) {
+			CandidateDescriptorVersion::V3 => self.scheduling_parent,
+			_ => self.relay_parent,
+		}
+	}
+
+	/// Scheduling session for use in approval checking, disputes, and on-chain
+	/// vote scraping during the V3 transition period.
+	///
+	/// See [`Self::version_for_approval_dispute`] for the safety argument.
+	pub fn scheduling_session_for_approval_dispute(
+		&self,
+		v3_ever_seen: bool,
+	) -> Option<SessionIndex> {
+		match self.version_for_approval_dispute(v3_ever_seen) {
 			CandidateDescriptorVersion::V1 => None,
 			CandidateDescriptorVersion::V2 => Some(self.session_index),
 			CandidateDescriptorVersion::V3 => {

@@ -44,9 +44,10 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
-	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	node_features::FeatureIndex, slashing, BlockNumber, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
+	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -120,6 +121,12 @@ pub(crate) struct Initialized {
 	/// `CHAIN_IMPORT_MAX_BATCH_SIZE` and put the rest here for later processing.
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
+	/// Monotonic flag: set to `true` once any activated leaf has the V3 candidate
+	/// descriptor node feature enabled. Once set, never unset.
+	/// Used to determine whether scraped on-chain votes should use V3 descriptor
+	/// semantics or fall back to old rules.
+	/// See `CandidateDescriptorV2::version_for_approval_dispute` for the safety argument.
+	v3_ever_seen: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -153,6 +160,7 @@ impl Initialized {
 			participation_receiver,
 			chain_import_backlog: VecDeque::new(),
 			metrics,
+			v3_ever_seen: false,
 		}
 	}
 
@@ -364,13 +372,40 @@ impl Initialized {
 					self.offchain_disabled_validators.prune_old(prune_up_to);
 				},
 				Ok(_) => { /* no new session => nothing to cache */ },
-				Err(err) => {
+				Err(ref err) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						?err,
 						"Failed to update session cache for disputes - can't fetch session index",
 					);
 				},
+			}
+
+			// Check for the V3 node feature after the session caching loop,
+			// so get_session_info_by_index hits the LRU cache (no extra runtime
+			// round-trip). This runs on every activated leaf while !v3_ever_seen,
+			// because on startup the session is already cached but v3_ever_seen
+			// starts as false.
+			// TODO: This is not sufficient - we skip the check on the _very_ first leaf before
+			// initialized!
+			if !self.v3_ever_seen {
+				if let Ok(idx) = session_idx {
+					if let Ok(info) = self
+						.runtime_info
+						.get_session_info_by_index(ctx.sender(), new_leaf.hash, idx)
+						.await
+					{
+						if FeatureIndex::CandidateReceiptV3.is_set(&info.node_features) {
+							gum::info!(
+								target: LOG_TARGET,
+								session_idx = idx,
+								"CandidateReceiptV3 node feature detected in \
+								 dispute-coordinator",
+							);
+							self.v3_ever_seen = true;
+						}
+					}
+				}
 			}
 
 			let ScrapedUpdates { unapplied_slashes, on_chain_votes, .. } = scraped_updates;
@@ -603,13 +638,20 @@ impl Initialized {
 		// Scraped on-chain backing votes for the candidates with
 		// the new active leaf as if we received them via gossip.
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
+			// TODO: NO RELAY PARENT!
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			// For V2/V3: Get scheduling session and parent from descriptor
-			// For V1: These methods return None/relay_parent, fall back to message session
-			let scheduling_session =
-				candidate_receipt.descriptor.scheduling_session().unwrap_or(session);
-			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
+			// Use transition-safe descriptor methods for scheduling context.
+			// Before the V3 node feature is seen, these fall back to old-rules
+			// behavior to match old backers and prevent slashing.
+			// See `CandidateDescriptorV2::version_for_approval_dispute`.
+			let scheduling_session = candidate_receipt
+				.descriptor
+				.scheduling_session_for_approval_dispute(self.v3_ever_seen)
+				.unwrap_or(session);
+			let scheduling_parent = candidate_receipt
+				.descriptor
+				.scheduling_parent_for_approval_dispute(self.v3_ever_seen);
 
 			// Backing validators are from the scheduling context
 			// Fetch session info using scheduling_parent as the runtime API context
