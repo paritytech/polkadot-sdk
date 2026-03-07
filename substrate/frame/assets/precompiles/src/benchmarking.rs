@@ -39,8 +39,8 @@ use sp_runtime::traits::StaticLookup;
 
 /// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
 const TEST_OWNER: [u8; 20] = [
-	0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6, 0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79,
-	0xcf, 0xff, 0xb9, 0x22, 0x66,
+	0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6, 0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79, 0xcf,
+	0xff, 0xb9, 0x22, 0x66,
 ];
 
 fn test_verifying_contract() -> H160 {
@@ -205,12 +205,12 @@ mod benchmarks {
 		let verifying_contract = test_verifying_contract();
 		let v = 27u8;
 		let r: [u8; 32] = [
-			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215,
-			220, 121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
+			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
+			121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
 		];
 		let s: [u8; 32] = [
-			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27,
-			5, 147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
+			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
+			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
 		];
 
 		// Build the permitCall with alloy types.
@@ -240,10 +240,7 @@ mod benchmarks {
 		}
 
 		// Verify nonce was incremented, confirming the full flow ran.
-		assert_eq!(
-			crate::permit::Pallet::<T>::nonce(&verifying_contract, &owner),
-			U256::one()
-		);
+		assert_eq!(crate::permit::Pallet::<T>::nonce(&verifying_contract, &owner), U256::one());
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

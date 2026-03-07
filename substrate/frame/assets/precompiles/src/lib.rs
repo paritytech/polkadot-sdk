@@ -28,7 +28,6 @@ use ethereum_standards::{
 };
 use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
-use weights::WeightInfo as _;
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -37,6 +36,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
+use weights::WeightInfo as _;
 
 pub mod foreign_assets;
 pub mod migration;
