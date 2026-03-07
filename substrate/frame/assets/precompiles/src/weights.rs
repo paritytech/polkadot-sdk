@@ -72,12 +72,9 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_assets_precompiles`.
 pub trait WeightInfo {
 	fn migrate_foreign_asset_step() -> Weight;
-<<<<<<< HEAD
 	fn nonces() -> Weight;
 	fn domain_separator() -> Weight;
 	fn permit() -> Weight;
-=======
->>>>>>> 529172468e98bf8aa2fee6e91bb0ffc79afc9f55
 }
 
 /// Weights for `pallet_assets_precompiles` using the Substrate node and recommended hardware.
@@ -93,7 +90,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `AssetsPrecompiles::AssetIndexToForeignAssetId` (`max_values`: None, `max_size`: Some(8), added: 2483, mode: `MaxEncodedLen`)
 	fn migrate_foreign_asset_step() -> Weight {
 		// Proof Size summary in bytes:
-<<<<<<< HEAD
 		//  Measured:  `109`
 		//  Estimated: `0`
 		// Minimum execution time: 8_247_000 picoseconds.
@@ -124,12 +120,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `6850`
 		// Minimum execution time: 70_000_000 picoseconds.
 		Weight::from_parts(70_000_000, 6850)
-=======
-		//  Measured:  `332`
-		//  Estimated: `6360`
-		// Minimum execution time: 19_708_000 picoseconds.
-		Weight::from_parts(23_830_000, 6360)
->>>>>>> 529172468e98bf8aa2fee6e91bb0ffc79afc9f55
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -137,7 +127,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-<<<<<<< HEAD
 	fn migrate_foreign_asset_step() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
@@ -158,22 +147,6 @@ impl WeightInfo for () {
 
 	fn permit() -> Weight {
 		Weight::from_parts(70_000_000, 6850)
-=======
-	/// Storage: `Assets::Asset` (r:2 w:0)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-	/// Storage: `AssetsPrecompiles::ForeignAssetIdToAssetIndex` (r:1 w:1)
-	/// Proof: `AssetsPrecompiles::ForeignAssetIdToAssetIndex` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
-	/// Storage: `AssetsPrecompiles::NextAssetIndex` (r:1 w:1)
-	/// Proof: `AssetsPrecompiles::NextAssetIndex` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `AssetsPrecompiles::AssetIndexToForeignAssetId` (r:0 w:1)
-	/// Proof: `AssetsPrecompiles::AssetIndexToForeignAssetId` (`max_values`: None, `max_size`: Some(8), added: 2483, mode: `MaxEncodedLen`)
-	fn migrate_foreign_asset_step() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `332`
-		//  Estimated: `6360`
-		// Minimum execution time: 19_708_000 picoseconds.
-		Weight::from_parts(23_830_000, 6360)
->>>>>>> 529172468e98bf8aa2fee6e91bb0ffc79afc9f55
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
