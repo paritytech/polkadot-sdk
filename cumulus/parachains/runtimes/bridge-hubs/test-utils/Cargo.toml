@@ -108,5 +108,6 @@ try-runtime = [
 	"pallet-xcm-bridge-hub/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachains-common/try-runtime",
+	"parachains-runtimes-test-utils/try-runtime",
 	"sp-runtime/try-runtime",
 ]
