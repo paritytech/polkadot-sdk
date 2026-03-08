@@ -46,7 +46,7 @@ pub use barriers::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AllowUnpaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
 	IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain, RespectSuspension,
-	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
+	TakeWeightCredit, TrailingSetTopicAsId, WeightInfo, WithComputedOrigin,
 };
 
 mod controller;

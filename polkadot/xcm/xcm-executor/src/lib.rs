@@ -272,31 +272,34 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			Config::XcmRecorder::record(message.clone().into());
 		}
 
-		if let Err(e) = Config::Barrier::should_execute(
+		let barrier_weight = match Config::Barrier::should_execute(
 			&origin,
 			message.inner_mut(),
 			xcm_weight,
 			&mut properties,
 		) {
-			tracing::trace!(
-				target: "xcm::execute",
-				?origin,
-				?message,
-				?properties,
-				error = ?e,
-				"Barrier blocked execution",
-			);
+			Ok(w) => w,
+			Err((w, e)) => {
+				tracing::trace!(
+					target: "xcm::execute",
+					?origin,
+					?message,
+					?properties,
+					error = ?e,
+					"Barrier blocked execution",
+				);
 
-			return Outcome::Incomplete {
-				used: xcm_weight, // Weight consumed before the error
-				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
-			};
-		}
+				return Outcome::Incomplete {
+					used: w,
+					error: InstructionError { index: 0, error: XcmError::Barrier },
+				};
+			},
+		};
 
 		*id = properties.message_id.unwrap_or(*id);
 
 		let mut vm = Self::new(origin, *id);
-		vm.message_weight = xcm_weight;
+		vm.message_weight = xcm_weight.saturating_add(barrier_weight);
 
 		while !message.0.is_empty() {
 			let result = vm.process(message);
@@ -311,7 +314,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			}
 		}
 
-		vm.post_process(xcm_weight)
+		let message_weight = vm.message_weight;
+		vm.post_process(message_weight)
 	}
 
 	fn charge_fees(origin: impl Into<Location>, fees: Assets) -> XcmResult {

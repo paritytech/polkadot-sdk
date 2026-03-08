@@ -38,7 +38,7 @@ fn trailing_set_topic_as_id_with_unique_topic_should_work() {
 			Weight::from_parts(10, 10),
 			&mut props(),
 		),
-		Ok(())
+		Ok(Weight::zero())
 	);
 
 	// simulate sending `valid_xcm` with the `WithUniqueTopic` router
@@ -74,7 +74,7 @@ fn trailing_set_topic_as_id_with_unique_topic_should_work() {
 			Weight::from_parts(10, 10),
 			&mut props(),
 		),
-		Err(ProcessMessageError::BadFormat)
+		Err((Weight::zero(), ProcessMessageError::BadFormat))
 	);
 
 	// let's apply `TrailingSetTopicAsId` before `AllowSubscriptions`
@@ -89,7 +89,7 @@ fn trailing_set_topic_as_id_with_unique_topic_should_work() {
 			Weight::from_parts(10, 10),
 			&mut props,
 		),
-		Ok(())
+		Ok(Weight::zero())
 	);
 	assert!(props.message_id.is_some());
 }

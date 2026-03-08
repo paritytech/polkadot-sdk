@@ -338,6 +338,35 @@ fn recursive_xcm_execution_fail() {
 	use xcm::opaque::latest::prelude::*;
 	use xcm_executor::traits::{DenyExecution, Properties, ShouldExecute};
 
+	// Dummy weight info for testing
+	struct TestWeightInfo;
+	impl WeightInfo for TestWeightInfo {
+		fn take_weight_credit() -> Weight {
+			Weight::zero()
+		}
+		fn allow_top_level_paid_execution_from() -> Weight {
+			Weight::zero()
+		}
+		fn allow_unpaid_execution_from() -> Weight {
+			Weight::zero()
+		}
+		fn allow_explicit_unpaid_execution_from() -> Weight {
+			Weight::zero()
+		}
+		fn allow_known_query_responses() -> Weight {
+			Weight::zero()
+		}
+		fn allow_subscriptions_from() -> Weight {
+			Weight::zero()
+		}
+		fn allow_hrmp_notifications_from_relay_chain() -> Weight {
+			Weight::zero()
+		}
+		fn deny_then_try() -> Weight {
+			Weight::from_parts(1_000, 1_000)
+		}
+	}
+
 	// Dummy filter to allow all
 	struct AllowAll;
 	impl ShouldExecute for AllowAll {
@@ -346,8 +375,8 @@ fn recursive_xcm_execution_fail() {
 			_: &mut [Instruction<RuntimeCall>],
 			_: Weight,
 			_: &mut Properties,
-		) -> Result<(), ProcessMessageError> {
-			Ok(())
+		) -> Result<Weight, (Weight, ProcessMessageError)> {
+			Ok(Weight::zero())
 		}
 	}
 
@@ -381,7 +410,7 @@ fn recursive_xcm_execution_fail() {
 		type IsReserve = ();
 		type IsTeleporter = TrustedTeleporters;
 		type UniversalLocation = UniversalLocation;
-		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
+		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll, TestWeightInfo>;
 		type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 		type Trader = FixedRateOfFungible<KsmPerSecondPerByte, ()>;
 		type ResponseHandler = XcmPallet;
@@ -423,7 +452,7 @@ fn recursive_xcm_execution_fail() {
 		assert_eq!(
 			outcome,
 			Outcome::Incomplete {
-				used: Weight::from_parts(3000000000, 3072),
+				used: Weight::from_parts(1_000, 1_000),
 				error: InstructionError { index: 0, error: XcmError::Barrier },
 			}
 		);
