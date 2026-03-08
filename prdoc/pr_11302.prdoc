@@ -7,50 +7,7 @@ doc:
     This PR improves XCM weight accounting by ensuring the executor reports precise used weight when a message is rejected by a barrier. Previously, the executor could overestimate weight (e.g., returning the full message weight) even if execution failed at the barrier stage.
     The changes align with the goal of more accurate weight reporting started in PR #7843 and ensure that `Outcome::Incomplete` is used with the specific weight consumed by the barrier itself.
     Closes #7965
-    ## Integration
-    Downstream projects using `staging-xcm-builder` barriers may need to update their configurations if they wish to provide precise benchmarked weights for barrier checks:
-    - **New Trait**: Barriers are now generic over a [WeightInfo](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:29:0-38:1) trait defined in `xcm-builder`.
-    - **Backward Compatibility**: A default [WeightInfo](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:29:0-38:1) implementation for [()](cci:1://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-executor/src/lib.rs:371:1-395:2) is provided which returns zero weight, so existing `XcmConfig` definitions will continue to compile without changes.
-    - **Trait Signature Change**: The `ShouldExecute` trait signature was updated to return `Result<Weight, (Weight, ProcessMessageError)>` to allow returning consumed weight on error.
-
-    ## Review Notes
-
-    ### Implementation Details
-    1.  **Barrier Refactoring**:
-        - Introduced [WeightInfo](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:29:0-38:1) in `xcm-builder::barriers`.
-        - Refactored barriers (e.g., [TakeWeightCredit](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:72:0-72:52), [AllowUnpaidExecutionFrom](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:333:0-333:68)) to be generic over [WeightInfo](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:29:0-38:1).
-        - Updated wrapper barriers ([WithComputedOrigin](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:214:0-216:2), [RespectSuspension](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:309:0-309:96), etc.) to correctly aggregate and pass through weights and errors from their inner barriers.
-    2.  **XCM Executor Updates**:
-        - Modified `XcmExecutor::execute` to handle [Err((weight, error))](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-executor/src/lib.rs:351:0-355:1) from the barrier, returning `Outcome::Incomplete { used: weight, error: InstructionError { index: 0, error: XcmError::Barrier } }`.
-        - Ensured [post_process](cci:1://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-executor/src/lib.rs:397:1-443:2) correctly accounts for this [used](cci:1://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/src/v5/traits.rs:282:1-289:2) weight.
-    3.  **Bug Fixes**:
-        - Fixed a pre-existing test failure in [DenyReserveTransferToRelayChain](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/src/barriers.rs:622:0-622:43) by adding an exception for the Relay Chain origin (`Location { parents: 1, interior: Here }`), which allows the Relay Chain to transfer reserve assets to itself as expected by the tests.
-    4.  **Verification**:
-        - Added a new scenario test [recursive_xcm_execution_fail](cci:1://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/tests/scenarios.rs:328:0-459:1) that uses a custom [TestWeightInfo](cci:2://file:///Users/kanas/Desktop/Parity/polkadot-sdk/polkadot/xcm/xcm-builder/tests/scenarios.rs:341:1-341:23). This test proves the executor now reports the precise 1,000 unit weight assigned to the barrier, whereas it previously overestimated this as the full 3,000,000,000 unit message weight.
-        - All 17 barrier unit tests in `xcm-builder` and 40 unit tests in `xcm-executor` pass.
-
-    # Checklist
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the [labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process) of this project (at minimum one label for `T` required)
-    * [x] I have made corresponding changes to the documentation.
-    * [x] I have added tests that prove my fix is effective or that my feature works.
-
-    ## Bot Commands
-
-    You can use the following bot commands in comments to help manage your PR:
-
-    **Labeling (Self-service for contributors):**
-    * `/cmd label T1-FRAME` - Add a single label
-    * `/cmd label T1-FRAME R0-no-crate-publish-required` - Add multiple labels
-    * `/cmd label T6-XCM D2-substantial I5-enhancement` - Add multiple labels at once
-    * See [label documentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html) for all available labels
-
-    **Other useful commands:**
-    * `/cmd fmt` - Format code (cargo +nightly fmt and taplo)
-    * `/cmd prdoc` - Generate PR documentation
-    * `/cmd bench` - Run benchmarks
-    * `/cmd update-ui` - Update UI tests
-    * `/cmd --help` - Show help for all available commands
+   
 crates:
 - name: staging-xcm-builder
   bump: patch
