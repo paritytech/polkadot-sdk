@@ -1564,7 +1564,7 @@ pub mod pallet {
 		///
 		/// - [`Event::BadDebtRepaid`]: Emitted with the amount of bad debt healed.
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::heal())]
+		#[pallet::weight((T::WeightInfo::heal(), Pays::No))]
 		pub fn heal(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 
