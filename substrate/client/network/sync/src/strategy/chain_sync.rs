@@ -1310,6 +1310,48 @@ where
 							gap = true;
 							let client = self.client.clone();
 							let mut batch_gap_sync_stats = GapSyncStats::new();
+
+							// Before extracting ready blocks, advance best_queued_number
+							// past any blocks that are already known in the chain. This
+							// handles the case where the peer responded with blocks that
+							// start abovce best_queued_number (e.g., sparse warp-synced
+							// session boundary blocks). Without this, ready_blocks() would
+							// return empty because blocks are stored at higher positions
+							// than best_queued_number + 1, causing repeated identical
+							// requests that eventually trigger duplicate request penalties.
+							let mut next = gap_sync.best_queued_number + One::one();
+							while next <= gap_sync.target {
+								let known = client
+									.block_hash(next)
+									.ok()
+									.flatten()
+									.and_then(|hash| client.block_status(hash).ok())
+									.map_or(false, |status| {
+										matches!(
+											status,
+											BlockStatus::InChainWithState |
+												BlockStatus::InChainPruned
+										)
+									});
+								if known {
+									gap_sync.best_queued_number = next;
+									next += One::one();
+								} else {
+									break;
+								}
+							}
+
+							// All gap blocks are already in the chain. Close the gap sync and
+							// return to normal operation.
+							if gap_sync.best_queued_number >= gap_sync.target {
+								info!(
+									target: LOG_TARGET,
+									"Block history download is complete (all gap blocks already known).",
+								);
+								self.gap_sync = None;
+								return Ok(());
+							}
+
 							let blocks: Vec<_> = gap_sync
 								.blocks
 								.ready_blocks(gap_sync.best_queued_number + One::one())
@@ -1335,14 +1377,6 @@ where
 
 										if let Some(header) = block_data.block.header.as_ref() {
 											if header.number() > &gap_sync.best_queued_number {
-												trace!(
-													target: LOG_TARGET,
-													"Gap sync: updating best queued block from #{} to #{} ({})",
-													gap_sync.best_queued_number,
-													header.number(),
-													block_data.block.hash,
-												);
-
 												gap_sync.best_queued_number = *header.number();
 											}
 										}
@@ -1412,6 +1446,13 @@ where
 									gap_sync.stats
 								);
 							}
+
+							// Clear the block collection to prevent stale entries from
+							// accumulating and triggering the max_ahead limit in
+							// needed_blocks(). This is safe because we already extracted
+							// all ready blocks above.
+							gap_sync.blocks.clear();
+
 							blocks
 						} else {
 							debug!(target: LOG_TARGET, "Unexpected gap block response from {peer_id}");
@@ -1906,13 +1947,48 @@ where
 
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
 			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
-			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
-			self.gap_sync = Some(GapSync {
-				best_queued_number: start - One::one(),
-				target: end,
-				blocks: BlockCollection::new(),
-				stats: GapSyncStats::new(),
-			});
+
+			// Advance past blocks that already have headers in the chain (e.g., session
+			// boundary blocks imported during warp sync). Without this, gap sync would
+			// repeatedly request these blocks from peers, and if all peers have the same
+			// gap, the partial responses (containing only the sparse warp-synced blocks)
+			// would trigger the block request handler's duplicate request detection,
+			// eventually causing mutual peer banning.
+			let mut adjusted_start = start;
+			while adjusted_start <= end {
+				match self.client.block_hash(adjusted_start) {
+					Ok(Some(hash)) => match self.client.block_status(hash) {
+						Ok(BlockStatus::InChainWithState | BlockStatus::InChainPruned) => {
+							adjusted_start += One::one();
+						},
+						_ => break,
+					},
+					_ => break,
+				}
+			}
+
+			if adjusted_start > start {
+				debug!(
+					target: LOG_TARGET,
+					"Gap sync: skipped {} already-imported blocks at gap start ({start} -> {adjusted_start})",
+					adjusted_start - start,
+				);
+			}
+
+			if adjusted_start > end {
+				info!(
+					target: LOG_TARGET,
+					"Block history download is complete (all gap blocks already known at startup).",
+				);
+			} else {
+				debug!(target: LOG_TARGET, "Starting gap sync #{adjusted_start} - #{end} (old gap best and target: {old_gap:?})");
+				self.gap_sync = Some(GapSync {
+					best_queued_number: adjusted_start - One::one(),
+					target: end,
+					blocks: BlockCollection::new(),
+					stats: GapSyncStats::new(),
+				});
+			}
 		}
 		trace!(
 			target: LOG_TARGET,
