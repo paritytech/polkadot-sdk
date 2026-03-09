@@ -18,7 +18,7 @@
 //! Tests mock for `pallet-assets-freezer`.
 
 pub use super::*;
-use frame_support::{derive_impl, traits::AsEnsureOriginWithArg};
+use frame_support::{derive_impl, parameter_types, traits::AsEnsureOriginWithArg};
 use sp_runtime::BuildStorage;
 
 #[frame_support::runtime]
@@ -39,12 +39,16 @@ mod runtime {
 	pub type System = frame_system;
 	#[runtime::pallet_index(10)]
 	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(11)]
+	pub type Timestamp = pallet_timestamp;
 	#[runtime::pallet_index(20)]
 	pub type Assets = pallet_assets;
 	#[runtime::pallet_index(21)]
 	pub type Revive = pallet_revive;
 	#[runtime::pallet_index(22)]
 	pub type ForeignAssets = super::foreign_assets;
+	#[runtime::pallet_index(23)]
+	pub type Permit = super::permit;
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -60,6 +64,17 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+parameter_types! {
+	pub const MinimumPeriod: u64 = 1;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
@@ -71,6 +86,17 @@ impl foreign_assets::pallet::Config for Test {
 	type ForeignAssetId = u32;
 	#[cfg(feature = "runtime-benchmarks")]
 	type AssetsInstance = ();
+}
+
+parameter_types! {
+	/// Test chain ID - use a distinct value to avoid masking chain ID handling bugs.
+	/// 31337 is commonly used for local development chains (Hardhat default).
+	pub const ChainId: u64 = 31337;
+}
+
+impl permit::pallet::Config for Test {
+	type ChainId = ChainId;
+	type WeightInfo = ();
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
@@ -100,6 +126,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
+		// Set a reasonable timestamp for tests (e.g., 2024-01-01 00:00:00 UTC = 1704067200)
+		pallet_timestamp::Pallet::<Test>::set_timestamp(1704067200000);
 	});
 
 	ext

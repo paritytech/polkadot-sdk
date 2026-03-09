@@ -11511,14 +11511,18 @@ dependencies = [
 name = "pallet-assets-precompiles"
 version = "0.1.0"
 dependencies = [
+ "const-crypto",
  "ethereum-standards",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "k256",
  "log",
  "pallet-assets",
  "pallet-balances",
  "pallet-revive",
+ "pallet-revive-fixtures",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",

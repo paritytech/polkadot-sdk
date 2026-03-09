@@ -597,6 +597,11 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 	type AssetsInstance = ForeignAssetsInstance;
 }
 
+impl pallet_assets_precompiles::PermitConfig for Runtime {
+	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
+}
+
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set
 /// an individual, local account as a proxy for the issuance of their assets. This issuance should
@@ -1436,6 +1441,7 @@ construct_runtime!(
 
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
+		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
