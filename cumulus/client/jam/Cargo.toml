@@ -1,0 +1,36 @@
+[package]
+name = "cumulus-client-jam"
+version = "0.1.0"
+authors.workspace = true
+description = "JAM network integration for Cumulus parachains"
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# JAM protocol crates
+jam-types = { version = "0.1", features = ["bytes", "serde", "std"] }
+jam-std-common = { version = "0.1" }
+jam-codec = { version = "0.1", features = ["derive"] }
+
+# Async / networking
+jsonrpsee = { workspace = true, features = ["ws-client"] }
+futures = { workspace = true }
+tokio = { workspace = true, default-features = true }
+
+# Utilities
+thiserror = { workspace = true }
+tracing = { workspace = true, default-features = true }
+url = { workspace = true }
+bytes = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, default-features = true, features = ["rt-multi-thread", "macros", "time"] }
+jam-null-authorizer-bin = { path = "../../../../polkajam/services/null-authorizer-bin" }
+jam-bootstrap-service-common = { version = "0.1" }
+jam-bootstrap-service-bin = { path = "../../../../polkajam/services/bootstrap-service-bin" }
+blake2b_simd = "1"
