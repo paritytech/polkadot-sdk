@@ -20,7 +20,7 @@ pub use frame_support::weights::Weight;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		fungibles::{Balanced as FungiblesBalanced, Credit as FungiblesCredit},
+		fungible::{Balanced as FungibleBalanced, Credit as FungibleCredit, ItemOf},
 		tokens::imbalance::{OnUnbalanced, ResolveTo},
 		AsEnsureOriginWithArg, ConstU128, EnsureOrigin, Get, Hooks, Time,
 	},
@@ -240,15 +240,6 @@ pub const FEE_HANDLER: u64 = 101;
 /// Treasury account for surplus pUSD transfers
 pub const TREASURY: u64 = 102;
 
-/// Handler for surplus pUSD credits - deposits to Treasury account.
-pub struct SurplusPusdToTreasury;
-
-impl OnUnbalanced<FungiblesCredit<u64, Assets>> for SurplusPusdToTreasury {
-	fn on_nonzero_unbalanced(credit: FungiblesCredit<u64, Assets>) {
-		let _ = Assets::resolve(&TREASURY, credit);
-	}
-}
-
 parameter_types! {
 	pub const StablecoinAssetId: u32 = STABLECOIN_ASSET_ID;
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
@@ -256,6 +247,17 @@ parameter_types! {
 	pub const TreasuryAccount: u64 = TREASURY;
 	// DOT from AH perspective is at Location::here()
 	pub CollateralLocation: Location = Location::here();
+}
+
+type VaultsAsset = ItemOf<Assets, StablecoinAssetId, u64>;
+
+/// Handler for surplus pUSD credits - deposits to Treasury account.
+pub struct SurplusPusdToTreasury;
+
+impl OnUnbalanced<FungibleCredit<u64, VaultsAsset>> for SurplusPusdToTreasury {
+	fn on_nonzero_unbalanced(credit: FungibleCredit<u64, VaultsAsset>) {
+		let _ = VaultsAsset::resolve(&TREASURY, credit);
+	}
 }
 
 /// Account ID used to represent Emergency privilege in tests.
@@ -289,10 +291,10 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureVaultsManagerMock {
 pub struct MockBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl crate::BenchmarkHelper<u32> for MockBenchmarkHelper {
-	fn create_stablecoin_asset(asset_id: u32) {
+impl crate::BenchmarkHelper for MockBenchmarkHelper {
+	fn create_stablecoin_asset() {
 		// Asset may already exist from genesis, ignore error
-		let _ = Assets::create(RawOrigin::Signed(ALICE).into(), asset_id, ALICE, 1);
+		let _ = Assets::create(RawOrigin::Signed(ALICE).into(), StablecoinAssetId::get(), ALICE, 1);
 	}
 
 	fn advance_time(millis: u64) {
@@ -324,9 +326,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Asset = Assets;
-	type AssetId = u32;
-	type StablecoinAssetId = StablecoinAssetId;
+	type Asset = VaultsAsset;
 	type InsuranceFund = InsuranceFundAccount;
 	type FeeHandler = ResolveTo<FeeHandlerAccount, Balances>;
 	type SurplusHandler = SurplusPusdToTreasury;

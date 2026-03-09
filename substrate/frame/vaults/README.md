@@ -214,12 +214,16 @@ Operations are paused when the oracle price is older than `OracleStalenessThresh
 The pallet requires the following configuration in the runtime:
 
 ```rust
+type VaultsAsset = frame_support::traits::fungible::ItemOf<
+    Assets,
+    StablecoinAssetId,
+    AccountId,
+>;
+
 impl pallet_vaults::Config for Runtime {
     type Currency = Balances;                    // Native token for collateral (MutateHold)
     type RuntimeHoldReason = RuntimeHoldReason;  // Hold reason enum
-    type Asset = Assets;                         // Multi-asset pallet for stablecoin
-    type AssetId = u32;
-    type StablecoinAssetId = StablecoinAssetId;  // Constant: ID of pUSD
+    type Asset = VaultsAsset;                    // pUSD via a single-asset ItemOf adapter
     type InsuranceFund = InsuranceFund;          // Account receiving protocol revenue
     type MinimumDeposit = MinimumDeposit;        // Min collateral to create vault
     type MinimumMint = MinimumMint;              // Min pUSD per mint operation
@@ -236,7 +240,7 @@ impl pallet_vaults::Config for Runtime {
 
 ### Required Constants
 
-- `StablecoinAssetId`: The asset ID for the minted stablecoin (pUSD)
+- `StablecoinAssetId`: Runtime-local asset ID getter used to bind `Assets` into `ItemOf`
 - `InsuranceFund`: Account that receives collected interest and penalties
 - `MinimumDeposit`: Minimum DOT to create a vault (prevents dust)
 - `MinimumMint`: Minimum pUSD per mint (prevents dust)

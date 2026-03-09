@@ -3052,6 +3052,8 @@ parameter_types! {
 	pub const VaultsMaxOnIdleItems: u32 = 16;
 }
 
+type VaultsAsset = ItemOf<Assets, VaultsStablecoinAssetId, AccountId>;
+
 /// Insurance fund account that receives protocol revenue (interest and penalties).
 pub struct InsuranceFundAccount;
 impl frame_support::traits::Get<AccountId> for InsuranceFundAccount {
@@ -3166,8 +3168,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureVaultsManager 
 pub struct VaultsBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_vaults::BenchmarkHelper<u32> for VaultsBenchmarkHelper {
-	fn create_stablecoin_asset(asset_id: u32) {
+impl pallet_vaults::BenchmarkHelper for VaultsBenchmarkHelper {
+	fn create_stablecoin_asset() {
 		use frame_support::traits::fungibles::Create;
 
 		// Ensure the owner account exists
@@ -3176,7 +3178,7 @@ impl pallet_vaults::BenchmarkHelper<u32> for VaultsBenchmarkHelper {
 
 		// Create the asset if it doesn't exist (ignore errors if already exists)
 		let _ = <Assets as Create<AccountId>>::create(
-			asset_id,
+			VaultsStablecoinAssetId::get(),
 			owner.clone(),
 			true, // is_sufficient
 			1,    // min_balance
@@ -3203,12 +3205,10 @@ impl pallet_vaults::BenchmarkHelper<u32> for VaultsBenchmarkHelper {
 impl pallet_vaults::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Asset = Assets;
-	type AssetId = u32;
-	type StablecoinAssetId = VaultsStablecoinAssetId;
+	type Asset = VaultsAsset;
 	type InsuranceFund = InsuranceFundAccount;
 	type FeeHandler = ResolveTo<TreasuryAccount, Balances>;
-	type SurplusHandler = ResolveAssetTo<TreasuryAccount, Assets>;
+	type SurplusHandler = ResolveTo<TreasuryAccount, VaultsAsset>;
 	type TimeProvider = Timestamp;
 	type ManagerOrigin = EnsureVaultsManager;
 	type MaxOnIdleItems = VaultsMaxOnIdleItems;

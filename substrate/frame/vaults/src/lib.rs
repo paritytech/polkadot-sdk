@@ -222,10 +222,6 @@ pub mod pallet {
 				Balanced as FungibleBalanced, Credit, Inspect, InspectHold,
 				Mutate as FungibleMutate, MutateHold,
 			},
-			fungibles::{
-				Balanced as FungiblesBalanced, Credit as FungiblesCredit,
-				Inspect as FungiblesInspect, Mutate as FungiblesMutate,
-			},
 			tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, Restriction},
 			DefensiveSaturating, Time,
 		},
@@ -322,11 +318,8 @@ pub mod pallet {
 		/// The asset used for pUSD debt.
 		/// Constrained to use the same Balance type as Currency.
 		/// Also implements `Balanced` for creating credits during surplus transfers.
-		type Asset: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId, Balance = BalanceOf<Self>>
-			+ FungiblesBalanced<Self::AccountId>;
-
-		/// The `AssetId` type for `pallet_assets` (used for pUSD).
-		type AssetId: Parameter + Member + Copy + MaybeSerializeDeserialize + MaxEncodedLen;
+		type Asset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
+			+ FungibleBalanced<Self::AccountId>;
 
 		/// Time provider for fee accrual using UNIX timestamps.
 		type TimeProvider: Time;
@@ -355,9 +348,9 @@ pub mod pallet {
 
 		/// Handler for surplus pUSD transfers in `DirectTransfer` mode.
 		///
-		/// Use `ResolveTo<TreasuryAccount, Assets>` for simple single-account deposit.
+		/// Use `ResolveTo<TreasuryAccount, Asset>` for simple single-account deposit.
 		/// The credit is created from the Insurance Fund's pUSD.
-		type SurplusHandler: OnUnbalanced<FungiblesCredit<Self::AccountId, Self::Asset>>;
+		type SurplusHandler: OnUnbalanced<Credit<Self::AccountId, Self::Asset>>;
 
 		/// Origin allowed to update protocol parameters.
 		///
@@ -371,11 +364,7 @@ pub mod pallet {
 
 		/// Helper type for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::AssetId>;
-
-		/// The `AssetId` for the stablecoin (pUSD).
-		#[pallet::constant]
-		type StablecoinAssetId: Get<Self::AssetId>;
+		type BenchmarkHelper: BenchmarkHelper;
 
 		/// Account that receives protocol revenue (interest and penalties).
 		#[pallet::constant]
@@ -406,9 +395,9 @@ pub mod pallet {
 	/// Provides methods to set up runtime state that cannot be done via Config bounds,
 	/// such as creating assets, manipulating time, and setting prices.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<AssetId> {
+	pub trait BenchmarkHelper {
 		/// Create the stablecoin asset if it doesn't exist.
-		fn create_stablecoin_asset(asset_id: AssetId);
+		fn create_stablecoin_asset();
 
 		/// Advance the timestamp by the given number of milliseconds.
 		fn advance_time(millis: u64);
@@ -1025,8 +1014,8 @@ pub mod pallet {
 				} else {
 					// Prevent dust vaults: remaining collateral must meet MinimumDeposit.
 					ensure!(
-						remaining_collateral >=
-							MinimumDeposit::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+						remaining_collateral
+							>= MinimumDeposit::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 						Error::<T>::BelowMinimumDeposit
 					);
 
@@ -1109,8 +1098,8 @@ pub mod pallet {
 
 				// Check vault's resulting debt does not exceed MaxPositionAmount
 				ensure!(
-					new_principal <=
-						MaxPositionAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+					new_principal
+						<= MaxPositionAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 					Error::<T>::ExceedsMaxPositionAmount
 				);
 
@@ -1182,7 +1171,6 @@ pub mod pallet {
 				// during fee accrual (mint-on-accrual model). Burning here reduces supply.
 				if !interest_to_pay.is_zero() {
 					T::Asset::burn_from(
-						T::StablecoinAssetId::get(),
 						&who,
 						interest_to_pay,
 						Preservation::Expendable,
@@ -1195,7 +1183,6 @@ pub mod pallet {
 				// Burn principal pUSD from payer
 				if !principal_to_pay.is_zero() {
 					T::Asset::burn_from(
-						T::StablecoinAssetId::get(),
 						&who,
 						principal_to_pay,
 						Preservation::Expendable,
@@ -1590,7 +1577,6 @@ pub mod pallet {
 
 			// Burn pUSD from the InsuranceFund to cover the bad debt
 			let burned = T::Asset::burn_from(
-				T::StablecoinAssetId::get(),
 				&T::InsuranceFund::get(),
 				repay_amount,
 				Preservation::Expendable,
@@ -1917,7 +1903,6 @@ pub mod pallet {
 			// 1. Burn principal + interest pUSD from buyer
 			if !burn_amount.is_zero() {
 				T::Asset::burn_from(
-					T::StablecoinAssetId::get(),
 					buyer,
 					burn_amount,
 					Preservation::Expendable,
@@ -1930,7 +1915,6 @@ pub mod pallet {
 			// Keeper will be paid from IF at auction completion.
 			if !insurance_fund_amount.is_zero() {
 				T::Asset::transfer(
-					T::StablecoinAssetId::get(),
 					buyer,
 					&T::InsuranceFund::get(),
 					insurance_fund_amount,
@@ -1978,7 +1962,6 @@ pub mod pallet {
 			// Pay keeper incentive from Insurance Fund
 			if !keeper_incentive.is_zero() {
 				T::Asset::transfer(
-					T::StablecoinAssetId::get(),
 					&T::InsuranceFund::get(),
 					keeper,
 					keeper_incentive,
@@ -2031,7 +2014,7 @@ pub mod pallet {
 		///
 		/// Used by auctions pallet to check if surplus auctions can be started.
 		fn get_insurance_fund_balance() -> BalanceOf<T> {
-			T::Asset::balance(T::StablecoinAssetId::get(), &T::InsuranceFund::get())
+			T::Asset::balance(&T::InsuranceFund::get())
 		}
 
 		/// Get the total pUSD supply.
@@ -2039,7 +2022,7 @@ pub mod pallet {
 		/// Used with `get_insurance_fund_balance()` to calculate whether the
 		/// Insurance Fund exceeds the surplus auction threshold.
 		fn get_total_pusd_supply() -> BalanceOf<T> {
-			T::Asset::total_issuance(T::StablecoinAssetId::get())
+			T::Asset::total_issuance()
 		}
 
 		fn execute_surplus_purchase(
@@ -2051,7 +2034,6 @@ pub mod pallet {
 			// 1. Transfer pUSD from Insurance Fund to recipient
 			if !pusd_amount.is_zero() {
 				T::Asset::transfer(
-					T::StablecoinAssetId::get(),
 					&T::InsuranceFund::get(),
 					recipient,
 					pusd_amount,
@@ -2081,7 +2063,6 @@ pub mod pallet {
 		fn transfer_surplus(amount: BalanceOf<T>) -> DispatchResult {
 			// Withdraw pUSD from Insurance Fund creating a credit
 			let credit = T::Asset::withdraw(
-				T::StablecoinAssetId::get(),
 				&T::InsuranceFund::get(),
 				amount,
 				Precision::Exact,
@@ -2155,16 +2136,16 @@ pub mod pallet {
 
 			// For principal mints, strictly enforce the system debt ceiling
 			if matches!(purpose, MintPurpose::Principal) {
-				let total_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
+				let total_issuance = T::Asset::total_issuance();
 				ensure!(
-					total_issuance.saturating_add(amount) <=
-						MaximumIssuance::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+					total_issuance.saturating_add(amount)
+						<= MaximumIssuance::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 					Error::<T>::ExceedsMaxDebt
 				);
 			}
 
 			// Execute the mint
-			T::Asset::mint_into(T::StablecoinAssetId::get(), to, amount)?;
+			T::Asset::mint_into(to, amount)?;
 
 			Ok(())
 		}
@@ -2476,7 +2457,7 @@ pub mod pallet {
 			// so total supply can slightly exceed the ceiling. We log a warning instead
 			// of failing for this check.
 			if let Some(max_issuance) = MaximumIssuance::<T>::get() {
-				let total_supply = T::Asset::total_issuance(T::StablecoinAssetId::get());
+				let total_supply = T::Asset::total_issuance();
 				if total_supply > max_issuance {
 					log::warn!(
 						target: LOG_TARGET,

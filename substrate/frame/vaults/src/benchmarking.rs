@@ -26,7 +26,7 @@ use crate::{
 };
 use frame_benchmarking::v2::*;
 use frame_support::{
-	traits::{fungibles::Inspect, Get, Hooks},
+	traits::{fungible::Inspect, Get, Hooks},
 	weights::Weight,
 };
 use frame_system::RawOrigin;
@@ -69,12 +69,12 @@ fn ensure_insurance_fund<T: Config>() {
 
 /// Ensure the stablecoin asset exists
 fn ensure_stablecoin_asset<T: Config>() {
-	T::BenchmarkHelper::create_stablecoin_asset(T::StablecoinAssetId::get());
+	T::BenchmarkHelper::create_stablecoin_asset();
 }
 
 /// Set up the system for minting by ensuring MaximumIssuance is set high enough
 fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
-	let current_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
+	let current_issuance = T::Asset::total_issuance();
 	let required = current_issuance.saturating_add(amount).saturating_mul(2u32.into());
 	let current_max = MaximumIssuance::<T>::get().unwrap_or_default();
 	if current_max < required {
@@ -96,10 +96,9 @@ fn mint_pusd_to<T: Config>(
 	account: &T::AccountId,
 	amount: BalanceOf<T>,
 ) -> Result<(), BenchmarkError> {
-	use frame_support::traits::fungibles::Mutate;
+	use frame_support::traits::fungible::Mutate;
 	ensure_stablecoin_asset::<T>();
-	let _ =
-		<T::Asset as Mutate<T::AccountId>>::mint_into(T::StablecoinAssetId::get(), account, amount);
+	let _ = <T::Asset as Mutate<T::AccountId>>::mint_into(account, amount);
 	Ok(())
 }
 
