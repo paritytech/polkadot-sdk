@@ -148,8 +148,9 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn paired_account(account: StakingAccount<T::AccountId>) -> Option<T::AccountId> {
 		match account {
 			StakingAccount::Stash(stash) => <Bonded<T>>::get(stash),
-			StakingAccount::Controller(controller) =>
-				<Ledger<T>>::get(&controller).map(|ledger| ledger.stash),
+			StakingAccount::Controller(controller) => {
+				<Ledger<T>>::get(&controller).map(|ledger| ledger.stash)
+			},
 		}
 	}
 
@@ -171,8 +172,9 @@ impl<T: Config> StakingLedger<T> {
 	/// stash has a controller which is bonding a ledger associated with another stash.
 	pub(crate) fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		let (stash, controller) = match account {
-			StakingAccount::Stash(stash) =>
-				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?),
+			StakingAccount::Stash(stash) => {
+				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?)
+			},
 			StakingAccount::Controller(controller) => (
 				Ledger::<T>::get(&controller)
 					.map(|l| l.stash)
@@ -210,8 +212,9 @@ impl<T: Config> StakingLedger<T> {
 	) -> Option<RewardDestination<T::AccountId>> {
 		let stash = match account {
 			StakingAccount::Stash(stash) => Some(stash),
-			StakingAccount::Controller(controller) =>
-				Self::paired_account(StakingAccount::Controller(controller)),
+			StakingAccount::Controller(controller) => {
+				Self::paired_account(StakingAccount::Controller(controller))
+			},
 		};
 
 		if let Some(stash) = stash {

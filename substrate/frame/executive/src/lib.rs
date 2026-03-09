@@ -195,12 +195,15 @@ pub enum ExecutiveError {
 impl core::fmt::Debug for ExecutiveError {
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
-			ExecutiveError::UnableToDecodeExtrinsic =>
-				write!(fmt, "The extrinsic could not be decoded correctly"),
-			ExecutiveError::InvalidInherentPosition(i) =>
-				write!(fmt, "Invalid inherent position for extrinsic at index {}", i),
-			ExecutiveError::OnlyInherentsAllowed =>
-				write!(fmt, "Only inherents are allowed in this block"),
+			ExecutiveError::UnableToDecodeExtrinsic => {
+				write!(fmt, "The extrinsic could not be decoded correctly")
+			},
+			ExecutiveError::InvalidInherentPosition(i) => {
+				write!(fmt, "Invalid inherent position for extrinsic at index {}", i)
+			},
+			ExecutiveError::OnlyInherentsAllowed => {
+				write!(fmt, "Only inherents are allowed in this block")
+			},
 			ExecutiveError::ApplyExtrinsic(e) => write!(
 				fmt,
 				"ExecuteBlockError applying extrinsic: {}",

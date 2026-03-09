@@ -660,14 +660,15 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		logger.init()?;
 
 		match fdlimit::raise_fd_limit() {
-			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
+			Ok(fdlimit::Outcome::LimitRaised { to, .. }) => {
 				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
 					warn!(
 						"Low open file descriptor limit configured for the process. \
 						Current value: {:?}, recommended value: {:?}.",
 						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 					);
-				},
+				}
+			},
 			Ok(fdlimit::Outcome::Unsupported) => {
 				// Unsupported platform (non-Linux)
 			},

@@ -637,9 +637,10 @@ impl<T: Config> PoolMember<T> {
 	) -> Result<(), Error<T>> {
 		if let Some(new_points) = self.points.checked_sub(&points_dissolved) {
 			match self.unbonding_eras.get_mut(&unbonding_era) {
-				Some(already_unbonding_points) =>
+				Some(already_unbonding_points) => {
 					*already_unbonding_points =
-						already_unbonding_points.saturating_add(points_issued),
+						already_unbonding_points.saturating_add(points_issued)
+				},
 				None => self
 					.unbonding_eras
 					.try_insert(unbonding_era, points_issued)
@@ -2291,8 +2292,8 @@ pub mod pallet {
 				&mut reward_pool,
 			)?;
 
-			let current_era = T::StakeAdapter::current_era();
-			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(current_era);
+			let active_era = T::StakeAdapter::current_era();
+			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(active_era);
 
 			// Unbond in the actual underlying nominator.
 			let unbonding_balance = bonded_pool.dissolve(unbonding_points);
@@ -2301,7 +2302,7 @@ pub mod pallet {
 			// Note that we lazily create the unbonding pools here if they don't already exist
 			let mut sub_pools = SubPoolsStorage::<T>::get(member.pool_id)
 				.unwrap_or_default()
-				.maybe_merge_pools(current_era);
+				.maybe_merge_pools(active_era);
 
 			// Update the unbond pool associated with the current era with the unbonded funds. Note
 			// that we lazily create the unbond pool if it does not yet exist.
@@ -2411,7 +2412,7 @@ pub mod pallet {
 
 			let mut member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-			let current_era = T::StakeAdapter::current_era();
+			let active_era = T::StakeAdapter::current_era();
 
 			let bonded_pool = BondedPool::<T>::get(member.pool_id)
 				.defensive_ok_or::<Error<T>>(DefensiveError::PoolNotFound.into())?;
@@ -2439,7 +2440,7 @@ pub mod pallet {
 			let pool_account = bonded_pool.bonded_account();
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
-			let withdrawn_points = member.withdraw_unlocked(current_era);
+			let withdrawn_points = member.withdraw_unlocked(active_era);
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
@@ -3610,10 +3611,12 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		let (points_issued, bonded) = match extra {
-			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount),
-			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed),
+			BondExtra::FreeBalance(amount) => {
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount)
+			},
+			BondExtra::Rewards => {
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed)
+			},
 		};
 
 		bonded_pool.ok_to_be_open()?;

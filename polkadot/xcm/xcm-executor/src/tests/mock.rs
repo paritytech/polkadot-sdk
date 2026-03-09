@@ -30,11 +30,14 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{
-		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
-		WeightBounds, WeightTrader,
+		ClaimAssets, DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute,
+		TransactAsset, WeightBounds, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
+
+/// Mock credit implementation for testing purposes.
+pub use crate::test_helpers::MockCredit;
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 /// can inspect its fields.
@@ -106,20 +109,34 @@ thread_local! {
 }
 
 pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
+	use xcm::latest::Fungibility;
+
+	let asset = what.into();
+	let mut holding = AssetsInHolding::new();
+	match asset.fun {
+		Fungibility::Fungible(amount) => {
+			holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+		},
+		Fungibility::NonFungible(instance) => {
+			holding.non_fungible.insert((asset.id, instance));
+		},
+	}
 	ASSETS.with(|a| {
 		a.borrow_mut()
 			.entry(who.into())
 			.or_insert(AssetsInHolding::new())
-			.subsume(what.into())
+			.subsume_assets(holding)
 	});
 }
 
 pub fn asset_list(who: impl Into<Location>) -> Vec<Asset> {
-	Assets::from(assets(who)).into_inner()
+	assets(who).assets_iter().collect()
 }
 
 pub fn assets(who: impl Into<Location>) -> AssetsInHolding {
-	ASSETS.with(|a| a.borrow().get(&who.into()).cloned()).unwrap_or_default()
+	ASSETS
+		.with(|a| a.borrow().get(&who.into()).map(|h| h.unsafe_clone_for_tests()))
+		.unwrap_or_else(|| AssetsInHolding::new())
 }
 
 pub fn get_first_fungible(assets: &AssetsInHolding) -> Option<Asset> {
@@ -130,19 +147,28 @@ pub fn get_first_fungible(assets: &AssetsInHolding) -> Option<Asset> {
 pub struct TestAssetTransactor;
 impl TransactAsset for TestAssetTransactor {
 	fn deposit_asset(
-		what: &Asset,
+		what: AssetsInHolding,
 		who: &Location,
 		_context: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
-		if let Fungibility::Fungible(amount) = what.fun {
-			// fail if below the configured existential deposit
-			if amount < ExistentialDeposit::get() {
-				return Err(XcmError::FailedToTransactAsset(
-					sp_runtime::TokenError::BelowMinimum.into(),
-				));
+	) -> Result<(), (AssetsInHolding, XcmError)> {
+		// Collect assets first to avoid borrow/move conflict
+		let assets_vec: Vec<_> = what.assets_iter().collect();
+		for asset in &assets_vec {
+			if let Fungibility::Fungible(amount) = asset.fun {
+				// fail if below the configured existential deposit
+				if amount < ExistentialDeposit::get() {
+					return Err((
+						what,
+						XcmError::FailedToTransactAsset(
+							sp_runtime::TokenError::BelowMinimum.into(),
+						),
+					));
+				}
 			}
 		}
-		add_asset(who.clone(), what.clone());
+		for asset in assets_vec {
+			add_asset(who.clone(), asset);
+		}
 		Ok(())
 	}
 
@@ -158,6 +184,10 @@ impl TransactAsset for TestAssetTransactor {
 				.try_take(what.clone().into())
 				.map_err(|_| XcmError::NotWithdrawable)
 		})
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(crate::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 
@@ -195,22 +225,40 @@ impl WeightTrader for TestTrader {
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: AssetsInHolding,
+		mut payment: AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let required: Asset = (Here, amount).into();
-		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
-		self.weight_bought_so_far.saturating_accrue(weight);
-		Ok(unused)
+		// Try to take the required amount from payment
+		match payment.try_take(required.into()) {
+			Ok(_) => {
+				self.weight_bought_so_far.saturating_accrue(weight);
+				// Return the unused payment
+				Ok(payment)
+			},
+			Err(_) => Err((payment, XcmError::TooExpensive)),
+		}
 	}
 
-	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<Asset> {
+	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<AssetsInHolding> {
+		use xcm::latest::Fungibility;
+
 		let weight = weight.min(self.weight_bought_so_far);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.weight_bought_so_far -= weight;
 		if amount > 0 {
-			Some((Here, amount).into())
+			let asset: Asset = (Here, amount).into();
+			let mut holding = AssetsInHolding::new();
+			match asset.fun {
+				Fungibility::Fungible(amount) => {
+					holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+				},
+				Fungibility::NonFungible(instance) => {
+					holding.non_fungible.insert((asset.id, instance));
+				},
+			}
+			Some(holding)
 		} else {
 			None
 		}
@@ -231,6 +279,31 @@ impl DropAssets for TestAssetTrap {
 				.subsume_assets(assets)
 		});
 		Weight::zero()
+	}
+}
+
+impl ClaimAssets for TestAssetTrap {
+	fn claim_assets(
+		_origin: &Location,
+		_ticket: &Location,
+		what: &Assets,
+		_context: &XcmContext,
+	) -> Option<AssetsInHolding> {
+		ASSETS.with(|a| {
+			let mut assets = a.borrow_mut();
+			let trapped = assets.get_mut(&TRAPPED_ASSETS.into())?;
+			let mut claimed = AssetsInHolding::new();
+			for asset in what.inner().iter() {
+				if let Ok(taken) = trapped.try_take(asset.clone().into()) {
+					claimed.subsume_assets(taken);
+				}
+			}
+			if claimed.is_empty() {
+				None
+			} else {
+				Some(claimed)
+			}
+		})
 	}
 }
 
@@ -278,7 +351,7 @@ impl FeeManager for TestFeeManager {
 		)
 	}
 
-	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: AssetsInHolding, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
 /// Dummy transactional processor that doesn't rollback storage changes, just
@@ -313,7 +386,6 @@ impl Config for XcmConfig {
 	type AssetTrap = TestAssetTrap;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

@@ -19,13 +19,13 @@
 
 use client::ClientError;
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::{RpcResult, async_trait},
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
-use sp_core::{keccak_256, H160, H256, U256};
+use sp_core::{H160, H256, U256, keccak_256};
+use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use thiserror::Error;
-use tokio::time::Duration;
 
 pub mod cli;
 pub mod client;
@@ -62,12 +62,20 @@ pub struct EthRpcServerImpl {
 
 	/// Controls if unprotected txs are allowed or not.
 	allow_unprotected_txs: bool,
+
+	/// When true, estimate_gas uses Pending block if no block is specified.
+	use_pending_for_estimate_gas: bool,
 }
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
 	pub fn new(client: client::Client) -> Self {
-		Self { client, accounts: vec![], allow_unprotected_txs: false }
+		Self {
+			client,
+			accounts: vec![],
+			allow_unprotected_txs: false,
+			use_pending_for_estimate_gas: false,
+		}
 	}
 
 	/// Sets the accounts managed by the server.
@@ -79,6 +87,12 @@ impl EthRpcServerImpl {
 	/// Sets whether unprotected transactions are allowed or not.
 	pub fn with_allow_unprotected_txs(mut self, allow_unprotected_txs: bool) -> Self {
 		self.allow_unprotected_txs = allow_unprotected_txs;
+		self
+	}
+
+	/// Sets whether estimate_gas uses Pending block when no block is specified.
+	pub fn with_use_pending_for_estimate_gas(mut self, use_pending_for_estimate_gas: bool) -> Self {
+		self.use_pending_for_estimate_gas = use_pending_for_estimate_gas;
 		self
 	}
 }
@@ -154,7 +168,13 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
-		let block = block.unwrap_or_default();
+		let block = block.unwrap_or_else(|| {
+			if self.use_pending_for_estimate_gas {
+				BlockTag::Pending.into()
+			} else {
+				Default::default()
+			}
+		});
 		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
 		let runtime_api = self.client.runtime_api(hash);
 		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
@@ -186,16 +206,21 @@ impl EthRpcServer for EthRpcServerImpl {
 				})?;
 
 			let is_chain_id_provided = match signed_transaction {
-				TransactionSigned::Transaction7702Signed(tx) =>
-					tx.transaction_7702_unsigned.chain_id != U256::zero(),
-				TransactionSigned::Transaction4844Signed(tx) =>
-					tx.transaction_4844_unsigned.chain_id != U256::zero(),
-				TransactionSigned::Transaction1559Signed(tx) =>
-					tx.transaction_1559_unsigned.chain_id != U256::zero(),
-				TransactionSigned::Transaction2930Signed(tx) =>
-					tx.transaction_2930_unsigned.chain_id != U256::zero(),
-				TransactionSigned::TransactionLegacySigned(tx) =>
-					tx.transaction_legacy_unsigned.chain_id.is_some(),
+				TransactionSigned::Transaction7702Signed(tx) => {
+					tx.transaction_7702_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::Transaction4844Signed(tx) => {
+					tx.transaction_4844_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::Transaction1559Signed(tx) => {
+					tx.transaction_1559_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::Transaction2930Signed(tx) => {
+					tx.transaction_2930_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::TransactionLegacySigned(tx) => {
+					tx.transaction_legacy_unsigned.chain_id.is_some()
+				},
 			};
 
 			if !is_chain_id_provided {
@@ -210,36 +235,32 @@ impl EthRpcServer for EthRpcServerImpl {
 		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
-		self.client.submit(call).await.map_err(|err| {
+		let tx_status = self.client.submit(call).await.map_err(|err| {
 			log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} failed: {err:?}");
 			err
 		})?;
 
-		log::trace!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
+		if matches!(tx_status, TransactionStatus::Future) {
+			return Ok(hash);
+		}
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
-			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
-				loop {
-					if let Ok(block_hash) = receiver.recv().await {
-						let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
-							log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
-							continue
-						};
-						let Some(evm_block) = self.client.evm_block(block, false).await else {
-							log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
-							continue
-						};
-						if evm_block.transactions.contains_tx(hash) {
-							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
-							break;
-						}
+			loop {
+				if let Ok(block_hash) = receiver.recv().await {
+					let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
+						log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
+						continue;
+					};
+					let Some(evm_block) = self.client.evm_block(block, false).await else {
+						log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
+						continue;
+					};
+					if evm_block.transactions.contains_tx(hash) {
+						log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
+						break;
 					}
 				}
-			})
-			.await
-			{
-				log::debug!(target: LOG_TARGET, "timeout waiting for new block: {err:?}");
 			}
 		}
 

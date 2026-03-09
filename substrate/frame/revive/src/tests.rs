@@ -25,7 +25,9 @@ mod stipends;
 use std::collections::HashMap;
 
 use crate::{
-	self as pallet_revive,
+	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
+	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
+	OriginFor, Pallet, PristineCode,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
@@ -33,25 +35,22 @@ use crate::{
 	genesis::{Account, ContractData},
 	mock::MockHandler,
 	test_utils::*,
-	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call, CodeInfoOf, Config,
-	DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig, OriginFor, Pallet,
-	PristineCode,
 };
 use frame_support::{
-	assert_ok, derive_impl,
+	DefaultNoBound, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
+	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
 use sp_core::{H160, U256};
-use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
+use sp_keystore::{KeystoreExt, testing::MemoryKeystore};
 use sp_runtime::{
+	AccountId32, BuildStorage, FixedU128, MultiAddress, MultiSignature, Perbill, Storage,
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
-	AccountId32, BuildStorage, FixedU128, MultiAddress, MultiSignature, Perbill, Storage,
 };
 
 pub type Address = MultiAddress<AccountId32, u32>;
@@ -116,8 +115,8 @@ pub mod test_utils {
 		Test,
 	};
 	use crate::{
-		address::AddressMapper, exec::AccountIdOf, AccountInfo, AccountInfoOf, BalanceOf, CodeInfo,
-		CodeInfoOf, Config, ContractInfo, PristineCode,
+		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
+		PristineCode, address::AddressMapper, exec::AccountIdOf,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
@@ -216,9 +215,9 @@ pub mod test_utils {
 pub(crate) mod builder {
 	use super::Test;
 	use crate::{
-		test_utils::{builder::*, ALICE},
-		tests::RuntimeOrigin,
 		Code,
+		test_utils::{ALICE, builder::*},
+		tests::RuntimeOrigin,
 	};
 	use sp_core::{H160, H256};
 
@@ -537,7 +536,12 @@ impl Default for Origin<Test> {
 	}
 }
 
+/// Dummy EVM bytecode for mocked addresses.
+/// This is minimal EVM bytecode (STOP) that terminates successfully.
+pub const MOCK_CODE: [u8; 1] = [0x00];
+
 /// A mock handler implementation for testing purposes.
+#[derive(DefaultNoBound)]
 pub struct MockHandlerImpl<T: crate::pallet::Config> {
 	// Always return this caller if set.
 	mock_caller: Option<H160>,
@@ -565,6 +569,10 @@ impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
 
 	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
+	}
+
+	fn mocked_code(&self, address: H160) -> Option<&[u8]> {
+		if self.mock_call.contains_key(&address) { Some(&MOCK_CODE) } else { None }
 	}
 }
 
