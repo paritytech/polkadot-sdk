@@ -253,7 +253,7 @@ dependencies = [
  "cfg-if",
  "const-hex",
  "derive_more 2.0.1",
- "foldhash",
+ "foldhash 0.1.5",
  "hashbrown 0.15.3",
  "indexmap 2.9.0",
  "itoa",
@@ -2184,15 +2184,6 @@ dependencies = [
  "fastrand 1.9.0",
  "futures-lite 1.13.0",
  "log",
-]
-
-[[package]]
-name = "bloomfilter"
-version = "3.0.1"
-source = "git+https://github.com/alexggh/rust-bloom-filter.git?branch=master#1abf9bad21e775ac6dad03a1b7bf66d95279612c"
-dependencies = [
- "libm",
- "siphasher 1.0.1",
 ]
 
 [[package]]
@@ -6327,6 +6318,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastbloom"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef975e30683b2d965054bb0a836f8973857c4ebf6acf274fe46617cd285060d8"
+dependencies = [
+ "foldhash 0.2.0",
+ "libm",
+ "portable-atomic",
+ "siphasher 1.0.1",
+]
+
+[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6567,6 +6570,12 @@ name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+
+[[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "foreign-types"
@@ -7770,7 +7779,7 @@ checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
 dependencies = [
  "allocator-api2",
  "equivalent",
- "foldhash",
+ "foldhash 0.1.5",
  "serde",
 ]
 
@@ -10286,7 +10295,7 @@ version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e300c54e3239a86f9c61cc63ab0f03862eb40b1c6e065dc6fd6ceaeff6da93d"
 dependencies = [
- "foldhash",
+ "foldhash 0.1.5",
  "hash-db",
  "hashbrown 0.15.3",
 ]
@@ -17580,9 +17589,9 @@ dependencies = [
 
 [[package]]
 name = "portable-atomic"
-version = "1.11.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "350e9b48cbc6b0e028b0473b114454c6316e57336ee184ceab6e53f72c178b3e"
+checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
 
 [[package]]
 name = "portpicker"
@@ -20682,8 +20691,8 @@ dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
- "bloomfilter",
  "criterion",
+ "fastbloom",
  "futures",
  "governor",
  "log",
@@ -24231,9 +24240,9 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm",
- "bloomfilter",
  "curve25519-dalek",
  "ed25519-dalek",
+ "fastbloom",
  "frame-support",
  "hkdf",
  "parity-scale-codec",
@@ -24362,7 +24371,7 @@ dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
  "criterion",
- "foldhash",
+ "foldhash 0.1.5",
  "hash-db",
  "hashbrown 0.15.3",
  "memory-db",
@@ -24391,7 +24400,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e34c2336d82297f453340adb1188ec0592abcd862df1f7027994b8e1e5fc139"
 dependencies = [
  "ahash 0.8.11",
- "foldhash",
+ "foldhash 0.1.5",
  "hash-db",
  "hashbrown 0.15.3",
  "memory-db",

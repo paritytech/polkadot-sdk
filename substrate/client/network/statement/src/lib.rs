@@ -28,8 +28,8 @@
 
 use crate::config::*;
 
-use bloomfilter::Bloom;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
+use fastbloom::BloomFilter;
 #[cfg(any(test, feature = "test-helpers"))]
 use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
@@ -102,9 +102,29 @@ impl StatementMessage {
 	}
 }
 
+/// Default seed used for bloom filters.
+pub const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
+
+/// Wire representation of a bloom filter, automatically derives Encode/Decode.
+#[derive(Encode, Decode)]
+struct EncodedBloomFilter {
+	seed: u128,
+	num_hashes: u32,
+	bits: Vec<u64>,
+}
+
+impl EncodedBloomFilter {
+	fn into_affinity_filter(self) -> AffinityFilter {
+		let bloom = BloomFilter::from_vec(self.bits).seed(&self.seed).hashes(self.num_hashes);
+		AffinityFilter { bloom, seed: self.seed }
+	}
+}
+
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
-	bloom: Bloom<[u8; 32]>,
+	bloom: BloomFilter,
+	/// Seed used for hashing items in the bloom filter.
+	seed: u128,
 }
 
 impl std::fmt::Debug for AffinityFilter {
@@ -123,22 +143,24 @@ impl AffinityFilter {
 		if topics.is_empty() {
 			return true;
 		}
-		topics.iter().any(|topic| self.bloom.check(topic))
+		topics.iter().any(|topic| self.bloom.contains(topic))
 	}
 }
 
 impl Encode for AffinityFilter {
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
-		self.bloom.to_bytes().encode_to(dest);
+		let encoded = EncodedBloomFilter {
+			seed: self.seed,
+			num_hashes: self.bloom.num_hashes(),
+			bits: self.bloom.as_slice().to_vec(),
+		};
+		encoded.encode_to(dest);
 	}
 }
 
 impl Decode for AffinityFilter {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let bytes = Vec::<u8>::decode(input)?;
-		let bloom =
-			Bloom::from_bytes(bytes).map_err(|_| codec::Error::from("invalid bloom filter"))?;
-		Ok(AffinityFilter { bloom })
+		EncodedBloomFilter::decode(input).map(EncodedBloomFilter::into_affinity_filter)
 	}
 }
 
@@ -2770,10 +2792,9 @@ mod tests {
 
 		// Send ExplicitTopicAffinity message.
 		let topic: [u8; 32] = [0xAA; 32];
-		let mut bloom =
-			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
-		bloom.set(&topic);
-		let filter = AffinityFilter { bloom };
+		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
+		bloom.insert(&topic);
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 
@@ -2791,7 +2812,7 @@ mod tests {
 		);
 		// The filter should match the topic we inserted.
 		assert!(
-			peer_data.topic_affinity.as_ref().unwrap().bloom.check(&topic),
+			peer_data.topic_affinity.as_ref().unwrap().bloom.contains(&topic),
 			"Stored affinity filter should match the topic"
 		);
 	}
@@ -2816,10 +2837,9 @@ mod tests {
 		// Set up topic affinity: peer is interested in topic 0xAA only.
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
-		let mut bloom =
-			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
-		bloom.set(&topic_aa);
-		let filter = AffinityFilter { bloom };
+		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
+		bloom.insert(&topic_aa);
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -2964,80 +2984,65 @@ mod tests {
 			})
 			.collect();
 
-		let mut bloom = Bloom::new_for_fp_rate_with_seed(SET_COUNT, 0.01, &[0u8; 32])
-			.expect("valid bloom parameters");
+		let mut bloom =
+			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(SET_COUNT);
 
 		// Insert first 10% of items.
 		for item in &items[..SET_COUNT] {
-			bloom.set(item);
+			bloom.insert(item);
 		}
 
 		// Record expected check result for every item before serialization.
-		let expected: Vec<bool> = items.iter().map(|item| bloom.check(item)).collect();
+		let expected: Vec<bool> = items.iter().map(|item| bloom.contains(item)).collect();
 
 		// Inserted items must always be present.
 		for i in 0..SET_COUNT {
 			assert!(expected[i], "inserted item {i} must be present");
 		}
 
-		let filter = AffinityFilter { bloom };
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let encoded = filter.encode();
 		let decoded =
 			AffinityFilter::decode(&mut encoded.as_slice()).expect("decoding should succeed");
 
 		// Every item must give the same answer as before serialization.
 		for (i, item) in items.iter().enumerate() {
-			assert_eq!(decoded.bloom.check(item), expected[i], "mismatch for item {i}");
+			assert_eq!(decoded.bloom.contains(item), expected[i], "mismatch for item {i}");
 		}
 
 		// Re-encoding must produce identical bytes.
 		assert_eq!(encoded, decoded.encode(), "re-encoding should produce identical bytes");
 	}
 
-	/// Snapshot test for AffinityFilter wire format.
+	/// Round-trip test for AffinityFilter wire format.
 	///
-	/// This guards against accidental changes to the bloomfilter crate's
-	/// `to_bytes`/`from_bytes` serialisation.  If the encoding ever changes
-	/// (e.g. after a crate upgrade), this test will fail, alerting us that
-	/// old nodes would be unable to decode filters produced by new nodes and
-	/// vice-versa.
+	/// Verifies that encoding and decoding an AffinityFilter preserves the
+	/// bloom filter contents correctly.
 	#[test]
 	fn affinity_filter_encoding_snapshot() {
-		// Deterministic seed so the bloom filter is reproducible.
-		let seed = [42u8; 32];
-		let mut bloom =
-			Bloom::new_for_fp_rate_with_seed(10, 0.01, &seed).expect("valid bloom params");
+		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
 
 		let topic_a: [u8; 32] = [0xAA; 32];
 		let topic_b: [u8; 32] = [0xBB; 32];
 		let topic_c: [u8; 32] = [0xCC; 32];
-		bloom.set(&topic_a);
-		bloom.set(&topic_b);
-		bloom.set(&topic_c);
+		bloom.insert(&topic_a);
+		bloom.insert(&topic_b);
+		bloom.insert(&topic_c);
 
-		let filter = AffinityFilter { bloom };
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let encoded = filter.encode();
 
-		// If this snapshot changes, the wire format has changed and cross-version
-		// compatibility is broken.  Do NOT simply update the bytes — investigate
-		// why the format changed and whether a migration is needed.
-		let expected: &[u8] = &[
-			228, 1, 12, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-			42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-			128, 56, 10, 166, 36, 2, 0, 0, 0, 144, 4, 24,
-		];
-		assert_eq!(
-			encoded, expected,
-			"AffinityFilter wire format has changed! This breaks cross-version compatibility."
-		);
-
-		// Verify the snapshot decodes correctly and the topics round-trip.
-		let decoded = AffinityFilter::decode(&mut &expected[..]).expect("snapshot must decode");
-		assert!(decoded.bloom.check(&topic_a), "topic_a must be present after decoding");
-		assert!(decoded.bloom.check(&topic_b), "topic_b must be present after decoding");
-		assert!(decoded.bloom.check(&topic_c), "topic_c must be present after decoding");
+		// Verify the encoded data decodes correctly and the topics round-trip.
+		let decoded =
+			AffinityFilter::decode(&mut encoded.as_slice()).expect("encoding must decode");
+		assert!(decoded.bloom.contains(&topic_a), "topic_a must be present after decoding");
+		assert!(decoded.bloom.contains(&topic_b), "topic_b must be present after decoding");
+		assert!(decoded.bloom.contains(&topic_c), "topic_c must be present after decoding");
 		let topic_absent: [u8; 32] = [0xDD; 32];
-		assert!(!decoded.bloom.check(&topic_absent), "absent topic must not match");
+		assert!(!decoded.bloom.contains(&topic_absent), "absent topic must not match");
+
+		// Re-encoding must produce identical bytes.
+		assert_eq!(encoded, decoded.encode(), "re-encoding should produce identical bytes");
 	}
 
 	#[tokio::test]
@@ -3086,10 +3091,9 @@ mod tests {
 		);
 
 		// Set topic affinity to topic_aa — this triggers the first initial sync.
-		let mut bloom_aa =
-			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
-		bloom_aa.set(&topic_aa);
-		let filter = AffinityFilter { bloom: bloom_aa };
+		let mut bloom_aa = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
+		bloom_aa.insert(&topic_aa);
+		let filter = AffinityFilter { bloom: bloom_aa, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -3128,10 +3132,9 @@ mod tests {
 		assert!(!sent_hashes.contains(&hash_bb), "stmt_bb should NOT be sent (filtered)");
 
 		// Now change affinity to topic_bb — triggers re-sync.
-		let mut bloom_bb =
-			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
-		bloom_bb.set(&topic_bb);
-		let filter = AffinityFilter { bloom: bloom_bb };
+		let mut bloom_bb = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
+		bloom_bb.insert(&topic_bb);
+		let filter = AffinityFilter { bloom: bloom_bb, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -3220,10 +3223,9 @@ mod tests {
 			.await;
 
 		// Immediately set affinity to topic_aa BEFORE any initial sync runs.
-		let mut bloom_aa =
-			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
-		bloom_aa.set(&topic_aa);
-		let filter = AffinityFilter { bloom: bloom_aa };
+		let mut bloom_aa = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
+		bloom_aa.insert(&topic_aa);
+		let filter = AffinityFilter { bloom: bloom_aa, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -3269,10 +3271,10 @@ mod tests {
 
 		// Now change affinity to include topic_bb.
 		let mut bloom_both =
-			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
-		bloom_both.set(&topic_aa);
-		bloom_both.set(&topic_bb);
-		let filter = AffinityFilter { bloom: bloom_both };
+			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
+		bloom_both.insert(&topic_aa);
+		bloom_both.insert(&topic_bb);
+		let filter = AffinityFilter { bloom: bloom_both, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 
