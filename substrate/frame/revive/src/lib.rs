@@ -2368,9 +2368,7 @@ impl<T: Config> Pallet<T> {
 				.map(|code| code.into())
 				.unwrap_or_default(),
 			AccountType::EOA { delegate_target: Some(target), .. } => {
-				let mut code = alloc::vec![0xef, 0x01, 0x00];
-				code.extend_from_slice(target.as_bytes());
-				code
+				AccountInfo::<T>::delegation_indicator(&target).to_vec()
 			},
 			AccountType::EOA { .. } => Vec::new(),
 		}

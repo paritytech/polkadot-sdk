@@ -236,6 +236,16 @@ impl<T: Config> AccountInfo<T> {
 		}
 	}
 
+	/// EIP-7702: Build the 23-byte delegation indicator `0xef0100 || target`.
+	pub fn delegation_indicator(target: &H160) -> [u8; 23] {
+		let mut buf = [0u8; 23];
+		buf[0] = 0xef;
+		buf[1] = 0x01;
+		buf[2] = 0x00;
+		buf[3..23].copy_from_slice(target.as_bytes());
+		buf
+	}
+
 	/// EIP-7702: Set a delegation indicator for an EOA
 	///
 	/// Marks the account as delegated to the target address.
@@ -288,7 +298,12 @@ impl<T: Config> AccountInfo<T> {
 			if let Some(account) = account {
 				match &mut account.account_type {
 					AccountType::EOA { delegate_target, contract_info } => {
-						old_code_hash = contract_info.as_ref().map(|ci| ci.code_hash);
+						// Filter out zeroed hashes: after delegating to a non-contract,
+						// code_hash is cleared to default but contract_info is preserved.
+						old_code_hash = contract_info
+							.as_ref()
+							.map(|ci| ci.code_hash)
+							.filter(|h| *h != Default::default());
 						old_deposit = contract_info
 							.as_ref()
 							.map(|ci| ci.storage_base_deposit)

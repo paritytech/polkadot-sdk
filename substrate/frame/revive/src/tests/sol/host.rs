@@ -373,30 +373,42 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 			.map(|bounded_vec| bounded_vec.to_vec())
 			.unwrap_or_default();
 
+		let delegated_eoa = create_delegated_eoa(&dummy_addr);
+		let indicator = AccountInfo::<Test>::delegation_indicator(&dummy_addr).to_vec();
+
 		struct TestCase {
 			description: &'static str,
+			target: H160,
 			offset: usize,
 			size: usize,
 			expected: Vec<u8>,
 		}
 
-		// Test cases covering different scenarios
 		let test_cases = vec![
 			TestCase {
-				description: "copy within bounds",
+				description: "contract: copy within bounds",
+				target: dummy_addr,
 				offset: 3,
 				size: 17,
 				expected: full_code[3..20].to_vec(),
 			},
-			TestCase { description: "len = 0", offset: 0, size: 0, expected: vec![] },
 			TestCase {
-				description: "offset beyond code length",
+				description: "contract: len = 0",
+				target: dummy_addr,
+				offset: 0,
+				size: 0,
+				expected: vec![],
+			},
+			TestCase {
+				description: "contract: offset beyond code length",
+				target: dummy_addr,
 				offset: full_code.len(),
 				size: 10,
 				expected: vec![0u8; 10],
 			},
 			TestCase {
-				description: "offset + size beyond code",
+				description: "contract: offset + size beyond code",
+				target: dummy_addr,
 				offset: full_code.len().saturating_sub(5),
 				size: 20,
 				expected: {
@@ -406,7 +418,8 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 				},
 			},
 			TestCase {
-				description: "size larger than remaining",
+				description: "contract: size larger than remaining",
+				target: dummy_addr,
 				offset: 10,
 				size: full_code.len(),
 				expected: {
@@ -415,31 +428,56 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 					expected
 				},
 			},
+			TestCase {
+				description: "delegated EOA: full indicator",
+				target: delegated_eoa,
+				offset: 0,
+				size: 23,
+				expected: indicator.clone(),
+			},
+			TestCase {
+				description: "delegated EOA: prefix only",
+				target: delegated_eoa,
+				offset: 0,
+				size: 3,
+				expected: vec![0xef, 0x01, 0x00],
+			},
+			TestCase {
+				description: "delegated EOA: partial at end, zero-padded",
+				target: delegated_eoa,
+				offset: 20,
+				size: 10,
+				expected: {
+					let mut expected = vec![0u8; 10];
+					expected[..3].copy_from_slice(&indicator[20..23]);
+					expected
+				},
+			},
+			TestCase {
+				description: "delegated EOA: offset beyond indicator",
+				target: delegated_eoa,
+				offset: 23,
+				size: 5,
+				expected: vec![0u8; 5],
+			},
 		];
 
-		for test_case in test_cases {
+		for tc in test_cases {
 			let result = builder::bare_call(addr)
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-						account: dummy_addr.0.into(),
-						offset: test_case.offset as u64,
-						size: test_case.size as u64,
+						account: tc.target.0.into(),
+						offset: tc.offset as u64,
+						size: tc.size as u64,
 					})
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "reverted: {}", tc.description);
 
-			assert!(!result.did_revert(), "test reverted for: {}", test_case.description);
-
-			let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
-				.expect("Failed to decode extcodecopyOp return value");
-			let actual_code = &return_value.0;
-
-			assert_eq!(
-				&test_case.expected, actual_code,
-				"EXTCODECOPY content mismatch for {}",
-				test_case.description
-			);
+			let actual =
+				HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data).unwrap().0;
+			assert_eq!(tc.expected, actual.to_vec(), "EXTCODECOPY mismatch: {}", tc.description);
 		}
 	});
 }

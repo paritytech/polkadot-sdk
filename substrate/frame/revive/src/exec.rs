@@ -2297,12 +2297,8 @@ where
 
 		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target)
 		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			let mut buf = [0u8; 23];
-			buf[0] = 0xef;
-			buf[1] = 0x01;
-			buf[2] = 0x00;
-			buf[3..23].copy_from_slice(target.as_bytes());
-			return sp_io::hashing::keccak_256(&buf).into();
+			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
+			return sp_io::hashing::keccak_256(&indicator).into();
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2469,6 +2465,17 @@ where
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
 		let len = buf.len();
 		if len == 0 {
+			return;
+		}
+
+		// EIP-7702: delegated EOAs return 0xef0100 || target as their code
+		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
+			let copy_len = len.min(indicator.len().saturating_sub(code_offset));
+			if copy_len > 0 {
+				buf[..copy_len].copy_from_slice(&indicator[code_offset..code_offset + copy_len]);
+			}
+			buf[copy_len..].fill(0);
 			return;
 		}
 
