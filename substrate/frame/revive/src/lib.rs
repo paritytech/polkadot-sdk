@@ -24,7 +24,8 @@ extern crate alloc;
 
 mod address;
 mod benchmarking;
-mod call_builder;
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod call_builder;
 mod debug;
 mod exec;
 mod impl_fungibles;
