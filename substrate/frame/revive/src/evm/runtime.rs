@@ -439,7 +439,6 @@ mod test {
 			let base_fee = <Pallet<Test>>::evm_base_fee();
 			self.tx.gas_price = Some(base_fee);
 			self.tx.max_fee_per_gas = Some(base_fee);
-			self.tx.max_priority_fee_per_gas = Some(0.into());
 
 			match dry_run {
 				Ok(dry_run) => {

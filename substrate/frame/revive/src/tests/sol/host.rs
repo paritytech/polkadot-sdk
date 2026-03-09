@@ -248,12 +248,7 @@ fn extcodehash_works(fixture_type: FixtureType) {
 
 		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target)
 		let delegation_indicator_hash = |target: &H160| -> H256 {
-			let mut buf = [0u8; 23];
-			buf[0] = 0xef;
-			buf[1] = 0x01;
-			buf[2] = 0x00;
-			buf[3..23].copy_from_slice(target.as_bytes());
-			sp_io::hashing::keccak_256(&buf).into()
+			sp_io::hashing::keccak_256(&AccountInfo::<Test>::delegation_indicator(target)).into()
 		};
 
 		let cases = vec![
@@ -462,22 +457,22 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 			},
 		];
 
-		for tc in test_cases {
+		for TestCase { description, target, offset, size, expected } in test_cases {
 			let result = builder::bare_call(addr)
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-						account: tc.target.0.into(),
-						offset: tc.offset as u64,
-						size: tc.size as u64,
+						account: target.0.into(),
+						offset: offset as u64,
+						size: size as u64,
 					})
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			assert!(!result.did_revert(), "reverted: {}", tc.description);
+			assert!(!result.did_revert(), "reverted: {}", description);
 
 			let actual =
 				HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data).unwrap().0;
-			assert_eq!(tc.expected, actual.to_vec(), "EXTCODECOPY mismatch: {}", tc.description);
+			assert_eq!(expected, actual.to_vec(), "EXTCODECOPY mismatch: {}", description);
 		}
 	});
 }

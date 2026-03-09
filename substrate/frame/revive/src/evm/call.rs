@@ -268,9 +268,8 @@ impl GenericTransaction {
 		// (ED + contract storage deposit + code lockup per authorization).
 		if !self.authorization_list.is_empty() {
 			let info = <T as Config>::FeeInfo::base_dispatch_info(&mut call);
-			let extra_weight = info.total_weight();
-			let max_deposit =
-				EthTxInfo::<T>::new(encoded_len, extra_weight).max_deposit(gas.saturated_into());
+			let max_deposit = EthTxInfo::<T>::new(encoded_len, info.total_weight())
+				.max_deposit(gas.saturated_into());
 
 			let auth_cost = <Pallet<T>>::worst_case_delegation_deposit()
 				.saturating_mul(self.authorization_list.len().saturated_into());
