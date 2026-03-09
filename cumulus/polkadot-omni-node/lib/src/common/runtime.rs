@@ -136,7 +136,9 @@ pub struct DefaultRuntimeResolver;
 impl RuntimeResolver for DefaultRuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
 		let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
-			log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
+			log::info!(
+				"Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher."
+			);
 			let aura_id = aura_id_from_chain_spec_id(chain_spec.id());
 			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(aura_id)));
 		};
@@ -212,15 +214,15 @@ impl MetadataInspector {
 
 			if segments.len() >= 3 {
 				let last_three = &segments[segments.len() - 3..];
-				if last_three[0] == "sp_consensus_aura"
-					&& last_three[1] == "sr25519"
-					&& last_three[2] == "AuthorityId"
+				if last_three[0] == "sp_consensus_aura" &&
+					last_three[1] == "sr25519" &&
+					last_three[2] == "AuthorityId"
 				{
 					return Some(AuraConsensusId::Sr25519);
 				}
-				if last_three[0] == "sp_consensus_aura"
-					&& last_three[1] == "ed25519"
-					&& last_three[2] == "AuthorityId"
+				if last_three[0] == "sp_consensus_aura" &&
+					last_three[1] == "ed25519" &&
+					last_three[2] == "AuthorityId"
 				{
 					return Some(AuraConsensusId::Ed25519);
 				}

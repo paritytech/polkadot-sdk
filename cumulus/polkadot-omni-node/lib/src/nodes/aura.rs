@@ -423,8 +423,8 @@ where
 			.duration_since(std::time::UNIX_EPOCH)
 			.expect("Current time is always after UNIX_EPOCH; qed")
 			.sub(Duration::from_secs(2 * 60 * 60))
-			.as_millis() as u64
-			/ RELAY_CHAIN_SLOT_DURATION_MILLIS;
+			.as_millis() as u64 /
+			RELAY_CHAIN_SLOT_DURATION_MILLIS;
 
 		move |block: Hash, ()| {
 			let current_para_head = client
@@ -452,8 +452,8 @@ where
 
 			// Each para block gets a unique relay slot: initial_relay_slot +
 			// relay_blocks_per_para_block * block_number
-			let target_relay_slot = initial_relay_slot
-				+ u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
+			let target_relay_slot = initial_relay_slot +
+				u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
 
 			let relay_offset = (target_relay_slot as u32)
 				.saturating_sub(relay_blocks_per_para_block * current_block_number);
