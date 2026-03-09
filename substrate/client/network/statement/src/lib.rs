@@ -26,33 +26,35 @@
 //! - Use [`StatementHandlerPrototype::build`] then [`StatementHandler::run`] to obtain a
 //! `Future` that processes statements.
 
+mod affinity;
+
 use crate::config::*;
 
+use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use fastbloom::BloomFilter;
 #[cfg(any(test, feature = "test-helpers"))]
 use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use governor::{
-	Quota, RateLimiter,
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
+	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64, exponential_buckets,
-	register,
+	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
+	Registry, U64,
 };
 use sc_network::{
-	NetworkBackend, NetworkEventStream, NetworkPeers,
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
-		NotificationMetrics,
 		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
 	},
 	types::ProtocolName,
-	utils::{LruHashSet, interval},
+	utils::{interval, LruHashSet},
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -61,7 +63,7 @@ use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
-	collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
@@ -99,68 +101,6 @@ impl StatementMessage {
 		0u8.encode_to(&mut out);
 		statements.encode_to(&mut out);
 		out
-	}
-}
-
-/// Default seed used for bloom filters.
-pub const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
-
-/// Wire representation of a bloom filter, automatically derives Encode/Decode.
-#[derive(Encode, Decode)]
-struct EncodedBloomFilter {
-	seed: u128,
-	num_hashes: u32,
-	bits: Vec<u64>,
-}
-
-impl EncodedBloomFilter {
-	fn into_affinity_filter(self) -> AffinityFilter {
-		let bloom = BloomFilter::from_vec(self.bits).seed(&self.seed).hashes(self.num_hashes);
-		AffinityFilter { bloom, seed: self.seed }
-	}
-}
-
-pub struct AffinityFilter {
-	/// Bloom filter bytes representing the topics this peer is interested in.
-	bloom: BloomFilter,
-	/// Seed used for hashing items in the bloom filter.
-	seed: u128,
-}
-
-impl std::fmt::Debug for AffinityFilter {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("AffinityFilter").finish_non_exhaustive()
-	}
-}
-
-impl AffinityFilter {
-	/// Check if a statement matches this affinity filter.
-	///
-	/// A statement matches if any of its topics is present in the bloom filter.
-	/// Statements with no topics always match (they are broadcast statements).
-	fn matches_statement(&self, statement: &Statement) -> bool {
-		let topics = statement.topics();
-		if topics.is_empty() {
-			return true;
-		}
-		topics.iter().any(|topic| self.bloom.contains(topic))
-	}
-}
-
-impl Encode for AffinityFilter {
-	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
-		let encoded = EncodedBloomFilter {
-			seed: self.seed,
-			num_hashes: self.bloom.num_hashes(),
-			bits: self.bloom.as_slice().to_vec(),
-		};
-		encoded.encode_to(dest);
-	}
-}
-
-impl Decode for AffinityFilter {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		EncodedBloomFilter::decode(input).map(EncodedBloomFilter::into_affinity_filter)
 	}
 }
 
@@ -643,7 +583,11 @@ fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> C
 	}
 
 	// If we couldn't fit even a single statement, skip it.
-	if count == 0 { ChunkResult::SkipOversized } else { ChunkResult::Send(count) }
+	if count == 0 {
+		ChunkResult::SkipOversized
+	} else {
+		ChunkResult::Send(count)
+	}
 }
 
 impl Peer {
@@ -1359,7 +1303,11 @@ where
 mod tests {
 
 	use super::*;
+	use fastbloom::BloomFilter;
 	use std::sync::Mutex;
+
+	/// Default seed used for bloom filters in tests.
+	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
 
 	#[derive(Clone)]
 	struct TestNetwork {
@@ -2968,81 +2916,6 @@ mod tests {
 		);
 		assert!(sent_hashes.contains(&hash_with_topic));
 		assert!(sent_hashes.contains(&hash_no_topic));
-	}
-
-	#[test]
-	fn affinity_filter_encode_decode_roundtrip() {
-		const TOTAL: usize = 100_000;
-		const SET_COUNT: usize = TOTAL / 10; // 10% inserted
-
-		// Generate 100k unique [u8; 32] items from their index.
-		let items: Vec<[u8; 32]> = (0..TOTAL)
-			.map(|i| {
-				let mut key = [0u8; 32];
-				key[..8].copy_from_slice(&(i as u64).to_le_bytes());
-				key
-			})
-			.collect();
-
-		let mut bloom =
-			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(SET_COUNT);
-
-		// Insert first 10% of items.
-		for item in &items[..SET_COUNT] {
-			bloom.insert(item);
-		}
-
-		// Record expected check result for every item before serialization.
-		let expected: Vec<bool> = items.iter().map(|item| bloom.contains(item)).collect();
-
-		// Inserted items must always be present.
-		for i in 0..SET_COUNT {
-			assert!(expected[i], "inserted item {i} must be present");
-		}
-
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
-		let encoded = filter.encode();
-		let decoded =
-			AffinityFilter::decode(&mut encoded.as_slice()).expect("decoding should succeed");
-
-		// Every item must give the same answer as before serialization.
-		for (i, item) in items.iter().enumerate() {
-			assert_eq!(decoded.bloom.contains(item), expected[i], "mismatch for item {i}");
-		}
-
-		// Re-encoding must produce identical bytes.
-		assert_eq!(encoded, decoded.encode(), "re-encoding should produce identical bytes");
-	}
-
-	/// Round-trip test for AffinityFilter wire format.
-	///
-	/// Verifies that encoding and decoding an AffinityFilter preserves the
-	/// bloom filter contents correctly.
-	#[test]
-	fn affinity_filter_encoding_snapshot() {
-		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-
-		let topic_a: [u8; 32] = [0xAA; 32];
-		let topic_b: [u8; 32] = [0xBB; 32];
-		let topic_c: [u8; 32] = [0xCC; 32];
-		bloom.insert(&topic_a);
-		bloom.insert(&topic_b);
-		bloom.insert(&topic_c);
-
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
-		let encoded = filter.encode();
-
-		// Verify the encoded data decodes correctly and the topics round-trip.
-		let decoded =
-			AffinityFilter::decode(&mut encoded.as_slice()).expect("encoding must decode");
-		assert!(decoded.bloom.contains(&topic_a), "topic_a must be present after decoding");
-		assert!(decoded.bloom.contains(&topic_b), "topic_b must be present after decoding");
-		assert!(decoded.bloom.contains(&topic_c), "topic_c must be present after decoding");
-		let topic_absent: [u8; 32] = [0xDD; 32];
-		assert!(!decoded.bloom.contains(&topic_absent), "absent topic must not match");
-
-		// Re-encoding must produce identical bytes.
-		assert_eq!(encoded, decoded.encode(), "re-encoding should produce identical bytes");
 	}
 
 	#[tokio::test]

@@ -1,0 +1,188 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+use codec::{Decode, Encode};
+use fastbloom::BloomFilter;
+use sp_statement_store::Statement;
+
+/// Wire representation of a bloom filter.
+#[derive(Encode, Decode)]
+struct EncodedBloomFilter {
+	// Seed used for hashing items in the bloom filter. Needed for the peer to reconstruct the same
+	// bloom filter.
+	seed: u128,
+	// Number of hash functions used in the bloom filter. Needed for the peer to reconstruct the
+	// same bloom filter.
+	num_hashes: u32,
+	// Bloom filter bits as a vector of u64. The bloom filter is reconstructed by the peer using
+	// these bits.
+	bits: Vec<u64>,
+}
+
+impl From<EncodedBloomFilter> for AffinityFilter {
+	fn from(encoded: EncodedBloomFilter) -> Self {
+		let bloom = BloomFilter::from_vec(encoded.bits)
+			.seed(&encoded.seed)
+			.hashes(encoded.num_hashes);
+		AffinityFilter { bloom, seed: encoded.seed }
+	}
+}
+
+pub struct AffinityFilter {
+	/// Bloom filter bytes representing the topics this peer is interested in.
+	pub(crate) bloom: BloomFilter,
+	/// Seed used for hashing items in the bloom filter.
+	pub(crate) seed: u128,
+}
+
+impl std::fmt::Debug for AffinityFilter {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("AffinityFilter").finish_non_exhaustive()
+	}
+}
+
+impl AffinityFilter {
+	/// Check if a statement matches this affinity filter.
+	///
+	/// A statement matches if any of its topics is present in the bloom filter.
+	/// Statements with no topics always match (they are broadcast statements).
+	pub(crate) fn matches_statement(&self, statement: &Statement) -> bool {
+		let topics = statement.topics();
+		if topics.is_empty() {
+			return true;
+		}
+		topics.iter().any(|topic| self.bloom.contains(topic))
+	}
+}
+
+impl Encode for AffinityFilter {
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
+		let encoded = EncodedBloomFilter {
+			seed: self.seed,
+			num_hashes: self.bloom.num_hashes(),
+			bits: self.bloom.as_slice().to_vec(),
+		};
+		encoded.encode_to(dest);
+	}
+}
+
+impl Decode for AffinityFilter {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		EncodedBloomFilter::decode(input).map(AffinityFilter::from)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Default seed used for bloom filters in tests.
+	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
+
+	#[test]
+	fn affinity_filter_encode_decode_roundtrip() {
+		const TOTAL: usize = 100_000;
+		const SET_COUNT: usize = TOTAL / 10; // 10% inserted
+
+		// Generate 100k unique [u8; 32] items from their index.
+		let items: Vec<[u8; 32]> = (0..TOTAL)
+			.map(|i| {
+				let mut key = [0u8; 32];
+				key[..8].copy_from_slice(&(i as u64).to_le_bytes());
+				key
+			})
+			.collect();
+
+		let mut bloom =
+			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(SET_COUNT);
+
+		// Insert first 10% of items.
+		for item in &items[..SET_COUNT] {
+			bloom.insert(item);
+		}
+
+		// Record expected check result for every item before serialization.
+		let expected: Vec<bool> = items.iter().map(|item| bloom.contains(item)).collect();
+
+		// Inserted items must always be present.
+		for i in 0..SET_COUNT {
+			assert!(expected[i], "inserted item {i} must be present");
+		}
+
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let encoded = filter.encode();
+		let decoded =
+			AffinityFilter::decode(&mut encoded.as_slice()).expect("decoding should succeed");
+
+		// Every item must give the same answer as before serialization.
+		for (i, item) in items.iter().enumerate() {
+			assert_eq!(decoded.bloom.contains(item), expected[i], "mismatch for item {i}");
+		}
+
+		// Re-encoding must produce identical bytes.
+		assert_eq!(encoded, decoded.encode(), "re-encoding should produce identical bytes");
+	}
+
+	/// Snapshot test for AffinityFilter wire format with 10 000 items.
+	///
+	/// Verifies that the encoding length, header, and trailer match a known
+	/// snapshot and that decoding preserves bloom filter contents.
+	/// If this test breaks, the wire format has changed and needs a migration.
+	#[test]
+	fn affinity_filter_encoding_snapshot() {
+		const ITEM_COUNT: usize = 10_000;
+
+		let items: Vec<[u8; 32]> = (0..ITEM_COUNT)
+			.map(|i| {
+				let mut key = [0u8; 32];
+				key[..8].copy_from_slice(&(i as u64).to_le_bytes());
+				key
+			})
+			.collect();
+
+		let mut bloom =
+			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(ITEM_COUNT);
+		for item in &items {
+			bloom.insert(item);
+		}
+
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let encoded = filter.encode();
+
+		// Fixed snapshot — if this changes the wire format has been modified.
+		assert_eq!(
+			sp_core::blake2_256(&encoded),
+			[
+				27, 145, 73, 87, 221, 132, 160, 181, 51, 40, 10, 206, 69, 227, 173, 31, 212, 183,
+				3, 234, 182, 113, 25, 246, 214, 21, 86, 121, 25, 192, 5, 240
+			],
+			"blake2_256 digest of encoded bytes must match snapshot"
+		);
+
+		// Verify the snapshot decodes correctly and all items round-trip.
+		let decoded =
+			AffinityFilter::decode(&mut encoded.as_slice()).expect("snapshot must decode");
+		for (i, item) in items.iter().enumerate() {
+			assert!(decoded.bloom.contains(item), "item {i} must be present after decoding");
+		}
+
+		// A non-inserted item should not match.
+		let absent: [u8; 32] = [0xFF; 32];
+		assert!(!decoded.bloom.contains(&absent), "absent item must not match");
+	}
+}
