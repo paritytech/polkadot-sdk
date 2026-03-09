@@ -220,6 +220,7 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks"
 ]
 try-runtime = [
 	"assets-common/try-runtime",
@@ -287,6 +288,8 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"asset-test-utils/try-runtime",
+	"westend-runtime/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -408,6 +411,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"alloy-core/std"
 ]
 
 fast-runtime = []
