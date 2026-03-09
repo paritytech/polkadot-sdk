@@ -1951,9 +1951,11 @@ pub mod pallet {
 			}
 
 			// Reduce CurrentLiquidationAmount by principal paid (tracks solvency risk only)
-			CurrentLiquidationAmount::<T>::mutate(|current| {
-				*current = current.saturating_sub(payment.principal_paid);
-			});
+			if !payment.principal_paid.is_zero() {
+				CurrentLiquidationAmount::<T>::mutate(|current| {
+					*current = current.saturating_sub(payment.principal_paid);
+				});
+			}
 
 			Self::deposit_event(Event::AuctionDebtCollected { amount: payment.total() });
 
