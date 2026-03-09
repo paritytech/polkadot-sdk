@@ -46,7 +46,7 @@ use frame_support::{
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
-use sp_core::{H160, Pair, U256, ecdsa};
+use sp_core::{H160, U256};
 use sp_keystore::{KeystoreExt, testing::MemoryKeystore};
 use sp_runtime::{
 	AccountId32, BuildStorage, FixedU128, MultiAddress, MultiSignature, Perbill, Storage,
@@ -90,15 +90,15 @@ pub(crate) fn dummy_evm_contract() -> Vec<u8> {
 
 /// Test keypair for signing EIP-7702 authorizations
 pub(crate) struct TestSigner {
-	keypair: ecdsa::Pair,
+	key: k256::ecdsa::SigningKey,
 	pub address: H160,
 }
 
 impl TestSigner {
 	pub fn new(seed: &[u8; 32]) -> Self {
-		let keypair = ecdsa::Pair::from_seed(seed);
-		let address = crate::evm::eip7702::eth_address(&keypair);
-		Self { keypair, address }
+		let key = k256::ecdsa::SigningKey::from_bytes(seed.into()).expect("valid key; qed");
+		let address = crate::evm::eip7702::eth_address(&key);
+		Self { key, address }
 	}
 
 	pub fn sign_authorization(
@@ -107,7 +107,7 @@ impl TestSigner {
 		address: H160,
 		nonce: U256,
 	) -> crate::evm::AuthorizationListEntry {
-		crate::evm::eip7702::sign_authorization(&self.keypair, chain_id, address, nonce)
+		crate::evm::eip7702::sign_authorization(&self.key, chain_id, address, nonce)
 	}
 }
 

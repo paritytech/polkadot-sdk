@@ -68,6 +68,7 @@ subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] 
 [dev-dependencies]
 alloy-consensus = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 assert_matches = { workspace = true }
 itertools = { workspace = true }
 pretty_assertions = { workspace = true }

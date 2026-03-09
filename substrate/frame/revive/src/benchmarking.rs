@@ -132,7 +132,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn process_new_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
 		use crate::evm::eip7702;
-		use sp_core::{Pair, keccak_256};
+		use sp_core::keccak_256;
 
 		let chain_id = U256::from(T::ChainId::get());
 		// Delegate to a deployed contract so ContractInfo is created (worst case)
@@ -148,9 +148,9 @@ mod benchmarks {
 		let mut authorization_list = vec![];
 		for i in 0..n {
 			let key_material = keccak_256(&(i as u32).to_le_bytes());
-			let pair =
-				sp_core::ecdsa::Pair::from_seed_slice(&key_material).expect("valid key; qed");
-			let signed_auth = eip7702::sign_authorization(&pair, chain_id, target, U256::zero());
+			let key =
+				SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
 			authorization_list.push(signed_auth);
 		}
 
@@ -171,7 +171,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
 		use crate::evm::eip7702;
-		use sp_core::{Pair, keccak_256};
+		use sp_core::keccak_256;
 
 		let chain_id = U256::from(T::ChainId::get());
 		// Delegate to a deployed contract so ContractInfo is created (worst case)
@@ -187,14 +187,14 @@ mod benchmarks {
 		let mut authorization_list = vec![];
 		for i in 0..n {
 			let key_material = keccak_256(&(i as u32).to_le_bytes());
-			let pair =
-				sp_core::ecdsa::Pair::from_seed_slice(&key_material).expect("valid key; qed");
+			let key =
+				SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
 
-			let eth_address = eip7702::eth_address(&pair);
+			let eth_address = eip7702::eth_address(&key);
 			let account_id = T::AddressMapper::to_account_id(&eth_address);
 			T::Currency::set_balance(&account_id, Pallet::<T>::min_balance());
 
-			let signed_auth = eip7702::sign_authorization(&pair, chain_id, target, U256::zero());
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
 			authorization_list.push(signed_auth);
 		}
 

@@ -168,22 +168,24 @@ fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
 /// This is a helper function for benchmarks and tests.
 #[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 pub fn sign_authorization(
-	pair: &sp_core::ecdsa::Pair,
+	key: &k256::ecdsa::SigningKey,
 	chain_id: U256,
 	address: H160,
 	nonce: U256,
 ) -> AuthorizationListEntry {
 	let unsigned = AuthorizationListEntry { chain_id, address, nonce, ..Default::default() };
 	let hash = sp_core::keccak_256(&signing_message(&unsigned));
-	let sig = pair.sign_prehashed(&hash);
+	let (signature, recovery_id) =
+		key.sign_prehash_recoverable(&hash).expect("signing success; qed");
 
+	let sig_bytes = signature.to_bytes();
 	AuthorizationListEntry {
 		chain_id,
 		address,
 		nonce,
-		y_parity: U256::from(sig.0[64]),
-		r: U256::from_big_endian(&sig.0[..32]),
-		s: U256::from_big_endian(&sig.0[32..64]),
+		y_parity: U256::from(recovery_id.to_byte()),
+		r: U256::from_big_endian(&sig_bytes[..32]),
+		s: U256::from_big_endian(&sig_bytes[32..64]),
 	}
 }
 
@@ -191,11 +193,9 @@ pub fn sign_authorization(
 ///
 /// This is a helper function for benchmarks and tests.
 #[cfg(any(feature = "runtime-benchmarks", test))]
-pub fn eth_address(pair: &sp_core::ecdsa::Pair) -> H160 {
-	let msg = [0u8; 32];
-	let sig = pair.sign_prehashed(&msg);
-	let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig.0, &msg)
-		.ok()
-		.expect("valid signature; qed");
-	H160::from_slice(&sp_core::keccak_256(&pubkey)[12..])
+pub fn eth_address(key: &k256::ecdsa::SigningKey) -> H160 {
+	let public_key = key.verifying_key();
+	let encoded = public_key.to_encoded_point(false);
+	// Skip the 0x04 prefix byte to get the uncompressed public key
+	H160::from_slice(&sp_core::keccak_256(&encoded.as_bytes()[1..])[12..])
 }
