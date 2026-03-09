@@ -13,3 +13,11 @@ crates:
   bump: minor
 - name: asset-hub-westend-runtime
   bump: patch
+- name: sp-staking
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
