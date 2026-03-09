@@ -2957,3 +2957,40 @@ fn force_transfer_works() {
 		));
 	});
 }
+
+#[test]
+fn force_transfer_can_transfer_burned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 4));
+		advance_to(2);
+
+		const OLD_OWNER: u64 = 1;
+		const NEW_OWNER: u64 = 222;
+
+		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+
+		assert_ok!(<Broker as Mutate<u64>>::burn(&region_id.into(), None));
+
+		let region = Regions::<Test>::get(region_id).unwrap();
+		assert_eq!(region.owner, None);
+
+		assert_ok!(Broker::force_transfer(RuntimeOrigin::root(), region_id, NEW_OWNER));
+
+		System::assert_last_event(
+			Event::Transferred {
+				region_id,
+				duration: region.end - region_id.begin,
+				old_owner: None,
+				owner: Some(NEW_OWNER),
+			}
+			.into(),
+		);
+
+		assert_ok!(Broker::assign(
+			RuntimeOrigin::signed(NEW_OWNER),
+			region_id,
+			10,
+			Finality::Final
+		));
+	});
+}
