@@ -1320,8 +1320,7 @@ where
 										.map_or(false, |status| {
 											matches!(
 												status,
-												BlockStatus::KnownBad |
-													BlockStatus::InChainWithState |
+												BlockStatus::InChainWithState |
 													BlockStatus::InChainPruned
 											)
 										});
