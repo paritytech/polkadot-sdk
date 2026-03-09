@@ -537,14 +537,14 @@ impl ClaimQueueSnapshot {
 		self.0.iter()
 	}
 
-	/// Find cores for the given `para_id` at the given `claim_queue_offset`.
+	/// Find the earliest cores for the given `para_id` starting from the given `claim_queue_offset`.
 	///
 	/// It is not guaranteed that at the given `claim_queue_offset` cores are available for
 	/// the `para_id`. Thus, the claim queue offset for the core indices is returned as well.
 	pub fn find_cores(
 		&self,
 		para_id: ParaId,
-		claim_queue_offset: u32,
+		claim_queue_offset: u8,
 	) -> Option<(Vec<CoreIndex>, ClaimQueueOffset)> {
 		let mut offset_to_cores = BTreeMap::<usize, Vec<CoreIndex>>::new();
 
@@ -558,7 +558,7 @@ impl ClaimQueueSnapshot {
 		});
 
 		offset_to_cores.into_iter().find_map(|(offset, cores)| {
-			if (offset as u32) >= claim_queue_offset {
+			if offset >= claim_queue_offset as usize {
 				Some((cores, ClaimQueueOffset(offset as u8)))
 			} else {
 				None

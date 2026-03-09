@@ -419,7 +419,7 @@ where
 
 			let mut pov_parent_header = initial_parent_header;
 			let mut pov_parent_hash = initial_parent_hash;
-			let block_time = Duration::from_secs(6) / number_of_blocks;
+			let block_time = relay_chain_slot_duration / number_of_blocks;
 
 			for blocks_per_core in blocks_per_cores {
 				let time_for_core = slot_time.time_left() / cores.cores_left();

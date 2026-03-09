@@ -108,7 +108,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	//     - full node
 	//   - collator
 	//     - collator which is the only one producing blocks
-
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r

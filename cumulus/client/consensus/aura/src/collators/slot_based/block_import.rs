@@ -62,7 +62,7 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 	match backend.get_aux(&ignored_nodes_key(block_hash))? {
 		None => Ok(None),
 		Some(t) => ProofRecorderIgnoredNodes::<Block>::decode(&mut &t[..]).map(Some).map_err(|e| {
-			ClientError::Backend(format!("Nodes to ignore DB is corrupted. Decode error: {}", e))
+			ClientError::Backend(format!("Ignored nodes DB: decode error: {}", e))
 		}),
 	}
 }
@@ -201,7 +201,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
 
 		runtime_api
-			.execute_block(parent_hash, block.clone().into())
+			.execute_block(parent_hash, block.into())
 			.map_err(|e| Box::new(e) as Box<_>)?;
 
 		let storage_proof =
@@ -218,6 +218,9 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			)));
 		}
 
+		// Extend the ignored nodes with the nodes from the storage proof and the generated
+		// storage changes. This ensures that subsequent blocks in the same bundle don't
+		// redundantly include the same trie nodes in their proof.
 		nodes_to_ignore.extend(ProofRecorderIgnoredNodes::<Block>::from_storage_proof::<
 			HashingFor<Block>,
 		>(&storage_proof));

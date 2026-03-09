@@ -285,7 +285,7 @@ where
 					found_separator = true;
 					None
 				} else if found_separator {
-					if upward_message_signals.iter().all(|s| *s != m) {
+				if !upward_message_signals.contains(&m) {
 						upward_message_signals.push(m);
 					}
 					None

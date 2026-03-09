@@ -162,7 +162,12 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		);
 	}
 
-	tracing::debug!(target: LOG_TARGET, ?core_index, "Submitting collation for core.");
+	tracing::debug!(
+		target: LOG_TARGET,
+		?core_index,
+		?block_numbers = block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+		"Submitting collation for core.",
+	);
 
 	overseer_handle
 		.send_msg(

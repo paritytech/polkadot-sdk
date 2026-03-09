@@ -28,12 +28,12 @@ pub(crate) struct SlotInfo {
 	pub slot: Slot,
 }
 
-/// Information about a slot timing, including the slot duration and exact start timestamp.
+/// Information about a slot timing, including the relay chain slot duration and exact start timestamp.
 #[derive(Debug, Clone)]
 pub(crate) struct SlotTime {
-	/// The slot duration used for this timing
+	/// The relay chain slot duration used for this timing
 	slot_duration: Duration,
-	/// The exact timestamp when this slot started
+	/// The exact timestamp when this relay chain slot started
 	slot_start_timestamp: Timestamp,
 	/// Time offset to apply when calculating time remaining
 	time_offset: Duration,
