@@ -2034,20 +2034,12 @@ impl<T: Config> Pallet<T> {
 			)))?;
 		}
 
-		let max_storage_deposit = StorageDeposit::Charge(dry_run.max_storage_deposit);
-		let meter_gas = EthTxInfo::<T>::new(call_info.encoded_len, base_weight)
-			.gas_consumption(&dry_run.weight_required, &max_storage_deposit)
-			.to_ethereum_gas()
-			.unwrap_or_default();
-		let meter_gas = U256::from(meter_gas.saturated_into::<u128>());
-
 		let total_cost = transaction_fee.saturating_add(dry_run.max_storage_deposit);
 		let total_cost_wei = Pallet::<T>::convert_native_to_evm(total_cost);
-		let (mut fee_gas, rest) = total_cost_wei.div_mod(base_fee);
+		let (mut eth_gas, rest) = total_cost_wei.div_mod(base_fee);
 		if !rest.is_zero() {
-			fee_gas = fee_gas.saturating_add(1_u32.into());
+			eth_gas = eth_gas.saturating_add(1_u32.into());
 		}
-		let eth_gas = meter_gas.max(fee_gas);
 
 		log::debug!(target: LOG_TARGET, "\
 			dry_run_eth_transact finished: \
