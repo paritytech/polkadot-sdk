@@ -8,6 +8,8 @@ mod collators_reputation_persistence;
 mod coretime_partitioning;
 mod dispute_old_finalized;
 mod duplicate_collations;
+mod rewards_statistics_collector;
+mod rewards_statistics_mixed_validators;
 mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;

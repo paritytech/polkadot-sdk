@@ -84,7 +84,8 @@ use polkadot_node_subsystem_types::messages::{
 	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
 	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
-	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
+	ProvisionerMessage, RewardsStatisticsCollectorMessage, RuntimeApiMessage,
+	StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -518,6 +519,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
 		ChainApiMessage,
+		RewardsStatisticsCollectorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 	])]
@@ -527,6 +529,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeTxMessage,
 		RuntimeApiMessage,
 		AvailabilityStoreMessage,
+		RewardsStatisticsCollectorMessage,
 	])]
 	availability_recovery: AvailabilityRecovery,
 
@@ -607,6 +610,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
+		RewardsStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 	])]
@@ -616,6 +620,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateValidationMessage,
 		ChainApiMessage,
 		ChainSelectionMessage,
+		RewardsStatisticsCollectorMessage,
 		DisputeCoordinatorMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
@@ -658,6 +663,12 @@ pub struct Overseer<SupportsParachains> {
 		ChainApiMessage,
 	])]
 	prospective_parachains: ProspectiveParachains,
+
+	#[subsystem(RewardsStatisticsCollectorMessage, sends: [
+		RuntimeApiMessage,
+		ChainApiMessage,
+	])]
+	rewards_statistics_collector: RewardsStatisticsCollector,
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,

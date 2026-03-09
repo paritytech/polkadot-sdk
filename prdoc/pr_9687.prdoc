@@ -1,0 +1,49 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: rewards-statistics-collector subsystem
+
+doc:
+  - audience: Node Dev
+    description: |
+        Creates `Rewards Statistics Collector` subsytem.
+
+        This subsystem monitors and collects metrics related to parachain candidate approvals,
+        including approval votes, distribution of approval chunks, chunk downloads, and chunk uploads.
+
+        Its primary responsibility is to collect and track data reflecting node’s perspective
+        on the approval work carried out by all session validators.
+
+        The PR modifies the `ErasureChunk` to include the session index to which the chunk belongs to
+
+        The PR includes a new CLI option: `verbose_approval_metrics`, it enables or disable
+        publishing prometheus metrics per validator collected approvals metrics. If not specified, set to false,
+        the default behavior is to publish collected statistics metrics per session only.
+
+crates:
+  - name: polkadot-sdk
+    bump: minor
+  - name: polkadot-overseer
+    bump: major
+  - name: polkadot-node-primitives
+    bump: major
+  - name: polkadot-node-subsystem-types
+    bump: minor
+  - name: polkadot-node-network-protocol
+    bump: patch
+  - name: polkadot-service
+    bump: major
+  - name: polkadot-availability-distribution
+    bump: major
+  - name: polkadot-availability-recovery
+    bump: patch
+  - name: polkadot-node-core-approval-voting
+    bump: patch
+  - name: polkadot-node-core-av-store
+    bump: patch
+  - name: polkadot-node-core-rewards-statistics-collector
+    bump: patch
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: patch
+  - name: polkadot-cli
+    bump: major

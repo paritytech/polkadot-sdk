@@ -101,6 +101,7 @@ fn main() -> Result<()> {
 						keep_finalized_for: None,
 						invulnerable_ah_collators: HashSet::new(),
 						collator_protocol_hold_off: None,
+						verbose_approval_metrics: false,
 						experimental_collator_protocol: false,
 						collator_reputation_persist_interval: None,
 					},

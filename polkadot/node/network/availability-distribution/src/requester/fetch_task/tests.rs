@@ -388,7 +388,12 @@ fn get_response(
 			}
 			.encode(),
 			Protocol::ChunkFetchingV2 => if let Some((chunk, proof, index)) = chunk {
-				v2::ChunkFetchingResponse::Chunk(ErasureChunk { chunk, index, proof })
+				v2::ChunkFetchingResponse::Chunk(ErasureChunk {
+					chunk,
+					index,
+					proof,
+					session_index: None,
+				})
 			} else {
 				v2::ChunkFetchingResponse::NoSuchChunk
 			}

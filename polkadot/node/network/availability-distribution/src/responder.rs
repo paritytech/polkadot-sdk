@@ -23,11 +23,15 @@ use futures::{channel::oneshot, select, FutureExt};
 use codec::{Decode, Encode};
 use fatality::Nested;
 use polkadot_node_network_protocol::{
+	authority_discovery::AuthorityDiscovery,
 	request_response::{v1, v2, IncomingRequest, IncomingRequestReceiver, IsRequest},
 	UnifiedReputationChange as Rep,
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
-use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, SubsystemSender};
+use polkadot_node_subsystem::{
+	messages::{AvailabilityStoreMessage, RewardsStatisticsCollectorMessage},
+	SubsystemSender,
+};
 use polkadot_primitives::{CandidateHash, ValidatorIndex};
 
 use crate::{
@@ -67,13 +71,16 @@ pub async fn run_pov_receiver<Sender>(
 }
 
 /// Receiver task to be forked as a separate task to handle chunk requests.
-pub async fn run_chunk_receivers<Sender>(
+pub async fn run_chunk_receivers<Sender, AD>(
 	mut sender: Sender,
+	mut authority_discovery: AD,
 	mut receiver_v1: IncomingRequestReceiver<v1::ChunkFetchingRequest>,
 	mut receiver_v2: IncomingRequestReceiver<v2::ChunkFetchingRequest>,
 	metrics: Metrics,
 ) where
-	Sender: SubsystemSender<AvailabilityStoreMessage>,
+	Sender: SubsystemSender<AvailabilityStoreMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
+	AD: AuthorityDiscovery + Clone + Sync,
 {
 	let make_resp_v1 = |chunk: Option<ErasureChunk>| match chunk {
 		None => v1::ChunkFetchingResponse::NoSuchChunk,
@@ -89,7 +96,7 @@ pub async fn run_chunk_receivers<Sender>(
 		select! {
 			res = receiver_v1.recv(|| vec![COST_INVALID_REQUEST]).fuse() => match res.into_nested() {
 				Ok(Ok(msg)) => {
-					answer_chunk_request_log(&mut sender, msg, make_resp_v1, &metrics).await;
+					answer_chunk_request_log(&mut sender, &mut authority_discovery, msg, make_resp_v1, &metrics).await;
 				},
 				Err(fatal) => {
 					gum::debug!(
@@ -109,7 +116,7 @@ pub async fn run_chunk_receivers<Sender>(
 			},
 			res = receiver_v2.recv(|| vec![COST_INVALID_REQUEST]).fuse() => match res.into_nested() {
 				Ok(Ok(msg)) => {
-					answer_chunk_request_log(&mut sender, msg.into(), make_resp_v2, &metrics).await;
+					answer_chunk_request_log(&mut sender, &mut authority_discovery, msg.into(), make_resp_v2, &metrics).await;
 				},
 				Err(fatal) => {
 					gum::debug!(
@@ -158,18 +165,21 @@ pub async fn answer_pov_request_log<Sender>(
 /// Variant of `answer_chunk_request` that does Prometheus metric and logging on errors.
 ///
 /// Any errors of `answer_request` will simply be logged.
-pub async fn answer_chunk_request_log<Sender, Req, MakeResp>(
+pub async fn answer_chunk_request_log<Sender, AD, Req, MakeResp>(
 	sender: &mut Sender,
+	authority_discovery: &mut AD,
 	req: IncomingRequest<Req>,
 	make_response: MakeResp,
 	metrics: &Metrics,
 ) where
+	AD: AuthorityDiscovery,
 	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
 	Req::Response: Encode,
-	Sender: SubsystemSender<AvailabilityStoreMessage>,
+	Sender: SubsystemSender<AvailabilityStoreMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
 {
-	let res = answer_chunk_request(sender, req, make_response).await;
+	let res = answer_chunk_request(sender, authority_discovery, req, make_response).await;
 	match res {
 		Ok(result) => metrics.on_served_chunk(if result { SUCCEEDED } else { NOT_FOUND }),
 		Err(err) => {
@@ -212,13 +222,16 @@ where
 /// Answer an incoming chunk request by querying the av store.
 ///
 /// Returns: `Ok(true)` if chunk was found and served.
-pub async fn answer_chunk_request<Sender, Req, MakeResp>(
+pub async fn answer_chunk_request<Sender, AD, Req, MakeResp>(
 	sender: &mut Sender,
+	authority_discovery: &mut AD,
 	req: IncomingRequest<Req>,
 	make_response: MakeResp,
 ) -> Result<bool>
 where
-	Sender: SubsystemSender<AvailabilityStoreMessage>,
+	AD: AuthorityDiscovery,
+	Sender: SubsystemSender<AvailabilityStoreMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
 	Req::Response: Encode,
 	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
@@ -230,6 +243,19 @@ where
 	let chunk = query_chunk(sender, payload.candidate_hash, payload.index).await?;
 
 	let result = chunk.is_some();
+
+	if let Some(chunk) = &chunk {
+		let authority_ids = authority_discovery.get_authority_ids_by_peer_id(req.peer).await;
+		match (chunk.session_index, authority_ids) {
+			(Some(session_index), Some(authority_ids)) => {
+				_ = sender.try_send_message(RewardsStatisticsCollectorMessage::ChunkUploaded(
+					session_index,
+					authority_ids,
+				));
+			},
+			_ => {},
+		};
+	}
 
 	gum::trace!(
 		target: LOG_TARGET,

@@ -96,6 +96,7 @@ fn main() -> Result<()> {
 						enable_beefy: false,
 						force_authoring_backoff: false,
 						telemetry_worker_handle: None,
+						verbose_approval_metrics: false,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
 						node_version: None,

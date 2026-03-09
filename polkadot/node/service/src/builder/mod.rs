@@ -42,6 +42,7 @@ use polkadot_node_core_chain_selection::{
 	self as chain_selection_subsystem, Config as ChainSelectionConfig,
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
+use polkadot_node_core_rewards_statistics_collector::Config as RewardsStatisticsCollectorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, ReqProtocolNames},
@@ -77,6 +78,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub node_version: Option<String>,
 	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
+	/// Whether the node will publish collected approval metrics per validator
+	pub verbose_approval_metrics: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
@@ -202,6 +205,7 @@ where
 					telemetry_worker_handle: _,
 					node_version,
 					secure_validator_mode,
+					verbose_approval_metrics,
 					workers_path,
 					workers_names,
 					overseer_gen,
@@ -447,6 +451,9 @@ where
 				},
 			};
 
+			let rewards_statistics_collector_config =
+				RewardsStatisticsCollectorConfig { verbose_approval_metrics };
+
 			Some(ExtendedOverseerGenArgs {
 				keystore: keystore_container.local_keystore(),
 				parachains_db,
@@ -463,6 +470,7 @@ where
 				fetch_chunks_threshold,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
+				rewards_statistics_collector_config,
 				experimental_collator_protocol,
 				reputation_config,
 			})

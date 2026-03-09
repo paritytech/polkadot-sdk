@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::task::{REGULAR_CHUNKS_REQ_RETRY_LIMIT, SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT};
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 
 use super::*;
 use std::{result::Result, sync::Arc, time::Duration};
@@ -792,6 +793,14 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 			)
 			.await;
 
+		// Consume the statistics message sent after successful recovery
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RewardsStatisticsCollector(
+				RewardsStatisticsCollectorMessage::ChunksDownloaded(_, _)
+			)
+		);
+
 		// Recovered data should match the original one.
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
 
@@ -920,6 +929,14 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 				systematic_recovery,
 			)
 			.await;
+
+		// Consume the statistics message sent after successful recovery
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RewardsStatisticsCollector(
+				RewardsStatisticsCollectorMessage::ChunksDownloaded(_, _)
+			)
+		);
 
 		// Recovered data should match the original one.
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
@@ -1491,6 +1508,14 @@ fn recovers_from_only_chunks_if_pov_large(
 				systematic_recovery,
 			)
 			.await;
+
+		// Consume the statistics message sent after successful recovery
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RewardsStatisticsCollector(
+				RewardsStatisticsCollectorMessage::ChunksDownloaded(_, _)
+			)
+		);
 
 		// Recovered data should match the original one.
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);

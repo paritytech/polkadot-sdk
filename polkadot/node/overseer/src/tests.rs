@@ -980,10 +980,18 @@ fn test_prospective_parachains_msg() -> ProspectiveParachainsMessage {
 	)
 }
 
+fn test_rewards_statistics_collector_msg() -> RewardsStatisticsCollectorMessage {
+	RewardsStatisticsCollectorMessage::CandidateApproved(
+		Hash::zero(),
+		1,
+		vec![ValidatorIndex(1), ValidatorIndex(2)],
+	)
+}
+
 // Checks that `stop`, `broadcast_signal` and `broadcast_message` are implemented correctly.
 #[test]
 fn overseer_all_subsystems_receive_signals_and_messages() {
-	const NUM_SUBSYSTEMS: usize = 24;
+	const NUM_SUBSYSTEMS: usize = 25;
 	// -4 for BitfieldSigning, GossipSupport, AvailabilityDistribution and PvfCheckerSubsystem.
 	const NUM_SUBSYSTEMS_MESSAGED: usize = NUM_SUBSYSTEMS - 4;
 
@@ -1081,6 +1089,11 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 		handle
 			.send_msg_anon(AllMessages::ProspectiveParachains(test_prospective_parachains_msg()))
 			.await;
+		handle
+			.send_msg_anon(AllMessages::RewardsStatisticsCollector(
+				test_rewards_statistics_collector_msg(),
+			))
+			.await;
 		// handle.send_msg_anon(AllMessages::PvfChecker(test_pvf_checker_msg())).await;
 
 		// Wait until all subsystems have received. Otherwise the messages might race against
@@ -1140,6 +1153,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (pvf_checker_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (prospective_parachains_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (approval_voting_parallel_tx, _) = metered::channel(CHANNEL_CAPACITY);
+	let (rewards_statistics_collector_tx, _) = metered::channel(CHANNEL_CAPACITY);
 
 	let (candidate_validation_unbounded_tx, _) = metered::unbounded();
 	let (candidate_backing_unbounded_tx, _) = metered::unbounded();
@@ -1165,6 +1179,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (pvf_checker_unbounded_tx, _) = metered::unbounded();
 	let (prospective_parachains_unbounded_tx, _) = metered::unbounded();
 	let (approval_voting_parallel_unbounded_tx, _) = metered::unbounded();
+	let (rewards_statistics_collector_unbounded_tx, _) = metered::unbounded();
 
 	let channels_out = ChannelsOut {
 		candidate_validation: candidate_validation_bounded_tx.clone(),
@@ -1191,6 +1206,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		pvf_checker: pvf_checker_bounded_tx.clone(),
 		prospective_parachains: prospective_parachains_bounded_tx.clone(),
 		approval_voting_parallel: approval_voting_parallel_tx.clone(),
+		rewards_statistics_collector: rewards_statistics_collector_tx.clone(),
 
 		candidate_validation_unbounded: candidate_validation_unbounded_tx.clone(),
 		candidate_backing_unbounded: candidate_backing_unbounded_tx.clone(),
@@ -1216,6 +1232,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		pvf_checker_unbounded: pvf_checker_unbounded_tx.clone(),
 		prospective_parachains_unbounded: prospective_parachains_unbounded_tx.clone(),
 		approval_voting_parallel_unbounded: approval_voting_parallel_unbounded_tx.clone(),
+		rewards_statistics_collector_unbounded: rewards_statistics_collector_unbounded_tx.clone(),
 	};
 
 	let (mut signal_tx, signal_rx) = metered::channel(CHANNEL_CAPACITY);
@@ -1343,6 +1360,7 @@ impl IsPrioMessage for ProvisionerMessage {}
 impl IsPrioMessage for RuntimeApiMessage {}
 impl IsPrioMessage for BitfieldSigningMessage {}
 impl IsPrioMessage for PvfCheckerMessage {}
+impl IsPrioMessage for RewardsStatisticsCollectorMessage {}
 
 impl<C, M> Subsystem<C, SubsystemError> for SlowSubsystem
 where
