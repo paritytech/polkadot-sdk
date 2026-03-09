@@ -2,11 +2,12 @@ Basic implementation of block-authoring logic.
 
 ## MEV Shield integration
 
-When a `ShieldKeystorePtr` is provided to `ProposerFactory`, the proposer will handle shielded transactions during block authoring:
+When a `ShieldKeystorePtr` is provided to `ProposerFactory`, the proposer handles shielded transactions during block authoring:
 
-1. Each pending transaction is inspected via the `ShieldApi` runtime API to detect whether it is a shielded wrapper.
-2. Shielded transactions are decrypted on the spot using the keystore registered as a runtime extension. Block size accounting is adjusted to reflect the inner plaintext size rather than the ciphertext size.
-3. If the wrapper extrinsic applies successfully, the decrypted inner transaction is immediately pushed into the block as a second extrinsic.
+1. Each pending transaction is inspected via the `ShieldApi` runtime API (`try_decode_shielded_tx`) to detect whether it is a shielded wrapper.
+2. The proposer calls `is_shielded_using_current_key` (at the parent hash) with the transaction's `key_hash` to check whether the transaction is encrypted with the key this proposer can decrypt. Transactions encrypted with a different author's key are silently skipped — they stay in the pool for the correct author.
+3. Matching transactions are decrypted using the keystore's `current_dec_key`. Block size accounting is adjusted to reflect the inner plaintext size rather than the ciphertext size.
+4. If the wrapper extrinsic applies successfully, the decrypted inner transaction is immediately pushed into the block as a second extrinsic.
 
 Decryption happens only at block authoring time, never earlier. Setting the environment variable `SUBSTRATE_SKIP_SHIELDED_TXS=1` causes the proposer to skip all shielded transactions (leaving them in the pool for other authors).
 
