@@ -221,6 +221,35 @@ fn nonce_mismatch_rejects_authorization() {
 }
 
 #[test]
+fn corrupted_signature_rejects_authorization() {
+	ExtBuilder::default().build().execute_with(|| {
+		let setup = DelegationTestSetup::new([1u8; 32]);
+		let target = H160::from([0x42; 20]);
+
+		let auth = AuthorizationListEntry {
+			chain_id: setup.chain_id,
+			address: target,
+			nonce: setup.nonce(),
+			y_parity: U256::zero(),
+			r: U256::from(0xdeadbeef_u64),
+			s: U256::from(0xcafebabe_u64),
+		};
+
+		assert_eq!(
+			setup.process(&[auth]),
+			AuthorizationResult {
+				existing_accounts: 0,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			}
+		);
+
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+	});
+}
+
+#[test]
 fn multiple_authorizations_from_same_authority_first_wins() {
 	ExtBuilder::default().build().execute_with(|| {
 		let setup = DelegationTestSetup::new([1u8; 32]);
@@ -326,7 +355,7 @@ fn new_account_sets_delegation() {
 		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 		let balance = <<Test as Config>::Currency as Inspect<_>>::balance(&setup.authority_id);
-		assert!(balance >= Pallet::<Test>::min_balance());
+		assert_eq!(balance, Pallet::<Test>::min_balance());
 	});
 }
 
@@ -657,12 +686,12 @@ fn dry_run_with_authorization_list() {
 		);
 		assert_ok!(&with_auth);
 
-		// The gas estimate with auth should be >= baseline since it includes ED cost
+		// The gas estimate with auth should be strictly greater since it includes ED cost
 		let baseline_gas = baseline.unwrap().eth_gas;
 		let auth_gas = with_auth.unwrap().eth_gas;
 		assert!(
-			auth_gas >= baseline_gas,
-			"Auth gas ({auth_gas}) should be >= baseline gas ({baseline_gas})"
+			auth_gas > baseline_gas,
+			"Auth gas ({auth_gas}) should be > baseline gas ({baseline_gas})"
 		);
 
 		// The delegation should have been applied during dry run
@@ -820,8 +849,13 @@ fn selfdestruct_on_delegated_account() {
 		// Check balances — Alice's balance transferred to beneficiary.
 		// EIP-6780: selfdestruct only sends balance, doesn't delete account
 		// (account was not created in this transaction).
+		let alice_balance_after = <Test as Config>::Currency::free_balance(&alice_id);
 		let beneficiary_balance_after = <Test as Config>::Currency::free_balance(&beneficiary_id);
-		assert!(beneficiary_balance_after > min_balance, "beneficiary should have received funds");
+		assert_eq!(
+			beneficiary_balance_after,
+			min_balance + alice_balance - alice_balance_after,
+			"beneficiary should have received Alice's transferable balance"
+		);
 
 		// Step 4: Delegation indicator survives selfdestruct
 		assert!(
