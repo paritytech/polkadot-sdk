@@ -472,47 +472,6 @@ fn verify_permit_fails_with_expired_deadline() {
 // =============================================================================
 
 #[test]
-fn use_permit_increments_nonce() {
-	new_test_ext().execute_with(|| {
-		let verifying_contract = test_verifying_contract();
-		let name = test_token_name();
-		let owner = H160::from_low_u64_be(1);
-		let spender = H160::from_low_u64_be(2);
-		let value = [0u8; 32];
-		let deadline = future_deadline();
-		let r = [0u8; 32];
-		let s = [0u8; 32];
-		let v = 27u8;
-
-		// Get initial nonce
-		let initial_nonce = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
-		assert_eq!(initial_nonce, U256::zero());
-
-		// use_permit will fail because signature doesn't match owner,
-		// but we can still verify the nonce behavior by checking verify_permit
-		// (which doesn't modify state)
-		let verify_result = permit::Pallet::<Test>::verify_permit(
-			&verifying_contract,
-			name,
-			&owner,
-			&spender,
-			&value,
-			&deadline,
-			v,
-			&r,
-			&s,
-		);
-
-		// Verify that verify_permit does NOT increment nonce (even on failure)
-		let nonce_after_verify = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
-		assert_eq!(nonce_after_verify, U256::zero(), "verify_permit should not modify nonce");
-
-		// The verify should fail due to invalid signature
-		assert!(verify_result.is_err());
-	});
-}
-
-#[test]
 fn verify_permit_does_not_increment_nonce() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
