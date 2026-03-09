@@ -17,22 +17,17 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! This pallet manages issuance and distribution of staking rewards through era pot accounts.
+//! Generic inflation drip and distribution engine.
 //!
 //! ## Key Responsibilities:
 //!
-//! - **Slash Collection**: Implements `OnUnbalanced` to collect slashed funds into a buffer account
-//!   instead of burning them. Incoming funds are deactivated to exclude them from governance
-//!   voting.
-//! - **Era Reward Management**: Implements `StakingRewardProvider` to mint and manage era reward
-//!   pot accounts that the staking implementation can pull for staker payouts.
-//!
-//! The buffer account is created with a provider at genesis or via runtime upgrade, ensuring it
-//! meets the existential deposit requirement. When DAP distributes funds, they must be reactivated
-//! before transfer to restore their participation in governance voting.
-//!
-//! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
-//! migrations tuple.
+//! - **Inflation Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
+//!   based on an [`InflationCurve`].
+//! - **Budget Distribution**: Distributes minted inflation across registered
+//!   [`sp_staking::BudgetRecipient`]s according to a governance-updatable
+//!   `BoundedBTreeMap<BudgetKey, Perbill>`. Buffer (DAP's own account) absorbs the remainder.
+//! - **Slash Collection**: Implements `OnUnbalanced` to collect slashed funds into the buffer
+//!   account. Incoming funds are deactivated to exclude them from governance voting.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,107 +38,42 @@ mod tests;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::DecodeWithMemTracking;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		Imbalance, OnUnbalanced,
+		Imbalance, OnUnbalanced, Time,
 	},
 	PalletId,
 };
-use sp_runtime::traits::{CheckedAdd, Saturating, Zero};
-use sp_staking::{EraIndex, EraPayoutV2, StakingRewardProvider};
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	BoundedBTreeMap, Perbill, SaturatedConversion,
+};
+use sp_staking::{BudgetKey, BudgetRecipientList, InflationCurve};
 
 pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::dap";
 
+/// Maximum number of budget recipients.
+pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
+
 /// Type alias for balance.
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// Budget allocation configuration for era emission.
-///
-/// Defines how the total era inflation is split across different reward categories.
-/// All allocations must sum to exactly 100% (`Perbill::one()`).
-///
-/// The buffer accumulates funds for multiple purposes:
-/// - Treasury budget
-/// - Strategic reserve
-/// - Funds for acquiring stablecoins for validator/collator operational costs
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	Default,
-	Copy,
-)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
-pub struct BudgetConfig {
-	/// Allocation to stakers (nominators + validator stake rewards).
-	///
-	/// This is the traditional staking reward that rewards staker based on their stake.
-	pub staker_rewards: sp_runtime::Perbill,
-
-	/// Allocation to validator self-stake incentive (vested).
-	///
-	/// Extra rewards for validators based on their self-stake, vested over time to encourage
-	/// long-term commitment.
-	pub validator_self_stake_incentive: sp_runtime::Perbill,
-
-	/// Allocation to buffer.
-	///
-	/// The buffer accumulates funds for treasury transfers, stablecoin acquisition, and strategic
-	/// reserve. All allocations must explicitly sum to 100%.
-	pub buffer: sp_runtime::Perbill,
-}
-
-impl BudgetConfig {
-	/// Validates that all budget allocations sum to exactly 100%.
-	///
-	/// Returns true if the configuration is valid, false otherwise.
-	pub fn is_valid(&self) -> bool {
-		let Some(partial) = self.staker_rewards.checked_add(&self.validator_self_stake_incentive)
-		else {
-			return false;
-		};
-
-		let Some(total) = partial.checked_add(&self.buffer) else {
-			return false;
-		};
-
-		total == sp_runtime::Perbill::one()
-	}
-
-	/// Returns the default budget configuration.
-	///
-	/// Maintains backward compatibility with the previous 85%/15% split:
-	/// - 85% to stakers
-	/// - 0% to validator self-stake incentive
-	/// - 15% to buffer for strategic reserve, treasury, operational costs
-	pub fn default_config() -> Self {
-		Self {
-			staker_rewards: sp_runtime::Perbill::from_percent(85),
-			validator_self_stake_incentive: sp_runtime::Perbill::from_percent(0),
-			buffer: sp_runtime::Perbill::from_percent(15),
-		}
-	}
-}
+/// Type alias for the budget allocation map.
+pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
-	use frame_system::pallet_prelude::OriginFor;
+	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -160,117 +90,245 @@ pub mod pallet {
 			+ Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
-		///
-		/// Each runtime should configure a unique ID to avoid collisions if multiple
-		/// DAP instances are used.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// Era payout implementation.
-		///
-		/// This is typically implemented in the runtime to provide the inflation curve logic.
-		type EraPayout: EraPayoutV2<BalanceOf<Self>>;
+		/// Inflation curve: computes how much to mint given total issuance and elapsed time.
+		type InflationCurve: InflationCurve<BalanceOf<Self>>;
 
-		/// Origin that can update budget allocation parameters.
+		/// Registered budget recipients. Each element provides a unique key and pot account.
+		///
+		/// Wired in the runtime as a tuple, e.g.:
+		/// ```ignore
+		/// type BudgetRecipients = (Dap, StakerRewardRecipient, ValidatorIncentiveRecipient);
+		/// ```
+		type BudgetRecipients: BudgetRecipientList<Self::AccountId>;
+
+		/// Time provider (typically `pallet_timestamp`).
+		///
+		/// `Moment` must represent milliseconds.
+		type Time: Time;
+
+		/// Minimum elapsed time (ms) between inflation drips.
+		///
+		/// - `0` = drip every block
+		/// - `60_000` = drip every minute (Recommended)
+		///
+		/// Should be small relative to era length.
+		#[pallet::constant]
+		type InflationCadence: Get<u64>;
+
+		/// Safety ceiling: maximum tokens that can be minted in a single drip.
+		///
+		/// Prevents accidental over-minting from bugs or misconfiguration.
+		// CLAUDE: Rather than inflation, we should ceil the time elapsed.
+		#[pallet::constant]
+		type MaxInflationPerDrip: Get<BalanceOf<Self>>;
+
+		/// Origin that can update budget allocation percentages.
 		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Era rewards allocated and minted.
-		///
-		/// Emitted when a new era's rewards are computed and minted into the respective accounts.
-		EraRewardsAllocated {
-			/// Era index for which rewards were allocated.
-			era: EraIndex,
-			/// Amount minted for staker rewards (nominators + validator stake rewards).
-			staker_rewards: BalanceOf<T>,
-			/// Amount minted for validator incentive.
-			validator_incentive: BalanceOf<T>,
-			/// Amount minted for buffer (treasury, strategic reserve, operational costs).
-			buffer_rewards: BalanceOf<T>,
+		/// Inflation dripped and distributed to budget recipients.
+		InflationDripped {
+			/// Total amount minted in this drip.
+			total_minted: BalanceOf<T>,
+			// CLAUDE: I think we don't need to put buffer_amount here. Wdyt?
+			/// Amount sent to the buffer (remainder after all allocations).
+			buffer_amount: BalanceOf<T>,
+			/// Elapsed time (ms) since last drip.
+			elapsed_millis: u64,
 		},
-		/// Budget allocation configuration was updated.
+		/// Budget allocation was updated via governance.
 		BudgetAllocationUpdated {
-			/// The new budget configuration.
-			config: BudgetConfig,
+			/// The new budget allocation map.
+			allocations: BudgetAllocationMap,
+		},
+		/// Inflation was capped at the safety ceiling.
+		// CLAUDE: We should put this in UnexpectedKind.
+		InflationCapped {
+			/// The computed inflation before capping.
+			computed: BalanceOf<T>,
+			/// The ceiling that was applied.
+			ceiling: BalanceOf<T>,
 		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
 
 	/// Defensive/unexpected errors/events.
-	///
-	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
 	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
 	pub enum UnexpectedKind {
-		/// Failed to mint era inflation.
-		EraMintFailed { era: EraIndex },
+		/// Failed to mint inflation.
+		MintFailed,
 	}
 
-	#[pallet::type_value]
-	pub fn DefaultBudgetConfig() -> BudgetConfig {
-		BudgetConfig::default_config()
-	}
-
-	/// Budget allocation configuration storage.
+	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
-	/// Stores the current distribution of era rewards across different categories.
-	/// Defaults to 85% stakers, 0% validator self-stake incentive, 15% treasury.
+	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
+	/// <= `Perbill::one()`. The remainder goes to the buffer account.
 	#[pallet::storage]
-	#[pallet::getter(fn budget_allocation)]
-	pub type BudgetAllocation<T> = StorageValue<_, BudgetConfig, ValueQuery, DefaultBudgetConfig>;
+	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
+
+	/// Timestamp (ms) of the last inflation drip.
+	// TODO(ank4n): Needs to be migrated value from Staking::ActiveEra timestamp.
+	#[pallet::storage]
+	pub type LastInflationTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Budget allocation configuration is invalid (percentages do not add upto 100%).
-		InvalidBudgetConfig,
+		/// A key in the budget allocation does not match any registered recipient.
+		UnknownBudgetKey,
+		/// Budget allocation percentages exceed 100%.
+		BudgetExceedsTotal,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			Self::drip_inflation()
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set the budget allocation configuration.
-		///
-		/// Updates how era emission is distributed across different categories.
-		/// The configuration must be valid (all percentages sum to == 100%).
-		///
-		/// # Errors
-		/// - `InvalidBudgetConfig` if percentages sum to != 100%
+		/// Set the budget allocation map.
+		// CLAUDE: What about this always needing to be equal to 100? So its resilient to mistakes.
+		// Even buffer needs to be explicitly decided.
+		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
+		/// must be <= 100%. The remainder (including rounding dust) goes to the buffer.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(0, 1))]
 		pub fn set_budget_allocation(
 			origin: OriginFor<T>,
-			new_config: BudgetConfig,
+			new_allocations: BudgetAllocationMap,
 		) -> DispatchResult {
 			T::BudgetOrigin::ensure_origin(origin)?;
 
-			ensure!(new_config.is_valid(), Error::<T>::InvalidBudgetConfig);
+			// Validate all keys are registered recipients.
+			let registered: Vec<_> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+			for key in new_allocations.keys() {
+				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+			}
 
-			BudgetAllocation::<T>::put(new_config);
+			// Validate sum <= 100%. Use deconstruct() to avoid saturating_add capping at
+			// one().
+			let total_parts: u32 = new_allocations
+				.values()
+				.map(|p| p.deconstruct())
+				.fold(0u32, |acc, p| acc.saturating_add(p));
+			ensure!(total_parts <= Perbill::one().deconstruct(), Error::<T>::BudgetExceedsTotal);
 
-			Self::deposit_event(Event::BudgetAllocationUpdated { config: new_config });
+			BudgetAllocation::<T>::put(new_allocations.clone());
+			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
 
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get the DAP buffer account.
+		/// The DAP buffer account.
 		///
-		/// The buffer account collects:
-		/// - Slashed funds and other burns.
-		/// - Treasury portion of era rewards
-		/// - Unclaimed staker rewards
-		/// - Part of era emission based on [`BudgetConfig`].
+		/// Collects: slashed funds, unclaimed rewards, and the remainder of each inflation drip.
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Core inflation drip logic, called from `on_initialize`.
+		// TODO(ank4n) needs to be properly benchmarked.
+		pub(crate) fn drip_inflation() -> Weight {
+			let now_moment = T::Time::now();
+			let now: u64 = now_moment.saturated_into();
+			let last = LastInflationTimestamp::<T>::get();
+			let elapsed = now.saturating_sub(last);
+
+			let cadence = T::InflationCadence::get();
+			if cadence > 0 && elapsed < cadence {
+				// Not time yet — cheap early return.
+				return T::DbWeight::get().reads(2);
+			}
+
+			// First block after genesis: initialize timestamp, don't drip.
+			// TODO(ank4n): add migration for existing chain!
+			if last == 0 {
+				LastInflationTimestamp::<T>::put(now);
+				return T::DbWeight::get().reads_writes(2, 1);
+			}
+
+			let total_issuance = T::Currency::total_issuance();
+			let mut inflation = T::InflationCurve::inflation(total_issuance, elapsed);
+
+			// Apply safety ceiling.
+			let ceiling = T::MaxInflationPerDrip::get();
+			if inflation > ceiling {
+				Self::deposit_event(Event::InflationCapped { computed: inflation, ceiling });
+				inflation = ceiling;
+			}
+
+			if inflation.is_zero() {
+				LastInflationTimestamp::<T>::put(now);
+				return T::DbWeight::get().reads_writes(3, 1);
+			}
+
+			// Distribute according to budget map.
+			let budget = BudgetAllocation::<T>::get();
+			let recipients = T::BudgetRecipients::recipients();
+			let mut distributed = BalanceOf::<T>::zero();
+
+			for (key, account) in &recipients {
+				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
+				let amount = perbill.mul_floor(inflation);
+				if !amount.is_zero() {
+					if let Err(_) = T::Currency::mint_into(account, amount) {
+						defensive!("Inflation mint should not fail");
+						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
+					} else {
+						distributed = distributed.saturating_add(amount);
+					}
+				}
+			}
+
+			// Buffer absorbs remainder (rounding dust + unallocated percentage).
+			// CLAUDE: This is fine. But we can also choose to not mint the dust tbh. Saves
+			// some operation. Leaning towards that.
+			let buffer_amount = inflation.saturating_sub(distributed);
+			if !buffer_amount.is_zero() {
+				let buffer = Self::buffer_account();
+				if let Err(_) = T::Currency::mint_into(&buffer, buffer_amount) {
+					defensive!("Buffer mint should not fail");
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
+				}
+			}
+
+			LastInflationTimestamp::<T>::put(now);
+
+			// CLAUDE: since this is so frequent, am wondering if we should not emit it? OTOH,
+			// it's very useful to have this event.
+			Self::deposit_event(Event::InflationDripped {
+				total_minted: inflation,
+				buffer_amount,
+				elapsed_millis: elapsed,
+			});
+
+			log::debug!(
+				target: LOG_TARGET,
+				"Inflation drip: total={inflation:?}, distributed={distributed:?}, \
+				 buffer={buffer_amount:?}, elapsed={elapsed}ms"
+			);
+
+			// Weight: 2 reads (time + last) + 1 read (issuance) + 1 read (budget) +
+			// N mints + 1 buffer mint + 1 write (timestamp)
+			let recipient_count = recipients.len() as u64;
+			T::DbWeight::get().reads_writes(4 + recipient_count, 2 + recipient_count)
 		}
 	}
 }
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
-/// This is for the `fungible::Balanced` trait as used by staking-async.
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
@@ -301,89 +359,15 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakingRewardProvider<T::AccountId, BalanceOf<T>> for Pallet<T> {
-	fn allocate_era_rewards(
-		era: EraIndex,
-		total_staked: BalanceOf<T>,
-		era_duration_millis: u64,
-		staker_pot: &T::AccountId,
-		validator_incentive_pot: &T::AccountId,
-	) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
-		// Look up total issuance
-		let total_issuance = T::Currency::total_issuance();
+/// DAP exposes it's buffer as a budget recipient so it can receive an explicit
+/// allocation share (in addition to the implicit remainder).
+impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
+	fn budget_key() -> BudgetKey {
+		BudgetKey::truncate_from(b"buffer".to_vec())
+	}
 
-		// Compute total era inflation using EraPayoutV2
-		let total_inflation = T::EraPayout::era_payout(
-			total_staked,
-			total_issuance,
-			// note: era_duration_millis already is defensively capped by staking implementation
-			era_duration_millis,
-		);
-
-		// Get current budget allocation configuration
-		let budget = BudgetAllocation::<T>::get();
-
-		// Split total inflation according to budget configuration
-		let to_stakers = budget.staker_rewards.mul_floor(total_inflation);
-		let to_validator_incentive =
-			budget.validator_self_stake_incentive.mul_floor(total_inflation);
-
-		// Buffer gets the remainder to ensure all inflation is minted (no rounding dust lost)
-		let to_buffer = total_inflation
-			.saturating_sub(to_stakers)
-			.saturating_sub(to_validator_incentive);
-
-		log::info!(
-			target: LOG_TARGET,
-			"💰 Era {era} allocation: total={total_inflation:?}, stakers={to_stakers:?}, \
-			validator_incentive={to_validator_incentive:?}, buffer={to_buffer:?}"
-		);
-
-		// Mint staker rewards into the staker pot
-		if !to_stakers.is_zero() {
-			if let Err(_e) = T::Currency::mint_into(staker_pot, to_stakers) {
-				defensive!("Era Mint should never fail");
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-				// Return zero allocation on failure
-				return sp_staking::EraRewardAllocation {
-					staker_rewards: Default::default(),
-					validator_incentive: Default::default(),
-				};
-			}
-		}
-
-		// Mint validator incentive into the validator incentive pot
-		if !to_validator_incentive.is_zero() {
-			if let Err(_e) = T::Currency::mint_into(validator_incentive_pot, to_validator_incentive)
-			{
-				defensive!("Era Mint should never fail");
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-				// We already minted staker rewards, so continue
-			}
-		}
-
-		// Mint buffer portion into the buffer account
-		let buffer = Self::buffer_account();
-		if !to_buffer.is_zero() {
-			if let Err(_e) = T::Currency::mint_into(&buffer, to_buffer) {
-				defensive!("Era Mint should never fail");
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::EraMintFailed { era }));
-				// Continue even if buffer mint fails
-			}
-		}
-
-		Self::deposit_event(Event::EraRewardsAllocated {
-			era,
-			staker_rewards: to_stakers,
-			validator_incentive: to_validator_incentive,
-			buffer_rewards: to_buffer,
-		});
-
-		// Return the allocation breakdown
-		sp_staking::EraRewardAllocation {
-			staker_rewards: to_stakers,
-			validator_incentive: to_validator_incentive,
-		}
+	fn pot_account() -> T::AccountId {
+		Self::buffer_account()
 	}
 }
 
