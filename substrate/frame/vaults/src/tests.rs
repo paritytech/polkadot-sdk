@@ -1570,6 +1570,45 @@ mod interest_edge_cases {
 			assert_eq!(vault.accrued_interest, 0, "No interest in same block");
 		});
 	}
+
+	/// **Test: Frequent pokes cannot discard sub-unit interest**
+	///
+	/// If elapsed interest rounds down to zero, `last_fee_update` must not advance,
+	/// otherwise a user could keep poking and permanently avoid accrual.
+	#[test]
+	fn sub_unit_interest_does_not_advance_fee_timestamp() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD));
+
+			let initial_timestamp = VaultsStorage::<Test>::get(ALICE).unwrap().last_fee_update;
+
+			// One block of elapsed time is too small to accrue even one pUSD base unit.
+			run_to_block(2);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0, "Per-block poke should still round to zero");
+			assert_eq!(
+				vault.last_fee_update, initial_timestamp,
+				"Zero rounded accrual must not advance the fee timestamp"
+			);
+
+			// After enough time accumulates, a later poke must accrue interest.
+			run_to_block(30);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert!(
+				vault.accrued_interest > 0,
+				"Accumulated elapsed time should eventually accrue"
+			);
+			assert!(
+				vault.last_fee_update > initial_timestamp,
+				"Fee timestamp should advance once non-zero interest is charged"
+			);
+		});
+	}
 }
 
 mod boundary_conditions {
@@ -3684,6 +3723,11 @@ mod parameter_edge_cases {
 			// No interest should have accrued
 			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
 			assert_eq!(vault.accrued_interest, 0, "Zero fee = zero interest");
+			assert_eq!(
+				vault.last_fee_update,
+				MockTimestamp::get(),
+				"Zero-fee vaults should still refresh their fee timestamp"
+			);
 		});
 	}
 

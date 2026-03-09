@@ -2261,12 +2261,19 @@ pub mod pallet {
 			let millis_elapsed = now.saturating_sub(vault.last_fee_update);
 			let stability_fee = StabilityFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let annual_interest_pusd = stability_fee.mul_floor(vault.principal);
+			if annual_interest_pusd.is_zero() {
+				vault.last_fee_update = now;
+				return Ok(());
+			}
 
 			let elapsed_ratio = FixedU128::saturating_from_rational(
 				millis_elapsed.saturated_into::<u64>(),
 				MILLIS_PER_YEAR,
 			);
 			let accrued = elapsed_ratio.saturating_mul_int(annual_interest_pusd);
+			if accrued.is_zero() {
+				return Ok(());
+			}
 
 			Self::do_mint(&T::InsuranceFund::get(), accrued, MintPurpose::Interest)?;
 
