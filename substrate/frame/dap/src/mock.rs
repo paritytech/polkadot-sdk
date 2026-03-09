@@ -24,7 +24,7 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-type AccountId = u128;
+pub type AccountId = u128;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -51,23 +51,72 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
 	pub const ExistentialDeposit: u64 = 10;
+	pub const InflationCadence: u64 = 60_000; // 60 seconds
+	pub const MaxElapsedPerDrip: u64 = 600_000; // 10 minutes
 }
 
-/// Simple test EraPayout implementation.
-///
-/// Returns total inflation of 100. The split is determined by BudgetConfig.
-pub struct TestEraPayout;
-impl sp_staking::EraPayoutV2<u64> for TestEraPayout {
-	fn era_payout(_total_staked: u64, _total_issuance: u64, _era_duration_millis: u64) -> u64 {
-		// Return total inflation of 100
-		100
+/// Returns 100 per 60_000ms elapsed (proportional).
+pub struct TestInflationCurve;
+impl sp_staking::InflationCurve<u64> for TestInflationCurve {
+	fn inflation(_total_issuance: u64, elapsed_millis: u64) -> u64 {
+		// 100 per minute (60_000ms)
+		(100u128 * elapsed_millis as u128 / 60_000u128) as u64
+	}
+}
+
+/// Mock time provider backed by storage.
+pub struct MockTime;
+impl MockTime {
+	pub fn set(millis: u64) {
+		MOCK_TIME.with(|v| *v.borrow_mut() = millis);
+	}
+
+	pub fn get() -> u64 {
+		MOCK_TIME.with(|v| *v.borrow())
+	}
+}
+
+std::thread_local! {
+	static MOCK_TIME: core::cell::RefCell<u64> = core::cell::RefCell::new(0);
+}
+
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		Self::get()
+	}
+}
+
+/// Test budget recipient: staker rewards pot (account 500).
+pub struct TestStakerRecipient;
+impl sp_staking::BudgetRecipient<AccountId> for TestStakerRecipient {
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	}
+	fn pot_account() -> AccountId {
+		500
+	}
+}
+
+/// Test budget recipient: validator incentive pot (account 501).
+pub struct TestValidatorIncentiveRecipient;
+impl sp_staking::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient {
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	}
+	fn pot_account() -> AccountId {
+		501
 	}
 }
 
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type EraPayout = TestEraPayout;
+	type InflationCurve = TestInflationCurve;
+	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);
+	type Time = MockTime;
+	type InflationCadence = InflationCadence;
+	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
@@ -83,5 +132,14 @@ pub fn new_test_ext(fund_buffer: bool) -> sp_io::TestExternalities {
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+
+	ext.execute_with(|| {
+		// Initialize time to simulate "genesis already happened".
+		MockTime::set(1_000_000);
+		// Initialize LastInflationTimestamp so drip doesn't skip first call.
+		crate::LastInflationTimestamp::<Test>::put(1_000_000);
+	});
+
+	ext
 }
