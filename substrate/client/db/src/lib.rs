@@ -1836,6 +1836,21 @@ impl<Block: BlockT> Backend<Block> {
 									number,
 									hash,
 								)?;
+
+								// Move the start forward until we find a missing header, which
+								// means the gap is reduced. Otherwise, gap start can land
+								// on an already imported block and stall.
+								while gap.start <= gap.end {
+									let next_hash = self.blockchain.hash(gap.start)?;
+
+									match next_hash {
+										Some(h) if self.blockchain.header(h)?.is_some() => {
+											gap.start += One::one();
+										},
+										_ => break,
+									}
+								}
+
 								if gap.start > gap.end {
 									remove_gap(&mut transaction, &mut block_gap);
 								} else {
