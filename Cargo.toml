@@ -303,6 +303,7 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
+	"substrate/client/statement-store/statement-latency-bench",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
@@ -668,7 +669,7 @@ asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-h
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
 async-channel = { version = "1.8.0" }
-async-std = { version = "1.9.0" }
+
 async-trait = { version = "0.1.88" }
 asynchronous-codec = { version = "0.6" }
 backoff = { version = "0.4" }
@@ -901,7 +902,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.13.0", features = ["rsa", "websocket"] }
+litep2p = { version = "0.13.2", features = ["rsa", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1166,9 +1167,10 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.30.0", default-features = false }
-polkavm-derive = "0.30.0"
-polkavm-linker = "0.30.0"
+polkavm = { version = "0.31.0", default-features = false }
+polkavm-common = { version = "0.31.0", default-features = false }
+polkavm-derive = "0.31.0"
+polkavm-linker = "0.31.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = ["num-traits"] }
@@ -1483,9 +1485,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.5" }
-zombienet-orchestrator = { version = "0.4.5" }
-zombienet-sdk = { version = "0.4.5" }
+zombienet-configuration = { version = "0.4.6" }
+zombienet-orchestrator = { version = "0.4.6" }
+zombienet-sdk = { version = "0.4.6" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

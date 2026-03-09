@@ -49,7 +49,7 @@ use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
-use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -446,8 +446,9 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	// load authorities
-	let authorities = client.runtime_api().authorities(parent_hash).map_err(Box::new)?;
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	let authorities = runtime_api.authorities(parent_hash).map_err(Box::new)?;
 
 	// Determine the current slot and timestamp based on the relay-parent's.
 	let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(

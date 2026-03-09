@@ -33,7 +33,9 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.10.6 --locked -q
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          cargo install parity-publish@0.10.10 --locked -q
 
       - name: parity-publish check
         run: parity-publish --color always check --allow-unpublished
