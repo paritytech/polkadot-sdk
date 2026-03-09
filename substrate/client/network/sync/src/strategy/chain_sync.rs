@@ -1308,11 +1308,51 @@ where
 								gap_sync.blocks.insert(start_block, blocks, *peer_id);
 							}
 							gap = true;
+							let client = self.client.clone();
 							let mut batch_gap_sync_stats = GapSyncStats::new();
 							let blocks: Vec<_> = gap_sync
 								.blocks
 								.ready_blocks(gap_sync.best_queued_number + One::one())
 								.into_iter()
+								.filter(|block_data| {
+									let already_known = client
+										.block_status(block_data.block.hash)
+										.map_or(false, |status| {
+											matches!(
+												status,
+												BlockStatus::KnownBad |
+													BlockStatus::InChainWithState |
+													BlockStatus::InChainPruned
+											)
+										});
+
+									if already_known && block_data.block.body.is_none() {
+										trace!(
+											target: LOG_TARGET,
+											"Gap sync: skipping already known block #{} from peer {}",
+											block_data.block.hash,
+											peer_id,
+										);
+
+										if let Some(header) = block_data.block.header.as_ref() {
+											if header.number() > &gap_sync.best_queued_number {
+												trace!(
+													target: LOG_TARGET,
+													"Gap sync: updating best queued block from #{} to #{} ({})",
+													gap_sync.best_queued_number,
+													header.number(),
+													block_data.block.hash,
+												);
+
+												gap_sync.best_queued_number = *header.number();
+											}
+										}
+
+										return false;
+									}
+
+									true
+								})
 								.map(|block_data| {
 									let justifications =
 										block_data.block.justifications.or_else(|| {
