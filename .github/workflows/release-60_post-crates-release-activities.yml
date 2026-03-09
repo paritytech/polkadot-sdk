@@ -282,7 +282,7 @@ jobs:
 
       - name: Create Pull Request to base release branch
         env:
-          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           BRANCH_NAME: ${{ github.ref_name }}
           FULL_RELEASE: ${{ inputs.version }}
           GH_REPOSITORY: ${{ github.repository }}
@@ -336,7 +336,7 @@ jobs:
 
       - name: Add comment about spec_version
         env:
-          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           BRANCH_NAME: ${{ github.ref_name }}
           GH_REPOSITORY: ${{ github.repository }}
           GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
