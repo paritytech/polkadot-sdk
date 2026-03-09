@@ -325,11 +325,12 @@ where
 		use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
 		use sp_runtime::traits::Zero;
 
-		env.charge(
-			<Runtime as Config<Instance>>::WeightInfo::approve_transfer()
-				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
-				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance()),
-		)?;
+		// Reserve worst-case gas upfront, then refund the unused portion.
+		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+		let charged = env.charge(worst_case)?;
+
 		let owner = Self::caller(env)?;
 		let owner_account =
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
@@ -344,6 +345,7 @@ where
 			&spender_account,
 		);
 
+		let actual_weight;
 		if new_amount.is_zero() {
 			if !current.is_zero() {
 				// Revoke: use the pallet's cancel logic to remove the approval and
@@ -353,8 +355,14 @@ where
 					&owner_account,
 					&spender_account,
 				)?;
+				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+					.saturating_add(
+						<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
+					);
+			} else {
+				// 0→0 no-op: only the allowance read was needed.
+				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance();
 			}
-			// If current is also zero, this is a no-op (still emit the ERC-20 event below).
 		} else {
 			// If there's an existing non-zero allowance, cancel it first so we
 			// overwrite (not accumulate) — matching ERC-20 spec semantics.
@@ -367,6 +375,12 @@ where
 					&owner_account,
 					&spender_account,
 				)?;
+				actual_weight = worst_case;
+			} else {
+				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+					.saturating_add(
+						<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
+					);
 			}
 			pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 				asset_id,
@@ -375,6 +389,7 @@ where
 				new_amount,
 			)?;
 		}
+		env.adjust_gas(charged, actual_weight);
 
 		Self::deposit_event(
 			env,
