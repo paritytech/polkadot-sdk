@@ -1721,33 +1721,41 @@ where
 {
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
+	// Fail fast if the scheduling parent is completely unknown.
+	let per_scheduling_parent = state
+		.per_scheduling_parent
+		.get(&scheduling_parent)
+		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
+
 	// V3 candidate descriptors require the scheduling_parent to be the block from the last
-	// finished relay chain slot. For each active leaf we check:
-	// - slot_age < slot_duration: leaf's slot is still in progress → the scheduling parent must be
-	//   the leaf's parent (i.e. the previous slot's block).
-	// - slot_age >= slot_duration: leaf's slot has finished → the scheduling parent must be the
-	//   leaf itself.
+	// finished relay chain slot, but the slot shouldn't be older than 2 *
+	// RELAY_CHAIN_SLOT_DURATION_MILLIS.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
 		let now = sp_timestamp::Timestamp::current();
+		let recent_last_finished_slot = |slot_age_ms| {
+			slot_age_ms >= RELAY_CHAIN_SLOT_DURATION_MILLIS &&
+				slot_age_ms < 2 * RELAY_CHAIN_SLOT_DURATION_MILLIS
+		};
 
-		let scheduling_parent_valid = state.leaf_scheduling_info.iter().any(|(leaf_hash, info)| {
-			let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
-			if slot_age_ms < RELAY_CHAIN_SLOT_DURATION_MILLIS {
-				scheduling_parent == info.parent_hash
+		let scheduling_parent_valid =
+			if let Some(info) = state.leaf_scheduling_info.get(&scheduling_parent) {
+				// scheduling_parent is a leaf — valid only if the leaf's slot has recently
+				// finished (between 1x and 2x slot duration). Ancient leaves are rejected.
+				let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
+				recent_last_finished_slot(slot_age_ms)
 			} else {
-				scheduling_parent == *leaf_hash
-			}
-		});
+				// scheduling_parent is not a leaf — check if it's the parent of any leaf
+				// whose slot is still in progress.
+				state.leaf_scheduling_info.iter().any(|(_leaf_hash, info)| {
+					let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
+					recent_last_finished_slot(slot_age_ms) && scheduling_parent == info.parent_hash
+				})
+			};
 
 		if !scheduling_parent_valid {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 	}
-
-	let per_scheduling_parent = state
-		.per_scheduling_parent
-		.get(&scheduling_parent)
-		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
 	// Ensure peer has declared as a collator
 	peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;

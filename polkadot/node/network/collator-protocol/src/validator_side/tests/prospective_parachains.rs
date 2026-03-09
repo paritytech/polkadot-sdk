@@ -2039,11 +2039,11 @@ fn v3_descriptor_version_detection(
 	});
 }
 
-/// Regression test: when the relay chain stalls, the active leaf's slot can be
-/// arbitrarily old. V3 candidates using that leaf as scheduling_parent must
-/// still be accepted because no newer relay chain block exists.
+/// When the relay chain stalls, the active leaf's slot can be arbitrarily old.
+/// V3 candidates using that stale leaf as scheduling_parent must be rejected
+/// because the slot is too old (older than 2x slot duration).
 #[test]
-fn v3_scheduling_parent_accepted_on_stalled_relay_chain() {
+fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	let mut test_state = TestState::default();
 
 	// Enable V3.
@@ -2055,7 +2055,7 @@ fn v3_scheduling_parent_accepted_on_stalled_relay_chain() {
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
 
@@ -2096,13 +2096,12 @@ fn v3_scheduling_parent_accepted_on_stalled_relay_chain() {
 		committed_candidate.descriptor.set_version(1);
 
 		let candidate: CandidateReceipt = committed_candidate.clone().to_plain();
-		let pov = PoV { block_data: BlockData(vec![1]) };
 
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
-		// V3 advertisement — this should succeed even though the leaf's slot is
-		// very old, because the leaf is still active (relay chain stalled).
+		// V3 advertisement with a stale scheduling_parent — should be rejected
+		// silently (SchedulingParentNotValid, no reputation penalty).
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2113,49 +2112,13 @@ fn v3_scheduling_parent_accepted_on_stalled_relay_chain() {
 		)
 		.await;
 
-		// Should get CanSecond request (advertisement accepted).
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CandidateBacking(
-				CandidateBackingMessage::CanSecond(request, tx),
-			) => {
-				assert_eq!(request.candidate_hash, candidate_hash);
-				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
-				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
-				tx.send(true).expect("receiving side should be alive");
-			}
+		// No CanSecond or reputation message should arrive.
+		assert!(
+			overseer_recv_with_timeout(&mut virtual_overseer, Duration::from_millis(100))
+				.await
+				.is_none(),
+			"Expected no message after rejected stale scheduling parent"
 		);
-
-		let response_channel = assert_fetch_collation_request(
-			&mut virtual_overseer,
-			head_b,
-			test_state.chain_ids[0],
-			Some(candidate_hash),
-		)
-		.await;
-
-		response_channel
-			.send(Ok((
-				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
-					.encode(),
-				ProtocolName::from(""),
-			)))
-			.expect("Sending response should succeed");
-
-		assert_candidate_backing_second(
-			&mut virtual_overseer,
-			head_b,
-			test_state.chain_ids[0],
-			&pov,
-			CollationVersion::V3,
-		)
-		.await;
-
-		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
-			.await;
-
-		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V3)
-			.await;
 
 		virtual_overseer
 	});
@@ -2730,7 +2693,7 @@ fn v3_scheduling_parent_not_in_view_rejected() {
 		let parent_head_data_hash = Hash::zero();
 
 		// V3 advertisement with unknown scheduling_parent — should be rejected
-		// silently (no reputation penalty for SchedulingParentNotValid).
+		// with a reputation penalty (SchedulingParentUnknown).
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2741,12 +2704,14 @@ fn v3_scheduling_parent_not_in_view_rejected() {
 		)
 		.await;
 
-		// No CanSecond or reputation message should arrive.
-		assert!(
-			overseer_recv_with_timeout(&mut virtual_overseer, Duration::from_millis(100))
-				.await
-				.is_none(),
-			"Expected no message after rejected advertisement"
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_UNEXPECTED_MESSAGE.cost_or_benefit());
+			}
 		);
 
 		virtual_overseer
