@@ -136,15 +136,15 @@ pub fn process_authorizations<T: Config>(
 	}
 
 	let total = result.new_accounts.saturating_add(result.existing_accounts);
-	let worst_case_weight = <RuntimeCosts as metering::Token<T>>::weight(
-		&RuntimeCosts::Delegations { new_accounts: total, existing_accounts: 0 },
-	);
-	let actual_weight = <RuntimeCosts as metering::Token<T>>::weight(
-		&RuntimeCosts::Delegations {
-			new_accounts: result.new_accounts,
-			existing_accounts: result.existing_accounts,
-		},
-	);
+	let worst_case_weight =
+		<RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
+			new_accounts: total,
+			existing_accounts: 0,
+		});
+	let actual_weight = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
+		new_accounts: result.new_accounts,
+		existing_accounts: result.existing_accounts,
+	});
 	result.weight_refund = worst_case_weight.saturating_sub(actual_weight);
 
 	Ok(result)

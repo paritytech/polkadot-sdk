@@ -16,33 +16,33 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, LOG_TARGET, Pallet, Zero,
 	evm::{
+		CreateCallMode,
 		api::{GenericTransaction, TransactionSigned},
 		fees::InfoT,
-		CreateCallMode,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, Pallet, Zero, LOG_TARGET,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{
+		InherentBuilder, IsSubType, SignedTransactionBuilder,
 		fungible::Balanced,
 		tokens::{Fortitude, Precision, Preservation},
-		InherentBuilder, IsSubType, SignedTransactionBuilder,
 	},
 };
 use pallet_transaction_payment::Config as TxConfig;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::U256;
 use sp_runtime::{
+	Debug, OpaqueExtrinsic, Weight,
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	Debug, OpaqueExtrinsic, Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -128,9 +128,9 @@ where
 	// required by Checkable for `generic::UncheckedExtrinsic`
 	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
 		Checkable<
-			Lookup,
-			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
-		>,
+				Lookup,
+				Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+			>,
 {
 	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
 
@@ -369,13 +369,13 @@ pub trait EthExtra {
 mod test {
 	use super::*;
 	use crate::{
+		EthTransactInfo, RUNTIME_PALLETS_ADDR, Weight,
 		evm::*,
 		test_utils::*,
 		tests::{
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, TestSigner,
 			UncheckedExtrinsic,
 		},
-		EthTransactInfo, Weight, RUNTIME_PALLETS_ADDR,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;

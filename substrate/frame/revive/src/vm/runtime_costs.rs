@@ -342,9 +342,11 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
-			Delegations { new_accounts, existing_accounts } =>
-				T::WeightInfo::process_new_account_authorization(new_accounts)
-				.saturating_add(T::WeightInfo::process_existing_account_authorization(existing_accounts)),
+			Delegations { new_accounts, existing_accounts } => {
+				T::WeightInfo::process_new_account_authorization(new_accounts).saturating_add(
+					T::WeightInfo::process_existing_account_authorization(existing_accounts),
+				)
+			},
 		}
 	}
 }
