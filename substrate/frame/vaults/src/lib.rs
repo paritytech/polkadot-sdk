@@ -1249,7 +1249,10 @@ pub mod pallet {
 		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::liquidate_vault())]
-		pub fn liquidate_vault(origin: OriginFor<T>, vault_owner: T::AccountId) -> DispatchResult {
+		pub fn liquidate_vault(
+			origin: OriginFor<T>,
+			vault_owner: T::AccountId,
+		) -> DispatchResultWithPostInfo {
 			let keeper = ensure_signed(origin)?;
 
 			Vaults::<T>::try_mutate(&vault_owner, |maybe_vault| -> DispatchResult {
@@ -1356,7 +1359,9 @@ pub mod pallet {
 				});
 
 				Ok(())
-			})
+			})?;
+
+			Ok(Pays::No.into())
 		}
 
 		/// Close a vault with no debt and withdraw all collateral.
