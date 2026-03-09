@@ -653,8 +653,8 @@ pub(super) async fn spawn_network_sudo(
 		})
 		.with_parachain(|p| {
 			let p = p
-				.with_id(2104)
-				.with_chain_spec_path("https://raw.githubusercontent.com/paritytech/chainspecs/denzelpenzel/versi-people-2101/versi/parachain/versi-people-2101/chainspec.json")
+				.with_id(1004)
+				.with_chain_spec_path("https://raw.githubusercontent.com/paritytech/chainspecs/refs/heads/denzelpenzel/versi-people-1004/versi/parachain/versi-people-1004/people-westend-spec.json")
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
