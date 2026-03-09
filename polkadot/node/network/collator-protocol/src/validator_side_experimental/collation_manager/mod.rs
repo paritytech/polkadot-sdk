@@ -244,23 +244,6 @@ impl CollationManager {
 						},
 					};
 
-				// DQ_Alex: Should this be per leaf or per ancestor?
-				// Node features are session scopes so it should not matter
-				let v3_enabled = match recv_runtime(
-					request_node_features(*ancestor, session_index, sender).await,
-				)
-				.await
-				.map_err(Error::Runtime)
-				{
-					Ok(node_features) => {
-						node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features)
-					},
-					Err(err) => {
-						err.split()?.log();
-						continue;
-					},
-				};
-
 				let core = match self.get_our_core(sender, leaf, session_index).await {
 					Ok(assignments) => assignments,
 					Err(err) => {
@@ -268,7 +251,11 @@ impl CollationManager {
 						Default::default()
 					},
 				};
-
+				// If session info is not available  default to assume v2 candidate descriptors.
+				let v3_enabled = self
+					.per_session
+					.get(&session_index)
+					.map_or(false, |per_session_info| per_session_info.v3_enabled);
 				self.per_scheduling_parent
 					.insert(*ancestor, PerSchedulingParent::new(session_index, core, v3_enabled));
 
@@ -740,10 +727,18 @@ impl CollationManager {
 					.and_then(|(_, index)| {
 						polkadot_node_subsystem_util::find_validator_group(&groups, index)
 					});
+			let node_features =
+				recv_runtime(request_node_features(*parent, index, sender).await).await?;
+			let v3_enabled = node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 			self.per_session.insert(
 				index,
-				PerSessionInfo { our_group, n_cores: groups.len(), group_rotation_info },
+				PerSessionInfo {
+					our_group,
+					n_cores: groups.len(),
+					group_rotation_info,
+					v3_enabled,
+				},
 			);
 		}
 
@@ -1098,6 +1093,7 @@ struct PerSessionInfo {
 	// The group rotation info changes once per session, apart from the `now` field. The caller
 	// must ensure to override it with the right value.
 	group_rotation_info: GroupRotationInfo,
+	v3_enabled: bool,
 }
 
 // Requests backing subsystem to sanity check the advertisement.
