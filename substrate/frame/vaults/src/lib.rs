@@ -1580,9 +1580,12 @@ pub mod pallet {
 				&T::InsuranceFund::get(),
 				repay_amount,
 				Preservation::Expendable,
-				Precision::Exact,
+				Precision::BestEffort,
 				Fortitude::Polite,
 			)?;
+			if burned.is_zero() {
+				return Ok(());
+			}
 
 			// Reduce bad debt
 			BadDebt::<T>::mutate(|debt| {

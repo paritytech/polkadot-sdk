@@ -1929,11 +1929,12 @@ mod heal_permissionless {
 		});
 	}
 
-	/// **Test: Fails if `InsuranceFund` has insufficient pUSD**
+	/// **Test: No-op if `InsuranceFund` has insufficient pUSD**
 	///
-	/// `InsuranceFund` must have enough pUSD to cover the repayment amount.
+	/// `heal` uses best-effort burning, so if the Insurance Fund has no pUSD
+	/// available it should succeed without changing bad debt.
 	#[test]
-	fn fails_with_insufficient_pusd() {
+	fn noop_with_insufficient_pusd() {
 		build_and_execute(|| {
 			// Setup: Bad debt exists
 			BadDebt::<Test>::put(100 * PUSD);
@@ -1941,14 +1942,18 @@ mod heal_permissionless {
 			// `InsuranceFund` has no pUSD
 			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 0);
 
-			// Should fail when trying to repay - `InsuranceFund` has no pUSD to burn
-			assert_noop!(
-				Vaults::heal(RuntimeOrigin::signed(ALICE), 50 * PUSD),
-				TokenError::FundsUnavailable
-			);
+			// Should succeed but burn nothing.
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(ALICE), 50 * PUSD));
 
 			// Bad debt unchanged
 			assert_eq!(BadDebt::<Test>::get(), 100 * PUSD);
+
+			// No repayment event should be emitted.
+			let events = System::events();
+			let has_repaid_event = events
+				.iter()
+				.any(|e| matches!(e.event, RuntimeEvent::Vaults(Event::BadDebtRepaid { .. })));
+			assert!(!has_repaid_event, "No event when no pUSD could be burned");
 		});
 	}
 }
