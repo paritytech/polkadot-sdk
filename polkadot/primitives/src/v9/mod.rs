@@ -2063,14 +2063,14 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 impl<H> CandidateDescriptorV2<H> {
 	fn v3_version(&self) -> CandidateDescriptorVersion {
-		// Reduce checked bits for v1 signficiantly to make more bytes easier
+		// Reduce checked bits for v1 significantly to make more bytes easier
 		// usable in future upgrades. 16 bytes is 32 hexadecimal digits which
 		// must all be 0 by accident to cause any issues. Bitcoin hardest
 		// difficulty so far has been 24 digits/12 bytes
 		//
 		// Impact if it still happened would also be fairly minimal: We would
 		// drop a parachain block, which is not a big deal on v1, where we are
-		// not aiming for perfect block confidence yet..
+		// not aiming for perfect block confidence yet.
 		let new_v1_detected = self.reserved1[0..16] != [0u8; 16];
 
 		if new_v1_detected {
@@ -2209,10 +2209,11 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Version for use in approval checking, disputes, and on-chain vote scraping
+	/// Version for use in candidate validation
+	///
 	/// during the V3 transition period.
 	///
-	/// Before the `CandidateReceiptV3` node feature is observed on any leaf,
+	/// Before the `CandidateReceiptV3` node feature is observed on a finalized block,
 	/// uses [`Self::version_old_rules`] to match old backer behavior. After
 	/// the feature is seen, trusts [`Self::version`].
 	///
@@ -2220,14 +2221,15 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// a pseudo-V3 descriptor that old nodes interpret as V1 but new nodes would
 	/// interpret as V3 (different PVF inputs → dispute → 100% slash).
 	///
-	/// Safety argument: The node feature can only be enabled well after the runtime
-	/// upgrade that adds `check_version_acceptance()` protection at inclusion time.
-	/// Once the feature is seen on any leaf, the runtime has long been rejecting
-	/// pseudo-V3 candidates, so no ambiguous candidates can exist on-chain.
+	/// Safety argument: The node feature can only be enabled well after the runtime upgrade that
+	/// adds `check_version_acceptance()` protection at inclusion time. Once the feature is seen on
+	/// any leaf, the runtime has long been upgraded and already rejecting pseudo-V3 candidates
+	/// (candidates that are valid v1 under the old rules, but are v3 without UMP signals under the
+	/// new rules), so no ambiguous candidates can exist on-chain.
 	///
 	/// Only needed during the V3 transition. Once V3 is universally deployed,
 	/// callers can switch to [`Self::version`] directly.
-	pub fn version_for_approval_dispute(
+	pub fn version_for_candidate_validation(
 		&self,
 		v3_ever_seen: bool,
 	) -> CandidateDescriptorVersion {
@@ -2238,29 +2240,27 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Scheduling parent for use in approval checking, disputes, and on-chain
-	/// vote scraping during the V3 transition period.
+	/// Scheduling parent for use in candidate validation.
 	///
 	/// See [`Self::version_for_approval_dispute`] for the safety argument.
-	pub fn scheduling_parent_for_approval_dispute(&self, v3_ever_seen: bool) -> H
+	pub fn scheduling_parent_for_candidate_validation(&self, v3_ever_seen: bool) -> H
 	where
 		H: Copy,
 	{
-		match self.version_for_approval_dispute(v3_ever_seen) {
+		match self.version_for_candidate_validation(v3_ever_seen) {
 			CandidateDescriptorVersion::V3 => self.scheduling_parent,
 			_ => self.relay_parent,
 		}
 	}
 
-	/// Scheduling session for use in approval checking, disputes, and on-chain
-	/// vote scraping during the V3 transition period.
+	/// Scheduling session for use candidate validation.
 	///
 	/// See [`Self::version_for_approval_dispute`] for the safety argument.
-	pub fn scheduling_session_for_approval_dispute(
+	pub fn scheduling_session_for_candidate_validation(
 		&self,
 		v3_ever_seen: bool,
 	) -> Option<SessionIndex> {
-		match self.version_for_approval_dispute(v3_ever_seen) {
+		match self.version_for_candidate_validation(v3_ever_seen) {
 			CandidateDescriptorVersion::V1 => None,
 			CandidateDescriptorVersion::V2 => Some(self.session_index),
 			CandidateDescriptorVersion::V3 => {

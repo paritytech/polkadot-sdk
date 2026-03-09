@@ -65,12 +65,12 @@ impl ValidationContext {
 	pub fn scheduling_parent(&self) -> Hash {
 		self.candidate_receipt
 			.descriptor
-			.scheduling_parent_for_approval_dispute(self.v3_seen)
+			.scheduling_parent_for_candidate_validation(self.v3_seen)
 	}
 
 	/// Get the effective candidate descriptor version, using transition-safe logic.
 	pub fn descriptor_version(&self) -> CandidateDescriptorVersion {
-		self.candidate_receipt.descriptor.version_for_approval_dispute(self.v3_seen)
+		self.candidate_receipt.descriptor.version_for_candidate_validation(self.v3_seen)
 	}
 
 	/// Convert to an ExecuteRequest for sending to the worker.

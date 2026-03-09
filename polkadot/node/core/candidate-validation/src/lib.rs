@@ -193,20 +193,13 @@ async fn fetch_bomb_limit<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	// For approval/dispute, use the transition-safe scheduling parent
-	// to match old backer behavior before V3 is confirmed enabled.
-	// Backing uses its own v3_ever_seen + check_version_acceptance() gate.
 	// NOTE: As noted above, even looking at the scheduling parent in disputes context should be
 	// suspicious normally!
-	let scheduling_parent = match exec_kind {
-		PvfExecKind::Approval | PvfExecKind::Dispute => {
-			candidate_descriptor.scheduling_parent_for_approval_dispute(v3_ever_seen)
-		},
-		_ => candidate_descriptor.scheduling_parent(),
-	};
+	let scheduling_parent =
+		candidate_descriptor.scheduling_parent_for_candidate_validation(v3_ever_seen);
 
 	let scheduling_session =
-		match candidate_descriptor.scheduling_session_for_approval_dispute(v3_ever_seen) {
+		match candidate_descriptor.scheduling_session_for_candidate_validation(v3_ever_seen) {
 			Some(session) => session,
 			None => {
 				// NOTE: This is depending on scheduling parent state to still be around!
@@ -261,22 +254,26 @@ where
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
 
-			let validation_code_bomb_limit =
-				match fetch_bomb_limit(&candidate_receipt.descriptor, exec_kind, v3_ever_seen, &mut sender)
-					.await
-				{
-					Ok(limit) => limit,
-					Err(err) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							scheduling_parent = ?candidate_receipt.descriptor.scheduling_parent(),
-							?err,
-							"Failed to fetch validation code bomb limit",
-						);
-						let _ = response_sender.send(Err(ValidationFailed(err)));
-						return;
-					},
-				};
+			let validation_code_bomb_limit = match fetch_bomb_limit(
+				&candidate_receipt.descriptor,
+				exec_kind,
+				v3_ever_seen,
+				&mut sender,
+			)
+			.await
+			{
+				Ok(limit) => limit,
+				Err(err) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						scheduling_parent = ?candidate_receipt.descriptor.scheduling_parent(),
+						?err,
+						"Failed to fetch validation code bomb limit",
+					);
+					let _ = response_sender.send(Err(ValidationFailed(err)));
+					return;
+				},
+			};
 
 			// --- Backing-only extras ---
 			// Stricter checks that backing performs but approval/dispute can

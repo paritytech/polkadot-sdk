@@ -647,11 +647,11 @@ impl Initialized {
 			// See `CandidateDescriptorV2::version_for_approval_dispute`.
 			let scheduling_session = candidate_receipt
 				.descriptor
-				.scheduling_session_for_approval_dispute(self.v3_ever_seen)
+				.scheduling_session_for_candidate_validation(self.v3_ever_seen)
 				.unwrap_or(session);
 			let scheduling_parent = candidate_receipt
 				.descriptor
-				.scheduling_parent_for_approval_dispute(self.v3_ever_seen);
+				.scheduling_parent_for_candidate_validation(self.v3_ever_seen);
 
 			// Backing validators are from the scheduling context
 			// Fetch session info using scheduling_parent as the runtime API context
