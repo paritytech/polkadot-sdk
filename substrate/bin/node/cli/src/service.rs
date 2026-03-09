@@ -900,7 +900,7 @@ mod tests {
 	use sc_service_test::TestNetNode;
 	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
-	use sp_core::crypto::Pair;
+	use sp_core::{crypto::Pair, traits::CallContext};
 	use sp_inherents::InherentDataProvider;
 	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::KeystorePtr;
@@ -1081,7 +1081,10 @@ mod tests {
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
 				let best_hash = service.client().chain_info().best_hash;
 				let (spec_version, transaction_version) = {
-					let version = service.client().runtime_version_at(best_hash).unwrap();
+					let version = service
+						.client()
+						.runtime_version_at(best_hash, CallContext::Offchain)
+						.unwrap();
 					(version.spec_version, version.transaction_version)
 				};
 				let signer = charlie.clone();

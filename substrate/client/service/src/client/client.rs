@@ -450,8 +450,12 @@ where
 	}
 
 	/// Get the RuntimeVersion at a given block.
-	pub fn runtime_version_at(&self, hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
-		CallExecutor::runtime_version(&self.executor, hash)
+	pub fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> sp_blockchain::Result<RuntimeVersion> {
+		CallExecutor::runtime_version(&self.executor, hash, call_context)
 	}
 
 	/// Apply a checked and validated block to an operation.
@@ -1687,8 +1691,12 @@ where
 			.map_err(Into::into)
 	}
 
-	fn runtime_version_at(&self, hash: Block::Hash) -> Result<RuntimeVersion, sp_api::ApiError> {
-		CallExecutor::runtime_version(&self.executor, hash).map_err(Into::into)
+	fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, sp_api::ApiError> {
+		CallExecutor::runtime_version(&self.executor, hash, call_context).map_err(Into::into)
 	}
 
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, sp_api::ApiError> {

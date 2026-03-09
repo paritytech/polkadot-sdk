@@ -399,10 +399,18 @@ impl VmBinaryModule {
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl VmBinaryModule {
-	// Same as [`Self::sized`] but using EVM bytecode.
-	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::STOP;
-		let code = vec![STOP; size as usize];
+	// Creates EVM init code that deploys `size` bytes of runtime code (all STOP opcodes).
+	// EVM memory is zero-initialized, so RETURN(0, size) produces `size` bytes of 0x00.
+	// The runtime code is what gets stored in PristineCode and loaded on every call.
+	pub fn evm_init_code_for_runtime_size(size: u32) -> Self {
+		use revm::bytecode::opcode::{PUSH1, PUSH3, RETURN};
+		assert!(size <= 0x00FF_FFFF, "size {size} exceeds PUSH3 max (16MiB - 1)");
+		let [_, b1, b2, b3] = size.to_be_bytes();
+		let code = vec![
+			PUSH3, b1, b2, b3, // push runtime code size
+			PUSH1, 0,      // push memory offset 0
+			RETURN, // return `size` bytes from memory as runtime code
+		];
 		Self::new(code)
 	}
 }

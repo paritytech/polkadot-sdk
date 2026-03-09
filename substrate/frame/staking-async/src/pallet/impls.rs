@@ -1112,7 +1112,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	type AccountId = T::AccountId;
-	type Balance = BalanceOf<T>;
 	type MaxValidatorSet = T::MaxValidatorSet;
 
 	/// When we receive a session report from the relay chain, it kicks off the next session.
@@ -1345,10 +1344,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 	fn is_validator(who: &Self::AccountId) -> bool {
 		Validators::<T>::contains_key(who)
-	}
-
-	fn active_stake(who: &Self::AccountId) -> Option<BalanceOf<T>> {
-		Self::ledger(StakingAccount::Stash(who.clone())).ok().map(|l| l.active)
 	}
 }
 
@@ -1747,12 +1742,16 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Eras::<T>::upsert_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
-			CurrentEra::<T>::put(era);
-		}
-
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
+		}
+	}
+
+	sp_staking::std_or_benchmarks_enabled! {
+		fn set_era(era: EraIndex) {
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start: None });
+			// Simulate prod behaviour where current era is always ahead of active era by 1.
+			CurrentEra::<T>::put(era.saturating_add(1));
 		}
 	}
 }
