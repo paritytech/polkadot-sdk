@@ -34,7 +34,7 @@ use pallet_revive::{
 	precompiles::{alloy, H160},
 	AddressMapper,
 };
-use sp_core::U256;
+use sp_core::{Pair as _, U256};
 use sp_runtime::traits::StaticLookup;
 
 /// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
@@ -199,25 +199,49 @@ mod benchmarks {
 		);
 
 		let spender = H160::from_low_u64_be(0x9876_5432);
-
-		// ── Permit signature ─────────────────────────────────────────────────
 		let verifying_contract = test_verifying_contract();
-		let v = 27u8;
-		let r: [u8; 32] = [
-			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
-			121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
+		let value = alloy::primitives::U256::from(1000u64);
+		let deadline = alloy::primitives::U256::from(u64::MAX);
+
+		// ── Compute EIP-712 digest using the runtime's actual chain_id ───────
+		// The digest depends on T::ChainId which varies per runtime, so we must
+		// compute it at benchmark time rather than using a hardcoded signature.
+		let value_bytes: [u8; 32] = value.to_be_bytes();
+		let deadline_bytes: [u8; 32] = deadline.to_be_bytes();
+		let nonce = U256::zero();
+		let digest = crate::permit::Pallet::<T>::permit_digest(
+			&verifying_contract,
+			TEST_TOKEN_NAME,
+			&owner,
+			&spender,
+			&value_bytes,
+			&nonce,
+			&deadline_bytes,
+		);
+
+		// ── Sign with Hardhat account #0 private key ─────────────────────────
+		// Private key for 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Hardhat #0).
+		// This is a well-known public test key, safe to embed in benchmark code.
+		let hardhat_sk: [u8; 32] = [
+			0xac, 0x09, 0x74, 0xbe, 0xc3, 0x9a, 0x17, 0xe3, 0x6b, 0xa4, 0xa6, 0xb4, 0xd2, 0x38,
+			0xff, 0x94, 0x4b, 0xac, 0xb4, 0x78, 0xcb, 0xed, 0x5e, 0xfc, 0xae, 0x78, 0x4d, 0x7b,
+			0xf4, 0xf2, 0xff, 0x80,
 		];
-		let s: [u8; 32] = [
-			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
-			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
-		];
+		let pair = sp_core::ecdsa::Pair::from_seed_slice(&hardhat_sk)
+			.expect("valid 32-byte Hardhat test key");
+		// sign_prehashed returns [r(32) | s(32) | recovery_id(1)]; k256 normalises s to low-half.
+		let sig = pair.sign_prehashed(&digest);
+		let sig_bytes: &[u8] = sig.as_ref();
+		let r: [u8; 32] = sig_bytes[0..32].try_into().expect("r is 32 bytes");
+		let s: [u8; 32] = sig_bytes[32..64].try_into().expect("s is 32 bytes");
+		let v: u8 = sig_bytes[64] + 27; // convert recovery_id (0/1) to Ethereum v (27/28)
 
 		// Build the permitCall with alloy types.
 		let call = IERC20::permitCall {
 			owner: alloy::primitives::Address::from(owner.0),
 			spender: alloy::primitives::Address::from(spender.0),
-			value: alloy::primitives::U256::from(1000u64),
-			deadline: alloy::primitives::U256::from(u64::MAX),
+			value,
+			deadline,
 			v,
 			r: alloy::primitives::FixedBytes(r),
 			s: alloy::primitives::FixedBytes(s),
