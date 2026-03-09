@@ -37,6 +37,12 @@ use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
 pub use pallet::*;
 
+/// EIP-712 type hash for the domain separator.
+/// keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+pub(crate) const DOMAIN_TYPEHASH: [u8; 32] = const_crypto::sha3::Keccak256::new()
+	.update(b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+	.finalize();
+
 /// EIP-712 type hash for Permit.
 /// keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
 ///
@@ -152,18 +158,13 @@ pub mod pallet {
 		///
 		/// The `name` parameter should be the token name per EIP-2612 specification.
 		pub fn compute_domain_separator(verifying_contract: &H160, name: &[u8]) -> H256 {
-			// EIP712Domain typehash
-			let domain_typehash = keccak_256(
-				b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
-			);
-
 			let name_hash = keccak_256(name);
 			let version_hash = keccak_256(b"1");
 			let chain_id = T::ChainId::get();
 
 			// Encode: typehash || name_hash || version_hash || chainId || verifyingContract
 			let mut data = Vec::with_capacity(DOMAIN_SEPARATOR_ENCODED_LEN);
-			data.extend_from_slice(&domain_typehash);
+			data.extend_from_slice(&DOMAIN_TYPEHASH);
 			data.extend_from_slice(&name_hash);
 			data.extend_from_slice(&version_hash);
 			// Pad chain_id to 32 bytes (big-endian)
