@@ -198,12 +198,13 @@ impl<T: Config> AccountInfo<T> {
 			if let Some(account) = account {
 				match &mut account.account_type {
 					AccountType::EOA { delegate_target: Some(_), contract_info } => {
-						*contract_info = Some(contract.clone());
+						*contract_info = Some(contract);
+						return;
 					},
-					_ => account.account_type = contract.clone().into(),
+					_ => account.account_type = contract.into(),
 				}
 			} else {
-				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
+				*account = Some(AccountInfo { account_type: contract.into(), dust: 0 });
 			}
 		});
 	}
