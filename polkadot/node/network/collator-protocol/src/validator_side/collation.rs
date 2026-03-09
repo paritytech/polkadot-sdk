@@ -319,12 +319,6 @@ impl Collations {
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default()
 	}
-<<<<<<< HEAD
-=======
-
-	pub(super) fn queued_for_para(&self, para_id: &ParaId) -> usize {
-		self.waiting_queue.get(para_id).map(|queue| queue.len()).unwrap_or_default()
-	}
 
 	/// Remove all pending collations for a specific peer from the waiting queue.
 	pub(super) fn remove_pending_for_peer(&mut self, peer_id: &PeerId) {
@@ -332,7 +326,6 @@ impl Collations {
 			queue.retain(|(pending, _)| &pending.peer_id != peer_id);
 		}
 	}
->>>>>>> 61258900 (collator-protocol: Remove stale pending collations from the waiting queue (#10906))
 }
 
 // Any error that can occur when awaiting a collation fetch response.
