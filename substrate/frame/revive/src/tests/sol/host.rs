@@ -192,11 +192,6 @@ fn extcodesize_works(fixture_type: FixtureType) {
 			test_utils::ensure_stored(info.code_hash) as u64
 		};
 
-		let target_code_size = {
-			let info = test_utils::get_contract(&target_addr);
-			test_utils::ensure_stored(info.code_hash) as u64
-		};
-
 		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
 		let delegated_eoa = create_delegated_eoa(&target_addr);
 
@@ -208,7 +203,7 @@ fn extcodesize_works(fixture_type: FixtureType) {
 
 		let cases = vec![
 			TestCase { name: "regular contract", addr: host_addr, expected: host_code_size },
-			TestCase { name: "delegated EOA", addr: delegated_eoa, expected: target_code_size },
+			TestCase { name: "delegated EOA", addr: delegated_eoa, expected: 23 },
 			TestCase { name: "regular EOA", addr: CHARLIE_ADDR, expected: 0 },
 			TestCase { name: "non-existent", addr: H160::from_low_u64_be(0xdead), expected: 0 },
 		];
@@ -238,8 +233,6 @@ fn extcodehash_works(fixture_type: FixtureType) {
 				.build_and_unwrap_contract();
 
 		let host_code_hash = test_utils::get_contract(&host_addr).code_hash;
-		let target_code_hash = test_utils::get_contract(&target_addr).code_hash;
-
 		struct TestCase {
 			name: &'static str,
 			addr: H160,
@@ -253,10 +246,28 @@ fn extcodehash_works(fixture_type: FixtureType) {
 		let chained_delegated_eoa = create_delegated_eoa(&target_addr);
 		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, chained_delegated_eoa);
 
+		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target)
+		let delegation_indicator_hash = |target: &H160| -> H256 {
+			let mut buf = [0u8; 23];
+			buf[0] = 0xef;
+			buf[1] = 0x01;
+			buf[2] = 0x00;
+			buf[3..23].copy_from_slice(target.as_bytes());
+			sp_io::hashing::keccak_256(&buf).into()
+		};
+
 		let cases = vec![
 			TestCase { name: "regular contract", addr: host_addr, expected: host_code_hash },
-			TestCase { name: "delegated EOA", addr: delegated_eoa, expected: target_code_hash },
-			TestCase { name: "delegation chain", addr: DJANGO_ADDR, expected: EMPTY_CODE_HASH },
+			TestCase {
+				name: "delegated EOA",
+				addr: delegated_eoa,
+				expected: delegation_indicator_hash(&target_addr),
+			},
+			TestCase {
+				name: "delegation chain",
+				addr: DJANGO_ADDR,
+				expected: delegation_indicator_hash(&chained_delegated_eoa),
+			},
 			TestCase { name: "regular EOA", addr: CHARLIE_ADDR, expected: EMPTY_CODE_HASH },
 			TestCase {
 				name: "non-existent",

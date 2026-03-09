@@ -2295,6 +2295,16 @@ where
 			return sp_io::hashing::keccak_256(code).into();
 		}
 
+		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target)
+		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+			let mut buf = [0u8; 23];
+			buf[0] = 0xef;
+			buf[1] = 0x01;
+			buf[2] = 0x00;
+			buf[3..23].copy_from_slice(target.as_bytes());
+			return sp_io::hashing::keccak_256(&buf).into();
+		}
+
 		<AccountInfo<T>>::load_contract(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
@@ -2313,6 +2323,11 @@ where
 				.and_then(|handler| handler.mocked_code(*address))
 		}) {
 			return code.len() as u64;
+		}
+
+		// EIP-7702: delegated EOAs return the delegation indicator size (23)
+		if <AccountInfo<T>>::is_delegated(address) {
+			return 23;
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
