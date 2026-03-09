@@ -273,6 +273,12 @@ impl<T: Config> AccountInfo<T> {
 				if let Some(cd) = code_deposit {
 					*new_deposit = info.update_base_deposit(cd);
 				}
+			} else if let Some(ci) = contract_info.as_mut() {
+				// Target is not a contract: clear stale code_hash and deposit so that
+				// a subsequent re-delegation doesn't double-decrement the refcount
+				// or double-refund the deposit.
+				ci.code_hash = Default::default();
+				ci.storage_base_deposit = Default::default();
 			}
 		};
 

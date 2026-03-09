@@ -260,8 +260,8 @@ fn contract_account_rejects_authorization() {
 		let target = H160::from([0x42; 20]);
 
 		// Deploy a contract and mark the signer's address as a contract
-		let contract =
-			builder::bare_instantiate(Code::Upload(dummy_evm_contract())).build_and_unwrap_contract();
+		let contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
 		let contract_info = get_contract(&contract.addr);
 
 		// Overwrite the signer's account info to be a Contract type
@@ -830,17 +830,17 @@ fn delegation_to_nonexistent_address_is_noop() {
 		let nonexistent = H160::from([0xDE; 20]);
 		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, nonexistent);
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
-		assert_eq!(
-			AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR),
-			Some(nonexistent)
-		);
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR), Some(nonexistent));
 
 		// Calling Alice should succeed but execute no code (empty return data)
 		let result = builder::bare_call(ALICE_ADDR)
 			.data(vec![0xDE, 0xAD, 0xBE, 0xEF]) // arbitrary calldata
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "call should not revert");
-		assert!(result.data.is_empty(), "no code should execute for delegation to nonexistent address");
+		assert!(
+			result.data.is_empty(),
+			"no code should execute for delegation to nonexistent address"
+		);
 
 		// eth_getCode should still return the delegation indicator
 		let mut expected_code = vec![0xef, 0x01, 0x00];
@@ -1126,6 +1126,76 @@ fn redelegation_updates_refcounts() {
 			CodeInfoOf::<Test>::get(hash_b).unwrap().refcount(),
 			refcount_b_before + 1,
 			"new code refcount should be incremented"
+		);
+	});
+}
+
+/// Re-delegation from contract → EOA → contract must not double-decrement the original
+/// code's refcount or double-refund the deposit. Verifies both refcounts and returned
+/// deposit values at each step.
+#[test]
+fn redelegation_via_eoa_does_not_double_decrement() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		let target_a = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+
+		use pallet_revive_fixtures::{FixtureType, compile_module_with_type};
+		let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+		let target_c =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		let hash_a = get_contract(&target_a.addr).code_hash;
+		let hash_c = get_contract(&target_c.addr).code_hash;
+		assert_ne!(hash_a, hash_c);
+
+		let refcount_a_before = CodeInfoOf::<Test>::get(hash_a).unwrap().refcount();
+		let refcount_c_before = CodeInfoOf::<Test>::get(hash_c).unwrap().refcount();
+
+		let authority = H160::from([0x11; 20]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
+
+		// Step 1: delegate to contract A — charges deposit, increments refcount
+		let deposit_a = AccountInfo::<Test>::set_delegation(&authority, target_a.addr);
+		let charge_a = match deposit_a {
+			crate::StorageDeposit::Charge(d) => d,
+			other => panic!("expected Charge, got {other:?}"),
+		};
+		assert!(charge_a > 0, "delegation to contract should charge a deposit");
+		assert_eq!(CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(), refcount_a_before + 1);
+
+		// Step 2: re-delegate to a plain EOA — refunds the full deposit, decrements refcount
+		let plain_eoa = H160::from([0x77; 20]);
+		let deposit_eoa = AccountInfo::<Test>::set_delegation(&authority, plain_eoa);
+		assert_eq!(
+			deposit_eoa,
+			crate::StorageDeposit::Refund(charge_a),
+			"re-delegating to EOA should refund the full deposit from step 1"
+		);
+		assert_eq!(
+			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
+			refcount_a_before,
+			"A's refcount should be back to original after re-delegating to EOA"
+		);
+
+		// Step 3: re-delegate to contract C — charges a fresh deposit, must NOT touch A
+		let deposit_c = AccountInfo::<Test>::set_delegation(&authority, target_c.addr);
+		let charge_c = match deposit_c {
+			crate::StorageDeposit::Charge(d) => d,
+			other => panic!("expected Charge, got {other:?}"),
+		};
+		assert!(charge_c > 0, "delegation to contract should charge a deposit");
+		assert_eq!(
+			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
+			refcount_a_before,
+			"A's refcount must not be decremented again"
+		);
+		assert_eq!(
+			CodeInfoOf::<Test>::get(hash_c).unwrap().refcount(),
+			refcount_c_before + 1,
+			"C's refcount should be incremented"
 		);
 	});
 }
