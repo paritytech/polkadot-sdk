@@ -29,7 +29,7 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	BoundedVec, Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
 pub mod offence;
@@ -734,33 +734,6 @@ pub struct EraRewardAllocation<Balance> {
 	pub validator_incentive: Balance,
 }
 
-/// Trait for managing staking rewards across eras.
-///
-/// The provider is responsible for computing inflation, minting rewards, and funding
-/// separate pot accounts for different reward categories.
-pub trait StakingRewardProvider<AccountId, Balance> {
-	/// Allocate rewards for a new era based on staking state and duration.
-	///
-	/// The provider should mint the computed rewards and fund the provided pot accounts.
-	///
-	/// # Parameters
-	/// - `era`: The era index being finalized
-	/// - `total_staked`: Total amount staked in this era
-	/// - `era_duration_millis`: Duration of the era in milliseconds
-	/// - `staker_pot`: The pot account to fund with staker rewards
-	/// - `validator_incentive_pot`: The pot account to fund with validator self-stake incentive
-	///
-	/// # Returns
-	/// The allocation breakdown showing amounts minted into each pot
-	fn allocate_era_rewards(
-		era: EraIndex,
-		total_staked: Balance,
-		era_duration_millis: u64,
-		staker_pot: &AccountId,
-		validator_incentive_pot: &AccountId,
-	) -> EraRewardAllocation<Balance>;
-}
-
 /// Trait for receiving unclaimed staking rewards.
 ///
 /// This specifies where the unclaimed rewards should be transferred when era pot accounts are
@@ -775,13 +748,8 @@ pub trait UnclaimedRewardSink<AccountId> {
 
 /// Handler for determining how much of a balance should be paid out on the current era.
 ///
-/// **Deprecated**: Use [`EraPayoutV2`] instead. This trait returns a tuple where the second value
-/// (remainder) is no longer used by latest DAP implementations. The new `EraPayoutV2` trait
-/// returns only the total era inflation, with the distribution handled by the reward provider.
-#[deprecated(
-	note = "Use `EraPayoutV2` instead. The remainder value is no longer used; reward distribution \
-	is handled by the reward provider."
-)]
+/// Used by `pallet-staking` (legacy). New code should use [`InflationCurve`] instead,
+/// which decouples inflation from staking state.
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -795,7 +763,6 @@ pub trait EraPayout<Balance> {
 }
 
 /// Default implementation that returns zero rewards.
-#[allow(deprecated)]
 impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
@@ -806,57 +773,63 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	}
 }
 
-/// Handler for determining the total era inflation.
+/// Maximum length of a budget key identifier.
+pub const MAX_BUDGET_KEY_LEN: u32 = 32;
+
+/// Identifier for a budget category in the inflation distribution system.
 ///
-/// This replaces `EraPayout`. Instead of returning a pre-split staker/remainder tuple, this trait
-/// returns only the total era inflation amount.
+/// Each budget recipient (e.g., staker rewards, validator incentive, buffer) is identified
+/// by a unique key. Keys are bounded to [`MAX_BUDGET_KEY_LEN`] bytes.
+pub type BudgetKey = BoundedVec<u8, sp_core::ConstU32<MAX_BUDGET_KEY_LEN>>;
+
+/// Computes inflation for a given time period.
 ///
-/// The reward provider (e.g., pallet-dap) is responsible for splitting this amount according to
-/// configured budget allocations.
-pub trait EraPayoutV2<Balance> {
-	/// Determine the total inflation for this era.
-	///
-	/// Returns the total amount to be minted for this era. The distribution of this amount
-	/// (e.g., to stakers, validators, treasury) is handled by the reward provider based on
-	/// its configured budget allocation.
+/// Unlike [`EraPayout`], this trait does not depend on staking state (`total_staked`).
+/// Inflation is purely a function of total issuance and elapsed time.
+pub trait InflationCurve<Balance> {
+	/// Compute how much new tokens to mint for the given period.
 	///
 	/// # Parameters
-	/// - `total_staked`: Total amount staked in the network
-	/// - `total_issuance`: Total token issuance
-	/// - `era_duration_millis`: Duration of the era in milliseconds
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> Balance;
+	/// - `total_issuance`: Current total token supply
+	/// - `elapsed_millis`: Time elapsed since last inflation drip, in milliseconds
+	fn inflation(total_issuance: Balance, elapsed_millis: u64) -> Balance;
 }
 
-/// Backward compatibility adapter: implements `EraPayoutV2` for any type that implements
-/// `EraPayout`.
+/// A recipient of inflation budget.
 ///
-/// This adapter sums both values from the old `EraPayout` trait (staker amount + remainder)
-/// to produce the total inflation for `EraPayoutV2`. This allows old `EraPayout` implementations
-/// to work with new code that expects `EraPayoutV2`.
+/// Pallets that want a share of inflation implement this trait, providing a unique key
+/// and a pot account where minted funds are deposited.
+pub trait BudgetRecipient<AccountId> {
+	/// Unique identifier for this budget category.
+	fn budget_key() -> BudgetKey;
+	/// The account that receives minted inflation funds.
+	fn pot_account() -> AccountId;
+}
+
+/// Aggregates multiple [`BudgetRecipient`]s into a list.
 ///
-/// Note: This includes the `()` type, which returns `(Default, Default)` from `EraPayout`,
-/// summing to `Default` for `EraPayoutV2`.
-#[allow(deprecated)]
-impl<T, Balance> EraPayoutV2<Balance> for T
-where
-	T: EraPayout<Balance>,
-	Balance: Add<Output = Balance>,
-{
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> Balance {
-		let (staker_payout, remainder) = <T as EraPayout<Balance>>::era_payout(
-			total_staked,
-			total_issuance,
-			era_duration_millis,
-		);
-		staker_payout + remainder
+/// Implemented for tuples of `BudgetRecipient` types, allowing runtime configuration like:
+/// ```ignore
+/// type BudgetRecipients = (Dap, StakerRewardRecipient, ValidatorIncentiveRecipient);
+/// ```
+pub trait BudgetRecipientList<AccountId> {
+	/// Collect all registered recipients as `(key, account)` pairs.
+	fn recipients() -> Vec<(BudgetKey, AccountId)>;
+}
+
+impl<AccountId> BudgetRecipientList<AccountId> for () {
+	fn recipients() -> Vec<(BudgetKey, AccountId)> {
+		Vec::new()
+	}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(1, 10)]
+#[tuple_types_custom_trait_bound(BudgetRecipient<AccountId>)]
+impl<AccountId> BudgetRecipientList<AccountId> for Tuple {
+	fn recipients() -> Vec<(BudgetKey, AccountId)> {
+		let mut v = Vec::new();
+		for_tuples!( #( v.push((Tuple::budget_key(), Tuple::pot_account())); )* );
+		v
 	}
 }
 
