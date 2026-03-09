@@ -64,6 +64,7 @@ async fn statement_store_concurrent_multi_account_submission() -> Result<(), any
 
 	assert_no_more_statements(&mut bob_sub, 10).await?;
 	info!("Concurrent multi-account submission test passed");
+	network.detach().await;
 	Ok(())
 }
 
@@ -129,6 +130,7 @@ async fn statement_store_priority_eviction_ordering() -> Result<(), anyhow::Erro
 	}
 
 	info!("Priority eviction ordering test passed");
+	network.detach().await;
 	Ok(())
 }
 
@@ -225,6 +227,7 @@ async fn statement_store_multi_topic_and_subscriptions() -> Result<(), anyhow::E
 	assert_no_more_statements(&mut sub_any, 5).await?;
 
 	info!("Multi-topic and subscriptions test passed");
+	network.detach().await;
 	Ok(())
 }
 
@@ -291,6 +294,7 @@ async fn statement_store_channel_replacement() -> Result<(), anyhow::Error> {
 	info!("Channel 2: seq=50 accepted (independent from channel 1)");
 
 	info!("Channel replacement test passed");
+	network.detach().await;
 	Ok(())
 }
 
@@ -365,6 +369,7 @@ async fn statement_store_subscriber_isolation() -> Result<(), anyhow::Error> {
 	info!("Charlie correctly did not receive topic_b");
 
 	info!("Subscriber isolation test passed");
+	network.detach().await;
 	Ok(())
 }
 
@@ -433,6 +438,7 @@ async fn statement_store_high_throughput_propagation() -> Result<(), anyhow::Err
 
 	assert_no_more_statements(&mut charlie_sub, 10).await?;
 	info!("High-throughput propagation test passed");
+	network.detach().await;
 	Ok(())
 }
 
@@ -488,5 +494,6 @@ async fn statement_store_deduplication() -> Result<(), anyhow::Error> {
 	info!("No re-propagation observed - deduplication working");
 
 	info!("Deduplication test passed");
+	network.detach().await;
 	Ok(())
 }
