@@ -1423,11 +1423,13 @@ construct_runtime!(
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
-		// Staking.
+		// Staking
+		// NOTE: Following pallet indices differ from PAH. For remote snapshot testing with PAH data,
+		// temporarily align to PAH indices (DO NOT COMMIT): Staking: 89, NominationPools: 80,
+		// VoterList: 82, DelegatedStaking: 83, StakingRcClient: 84
+		// Refer: https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-polkadot/src/lib.rs#L1545
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		// decommissioned in AHs.
-		// FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1514,6 +1516,15 @@ impl EthExtra for EthExtraImpl {
 pub type UncheckedExtrinsic =
 	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
 
+parameter_types! {
+	// Account `15jAYzPdLorBGAj4LLGaqohpzpw4mEohVkzszNpaBPbnDaXn` (Nomination Pool #296)
+	// has trapped funds on PAH. On WAH this will be a no-op (member won't exist), but
+	// leaving here as a reference when we add to PAH. To be skipped on KAH.
+	pub TrappedBalanceMember: AccountId = AccountId::from(
+		hex_literal::hex!("d11964e74f0571827c231ee07fc7268fc835499db3a0089c9e6f02c2435f50fc")
+	);
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1542,6 +1553,12 @@ pub type Migrations = (
 	frame_support::migrations::RemovePallet<
 		FastUnstakeName,
 		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	// unreleased
+	// no-op if member has no trapped balance, so second run is safe.
+	pallet_nomination_pools::migration::unversioned::ClaimTrappedBalance<
+		Runtime,
+		TrappedBalanceMember,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
