@@ -134,6 +134,19 @@ pub enum RejectionReason {
 	NoAllowance,
 }
 
+impl RejectionReason {
+	/// Returns a short string label suitable for use in metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			RejectionReason::DataTooLarge { .. } => "data_too_large",
+			RejectionReason::ChannelPriorityTooLow { .. } => "channel_priority_too_low",
+			RejectionReason::AccountFull { .. } => "account_full",
+			RejectionReason::StoreFull => "store_full",
+			RejectionReason::NoAllowance => "no_allowance",
+		}
+	}
+}
+
 /// Reason why a statement failed validation.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
