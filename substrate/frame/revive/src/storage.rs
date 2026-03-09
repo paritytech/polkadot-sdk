@@ -247,7 +247,7 @@ impl<T: Config> AccountInfo<T> {
 	///
 	/// Note: the target's `code_hash` is snapshotted at delegation time. This is fine
 	/// because `set_code` (the only way to change a contract's code) requires root.
-	pub fn set_delegation(address: &H160, target: H160) -> StorageDeposit<BalanceOf<T>> {
+	pub(crate) fn set_delegation(address: &H160, target: H160) -> StorageDeposit<BalanceOf<T>> {
 		let target_code_hash =
 			<AccountInfoOf<T>>::get(&target).and_then(|info| match info.account_type {
 				AccountType::Contract(c) => Some(c.code_hash),
@@ -290,7 +290,11 @@ impl<T: Config> AccountInfo<T> {
 						*delegate_target = Some(target);
 						update_contract_info(contract_info, &mut new_deposit);
 					},
-					_ => {
+					ty => {
+						debug_assert!(
+							!matches!(ty, AccountType::Contract(_)),
+							"set_delegation must not be called on contract accounts"
+						);
 						let mut contract_info = None;
 						update_contract_info(&mut contract_info, &mut new_deposit);
 						account.account_type =
@@ -338,7 +342,7 @@ impl<T: Config> AccountInfo<T> {
 	/// re-delegation does not lose track of held deposits.
 	///
 	/// Returns the `storage_base_deposit` to refund.
-	pub fn clear_delegation(address: &H160) -> StorageDeposit<BalanceOf<T>> {
+	pub(crate) fn clear_delegation(address: &H160) -> StorageDeposit<BalanceOf<T>> {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			let mut refund: BalanceOf<T> = Zero::zero();
 			if let Some(account) = account {
