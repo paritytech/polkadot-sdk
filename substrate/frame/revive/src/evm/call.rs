@@ -18,19 +18,20 @@
 //! Functionality to decode an eth transaction into an dispatchable call.
 
 use crate::{
+	BalanceOf, CallOf, Config, GenericTransaction, LOG_TARGET, Pallet, RUNTIME_PALLETS_ADDR,
+	Weight, Zero,
 	evm::{
-		fees::{compute_max_integer_quotient, InfoT},
-		runtime::SetWeightLimit,
 		TYPE_LEGACY,
+		fees::{InfoT, compute_max_integer_quotient},
+		runtime::SetWeightLimit,
 	},
-	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	extract_code_and_data,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::{Get, U256};
-use sp_runtime::{transaction_validity::InvalidTransaction, SaturatedConversion};
+use sp_runtime::{SaturatedConversion, transaction_validity::InvalidTransaction};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -242,9 +243,9 @@ impl GenericTransaction {
 
 		// the leftover we make available to the deposit collection system
 		let storage_deposit = eth_fee.checked_sub(tx_fee.into()).ok_or_else(|| {
-		log::error!(target: LOG_TARGET, "The eth_fee={eth_fee:?} is smaller than the tx_fee={tx_fee:?}. This is a bug.");
-		InvalidTransaction::Payment
-	})?.saturated_into();
+			log::error!(target: LOG_TARGET, "The eth_fee={eth_fee:?} is smaller than the tx_fee={tx_fee:?}. This is a bug.");
+			InvalidTransaction::Payment
+		})?.saturated_into();
 
 		Ok(CallInfo {
 			call,
