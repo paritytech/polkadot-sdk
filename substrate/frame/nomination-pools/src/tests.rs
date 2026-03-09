@@ -7638,3 +7638,60 @@ mod filter {
 		});
 	}
 }
+
+mod claim_trapped_balance_migration {
+	use super::*;
+	use sp_staking::Delegator;
+
+	/// Test that do_claim_trapped_balance successfully recovers trapped funds.
+	#[test]
+	fn migration_recovers_trapped_funds() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+
+			// Member joins with 100
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+
+			// Simulate trapped funds: delegator_balance > points
+			let pool_account = BondedPool::<Runtime>::get(1).unwrap().bonded_account();
+			DelegateMock::set_delegator_balance(member, 150);
+			DelegateMock::set_agent_balance_full(pool_account, 100, 50, 0);
+
+			let member_data = PoolMembers::<Runtime>::get(member).unwrap();
+			assert_eq!(member_data.total_balance(), 100);
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(150));
+
+			// Call the helper directly
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+
+			// Verify balance corrected: delegator_balance should now match points (100)
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+
+			// Calling again is a no-op (no state change)
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), Some(100));
+		});
+	}
+
+	/// Test that do_claim_trapped_balance is a no-op when no trapped balance.
+	#[test]
+	fn migration_no_op_when_no_trapped_balance() {
+		ExtBuilder::default().build_and_execute(|| {
+			let member = 20;
+			assert_ok!(Pools::join(RuntimeOrigin::signed(member), 100, 1));
+
+			let balance_before = DelegateMock::delegator_balance(Delegator::from(member));
+			let member_before = PoolMembers::<Runtime>::get(member).unwrap();
+
+			assert_ok!(Pools::do_claim_trapped_balance(&member));
+
+			// Verify no state changed
+			assert_eq!(DelegateMock::delegator_balance(Delegator::from(member)), balance_before);
+			assert_eq!(PoolMembers::<Runtime>::get(member).unwrap(), member_before);
+		});
+	}
+}

@@ -3291,6 +3291,70 @@ impl<T: Config> Pallet<T> {
 			.max(MinJoinBond::<T>::get())
 			.max(T::Currency::minimum_balance())
 	}
+
+	/// Claim trapped balance for a pool member.
+	///
+	/// In rare scenarios, pool members may have excess held balance that is not accounted
+	/// for in their pool points. This can occur when points are incorrectly dissolved
+	/// without releasing the corresponding held funds.
+	///
+	/// If the pool has any pending slash, it will be applied to the member first before
+	/// claiming the trapped balance.
+	///
+	/// Safe to call multiple times or for non-existent members — returns `Ok(())` as a
+	/// no-op when there is nothing to do.
+	pub fn do_claim_trapped_balance(member_account: &T::AccountId) -> DispatchResult {
+		ensure!(
+			T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+			Error::<T>::NotSupported
+		);
+
+		// Apply any pending slash first. Ignore NothingToSlash and PoolMemberNotFound
+		// (member existence is validated below).
+		match Self::do_apply_slash(member_account, None, false) {
+			Ok(_) => {},
+			Err(e)
+				if e == Error::<T>::NothingToSlash.into() ||
+					e == Error::<T>::PoolMemberNotFound.into() => {},
+			Err(_) => {
+				return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
+			},
+		};
+
+		let member = match PoolMembers::<T>::get(member_account) {
+			Some(m) => m,
+			None => return Ok(()),
+		};
+
+		let expected_balance = member.total_balance();
+		let actual_balance =
+			T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+				.unwrap_or_default();
+
+		let trapped_amount = actual_balance.saturating_sub(expected_balance);
+
+		if trapped_amount.is_zero() {
+			return Ok(());
+		}
+
+		T::StakeAdapter::member_withdraw(
+			Member::from(member_account.clone()),
+			Pool::from(Self::generate_bonded_account(member.pool_id)),
+			trapped_amount,
+			0,
+		)?;
+
+		log!(
+			info,
+			"Claimed trapped balance for member {:?}, pool {:?}, amount {:?}",
+			member_account,
+			member.pool_id,
+			trapped_amount
+		);
+
+		Ok(())
+	}
+
 	/// Remove everything related to the given bonded pool.
 	///
 	/// Metadata and all of the sub-pools are also deleted. All accounts are dusted and the leftover
