@@ -58,7 +58,7 @@ impl PendingRequests {
 				let (req, response_recv) = OutgoingRequest::new(
 					Recipient::Peer(advertisement.peer_id),
 					request_v1::CollationFetchingRequest {
-						relay_parent: advertisement.relay_parent,
+						scheduling_parent: advertisement.scheduling_parent,
 						para_id: advertisement.para_id,
 					},
 				);
@@ -69,7 +69,7 @@ impl PendingRequests {
 				let (req, response_recv) = OutgoingRequest::new(
 					Recipient::Peer(advertisement.peer_id),
 					request_v2::CollationFetchingRequest {
-						relay_parent: advertisement.relay_parent,
+						scheduling_parent: advertisement.scheduling_parent,
 						para_id: advertisement.para_id,
 						candidate_hash,
 					},
@@ -110,7 +110,7 @@ impl PendingRequests {
 	pub fn has_in_flight_for(&self, relay_parent: &Hash, para_id: &ParaId) -> bool {
 		self.cancellation_tokens
 			.keys()
-			.any(|adv| adv.relay_parent == *relay_parent && adv.para_id == *para_id)
+			.any(|adv| adv.scheduling_parent == *relay_parent && adv.para_id == *para_id)
 	}
 
 	pub fn response_stream(&mut self) -> &mut impl FusedStream<Item = CollationFetchResponse> {

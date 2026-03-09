@@ -1351,6 +1351,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
+ "frame-remote-externalities",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -1453,6 +1454,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tokio",
  "tracing",
  "westend-runtime",
  "westend-runtime-constants",
@@ -1517,16 +1519,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-attributes"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
-dependencies = [
- "quote 1.0.40",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1576,41 +1568,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-global-executor"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1b6f5d7df27bd294849f8eec66ecfc63d11814df7a4f5d74168a2394467b776"
-dependencies = [
- "async-channel 1.9.0",
- "async-executor",
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "blocking",
- "futures-lite 1.13.0",
- "once_cell",
-]
-
-[[package]]
-name = "async-io"
-version = "1.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fc5b45d93ef0529756f812ca52e44c221b35341892d3dcc34132ac02f3dd2af"
-dependencies = [
- "async-lock 2.8.0",
- "autocfg",
- "cfg-if",
- "concurrent-queue",
- "futures-lite 1.13.0",
- "log",
- "parking",
- "polling 2.8.0",
- "rustix 0.37.23",
- "slab",
- "socket2 0.4.9",
- "waker-fn",
-]
-
-[[package]]
 name = "async-io"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1655,7 +1612,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b948000fad4873c1c9339d60f2623323a0cfd3816e5181033c6a5cb68b2accf7"
 dependencies = [
- "async-io 2.3.3",
+ "async-io",
  "blocking",
  "futures-lite 2.3.0",
 ]
@@ -1667,7 +1624,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63255f1dc2381611000436537bbedfe83183faa303a5a0edaf191edef06526bb"
 dependencies = [
  "async-channel 2.3.0",
- "async-io 2.3.3",
+ "async-io",
  "async-lock 3.4.0",
  "async-signal",
  "async-task",
@@ -1685,7 +1642,7 @@ version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfb3634b73397aa844481f814fad23bbf07fdb0eabec10f2eb95e58944b1ec32"
 dependencies = [
- "async-io 2.3.3",
+ "async-io",
  "async-lock 3.4.0",
  "atomic-waker",
  "cfg-if",
@@ -1695,33 +1652,6 @@ dependencies = [
  "signal-hook-registry",
  "slab",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "async-std"
-version = "1.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62565bb4402e926b29953c785397c6dc0391b7b446e45008b0049eb43cec6f5d"
-dependencies = [
- "async-attributes",
- "async-channel 1.9.0",
- "async-global-executor",
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "crossbeam-utils",
- "futures-channel",
- "futures-core",
- "futures-io",
- "futures-lite 1.13.0",
- "gloo-timers",
- "kv-log-macro",
- "log",
- "memchr",
- "once_cell",
- "pin-project-lite",
- "pin-utils",
- "slab",
- "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -3003,9 +2933,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.10.1"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
+checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 dependencies = [
  "serde",
 ]
@@ -5221,7 +5151,7 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "socket2 0.5.9",
+ "socket2",
  "windows-sys 0.52.0",
 ]
 
@@ -6130,13 +6060,13 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 name = "equivocation-detector"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "bp-header-chain",
  "finality-relay",
  "futures",
  "num-traits",
  "relay-utils",
+ "tokio",
  "tracing",
 ]
 
@@ -6463,7 +6393,6 @@ dependencies = [
 name = "finality-relay"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "backoff",
  "bp-header-chain",
@@ -6471,6 +6400,7 @@ dependencies = [
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
+ "tokio",
  "tracing",
 ]
 
@@ -7848,7 +7778,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand 0.8.5",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 1.0.65",
  "tinyvec",
  "tokio",
@@ -8101,7 +8031,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
@@ -8206,7 +8136,7 @@ dependencies = [
  "http-body 1.0.0",
  "hyper 1.6.0",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
@@ -8406,7 +8336,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6b0422c86d7ce0e97169cc42e04ae643caf278874a7a3c87b8150a220dc7e1e"
 dependencies = [
- "async-io 2.3.3",
+ "async-io",
  "core-foundation 0.9.4",
  "fnv",
  "futures",
@@ -8612,7 +8542,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2 0.5.9",
+ "socket2",
  "widestring",
  "windows-sys 0.48.0",
  "winreg",
@@ -9202,15 +9132,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kv-log-macro"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0de8b303297635ad57c9f5059fd9cee7a47f8e8daa09df0fcd07dd39fb22977f"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "kvdb"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9536,7 +9457,7 @@ dependencies = [
  "libp2p-swarm",
  "rand 0.8.5",
  "smallvec",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tracing",
  "void",
@@ -9622,7 +9543,7 @@ dependencies = [
  "rand 0.8.5",
  "ring 0.17.14",
  "rustls 0.23.34",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
@@ -9696,7 +9617,7 @@ dependencies = [
  "libc",
  "libp2p-core",
  "libp2p-identity",
- "socket2 0.5.9",
+ "socket2",
  "tokio",
  "tracing",
 ]
@@ -9769,7 +9690,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.8",
+ "yamux 0.13.9",
 ]
 
 [[package]]
@@ -9974,7 +9895,7 @@ dependencies = [
  "simple-dns 0.9.3",
  "smallvec",
  "snow",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
@@ -9986,16 +9907,16 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser 0.17.0",
- "yamux 0.13.8",
+ "yamux 0.13.9",
  "yasna",
  "zeroize",
 ]
 
 [[package]]
 name = "litep2p"
-version = "0.13.0"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c68ba359d7f1a80d18821b46575d5ddb9a9a6672fe0669f5fc9e83cab9abd760"
+checksum = "3fb34d4675b8eadc4a473c46b788439d34d30c247cd5f3f286162ee25e3c4f97"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10007,6 +9928,7 @@ dependencies = [
  "futures-timer",
  "hickory-resolver 0.25.2",
  "indexmap 2.9.0",
+ "ip_network",
  "libc",
  "mockall",
  "multiaddr 0.17.1",
@@ -10023,7 +9945,7 @@ dependencies = [
  "simple-dns 0.11.0",
  "smallvec",
  "snow",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
@@ -10035,7 +9957,7 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser 0.17.0",
- "yamux 0.13.8",
+ "yamux 0.13.9",
  "yasna",
  "zeroize",
 ]
@@ -10312,7 +10234,6 @@ dependencies = [
 name = "messages-relay"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "bp-messages",
  "finality-relay",
@@ -10323,6 +10244,7 @@ dependencies = [
  "relay-utils",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
+ "tokio",
  "tracing",
 ]
 
@@ -13302,8 +13224,8 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
- "polkavm 0.30.0",
- "polkavm-common 0.30.0",
+ "polkavm 0.31.0",
+ "polkavm-common 0.31.0",
  "pretty_assertions",
  "proptest",
  "rand 0.8.5",
@@ -13382,7 +13304,7 @@ dependencies = [
  "cargo_metadata",
  "hex",
  "pallet-revive-uapi",
- "polkavm-linker",
+ "polkavm-linker 0.30.0",
  "serde_json",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -14466,13 +14388,13 @@ dependencies = [
 name = "parachains-relay"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "async-trait",
  "bp-polkadot-core",
  "futures",
  "relay-substrate-client",
  "relay-utils",
  "sp-core 28.0.0",
+ "tokio",
  "tracing",
 ]
 
@@ -15395,6 +15317,7 @@ dependencies = [
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
  "sp-keyring",
+ "strum 0.26.3",
  "thiserror 1.0.65",
  "tracing-gum",
 ]
@@ -15574,6 +15497,7 @@ dependencies = [
  "futures-timer",
  "parity-scale-codec",
  "polkadot-node-core-pvf",
+ "polkadot-node-core-pvf-common",
  "polkadot-node-metrics",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -15742,6 +15666,7 @@ dependencies = [
  "polkadot-node-subsystem-test-helpers",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "procfs",
  "rand 0.8.5",
  "rococo-runtime",
@@ -17343,6 +17268,8 @@ dependencies = [
  "env_logger 0.11.3",
  "ethabi-decode",
  "futures",
+ "hex",
+ "hex-literal",
  "log",
  "pallet-revive",
  "parity-scale-codec",
@@ -17354,7 +17281,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
+ "sp-maybe-compressed-blob 11.0.0",
  "substrate-build-script-utils",
  "subxt 0.44.2",
  "tokio",
@@ -17378,16 +17307,16 @@ dependencies = [
 
 [[package]]
 name = "polkavm"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4323d016144b2852da47cee55ca5fc33dfe7517be1f52395759f247ecc5695f6"
+checksum = "34ddb26cbe473e21bf5c329723e72fdf9208b5f9674e54721bf436e2efdbb26f"
 dependencies = [
  "libc",
  "log",
  "picosimd",
- "polkavm-assembler 0.30.0",
- "polkavm-common 0.30.0",
- "polkavm-linux-raw 0.30.0",
+ "polkavm-assembler 0.31.0",
+ "polkavm-common 0.31.0",
+ "polkavm-linux-raw 0.31.0",
 ]
 
 [[package]]
@@ -17401,9 +17330,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-assembler"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3a873fa7ace058d6507debf5fccb1d06bd3279f5b35dbaf70dc7fe94a6c415c"
+checksum = "9f9006f0a135c6d035487fa88fa75b97b32a53d1d914c757f131c8e10a2af295"
 dependencies = [
  "log",
 ]
@@ -17424,10 +17353,19 @@ version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed1b408db93d4f49f5c651a7844682b9d7a561827b4dc6202c10356076c055c9"
 dependencies = [
+ "picosimd",
+]
+
+[[package]]
+name = "polkavm-common"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0a3e43fa1a54b955a2f9422b1690c3cc29252ac8828c02a99d2370b9f2a188e"
+dependencies = [
  "blake3",
  "log",
  "picosimd",
- "polkavm-assembler 0.30.0",
+ "polkavm-assembler 0.31.0",
 ]
 
 [[package]]
@@ -17446,6 +17384,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acb4463fb0b9dbfafdc1d1a1183df4bf7afa3350d124f29d5700c6bee54556b5"
 dependencies = [
  "polkavm-derive-impl-macro 0.30.0",
+]
+
+[[package]]
+name = "polkavm-derive"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d944b6b4e792c2a120232b52bd6f2c9dd3071d3f48462afb2b5d00cb9f7ac9"
+dependencies = [
+ "polkavm-derive-impl-macro 0.31.0",
 ]
 
 [[package]]
@@ -17473,6 +17420,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-derive-impl"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c14b030150f81dfde110997b6fafc19741998130908fdab85f1a66bb735025"
+dependencies = [
+ "polkavm-common 0.31.0",
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
+]
+
+[[package]]
 name = "polkavm-derive-impl-macro"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17493,6 +17452,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-derive-impl-macro"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3fcadb13edfcc3b4046fcd2d292597782f5b7a2af140e6363fbf71fe196b425"
+dependencies = [
+ "polkavm-derive-impl 0.31.0",
+ "syn 2.0.98",
+]
+
+[[package]]
 name = "polkavm-linker"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17509,6 +17478,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-linker"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1ae3f7aff1af110dcd0f105d783b10ff25cd2837abe411ea4d88ae5cd193b49"
+dependencies = [
+ "dirs",
+ "gimli 0.31.1",
+ "hashbrown 0.14.5",
+ "log",
+ "object 0.36.7",
+ "polkavm-common 0.31.0",
+ "regalloc2 0.9.3",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "polkavm-linux-raw"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17516,9 +17501,9 @@ checksum = "28919f542476f4158cc71e6c072b1051f38f4b514253594ac3ad80e3c0211fc8"
 
 [[package]]
 name = "polkavm-linux-raw"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "604b23cdb201979304449f53d21bfd5fb1724c03e3ea889067c9a3bf7ae33862"
+checksum = "cbcd9ed5f77c60f3878289001d3e789da301746249b622bfb2876e2d0fe32c0b"
 
 [[package]]
 name = "polling"
@@ -18209,7 +18194,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls 0.23.34",
- "socket2 0.5.9",
+ "socket2",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
@@ -18240,7 +18225,7 @@ checksum = "8bffec3605b73c6f1754535084a85229fa8a30f86014e6c81aeec4abb68b0285"
 dependencies = [
  "libc",
  "once_cell",
- "socket2 0.5.9",
+ "socket2",
  "tracing",
  "windows-sys 0.52.0",
 ]
@@ -18585,7 +18570,7 @@ checksum = "e898588f33fdd5b9420719948f9f2a32c922a246964576f71ba7f24f80610fbc"
 name = "relay-substrate-client"
 version = "0.1.0"
 dependencies = [
- "async-std",
+ "async-channel 1.9.0",
  "async-trait",
  "bp-header-chain",
  "bp-messages",
@@ -18626,7 +18611,6 @@ name = "relay-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "backoff",
  "bp-runtime",
@@ -20357,7 +20341,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm 0.30.0",
+ "polkavm 0.31.0",
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
@@ -20384,8 +20368,9 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm 0.30.0",
+ "polkavm 0.31.0",
  "sc-executor-common 0.29.0",
+ "sp-runtime-interface 24.0.0",
  "sp-wasm-interface 20.0.0",
 ]
 
@@ -20515,7 +20500,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.13.0",
+ "litep2p 0.13.2",
  "log",
  "mockall",
  "multistream-select",
@@ -20798,7 +20783,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.13.0",
+ "litep2p 0.13.2",
  "log",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
@@ -22242,7 +22227,7 @@ dependencies = [
  "async-channel 2.3.0",
  "async-executor",
  "async-fs",
- "async-io 2.3.3",
+ "async-io",
  "async-lock 3.4.0",
  "async-net",
  "async-process",
@@ -22981,16 +22966,6 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
-]
-
-[[package]]
-name = "socket2"
-version = "0.4.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64a4a911eed85daf18834cfaa86a79b7d266ff93ff5ba14005426219480ed662"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -23780,7 +23755,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "polkavm-derive 0.30.0",
+ "polkavm-derive 0.31.0",
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core 28.0.0",
@@ -24053,7 +24028,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "polkavm-derive 0.30.0",
+ "polkavm-derive 0.31.0",
  "rustversion",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
@@ -24412,6 +24387,7 @@ dependencies = [
  "parity-wasm",
  "scale-info",
  "serde",
+ "sp-core 28.0.0",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
@@ -24959,6 +24935,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "statement-latency-bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger 0.11.3",
+ "jsonrpsee",
+ "log",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-statement-store",
+ "tokio",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25206,7 +25199,7 @@ name = "substrate-relay-helper"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
+ "async-channel 1.9.0",
  "async-trait",
  "bp-header-chain",
  "bp-messages",
@@ -25240,6 +25233,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "strum 0.26.3",
  "thiserror 1.0.65",
+ "tokio",
  "tracing",
 ]
 
@@ -25439,7 +25433,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker",
+ "polkavm-linker 0.31.0",
  "sc-executor 0.32.0",
  "shlex",
  "sp-core 28.0.0",
@@ -26552,7 +26546,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.9",
+ "socket2",
  "tokio-macros",
  "windows-sys 0.52.0",
 ]
@@ -29056,9 +29050,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.8"
+version = "0.13.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deab71f2e20691b4728b349c6cee8fc7223880fa67b6b4f92225ec32225447e5"
+checksum = "c650efd29044140aa63caaf80129996a9e2659a2ab7045a7e061807d02fc8549"
 dependencies = [
  "futures",
  "log",
@@ -29246,9 +29240,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d255a21db0f4fd0447053d02d71d4346c11ad7d2c403dc15d60e6f8dc1e545"
+checksum = "9a28fc7a19b6ab25d3323cb64deb3a0d50a1604c280c249d420656f8f4fa9525"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -29267,9 +29261,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56b30135f9f983d90b0f201210acb6693a2a06a12dcb452fa5698f1a52c92028"
+checksum = "fa69efad193befe0a22e254103ccfbfd8792972d5c1382c83197698b918d13ec"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -29303,9 +29297,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c0fea78859330462e86e5c9d767aa2bd299c529b423240e6d5c019f92de295f"
+checksum = "c258c198e4efc84ea4de7f68f2c57155a2b1888c35876b3b4ea876d0aac5ea03"
 dependencies = [
  "pest",
  "pest_derive",
@@ -29314,9 +29308,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8313cfd06cd3e7b9991e799ab11edce54e32f5a627248444ba52492fcf3b03c4"
+checksum = "c11c8264ef16fea96eec3b9e61de3a84a0e820464bdb840e438db4f8792a460e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -29346,9 +29340,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d921f6c33dfe1724a745469f1bcca1752482275332dff589fdd732a48bd0db"
+checksum = "9a6aef713ced0efaa5993b094e3b306a2c4265d4f82b1b70ad78fbea46cc8ecf"
 dependencies = [
  "async-trait",
  "futures",
@@ -29364,9 +29358,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79b8ce21d656058123978e3d7590dd7f9dd253f9b2a581cd39dcb3998dd229e5"
+checksum = "2bb74c00b51724d7371fc8421a3d063f6d46db5bb27bac65cbc9eb5218557312"
 dependencies = [
  "anyhow",
  "async-trait",
