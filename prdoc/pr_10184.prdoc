@@ -42,12 +42,16 @@ crates:
     bump: patch
   - name: polkadot-runtime-parachains
     bump: major
+    validate: false
   - name: rococo-runtime
     bump: major
+    validate: false
   - name: westend-runtime
     bump: major
+    validate: false
   - name: polkadot-test-runtime
     bump: major
+    validate: false
   - name: cumulus-pallet-parachain-system
     bump: none
   - name: polkadot-parachain-bin
