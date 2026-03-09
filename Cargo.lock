@@ -11594,6 +11594,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "k256",
  "log",
  "pallet-assets",
  "pallet-balances",

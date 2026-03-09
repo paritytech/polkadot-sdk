@@ -34,7 +34,7 @@ use pallet_revive::{
 	precompiles::{alloy, H160},
 	AddressMapper,
 };
-use sp_core::{Pair as _, U256};
+use sp_core::U256;
 use sp_runtime::traits::StaticLookup;
 
 /// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
@@ -222,19 +222,23 @@ mod benchmarks {
 		// ── Sign with Hardhat account #0 private key ─────────────────────────
 		// Private key for 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Hardhat #0).
 		// This is a well-known public test key, safe to embed in benchmark code.
+		// We use k256 directly to avoid requiring sp-core's `full_crypto` feature
+		// which is unavailable in wasm runtime builds.
 		let hardhat_sk: [u8; 32] = [
 			0xac, 0x09, 0x74, 0xbe, 0xc3, 0x9a, 0x17, 0xe3, 0x6b, 0xa4, 0xa6, 0xb4, 0xd2, 0x38,
 			0xff, 0x94, 0x4b, 0xac, 0xb4, 0x78, 0xcb, 0xed, 0x5e, 0xfc, 0xae, 0x78, 0x4d, 0x7b,
 			0xf4, 0xf2, 0xff, 0x80,
 		];
-		let pair = sp_core::ecdsa::Pair::from_seed_slice(&hardhat_sk)
+		let signing_key = k256::ecdsa::SigningKey::from_slice(&hardhat_sk)
 			.expect("valid 32-byte Hardhat test key");
-		// sign_prehashed returns [r(32) | s(32) | recovery_id(1)]; k256 normalises s to low-half.
-		let sig = pair.sign_prehashed(&digest);
-		let sig_bytes: &[u8] = sig.as_ref();
+		// sign_prehash_recoverable returns (Signature, RecoveryId); k256 normalises s to low-half.
+		let (sig, recovery_id) = signing_key
+			.sign_prehash_recoverable(&digest)
+			.expect("signing with 32-byte digest cannot fail");
+		let sig_bytes = sig.to_bytes();
 		let r: [u8; 32] = sig_bytes[0..32].try_into().expect("r is 32 bytes");
 		let s: [u8; 32] = sig_bytes[32..64].try_into().expect("s is 32 bytes");
-		let v: u8 = sig_bytes[64] + 27; // convert recovery_id (0/1) to Ethereum v (27/28)
+		let v: u8 = recovery_id.to_byte() + 27; // convert recovery_id (0/1) to Ethereum v (27/28)
 
 		// Build the permitCall with alloy types.
 		let call = IERC20::permitCall {
