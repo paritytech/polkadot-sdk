@@ -2321,7 +2321,7 @@ where
 			return code.len() as u64;
 		}
 
-		// EIP-7702: delegated EOAs return the delegation indicator size (23)
+		// EIP-7702: delegated EOAs return the delegation indicator size (0xef0100 || target)
 		if <AccountInfo<T>>::is_delegated(address) {
 			return 23;
 		}
@@ -2469,25 +2469,18 @@ where
 		}
 
 		// EIP-7702: delegated EOAs return 0xef0100 || target as their code
-		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
-			let copy_len = len.min(indicator.len().saturating_sub(code_offset));
-			if copy_len > 0 {
-				buf[..copy_len].copy_from_slice(&indicator[code_offset..code_offset + copy_len]);
-			}
-			buf[copy_len..].fill(0);
-			return;
+		let code = if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+			<AccountInfo<T>>::delegation_indicator(&target).to_vec()
+		} else {
+			let code_hash = self.code_hash(address);
+			crate::PristineCode::<T>::get(&code_hash).unwrap_or_default()
+		};
+
+		let copy_len = len.min(code.len().saturating_sub(code_offset));
+		if copy_len > 0 {
+			buf[..copy_len].copy_from_slice(&code[code_offset..code_offset + copy_len]);
 		}
-
-		let code_hash = self.code_hash(address);
-		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
-
-		let len = len.min(code.len().saturating_sub(code_offset));
-		if len > 0 {
-			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
-		}
-
-		buf[len..].fill(0);
+		buf[copy_len..].fill(0);
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {

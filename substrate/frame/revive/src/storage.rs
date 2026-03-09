@@ -335,15 +335,15 @@ impl<T: Config> AccountInfo<T> {
 		});
 
 		// Manage code refcounts, skipping when the hash is unchanged
-		if let Some(new_hash) = target_code_hash {
-			if Some(new_hash) != old_code_hash {
-				let _ = CodeInfo::<T>::increment_refcount(new_hash);
-			}
+		if let Some(new_hash) = target_code_hash &&
+			Some(new_hash) != old_code_hash
+		{
+			let _ = CodeInfo::<T>::increment_refcount(new_hash);
 		}
-		if let Some(old_hash) = old_code_hash {
-			if Some(old_hash) != target_code_hash {
-				let _ = CodeInfo::<T>::decrement_refcount(old_hash);
-			}
+		if let Some(old_hash) = old_code_hash &&
+			Some(old_hash) != target_code_hash
+		{
+			let _ = CodeInfo::<T>::decrement_refcount(old_hash);
 		}
 
 		if new_deposit >= old_deposit {
@@ -366,18 +366,17 @@ impl<T: Config> AccountInfo<T> {
 	pub(crate) fn clear_delegation(address: &H160) -> StorageDeposit<BalanceOf<T>> {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			let mut refund: BalanceOf<T> = Zero::zero();
-			if let Some(account) = account {
-				if let AccountType::EOA { delegate_target, contract_info } =
+			if let Some(account) = account &&
+				let AccountType::EOA { delegate_target, contract_info } =
 					&mut account.account_type
+			{
+				*delegate_target = None;
+				if let Some(ci) = contract_info.as_mut() &&
+					ci.code_hash != Default::default()
 				{
-					*delegate_target = None;
-					if let Some(ci) = contract_info.as_mut() {
-						if ci.code_hash != Default::default() {
-							let _ = CodeInfo::<T>::decrement_refcount(ci.code_hash);
-							refund = core::mem::take(&mut ci.storage_base_deposit);
-							ci.code_hash = Default::default();
-						}
-					}
+					let _ = CodeInfo::<T>::decrement_refcount(ci.code_hash);
+					refund = core::mem::take(&mut ci.storage_base_deposit);
+					ci.code_hash = Default::default();
 				}
 			}
 			StorageDeposit::Refund(refund)

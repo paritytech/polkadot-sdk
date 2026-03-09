@@ -1360,7 +1360,6 @@ pub mod pallet {
 			let origin = OriginFor::<T>::signed(signer.clone());
 
 			Self::ensure_non_contract_if_signed(&origin)?;
-
 			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
