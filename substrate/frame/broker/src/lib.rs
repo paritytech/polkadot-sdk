@@ -1060,6 +1060,9 @@ pub mod pallet {
 
 		/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
 		///
+		/// This can also be used to recover regions that have been "burned" (e.g., from an
+		/// XCM reserve transfer).
+		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `region_id`: The Region whose ownership should change.
 		/// - `new_owner`: The new owner for the Region.
