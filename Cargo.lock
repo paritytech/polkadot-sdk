@@ -1359,7 +1359,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.42.2"
+version = "0.42.3"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -12629,7 +12629,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-fast-unstake"
-version = "44.0.0"
+version = "44.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12984,7 +12984,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "43.0.2"
+version = "43.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13001,7 +13001,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools-benchmarking"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13641,7 +13641,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "45.0.0"
+version = "45.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13670,7 +13670,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.10.3"
+version = "0.10.4"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -23755,7 +23755,7 @@ dependencies = [
 
 [[package]]
 name = "sp-staking"
-version = "42.1.0"
+version = "42.2.0"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
