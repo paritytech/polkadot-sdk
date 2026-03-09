@@ -450,17 +450,16 @@ struct State {
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
 	keystore: KeystorePtr,
-	/// Monotonic flag: set to `true` once any activated leaf has the V3 candidate
-	/// descriptor feature enabled. Once set, never unset. Used for V3 gating checks
-	/// in backing — if V3 was never seen, reject V3 candidates and candidates where
-	/// old/new version detection disagrees.
+	/// Monotonic flag: set to `true` once a **finalized** block is observed whose
+	/// session has the `CandidateReceiptV3` node feature enabled. Once set, never
+	/// unset. Used for V3 gating checks in backing — if V3 was never seen, reject
+	/// V3 candidates and candidates where old/new version detection disagrees.
 	///
-	/// Note: In theory a reorg could revert a leaf where V3 was enabled, making this
-	/// flag temporarily inaccurate. This is acceptable because:
-	/// 1. The runtime performs the same check and is always correct.
-	/// 2. The worst case is the backer signs a statement the runtime later rejects — the candidate
-	///    simply won't be included, no slashing occurs.
-	/// 3. This is an extremely short-lived edge case during reorgs.
+	/// Backing uses finalized blocks (rather than any active leaf) to ensure that
+	/// new backers do not start producing V3 candidates before a supermajority of
+	/// validators (including approval checkers) are aware of the feature. Approval
+	/// and dispute validation use active leaves instead, so they always transition
+	/// *before* backing does — the safe direction.
 	v3_ever_seen: bool,
 }
 
@@ -534,7 +533,11 @@ async fn run_iteration<Context>(
 							state,
 						).await?;
 					}
-					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {}
+					FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, _number)) => {
+						if !state.v3_ever_seen {
+							check_v3_on_finalized(&mut *ctx, state, hash).await?;
+						}
+					}
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
 						handle_communication(&mut *ctx, state, msg, metrics).await?;
@@ -1066,11 +1069,41 @@ async fn handle_active_leaves_update<Context>(
 		.await?;
 
 		if let Some(per) = per {
-			if !state.v3_ever_seen && FeatureIndex::CandidateReceiptV3.is_set(&per.node_features) {
-				state.v3_ever_seen = true;
-			}
 			state.per_scheduling_parent.insert(maybe_new, per);
 		}
+	}
+
+	Ok(())
+}
+
+/// Check whether the `CandidateReceiptV3` node feature is enabled at the session
+/// of the given finalized block. Sets `state.v3_ever_seen` if so.
+#[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
+async fn check_v3_on_finalized<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	finalized_hash: Hash,
+) -> Result<(), Error> {
+	let session_index = request_session_index_for_child(finalized_hash, ctx.sender())
+		.await
+		.await
+		.map_err(runtime::Error::from)?
+		.map_err(runtime::Error::from)?;
+
+	let node_features = state
+		.per_session_cache
+		.node_features(session_index, finalized_hash, ctx.sender())
+		.await
+		.map_err(runtime::Error::from)?;
+
+	if FeatureIndex::CandidateReceiptV3.is_set(&node_features) {
+		gum::info!(
+			target: LOG_TARGET,
+			?session_index,
+			"CandidateReceiptV3 node feature detected in finalized block, \
+		 enabling V3 candidate support",
+		);
+		state.v3_ever_seen = true;
 	}
 
 	Ok(())

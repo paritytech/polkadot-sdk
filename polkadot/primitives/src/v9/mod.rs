@@ -2209,23 +2209,21 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Version for use in candidate validation
+	/// Version for use in candidate validation during the V3 transition period.
 	///
-	/// during the V3 transition period.
-	///
-	/// Before the `CandidateReceiptV3` node feature is observed on a finalized block,
-	/// uses [`Self::version_old_rules`] to match old backer behavior. After
-	/// the feature is seen, trusts [`Self::version`].
+	/// Before the `CandidateReceiptV3` node feature is observed, uses
+	/// [`Self::version_old_rules`] to match old backer behavior. After the feature
+	/// is seen, trusts [`Self::version`].
 	///
 	/// This prevents slashing honest old backers when a malicious collator crafts
 	/// a pseudo-V3 descriptor that old nodes interpret as V1 but new nodes would
 	/// interpret as V3 (different PVF inputs → dispute → 100% slash).
 	///
 	/// Safety argument: The node feature can only be enabled well after the runtime upgrade that
-	/// adds `check_version_acceptance()` protection at inclusion time. Once the feature is seen on
-	/// any leaf, the runtime has long been upgraded and already rejecting pseudo-V3 candidates
-	/// (candidates that are valid v1 under the old rules, but are v3 without UMP signals under the
-	/// new rules), so no ambiguous candidates can exist on-chain.
+	/// adds `check_version_acceptance()` protection at inclusion time. Once the feature is seen,
+	/// the runtime has long been upgraded and already rejecting pseudo-V3 candidates (candidates
+	/// that are valid v1 under the old rules, but are v3 without UMP signals under the new
+	/// rules), so no ambiguous candidates can exist on-chain.
 	///
 	/// Only needed during the V3 transition. Once V3 is universally deployed,
 	/// callers can switch to [`Self::version`] directly.

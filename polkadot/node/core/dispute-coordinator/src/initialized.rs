@@ -125,7 +125,7 @@ pub(crate) struct Initialized {
 	/// descriptor node feature enabled. Once set, never unset.
 	/// Used to determine whether scraped on-chain votes should use V3 descriptor
 	/// semantics or fall back to old rules.
-	/// See `CandidateDescriptorV2::version_for_approval_dispute` for the safety argument.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
 	v3_ever_seen: bool,
 }
 

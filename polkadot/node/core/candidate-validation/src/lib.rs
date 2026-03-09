@@ -186,7 +186,6 @@ where
 /// increased values, all that matters is consensus.
 async fn fetch_bomb_limit<Sender>(
 	candidate_descriptor: &CandidateDescriptor,
-	exec_kind: PvfExecKind,
 	v3_ever_seen: bool,
 	sender: &mut Sender,
 ) -> Result<u32, String>
@@ -254,26 +253,22 @@ where
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
 
-			let validation_code_bomb_limit = match fetch_bomb_limit(
-				&candidate_receipt.descriptor,
-				exec_kind,
-				v3_ever_seen,
-				&mut sender,
-			)
-			.await
-			{
-				Ok(limit) => limit,
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						scheduling_parent = ?candidate_receipt.descriptor.scheduling_parent(),
-						?err,
-						"Failed to fetch validation code bomb limit",
-					);
-					let _ = response_sender.send(Err(ValidationFailed(err)));
-					return;
-				},
-			};
+			let validation_code_bomb_limit =
+				match fetch_bomb_limit(&candidate_receipt.descriptor, v3_ever_seen, &mut sender)
+					.await
+				{
+					Ok(limit) => limit,
+					Err(err) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							scheduling_parent = ?candidate_receipt.descriptor.scheduling_parent(),
+							?err,
+							"Failed to fetch validation code bomb limit",
+						);
+						let _ = response_sender.send(Err(ValidationFailed(err)));
+						return;
+					},
+				};
 
 			// --- Backing-only extras ---
 			// Stricter checks that backing performs but approval/dispute can
@@ -477,7 +472,7 @@ struct State {
 	/// descriptor node feature enabled. Once set, never unset.
 	/// Used to determine whether approval/dispute validation should trust
 	/// `version()` (V3-capable) or fall back to `version_old_rules()`.
-	/// See `CandidateDescriptorV2::version_for_approval_dispute` for the safety argument.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
 	v3_ever_seen: bool,
 	/// PVF preparation state (proactive pre-compilation for next session).
 	pvf_prep: PvfPrepState,
