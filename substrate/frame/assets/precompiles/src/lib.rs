@@ -356,9 +356,7 @@ where
 					&spender_account,
 				)?;
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
-					.saturating_add(
-						<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
-					);
+					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval());
 			} else {
 				// 0→0 no-op: only the allowance read was needed.
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance();
@@ -378,9 +376,7 @@ where
 				actual_weight = worst_case;
 			} else {
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
-					.saturating_add(
-						<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
-					);
+					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
 			}
 			pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 				asset_id,
