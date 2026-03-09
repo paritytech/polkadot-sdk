@@ -302,7 +302,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 					to,
 					value,
 					input,
-					gas_price,
 					max_fee_per_gas: gas_price,
 					chain_id,
 					authorization_list,
