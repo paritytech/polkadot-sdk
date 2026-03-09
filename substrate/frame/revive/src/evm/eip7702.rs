@@ -96,9 +96,9 @@ pub fn process_authorizations<T: Config>(
 		if !frame_system::Account::<T>::contains_key(&account_id) {
 			Pallet::<T>::charge_deposit(None, origin, &account_id, ed, exec_config)?;
 			result.deposit.saturating_accrue(ed);
-			result.new_accounts = result.new_accounts.saturating_add(1);
+			result.new_accounts += 1;
 		} else {
-			result.existing_accounts = result.existing_accounts.saturating_add(1);
+			result.existing_accounts += 1;
 		}
 
 		// Apply delegation
@@ -135,7 +135,7 @@ pub fn process_authorizations<T: Config>(
 		frame_system::Pallet::<T>::inc_account_nonce(&account_id);
 	}
 
-	let total = result.new_accounts.saturating_add(result.existing_accounts);
+	let total = result.new_accounts + result.existing_accounts;
 	let worst_case_weight =
 		<RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
 			new_accounts: total,
