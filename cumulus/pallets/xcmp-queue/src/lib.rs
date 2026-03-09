@@ -548,6 +548,7 @@ impl<T: Config> Pallet<T> {
 		fragment: Fragment,
 	) -> Result<u32, MessageSendError> {
 		let mut encoded_fragment = fragment.encode();
+		let encoded_fragment_len = encoded_fragment.len();
 
 		// Optimization note: `max_message_size` could potentially be stored in
 		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
@@ -610,7 +611,7 @@ impl<T: Config> Pallet<T> {
 			page_count.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
 		if total_size > threshold {
-			Self::increase_fee_factor(recipient, encoded_fragment.len() as u128);
+			Self::increase_fee_factor(recipient, encoded_fragment_len as u128);
 		}
 
 		Ok(page_count)
@@ -1252,6 +1253,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				encoding = XcmEncoding::Double;
 			}
 		}
+		<OutboundXcmpStatus<T>>::put(all_channels);
 
 		let result = match encoding {
 			XcmEncoding::Simple => {
