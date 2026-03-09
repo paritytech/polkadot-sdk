@@ -1014,8 +1014,8 @@ pub mod pallet {
 				} else {
 					// Prevent dust vaults: remaining collateral must meet MinimumDeposit.
 					ensure!(
-						remaining_collateral
-							>= MinimumDeposit::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+						remaining_collateral >=
+							MinimumDeposit::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 						Error::<T>::BelowMinimumDeposit
 					);
 
@@ -1098,8 +1098,8 @@ pub mod pallet {
 
 				// Check vault's resulting debt does not exceed MaxPositionAmount
 				ensure!(
-					new_principal
-						<= MaxPositionAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+					new_principal <=
+						MaxPositionAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 					Error::<T>::ExceedsMaxPositionAmount
 				);
 
@@ -1175,7 +1175,7 @@ pub mod pallet {
 						interest_to_pay,
 						Preservation::Expendable,
 						Precision::Exact,
-						Fortitude::Force,
+						Fortitude::Polite,
 					)?;
 					vault.accrued_interest = vault.accrued_interest.saturating_sub(interest_to_pay);
 				}
@@ -1187,7 +1187,7 @@ pub mod pallet {
 						principal_to_pay,
 						Preservation::Expendable,
 						Precision::Exact,
-						Fortitude::Force,
+						Fortitude::Polite,
 					)?;
 					vault.principal = vault.principal.saturating_sub(principal_to_pay);
 				}
@@ -1581,7 +1581,7 @@ pub mod pallet {
 				repay_amount,
 				Preservation::Expendable,
 				Precision::Exact,
-				Fortitude::Force,
+				Fortitude::Polite,
 			)?;
 
 			// Reduce bad debt
@@ -1907,7 +1907,7 @@ pub mod pallet {
 					burn_amount,
 					Preservation::Expendable,
 					Precision::Exact,
-					Fortitude::Force,
+					Fortitude::Polite,
 				)?;
 			}
 
@@ -2138,8 +2138,8 @@ pub mod pallet {
 			if matches!(purpose, MintPurpose::Principal) {
 				let total_issuance = T::Asset::total_issuance();
 				ensure!(
-					total_issuance.saturating_add(amount)
-						<= MaximumIssuance::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+					total_issuance.saturating_add(amount) <=
+						MaximumIssuance::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 					Error::<T>::ExceedsMaxDebt
 				);
 			}
