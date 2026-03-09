@@ -2770,7 +2770,8 @@ mod tests {
 
 		// Send ExplicitTopicAffinity message.
 		let topic: [u8; 32] = [0xAA; 32];
-		let mut bloom = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		let mut bloom =
+			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
 		bloom.set(&topic);
 		let filter = AffinityFilter { bloom };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
@@ -2815,7 +2816,8 @@ mod tests {
 		// Set up topic affinity: peer is interested in topic 0xAA only.
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
-		let mut bloom = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		let mut bloom =
+			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
 		bloom.set(&topic_aa);
 		let filter = AffinityFilter { bloom };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
@@ -2962,7 +2964,8 @@ mod tests {
 			})
 			.collect();
 
-		let mut bloom = Bloom::new_for_fp_rate(SET_COUNT, 0.01).expect("valid bloom parameters");
+		let mut bloom = Bloom::new_for_fp_rate_with_seed(SET_COUNT, 0.01, &[0u8; 32])
+			.expect("valid bloom parameters");
 
 		// Insert first 10% of items.
 		for item in &items[..SET_COUNT] {
@@ -3083,7 +3086,8 @@ mod tests {
 		);
 
 		// Set topic affinity to topic_aa — this triggers the first initial sync.
-		let mut bloom_aa = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		let mut bloom_aa =
+			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
 		bloom_aa.set(&topic_aa);
 		let filter = AffinityFilter { bloom: bloom_aa };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
@@ -3124,7 +3128,8 @@ mod tests {
 		assert!(!sent_hashes.contains(&hash_bb), "stmt_bb should NOT be sent (filtered)");
 
 		// Now change affinity to topic_bb — triggers re-sync.
-		let mut bloom_bb = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		let mut bloom_bb =
+			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
 		bloom_bb.set(&topic_bb);
 		let filter = AffinityFilter { bloom: bloom_bb };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
@@ -3215,7 +3220,8 @@ mod tests {
 			.await;
 
 		// Immediately set affinity to topic_aa BEFORE any initial sync runs.
-		let mut bloom_aa = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		let mut bloom_aa =
+			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
 		bloom_aa.set(&topic_aa);
 		let filter = AffinityFilter { bloom: bloom_aa };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
@@ -3262,7 +3268,8 @@ mod tests {
 		assert!(peer.known_statements.contains(&hash_aa), "stmt_aa should be in known_statements");
 
 		// Now change affinity to include topic_bb.
-		let mut bloom_both = Bloom::new_for_fp_rate(100, 0.01).expect("valid bloom params");
+		let mut bloom_both =
+			Bloom::new_for_fp_rate_with_seed(100, 0.01, &[0u8; 32]).expect("valid bloom params");
 		bloom_both.set(&topic_aa);
 		bloom_both.set(&topic_bb);
 		let filter = AffinityFilter { bloom: bloom_both };

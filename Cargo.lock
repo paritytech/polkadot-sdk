@@ -2189,10 +2189,9 @@ dependencies = [
 [[package]]
 name = "bloomfilter"
 version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f6d7f06817e48ea4e17532fa61bc4e8b9a101437f0623f69d2ea54284f3a817"
+source = "git+https://github.com/alexggh/rust-bloom-filter.git?branch=master#1abf9bad21e775ac6dad03a1b7bf66d95279612c"
 dependencies = [
- "getrandom 0.2.10",
+ "libm",
  "siphasher 1.0.1",
 ]
 
@@ -7432,10 +7431,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -24234,6 +24231,7 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm",
+ "bloomfilter",
  "curve25519-dalek",
  "ed25519-dalek",
  "frame-support",
