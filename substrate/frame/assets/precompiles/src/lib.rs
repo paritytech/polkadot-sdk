@@ -450,7 +450,8 @@ where
 					Error::Revert(Revert { reason: msg.into() })
 				})?;
 
-				// Set the approval
+				// TODO: do_approve_transfer saturating-adds; EIP-2612 requires set.
+				// Apply cancel + approve (set semantics) once PR #11279 lands.
 				let owner_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
 				let spender_account =
