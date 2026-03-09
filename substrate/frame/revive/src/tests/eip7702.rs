@@ -476,60 +476,55 @@ fn test_runtime_set_and_clear_authorization() {
 	});
 }
 
-/// Runtime test: Delegation authorization can be set via eth_call
-///
-/// This test verifies that an EOA can be set up with delegation to a target
-/// contract, and that subsequent calls to the delegated EOA succeed through
-/// the EVM execution path.
-///
-/// Test flow:
-/// 1. Create an EOA and a simple target contract
-/// 2. Set delegation from EOA to target contract via authorization list
-/// 3. Verify the delegation indicator is stored correctly
-/// 4. Call the delegated EOA address using eth_call
-/// 5. Verify the call succeeds (delegation is recognized in EVM context)
-///
-/// Note: This test validates the authorization processing and storage of
-/// delegation indicators. Full execution semantics of delegated code are
-/// handled by the VM layer during actual contract execution.
+/// Delegation set via authorization list allows calling the delegated address
+/// in the same eth_call. Authorizations are processed before execution, so the
+/// call body finds the delegation and executes the target contract's code.
 #[test]
 fn test_runtime_delegation_resolution() {
+	use alloy_core::sol_types::SolCall;
+	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
 	ExtBuilder::default().build().execute_with(|| {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
+		let counter =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
 		let seed = H256::from([1u8; 32]);
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
-
-		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
-			.build_and_unwrap_contract();
-
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-
-		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
-		let result = builder::eth_call(target_contract.addr)
+		let auth = signer.sign_authorization(chain_id, counter.addr, nonce);
+		let result = builder::eth_call(authority)
 			.authorization_list(vec![auth])
 			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
+			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
 			.build();
 		assert_ok!(result);
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
-		assert_eq!(
-			AccountInfo::<Test>::get_delegation_target(&authority),
-			Some(target_contract.addr)
-		);
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(counter.addr));
 
-		let call_result = builder::eth_call(authority)
-			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-			.build();
+		// Verify that the delegation resolves correctly: setNumber(42) writes to
+		// the authority's storage through the delegated Counter code.
+		let write_result = builder::bare_call(authority)
+			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!write_result.did_revert());
 
-		assert_ok!(&call_result);
+		let read_result = builder::bare_call(authority)
+			.data(Counter::numberCall {}.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!read_result.did_revert());
+		assert_eq!(Counter::numberCall::abi_decode_returns(&read_result.data).unwrap(), 42u64);
 	});
 }
 
