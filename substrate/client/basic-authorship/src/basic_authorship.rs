@@ -350,9 +350,8 @@ where
 
 		let mode = block_builder.extrinsic_inclusion_mode();
 		let end_reason = match mode {
-			ExtrinsicInclusionMode::AllExtrinsics => {
-				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?
-			},
+			ExtrinsicInclusionMode::AllExtrinsics =>
+				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
@@ -467,22 +466,29 @@ where
 				.ok()
 				.flatten();
 
-			if skip_shielded_txs() && maybe_shielded_tx.is_some() {
-				debug!(target: LOG_TARGET, "Skipping shielded transaction");
-				// We don't report the transaction as invalid so it stay in the pool
-				// and may be gossiped to other block authors that allow them.
-				continue;
+			// Skip shielded txs we can't decrypt (wrong key or disabled via env var) without
+			// reporting them as invalid, they stay in the pool for the right block author to
+			// pick them up.
+			if let Some(shielded_tx) = &maybe_shielded_tx {
+				let using_current_key = api
+					.is_shielded_using_current_key(self.parent_hash, &shielded_tx.key_hash)
+					.unwrap_or(false);
+
+				if skip_shielded_txs() || !using_current_key {
+					debug!(target: LOG_TARGET, "Skipping shielded transaction");
+					continue;
+				}
 			}
 
 			let pending_tx_data_size = if let Some(shielded_tx) = &maybe_shielded_tx {
-				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16 bytes
-				// for the tag (source: https://www.rfc-editor.org/rfc/rfc8439#section-2.8) so we need
+				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16
+				// bytes for the tag (source: https://www.rfc-editor.org/rfc/rfc8439#section-2.8) so we need
 				// to subtract it from the ciphertext length to get the plaintext length
 				const TAG_SIZE: usize = 16;
 				let unshielded_tx_size = shielded_tx.aead_ct.len().saturating_sub(TAG_SIZE);
 
-				// We will push the shielded tx wrapper and the unshielded inner tx to the block builder
-				// so we should account for both when estimating the block size
+				// We will push the shielded tx wrapper and the unshielded inner tx to the block
+				// builder so we should account for both when estimating the block size
 				pending_tx_data.encoded_size() + unshielded_tx_size
 			} else {
 				pending_tx_data.encoded_size()
@@ -739,8 +745,8 @@ mod tests {
 	use substrate_test_runtime_client::{
 		prelude::*,
 		runtime::{
-			Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer, SHIELD_TEST_DECODE_KEY,
-			SHIELD_TEST_UNSHIELD_KEY,
+			Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer, SHIELD_TEST_CURRENT_KEY,
+			SHIELD_TEST_DECODE_KEY, SHIELD_TEST_UNSHIELD_KEY,
 		},
 		TestClientBuilder, TestClientBuilderExt,
 	};
@@ -782,7 +788,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 
 		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
@@ -842,7 +848,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 
 		let mut proposer_factory = ProposerFactory::new(
 			spawner.clone(),
@@ -886,7 +892,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 
 		let genesis_hash = client.info().best_hash;
 
@@ -949,7 +955,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 
 		let medium = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(MEDIUM))
@@ -1064,7 +1070,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
@@ -1081,13 +1087,13 @@ mod tests {
 		.chain((1..extrinsics_num as u64).map(extrinsic))
 		.collect::<Vec<_>>();
 
-		let block_limit = genesis_header.encoded_size()
-			+ extrinsics
+		let block_limit = genesis_header.encoded_size() +
+			extrinsics
 				.iter()
 				.take(extrinsics_num - 1)
 				.map(Encode::encoded_size)
-				.sum::<usize>()
-			+ Vec::<Extrinsic>::new().encoded_size();
+				.sum::<usize>() +
+			Vec::<Extrinsic>::new().encoded_size();
 
 		block_on(txpool.submit_at(genesis_hash, SOURCE, extrinsics.clone())).unwrap();
 
@@ -1177,7 +1183,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
@@ -1253,7 +1259,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {
@@ -1341,6 +1347,7 @@ mod tests {
 	fn shielded_test_client(
 		decode: Option<ShieldedTransaction>,
 		unshield: Option<Extrinsic>,
+		is_current_key: bool,
 	) -> Arc<substrate_test_runtime_client::TestClient> {
 		let mut builder = TestClientBuilder::new();
 		if let Some(tx) = decode {
@@ -1349,12 +1356,14 @@ mod tests {
 		if let Some(ext) = unshield {
 			builder = builder.add_extra_storage(SHIELD_TEST_UNSHIELD_KEY.to_vec(), ext.encode());
 		}
+		builder =
+			builder.add_extra_storage(SHIELD_TEST_CURRENT_KEY.to_vec(), is_current_key.encode());
 		Arc::new(builder.build())
 	}
 
 	#[test]
 	fn shielded_tx_and_inner_tx_both_included_in_block() {
-		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(1)));
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(1)), true);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1363,7 +1372,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 
 		// Submit one extrinsic (this becomes the wrapper)
@@ -1397,7 +1406,7 @@ mod tests {
 	#[test]
 	fn shielded_tx_included_when_unshielding_fails() {
 		// Decode succeeds but unshielding fails (no unshield key in storage)
-		let client = shielded_test_client(Some(mock_shielded_tx(100)), None);
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), None, true);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1406,7 +1415,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 
 		// Submit one extrinsic
@@ -1439,7 +1448,7 @@ mod tests {
 
 	#[test]
 	fn should_skip_shielded_txs_when_env_var_is_set() {
-		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(2)));
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(2)), true);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1448,7 +1457,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 
 		// Submit extrinsics to the pool
@@ -1489,7 +1498,8 @@ mod tests {
 	#[test]
 	fn block_size_accounts_for_unshielded_tx_size() {
 		let aead_ct_len = 10_000;
-		let client = shielded_test_client(Some(mock_shielded_tx(aead_ct_len)), Some(extrinsic(1)));
+		let client =
+			shielded_test_client(Some(mock_shielded_tx(aead_ct_len)), Some(extrinsic(1)), true);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1498,7 +1508,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore);
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
@@ -1551,9 +1561,109 @@ mod tests {
 		assert_eq!(block.extrinsics().len(), 0);
 	}
 
-	/// Minimal shield keystore stub, no actual decryption is performed in these tests
-	/// since the test runtime returns mock data from storage instead.
-	struct TestShieldKeystore;
+	#[test]
+	fn shielded_tx_skipped_when_not_using_current_key() {
+		// is_shielded_using_current_key returns false → tx is skipped entirely (stays in pool)
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(1)), false);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore::default());
+		let genesis_hash = client.info().genesis_hash;
+
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+		assert_eq!(txpool.ready().count(), 1);
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should have 0 extrinsics: the shielded tx was skipped (wrong key)
+		assert_eq!(block.extrinsics().len(), 0);
+		// Transaction stays in the pool (not reported as invalid)
+		assert_eq!(txpool.ready().count(), 1);
+	}
+
+	#[test]
+	fn shielded_wrapper_included_when_dec_key_unavailable() {
+		// Keystore returns error for current_dec_key → wrapper is included, inner is skipped
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(1)), true);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore::without_dec_key());
+		let genesis_hash = client.info().genesis_hash;
+
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should contain 1 extrinsic: the wrapper was pushed, but inner was skipped
+		// because current_dec_key() returned an error
+		assert_eq!(block.extrinsics().len(), 1);
+	}
+
+	struct TestShieldKeystore {
+		dec_key_available: bool,
+	}
+
+	impl Default for TestShieldKeystore {
+		fn default() -> Self {
+			Self { dec_key_available: true }
+		}
+	}
+
+	impl TestShieldKeystore {
+		fn without_dec_key() -> Self {
+			Self { dec_key_available: false }
+		}
+	}
 
 	impl ShieldKeystore for TestShieldKeystore {
 		fn roll_for_next_slot(&self) -> TraitResult<()> {
@@ -1565,7 +1675,11 @@ mod tests {
 		}
 
 		fn current_dec_key(&self) -> TraitResult<Vec<u8>> {
-			Ok(Vec::new())
+			if self.dec_key_available {
+				Ok(Vec::new())
+			} else {
+				Err(stp_shield::Error::Other("no key available".into()))
+			}
 		}
 	}
 
