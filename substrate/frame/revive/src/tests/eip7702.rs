@@ -249,6 +249,51 @@ fn corrupted_signature_rejects_authorization() {
 	});
 }
 
+/// Authorization for an account that is already a contract is skipped.
+/// Per EIP-7702, only EOAs can be delegated — contract accounts are ineligible.
+#[test]
+fn contract_account_rejects_authorization() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		let setup = DelegationTestSetup::new([1u8; 32]);
+		let target = H160::from([0x42; 20]);
+
+		// Deploy a contract and mark the signer's address as a contract
+		let contract =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract())).build_and_unwrap_contract();
+		let contract_info = get_contract(&contract.addr);
+
+		// Overwrite the signer's account info to be a Contract type
+		use crate::storage::AccountType;
+		crate::AccountInfoOf::<Test>::insert(
+			setup.signer.address,
+			crate::storage::AccountInfo {
+				account_type: AccountType::Contract(contract_info),
+				dust: 0,
+			},
+		);
+		assert!(AccountInfo::<Test>::is_contract(&setup.signer.address));
+
+		let auth = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
+
+		// Authorization should be skipped because the authority is a contract
+		assert_eq!(
+			setup.process(&[auth]),
+			AuthorizationResult {
+				existing_accounts: 0,
+				new_accounts: 0,
+				deposit: 0,
+				weight_refund: Weight::zero()
+			}
+		);
+
+		// Account should still be a contract, not delegated
+		assert!(AccountInfo::<Test>::is_contract(&setup.signer.address));
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+	});
+}
+
 #[test]
 fn multiple_authorizations_from_same_authority_first_wins() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -771,6 +816,36 @@ fn delegation_chain_does_not_execute() {
 		assert!(result.data.is_empty(), "call to Bob should return empty (no code executed)");
 		// Alice's number should be unchanged
 		assert_eq!(read_number(), 42u64);
+	});
+}
+
+/// Delegation to a nonexistent address (no deployed code) results in a no-op call.
+/// The authority is treated as an EOA with no executable code.
+#[test]
+fn delegation_to_nonexistent_address_is_noop() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		// Delegate Alice to an address that has no deployed contract
+		let nonexistent = H160::from([0xDE; 20]);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, nonexistent);
+		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
+		assert_eq!(
+			AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR),
+			Some(nonexistent)
+		);
+
+		// Calling Alice should succeed but execute no code (empty return data)
+		let result = builder::bare_call(ALICE_ADDR)
+			.data(vec![0xDE, 0xAD, 0xBE, 0xEF]) // arbitrary calldata
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "call should not revert");
+		assert!(result.data.is_empty(), "no code should execute for delegation to nonexistent address");
+
+		// eth_getCode should still return the delegation indicator
+		let mut expected_code = vec![0xef, 0x01, 0x00];
+		expected_code.extend_from_slice(nonexistent.as_bytes());
+		assert_eq!(crate::Pallet::<Test>::code(&ALICE_ADDR), expected_code);
 	});
 }
 
