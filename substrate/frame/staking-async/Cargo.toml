@@ -1,6 +1,6 @@
 [package]
 name = "pallet-staking-async"
-version = "0.10.2"
+version = "0.10.3"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
