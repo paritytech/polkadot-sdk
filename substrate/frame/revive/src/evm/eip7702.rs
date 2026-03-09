@@ -32,7 +32,7 @@ use crate::{
 use alloc::vec::Vec;
 use frame_support::{traits::fungible::Inspect, weights::Weight};
 use sp_core::{Get, H160, U256};
-use sp_runtime::{SaturatedConversion, Saturating, traits::Zero};
+use sp_runtime::{SaturatedConversion, Saturating};
 
 /// EIP-7702: Magic value for authorization signature message
 const EIP7702_MAGIC: u8 = 0x05;
@@ -134,10 +134,9 @@ pub fn process_authorizations<T: Config>(
 		frame_system::Pallet::<T>::inc_account_nonce(&account_id);
 	}
 
-	let total = result.new_accounts + result.existing_accounts;
 	let worst_case_weight =
 		<RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
-			new_accounts: total,
+			new_accounts: result.new_accounts + result.existing_accounts,
 			existing_accounts: 0,
 		});
 	let actual_weight = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
