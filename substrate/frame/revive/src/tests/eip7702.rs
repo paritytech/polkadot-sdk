@@ -39,9 +39,9 @@ fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
 	let worst = <Test as Config>::WeightInfo::process_new_account_authorization(total)
 		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(0));
 	let actual = <Test as Config>::WeightInfo::process_new_account_authorization(new_accounts)
-		.saturating_add(
-			<Test as Config>::WeightInfo::process_existing_account_authorization(existing_accounts),
-		);
+		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(
+			existing_accounts,
+		));
 	worst.saturating_sub(actual)
 }
 

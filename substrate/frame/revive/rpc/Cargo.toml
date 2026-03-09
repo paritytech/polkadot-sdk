@@ -51,6 +51,7 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }

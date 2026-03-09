@@ -13263,6 +13263,7 @@ dependencies = [
  "git2",
  "hex",
  "jsonrpsee",
+ "k256",
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",

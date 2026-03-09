@@ -869,7 +869,7 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 	// Create authority account with known seed
 	let seed = [0xAA; 32];
 	let authority = Account::from_secret_key(seed);
-	let authority_pair = <sp_core::ecdsa::Pair as sp_core::Pair>::from_seed_slice(&seed).unwrap();
+	let authority_key = k256::ecdsa::SigningKey::from_bytes(&seed.into()).unwrap();
 
 	// Fund the authority
 	let tx = TransactionBuilder::new(client.clone())
@@ -886,7 +886,7 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 		.get_transaction_count(authority.address(), BlockTag::Latest.into())
 		.await?;
 	let auth = pallet_revive::evm::eip7702::sign_authorization(
-		&authority_pair,
+		&authority_key,
 		chain_id,
 		counter_addr,
 		auth_nonce,
@@ -927,7 +927,7 @@ async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
 		.get_transaction_count(authority.address(), BlockTag::Latest.into())
 		.await?;
 	let clear_auth = pallet_revive::evm::eip7702::sign_authorization(
-		&authority_pair,
+		&authority_key,
 		chain_id,
 		pallet_revive::evm::Address::zero(),
 		auth_nonce,
