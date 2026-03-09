@@ -25,7 +25,6 @@ use crate::{
 	BatchCallBuilder, BatchCallBuilderConstructor, TransactionParams,
 };
 
-use async_std::sync::Arc;
 use bp_messages::{
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, MessageNonce,
 };
@@ -45,7 +44,7 @@ use relay_utils::{
 };
 use sp_core::Pair;
 use sp_runtime::traits::Zero;
-use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive};
+use std::{fmt::Debug, marker::PhantomData, ops::RangeInclusive, sync::Arc};
 
 pub mod metrics;
 pub mod source;

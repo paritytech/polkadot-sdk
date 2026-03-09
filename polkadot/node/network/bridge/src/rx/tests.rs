@@ -222,16 +222,33 @@ impl TestNetworkHandle {
 			}
 		}
 
-		// because of how protocol negotiation works, if two peers support at least one common
-		// protocol, the protocol is negotiated over the main protocol (`ValidationVersion::V3`) but
-		// if either one of the peers used a fallback protocol for the negotiation (meaning they
-		// don't support the main protocol but some older version of it ), `negotiated_fallback` is
-		// set to that protocol.
-		let negotiated_fallback = match (protocol_version.into(), peer_set) {
-			(1, PeerSet::Collation) => Some(ProtocolName::from("/polkadot/collation/1")),
-			(2, PeerSet::Collation) => None,
-			(3, PeerSet::Validation) => None,
-			_ => unreachable!(),
+		// Simulate protocol negotiation: if this version is the main version for the
+		// peer set, negotiated_fallback is None. Otherwise, look up the matching
+		// fallback name, just like real negotiation would produce.
+		let negotiated_fallback = if protocol_version == peer_set.get_main_version() {
+			None
+		} else {
+			let genesis_hash = Hash::repeat_byte(0xff);
+			let fallback_names =
+				PeerSetProtocolNames::get_fallback_names(peer_set, &genesis_hash, None);
+			let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+
+			Some(
+				fallback_names
+					.into_iter()
+					.find(|name| {
+						protocol_names
+							.try_get_protocol(name)
+							.map_or(false, |(_, v)| v == protocol_version)
+					})
+					.unwrap_or_else(|| {
+						panic!(
+							"No fallback name for {:?} version {}. \
+							 Add it to get_fallback_names().",
+							peer_set, protocol_version,
+						)
+					}),
+			)
 		};
 
 		match peer_set {
@@ -1722,6 +1739,98 @@ fn network_protocol_versioning_subsystem_msg() {
 
 		// No more messages.
 		assert_matches!(futures::poll!(virtual_overseer.recv().boxed()), Poll::Pending);
+
+		virtual_overseer
+	});
+}
+
+/// Ensures that every `CollationVersion` gets view updates on new leaves.
+/// The on-connection path uses a match (compiler-enforced), but the view-update
+/// broadcast path uses separate calls per version which can silently miss one.
+#[test]
+fn all_collation_versions_receive_view_updates() {
+	use strum::IntoEnumIterator;
+
+	let versions: Vec<_> = CollationVersion::iter().map(|v| v.into()).collect();
+	assert_all_peer_set_versions_receive_view_updates(PeerSet::Collation, &versions);
+}
+
+/// Same as above but for `ValidationVersion`.
+#[test]
+fn all_validation_versions_receive_view_updates() {
+	use strum::IntoEnumIterator;
+
+	let versions: Vec<_> = ValidationVersion::iter().map(|v| v.into()).collect();
+	assert_all_peer_set_versions_receive_view_updates(PeerSet::Validation, &versions);
+}
+
+fn assert_all_peer_set_versions_receive_view_updates(
+	peer_set: PeerSet,
+	versions: &[ProtocolVersion],
+) {
+	let (oracle, handle) = make_sync_oracle(false);
+	test_harness(Box::new(oracle), |test_harness| async move {
+		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
+
+		let peers: Vec<_> = versions.iter().map(|v| (PeerId::random(), *v)).collect();
+
+		let (num_validation, num_collation) = match peer_set {
+			PeerSet::Validation => (peers.len(), 0),
+			PeerSet::Collation => (0, peers.len()),
+		};
+
+		// Activate an initial leaf so peers get a view on connection.
+		let head = Hash::repeat_byte(1);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
+			)))
+			.await;
+
+		handle.await_mode_switch().await;
+
+		for &(peer, version) in &peers {
+			network_handle.connect_peer(peer, version, peer_set, ObservedRole::Full).await;
+		}
+
+		await_peer_connections(&shared, num_validation, num_collation).await;
+
+		// Drain the initial on-connection view updates.
+		let _ = network_handle.next_network_actions(peers.len()).await;
+
+		// Activate a NEW leaf — this triggers the broadcast code path which is
+		// NOT compiler-enforced (separate send calls per version, easy to miss one).
+		let head2 = Hash::repeat_byte(2);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head2, 2)),
+			)))
+			.await;
+
+		// Collect actions with a timeout so the test fails fast instead of hanging
+		// if a version is missing its view update send.
+		let mut actions = Vec::with_capacity(peers.len());
+		for _ in 0..peers.len() {
+			match network_handle.next_network_action().timeout(Duration::from_secs(5)).await {
+				Some(action) => actions.push(action),
+				None => break,
+			}
+		}
+
+		for &(peer, version) in &peers {
+			assert!(
+				actions.iter().any(|action| matches!(
+					action,
+					NetworkAction::WriteNotification(p, ps, _)
+						if *p == peer && *ps == peer_set
+				)),
+				"Peer {:?} ({:?} version {}) did not receive a view update on new leaf. \
+				 Did you forget to send ViewUpdate for a new version in update_our_view()?",
+				peer,
+				peer_set,
+				version,
+			);
+		}
 
 		virtual_overseer
 	});

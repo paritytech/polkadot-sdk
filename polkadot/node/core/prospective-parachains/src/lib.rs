@@ -35,23 +35,24 @@ use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
-		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
-		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
-		RuntimeApiRequest,
+		Ancestors, BackableCandidateRef, ChainApiMessage, HypotheticalCandidate,
+		HypotheticalMembership, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
+		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
+		RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::BlockInfoProspectiveParachains as BlockInfo,
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
-	request_backing_constraints, request_candidates_pending_availability,
+	request_backing_constraints, request_candidates_pending_availability, request_node_features,
 	request_session_index_for_child,
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	Hash, Header, Id as ParaId, PersistedValidationData,
+	node_features::FeatureIndex, transpose_claim_queue, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Header, Id as ParaId,
+	NodeFeatures, PersistedValidationData,
 };
 
 use crate::{
@@ -77,6 +78,8 @@ struct RelayBlockViewData {
 	// The relay chain scope containing the relay parent and its allowed ancestors.
 	// This is shared across all paras for this relay parent.
 	relay_chain_scope: fragment_chain::RelayChainScope,
+	// The node features active at this relay parent.
+	node_features: NodeFeatures,
 }
 
 struct View {
@@ -159,13 +162,13 @@ async fn run_iteration<Context>(
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) => {
 					handle_candidate_backed(view, para, candidate_hash, metrics).await
 				},
-				ProspectiveParachainsMessage::GetBackableCandidates(
-					relay_parent,
-					para,
+				ProspectiveParachainsMessage::GetBackableCandidates {
+					leaf,
+					para_id,
 					count,
 					ancestors,
-					tx,
-				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
+					sender,
+				} => answer_get_backable_candidates(&view, leaf, para_id, count, ancestors, sender),
 				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) => {
 					answer_hypothetical_membership_request(&view, request, tx, metrics)
 				},
@@ -235,6 +238,11 @@ async fn handle_active_leaves_update<Context>(
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+		let node_features = request_node_features(hash, session_index, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 		let ancestry_len = fetch_scheduling_lookahead(hash, session_index, ctx.sender())
 			.await?
 			.saturating_sub(1);
@@ -275,6 +283,8 @@ async fn handle_active_leaves_update<Context>(
 			},
 		};
 
+		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
+
 		let mut fragment_chains = HashMap::new();
 		for (para, claims_by_depth) in transposed_claim_queue.iter() {
 			// Find constraints and pending availability candidates.
@@ -309,6 +319,7 @@ async fn handle_active_leaves_update<Context>(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
+					v3_enabled,
 				);
 
 				match res {
@@ -359,13 +370,13 @@ async fn handle_active_leaves_update<Context>(
 			let mut chain =
 				FragmentChain::init(&relay_chain_scope, scope, pending_availability_storage);
 
-			if chain.best_chain_len() < number_of_pending_candidates {
+			if chain.len() < number_of_pending_candidates {
 				gum::warn!(
 					target: LOG_TARGET,
 					relay_parent = ?hash,
 					para_id = ?para,
 					"Not all pending availability candidates could be introduced. Actual vs expected count: {}, {}",
-					chain.best_chain_len(),
+					chain.len(),
 					number_of_pending_candidates
 				)
 			}
@@ -383,8 +394,8 @@ async fn handle_active_leaves_update<Context>(
 				relay_parent = ?hash,
 				para_id = ?para,
 				"Populated fragment chain with {} candidates: {:?}",
-				chain.best_chain_len(),
-				chain.best_chain_vec()
+				chain.len(),
+				chain.candidate_hashes()
 			);
 
 			gum::trace!(
@@ -399,11 +410,10 @@ async fn handle_active_leaves_update<Context>(
 		}
 
 		view.per_relay_parent
-			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope });
+			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope, node_features });
 
 		view.active_leaves.insert(hash);
 	}
-
 	for deactivated in update.deactivated {
 		view.active_leaves.remove(&deactivated);
 	}
@@ -423,8 +433,7 @@ async fn handle_active_leaves_update<Context>(
 			.flatten()
 			.collect();
 
-		view.per_relay_parent
-			.retain(|relay_parent, _| relay_parents_to_keep.contains(relay_parent));
+		view.per_relay_parent.retain(|h, _| relay_parents_to_keep.contains(h));
 	}
 
 	if metrics.0.is_some() {
@@ -435,12 +444,12 @@ async fn handle_active_leaves_update<Context>(
 		for (hash, RelayBlockViewData { fragment_chains, .. }) in view.per_relay_parent.iter() {
 			if view.active_leaves.contains(hash) {
 				for chain in fragment_chains.values() {
-					active_connected += chain.best_chain_len();
+					active_connected += chain.len();
 					active_unconnected += chain.unconnected_len();
 				}
 			} else {
 				for chain in fragment_chains.values() {
-					candidates_in_implicit_view += chain.best_chain_len();
+					candidates_in_implicit_view += chain.len();
 					candidates_in_implicit_view += chain.unconnected_len();
 				}
 			}
@@ -554,20 +563,30 @@ async fn handle_introduce_seconded_candidate(
 	} = request;
 
 	let candidate_hash = candidate.hash();
-	let candidate_entry = match CandidateEntry::new_seconded(candidate_hash, candidate, pvd) {
-		Ok(candidate) => candidate,
-		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = ?para,
-				"Cannot add seconded candidate: {}",
-				err
-			);
+	let candidate_relay_parent = candidate.descriptor.relay_parent();
 
-			let _ = tx.send(false);
-			return;
-		},
-	};
+	// Get v3_enabled from the node_features of the candidate's relay_parent
+	let v3_enabled = view
+		.per_relay_parent
+		.get(&candidate_relay_parent)
+		.map(|rp_data| FeatureIndex::CandidateReceiptV3.is_set(&rp_data.node_features))
+		.unwrap_or(false);
+
+	let candidate_entry =
+		match CandidateEntry::new_seconded(candidate_hash, candidate, pvd, v3_enabled) {
+			Ok(candidate) => candidate,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					para_id = ?para,
+					"Cannot add seconded candidate: {}",
+					err
+				);
+
+				let _ = tx.send(false);
+				return;
+			},
+		};
 
 	let mut added = Vec::with_capacity(view.per_relay_parent.len());
 	let mut para_scheduled = false;
@@ -676,7 +695,7 @@ async fn handle_candidate_backed(
 				?is_active_leaf,
 				?candidate_hash,
 				"Candidate backed. Candidate chain for para: {:?}",
-				chain.best_chain_vec()
+				chain.candidate_hashes()
 			);
 
 			gum::trace!(
@@ -715,29 +734,29 @@ async fn handle_candidate_backed(
 
 fn answer_get_backable_candidates(
 	view: &View,
-	relay_parent: Hash,
+	leaf: Hash,
 	para: ParaId,
 	count: u32,
 	ancestors: Ancestors,
-	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
+	tx: oneshot::Sender<Vec<BackableCandidateRef>>,
 ) {
-	if !view.active_leaves.contains(&relay_parent) {
+	if !view.active_leaves.contains(&leaf) {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
-			"Requested backable candidate for inactive relay-parent."
+			"Requested backable candidate for inactive leaf."
 		);
 
 		let _ = tx.send(vec![]);
 		return;
 	}
-	let Some(data) = view.per_relay_parent.get(&relay_parent) else {
+	let Some(data) = view.per_relay_parent.get(&leaf) else {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
-			"Requested backable candidate for inexistent relay-parent."
+			"Requested backable candidate for inexistent leaf."
 		);
 
 		let _ = tx.send(vec![]);
@@ -747,7 +766,7 @@ fn answer_get_backable_candidates(
 	let Some(chain) = data.fragment_chains.get(&para) else {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
 			"Requested backable candidate for inactive para."
 		);
@@ -758,15 +777,15 @@ fn answer_get_backable_candidates(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?leaf,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
-		chain.best_chain_vec()
+		chain.candidate_hashes()
 	);
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
+		?leaf,
 		para_id = ?para,
 		"Potential candidate storage for para: {:?}",
 		chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
@@ -779,13 +798,13 @@ fn answer_get_backable_candidates(
 			target: LOG_TARGET,
 			?ancestors,
 			para_id = ?para,
-			%relay_parent,
+			%leaf,
 			"Could not find any backable candidate",
 		);
 	} else {
 		gum::trace!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			?backable_candidates,
 			?ancestors,
 			"Found backable candidates",

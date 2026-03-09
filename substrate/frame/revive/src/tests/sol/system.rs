@@ -246,7 +246,7 @@ fn gas_works(fixture_type: FixtureType) {
 			.unwrap();
 
 		assert!(gas_left > 0);
-		assert!(gas_left < hold_initial);
+		assert!((gas_left as u128) < hold_initial);
 	});
 }
 

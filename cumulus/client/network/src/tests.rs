@@ -441,7 +441,7 @@ async fn make_gossip_message_and_header(
 	.flatten()
 	.expect("Signing statement");
 
-	(CollationSecondedSignal { statement: signed, relay_parent }, header)
+	(CollationSecondedSignal { statement: signed, scheduling_parent: relay_parent }, header)
 }
 
 #[test]

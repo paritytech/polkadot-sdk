@@ -1098,17 +1098,26 @@ where
 		round: RoundNumber,
 		commit: Commit<Block::Header>,
 	) -> Result<(), Self::Error> {
-		finalize_block(
+		let result = finalize_block(
 			self.client.clone(),
 			&self.authority_set,
 			Some(self.config.justification_generation_period),
 			hash,
 			number,
-			(round, commit).into(),
+			(round, commit.clone()).into(),
 			false,
 			self.justification_sender.as_ref(),
 			self.telemetry.clone(),
-		)
+		);
+
+		// If the finalized block enacts an authority set change, the voter will be
+		// torn down before the commit can be flushed through global_out.
+		if matches!(&result, Err(CommandOrError::VoterCommand(VoterCommand::ChangeAuthorities(_))))
+		{
+			self.network.gossip_commit(round, self.set_id, commit);
+		}
+
+		result
 	}
 
 	fn round_commit_timer(&self) -> Self::Timer {

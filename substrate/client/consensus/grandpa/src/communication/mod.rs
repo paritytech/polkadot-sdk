@@ -480,6 +480,26 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> NetworkBridge<B, N, S> {
 		(incoming, outgoing)
 	}
 
+	/// Directly gossip a commit message to the network.
+	pub(crate) fn gossip_commit(
+		&self,
+		round: RoundNumber,
+		set_id: SetIdNumber,
+		commit: Commit<B::Header>,
+	) {
+		let target_number = commit.target_number;
+		let round = Round(round);
+		let set_id = SetId(set_id);
+		let topic = global_topic::<B>(set_id.0);
+		let encoded = encode_commit_message::<B>(round, set_id, commit);
+
+		self.validator
+			.note_commit_finalized(round, set_id, target_number, |to, neighbor| {
+				self.neighbor_sender.send(to, neighbor)
+			});
+		self.gossip_engine.lock().gossip_message(topic, encoded, false);
+	}
+
 	/// Notifies the sync service to try and sync the given block from the given
 	/// peers.
 	///
@@ -1015,6 +1035,34 @@ fn check_catch_up<Block: BlockT>(
 	Ok(())
 }
 
+/// Encode a commit into a gossip message.
+fn encode_commit_message<Block: BlockT>(
+	round: Round,
+	set_id: SetId,
+	commit: Commit<Block::Header>,
+) -> Vec<u8> {
+	let (precommits, auth_data) = commit
+		.precommits
+		.into_iter()
+		.map(|signed| (signed.precommit, (signed.signature, signed.id)))
+		.unzip();
+
+	let compact_commit = CompactCommit::<Block::Header> {
+		target_hash: commit.target_hash,
+		target_number: commit.target_number,
+		precommits,
+		auth_data,
+	};
+
+	let message = GossipMessage::Commit(FullCommitMessage::<Block> {
+		round,
+		set_id,
+		message: compact_commit,
+	});
+
+	message.encode()
+}
+
 /// An output sink for commit messages.
 struct CommitsOut<Block: BlockT> {
 	network: Arc<Mutex<GossipEngine<Block>>>,
@@ -1071,36 +1119,20 @@ impl<Block: BlockT> Sink<(RoundNumber, Commit<Block::Header>)> for CommitsOut<Bl
 			"target_number" => ?commit.target_number,
 			"target_hash" => ?commit.target_hash,
 		);
-		let (precommits, auth_data) = commit
-			.precommits
-			.into_iter()
-			.map(|signed| (signed.precommit, (signed.signature, signed.id)))
-			.unzip();
 
-		let compact_commit = CompactCommit::<Block::Header> {
-			target_hash: commit.target_hash,
-			target_number: commit.target_number,
-			precommits,
-			auth_data,
-		};
-
-		let message = GossipMessage::Commit(FullCommitMessage::<Block> {
-			round,
-			set_id: self.set_id,
-			message: compact_commit,
-		});
-
+		let target_number = commit.target_number;
 		let topic = global_topic::<Block>(self.set_id.0);
+		let encoded = encode_commit_message::<Block>(round, self.set_id, commit);
 
 		// the gossip validator needs to be made aware of the best commit-height we know of
 		// before gossiping
 		self.gossip_validator.note_commit_finalized(
 			round,
 			self.set_id,
-			commit.target_number,
+			target_number,
 			|to, neighbor| self.neighbor_sender.send(to, neighbor),
 		);
-		self.network.lock().gossip_message(topic, message.encode(), false);
+		self.network.lock().gossip_message(topic, encoded, false);
 
 		Ok(())
 	}

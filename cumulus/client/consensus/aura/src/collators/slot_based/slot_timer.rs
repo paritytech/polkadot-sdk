@@ -21,7 +21,7 @@ use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::BlockT;
 use sc_client_api::UsageProvider;
 use sc_consensus_aura::SlotDuration;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
@@ -300,8 +300,9 @@ where
 	fn check_different_slot_authors(&self, slot: Slot, next_slot: Slot) -> bool {
 		let best_hash = self.client.usage_info().chain.best_hash;
 
-		let Ok(authorities) = self.client.runtime_api().authorities(best_hash) else {
-			tracing::warn!(target: LOG_TARGET, "Failed to fetch authorities for slot author comparison");
+		let mut runtime_api = self.client.runtime_api();
+		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+		let Ok(authorities) = runtime_api.authorities(best_hash) else {
 			// Presume they are different, this will adjust the slot authoring duration more
 			// conservatively.
 			return true;
@@ -469,7 +470,8 @@ mod tests {
 			offset,
 		);
 
-		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch."); // Should wait 5 seconds
+		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch.");
+		// Should wait 5 seconds
 	}
 
 	#[rstest]

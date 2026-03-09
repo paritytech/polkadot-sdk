@@ -57,7 +57,7 @@ impl PendingRequests {
 				let (req, response_recv) = OutgoingRequest::new(
 					Recipient::Peer(advertisement.peer_id),
 					request_v1::CollationFetchingRequest {
-						relay_parent: advertisement.relay_parent,
+						scheduling_parent: advertisement.scheduling_parent,
 						para_id: advertisement.para_id,
 					},
 				);
@@ -68,7 +68,7 @@ impl PendingRequests {
 				let (req, response_recv) = OutgoingRequest::new(
 					Recipient::Peer(advertisement.peer_id),
 					request_v2::CollationFetchingRequest {
-						relay_parent: advertisement.relay_parent,
+						scheduling_parent: advertisement.scheduling_parent,
 						para_id: advertisement.para_id,
 						candidate_hash,
 					},

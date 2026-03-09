@@ -42,7 +42,7 @@ use sc_consensus_slots::{
 	SlotInfo, StorageChanges,
 };
 use sc_telemetry::TelemetryHandle;
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
@@ -515,7 +515,7 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
 
 	match compatibility_mode {
 		CompatibilityMode::None => {},
@@ -538,6 +538,7 @@ where
 		},
 	}
 
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
 	runtime_api
 		.authorities(parent_hash)
 		.ok()

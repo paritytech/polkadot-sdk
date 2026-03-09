@@ -267,7 +267,7 @@ impl<B: Backend> State<B> {
 				Advertisement {
 					peer_id,
 					para_id: *para_id,
-					relay_parent,
+					scheduling_parent: relay_parent,
 					prospective_candidate: maybe_prospective_candidate,
 				},
 			)
@@ -334,13 +334,15 @@ impl<B: Backend> State<B> {
 		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
+				// TODO: use the actual scheduling_parent once V3 is supported in the
+				// experimental module (relay_parent == scheduling_parent before V3).
 				sender
-					.send_message(CandidateBackingMessage::Second(
-						candidate_receipt.descriptor.relay_parent(),
-						candidate_receipt,
+					.send_message(CandidateBackingMessage::Second {
+						scheduling_parent: candidate_receipt.descriptor.relay_parent(),
+						candidate: candidate_receipt,
 						pvd,
 						pov,
-					))
+					})
 					.await;
 
 				gum::debug!(
@@ -548,13 +550,15 @@ impl<B: Backend> State<B> {
 					let candidate_hash = candidate_receipt.hash();
 					let para_id = candidate_receipt.descriptor.para_id();
 
+					// TODO: use the actual scheduling_parent once V3 is supported in the
+					// experimental module (relay_parent == scheduling_parent before V3).
 					sender
-						.send_message(CandidateBackingMessage::Second(
-							relay_parent,
-							candidate_receipt,
+						.send_message(CandidateBackingMessage::Second {
+							scheduling_parent: relay_parent,
+							candidate: candidate_receipt,
 							pvd,
 							pov,
-						))
+						})
 						.await;
 
 					gum::debug!(

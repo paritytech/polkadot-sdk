@@ -176,10 +176,21 @@ mod benchmarks {
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_init_code_for_runtime_size(c),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
+
+		let code_len = PristineCode::<T>::get(instance.info()?.code_hash)
+			.expect("code should be stored")
+			.len();
+		assert_eq!(
+			code_len, c as usize,
+			"runtime bytecode should be exactly {c} bytes, got {code_len}"
+		);
 
 		#[extrinsic_call]
 		call(
@@ -2111,7 +2122,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 

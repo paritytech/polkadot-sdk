@@ -41,7 +41,7 @@ use sp_runtime::{
 	traits::{Bounded, StaticLookup, Zero},
 	Perbill,
 };
-use sp_staking::{EraIndex, StakingUnchecked};
+use sp_staking::{EraIndex, StakingInterface, StakingUnchecked};
 // `frame_benchmarking::benchmarks!` macro needs this
 use pallet_nomination_pools::Call;
 
@@ -444,7 +444,7 @@ mod benchmarks {
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
 		// Set the current era
-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
 
 		// Add `s` count of slashing spans to storage.
 		pallet_staking::benchmarking::add_slashing_spans::<T>(&pool_account, s);
@@ -478,7 +478,7 @@ mod benchmarks {
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 
 		// Unbond the new member
-		pallet_staking::CurrentEra::<T>::put(0);
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(0);
 		Pools::<T>::fully_unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner.clone())
 			.unwrap();
 
@@ -490,7 +490,7 @@ mod benchmarks {
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
 
 		pallet_staking::benchmarking::add_slashing_spans::<T>(&pool_account, s);
 		whitelist_account!(joiner);
@@ -518,7 +518,7 @@ mod benchmarks {
 		.unwrap();
 
 		// Unbond the creator
-		pallet_staking::CurrentEra::<T>::put(0);
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(0);
 		// Simulate some rewards so we can check if the rewards storage is cleaned up. We check this
 		// here to ensure the complete flow for destroying a pool works - the reward pool account
 		// should never exist by time the depositor withdraws so we test that it gets cleaned
@@ -540,7 +540,7 @@ mod benchmarks {
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(EraIndex::max_value());
 
 		// Some last checks that storage items we expect to get cleaned up are present
 		assert!(pallet_staking::Ledger::<T>::contains_key(&pool_account));
@@ -1018,7 +1018,7 @@ mod benchmarks {
 
 		// Fill member's sub pools for the worst case.
 		for i in 1..(T::MaxUnbonding::get() + 1) {
-			pallet_staking::CurrentEra::<T>::put(i);
+			<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(i);
 			assert!(Pools::<T>::unbond(
 				RuntimeOrigin::Signed(depositor.clone()).into(),
 				depositor_lookup.clone(),
@@ -1027,7 +1027,7 @@ mod benchmarks {
 			.is_ok());
 		}
 
-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 2);
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(T::MaxUnbonding::get() + 2);
 
 		let slash_reporter =
 			create_funded_user_with_balance::<T>("slasher", 0, CurrencyOf::<T>::minimum_balance());
@@ -1071,7 +1071,7 @@ mod benchmarks {
 			EraIndex::zero(),
 		);
 
-		pallet_staking::CurrentEra::<T>::put(1);
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(1);
 
 		// new member joins the pool who should not be affected by slash.
 		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
@@ -1084,7 +1084,7 @@ mod benchmarks {
 
 		// Fill member's sub pools for the worst case.
 		for i in 0..T::MaxUnbonding::get() {
-			pallet_staking::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
+			<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(i + 2); // +2 because we already set the era to 1.
 			assert!(Pools::<T>::unbond(
 				RuntimeOrigin::Signed(joiner.clone()).into(),
 				joiner_lookup.clone(),
@@ -1093,7 +1093,7 @@ mod benchmarks {
 			.is_ok());
 		}
 
-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
+		<T::StakeAdapter as StakeStrategy>::CoreStaking::set_era(T::MaxUnbonding::get() + 3);
 		whitelist_account!(joiner);
 
 		// Since the StakeAdapter can be different based on the runtime config, the errors could be

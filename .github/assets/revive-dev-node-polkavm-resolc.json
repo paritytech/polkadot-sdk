@@ -1,1 +1,14 @@
-{}
+{
+    "fixtures/solidity/simple/yul_instructions/revert.sol::5::Y M0": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::5::Y M3": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::19::Y M0": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::19::Y M3": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::33::Y M0": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::33::Y M3": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::47::Y M0": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::47::Y M3": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::61::Y M0": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::61::Y M3": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::75::Y M0": "Failed",
+    "fixtures/solidity/simple/yul_instructions/revert.sol::75::Y M3": "Failed"
+}

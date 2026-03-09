@@ -18,13 +18,14 @@
 
 use crate::finality::SubmitFinalityProofCallBuilder;
 
-use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_header_chain::ConsensusLogReader;
 use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::{One, Saturating, Zero};
 use sp_runtime::traits::Header;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use finality_relay::{FinalitySyncParams, HeadersToRelay, TargetClient as FinalityTargetClient};
 use relay_substrate_client::{
@@ -92,7 +93,7 @@ impl<
 			source_client: source_client.clone(),
 			target_client: target_client.clone(),
 		};
-		async_std::task::spawn(async move {
+		tokio::spawn(async move {
 			background_task::<P>(
 				source_client,
 				target_client,
@@ -230,7 +231,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 	loop {
 		select! {
-			_ = async_std::task::sleep(P::TargetChain::AVERAGE_BLOCK_INTERVAL).fuse() => {},
+			_ = tokio::time::sleep(P::TargetChain::AVERAGE_BLOCK_INTERVAL).fuse() => {},
 			_ = finality_relay_task => {
 				// this should never happen in practice given the current code
 				restart_relay = true;
@@ -550,7 +551,7 @@ mod tests {
 	const AT_SOURCE: Option<BlockNumberOf<TestChain>> = Some(10);
 	const AT_TARGET: Option<BlockNumberOf<TestChain>> = Some(1);
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn mandatory_headers_scan_range_selects_range_if_some_headers_are_missing() {
 		assert_eq!(
 			mandatory_headers_scan_range::<TestChain>(AT_SOURCE, AT_TARGET, 0,).await,
@@ -558,7 +559,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn mandatory_headers_scan_range_selects_nothing_if_already_queued() {
 		assert_eq!(
 			mandatory_headers_scan_range::<TestChain>(AT_SOURCE, AT_TARGET, AT_SOURCE.unwrap(),)

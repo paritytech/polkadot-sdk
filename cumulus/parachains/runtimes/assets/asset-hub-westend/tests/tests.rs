@@ -2401,3 +2401,91 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 			);
 		});
 }
+
+mod remote_test {
+	use super::*;
+
+	/// Test claim_trapped_balance for all pool members using a state snapshot.
+	///
+	/// The test iterates through all pool members, computes trapped amounts, and calls
+	/// `do_claim_trapped_balance` for those with trapped funds. Only successful claims are printed.
+	///
+	/// Run with:
+	/// ```bash
+	/// SNAP=<PATH_TO_SNAP> cargo test -r -p asset-hub-westend-runtime np_claim_trapped_balance \
+	/// -- --ignored --nocapture
+	/// ```
+	///
+	/// Note: If you want to test this with PAH snapshot, ensure (locally, DO NOT COMMIT)
+	/// 1) WAH staking pallet indices align with PAH
+	/// 2) WAH ED is same as PAH (decrease it by 10x in `../../../constants/src/westend.rs`)
+	/// 3) Staking Bonding Duration is 28 eras.
+	#[tokio::test]
+	#[ignore]
+	async fn np_claim_trapped_balance() {
+		use pallet_nomination_pools::{Pallet as NominationPools, PoolMembers};
+		use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
+
+		let snap_path =
+			std::env::var("SNAP").expect("SNAP env var not set. Please provide snapshot path.");
+
+		println!("Loading snapshot from: {}", snap_path);
+
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path) }))
+			.build()
+			.await
+			.expect("Failed to load snapshot");
+
+		ext.execute_with(|| {
+			use pallet_nomination_pools::adapter::{Member, StakeStrategy};
+
+			const DOT_DECIMALS: u128 = 10_000_000_000; // 10 decimals for DOT
+
+			println!("\nChecking trapped balance for all pool members...\n");
+
+			let mut total_members = 0u32;
+			let mut success_count = 0u32;
+			let mut total_claimed = 0u128;
+
+			println!("member,pool_id,trapped_dot");
+
+			for (member_account, member_data) in PoolMembers::<Runtime>::iter() {
+				total_members += 1;
+
+				// Compute trapped amount before calling the helper
+				let expected = member_data.total_balance();
+				let actual = <Runtime as pallet_nomination_pools::Config>::StakeAdapter
+					::member_delegation_balance(Member::from(
+						member_account.clone(),
+					))
+					.unwrap_or_default();
+				let trapped = actual.saturating_sub(expected);
+
+				// Ignore dust amounts (< 1 DOT) — only claim meaningful trapped balances.
+				if trapped >= DOT_DECIMALS {
+					assert_ok!(NominationPools::<Runtime>::do_claim_trapped_balance(
+						&member_account
+					));
+
+					success_count += 1;
+					total_claimed += trapped;
+					let whole = trapped / DOT_DECIMALS;
+					let fraction = (trapped % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+					println!(
+						"{:?},{},{}.{:02}",
+						member_account, member_data.pool_id, whole, fraction
+					);
+				}
+			}
+
+			let total_whole = total_claimed / DOT_DECIMALS;
+			let total_fraction = (total_claimed % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+
+			println!("\n--- Summary ---");
+			println!("Total members: {}", total_members);
+			println!("Successful claims: {}", success_count);
+			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
+		});
+	}
+}

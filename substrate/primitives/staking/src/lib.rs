@@ -329,8 +329,9 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex);
+	/// Benchmark and test helper to set both active and current era.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_era(era: EraIndex);
 }
 
 /// Set of low level apis to manipulate staking ledger.
@@ -726,6 +727,7 @@ pub trait DelegationMigrator {
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+sp_core::generate_feature_enabled_macro!(std_or_benchmarks_enabled, any(feature = "std", feature = "runtime-benchmarks"), $);
 
 #[cfg(test)]
 mod tests {

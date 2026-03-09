@@ -257,7 +257,7 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let result = contract_result.result.expect("Outer call should succeed");
 		assert!(
-			contract_result.gas_consumed > gas_limit,
+			contract_result.gas_consumed > gas_limit as u128,
 			"Inner call should consume all forwarded gas. Consumed: {}, Limit: {}",
 			contract_result.gas_consumed,
 			gas_limit
