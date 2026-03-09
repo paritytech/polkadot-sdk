@@ -502,6 +502,19 @@ pub enum ChannelSignal {
 }
 
 impl<T: Config> Pallet<T> {
+	fn try_get_outbound_channel(
+		all_channels: &BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels>,
+		recipient: ParaId,
+	) -> Option<&OutboundChannelDetails> {
+		for channel_idx in 0..all_channels.len() {
+			if all_channels[channel_idx].recipient == recipient {
+				return Some(&all_channels[channel_idx]);
+			}
+		}
+
+		None
+	}
+
 	fn try_get_or_insert_outbound_channel(
 		all_channels: &mut BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels>,
 		recipient: ParaId,
@@ -572,6 +585,11 @@ impl<T: Config> Pallet<T> {
 		let channel_details =
 			Self::try_get_or_insert_outbound_channel(&mut all_channels, recipient)
 				.ok_or(MessageSendError::TooManyChannels)?;
+		if let XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm = format {
+			channel_details
+				.flags
+				.notice_concatenated_opaque_versioned_xcm_notification_sent();
+		}
 
 		let mut existing_page = None;
 		'existing_page_check: {
@@ -1243,17 +1261,12 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 		let mut encoding = XcmEncoding::Simple;
 		let mut all_channels = <OutboundXcmpStatus<T>>::get();
-		if let Some(channel_details) =
-			Self::try_get_or_insert_outbound_channel(&mut all_channels, recipient)
+		if let Some(channel_details) = Self::try_get_outbound_channel(&mut all_channels, recipient)
 		{
 			if channel_details.flags.has_concatenated_opaque_versioned_xcm_support() {
-				channel_details
-					.flags
-					.notice_concatenated_opaque_versioned_xcm_notification_sent();
 				encoding = XcmEncoding::Double;
 			}
 		}
-		<OutboundXcmpStatus<T>>::put(all_channels);
 
 		let result = match encoding {
 			XcmEncoding::Simple => {
