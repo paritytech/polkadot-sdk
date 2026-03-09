@@ -20,13 +20,13 @@
 pub mod env;
 
 use crate::{
+	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
-	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -216,11 +216,7 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
 	fn from(from: &ExecReturnValue) -> Self {
-		if from.flags.contains(ReturnFlags::REVERT) {
-			Self::CalleeReverted
-		} else {
-			Self::Success
-		}
+		if from.flags.contains(ReturnFlags::REVERT) { Self::CalleeReverted } else { Self::Success }
 	}
 }
 
@@ -269,9 +265,7 @@ impl fmt::Display for TrapReason {
 /// We need this access as a macro because sometimes hiding the lifetimes behind
 /// a function won't work out.
 macro_rules! charge_gas {
-	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
-	}};
+	($runtime:expr, $costs:expr) => {{ $runtime.ext.frame_meter_mut().charge_weight_token($costs) }};
 }
 
 /// The kind of call that should be performed.
@@ -640,8 +634,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let callee = memory.read_h160(callee_ptr)?;
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
-			Some(precompile) if precompile.has_contract_info() =>
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
+			Some(precompile) if precompile.has_contract_info() => {
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
+			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};

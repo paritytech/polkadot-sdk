@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Extend remote externalities `Client` and child storage query unit tests
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes a test failure in the remote externalities crate concerning optionality of child key loading.
+      It also adds follow-up tests to #10779 to check `Client` construction from valid/invalid URIs.
+
+crates:
+  - name: frame-remote-externalities
+    bump: patch

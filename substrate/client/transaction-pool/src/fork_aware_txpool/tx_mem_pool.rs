@@ -483,8 +483,9 @@ where
 				transactions.insert(tx_hash, Arc::from(tx));
 				Ok(InsertionInfo::new(tx_hash, source))
 			},
-			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash))),
+			(_, true) => {
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash)))
+			},
 			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
 		trace!(
@@ -668,8 +669,9 @@ where
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
-				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) =>
-					None,
+				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
+					None
+				},
 				Err(ref error) => {
 					trace!(
 						target: LOG_TARGET,

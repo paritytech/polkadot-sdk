@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		match Ledger::<T>::get(controller) {
-			Some(ledger) =>
+			Some(ledger) => {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
@@ -140,7 +140,8 @@ impl<T: Config> Pallet<T> {
 					} else {
 						Ok(LedgerIntegrityState::Ok)
 					}
-				},
+				}
+			},
 			None => Ok(LedgerIntegrityState::CorruptedKilled),
 		}
 	}
@@ -1396,7 +1397,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 /// A simple sorted list implementation that does not require any additional pallets. Note, this
 /// does not provide validators in sorted order. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list`].
+/// a look at `pallet-bags-list`.
 pub struct UseValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	type Score = BalanceOf<T>;
@@ -1464,7 +1465,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
 /// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list].
+/// a look at `pallet-bags-list`.
 pub struct UseNominatorsAndValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
 	type Error = ();
@@ -1594,7 +1595,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn current_era() -> EraIndex {
-		CurrentEra::<T>::get().unwrap_or(Zero::zero())
+		// Named current_era for legacy interface compatibility, but returns active_era.
+		// Active era should be used for all non-election staking logic.
+		Rotator::<T>::active_era()
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {
@@ -1739,12 +1742,16 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Eras::<T>::upsert_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
-			CurrentEra::<T>::put(era);
-		}
-
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
+		}
+	}
+
+	sp_staking::std_or_benchmarks_enabled! {
+		fn set_era(era: EraIndex) {
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start: None });
+			// Simulate prod behaviour where current era is always ahead of active era by 1.
+			CurrentEra::<T>::put(era.saturating_add(1));
 		}
 	}
 }
@@ -1849,9 +1856,11 @@ impl<T: Config> Pallet<T> {
 				// if stash == controller, it means that the ledger has migrated to
 				// post-controller. If no migration happened, we expect that the (stash,
 				// controller) pair has only one associated ledger.
+				{
 					if stash != controller {
 						count_double += 1;
-					},
+					}
+				},
 				(None, None) => {
 					count_none += 1;
 				},

@@ -20,7 +20,9 @@ use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
+	relay_chain::{
+		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+	},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
@@ -160,6 +162,13 @@ where
 			array_bytes::bytes2hex("0x", p.as_ref()),
 			array_bytes::bytes2hex("0x", b.header().parent_hash().as_ref()),
 		);
+		let encoded_header_size = b.header().encoded_size();
+		assert!(
+			encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
+			"Header size {} exceeds MAX_HEAD_DATA_SIZE {}",
+			encoded_header_size,
+			MAX_HEAD_DATA_SIZE
+		);
 		b.header().hash()
 	});
 
@@ -231,7 +240,13 @@ where
 			},
 		);
 
-		if overlay.storage(well_known_keys::CODE).is_some() && num_blocks > 1 {
+		let code_upgrade_detected =
+			if <PSC as frame_system::Config>::Version::get().system_version >= 3 {
+				overlay.storage(well_known_keys::PENDING_CODE).is_some()
+			} else {
+				overlay.storage(well_known_keys::CODE).is_some()
+			};
+		if code_upgrade_detected && num_blocks > 1 {
 			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
 		}
 		run_with_externalities_and_recorder::<B, _, _>(

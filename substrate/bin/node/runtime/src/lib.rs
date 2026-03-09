@@ -214,8 +214,12 @@ const MAXIMUM_BLOCK_WEIGHT: Weight =
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -267,7 +271,7 @@ pub struct AssetRateArguments;
 #[cfg(feature = "runtime-benchmarks")]
 impl AssetKindFactory<NativeOrWithId<u32>> for AssetRateArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -280,7 +284,7 @@ pub struct PalletTreasuryArguments;
 #[cfg(feature = "runtime-benchmarks")]
 impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -299,7 +303,7 @@ impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u1
 	for PalletMultiAssetBountiesArguments
 {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -1457,6 +1461,17 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
+}
+
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
+	type ForeignAssetId = u32;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = Instance1;
+}
+
+impl pallet_assets_precompiles::PermitConfig for Runtime {
+	type ChainId = ConstU64<420_420_420>;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_tips::Config for Runtime {
@@ -2870,6 +2885,12 @@ mod runtime {
 
 	#[runtime::pallet_index(90)]
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(92)]
+	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3147,6 +3168,7 @@ mod benches {
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
 		[pallet_multi_asset_bounties, MultiAssetBounties]
+		[pallet_assets_precompiles, AssetsPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
@@ -3252,15 +3274,6 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			block_hash: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
 			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
-
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
-		fn validate_statement(
-			source: sp_statement_store::runtime_api::StatementSource,
-			statement: sp_statement_store::Statement,
-		) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
-			Statement::validate_statement(source, statement)
 		}
 	}
 

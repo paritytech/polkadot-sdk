@@ -17,9 +17,14 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! Collects funds into a buffer account instead of burning them.
+//! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
+//! instead of burning them. The buffer account must be pre-funded with at least ED (existential
+//! deposit), e.g., via balances genesis config or a transfer. If the buffer account is not
+//! pre-funded, deposits below ED will be silently burned.
 //!
-//! ## Usage
+//! Incoming funds are deactivated to exclude them from governance voting.
+//! When DAP distributes funds (e.g., to validators, nominators, treasury, collators), those funds
+//! must be reactivated before transfer.
 //!
 //! - **Fees/slashes**: Use `Dap` as `OnUnbalanced` handler (e.g., `type Slash = Dap`)
 //! - **Burn redirection**: Use [`currency::DapCurrency<T>`] as `type Currency` in pallets that call
@@ -211,6 +216,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
 			})
 			.inspect(|_| {
+				// Mark funds as inactive so they don't participate in governance voting.
+				// Only deactivate on success; if resolve failed, tokens were burned.
+				<T::Currency as Unbalanced<T::AccountId>>::deactivate(numeric_amount);
 				log::debug!(
 					target: LOG_TARGET,
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"

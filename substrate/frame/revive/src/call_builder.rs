@@ -26,14 +26,14 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use crate::{
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
 	metering::{TransactionLimits, TransactionMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
-	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -268,7 +268,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let address = outcome.result?.addr;
@@ -399,10 +399,18 @@ impl VmBinaryModule {
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 impl VmBinaryModule {
-	// Same as [`Self::sized`] but using EVM bytecode.
-	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::STOP;
-		let code = vec![STOP; size as usize];
+	// Creates EVM init code that deploys `size` bytes of runtime code (all STOP opcodes).
+	// EVM memory is zero-initialized, so RETURN(0, size) produces `size` bytes of 0x00.
+	// The runtime code is what gets stored in PristineCode and loaded on every call.
+	pub fn evm_init_code_for_runtime_size(size: u32) -> Self {
+		use revm::bytecode::opcode::{PUSH1, PUSH3, RETURN};
+		assert!(size <= 0x00FF_FFFF, "size {size} exceeds PUSH3 max (16MiB - 1)");
+		let [_, b1, b2, b3] = size.to_be_bytes();
+		let code = vec![
+			PUSH3, b1, b2, b3, // push runtime code size
+			PUSH1, 0,      // push memory offset 0
+			RETURN, // return `size` bytes from memory as runtime code
+		];
 		Self::new(code)
 	}
 }
@@ -447,8 +455,9 @@ impl VmBinaryModule {
 				// return execution right away without breaking up basic block
 				// SENTINEL is a hard coded syscall that terminates execution
 				0 => writeln!(text, "ecalli {}", crate::SENTINEL).unwrap(),
-				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 =>
-					text.push_str("fallthrough\n"),
+				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 => {
+					text.push_str("fallthrough\n")
+				},
 				_ => text.push_str("a0 = a1 + a2\n"),
 			}
 		}

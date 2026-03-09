@@ -1721,7 +1721,8 @@ fn unassign_curator_works() {
 		));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.child_curator), Balances::minimum_balance()); // burned
+		assert_eq!(Balances::free_balance(&s.child_curator), Balances::minimum_balance());
+		// burned
 	});
 }
 

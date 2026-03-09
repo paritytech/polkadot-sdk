@@ -152,7 +152,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 				None,
 			)
 			.await
-			.with_context(|| "eth_call failed")?;
+			.map_err(|e| anyhow::anyhow!("eth_call failed: {e}"))?;
 		Ok(result.0)
 	}
 

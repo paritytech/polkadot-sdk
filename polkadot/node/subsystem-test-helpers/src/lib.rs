@@ -80,10 +80,11 @@ impl<T> Sink<T> for SingleItemSink<T> {
 		let mut state = self.0.lock();
 
 		match *state {
-			SinkState::Empty { ref mut read_waker } =>
+			SinkState::Empty { ref mut read_waker } => {
 				if let Some(waker) = read_waker.take() {
 					waker.wake();
-				},
+				}
+			},
 			_ => panic!("start_send called outside of empty sink state ensured by poll_ready"),
 		}
 
@@ -572,8 +573,6 @@ pub fn derive_erasure_chunks_with_proofs_and_root(
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-
 	#[test]
 	fn macro_arbitrary_order() {
 		let mut vals = vec![Some(15_usize), None];

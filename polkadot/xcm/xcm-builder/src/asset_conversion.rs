@@ -149,8 +149,9 @@ impl<
 {
 	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
-			(NonFungible(ref instance), AssetId(ref class)) if MatchClassId::contains(class) =>
-				(instance, class),
+			(NonFungible(ref instance), AssetId(ref class)) if MatchClassId::contains(class) => {
+				(instance, class)
+			},
 			_ => return Err(MatchError::AssetNotHandled),
 		};
 		let what = ConvertClassId::convert(class).ok_or(MatchError::AssetIdConversionFailed)?;
