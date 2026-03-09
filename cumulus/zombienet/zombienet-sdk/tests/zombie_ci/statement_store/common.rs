@@ -654,7 +654,7 @@ pub(super) async fn spawn_network_sudo(
 		.with_parachain(|p| {
 			let p = p
 				.with_id(1004)
-				.with_chain_spec_path("https://raw.githubusercontent.com/paritytech/chainspecs/refs/heads/denzelpenzel/versi-people-1004/versi/parachain/versi-people-1004/people-westend-spec.json")
+				.with_chain_spec_path("https://raw.githubusercontent.com/paritytech/chainspecs/7c37889e49346b8fd44b20f9f83ce62fccbcbb11/versi/parachain/versi-people-1004/people-westend-spec.json")
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
@@ -692,7 +692,7 @@ pub(super) async fn spawn_network_sudo(
 	info!("Waiting for parachain to produce blocks...");
 	let first_collator = collators[0];
 	let node = network.get_node(first_collator)?;
-	node.wait_metric("block_height{status=\"best\"}", |height| height >= 1.0)
+	node.wait_metric_with_timeout("block_height{status=\"best\"}", |height| height >= 1.0, 120u64)
 		.await?;
 	info!("Parachain is producing blocks");
 
