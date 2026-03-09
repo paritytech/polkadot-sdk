@@ -50,7 +50,7 @@ use frame_support::{
 	PalletId,
 };
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::Zero,
 	BoundedBTreeMap, Perbill, SaturatedConversion,
 };
 use sp_staking::{BudgetKey, BudgetRecipientList, InflationCurve};
@@ -118,12 +118,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type InflationCadence: Get<u64>;
 
-		/// Safety ceiling: maximum tokens that can be minted in a single drip.
+		/// Safety ceiling: maximum elapsed time (ms) considered in a single drip.
 		///
-		/// Prevents accidental over-minting from bugs or misconfiguration.
-		// CLAUDE: Rather than inflation, we should ceil the time elapsed.
+		/// If more time has passed than this, elapsed is clamped to this value.
+		/// Prevents accidental over-minting from bugs, misconfiguration, or long
+		/// periods without blocks.
 		#[pallet::constant]
-		type MaxInflationPerDrip: Get<BalanceOf<Self>>;
+		type MaxElapsedPerDrip: Get<u64>;
 
 		/// Origin that can update budget allocation percentages.
 		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -136,9 +137,6 @@ pub mod pallet {
 		InflationDripped {
 			/// Total amount minted in this drip.
 			total_minted: BalanceOf<T>,
-			// CLAUDE: I think we don't need to put buffer_amount here. Wdyt?
-			/// Amount sent to the buffer (remainder after all allocations).
-			buffer_amount: BalanceOf<T>,
 			/// Elapsed time (ms) since last drip.
 			elapsed_millis: u64,
 		},
@@ -146,14 +144,6 @@ pub mod pallet {
 		BudgetAllocationUpdated {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
-		},
-		/// Inflation was capped at the safety ceiling.
-		// CLAUDE: We should put this in UnexpectedKind.
-		InflationCapped {
-			/// The computed inflation before capping.
-			computed: BalanceOf<T>,
-			/// The ceiling that was applied.
-			ceiling: BalanceOf<T>,
 		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
@@ -164,6 +154,13 @@ pub mod pallet {
 	pub enum UnexpectedKind {
 		/// Failed to mint inflation.
 		MintFailed,
+		/// Elapsed time was clamped at the safety ceiling.
+		ElapsedClamped {
+			/// The actual elapsed time in milliseconds.
+			actual_elapsed: u64,
+			/// The ceiling that was applied.
+			ceiling: u64,
+		},
 	}
 
 	/// Budget allocation map: `BudgetKey -> Perbill`.
@@ -182,8 +179,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// A key in the budget allocation does not match any registered recipient.
 		UnknownBudgetKey,
-		/// Budget allocation percentages exceed 100%.
-		BudgetExceedsTotal,
+		/// Budget allocation percentages do not sum to exactly 100%.
+		BudgetNotExact,
 	}
 
 	#[pallet::hooks]
@@ -196,11 +193,11 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set the budget allocation map.
-		// CLAUDE: What about this always needing to be equal to 100? So its resilient to mistakes.
-		// Even buffer needs to be explicitly decided.
+		///
 		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
-		/// must be <= 100%. The remainder (including rounding dust) goes to the buffer.
+		/// must be exactly 100%. Every recipient (including buffer) must be explicitly allocated.
 		#[pallet::call_index(0)]
+		// TODO(ank4n): Benchmark
 		#[pallet::weight(T::DbWeight::get().reads_writes(0, 1))]
 		pub fn set_budget_allocation(
 			origin: OriginFor<T>,
@@ -215,13 +212,13 @@ pub mod pallet {
 				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
 			}
 
-			// Validate sum <= 100%. Use deconstruct() to avoid saturating_add capping at
+			// Validate sum == 100%. Use deconstruct() to avoid saturating_add capping at
 			// one().
 			let total_parts: u32 = new_allocations
 				.values()
 				.map(|p| p.deconstruct())
 				.fold(0u32, |acc, p| acc.saturating_add(p));
-			ensure!(total_parts <= Perbill::one().deconstruct(), Error::<T>::BudgetExceedsTotal);
+			ensure!(total_parts == Perbill::one().deconstruct(), Error::<T>::BudgetNotExact);
 
 			BudgetAllocation::<T>::put(new_allocations.clone());
 			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
@@ -244,7 +241,7 @@ pub mod pallet {
 			let now_moment = T::Time::now();
 			let now: u64 = now_moment.saturated_into();
 			let last = LastInflationTimestamp::<T>::get();
-			let elapsed = now.saturating_sub(last);
+			let mut elapsed = now.saturating_sub(last);
 
 			let cadence = T::InflationCadence::get();
 			if cadence > 0 && elapsed < cadence {
@@ -259,15 +256,18 @@ pub mod pallet {
 				return T::DbWeight::get().reads_writes(2, 1);
 			}
 
-			let total_issuance = T::Currency::total_issuance();
-			let mut inflation = T::InflationCurve::inflation(total_issuance, elapsed);
-
-			// Apply safety ceiling.
-			let ceiling = T::MaxInflationPerDrip::get();
-			if inflation > ceiling {
-				Self::deposit_event(Event::InflationCapped { computed: inflation, ceiling });
-				inflation = ceiling;
+			// Apply safety ceiling on elapsed time.
+			let max_elapsed = T::MaxElapsedPerDrip::get();
+			if elapsed > max_elapsed {
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::ElapsedClamped {
+					actual_elapsed: elapsed,
+					ceiling: max_elapsed,
+				}));
+				elapsed = max_elapsed;
 			}
+
+			let total_issuance = T::Currency::total_issuance();
+			let inflation = T::InflationCurve::inflation(total_issuance, elapsed);
 
 			if inflation.is_zero() {
 				LastInflationTimestamp::<T>::put(now);
@@ -277,7 +277,6 @@ pub mod pallet {
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			let recipients = T::BudgetRecipients::recipients();
-			let mut distributed = BalanceOf::<T>::zero();
 
 			for (key, account) in &recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
@@ -286,44 +285,28 @@ pub mod pallet {
 					if let Err(_) = T::Currency::mint_into(account, amount) {
 						defensive!("Inflation mint should not fail");
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
-					} else {
-						distributed = distributed.saturating_add(amount);
 					}
 				}
 			}
 
-			// Buffer absorbs remainder (rounding dust + unallocated percentage).
-			// CLAUDE: This is fine. But we can also choose to not mint the dust tbh. Saves
-			// some operation. Leaning towards that.
-			let buffer_amount = inflation.saturating_sub(distributed);
-			if !buffer_amount.is_zero() {
-				let buffer = Self::buffer_account();
-				if let Err(_) = T::Currency::mint_into(&buffer, buffer_amount) {
-					defensive!("Buffer mint should not fail");
-					Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
-				}
-			}
+			// Rounding dust from Perbill::mul_floor is not minted.
 
 			LastInflationTimestamp::<T>::put(now);
 
-			// CLAUDE: since this is so frequent, am wondering if we should not emit it? OTOH,
-			// it's very useful to have this event.
 			Self::deposit_event(Event::InflationDripped {
 				total_minted: inflation,
-				buffer_amount,
 				elapsed_millis: elapsed,
 			});
 
 			log::debug!(
 				target: LOG_TARGET,
-				"Inflation drip: total={inflation:?}, distributed={distributed:?}, \
-				 buffer={buffer_amount:?}, elapsed={elapsed}ms"
+				"Inflation drip: total={inflation:?}, elapsed={elapsed}ms"
 			);
 
 			// Weight: 2 reads (time + last) + 1 read (issuance) + 1 read (budget) +
-			// N mints + 1 buffer mint + 1 write (timestamp)
+			// N mints + 1 write (timestamp)
 			let recipient_count = recipients.len() as u64;
-			T::DbWeight::get().reads_writes(4 + recipient_count, 2 + recipient_count)
+			T::DbWeight::get().reads_writes(4 + recipient_count, 1 + recipient_count)
 		}
 	}
 }
