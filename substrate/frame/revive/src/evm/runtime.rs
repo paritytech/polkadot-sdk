@@ -16,33 +16,33 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, LOG_TARGET, Pallet, Zero,
 	evm::{
-		CreateCallMode,
 		api::{GenericTransaction, TransactionSigned},
 		fees::InfoT,
+		CreateCallMode,
 	},
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, Pallet, Zero, LOG_TARGET,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{
-		InherentBuilder, IsSubType, SignedTransactionBuilder,
 		fungible::Balanced,
 		tokens::{Fortitude, Precision, Preservation},
+		InherentBuilder, IsSubType, SignedTransactionBuilder,
 	},
 };
 use pallet_transaction_payment::Config as TxConfig;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::U256;
 use sp_runtime::{
-	Debug, OpaqueExtrinsic, Weight,
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	Debug, OpaqueExtrinsic, Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -128,9 +128,9 @@ where
 	// required by Checkable for `generic::UncheckedExtrinsic`
 	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
 		Checkable<
-				Lookup,
-				Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
-			>,
+			Lookup,
+			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+		>,
 {
 	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
 
@@ -369,12 +369,13 @@ pub trait EthExtra {
 mod test {
 	use super::*;
 	use crate::{
-		EthTransactInfo, RUNTIME_PALLETS_ADDR, Weight,
 		evm::*,
 		test_utils::*,
 		tests::{
-			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
+			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, TestSigner,
+			UncheckedExtrinsic,
 		},
+		EthTransactInfo, Weight, RUNTIME_PALLETS_ADDR,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
@@ -435,7 +436,10 @@ mod test {
 
 			let dry_run =
 				crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Default::default());
-			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
+			let base_fee = <Pallet<Test>>::evm_base_fee();
+			self.tx.gas_price = Some(base_fee);
+			self.tx.max_fee_per_gas = Some(base_fee);
+			self.tx.max_priority_fee_per_gas = Some(0.into());
 
 			match dry_run {
 				Ok(dry_run) => {
@@ -452,6 +456,18 @@ mod test {
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
+			builder
+		}
+
+		/// Create a new builder with a call that includes an EIP-7702 authorization list.
+		fn call_with_authorization(
+			dest: H160,
+			authorization_list: Vec<AuthorizationListEntry>,
+		) -> Self {
+			let mut builder = Self::new();
+			builder.tx.to = Some(dest);
+			builder.tx.r#type = Some(TYPE_EIP7702.into());
+			builder.tx.authorization_list = authorization_list;
 			builder
 		}
 
@@ -764,5 +780,81 @@ mod test {
 			generic_transaction.chain_id.is_none(),
 			"Chain Id in the generic transaction is not None"
 		);
+	}
+
+	#[test]
+	fn check_eth_transact_7702_call_works() {
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let signer = TestSigner::new(&[0xCC; 32]);
+		let auth = signer.sign_authorization(chain_id, H160::from([1u8; 20]), U256::zero());
+
+		let builder =
+			UncheckedExtrinsicBuilder::call_with_authorization(H160::from([1u8; 20]), vec![auth]);
+		let (expected_encoded_len, call, _, tx, weight_required, _) = builder.check().unwrap();
+
+		match call {
+			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
+				dest,
+				weight_limit,
+				encoded_len,
+				authorization_list,
+				..
+			}) if dest == tx.to.unwrap() => {
+				assert_eq!(encoded_len, expected_encoded_len);
+				assert_eq!(authorization_list.len(), 1);
+				assert!(
+					weight_limit.all_gte(weight_required),
+					"weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
+				);
+			},
+			_ => panic!("Call does not match."),
+		}
+	}
+
+	#[test]
+	fn check_eth_transact_7702_insufficient_gas() {
+		use crate::evm::fees::InfoT;
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let dest = H160::from([1u8; 20]);
+		let auths: Vec<_> = (0..3u8)
+			.map(|i| {
+				let mut seed = [0u8; 32];
+				seed[0] = 0xCC + i;
+				TestSigner::new(&seed).sign_authorization(chain_id, dest, U256::zero())
+			})
+			.collect();
+		let num_auths = auths.len() as u128;
+		let gas_scale = <Test as Config>::GasScale::get() as u128;
+		let auth_cost = Pallet::<Test>::worst_case_delegation_deposit().saturating_mul(num_auths);
+
+		// With estimated gas the transaction is valid
+		UncheckedExtrinsicBuilder::call_with_authorization(dest, auths.clone())
+			.check()
+			.expect("estimated gas should pass validation");
+
+		// Gas covering auth deposits + base transaction overhead is sufficient.
+		UncheckedExtrinsicBuilder::call_with_authorization(dest, auths.clone())
+			.mutate_estimate_and_check(Box::new(move |tx| {
+				let mut call_info = tx
+					.clone()
+					.into_call::<Test>(CreateCallMode::DryRun)
+					.expect("dry run should succeed");
+				let base_info = <Test as Config>::FeeInfo::base_dispatch_info(&mut call_info.call);
+				let overhead = <Test as Config>::FeeInfo::fixed_fee(call_info.encoded_len as u32) +
+					<Test as Config>::FeeInfo::weight_to_fee(&base_info.total_weight());
+				let sufficient_gas = 1 + (auth_cost + overhead) / gas_scale;
+				tx.gas = Some(U256::from(sufficient_gas));
+			}))
+			.expect("gas covering auth deposits + overhead should pass");
+
+		// Gas covering only auth deposits (without overhead) is insufficient:
+		let res = UncheckedExtrinsicBuilder::call_with_authorization(dest, auths)
+			.mutate_estimate_and_check(Box::new(move |tx| {
+				let insufficient_gas = auth_cost / gas_scale;
+				tx.gas = Some(U256::from(insufficient_gas));
+			}));
+
+		assert_eq!(res, Err(TransactionValidityError::Invalid(InvalidTransaction::Payment)));
 	}
 }
