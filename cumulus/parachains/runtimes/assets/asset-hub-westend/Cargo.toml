@@ -134,21 +134,13 @@ xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
-<<<<<<< HEAD
 asset-test-utils = { default-features = true, workspace = true }
 pallet-revive-fixtures = { default-features = true, workspace = true }
 parachains-runtimes-test-utils = { default-features = true, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 westend-runtime = { default-features = true, workspace = true }
-=======
-asset-test-utils = { workspace = true, default-features = true }
-pallet-revive-fixtures = { workspace = true, default-features = true }
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros"] }
-westend-runtime = { workspace = true, default-features = true }
->>>>>>> d4f1c4b2 ([Pool] Claim trapped balance (#11018))
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
