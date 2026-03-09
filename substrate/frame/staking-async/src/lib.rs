@@ -215,7 +215,7 @@ use sp_runtime::{
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus, StakingRewardProvider};
+pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
 // public exports
@@ -284,6 +284,93 @@ where
 			EraPotType::ValidatorSelfStake => 1,
 		};
 		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
+	}
+}
+
+impl<AccountId> GeneralPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
+		let offset = match pot_type {
+			GeneralPotType::StakerRewards => 0,
+			GeneralPotType::ValidatorIncentive => 1,
+		};
+		AccountId::from(200_000 + offset)
+	}
+}
+
+/// Identifies the two general (non-era-specific) reward pots.
+///
+/// DAP drips inflation into these accounts continuously. At era boundaries,
+/// staking snapshots the balances and transfers them to era-specific pots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum GeneralPotType {
+	/// General pot for staker rewards.
+	StakerRewards,
+	/// General pot for validator self-stake incentive.
+	ValidatorIncentive,
+}
+
+/// Trait that provides general (non-era-specific) pot accounts.
+///
+/// These pots receive continuous inflation drips from DAP. At era boundaries,
+/// staking snapshots their balances into era-specific pots.
+///
+/// This is a separate trait rather than PalletId derivation because small AccountId types
+/// (e.g., u64 in tests) don't have enough bytes for PalletId sub-account derivation
+/// to produce unique accounts.
+pub trait GeneralPotAccountProvider<AccountId> {
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId;
+}
+
+/// PalletId-based implementation of [`GeneralPotAccountProvider`].
+impl<AccountId, S> GeneralPotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating(pot_type)
+	}
+}
+
+/// Budget recipient for staker rewards.
+///
+/// Exposes the general staker reward pot so DAP can drip inflation into it.
+/// `G` implements [`GeneralPotAccountProvider`] to derive the pot account.
+pub struct StakerRewardRecipient<G>(core::marker::PhantomData<G>);
+
+impl<AccountId, G> sp_staking::BudgetRecipient<AccountId> for StakerRewardRecipient<G>
+where
+	G: GeneralPotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		G::general_pot_account(GeneralPotType::StakerRewards)
+	}
+}
+
+/// Budget recipient for validator self-stake incentive.
+///
+/// Exposes the general validator incentive pot so DAP can drip inflation into it.
+/// `G` implements [`GeneralPotAccountProvider`] to derive the pot account.
+pub struct ValidatorIncentiveRecipient<G>(core::marker::PhantomData<G>);
+
+impl<AccountId, G> sp_staking::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<G>
+where
+	G: GeneralPotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		G::general_pot_account(GeneralPotType::ValidatorIncentive)
 	}
 }
 
