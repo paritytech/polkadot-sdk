@@ -109,7 +109,7 @@ pub fn process_authorizations<T: Config>(
 		};
 
 		match deposit {
-			StorageDeposit::Charge(amount) if !amount.is_zero() => {
+			StorageDeposit::Charge(amount) => {
 				Pallet::<T>::charge_deposit(
 					Some(HoldReason::StorageDepositReserve),
 					origin,
@@ -119,7 +119,7 @@ pub fn process_authorizations<T: Config>(
 				)?;
 				result.deposit.saturating_accrue(amount);
 			},
-			StorageDeposit::Refund(amount) if !amount.is_zero() => {
+			StorageDeposit::Refund(amount) => {
 				Pallet::<T>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					&account_id,
@@ -129,7 +129,6 @@ pub fn process_authorizations<T: Config>(
 				)?;
 				result.deposit = result.deposit.saturating_sub(amount);
 			},
-			_ => {},
 		}
 
 		frame_system::Pallet::<T>::inc_account_nonce(&account_id);
