@@ -1925,7 +1925,7 @@ fn process_out_of_view_collation(
 	//
 	// Will expire in it's current state at the next block import.
 	stats.set_pre_backing_status(collation_status);
-	collation_tracker.track(stats);
+	collation_tracker.track(stats, true);
 }
 
 /// Process collations that were expired
@@ -2155,8 +2155,16 @@ async fn run_inner<Context>(
 									stats.take_fetch_latency_metric();
 									stats.set_backed_latency_metric(metrics.time_collation_backing_latency());
 
+									// Check if the relay parent is on the best fork
+									// by verifying it's an ancestor of any active leaf.
+									let relay_parent_on_best_fork = state
+										.implicit_view
+										.as_ref()
+										.map(|iv| !iv.paths_via_relay_parent(&relay_parent).is_empty())
+										.unwrap_or(true);
+
 									// Next step is to measure backing latency.
-									state.collation_tracker.track(stats);
+									state.collation_tracker.track(stats, relay_parent_on_best_fork);
 								}
 							}
 						}

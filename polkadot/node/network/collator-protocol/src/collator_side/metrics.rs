@@ -378,29 +378,22 @@ impl CollationTracker {
 	/// Track a collation for a given period of time (TTL). TTL depends
 	/// on the collation state.
 	/// Collation is evicted after it expires.
-	pub fn track(&mut self, mut stats: CollationStats) {
+	///
+	/// `relay_parent_on_best_fork` indicates whether the relay parent of the collation
+	/// is on the best fork (i.e., is an ancestor of any currently active leaf).
+	pub fn track(&mut self, mut stats: CollationStats, relay_parent_on_best_fork: bool) {
 		// Disable the fetch timer, to prevent bogus observe on drop.
 		if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
 			fetch_latency_metric.stop_and_discard();
 		}
 
-		if let Some(entry) = self
-			.entries
-			.values()
-			.find(|entry| entry.relay_parent_number == stats.relay_parent_number)
-		{
-			// Collations are built on a fork when numbers match, but hashes don't.
-			let is_fork = entry.relay_parent != stats.relay_parent;
-			if is_fork {
-				stats.built_on_fork = true;
-			}
+		if !relay_parent_on_best_fork {
+			stats.built_on_fork = true;
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
 				?stats.relay_parent_number,
 				?stats.relay_parent,
-				entry_relay_parent = ?entry.relay_parent,
-				?is_fork,
-				"Collation built on a fork",
+				"Collation built on a fork (relay parent not on best fork)",
 			);
 		}
 
