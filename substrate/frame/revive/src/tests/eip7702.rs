@@ -31,6 +31,20 @@ use frame_support::{
 };
 use sp_core::{H160, H256, U256};
 
+/// Compute the expected weight refund for a given mix of new/existing processed accounts.
+/// Mirrors the logic in `process_authorizations`.
+fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
+	use crate::weights::WeightInfo;
+	let total = new_accounts + existing_accounts;
+	let worst = <Test as Config>::WeightInfo::process_new_account_authorization(total)
+		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(0));
+	let actual = <Test as Config>::WeightInfo::process_new_account_authorization(new_accounts)
+		.saturating_add(
+			<Test as Config>::WeightInfo::process_existing_account_authorization(existing_accounts),
+		);
+	worst.saturating_sub(actual)
+}
+
 /// Common setup for delegation tests that call `process_authorizations` directly.
 struct DelegationTestSetup {
 	signer: TestSigner,
@@ -164,7 +178,7 @@ fn valid_signature_is_verified_correctly() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
 
@@ -188,7 +202,7 @@ fn invalid_chain_id_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 0)
 			}
 		);
 
@@ -212,7 +226,7 @@ fn nonce_mismatch_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 0)
 			}
 		);
 
@@ -241,7 +255,7 @@ fn corrupted_signature_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 0)
 			}
 		);
 
@@ -284,7 +298,7 @@ fn contract_account_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 0)
 			}
 		);
 
@@ -316,7 +330,7 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
 
@@ -347,7 +361,7 @@ fn authorization_increments_nonce() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
 
@@ -370,7 +384,7 @@ fn chain_id_zero_accepts_any_chain() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
 
@@ -393,7 +407,7 @@ fn new_account_sets_delegation() {
 				existing_accounts: 0,
 				new_accounts: 1,
 				deposit: 1,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(1, 0)
 			},
 		);
 
@@ -418,7 +432,7 @@ fn clearing_delegation_with_zero_address() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
 
@@ -431,7 +445,7 @@ fn clearing_delegation_with_zero_address() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
 
@@ -458,7 +472,7 @@ fn process_multiple_authorizations_from_different_signers() {
 				existing_accounts: 2,
 				new_accounts: 1,
 				deposit: 1,
-				weight_refund: Weight::zero()
+				weight_refund: expected_weight_refund(1, 2)
 			},
 		);
 
