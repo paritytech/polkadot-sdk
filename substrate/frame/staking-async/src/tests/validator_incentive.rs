@@ -31,12 +31,15 @@ fn setup_incentive_config() {
 /// Sets up incentive config and a budget allocation with the given percentages.
 fn setup_incentive_with_budget(staker_pct: u32, incentive_pct: u32) {
 	setup_incentive_config();
-	let budget = pallet_dap::BudgetConfig {
-		staker_rewards: Perbill::from_percent(staker_pct),
-		validator_self_stake_incentive: Perbill::from_percent(incentive_pct),
-		buffer: Perbill::from_percent(100 - staker_pct - incentive_pct),
-	};
-	pallet_dap::BudgetAllocation::<Test>::put(budget);
+	let buffer_pct = 100u32.saturating_sub(staker_pct).saturating_sub(incentive_pct);
+	let mut entries = vec![(staker_reward_key(), staker_pct)];
+	if incentive_pct > 0 {
+		entries.push((validator_incentive_key(), incentive_pct));
+	}
+	if buffer_pct > 0 {
+		entries.push((buffer_key(), buffer_pct));
+	}
+	pallet_dap::BudgetAllocation::<Test>::put(build_budget(&entries));
 }
 
 /// Finds the staker reward amount for a given stash from events.
@@ -753,8 +756,8 @@ fn validator_incentive_with_staked_destination() {
 		let events = staking_events_since_last_call();
 
 		// THEN: Incentive event records Staked destination and balance increases
-		let (incentive, dest) = incentive_paid_details(alice, &events)
-			.expect("Validator should receive incentive");
+		let (incentive, dest) =
+			incentive_paid_details(alice, &events).expect("Validator should receive incentive");
 		assert_eq!(dest, RewardDestination::Staked);
 		assert!(incentive > 0, "Incentive amount should be non-zero");
 
@@ -852,8 +855,8 @@ fn validator_payee_changes_before_payout() {
 		let events = staking_events_since_last_call();
 
 		// THEN: Incentive uses payee at payout time (new_account)
-		let (incentive, dest) = incentive_paid_details(alice, &events)
-			.expect("Validator should receive incentive");
+		let (incentive, dest) =
+			incentive_paid_details(alice, &events).expect("Validator should receive incentive");
 		assert_eq!(dest, RewardDestination::Account(new_account));
 
 		assert_eq!(asset::total_balance::<Test>(&old_account), old_balance_before);
