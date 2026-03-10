@@ -777,6 +777,18 @@ impl RelayChainRpcClient {
 		Ok(rx)
 	}
 
+	pub async fn parachain_host_max_relay_parent_session_age(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_max_relay_parent_session_age",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn parachain_host_para_ids(
 		&self,
 		at: RelayHash,

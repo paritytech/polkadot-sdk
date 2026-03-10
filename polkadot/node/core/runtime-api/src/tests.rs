@@ -331,6 +331,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn para_ids(&self, _: Hash) -> Result<Vec<ParaId>, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn max_relay_parent_session_age(&self, _: Hash) -> Result<u32, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]
