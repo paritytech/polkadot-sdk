@@ -1316,7 +1316,10 @@ mod tests {
 
 	use super::*;
 	use fastbloom::BloomFilter;
-	use std::sync::Mutex;
+	use std::sync::{
+		Mutex,
+		atomic::{AtomicBool, Ordering},
+	};
 
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
@@ -1437,7 +1440,16 @@ mod tests {
 		}
 	}
 
-	struct TestSync {}
+	#[derive(Clone)]
+	struct TestSync {
+		major_syncing: Arc<AtomicBool>,
+	}
+
+	impl TestSync {
+		fn new() -> Self {
+			Self { major_syncing: Arc::new(AtomicBool::new(false)) }
+		}
+	}
 
 	impl SyncEventStream for TestSync {
 		fn event_stream(
@@ -1450,7 +1462,7 @@ mod tests {
 
 	impl sp_consensus::SyncOracle for TestSync {
 		fn is_major_syncing(&self) -> bool {
-			false
+			self.major_syncing.load(Ordering::Relaxed)
 		}
 
 		fn is_offline(&self) -> bool {
@@ -1720,7 +1732,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			network: network.clone(),
-			sync: TestSync {},
+			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
@@ -1927,7 +1939,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			network: network.clone(),
-			sync: TestSync {},
+			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
@@ -1965,7 +1977,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			network: network.clone(),
-			sync: TestSync {},
+			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
@@ -3192,5 +3204,406 @@ mod tests {
 			"stmt_bb should now be sent after affinity expanded to include topic_bb"
 		);
 		assert!(!sent_hashes.contains(&hash_aa), "stmt_aa should NOT be re-sent (already known)");
+	}
+
+	#[test]
+	fn test_encode_statement_refs_matches_derive_encoding() {
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(b"first".to_vec());
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(b"second".to_vec());
+
+		let refs: Vec<&Statement> = vec![&stmt1, &stmt2];
+		let hand_rolled = StatementMessage::encode_statement_refs(&refs);
+		let derive_encoded = StatementMessage::Statements(vec![stmt1, stmt2]).encode();
+
+		assert_eq!(
+			hand_rolled, derive_encoded,
+			"encode_statement_refs must produce identical bytes to derive Encode"
+		);
+	}
+
+	#[test]
+	fn test_encode_statement_refs_empty() {
+		let refs: Vec<&Statement> = vec![];
+		let hand_rolled = StatementMessage::encode_statement_refs(&refs);
+		let derive_encoded = StatementMessage::Statements(vec![]).encode();
+
+		assert_eq!(hand_rolled, derive_encoded);
+	}
+
+	#[test]
+	fn test_can_receive_all_combinations() {
+		let make_peer = |is_light: bool, version: PeerProtocolVersion, has_affinity: bool| {
+			let topic_affinity = if has_affinity {
+				let bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
+				Some(AffinityFilter { bloom, seed: BLOOM_SEED })
+			} else {
+				None
+			};
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(10).unwrap()),
+				rate_limiter: PeerRateLimiter::new(
+					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.expect("nonzero"),
+				),
+				protocol_version: version,
+				topic_affinity,
+				is_light,
+			}
+		};
+
+		// Full node, V1, no affinity → can receive
+		assert!(make_peer(false, PeerProtocolVersion::V1, false).can_receive());
+		// Full node, V2, no affinity → can receive
+		assert!(make_peer(false, PeerProtocolVersion::V2, false).can_receive());
+		// Light, V1, no affinity → can receive (V1 doesn't gate)
+		assert!(make_peer(true, PeerProtocolVersion::V1, false).can_receive());
+		// Light, V2, no affinity → CANNOT receive (must set affinity first)
+		assert!(!make_peer(true, PeerProtocolVersion::V2, false).can_receive());
+		// Light, V2, with affinity → can receive
+		assert!(make_peer(true, PeerProtocolVersion::V2, true).can_receive());
+		// Full node, V2, with affinity → can receive
+		assert!(make_peer(false, PeerProtocolVersion::V2, true).can_receive());
+	}
+
+	#[tokio::test]
+	async fn test_send_chunk_v1_vs_v2_encoding() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+
+		let v1_peer = PeerId::random();
+		let v2_peer = PeerId::random();
+
+		// Connect V1 peer.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: v1_peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some("/statement/1".into()),
+			})
+			.await;
+
+		// Connect V2 peer.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: v2_peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"encoding test".to_vec());
+
+		// Send to V1 peer.
+		notification_service.clear_sent_notifications();
+		handler.send_statement_chunk(&v1_peer, &[&stmt]).await;
+		let v1_sent = notification_service.get_sent_notifications();
+		assert_eq!(v1_sent.len(), 1);
+		let v1_bytes = &v1_sent[0].1;
+		// V1 encoding is raw Vec<Statement>.
+		let decoded_v1 = <Statements as Decode>::decode(&mut v1_bytes.as_slice())
+			.expect("V1 peer should receive raw Vec<Statement> encoding");
+		assert_eq!(decoded_v1.len(), 1);
+
+		// Send to V2 peer.
+		notification_service.clear_sent_notifications();
+		handler.send_statement_chunk(&v2_peer, &[&stmt]).await;
+		let v2_sent = notification_service.get_sent_notifications();
+		assert_eq!(v2_sent.len(), 1);
+		let v2_bytes = &v2_sent[0].1;
+		// V2 encoding is StatementMessage::Statements.
+		let decoded_v2 = StatementMessage::decode(&mut v2_bytes.as_slice())
+			.expect("V2 peer should receive StatementMessage encoding");
+		match decoded_v2 {
+			StatementMessage::Statements(stmts) => assert_eq!(stmts.len(), 1),
+			_ => panic!("Expected StatementMessage::Statements for V2 peer"),
+		}
+
+		// Verify the two encodings are different (V2 has an extra enum discriminant byte).
+		assert_ne!(v1_bytes, v2_bytes, "V1 and V2 encodings should differ");
+	}
+
+	#[tokio::test]
+	async fn test_schedule_initial_sync_replaces_existing() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// Add some statements to the store.
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(b"stmt1".to_vec());
+		let hash1 = stmt1.hash();
+		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
+
+		// Connect peer as V1.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some("/statement/1".into()),
+			})
+			.await;
+
+		// Should have initial sync scheduled.
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"Peer should appear exactly once in the queue"
+		);
+
+		// Add another statement and re-schedule.
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(b"stmt2".to_vec());
+		let hash2 = stmt2.hash();
+		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		// Peer should still appear exactly once in the queue (no duplicates).
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"Peer should NOT be duplicated in the queue after re-schedule"
+		);
+		// The new sync should contain both hashes.
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert!(pending.hashes.contains(&hash1));
+		assert!(pending.hashes.contains(&hash2));
+	}
+
+	#[tokio::test]
+	async fn test_schedule_initial_sync_skips_during_major_sync() {
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+		let sync = TestSync::new();
+		// Set major syncing to true.
+		sync.major_syncing.store(true, Ordering::Relaxed);
+
+		let mut handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service.clone()),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync,
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store.clone()),
+			queue_sender,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+		};
+
+		// Add a statement so there's something to sync.
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"during major sync".to_vec());
+		let hash = stmt.hash();
+		statement_store.statements.lock().unwrap().insert(hash, stmt);
+
+		// Add a peer manually.
+		let peer_id = PeerId::random();
+		handler.peers.insert(
+			peer_id,
+			Peer::new_for_testing(
+				LruHashSet::new(NonZeroUsize::new(100).unwrap()),
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).unwrap(),
+				NonZeroU32::new(
+					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.unwrap(),
+			),
+		);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		assert!(
+			!handler.pending_initial_syncs.contains_key(&peer_id),
+			"No initial sync should be scheduled during major sync"
+		);
+		assert!(
+			handler.initial_sync_peer_queue.is_empty(),
+			"Queue should be empty during major sync"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_schedule_initial_sync_pre_filters_known_hashes() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// Add statements to the store.
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(b"known".to_vec());
+		let hash1 = stmt1.hash();
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(b"unknown".to_vec());
+		let hash2 = stmt2.hash();
+
+		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
+		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+
+		// Add peer manually with hash1 already known.
+		let mut known = LruHashSet::new(NonZeroUsize::new(100).unwrap());
+		known.insert(hash1);
+		handler.peers.insert(
+			peer_id,
+			Peer {
+				known_statements: known,
+				rate_limiter: PeerRateLimiter::new(
+					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).unwrap(),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.unwrap(),
+				),
+				protocol_version: PeerProtocolVersion::V1,
+				topic_affinity: None,
+				is_light: false,
+			},
+		);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert!(
+			!pending.hashes.contains(&hash1),
+			"Known hash should be pre-filtered from initial sync"
+		);
+		assert!(pending.hashes.contains(&hash2), "Unknown hash should be included in initial sync");
+	}
+
+	#[tokio::test]
+	async fn test_malformed_v2_message_does_not_panic() {
+		let (mut handler, _statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		// Connect peer as V2.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Send garbage data — should not panic, just log debug.
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: vec![0xFF, 0xFE, 0xFD].into(),
+			})
+			.await;
+
+		// Send V1-encoded data to V2 peer — also should not panic.
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"v1 encoded".to_vec());
+		let v1_encoded = vec![stmt].encode();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: v1_encoded.into(),
+			})
+			.await;
+
+		// If we got here without panic, the test passes.
+		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
+	}
+
+	#[test]
+	fn test_find_sendable_chunk_v2_overhead() {
+		let v1_max = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
+		let v2_max = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
+
+		// V2 has strictly less payload space than V1.
+		assert!(
+			v2_max < v1_max,
+			"V2 payload capacity ({v2_max}) should be less than V1 ({v1_max})"
+		);
+		assert_eq!(v1_max - v2_max, 1, "V2 overhead is exactly 1 byte more than V1");
+
+		// Create enough statements to fill V1 but not V2.
+		let stmts: Vec<Statement> = (0..1000)
+			.map(|i| {
+				let mut s = Statement::new();
+				s.set_plain_data(format!("stmt-{i}").into_bytes());
+				s
+			})
+			.collect();
+		let refs: Vec<&Statement> = stmts.iter().collect();
+
+		let v1_chunk = find_sendable_chunk(&refs, V1_ENVELOPE_OVERHEAD);
+		let v2_chunk = find_sendable_chunk(&refs, V2_ENVELOPE_OVERHEAD);
+
+		// V2 should fit the same or fewer statements.
+		let v1_count = match v1_chunk {
+			ChunkResult::Send(n) => n,
+			_ => panic!("Expected Send for V1"),
+		};
+		let v2_count = match v2_chunk {
+			ChunkResult::Send(n) => n,
+			_ => panic!("Expected Send for V2"),
+		};
+		assert!(
+			v2_count <= v1_count,
+			"V2 ({v2_count}) should fit at most as many statements as V1 ({v1_count})"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_full_node_v2_gets_initial_sync_immediately() {
+		let (mut handler, statement_store, _network, _notification_service) =
+			build_handler_no_peers();
+
+		// Add a statement so there's something to sync.
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"full node v2".to_vec());
+		let hash = stmt.hash();
+		statement_store.statements.lock().unwrap().insert(hash, stmt);
+
+		let peer_id = PeerId::random();
+
+		// Connect as full-node V2 (no fallback, network returns Full role).
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Full-node V2 peer should get initial sync immediately (not gated).
+		assert!(
+			handler.pending_initial_syncs.contains_key(&peer_id),
+			"Full-node V2 peer should have initial sync scheduled immediately"
+		);
+		assert_eq!(handler.peers.get(&peer_id).unwrap().protocol_version, PeerProtocolVersion::V2);
+		assert!(!handler.peers.get(&peer_id).unwrap().is_light);
 	}
 }

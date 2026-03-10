@@ -185,4 +185,72 @@ mod tests {
 		let absent: [u8; 32] = [0xFF; 32];
 		assert!(!decoded.bloom.contains(&absent), "absent item must not match");
 	}
+
+	#[test]
+	fn matches_statement_no_topics_always_matches() {
+		let bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
+		// Empty bloom — nothing inserted.
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"broadcast".to_vec());
+		// No topics set → should always match (broadcast).
+		assert!(filter.matches_statement(&stmt));
+	}
+
+	#[test]
+	fn matches_statement_single_matching_topic() {
+		let topic: [u8; 32] = [0xAA; 32];
+		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
+		bloom.insert(&topic);
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"matching".to_vec());
+		stmt.set_topic(0, topic.into());
+		assert!(filter.matches_statement(&stmt));
+	}
+
+	#[test]
+	fn matches_statement_single_non_matching_topic() {
+		let topic_in_filter: [u8; 32] = [0xAA; 32];
+		let topic_on_stmt: [u8; 32] = [0xBB; 32];
+		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
+		bloom.insert(&topic_in_filter);
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"not matching".to_vec());
+		stmt.set_topic(0, topic_on_stmt.into());
+		assert!(!filter.matches_statement(&stmt));
+	}
+
+	#[test]
+	fn matches_statement_multiple_topics_any_semantics() {
+		let topic_aa: [u8; 32] = [0xAA; 32];
+		let topic_bb: [u8; 32] = [0xBB; 32];
+		let topic_cc: [u8; 32] = [0xCC; 32];
+
+		// Filter only contains topic_bb.
+		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
+		bloom.insert(&topic_bb);
+		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+
+		// Statement has topics [topic_aa, topic_bb] — should match because topic_bb is in filter.
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"multi topic".to_vec());
+		stmt.set_topic(0, topic_aa.into());
+		stmt.set_topic(1, topic_bb.into());
+		assert!(filter.matches_statement(&stmt), "should match when ANY topic is in the filter");
+
+		// Statement has topics [topic_aa, topic_cc] — neither in filter.
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(b"no match multi".to_vec());
+		stmt2.set_topic(0, topic_aa.into());
+		stmt2.set_topic(1, topic_cc.into());
+		assert!(
+			!filter.matches_statement(&stmt2),
+			"should not match when NO topic is in the filter"
+		);
+	}
 }
