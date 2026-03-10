@@ -53,3 +53,22 @@ pub mod ed_on_bls12_381_bandersnatch;
 	feature = "ed-on-bls12-381-bandersnatch",
 ))]
 mod utils;
+
+/// Host for to speed up Elliptic Curve math.
+///
+/// Provides: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377, Ed-on-BLS12-381-Bandersnatch.
+#[cfg(all(
+	feature = "bls12-381",
+	feature = "bls12-377",
+	feature = "bw6-761",
+	feature = "ed-on-bls12-377",
+	feature = "ed-on-bls12-381-bandersnatch",
+))]
+pub type EllipticCurveHostFunctions = (
+	bls12_381::host_calls::HostFunctions,
+	bls12_377::host_calls::HostFunctions,
+	bw6_761::host_calls::HostFunctions,
+	ed_on_bls12_377::host_calls::HostFunctions,
+	ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+	// Adding stuff here directly exposes it to the node!
+);
