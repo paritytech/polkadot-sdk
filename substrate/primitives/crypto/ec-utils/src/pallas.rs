@@ -51,14 +51,10 @@ impl CurveHooks for HostHooks {
 
 	fn mul_projective(base: &Projective, scalar: &[u64]) -> Projective {
 		let mut out = utils::buffer_for::<Affine>();
-		host_calls::pallas_mul(
-			&utils::encode(base.into_affine()),
-			&utils::encode(scalar),
-			&mut out,
-		)
-		.and_then(|_| utils::decode::<Affine>(&out))
-		.expect(FAIL_MSG)
-		.into_group()
+		host_calls::pallas_mul(&utils::encode(base.into_affine()), &utils::encode(scalar), &mut out)
+			.and_then(|_| utils::decode::<Affine>(&out))
+			.expect(FAIL_MSG)
+			.into_group()
 	}
 }
 
