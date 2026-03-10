@@ -458,7 +458,7 @@ impl Initialized {
 	async fn process_unapplied_slashes<Context>(
 		&mut self,
 		ctx: &mut Context,
-		relay_parent: Hash,
+		leaf: Hash,
 		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
@@ -567,7 +567,7 @@ impl Initialized {
 
 				let res = submit_report_dispute_lost(
 					ctx.sender(),
-					relay_parent,
+					leaf,
 					dispute_proof,
 					key_ownership_proof,
 				)
@@ -664,9 +664,6 @@ impl Initialized {
 		// Scraped on-chain backing votes for the candidates with
 		// the new active leaf as if we received them via gossip.
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
-			// TODO: NO RELAY PARENT!
-			let relay_parent = candidate_receipt.descriptor.relay_parent();
-
 			// Use transition-safe descriptor methods for scheduling context.
 			// Before the V3 node feature is seen, these fall back to old-rules
 			// behavior to match old backers and prevent slashing.
@@ -702,7 +699,7 @@ impl Initialized {
 			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
-				?relay_parent,
+				?scheduling_parent,
 				"Importing backing votes from chain for candidate"
 			);
 			let statements = backers
@@ -772,13 +769,13 @@ impl Initialized {
 			match import_result {
 				ImportStatementsResult::ValidImport => gum::trace!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?session,
 					"Imported backing votes from chain"
 				),
 				ImportStatementsResult::InvalidImport => gum::warn!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?session,
 					"Attempted import of on-chain backing votes failed"
 				),
@@ -1026,18 +1023,21 @@ impl Initialized {
 
 		let candidate_hash = candidate_receipt.hash();
 		let votes_in_db = overlay_db.load_candidate_votes(session, &candidate_hash)?;
-		let relay_parent = match &candidate_receipt {
-			MaybeCandidateReceipt::Provides(candidate_receipt) => {
-				candidate_receipt.descriptor().relay_parent()
-			},
+		let scheduling_parent = match &candidate_receipt {
+			MaybeCandidateReceipt::Provides(candidate_receipt) => candidate_receipt
+				.descriptor()
+				.scheduling_parent_for_candidate_validation(self.v3_ever_seen),
 			MaybeCandidateReceipt::AssumeBackingVotePresent(candidate_hash) => match &votes_in_db {
-				Some(votes) => votes.candidate_receipt.descriptor().relay_parent(),
+				Some(votes) => votes
+					.candidate_receipt
+					.descriptor()
+					.scheduling_parent_for_candidate_validation(self.v3_ever_seen),
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
 						session,
 						?candidate_hash,
-						"Cannot obtain relay parent without `CandidateReceipt` available!"
+						"Cannot obtain scheduling parent without `CandidateReceipt` available!"
 					);
 					return Ok(ImportStatementsResult::InvalidImport);
 				},
@@ -1048,7 +1048,7 @@ impl Initialized {
 			ctx,
 			&mut self.runtime_info,
 			session,
-			relay_parent,
+			scheduling_parent,
 			self.offchain_disabled_validators.iter(session),
 			&mut self.controlled_validator_indices,
 		)
@@ -1374,7 +1374,7 @@ impl Initialized {
 		}
 
 		// Notify ChainSelection if a dispute has concluded against a candidate. ChainSelection
-		// will need to mark the candidate's relay parent as reverted.
+		// will need to mark the candidate's scheduling parent as reverted.
 		if import_result.has_fresh_byzantine_threshold_against() {
 			let blocks_including = self.scraper.get_blocks_including_candidate(&candidate_hash);
 			for (parent_block_number, parent_block_hash) in &blocks_including {
@@ -1523,7 +1523,9 @@ impl Initialized {
 			ctx,
 			&mut self.runtime_info,
 			session,
-			candidate_receipt.descriptor.relay_parent(),
+			candidate_receipt
+				.descriptor
+				.scheduling_parent_for_candidate_validation(self.v3_ever_seen),
 			self.offchain_disabled_validators.iter(session),
 			&mut self.controlled_validator_indices,
 		)
