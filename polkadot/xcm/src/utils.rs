@@ -21,6 +21,8 @@ use crate::MAX_INSTRUCTIONS_TO_DECODE;
 use alloc::vec::Vec;
 use codec::{decode_vec_with_len, Compact, Decode};
 
+const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
+
 environmental::environmental!(instructions_count: u8);
 
 /// Decode a `vec` of XCM instructions.
@@ -43,4 +45,12 @@ pub fn decode_xcm_instructions<I: codec::Input, T: Decode>(
 		let decoded_instructions = decode_vec_with_len(input, vec_len as usize)?;
 		Ok(decoded_instructions)
 	})
+}
+
+pub fn ensure_all_decoded(input: &[u8]) -> Result<(), codec::Error> {
+	if !input.is_empty() {
+		return Err(DECODE_ALL_ERR_MSG.into());
+	}
+
+	Ok(())
 }

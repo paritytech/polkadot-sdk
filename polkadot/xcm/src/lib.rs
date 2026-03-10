@@ -26,6 +26,7 @@ extern crate alloc;
 
 use codec::{
 	Decode, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen,
+	MemTrackingInput,
 };
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
@@ -44,7 +45,7 @@ pub mod latest {
 }
 
 mod double_encoded;
-pub use double_encoded::DoubleEncoded;
+pub use double_encoded::{DoubleEncoded, XcmRuntimeCall};
 
 mod utils;
 
@@ -53,6 +54,7 @@ mod tests;
 
 /// Maximum nesting level for XCM decoding.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
+pub const XCM_SIZE_LIMIT: usize = 16 * 1024 * 1024;
 /// The maximal number of instructions in an XCM before decoding fails.
 ///
 /// This is a deliberate limit - not a technical one.
@@ -321,7 +323,8 @@ versioned_type! {
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
+#[codec(decode_bound(RuntimeCall: XcmRuntimeCall))]
+#[codec(decode_with_mem_tracking_bound(RuntimeCall: XcmRuntimeCall))]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
@@ -354,14 +357,26 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 	}
 }
 
-impl<C> VersionedXcm<C> {
+impl<C: XcmRuntimeCall> VersionedXcm<C> {
+	pub fn decode_all_with_mem_and_depth_limit(
+		input: &mut &[u8],
+	) -> Result<VersionedXcm<C>, CodecError> {
+		let mut mem_tracking_input = MemTrackingInput::new(input, XCM_SIZE_LIMIT);
+		let xcm =
+			VersionedXcm::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut mem_tracking_input)?;
+		utils::ensure_all_decoded(input)?;
+
+		Ok(xcm)
+	}
+
 	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
-	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or `MAX_INSTRUCTIONS_TO_DECODE`.
+	/// such as `MAX_XCM_DECODE_DEPTH`, `XCM_SIZE_LIMIT`, `MAX_ITEMS_IN_ASSETS` or
+	/// `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
 	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
 	pub fn check_is_decodable(&self) -> Result<(), ()> {
 		self.using_encoded(|mut enc| {
-			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
+			Self::decode_all_with_mem_and_depth_limit(&mut enc).map(|_| ())
 		})
 		.map_err(|e| {
 			tracing::error!(target: "xcm::check_is_decodable", error=?e, xcm=?self, "Decode error!");
@@ -526,7 +541,7 @@ pub mod prelude {
 		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
 		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
-		VersionedResponse, VersionedXcm, WrapVersion,
+		VersionedResponse, VersionedXcm, WrapVersion, XcmRuntimeCall,
 	};
 
 	/// The minimal supported XCM version

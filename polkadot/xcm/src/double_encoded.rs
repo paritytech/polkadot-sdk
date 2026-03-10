@@ -14,15 +14,71 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::MAX_XCM_DECODE_DEPTH;
-use alloc::vec::Vec;
+use crate::{utils, MAX_XCM_DECODE_DEPTH};
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
+use core::any::TypeId;
+use frame_support::MAX_EXTRINSIC_DEPTH;
+use sp_runtime::Saturating;
+
+const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
+
+environmental::environmental!(depth: u8);
+
+pub trait XcmRuntimeCall: 'static + Decode {}
+
+impl<T> XcmRuntimeCall for T where T: 'static + Decode {}
+
+struct NestedInput<'a> {
+	main_input: Box<&'a mut dyn codec::Input>,
+	opaque: &'a [u8],
+}
+
+impl<'a> codec::Input for NestedInput<'a> {
+	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
+		self.opaque.remaining_len()
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
+		self.opaque.read(into)
+	}
+
+	fn read_byte(&mut self) -> Result<u8, codec::Error> {
+		self.opaque.read_byte()
+	}
+
+	fn descend_ref(&mut self) -> Result<(), codec::Error> {
+		depth::using_once(&mut 0, || {
+			depth::with(|depth| {
+				depth.saturating_inc();
+				if *depth as u32 > MAX_EXTRINSIC_DEPTH {
+					return Err(DECODE_MAX_DEPTH_MSG.into());
+				}
+
+				Ok(())
+			})
+			.unwrap_or(Err(codec::Error::from("Error calling `instructions_count::with()`")))
+		})
+	}
+
+	fn ascend_ref(&mut self) {
+		depth::using_once(&mut 0, || {
+			let _ = depth::with(|depth| {
+				depth.saturating_dec();
+			});
+		});
+	}
+
+	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), codec::Error> {
+		self.main_input.on_before_alloc_mem(size)
+	}
+}
 
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.
-#[derive(Encode, Decode, DecodeWithMemTracking, scale_info::TypeInfo)]
+#[derive(Encode, DecodeWithMemTracking, scale_info::TypeInfo)]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound(T: XcmRuntimeCall))]
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
@@ -30,6 +86,27 @@ pub struct DoubleEncoded<T> {
 	encoded: Vec<u8>,
 	#[codec(skip)]
 	decoded: Option<T>,
+}
+
+impl<T> Decode for DoubleEncoded<T>
+where
+	T: XcmRuntimeCall,
+{
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let mut obj = Self { encoded: Vec::<u8>::decode(input)?, decoded: None };
+		if TypeId::of::<T>() == TypeId::of::<()>() {
+			return Ok(obj);
+		}
+
+		// We also decode the inner double encoded object if possible, in order to make sure that
+		// its heap memory and depth are accounted for.
+		let mut nested_input =
+			NestedInput { main_input: Box::new(input), opaque: &obj.encoded[..] };
+		obj.decoded = Some(T::decode(&mut nested_input)?);
+		utils::ensure_all_decoded(nested_input.opaque)?;
+
+		Ok(obj)
+	}
 }
 
 impl<T> Clone for DoubleEncoded<T> {

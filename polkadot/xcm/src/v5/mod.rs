@@ -21,7 +21,7 @@ use super::v4::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,
 	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
 };
-use crate::{utils::decode_xcm_instructions, DoubleEncoded};
+use crate::{utils::decode_xcm_instructions, DoubleEncoded, XcmRuntimeCall};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
@@ -62,11 +62,14 @@ pub type QueryId = u64;
 #[derive(Default, DecodeWithMemTracking, Encode, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound(Call: XcmRuntimeCall))]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-impl<Call> Decode for Xcm<Call> {
+impl<Call> Decode for Xcm<Call>
+where
+	Call: XcmRuntimeCall,
+{
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
 		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
@@ -386,8 +389,8 @@ impl XcmContext {
 )]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
-#[codec(decode_with_mem_tracking_bound())]
+#[codec(decode_bound(Call: XcmRuntimeCall))]
+#[codec(decode_with_mem_tracking_bound(Call: XcmRuntimeCall))]
 #[scale_info(bounds(), skip_type_params(Call))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding

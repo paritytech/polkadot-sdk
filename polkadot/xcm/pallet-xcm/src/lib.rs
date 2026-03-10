@@ -303,6 +303,7 @@ pub mod pallet {
 
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
+			+ XcmRuntimeCall
 			+ GetDispatchInfo
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
