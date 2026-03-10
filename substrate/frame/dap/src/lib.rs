@@ -31,6 +31,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod migrations;
+
 #[cfg(test)]
 pub(crate) mod mock;
 #[cfg(test)]
@@ -171,7 +173,9 @@ pub mod pallet {
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
 	/// Timestamp (ms) of the last inflation drip.
-	// TODO(ank4n): Needs to be migrated value from Staking::ActiveEra timestamp.
+	///
+	/// On existing chains, this must be seeded via
+	/// [`migrations::InitLastInflationTimestamp`] to prevent incorrect minting on the first drip.
 	#[pallet::storage]
 	pub type LastInflationTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
@@ -250,7 +254,8 @@ pub mod pallet {
 			}
 
 			// First block after genesis: initialize timestamp, don't drip.
-			// TODO(ank4n): add migration for existing chain!
+			// For existing chains, use `migrations::InitLastInflationTimestamp` to seed this
+			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
 				LastInflationTimestamp::<T>::put(now);
 				return T::DbWeight::get().reads_writes(2, 1);
