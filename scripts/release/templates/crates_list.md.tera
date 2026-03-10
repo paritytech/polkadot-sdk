@@ -4,4 +4,6 @@ The following crates were updated to the corresponding versions:
   <summary>Click to see crates list</summary>
 - sp-trie@40.0.1
 - sc-authority-discovery@0.51.1
+- sc-network@0.51.2
+- polkadot-collator-protocol@24.0.1
 </details>
