@@ -36,9 +36,7 @@ pub fn unapplied_slashes_v2<T: disputes::slashing::Config>(
 }
 /// Implementation of `max_relay_parent_session_age` runtime API.
 pub fn max_relay_parent_session_age<T: initializer::Config>() -> u32 {
-	configuration::ActiveConfig::<T>::get()
-		.scheduler_params
-		.max_relay_parent_session_age
+	configuration::ActiveConfig::<T>::get().max_relay_parent_session_age
 }
 
 /// Implementation of `allowed_relay_parent_info` runtime API.

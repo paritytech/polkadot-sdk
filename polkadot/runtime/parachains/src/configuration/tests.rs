@@ -326,8 +326,8 @@ fn setting_pending_config_members() {
 				on_demand_base_fee: 10_000_000u128,
 				on_demand_fee_variability: Perbill::from_percent(3),
 				on_demand_target_queue_utilization: Perbill::from_percent(25),
-				max_relay_parent_session_age: 5,
 			},
+			max_relay_parent_session_age: 5,
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -373,7 +373,7 @@ fn setting_pending_config_members() {
 		.unwrap();
 		Configuration::set_max_relay_parent_session_age(
 			RuntimeOrigin::root(),
-			new_config.scheduler_params.max_relay_parent_session_age,
+			new_config.max_relay_parent_session_age,
 		)
 		.unwrap();
 		Configuration::set_scheduling_lookahead(

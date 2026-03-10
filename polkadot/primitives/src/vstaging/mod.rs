@@ -45,7 +45,7 @@ pub struct RelayParentInfo<Hash, BlockNumber> {
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 ///
-/// Vstaging: added `max_relay_parent_session_age` field.
+/// Vstaging: removed `ttl` and `max_availability_timeouts` fields.
 #[derive(
 	Debug,
 	Copy,
@@ -95,8 +95,6 @@ pub struct SchedulerParams<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// The maximum session age of a relay parent that a parachain block can build upon.
-	pub max_relay_parent_session_age: u32,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
@@ -112,7 +110,6 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_base_fee: 10_000_000u128,
-			max_relay_parent_session_age: 0,
 		}
 	}
 }

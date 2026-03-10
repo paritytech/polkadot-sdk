@@ -228,6 +228,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub approval_voting_params: ApprovalVotingParams,
 	/// Scheduler parameters
 	pub scheduler_params: SchedulerParams<BlockNumber>,
+	/// The maximum session age of a relay parent that a parachain block can build upon.
+	pub max_relay_parent_session_age: u32,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -271,6 +273,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
+			max_relay_parent_session_age: 0,
 		};
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -1250,7 +1253,7 @@ pub mod pallet {
 		pub fn set_max_relay_parent_session_age(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.scheduler_params.max_relay_parent_session_age = new;
+				config.max_relay_parent_session_age = new;
 			})
 		}
 	}

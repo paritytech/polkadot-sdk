@@ -136,11 +136,11 @@ fn default_parachains_host_configuration(
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 3,
-			max_relay_parent_session_age: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()
 		},
+		max_relay_parent_session_age: 0,
 		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
 		..Default::default()
 	}
