@@ -90,6 +90,7 @@ std = [
 	"cumulus-primitives-proof-size-hostfunction/std",
 	"environmental/std",
 	"frame-benchmarking/std",
+	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -113,6 +114,7 @@ std = [
 	"trie-db/std",
 	"xcm-builder/std",
 	"xcm/std",
+	"frame-executive/std"
 ]
 
 runtime-benchmarks = [
@@ -123,19 +125,19 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
 
 try-runtime = [
+	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
-	"frame-executive/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
