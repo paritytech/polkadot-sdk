@@ -97,9 +97,16 @@ where
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		// If the channel exists and it is required to execute the block, we will execute the block
 		// here. This is done to collect the storage proof and to prevent re-execution, we push
-		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either
-		// means that the node produced the block itself or the block was imported via state sync.
-		if !self.sender.is_closed() && !matches!(params.state_action, StateAction::ApplyChanges(_))
+		// downwards the state changes.
+		//
+		// The following states are ignored:
+		//  - `StateAction::ApplyChanges`: means that the node produced the block itself or the
+		//    block was imported via state sync.
+		//  - `StateAction::Skip`: means that the block should be skipped. The is evident in the
+		//    context of gap-sync with collators running in non-archive modes. The state of the
+		//    parent block has already been discarded and therefore any import would fail.
+		if !self.sender.is_closed() &&
+			!matches!(params.state_action, StateAction::ApplyChanges(_) | StateAction::Skip)
 		{
 			let mut runtime_api = self.client.runtime_api();
 
