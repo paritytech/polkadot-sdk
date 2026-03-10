@@ -1,0 +1,15 @@
+[toolchain]
+channel = "1.84.1" # rustc 1.84.1 (e71f9a9a9 2025-01-27)
+components = [
+	"cargo",
+	"clippy",
+	"rust-analyzer",
+	"rust-src",
+	"rust-std",
+	"rustc",
+	"rustc-dev",
+	"rustfmt",
+]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"
+
