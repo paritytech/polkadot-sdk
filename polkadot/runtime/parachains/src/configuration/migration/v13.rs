@@ -15,8 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A module that is responsible for migration of storage for the configuration pallet.
-//! v12 -> v13: Added `max_relay_parent_session_age` field to `SchedulerParams` and removed `ttl`
-//! and `max_availability_timeouts`.
+//! v12 -> v13:
+//! - Added `max_relay_parent_session_age` field to configuration
+//! - Removed `ttl` and `max_availability_timeouts` from `SchedulerParams`.
 
 use crate::configuration::{self, Config, Pallet};
 use alloc::vec::Vec;
@@ -248,9 +249,9 @@ fn migrate_to_v13<T: Config>() -> Weight {
 							on_demand_target_queue_utilization   : pre.scheduler_params.on_demand_target_queue_utilization,
 							on_demand_fee_variability            : pre.scheduler_params.on_demand_fee_variability,
 							on_demand_base_fee                   : pre.scheduler_params.on_demand_base_fee,
-							// New field: default to 0 (only allowing backing of candidates with relay parent in the current session).
-							max_relay_parent_session_age         : 0,
-					}
+					},
+					// New field: default to 0 (only allowing backing of candidates with relay parent in the current session).
+					max_relay_parent_session_age              : 0,
 				}
 			};
 
@@ -346,7 +347,7 @@ mod tests {
 					assert_eq!(v12.scheduler_params.on_demand_fee_variability, v13.scheduler_params.on_demand_fee_variability);
 					assert_eq!(v12.scheduler_params.on_demand_base_fee      , v13.scheduler_params.on_demand_base_fee);
 					// New field should default to zero.
-					assert_eq!(v13.scheduler_params.max_relay_parent_session_age, 0);
+					assert_eq!(v13.max_relay_parent_session_age, 0);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});
