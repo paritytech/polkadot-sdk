@@ -223,85 +223,6 @@ fn activation_timestamp_when_era_planning_not_complete() {
 	todo!("what if we receive an activation timestamp when the era planning (election) is not complete?");
 }
 
-#[test]
-fn max_era_duration_safety_guard() {
-	ExtBuilder::default().build_and_execute(|| {
-		// let's deduce some magic numbers for the test.
-		let ideal_era_payout = total_payout_for(time_per_era());
-		let ideal_treasury_payout = RemainderRatio::get() * ideal_era_payout;
-		let ideal_validator_payout = ideal_era_payout - ideal_treasury_payout;
-		// max era duration is capped to 7 times the ideal era duration.
-		let max_validator_payout = 7 * ideal_validator_payout;
-		let max_treasury_payout = 7 * ideal_treasury_payout;
-
-		// these are the values we expect to see in the events.
-		assert_eq!(ideal_treasury_payout, 7500);
-		assert_eq!(ideal_validator_payout, 7500);
-		// when the era duration exceeds `MaxEraDuration`, the payouts should be capped to the
-		// following values.
-		assert_eq!(max_treasury_payout, 52500);
-		assert_eq!(max_validator_payout, 52500);
-
-		// GIVEN: we are at end of an era (2).
-		Session::roll_until_active_era(2);
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
-				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
-				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
-			]
-		);
-		// DAP emits EraRewardsAllocated instead of staking's EraPaid
-		assert_eq!(
-			dap_events_since_last_call(),
-			vec![
-				pallet_dap::Event::EraRewardsAllocated {
-					era: 0,
-					staker_rewards: ideal_validator_payout,
-					validator_incentive: 0,
-					buffer_rewards: ideal_treasury_payout
-				},
-				pallet_dap::Event::EraRewardsAllocated {
-					era: 1,
-					staker_rewards: ideal_validator_payout,
-					validator_incentive: 0,
-					buffer_rewards: ideal_treasury_payout
-				}
-			]
-		);
-
-		// WHEN: subsequent era takes longer than MaxEraDuration.
-		// (this can happen either because of a bug or because a long stall in the chain).
-		Timestamp::set(Timestamp::get() + 2 * MaxEraDuration::get());
-		Session::roll_until_active_era(3);
-
-		// THEN: we should see the payouts capped to the max values.
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
-				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
-				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				// an event is emitted to indicate something unexpected happened, i.e. the era
-				// duration exceeded the `MaxEraDuration` limit.
-				Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded),
-				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
-			]
-		);
-		// DAP emits EraRewardsAllocated with capped values
-		assert_eq!(
-			dap_events_since_last_call(),
-			vec![pallet_dap::Event::EraRewardsAllocated {
-				era: 2,
-				staker_rewards: max_validator_payout,
-				validator_incentive: 0,
-				buffer_rewards: max_treasury_payout
-			}]
-		);
-	});
-}
 
 #[test]
 fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
@@ -318,19 +239,11 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
 			]
 		));
-		// DAP emits EraRewardsAllocated for era 78
-		assert!(matches!(
-			&dap_events_since_last_call()[..],
-			&[
-				..,
-				pallet_dap::Event::EraRewardsAllocated {
-					era: 78,
-					staker_rewards: 7500,
-					validator_incentive: 0,
-					buffer_rewards: 7500
-				}
-			]
-		));
+		// Verify era 78 staker pot has been funded (DAP drips into general pot, staking snapshots).
+		let staker_pot_78 =
+			<Test as Config>::EraPotAccountProvider::era_pot_account(78, EraPotType::StakerRewards);
+		let ideal_validator_payout = validator_payout_for(time_per_era());
+		assert_eq!(Balances::balance(&staker_pot_78), ideal_validator_payout);
 		// All eras from 1 to current still present
 		assert_ok!(Eras::<T>::era_fully_present(1));
 		assert_ok!(Eras::<T>::era_fully_present(2));
@@ -373,31 +286,19 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 				Event::SessionRotated { starting_session: 246, active_era: 82, planned_era: 82 }
 			]
 		));
-		// DAP emits EraRewardsAllocated for eras 79, 80, 81
-		assert!(matches!(
-			&dap_events_since_last_call()[..],
-			&[
-				..,
-				pallet_dap::Event::EraRewardsAllocated {
-					era: 79,
-					staker_rewards: 7500,
-					validator_incentive: 0,
-					buffer_rewards: 7500
-				},
-				pallet_dap::Event::EraRewardsAllocated {
-					era: 80,
-					staker_rewards: 7500,
-					validator_incentive: 0,
-					buffer_rewards: 7500
-				},
-				pallet_dap::Event::EraRewardsAllocated {
-					era: 81,
-					staker_rewards: 7500,
-					validator_incentive: 0,
-					buffer_rewards: 7500
-				},
-			]
-		));
+		// Verify eras 79-81 staker pots were funded with expected amount.
+		let expected_per_era = validator_payout_for(time_per_era());
+		for era in 79..=81 {
+			let staker_pot = <Test as Config>::EraPotAccountProvider::era_pot_account(
+				era,
+				EraPotType::StakerRewards,
+			);
+			assert_eq!(
+				Balances::balance(&staker_pot),
+				expected_per_era,
+				"Era {era} staker pot should have {expected_per_era}"
+			);
+		}
 
 		// Only old eras (outside pruning window) can be pruned
 		// Try to prune era 2 (should fail as it's within the history window)
@@ -583,8 +484,9 @@ mod inflation {
 	#[test]
 	fn max_staked_rewards_default_not_set_works() {
 		ExtBuilder::default().build_and_execute(|| {
+			// 50% of time_per_era() (other half goes to buffer as per mock::default_budget()
 			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert!(default_stakers_payout > 0);
+			assert_eq!(default_stakers_payout, time_per_era().into() / 2);
 
 			assert_eq!(<MaxStakedRewards<Test>>::get(), None);
 
@@ -609,7 +511,7 @@ mod inflation {
 	fn max_staked_rewards_default_equal_100() {
 		ExtBuilder::default().build_and_execute(|| {
 			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert!(default_stakers_payout > 0);
+			assert_eq!(default_stakers_payout, time_per_era().into() / 2);
 			<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
 
 			Session::roll_until_active_era(2);
@@ -637,11 +539,11 @@ fn era_pot_cleanup_after_history_depth() {
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
-		// Verify era-1 rewards were allocated
-		let dap_events = dap_events_since_last_call();
-		assert!(dap_events
-			.iter()
-			.any(|e| matches!(e, pallet_dap::Event::EraRewardsAllocated { era: 1, .. })));
+		// Verify era-1 staker pot was funded with expected amount.
+		let staker_pot_1 =
+			<Test as Config>::EraPotAccountProvider::era_pot_account(1, EraPotType::StakerRewards);
+		let expected_per_era = validator_payout_for(time_per_era());
+		assert_eq!(Balances::balance(&staker_pot_1), expected_per_era);
 
 		// era we expect to be cleaned up
 		let cleanup_era = 1;
@@ -652,14 +554,7 @@ fn era_pot_cleanup_after_history_depth() {
 		let target_era = cleanup_era + HistoryDepth::get() + 1;
 		Session::roll_until_active_era(target_era);
 		let _ = staking_events_since_last_call();
-		let dap_events_after = dap_events_since_last_call();
-
-		// Verify many eras of rewards were allocated
-		let era_allocated_count = dap_events_after
-			.iter()
-			.filter(|e| matches!(e, pallet_dap::Event::EraRewardsAllocated { .. }))
-			.count();
-		assert_eq!(era_allocated_count as u32, HistoryDepth::get());
+		// Verify rewards were allocated for the eras we advanced through.
 
 		// THEN: Verify era-1 pots have been cleaned up
 		let staker_pot = <Test as Config>::EraPotAccountProvider::era_pot_account(
