@@ -53,16 +53,22 @@ fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
 }
 
 /// Common setup for delegation tests that call `process_authorizations` directly.
-struct DelegationTestSetup {
-	signer: TestSigner,
+pub struct DelegationTestSetup {
+	pub signer: TestSigner,
 	authority_id: AccountId32,
 	origin: AccountId32,
 	exec_config: ExecConfig<Test>,
 	chain_id: U256,
 }
 
+impl Default for DelegationTestSetup {
+	fn default() -> Self {
+		Self::new([1u8; 32])
+	}
+}
+
 impl DelegationTestSetup {
-	fn new(seed: [u8; 32]) -> Self {
+	pub fn new(seed: [u8; 32]) -> Self {
 		let setup = Self::new_unfunded(seed);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
 			&setup.authority_id,
@@ -82,7 +88,7 @@ impl DelegationTestSetup {
 		Self { signer, authority_id, origin, exec_config, chain_id }
 	}
 
-	fn process(
+	pub fn process(
 		&self,
 		auths: &[AuthorizationListEntry],
 	) -> AuthorizationResult<crate::BalanceOf<Test>> {
@@ -90,8 +96,21 @@ impl DelegationTestSetup {
 			.expect("process_authorizations failed")
 	}
 
-	fn nonce(&self) -> U256 {
+	pub fn nonce(&self) -> U256 {
 		U256::from(frame_system::Pallet::<Test>::account_nonce(&self.authority_id))
+	}
+
+	/// Sign an authorization for the given target using the current nonce and chain_id.
+	pub fn sign_authorization(&self, target: H160) -> AuthorizationListEntry {
+		self.signer.sign_authorization(self.chain_id, target, self.nonce())
+	}
+
+	/// Sign, process, and assert delegation succeeded.
+	pub fn authorize(&self, target: H160) -> AuthorizationResult<crate::BalanceOf<Test>> {
+		let auth = self.sign_authorization(target);
+		let result = self.process(&[auth]);
+		assert!(AccountInfo::<Test>::is_delegated(&self.signer.address));
+		result
 	}
 }
 
@@ -177,7 +196,7 @@ fn valid_signature_is_verified_correctly() {
 		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let auth = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
+		let auth = setup.sign_authorization(target);
 
 		assert_eq!(
 			setup.process(&[auth]),
@@ -296,7 +315,7 @@ fn contract_account_rejects_authorization() {
 		);
 		assert!(AccountInfo::<Test>::is_contract(&setup.signer.address));
 
-		let auth = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
+		let auth = setup.sign_authorization(target);
 
 		// Authorization should be skipped because the authority is a contract
 		assert_eq!(
@@ -406,7 +425,7 @@ fn new_account_sets_delegation() {
 		let setup = DelegationTestSetup::new_unfunded([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let auth = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
+		let auth = setup.sign_authorization(target);
 
 		assert_eq!(
 			setup.process(&[auth]),
@@ -431,7 +450,7 @@ fn clearing_delegation_with_zero_address() {
 		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let auth1 = setup.signer.sign_authorization(setup.chain_id, target, setup.nonce());
+		let auth1 = setup.sign_authorization(target);
 
 		assert_eq!(
 			setup.process(&[auth1]),
@@ -445,7 +464,7 @@ fn clearing_delegation_with_zero_address() {
 
 		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
 
-		let auth2 = setup.signer.sign_authorization(setup.chain_id, H160::zero(), setup.nonce());
+		let auth2 = setup.sign_authorization(H160::zero());
 		assert_eq!(
 			setup.process(&[auth2]),
 			AuthorizationResult {
@@ -469,9 +488,9 @@ fn process_multiple_authorizations_from_different_signers() {
 		let setup3 = DelegationTestSetup::new_unfunded([3u8; 32]);
 		let target = H160::from([0x42; 20]);
 
-		let auth1 = setup1.signer.sign_authorization(setup1.chain_id, target, setup1.nonce());
-		let auth2 = setup2.signer.sign_authorization(setup2.chain_id, target, setup2.nonce());
-		let auth3 = setup3.signer.sign_authorization(setup3.chain_id, target, setup3.nonce());
+		let auth1 = setup1.sign_authorization(target);
+		let auth2 = setup2.sign_authorization(target);
+		let auth3 = setup3.sign_authorization(target);
 
 		assert_eq!(
 			setup1.process(&[auth1, auth2, auth3]),
@@ -998,8 +1017,7 @@ fn delegation_charges_storage_deposit() {
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
 		assert_eq!(hold_before, 0);
 
-		let auth = setup.signer.sign_authorization(setup.chain_id, target.addr, setup.nonce());
-		setup.process(&[auth]);
+		setup.authorize(target.addr);
 
 		let hold_after =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
@@ -1020,17 +1038,14 @@ fn clear_delegation_refunds_storage_deposit() {
 			.build_and_unwrap_contract();
 
 		let setup = DelegationTestSetup::new([0xDD; 32]);
-
-		// Set delegation
-		let auth = setup.signer.sign_authorization(setup.chain_id, target.addr, setup.nonce());
-		setup.process(&[auth]);
+		setup.authorize(target.addr);
 
 		let hold_after_set =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
 		assert!(hold_after_set > 0);
 
 		// Clear delegation (address = zero)
-		let auth = setup.signer.sign_authorization(setup.chain_id, H160::zero(), setup.nonce());
+		let auth = setup.sign_authorization(H160::zero());
 		setup.process(&[auth]);
 
 		let hold_after_clear =
@@ -1055,17 +1070,14 @@ fn redelegation_adjusts_deposit() {
 			.build_and_unwrap_contract();
 
 		let setup = DelegationTestSetup::new([0xEE; 32]);
-
-		// Delegate to target A
-		let auth = setup.signer.sign_authorization(setup.chain_id, target_a.addr, setup.nonce());
-		setup.process(&[auth]);
+		setup.authorize(target_a.addr);
 
 		let hold_a =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
 		assert!(hold_a > 0);
 
 		// Re-delegate to target B (same code size → same deposit)
-		let auth = setup.signer.sign_authorization(setup.chain_id, target_b.addr, setup.nonce());
+		let auth = setup.sign_authorization(target_b.addr);
 		setup.process(&[auth]);
 
 		let hold_b =
@@ -1253,10 +1265,7 @@ fn redelegation_from_contract_to_eoa_refunds() {
 			.build_and_unwrap_contract();
 
 		let setup = DelegationTestSetup::new([0xAA; 32]);
-
-		// Delegate to contract
-		let auth = setup.signer.sign_authorization(setup.chain_id, target.addr, setup.nonce());
-		setup.process(&[auth]);
+		setup.authorize(target.addr);
 
 		let hold_after_contract =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
@@ -1264,7 +1273,7 @@ fn redelegation_from_contract_to_eoa_refunds() {
 
 		// Re-delegate to a plain EOA (no code)
 		let plain_eoa = H160::from([0x77; 20]);
-		let auth = setup.signer.sign_authorization(setup.chain_id, plain_eoa, setup.nonce());
+		let auth = setup.sign_authorization(plain_eoa);
 		setup.process(&[auth]);
 
 		let hold_after_eoa =

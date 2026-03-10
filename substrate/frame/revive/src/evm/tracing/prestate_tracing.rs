@@ -254,15 +254,16 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
-		delegate_call: Option<H160>,
+		code_address: Option<H160>,
+		_is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
 		_gas_limit: u64,
 	) {
-		if let Some(delegate_call) = delegate_call {
+		if let Some(code_address) = code_address {
 			self.calls.push(self.current_addr());
-			self.read_account(delegate_call);
+			self.read_account(code_address);
 		} else {
 			self.calls.push(to);
 			self.read_account(from);

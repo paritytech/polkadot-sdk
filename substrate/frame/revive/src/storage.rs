@@ -212,13 +212,7 @@ impl<T: Config> AccountInfo<T> {
 						*contract_info = contract;
 						return;
 					},
-					ty => {
-					debug_assert!(
-						!matches!(ty, AccountType::EOA),
-						"insert_contract called on an EOA account"
-					);
-					account.account_type = contract.into();
-				},
+					_ => account.account_type = contract.into(),
 				}
 			} else {
 				*account = Some(AccountInfo { account_type: contract.into(), dust: 0 });

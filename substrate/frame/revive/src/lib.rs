@@ -1246,8 +1246,8 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1329,8 +1329,9 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
+		/// * `authorization_list`: EIP-7702 authorization tuples to process before execution
 		#[pallet::call_index(11)]
 		#[pallet::weight(
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())

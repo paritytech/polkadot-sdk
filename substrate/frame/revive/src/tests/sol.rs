@@ -173,6 +173,45 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
+/// Calling a delegated EOA should trace as CallType::Call (not DelegateCall).
+#[test]
+fn delegated_eoa_call_tracing_works() {
+	use crate::{
+		evm::{CallTrace, CallTracer, CallType},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = CallTracer::new(Default::default());
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address).build_and_unwrap_result()
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				call_type: CallType::Call,
+				from: ALICE_ADDR,
+				to: setup.signer.address,
+				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
+				..Default::default()
+			}
+		);
+	});
+}
+
 #[test]
 fn eth_contract_too_large() {
 	// Create EVM init code that is one byte larger than the EIP-3860 limit.
