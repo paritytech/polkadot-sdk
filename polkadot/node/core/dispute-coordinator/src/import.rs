@@ -51,7 +51,7 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
-	/// Indices of on-chain disabled validators at the `relay_parent` combined
+	/// Indices of on-chain disabled validators at the `scheduling_parent` combined
 	/// with the off-chain state.
 	disabled_indices: HashSet<ValidatorIndex>,
 }
