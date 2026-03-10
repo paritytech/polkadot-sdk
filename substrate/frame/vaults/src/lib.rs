@@ -51,8 +51,9 @@
 //! * **Insurance Fund**: An account ([`Config::InsuranceFund`]) that receives protocol revenue and
 //!   serves as a backstop against bad debt.
 //!
-//! * **Bad Debt**: Unbacked pUSD recorded in [`BadDebt`] when liquidation auctions fail to cover
-//!   vault debt. Can be healed via [`Pallet::heal`].
+//! * **Bad Debt**: Unbacked pUSD (principal + interest) recorded in [`BadDebt`] when liquidation
+//!   auctions fail to cover vault debt. Unpaid penalty is lost protocol revenue, not bad debt. Can
+//!   be healed via [`Pallet::heal`].
 //!
 //! ### Vault Lifecycle
 //!
@@ -129,9 +130,9 @@
 //!
 //! ### Liquidation Limits
 //!
-//! [`MaxLiquidationAmount`] is a **hard limit** on pUSD at risk in active auctions.
-//! Liquidations are blocked when [`CurrentLiquidationAmount`] + `new_debt` >
-//! [`MaxLiquidationAmount`].
+//! [`MaxLiquidationAmount`] is a **hard limit** on auction exposure.
+//! Liquidations are blocked when [`CurrentLiquidationAmount`] + `total_debt` >
+//! [`MaxLiquidationAmount`], where `total_debt = principal + interest + penalty`.
 //!
 //! ### Governance Model
 //!
@@ -484,7 +485,7 @@ pub mod pallet {
 	pub type MaximumIssuance<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Accumulated bad debt in pUSD.
-	/// This represents unbacked principal left after liquidation auctions.
+	/// This represents unbacked pUSD (principal + interest) left after liquidation auctions.
 	#[pallet::storage]
 	pub type BadDebt<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
@@ -503,9 +504,10 @@ pub mod pallet {
 
 	/// Current pUSD at risk in active auctions.
 	///
-	/// This accumulator tracks the sum of debt for all active auctions.
-	/// It increases when auctions start and decreases when auctions complete
-	/// or are cancelled (via callbacks from the Auctions pallet).
+	/// This accumulator tracks the unresolved auction exposure
+	/// (principal + interest + penalty) for all active auctions.
+	/// It increases when auctions start and decreases when purchases are
+	/// made or auctions complete (via callbacks from the Auctions pallet).
 	#[pallet::storage]
 	pub type CurrentLiquidationAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
@@ -653,11 +655,11 @@ pub mod pallet {
 		StaleVaultThresholdUpdated { old_value: MomentOf<T>, new_value: MomentOf<T> },
 		/// Oracle staleness threshold was updated by governance.
 		OracleStalenessThresholdUpdated { old_value: MomentOf<T>, new_value: MomentOf<T> },
-		/// Bad debt accrued when auctions leave unbacked principal.
+		/// Bad debt accrued when auctions leave unbacked pUSD (principal + interest).
 		BadDebtAccrued {
 			/// The vault owner whose liquidation resulted in bad debt.
 			owner: T::AccountId,
-			/// Uncollectable principal amount in pUSD added to system bad debt.
+			/// Uncollectable pUSD (principal + interest) added to system bad debt.
 			amount: BalanceOf<T>,
 		},
 		/// Bad debt was healed by burning pUSD from `InsuranceFund`.
@@ -675,7 +677,7 @@ pub mod pallet {
 		},
 		/// pUSD collected from auction purchase; `CurrentLiquidationAmount` reduced.
 		AuctionDebtCollected { amount: BalanceOf<T> },
-		/// Auction completed with principal shortfall; recorded as `BadDebt`.
+		/// Auction completed with unresolved debt remainder.
 		AuctionShortfall { shortfall: BalanceOf<T> },
 		/// Keeper incentive payment could not be paid from the Insurance Fund.
 		KeeperIncentivePaymentFailed { keeper: T::AccountId, amount: BalanceOf<T> },
@@ -775,6 +777,15 @@ pub mod pallet {
 		NotConfigured,
 		/// Zero is not a valid value for this parameter.
 		ZeroValueNotAllowed,
+		/// Minimum collateralization ratio must be strictly above 100%.
+		///
+		/// A ratio of 100% or below means the collateral value equals or is less than the debt,
+		/// providing no liquidation buffer.
+		MinimumRatioTooLow,
+		/// MaxLiquidationAmount must be >= MaxPositionAmount.
+		///
+		/// A single vault's maximum debt must fit within the liquidation capacity.
+		MaxLiquidationBelowMaxPosition,
 	}
 
 	#[pallet::hooks]
@@ -1276,12 +1287,12 @@ pub mod pallet {
 					total_obligation.checked_add(&penalty).ok_or(Error::<T>::ArithmeticOverflow)?;
 
 				// Check if liquidation would exceed hard limit.
-				// Track only principal - interest/penalty are protocol revenue, not solvency risk.
+				// Track full auction exposure (principal + interest + penalty).
 				let current_liquidation = CurrentLiquidationAmount::<T>::get();
 				let max_liquidation =
 					MaxLiquidationAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 				let new_liquidation_amount = current_liquidation
-					.checked_add(&principal)
+					.checked_add(&total_debt)
 					.ok_or(Error::<T>::ArithmeticOverflow)?;
 				ensure!(
 					new_liquidation_amount <= max_liquidation,
@@ -1410,6 +1421,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		/// - [`Error::MinimumRatioTooLow`]: If ratio is not strictly above 100%.
 		/// - [`Error::InitialRatioMustExceedMinimum`]: If ratio exceeds initial ratio.
 		///
 		/// ## Events
@@ -1423,6 +1435,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			// Must be strictly above 100% to provide a liquidation buffer
+			ensure!(ratio > FixedU128::one(), Error::<T>::MinimumRatioTooLow);
 			// Minimum ratio cannot exceed initial ratio (would allow immediate-liquidation mints)
 			if let Some(initial_ratio) = InitialCollateralizationRatio::<T>::get() {
 				ensure!(ratio <= initial_ratio, Error::<T>::InitialRatioMustExceedMinimum);
@@ -1602,10 +1616,12 @@ pub mod pallet {
 		/// Sets the [`MaxLiquidationAmount`] which is a **hard limit** on total pUSD debt
 		/// that can be at risk in active auctions. Liquidations are blocked when this limit
 		/// would be exceeded. Governance can adjust this to control auction exposure.
+		/// Must be >= [`MaxPositionAmount`] so a single vault can always be liquidated.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		/// - [`Error::MaxLiquidationBelowMaxPosition`]: If new value < MaxPositionAmount.
 		///
 		/// ## Events
 		///
@@ -1618,6 +1634,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			// Must be >= MaxPositionAmount so a single vault can always be liquidated
+			if let Some(max_position) = MaxPositionAmount::<T>::get() {
+				ensure!(new_value >= max_position, Error::<T>::MaxLiquidationBelowMaxPosition);
+			}
 			let old_value = MaxLiquidationAmount::<T>::get().unwrap_or_default();
 			MaxLiquidationAmount::<T>::put(new_value);
 			Self::deposit_event(Event::MaxLiquidationAmountUpdated { old_value, new_value });
@@ -1709,12 +1729,13 @@ pub mod pallet {
 		/// ## Details
 		///
 		/// Sets the [`MaxPositionAmount`] which limits the maximum debt a single vault
-		/// can accumulate. Should be well below [`MaxLiquidationAmount`] to ensure
-		/// liquidations proceed smoothly without backlog.
+		/// can accumulate. Must be <= [`MaxLiquidationAmount`] to ensure a single vault
+		/// can always be liquidated.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		/// - [`Error::MaxLiquidationBelowMaxPosition`]: If new value > MaxLiquidationAmount.
 		///
 		/// ## Events
 		///
@@ -1727,6 +1748,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			// Must be <= MaxLiquidationAmount so a single vault can always be liquidated
+			if let Some(max_liq) = MaxLiquidationAmount::<T>::get() {
+				ensure!(new_value <= max_liq, Error::<T>::MaxLiquidationBelowMaxPosition);
+			}
 			let old_value = MaxPositionAmount::<T>::get().unwrap_or_default();
 			MaxPositionAmount::<T>::put(new_value);
 			Self::deposit_event(Event::MaxPositionAmountUpdated { old_value, new_value });
@@ -1942,11 +1967,11 @@ pub mod pallet {
 				)?;
 			}
 
-			// Reduce CurrentLiquidationAmount by principal paid (tracks solvency risk only)
-			if !payment.principal_paid.is_zero() {
+			let payment_total = payment.total();
+			if !payment_total.is_zero() {
 				CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
 					*current = current
-						.checked_sub(&payment.principal_paid)
+						.checked_sub(&payment_total)
 						.ok_or(Error::<T>::ArithmeticUnderflow)?;
 					Ok(())
 				})?;
@@ -1960,7 +1985,7 @@ pub mod pallet {
 		fn complete_auction(
 			vault_owner: &T::AccountId,
 			remaining_collateral: BalanceOf<T>,
-			shortfall: BalanceOf<T>,
+			remaining_debt: DebtComponents<BalanceOf<T>>,
 			keeper: &T::AccountId,
 			keeper_incentive: BalanceOf<T>,
 		) -> DispatchResult {
@@ -1974,14 +1999,21 @@ pub mod pallet {
 				)?;
 			}
 
-			// Record shortfall as bad debt
-			if !shortfall.is_zero() {
+			// Decrement CurrentLiquidationAmount by the full unresolved remainder
+			let remaining_total = remaining_debt.total();
+			if !remaining_total.is_zero() {
 				CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
-					*current =
-						current.checked_sub(&shortfall).ok_or(Error::<T>::ArithmeticUnderflow)?;
+					*current = current
+						.checked_sub(&remaining_total)
+						.ok_or(Error::<T>::ArithmeticUnderflow)?;
 					Ok(())
 				})?;
+			}
 
+			// Bad debt = principal + interest (unbacked pUSD that was minted).
+			// Penalty is lost protocol revenue, not bad debt.
+			let shortfall = remaining_debt.principal.saturating_add(remaining_debt.interest);
+			if !shortfall.is_zero() {
 				BadDebt::<T>::mutate(|bad_debt| {
 					bad_debt.saturating_accrue(shortfall);
 				});
@@ -1993,12 +2025,15 @@ pub mod pallet {
 
 				log::warn!(
 					target: LOG_TARGET,
-					"Auction shortfall: owner={:?}, shortfall={:?}",
+					"Auction shortfall: owner={:?}, shortfall={:?}, penalty_loss={:?}",
 					vault_owner,
-					shortfall
+					shortfall,
+					remaining_debt.penalty,
 				);
+			}
 
-				Self::deposit_event(Event::AuctionShortfall { shortfall });
+			if !remaining_total.is_zero() {
+				Self::deposit_event(Event::AuctionShortfall { shortfall: remaining_total });
 			}
 
 			Vaults::<T>::remove(vault_owner);
@@ -2111,18 +2146,23 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Record auction shortfall (simulates auction completion with shortfall).
+		/// Record auction shortfall (simulates auction completion with remaining debt).
 		/// Test-only helper for isolated unit testing.
 		pub fn test_record_shortfall(
 			vault_owner: T::AccountId,
-			shortfall: BalanceOf<T>,
+			remaining_debt: DebtComponents<BalanceOf<T>>,
 		) -> DispatchResult {
-			if !shortfall.is_zero() {
+			let remaining_total = remaining_debt.total();
+			if !remaining_total.is_zero() {
 				CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
-					*current =
-						current.checked_sub(&shortfall).ok_or(Error::<T>::ArithmeticUnderflow)?;
+					*current = current
+						.checked_sub(&remaining_total)
+						.ok_or(Error::<T>::ArithmeticUnderflow)?;
 					Ok(())
 				})?;
+			}
+			let shortfall = remaining_debt.principal.saturating_add(remaining_debt.interest);
+			if !shortfall.is_zero() {
 				BadDebt::<T>::mutate(|bad_debt| {
 					bad_debt.saturating_accrue(shortfall);
 				});
@@ -2130,7 +2170,9 @@ pub mod pallet {
 					owner: vault_owner,
 					amount: shortfall,
 				});
-				Self::deposit_event(Event::AuctionShortfall { shortfall });
+			}
+			if !remaining_total.is_zero() {
+				Self::deposit_event(Event::AuctionShortfall { shortfall: remaining_total });
 			}
 			Ok(())
 		}

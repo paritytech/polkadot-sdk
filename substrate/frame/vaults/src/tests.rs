@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, BadDebt, CollateralManager, CurrentLiquidationAmount, Error, Event, HoldReason,
-	InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount, MaxPositionAmount,
-	MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint, OnIdleCursor,
-	OracleStalenessThreshold, Pallet as VaultsPallet, PaymentBreakdown, StabilityFee,
+	mock::*, BadDebt, CollateralManager, CurrentLiquidationAmount, DebtComponents, Error, Event,
+	HoldReason, InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount,
+	MaxPositionAmount, MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint,
+	OnIdleCursor, OracleStalenessThreshold, Pallet as VaultsPallet, PaymentBreakdown, StabilityFee,
 	StaleVaultThreshold, Vault, VaultStatus, Vaults as VaultsStorage,
 };
 use frame_support::{
@@ -1517,29 +1517,35 @@ mod liquidation_edge_cases {
 			// Simulate auction completion:
 			// - Collateral value in pUSD = raw_price × deposit × (PUSD/DOT) for decimal conversion
 			// - Payment priority: principal first (per Tab::apply_payment)
-			// - Only remaining PRINCIPAL is bad debt (interest/penalty not collected, not bad debt)
+			// - Bad debt = remaining principal + interest (unbacked pUSD)
+			// - Unpaid penalty is NOT bad debt (lost protocol revenue)
 			let collateral_value_pusd = crash_price.saturating_mul_int(deposit) * PUSD / DOT;
 			let remaining_principal = mint_amount.saturating_sub(collateral_value_pusd);
+			// Penalty = 13% of principal = 26 pUSD, fully unpaid in crash scenario
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(mint_amount);
+			let remaining_debt =
+				DebtComponents { principal: remaining_principal, interest: 0, penalty };
 			let bad_debt_before = BadDebt::<Test>::get();
 
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_principal, &BOB, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
 
-			// Bad debt should equal remaining principal only
+			// Bad debt = remaining principal + interest only (penalty excluded)
+			let expected_bad_debt = remaining_principal; // interest is 0
 			assert_eq!(
 				BadDebt::<Test>::get(),
-				bad_debt_before + remaining_principal,
-				"Only unpaid principal becomes bad debt"
+				bad_debt_before + expected_bad_debt,
+				"Only unpaid principal+interest becomes bad debt, not penalty"
 			);
 
 			// Vault should be removed after auction
 			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
 
-			// AuctionShortfall event should be emitted
+			// AuctionShortfall event uses full remaining_debt.total()
 			System::assert_has_event(
-				Event::<Test>::AuctionShortfall { shortfall: remaining_principal }.into(),
+				Event::<Test>::AuctionShortfall { shortfall: remaining_debt.total() }.into(),
 			);
 			System::assert_has_event(
-				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: remaining_principal }.into(),
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: expected_bad_debt }.into(),
 			);
 		});
 	}
@@ -2115,7 +2121,7 @@ mod vault_status {
 			assert_eq!(vault.status, VaultStatus::InLiquidation);
 
 			// Simulate auction completion
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
 
 			// Vault should be removed immediately (no deferred cleanup)
 			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
@@ -2165,7 +2171,7 @@ mod vault_status {
 
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
 
 			// Vault is removed immediately - ALICE can create a new vault right away
 			set_mock_price(Some(FixedU128::from_rational(421, 100)));
@@ -2188,7 +2194,7 @@ mod vault_status {
 
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
 
 			// Vault no longer exists - operations fail with VaultNotFound
 			assert_noop!(
@@ -2262,10 +2268,11 @@ mod liquidation_limits {
 			// Liquidation should succeed
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
 
-			// CurrentLiquidationAmount only tracks principal (not interest or penalty)
-			// This ensures the counter returns to zero when principal is paid off
+			// CurrentLiquidationAmount tracks total debt (principal + interest + penalty)
 			let expected_principal = 200 * PUSD;
-			assert_eq!(CurrentLiquidationAmount::<Test>::get(), expected_principal);
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(expected_principal);
+			let expected_total = expected_principal + penalty; // no interest accrued
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), expected_total);
 		});
 	}
 
@@ -2344,42 +2351,46 @@ mod liquidation_limits {
 
 	/// **Test: Auction shortfall increases `BadDebt` and reduces `CurrentLiquidationAmount`**
 	///
-	/// When an auction completes with a shortfall (couldn't raise enough to cover the tab),
-	/// the shortfall is recorded as `BadDebt` AND `CurrentLiquidationAmount` is reduced
-	/// (since that portion of the tab will never be collected).
+	/// When an auction completes with remaining debt, `CurrentLiquidationAmount` is reduced
+	/// by the total remainder, and `BadDebt` is accrued for principal + interest only.
 	#[test]
 	fn auction_shortfall_increases_bad_debt_and_reduces_current_amount() {
 		build_and_execute(|| {
-			// Setup: Simulate an auction started with 1000 pUSD tab
+			// Setup: Simulate an auction started with 1000 pUSD total exposure
 			CurrentLiquidationAmount::<Test>::put(1000 * PUSD);
 
 			// Initially no bad debt
 			assert_eq!(BadDebt::<Test>::get(), 0);
 
-			// Simulate auction completing with 500 pUSD shortfall
-			// (auction raised 500 pUSD but needed 1000 pUSD)
-			assert_ok!(Vaults::test_record_shortfall(ALICE, 500 * PUSD));
+			// Simulate auction completing with remaining debt
+			let remaining =
+				DebtComponents { principal: 400 * PUSD, interest: 50 * PUSD, penalty: 50 * PUSD };
+			assert_ok!(Vaults::test_record_shortfall(ALICE, remaining));
 
-			// BadDebt should increase by shortfall
-			assert_eq!(BadDebt::<Test>::get(), 500 * PUSD);
+			// BadDebt = principal + interest only (not penalty)
+			assert_eq!(BadDebt::<Test>::get(), 450 * PUSD);
 
-			// CurrentLiquidationAmount should decrease by shortfall (uncollected portion)
+			// CurrentLiquidationAmount decreases by total remainder (500)
 			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 500 * PUSD);
 
-			// Event should be emitted
+			// Events should be emitted
 			System::assert_has_event(
 				Event::<Test>::AuctionShortfall { shortfall: 500 * PUSD }.into(),
 			);
 			System::assert_has_event(
-				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 500 * PUSD }.into(),
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 450 * PUSD }.into(),
 			);
 
-			// Multiple shortfalls accumulate bad debt and reduce CurrentLiquidationAmount
-			assert_ok!(Vaults::test_record_shortfall(ALICE, 200 * PUSD));
-			assert_eq!(BadDebt::<Test>::get(), 700 * PUSD);
+			// Multiple shortfalls accumulate
+			let remaining2 =
+				DebtComponents { principal: 150 * PUSD, interest: 0, penalty: 50 * PUSD };
+			assert_ok!(Vaults::test_record_shortfall(ALICE, remaining2));
+			// BadDebt += 150 (principal only, no interest)
+			assert_eq!(BadDebt::<Test>::get(), 600 * PUSD);
+			// CLA -= 200 (total of remaining2)
 			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 300 * PUSD);
 			System::assert_has_event(
-				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 200 * PUSD }.into(),
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 150 * PUSD }.into(),
 			);
 		});
 	}
@@ -2390,8 +2401,10 @@ mod liquidation_limits {
 			CurrentLiquidationAmount::<Test>::put(100 * PUSD);
 			assert_eq!(BadDebt::<Test>::get(), 0);
 
+			let remaining =
+				DebtComponents { principal: 300 * PUSD, interest: 50 * PUSD, penalty: 50 * PUSD };
 			assert_noop!(
-				Vaults::test_record_shortfall(ALICE, 400 * PUSD),
+				Vaults::test_record_shortfall(ALICE, remaining),
 				Error::<Test>::ArithmeticUnderflow
 			);
 
@@ -2422,10 +2435,13 @@ mod liquidation_limits {
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), ALICE));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
 
-			// CurrentLiquidationAmount = sum of principals for both vaults
-			// Each vault has 200 pUSD principal (penalty/interest not counted)
+			// CurrentLiquidationAmount = sum of total debts for both vaults
+			// Each vault has 200 pUSD principal + 13% penalty = 226 pUSD (no interest)
 			let principal_per_vault = 200 * PUSD;
-			let expected_total = principal_per_vault * 2;
+			let penalty_per_vault =
+				LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal_per_vault);
+			let total_per_vault = principal_per_vault + penalty_per_vault;
+			let expected_total = total_per_vault * 2;
 			assert_eq!(CurrentLiquidationAmount::<Test>::get(), expected_total);
 		});
 	}
@@ -2433,7 +2449,7 @@ mod liquidation_limits {
 	/// **Test: `CurrentLiquidationAmount` returns to zero after complete auction**
 	///
 	/// This is an end-to-end test that verifies the counter properly tracks
-	/// only principal and returns to zero when purchases pay off all principal.
+	/// total debt and returns to zero when all debt components are paid off.
 	#[test]
 	fn current_liquidation_amount_returns_to_zero_after_complete_auction() {
 		build_and_execute(|| {
@@ -2448,41 +2464,41 @@ mod liquidation_limits {
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
 
-			// Counter should equal principal (not total_debt with penalty)
-			assert_eq!(CurrentLiquidationAmount::<Test>::get(), principal);
+			// Counter should equal total debt (principal + penalty)
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty;
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_debt);
 
-			// Simulate a full purchase that pays off all principal
-			// In real flow, auctions pallet calls execute_purchase with principal_paid
+			// Simulate a full purchase that pays off all debt components
 			let payment = PaymentBreakdown::new(
 				principal, // principal_paid
 				0,         // interest_paid (no interest for simplicity)
-				26 * PUSD, // penalty_paid (13% penalty)
+				penalty,   // penalty_paid (13% penalty)
 			);
 
 			// Give buyer enough pUSD
 			Assets::mint_into(STABLECOIN_ASSET_ID, &BOB, payment.total()).unwrap();
 
-			// Execute purchase - this decrements the counter
+			// Execute purchase - this decrements the counter by payment.total()
 			assert_ok!(Vaults::execute_purchase(&BOB, 100 * DOT, payment, &CHARLIE, &ALICE,));
 
-			// Counter should be zero after principal is fully paid
+			// Counter should be zero after all debt is fully paid
 			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
 
-			// Complete auction - no shortfall since principal was fully paid
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
+			// Complete auction - no remaining debt
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
 
 			// Counter should still be zero
 			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
 		});
 	}
 
-	/// **Test: Partial purchases correctly decrement counter by `principal_paid`**
+	/// **Test: Partial purchases correctly decrement counter by `payment.total()`**
 	///
 	/// When an auction has multiple partial purchases, each one should
-	/// decrement `CurrentLiquidationAmount` by the `principal_paid` amount,
-	/// not the total collected amount.
+	/// decrement `CurrentLiquidationAmount` by the total payment amount.
 	#[test]
-	fn partial_purchases_decrement_counter_by_principal_paid() {
+	fn partial_purchases_decrement_counter_by_payment_total() {
 		build_and_execute(|| {
 			let principal = 200 * PUSD;
 
@@ -2492,16 +2508,18 @@ mod liquidation_limits {
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
 
-			// Counter starts at principal only
-			assert_eq!(CurrentLiquidationAmount::<Test>::get(), principal);
+			// Counter starts at total debt (principal + penalty, no interest)
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty; // 200 + 26 = 226 pUSD
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_debt);
 
-			// Simulate partial purchase paying 50% of principal
-			// The payment breakdown tracks principal_paid separately
+			// Simulate partial purchase paying half of principal and half of penalty
 			let half_principal = principal / 2;
+			let half_penalty = penalty / 2;
 			let payment = PaymentBreakdown::new(
 				half_principal, // principal_paid
-				10 * PUSD,      // interest_paid
-				13 * PUSD,      // penalty_paid
+				0,              // interest_paid (no interest accrued)
+				half_penalty,   // penalty_paid
 			);
 
 			// Give BOB enough pUSD to pay
@@ -2510,15 +2528,145 @@ mod liquidation_limits {
 			// Execute partial purchase
 			assert_ok!(Vaults::execute_purchase(&BOB, 25 * DOT, payment, &CHARLIE, &ALICE,));
 
-			// Counter should be decremented by principal_paid only (half remaining)
-			let remaining_principal = principal - half_principal;
-			assert_eq!(CurrentLiquidationAmount::<Test>::get(), remaining_principal);
+			// Counter should be decremented by payment.total()
+			let remaining_cla = total_debt - payment.total();
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), remaining_cla);
 
-			// Complete the auction with remaining principal as shortfall
-			// (simulates auction ending without full debt recovery)
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_principal, &BOB, 0));
+			// Complete the auction with remaining debt breakdown
+			let remaining_debt = DebtComponents {
+				principal: principal - half_principal,
+				interest: 0,
+				penalty: penalty - half_penalty,
+			};
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
 
-			// Counter should now be zero (decremented by shortfall)
+			// Counter should now be zero (decremented by remaining_debt.total())
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+		});
+	}
+
+	/// **Test: Multi-auction regression — one auction's completion does not erode another's
+	/// exposure**
+	///
+	/// Liquidates two vaults with different debt totals, partially settles one,
+	/// completes it with a non-zero remainder, and verifies that the other
+	/// auction's exposure is preserved exactly.
+	#[test]
+	fn multi_auction_cla_isolation() {
+		build_and_execute(|| {
+			// Create two vaults with different principals
+			let principal_a = 200 * PUSD;
+			let principal_b = 300 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal_a));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 150 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), principal_b));
+
+			// Drop price to make both vaults undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(3))); // $3 per DOT
+
+			// Liquidate both vaults
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), ALICE));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
+
+			// Compute expected total debts
+			let penalty_a = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal_a);
+			let penalty_b = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal_b);
+			let total_a = principal_a + penalty_a; // 200 + 26 = 226
+			let total_b = principal_b + penalty_b; // 300 + 39 = 339
+
+			// CLA = sum of both total debts
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_a + total_b);
+
+			// Partially settle auction A: pay half of principal_a + some penalty
+			let half_principal_a = principal_a / 2;
+			let half_penalty_a = penalty_a / 2;
+			let payment_a = PaymentBreakdown::new(
+				half_principal_a, // principal_paid
+				0,                // interest_paid
+				half_penalty_a,   // penalty_paid
+			);
+			Assets::mint_into(STABLECOIN_ASSET_ID, &CHARLIE, payment_a.total()).unwrap();
+			assert_ok!(Vaults::execute_purchase(&CHARLIE, 25 * DOT, payment_a, &CHARLIE, &ALICE,));
+
+			// CLA decreased by payment_a.total()
+			let cla_after_partial = total_a + total_b - payment_a.total();
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), cla_after_partial);
+
+			// Complete auction A with remaining debt
+			let remaining_a = DebtComponents {
+				principal: principal_a - half_principal_a,
+				interest: 0,
+				penalty: penalty_a - half_penalty_a,
+			};
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_a, &CHARLIE, 0));
+
+			// After auction A completes, CLA should equal exactly auction B's total debt
+			assert_eq!(
+				CurrentLiquidationAmount::<Test>::get(),
+				total_b,
+				"Auction A's completion must not erode auction B's exposure"
+			);
+
+			// Bad debt from auction A = remaining principal (no interest)
+			assert_eq!(BadDebt::<Test>::get(), remaining_a.principal);
+
+			// Now complete auction B with no remainder (fully satisfied)
+			// First simulate full payment of auction B via execute_purchase
+			let payment_b = PaymentBreakdown::new(
+				principal_b, // principal_paid
+				0,           // interest_paid
+				penalty_b,   // penalty_paid
+			);
+			Assets::mint_into(STABLECOIN_ASSET_ID, &CHARLIE, payment_b.total()).unwrap();
+			assert_ok!(Vaults::execute_purchase(&CHARLIE, 150 * DOT, payment_b, &CHARLIE, &BOB,));
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+
+			// Complete auction B with no remaining debt
+			assert_ok!(Vaults::complete_auction(&BOB, 0, DebtComponents::default(), &CHARLIE, 0));
+
+			// Final state: CLA = 0, BadDebt = only from auction A
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+			assert_eq!(BadDebt::<Test>::get(), remaining_a.principal);
+		});
+	}
+
+	/// **Test: Unpaid penalty does NOT contribute to bad debt**
+	///
+	/// When an auction completes with only unpaid penalty and no unpaid principal/interest,
+	/// no bad debt should be accrued.
+	#[test]
+	fn unpaid_penalty_only_does_not_create_bad_debt() {
+		build_and_execute(|| {
+			let principal = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty;
+
+			// Simulate full principal + interest paid, but penalty unpaid
+			let payment = PaymentBreakdown::new(principal, 0, 0);
+			Assets::mint_into(STABLECOIN_ASSET_ID, &BOB, payment.total()).unwrap();
+			assert_ok!(Vaults::execute_purchase(&BOB, 80 * DOT, payment, &CHARLIE, &ALICE));
+
+			// CLA should be decreased by principal only
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_debt - principal);
+
+			// Complete with only penalty remaining
+			let remaining_debt = DebtComponents { principal: 0, interest: 0, penalty };
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
+
+			// No bad debt should be accrued (penalty is not bad debt)
+			assert_eq!(BadDebt::<Test>::get(), 0);
+			// CLA should be zero
 			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
 		});
 	}
@@ -2839,7 +2987,7 @@ mod mint_edge_cases {
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
 
 			// Complete auction - vault is immediately removed
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, 0, &BOB, 0));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
 
 			// Vault should be removed
 			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
@@ -3263,7 +3411,13 @@ mod collateral_manager {
 
 			// Simulate auction completion with 30 DOT remaining
 			let remaining_collateral = 30 * DOT;
-			assert_ok!(Vaults::complete_auction(&ALICE, remaining_collateral, 0, &BOB, 0));
+			assert_ok!(Vaults::complete_auction(
+				&ALICE,
+				remaining_collateral,
+				DebtComponents::default(),
+				&BOB,
+				0
+			));
 
 			// Vault should be immediately removed
 			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
@@ -3278,35 +3432,37 @@ mod collateral_manager {
 
 	/// **Test: `complete_auction` records shortfall as bad debt**
 	///
-	/// When an auction completes with a shortfall (remaining unpaid principal),
-	/// the shortfall is recorded as system bad debt.
-	///
-	/// Only principal shortfall becomes bad debt. Interest/penalty shortfall
-	/// is not collected, not recorded as bad debt.
+	/// When an auction completes with remaining debt, the principal + interest
+	/// portion is recorded as bad debt. Unpaid penalty is NOT bad debt.
 	#[test]
 	fn complete_auction_records_shortfall_as_bad_debt() {
 		build_and_execute(|| {
 			let deposit = 100 * DOT;
+			let principal = 200 * PUSD;
 
 			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
-			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
 
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
 
 			let bad_debt_before = BadDebt::<Test>::get();
 
-			// Simulate auction completion with 100 pUSD remaining principal (bad debt)
-			let shortfall = 100 * PUSD;
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, shortfall, &BOB, 0));
+			// Simulate auction completion with remaining debt breakdown
+			let remaining_debt =
+				DebtComponents { principal: 80 * PUSD, interest: 20 * PUSD, penalty: 10 * PUSD };
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
 
-			// Bad debt should increase
-			assert_eq!(BadDebt::<Test>::get(), bad_debt_before + shortfall);
+			// Bad debt = principal + interest only (not penalty)
+			let expected_bad_debt = 100 * PUSD; // 80 + 20
+			assert_eq!(BadDebt::<Test>::get(), bad_debt_before + expected_bad_debt);
 
-			// AuctionShortfall event
-			System::assert_has_event(Event::<Test>::AuctionShortfall { shortfall }.into());
+			// AuctionShortfall event uses total remaining debt
 			System::assert_has_event(
-				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: shortfall }.into(),
+				Event::<Test>::AuctionShortfall { shortfall: remaining_debt.total() }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: expected_bad_debt }.into(),
 			);
 		});
 	}
@@ -3315,21 +3471,34 @@ mod collateral_manager {
 	fn complete_auction_finalizes_when_keeper_incentive_payment_fails() {
 		build_and_execute(|| {
 			let deposit = 100 * DOT;
-			let shortfall = 100 * PUSD;
+			let principal = 200 * PUSD;
 			let keeper_incentive = 10 * PUSD;
 
 			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
-			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
 
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
 			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 0);
 
-			assert_ok!(Vaults::complete_auction(&ALICE, 0, shortfall, &BOB, keeper_incentive,));
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty;
+
+			// remaining_debt with principal shortfall
+			let remaining_debt =
+				DebtComponents { principal: 100 * PUSD, interest: 0, penalty: 10 * PUSD };
+			assert_ok!(
+				Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, keeper_incentive,)
+			);
 
 			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
-			assert_eq!(BadDebt::<Test>::get(), shortfall);
-			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 100 * PUSD);
+			// Bad debt = principal + interest = 100 pUSD
+			assert_eq!(BadDebt::<Test>::get(), 100 * PUSD);
+			// CLA = total_debt - remaining_debt.total() = 226 - 110 = 116
+			assert_eq!(
+				CurrentLiquidationAmount::<Test>::get(),
+				total_debt - remaining_debt.total()
+			);
 			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, BOB), 0);
 			System::assert_has_event(
 				Event::<Test>::KeeperIncentivePaymentFailed {
@@ -3684,7 +3853,7 @@ mod on_idle_edge_cases {
 			set_mock_price(Some(FixedU128::from_u32(3)));
 			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
 
-			assert_ok!(Vaults::complete_auction(&BOB, 0, 0, &ALICE, 0));
+			assert_ok!(Vaults::complete_auction(&BOB, 0, DebtComponents::default(), &ALICE, 0));
 
 			// BOB's vault should be immediately removed after auction completion
 			assert!(VaultsStorage::<Test>::get(BOB).is_none());
@@ -3849,6 +4018,82 @@ mod parameter_edge_cases {
 				Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD),
 				Error::<Test>::ExceedsMaxDebt
 			);
+		});
+	}
+
+	/// **Test: Setting minimum CR to 100% or below fails**
+	#[test]
+	fn set_minimum_ratio_at_or_below_100_percent_fails() {
+		build_and_execute(|| {
+			// Exactly 100% should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::root(),
+					FixedU128::one()
+				),
+				Error::<Test>::MinimumRatioTooLow
+			);
+
+			// Below 100% should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::root(),
+					FixedU128::from_rational(99, 100)
+				),
+				Error::<Test>::MinimumRatioTooLow
+			);
+
+			// Zero should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::root(),
+					FixedU128::zero()
+				),
+				Error::<Test>::MinimumRatioTooLow
+			);
+
+			// Just above 100% should succeed (if below initial ratio)
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				FixedU128::from_rational(101, 100)
+			));
+		});
+	}
+
+	/// **Test: MaxLiquidationAmount cannot be set below MaxPositionAmount**
+	#[test]
+	fn set_max_liquidation_below_max_position_fails() {
+		build_and_execute(|| {
+			// Genesis: MaxPositionAmount = 10M, MaxLiquidationAmount = 20M
+			let max_position = MaxPositionAmount::<Test>::get().unwrap();
+			assert!(max_position > 0);
+
+			// Try to set MaxLiquidationAmount below MaxPositionAmount
+			assert_noop!(
+				Vaults::set_max_liquidation_amount(RuntimeOrigin::root(), max_position - 1),
+				Error::<Test>::MaxLiquidationBelowMaxPosition
+			);
+
+			// Setting equal to MaxPositionAmount should succeed
+			assert_ok!(Vaults::set_max_liquidation_amount(RuntimeOrigin::root(), max_position));
+		});
+	}
+
+	/// **Test: MaxPositionAmount cannot be set above MaxLiquidationAmount**
+	#[test]
+	fn set_max_position_above_max_liquidation_fails() {
+		build_and_execute(|| {
+			// Genesis: MaxPositionAmount = 10M, MaxLiquidationAmount = 20M
+			let max_liq = MaxLiquidationAmount::<Test>::get().unwrap();
+
+			// Try to set MaxPositionAmount above MaxLiquidationAmount
+			assert_noop!(
+				Vaults::set_max_position_amount(RuntimeOrigin::root(), max_liq + 1),
+				Error::<Test>::MaxLiquidationBelowMaxPosition
+			);
+
+			// Setting equal to MaxLiquidationAmount should succeed
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), max_liq));
 		});
 	}
 }

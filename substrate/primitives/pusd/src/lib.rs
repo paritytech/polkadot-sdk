@@ -67,7 +67,7 @@ impl<Balance: Saturating + Copy> DebtComponents<Balance> {
 /// to determine how to process the payment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct PaymentBreakdown<Balance> {
-	/// Principal portion paid (for `CurrentLiquidationAmount` tracking).
+	/// Principal portion paid.
 	pub principal_paid: Balance,
 	/// Interest portion paid (burned; was already minted to IF during accrual).
 	pub interest_paid: Balance,
@@ -157,7 +157,7 @@ pub trait CollateralManager<AccountId> {
 	/// 2. Transfers `payment.insurance_fund()` pUSD from buyer to Insurance Fund
 	/// 3. Releases `collateral_amount` from the vault owner's Seized hold
 	/// 4. Transfers the collateral to the recipient
-	/// 5. Reduces `CurrentLiquidationAmount` by `payment.principal_paid`
+	/// 5. Reduces `CurrentLiquidationAmount` by `payment.total()`
 	///
 	/// # Errors
 	///
@@ -178,7 +178,9 @@ pub trait CollateralManager<AccountId> {
 	///
 	/// - `vault_owner`: Original vault owner (receives excess collateral)
 	/// - `remaining_collateral`: Excess collateral to return to owner
-	/// - `shortfall`: Uncollected debt (becomes bad debt)
+	/// - `remaining_debt`: Breakdown of unresolved debt (principal, interest, penalty).
+	///   `principal + interest` becomes bad debt; penalty is lost protocol revenue.
+	///   `CurrentLiquidationAmount` is decremented by `remaining_debt.total()`.
 	/// - `keeper`: Account that triggered/restarted the auction
 	/// - `keeper_incentive`: pUSD amount to pay keeper (from IF, funded by penalty)
 	///
@@ -188,7 +190,7 @@ pub trait CollateralManager<AccountId> {
 	fn complete_auction(
 		vault_owner: &AccountId,
 		remaining_collateral: Self::Balance,
-		shortfall: Self::Balance,
+		remaining_debt: DebtComponents<Self::Balance>,
 		keeper: &AccountId,
 		keeper_incentive: Self::Balance,
 	) -> DispatchResult;
