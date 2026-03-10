@@ -23,7 +23,7 @@ use crate::{
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
-		peer_manager::Backend,
+		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
 	LOG_TARGET,
@@ -267,7 +267,7 @@ impl<B: Backend> State<B> {
 				Advertisement {
 					peer_id,
 					para_id: *para_id,
-					relay_parent,
+					scheduling_parent: relay_parent,
 					prospective_candidate: maybe_prospective_candidate,
 				},
 			)
@@ -334,13 +334,15 @@ impl<B: Backend> State<B> {
 		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
+				// TODO: use the actual scheduling_parent once V3 is supported in the
+				// experimental module (relay_parent == scheduling_parent before V3).
 				sender
-					.send_message(CandidateBackingMessage::Second(
-						candidate_receipt.descriptor.relay_parent(),
-						candidate_receipt,
+					.send_message(CandidateBackingMessage::Second {
+						scheduling_parent: candidate_receipt.descriptor.relay_parent(),
+						candidate: candidate_receipt,
 						pvd,
 						pov,
-					))
+					})
 					.await;
 
 				gum::debug!(
@@ -548,13 +550,15 @@ impl<B: Backend> State<B> {
 					let candidate_hash = candidate_receipt.hash();
 					let para_id = candidate_receipt.descriptor.para_id();
 
+					// TODO: use the actual scheduling_parent once V3 is supported in the
+					// experimental module (relay_parent == scheduling_parent before V3).
 					sender
-						.send_message(CandidateBackingMessage::Second(
-							relay_parent,
-							candidate_receipt,
+						.send_message(CandidateBackingMessage::Second {
+							scheduling_parent: relay_parent,
+							candidate: candidate_receipt,
 							pvd,
 							pov,
-						))
+						})
 						.await;
 
 					gum::debug!(
@@ -616,5 +620,20 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
 		self.collation_manager.advertisements()
+	}
+}
+
+// Specific implementation for PersistentDb to support disk persistence.
+impl State<PersistentDb> {
+	/// Persist the reputation database to disk asynchronously (fire-and-forget).
+	/// Called on periodic timer.
+	pub fn background_persist_reputations(&mut self) {
+		self.peer_manager.persist_to_disk_async();
+	}
+
+	/// Persist the reputation database to disk and wait for completion.
+	/// Called on graceful shutdown.
+	pub async fn persist_reputations(&mut self) {
+		self.peer_manager.persist_and_wait().await;
 	}
 }

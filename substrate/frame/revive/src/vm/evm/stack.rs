@@ -17,7 +17,7 @@
 
 //! Custom EVM stack implementation using sp_core::U256
 
-use crate::{limits::EVM_STACK_LIMIT, vm::evm::interpreter::Halt, Config, Error};
+use crate::{Config, Error, limits::EVM_STACK_LIMIT, vm::evm::interpreter::Halt};
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use sp_core::{H160, H256, U256};

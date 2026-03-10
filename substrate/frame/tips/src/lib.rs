@@ -653,7 +653,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// ## Invariants:
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
-	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
+	/// 2. Reasons exists for each Tip `OpenTip.reason`.
 	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {

@@ -250,10 +250,13 @@ impl<
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
 			// if not waived, we need to set up accounts for paying and receiving fees
+			let context = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// mint ED to origin if needed
 			if let Some(ed) = ExistentialDeposit::get() {
-				XcmConfig::AssetTransactor::deposit_asset(&ed, &origin_ref, None).unwrap();
+				let holdings = XcmConfig::AssetTransactor::mint_asset(&ed, &context).unwrap();
+				XcmConfig::AssetTransactor::deposit_asset(holdings, &origin_ref, Some(&context))
+					.unwrap();
 			}
 
 			// overestimate delivery fee
@@ -268,7 +271,9 @@ impl<
 
 			// mint overestimated fee to origin
 			for fee in overestimated_fees.inner() {
-				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
+				let holdings = XcmConfig::AssetTransactor::mint_asset(fee, &context).unwrap();
+				XcmConfig::AssetTransactor::deposit_asset(holdings, &origin_ref, Some(&context))
+					.unwrap();
 			}
 
 			// expected worst case - direct withdraw
