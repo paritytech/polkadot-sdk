@@ -36,25 +36,25 @@ use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use governor::{
+	Quota, RateLimiter,
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
-	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
-	Registry, U64,
+	Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64, exponential_buckets,
+	register,
 };
 use sc_network::{
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
-		traits::{NotificationEvent, NotificationService, ValidationResult},
 		NotificationMetrics,
+		traits::{NotificationEvent, NotificationService, ValidationResult},
 	},
 	types::ProtocolName,
-	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkPeers,
+	utils::{LruHashSet, interval},
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -63,7 +63,7 @@ use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
 	iter,
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
@@ -583,11 +583,7 @@ fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> C
 	}
 
 	// If we couldn't fit even a single statement, skip it.
-	if count == 0 {
-		ChunkResult::SkipOversized
-	} else {
-		ChunkResult::Send(count)
-	}
+	if count == 0 { ChunkResult::SkipOversized } else { ChunkResult::Send(count) }
 }
 
 impl Peer {
@@ -1164,7 +1160,13 @@ where
 			self.record_initial_sync_completion(pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
-		let hashes = self.statement_store.statement_hashes();
+		let mut hashes = self.statement_store.statement_hashes();
+		// Pre-filter hashes the peer already knows to avoid fetching those statements
+		// from the store at all. The topic affinity filter cannot be applied here because
+		// it requires the decoded statement (checked later in process_initial_sync_burst).
+		if let Some(peer_data) = self.peers.get(&peer) {
+			hashes.retain(|h| !peer_data.known_statements.contains(h));
+		}
 		if !hashes.is_empty() {
 			self.pending_initial_syncs
 				.insert(peer, PendingInitialSync { hashes, started_at: Instant::now() });
@@ -1210,10 +1212,12 @@ where
 			return;
 		}
 
-		// Fetch statements up to max_statement_payload_size (reserves space for envelope encoding)
-		let envelope_overhead = self
-			.peers
-			.get(&peer_id)
+		// Fetch statements up to max_statement_payload_size, skipping statements the peer
+		// already knows or that don't match its topic affinity directly in the callback.
+		// This avoids materializing non-matching statements and lets each batch carry more
+		// useful data.
+		let peer_data = self.peers.get(&peer_id);
+		let envelope_overhead = peer_data
 			.map(|p| match p.protocol_version {
 				PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
 				PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
@@ -1223,7 +1227,15 @@ where
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
-			&mut |_hash, encoded, _stmt| {
+			&mut |_hash, encoded, stmt| {
+				// Skip statements that don't match the peer's topic affinity.
+				// Known-statement filtering is done upfront in schedule_initial_sync_for_peer
+				// to avoid fetching them from the store entirely.
+				if let Some(peer) = peer_data {
+					if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+						return FilterDecision::Skip;
+					}
+				}
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
 					return FilterDecision::Abort;
 				}
