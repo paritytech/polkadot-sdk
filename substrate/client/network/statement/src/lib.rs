@@ -1236,11 +1236,14 @@ where
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
-			&mut |_hash, encoded, stmt| {
-				// Skip statements that don't match the peer's topic affinity.
-				// Known-statement filtering is done upfront in schedule_initial_sync_for_peer
-				// to avoid fetching them from the store entirely.
+			&mut |hash, encoded, stmt| {
+				// Skip statements the peer already knows or that don't match its topic
+				// affinity. This avoids materializing non-matching statements and lets
+				// each batch carry more useful data.
 				if let Some(peer) = peer_data {
+					if peer.known_statements.contains(hash) {
+						return FilterDecision::Skip;
+					}
 					if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 						return FilterDecision::Skip;
 					}
@@ -1267,26 +1270,7 @@ where
 		let has_more = !entry.get().hashes.is_empty();
 		drop(entry);
 
-		// Filter out statements the peer already knows or that don't match its topic affinity.
-		let to_send: Vec<_> = {
-			let peer_ref = self.peers.get(&peer_id);
-			statements
-				.iter()
-				.filter(|(hash, stmt)| {
-					if let Some(peer) = peer_ref {
-						if peer.known_statements.contains(hash) {
-							return false;
-						}
-						if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
-						{
-							return false;
-						}
-					}
-					true
-				})
-				.collect()
-		};
-		let send_stmts: Vec<_> = to_send.iter().map(|(_, stmt)| stmt).collect();
+		let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
 		match self.send_statement_chunk(&peer_id, &send_stmts).await {
 			SendChunkResult::Failed => {
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
@@ -1301,7 +1285,7 @@ where
 				});
 				// Only mark actually sent statements as known
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
-					for (hash, _) in &to_send {
+					for (hash, _) in &statements {
 						peer.known_statements.insert(*hash);
 					}
 				}
