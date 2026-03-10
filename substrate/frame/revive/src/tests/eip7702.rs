@@ -33,11 +33,7 @@ use sp_core::{H160, H256, U256};
 
 /// Compute the expected weight refund for a given mix of new/existing processed accounts.
 /// Mirrors the logic in `process_authorizations`.
-fn expected_weight_refund_for(
-	total: u32,
-	new_accounts: u32,
-	existing_accounts: u32,
-) -> Weight {
+fn expected_weight_refund_for(total: u32, new_accounts: u32, existing_accounts: u32) -> Weight {
 	use crate::weights::WeightInfo;
 	let worst = <Test as Config>::WeightInfo::process_new_account_authorization(total)
 		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(0));

@@ -2471,8 +2471,8 @@ where
 			return;
 		}
 
-		let code = if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes())
-			.or_else(|| {
+		let code = if let Some(code) =
+			<AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
 				self.exec_config
 					.mock_handler
 					.as_ref()

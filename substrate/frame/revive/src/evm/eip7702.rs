@@ -22,12 +22,12 @@
 //! authorization tuples attached to transactions.
 
 use crate::{
+	BalanceOf, Config, ExecConfig, HoldReason, LOG_TARGET, Pallet, RuntimeCosts,
 	address::AddressMapper,
-	evm::api::{recover_eth_address_from_message, AuthorizationListEntry},
+	evm::api::{AuthorizationListEntry, recover_eth_address_from_message},
 	metering,
 	primitives::StorageDeposit,
 	storage::AccountInfo,
-	BalanceOf, Config, ExecConfig, HoldReason, Pallet, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use frame_support::{traits::fungible::Inspect, weights::Weight};
