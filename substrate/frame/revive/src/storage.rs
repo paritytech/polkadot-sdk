@@ -308,8 +308,7 @@ impl<T: Config> AccountInfo<T> {
 					AccountType::DelegatedEOA { delegate_target, contract_info } => {
 						// Filter out zeroed hashes: after delegating to a non-contract,
 						// code_hash is cleared to default but contract_info is preserved.
-						old_code_hash =
-							Some(contract_info.code_hash).filter(|h| !h.is_zero());
+						old_code_hash = Some(contract_info.code_hash).filter(|h| !h.is_zero());
 						old_deposit = contract_info.storage_base_deposit;
 						*delegate_target = Some(target);
 						update_contract_info(contract_info, &mut new_deposit);
