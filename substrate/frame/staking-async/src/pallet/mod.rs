@@ -257,18 +257,21 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Provider for era reward allocation.
-		///
-		/// This handles allocating rewards at era start by minting into the era system accounts.
-		#[pallet::no_default_bounds]
-		type RewardProvider: sp_staking::StakingRewardProvider<Self::AccountId, BalanceOf<Self>>;
-
 		/// Sink for unclaimed era rewards.
 		///
 		/// When era pot accounts are cleaned up after history depth expires, any remaining
 		/// unclaimed rewards are transferred to this sink.
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId>;
+
+		/// Provider for general (non-era) reward pot accounts.
+		///
+		/// DAP drips inflation into these pots. At era boundaries, staking snapshots
+		/// and transfers the balances to era-specific pots.
+		///
+		/// Use [`crate::Seed`] in production with a pallet ID.
+		/// Use [`crate::SequentialTest`] for testing with predictable sequential IDs.
+		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
 
 		/// Provider for generating era pot account IDs.
 		///
@@ -465,8 +468,8 @@ pub mod pallet {
 			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
-			type RewardProvider = ();
 			type UnclaimedRewardSink = ();
+			type GeneralPots = crate::Seed<StakingAsyncPalletId>;
 			type EraPotAccountProvider = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
@@ -1026,8 +1029,8 @@ pub mod pallet {
 	/// Set to the first era where reward provider is active. Once set, this value can only be
 	/// updated to a lower value (ensuring write-once semantics in production).
 	///
-	/// We use this as a way to hard deprecate minting tokens in this pallet and depend on
-	/// [`Config::RewardProvider`] to transfer staking rewards.
+	/// We use this as a way to hard deprecate minting tokens in this pallet and rely on
+	/// era pot transfers for staking rewards.
 	#[pallet::storage]
 	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
 
@@ -1511,7 +1514,6 @@ pub mod pallet {
 		OptimumGreaterThanCap,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
-
 	}
 
 	impl<T: Config> Pallet<T> {

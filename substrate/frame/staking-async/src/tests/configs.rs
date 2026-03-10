@@ -88,10 +88,7 @@ fn set_max_commission_works() {
 		assert_eq!(MaxCommission::<Test>::get(), Perbill::one());
 
 		// WHEN/THEN: Root and admin can set, non-admin cannot
-		assert_ok!(Staking::set_max_commission(
-			RuntimeOrigin::root(),
-			Perbill::from_percent(50),
-		));
+		assert_ok!(Staking::set_max_commission(RuntimeOrigin::root(), Perbill::from_percent(50),));
 		assert_eq!(MaxCommission::<Test>::get(), Perbill::from_percent(50));
 
 		assert_ok!(Staking::set_max_commission(
@@ -101,7 +98,10 @@ fn set_max_commission_works() {
 		assert_eq!(MaxCommission::<Test>::get(), Perbill::from_percent(25));
 
 		assert_noop!(
-			Staking::set_max_commission(RuntimeOrigin::signed(non_admin), Perbill::from_percent(10)),
+			Staking::set_max_commission(
+				RuntimeOrigin::signed(non_admin),
+				Perbill::from_percent(10)
+			),
 			BadOrigin
 		);
 	});
@@ -140,10 +140,7 @@ fn max_commission_rejects_validate_above_max() {
 fn max_commission_min_commission_invariant() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: MinCommission = 10%
-		assert_ok!(Staking::set_min_commission(
-			RuntimeOrigin::root(),
-			Perbill::from_percent(10),
-		));
+		assert_ok!(Staking::set_min_commission(RuntimeOrigin::root(), Perbill::from_percent(10),));
 
 		// WHEN/THEN: Cannot set max below min
 		assert_noop!(
@@ -152,10 +149,7 @@ fn max_commission_min_commission_invariant() {
 		);
 
 		// GIVEN: MaxCommission = 50%
-		assert_ok!(Staking::set_max_commission(
-			RuntimeOrigin::root(),
-			Perbill::from_percent(50),
-		));
+		assert_ok!(Staking::set_max_commission(RuntimeOrigin::root(), Perbill::from_percent(50),));
 
 		// WHEN/THEN: Cannot set min above max
 		assert_noop!(
@@ -164,10 +158,7 @@ fn max_commission_min_commission_invariant() {
 		);
 
 		// Equal values are fine
-		assert_ok!(Staking::set_min_commission(
-			RuntimeOrigin::root(),
-			Perbill::from_percent(50),
-		));
+		assert_ok!(Staking::set_min_commission(RuntimeOrigin::root(), Perbill::from_percent(50),));
 	});
 }
 

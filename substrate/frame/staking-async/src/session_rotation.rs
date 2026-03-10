@@ -81,7 +81,7 @@ use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::Inspect, Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
@@ -860,65 +860,25 @@ impl<T: Config> Rotator<T> {
 		Self::end_era_compute_payout(ending_era, era_duration);
 	}
 
-	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64) {
-		let staked = ErasTotalStake::<T>::get(ending_era.index);
+	fn end_era_compute_payout(ending_era: &ActiveEraInfo, _era_duration: u64) {
+		log!(debug, "snapshotting reward pots for era {:?}", ending_era.index,);
 
-		log!(
-			debug,
-			"computing inflation for era {:?} with duration {:?}",
-			ending_era.index,
-			era_duration
-		);
+		// Snapshot general reward pots into era-specific pots.
+		// DAP has been dripping inflation into the general pots since the last era boundary.
+		let allocation = EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
-		// Allocate era rewards by creating pots and minting into them.
-		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
-		let allocation =
-			EraRewardManager::<T>::allocate_rewards(ending_era.index, staked, era_duration);
-
-		// Provider should return non-zero for new eras in production.
-		// Zero can happen in edge cases like benchmarks with zero era duration.
 		if allocation.staker_rewards.is_zero() {
-			log!(
-				warn,
-				"Era {:?} allocated zero staker rewards (era_duration: {:?})",
-				ending_era.index,
-				era_duration
-			);
+			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index,);
 		}
 
 		Eras::<T>::set_validators_reward(ending_era.index, allocation.staker_rewards);
 
-		// Snapshot validator incentive allocation to ensure fair distribution even when
-		// validators claim rewards at different times.
 		Eras::<T>::set_validator_incentive_allocation(
 			ending_era.index,
 			allocation.validator_incentive,
 		);
 
-		#[cfg(any(test, debug_assertions))]
-		if !allocation.validator_incentive.is_zero() {
-			let validator_incentive_pot_account = T::EraPotAccountProvider::era_pot_account(
-				ending_era.index,
-				EraPotType::ValidatorSelfStake,
-			);
-			let actual_balance = T::Currency::balance(&validator_incentive_pot_account);
-
-			if actual_balance != allocation.validator_incentive {
-				log!(
-					warn,
-					"Validator incentive pot balance mismatch for era {}: expected {:?}, got {:?}",
-					ending_era.index,
-					allocation.validator_incentive,
-					actual_balance
-				);
-				defensive!("Validator incentive pot balance mismatch");
-			}
-		}
-
 		// Update DisableLegacyMintingEra to prevent legacy minting.
-		// This only updates if the new value is lower than the existing one (write-once semantics)
-		// or if it hasn't been set yet. This ensures that once set in production, it can't be
-		// rolled back to re-enable legacy minting for future eras.
 		if !allocation.staker_rewards.is_zero() {
 			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
 				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {

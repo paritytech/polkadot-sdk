@@ -610,10 +610,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Make a payment to a staker from a reward provider pot.
+	/// Make a payment to a staker from an era reward pot.
 	///
-	/// For eras with pre-allocated reward pots (managed by RewardProvider), this transfers
-	/// rewards from the era pot to the appropriate destination. No minting occurs.
+	/// Transfers rewards from the era-specific pot to the appropriate destination.
 	fn make_payout_from_provider(
 		era: EraIndex,
 		stash: &T::AccountId,
