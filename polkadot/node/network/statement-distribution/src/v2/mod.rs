@@ -2849,7 +2849,8 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 	let peer_advertised = |identifier: &CandidateIdentifier, peer: &_| {
 		let peer_data = peers.get(peer)?;
 
-		let scheduling_parent_state = state.per_scheduling_parent.get(&identifier.relay_parent)?;
+		let scheduling_parent_state =
+			state.per_scheduling_parent.get(&identifier.scheduling_parent)?;
 		let per_session = state.per_session.get(&scheduling_parent_state.session)?;
 
 		let local_validator = scheduling_parent_state.local_validator.as_ref()?;
@@ -2877,9 +2878,9 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		None
 	};
 	let request_props = |identifier: &CandidateIdentifier| {
-		let &CandidateIdentifier { relay_parent, group_index, .. } = identifier;
+		let &CandidateIdentifier { scheduling_parent, group_index, .. } = identifier;
 
-		let scheduling_parent_state = state.per_scheduling_parent.get(&relay_parent)?;
+		let scheduling_parent_state = state.per_scheduling_parent.get(&scheduling_parent)?;
 		let per_session = state.per_session.get(&scheduling_parent_state.session)?;
 		let group = per_session.groups.get(group_index)?;
 		let seconding_limit =
@@ -2961,7 +2962,7 @@ pub(crate) async fn handle_response<Context>(
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {
-	let &requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
+	let &requests::CandidateIdentifier { scheduling_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
 	let peer = *response.requested_peer();
 
@@ -2973,10 +2974,11 @@ pub(crate) async fn handle_response<Context>(
 	);
 
 	let post_confirmation = {
-		let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&relay_parent) {
-			None => return,
-			Some(s) => s,
-		};
+		let scheduling_parent_state =
+			match state.per_scheduling_parent.get_mut(&scheduling_parent) {
+				None => return,
+				Some(s) => s,
+			};
 
 		let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 			None => return,
@@ -3073,7 +3075,7 @@ pub(crate) async fn handle_response<Context>(
 		return;
 	}
 
-	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&relay_parent) {
+	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => return,
 		Some(s) => s,
 	};
@@ -3087,7 +3089,7 @@ pub(crate) async fn handle_response<Context>(
 		ctx,
 		candidate_hash,
 		group_index,
-		&relay_parent,
+		&scheduling_parent,
 		scheduling_parent_state,
 		confirmed,
 		per_session,

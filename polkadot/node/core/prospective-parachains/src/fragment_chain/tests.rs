@@ -550,7 +550,7 @@ fn test_populate_and_check_potential() {
 				assert_eq!(chain.unconnected_len(), 0);
 				assert_matches!(
 					chain.can_add_candidate_as_potential(&relay_chain_scope, &candidate_a_entry),
-					Err(Error::RelayParentNotInScope(_, _))
+					Err(Error::SchedulingParentNotInScope(_, _))
 				);
 				// However, if taken independently, both B and C still have potential, since we
 				// don't know that A doesn't.
@@ -700,7 +700,7 @@ fn test_populate_and_check_potential() {
 
 		assert_matches!(
 			chain.can_add_candidate_as_potential(&relay_chain_scope, &candidate_a_entry),
-			Err(Error::RelayParentNotInScope(_, _))
+			Err(Error::SchedulingParentNotInScope(_, _))
 		);
 		// However, if taken independently, both B and C still have potential, since we
 		// don't know that A doesn't.
@@ -722,11 +722,11 @@ fn test_populate_and_check_potential() {
 
 		assert_matches!(
 			chain.can_add_candidate_as_potential(&relay_chain_scope, &candidate_a_entry),
-			Err(Error::RelayParentNotInScope(_, _))
+			Err(Error::SchedulingParentNotInScope(_, _))
 		);
 		assert_matches!(
 			chain.can_add_candidate_as_potential(&relay_chain_scope, &candidate_b_entry),
-			Err(Error::RelayParentNotInScope(_, _))
+			Err(Error::SchedulingParentNotInScope(_, _))
 		);
 		// However, if taken independently, C still has potential, since we
 		// don't know that A and B don't
@@ -1764,8 +1764,8 @@ fn test_v3_scheduling_parent_validation() {
 			CandidateEntry::new(candidate_hash, candidate, pvd, CandidateState::Backed).unwrap();
 
 		// Verify the entry correctly tracks both parents
-		assert_eq!(candidate_entry.relay_parent(), relay_parent_x);
-		assert_eq!(candidate_entry.scheduling_parent(), relay_parent_y);
+		assert_eq!(candidate_entry.relay_parent, relay_parent_x);
+		assert_eq!(candidate_entry.scheduling_parent, relay_parent_y);
 
 		storage.add_candidate_entry(candidate_entry).unwrap();
 

@@ -819,8 +819,37 @@ fn answer_hypothetical_membership_request(
 			let para_id = &candidate.candidate_para();
 			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
 
-			let res = fragment_chain
-				.can_add_candidate_as_potential(&leaf_view.relay_chain_scope, candidate);
+			let res = match candidate {
+				HypotheticalCandidate::Complete {
+					candidate_hash,
+					ref receipt,
+					ref persisted_validation_data,
+				} => {
+					// For complete candidates, build a CandidateEntry and run the full
+					// potential check including constraint validation.
+					let entry = fragment_chain::CandidateEntry::new_seconded(
+						*candidate_hash,
+						(**receipt).clone(),
+						persisted_validation_data.clone(),
+					);
+					match entry {
+						Ok(entry) => fragment_chain
+							.can_add_candidate_as_potential(
+								&leaf_view.relay_chain_scope,
+								&entry,
+							),
+						Err(_) => continue,
+					}
+				},
+				HypotheticalCandidate::Incomplete { .. } =>
+					fragment_chain.can_add_candidate_as_potential_hypothetical(
+						&leaf_view.relay_chain_scope,
+						candidate.scheduling_parent(),
+						candidate.candidate_hash(),
+						candidate.parent_head_data_hash(),
+						candidate.output_head_data_hash(),
+					),
+			};
 			match res {
 				Err(FragmentChainError::CandidateAlreadyKnown) | Ok(()) => {
 					membership.push(*active_leaf);
