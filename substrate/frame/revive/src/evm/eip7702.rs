@@ -22,12 +22,12 @@
 //! authorization tuples attached to transactions.
 
 use crate::{
-	BalanceOf, Config, ExecConfig, HoldReason, LOG_TARGET, Pallet, RuntimeCosts,
 	address::AddressMapper,
-	evm::api::{AuthorizationListEntry, recover_eth_address_from_message},
+	evm::api::{recover_eth_address_from_message, AuthorizationListEntry},
 	metering,
 	primitives::StorageDeposit,
 	storage::AccountInfo,
+	BalanceOf, Config, ExecConfig, HoldReason, Pallet, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use frame_support::{traits::fungible::Inspect, weights::Weight};
@@ -93,7 +93,13 @@ pub fn process_authorizations<T: Config>(
 			continue;
 		}
 
-		if !frame_system::Account::<T>::contains_key(&account_id) {
+		let account_exists = frame_system::Account::<T>::contains_key(&account_id);
+		if auth.address.is_zero() && !account_exists {
+			log::debug!(target: LOG_TARGET, "Skipping clear delegation for non-existent account {authority:?}");
+			continue;
+		}
+
+		if !account_exists {
 			Pallet::<T>::charge_deposit(None, origin, &account_id, ed, exec_config)?;
 			result.deposit.saturating_accrue(ed);
 			result.new_accounts += 1;
