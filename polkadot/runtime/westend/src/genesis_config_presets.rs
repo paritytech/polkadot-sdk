@@ -26,7 +26,7 @@ use alloc::format;
 use alloc::{vec, vec::Vec};
 use frame_support::{build_struct_json_patch, sp_runtime::traits::AccountIdConversion};
 use pallet_staking::{Forcing, StakerStatus};
-use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
+use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -147,6 +147,7 @@ fn default_parachains_host_configuration(
 			paras_availability_period: 4,
 			..Default::default()
 		},
+		max_relay_parent_session_age: 0,
 		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
 		..Default::default()
 	}
