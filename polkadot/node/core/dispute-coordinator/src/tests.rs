@@ -65,6 +65,7 @@ use polkadot_primitives::{
 	GroupIndex, Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2,
 	NodeFeatures, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
 	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
@@ -180,6 +181,11 @@ struct TestState {
 	last_block: Hash,
 	// last session the subsystem knows about.
 	known_session: Option<SessionIndex>,
+	/// When true, node features will include `CandidateReceiptV3` during session caching.
+	v3_node_features: bool,
+	/// Optional on-chain votes to return from `FetchOnChainVotes` on the first leaf.
+	/// When `Some`, the backing_validators_per_candidate from this will be used instead of empty.
+	initial_on_chain_votes: Option<ScrapedOnChainVotes>,
 }
 
 impl Default for TestState {
@@ -249,6 +255,8 @@ impl Default for TestState {
 			block_num_to_header,
 			last_block,
 			known_session: None,
+			v3_node_features: false,
+			initial_on_chain_votes: None,
 		}
 	}
 }
@@ -364,7 +372,16 @@ impl TestState {
 								AllMessages::RuntimeApi(
 									RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 								) => {
-									si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+									let features = if self.v3_node_features {
+										use polkadot_primitives::node_features::FeatureIndex;
+										let mut f = NodeFeatures::new();
+										f.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+										f.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+										f
+									} else {
+										NodeFeatures::EMPTY
+									};
+									si_tx.send(Ok(features)).unwrap();
 								}
 							);
 						}
@@ -397,13 +414,13 @@ impl TestState {
 					_new_leaf,
 					RuntimeApiRequest::FetchOnChainVotes(tx),
 				)) => {
-					// add some `BackedCandidates` or resolved disputes here as needed
-					tx.send(Ok(Some(ScrapedOnChainVotes {
-						session,
-						backing_validators_per_candidate: Vec::default(),
-						disputes: MultiDisputeStatementSet::default(),
-					})))
-					.unwrap();
+					let votes =
+						self.initial_on_chain_votes.take().unwrap_or(ScrapedOnChainVotes {
+							session,
+							backing_validators_per_candidate: Vec::default(),
+							disputes: MultiDisputeStatementSet::default(),
+						});
+					tx.send(Ok(Some(votes))).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
@@ -642,6 +659,39 @@ fn make_valid_candidate_receipt() -> CandidateReceipt {
 	make_another_valid_candidate_receipt(dummy_hash())
 }
 
+/// Create a V3 candidate receipt with a distinct scheduling_parent.
+///
+/// V3 candidates have `version=1`, `reserved1[0..16]` all zeros, and `scheduling_parent`
+/// different from `relay_parent`. Built from raw to avoid dummy collator bytes polluting
+/// the reserved1 field (which would cause version detection to return V1).
+fn make_v3_candidate_receipt(
+	relay_parent: Hash,
+	scheduling_parent: Hash,
+	session_index: SessionIndex,
+) -> CandidateReceipt {
+	use polkadot_primitives::CandidateDescriptorV2;
+	let descriptor = CandidateDescriptorV2::new_from_raw(
+		0.into(),                                       // para_id
+		relay_parent,                                    // relay_parent
+		1,                                               // version = V3
+		0,                                               // core_index
+		session_index,                                   // session_index
+		0,                                               // scheduling_session_offset
+		[0u8; 24],                                       // reserved1
+		dummy_hash(),                                    // persisted_validation_data_hash
+		dummy_hash(),                                    // pov_hash
+		dummy_hash(),                                    // erasure_root
+		scheduling_parent,                               // scheduling_parent
+		[0u8; 32],                                       // reserved2
+		dummy_hash(),                                    // para_head
+		polkadot_primitives_test_helpers::dummy_validation_code().hash(), // validation_code_hash
+	);
+	CandidateReceipt {
+		descriptor,
+		commitments_hash: CandidateCommitments::default().hash(),
+	}
+}
+
 fn make_invalid_candidate_receipt() -> CandidateReceipt {
 	dummy_candidate_receipt_v2_bad_sig(Default::default(), Some(Default::default()))
 }
@@ -650,6 +700,69 @@ fn make_another_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceipt 
 	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
+}
+
+impl TestState {
+	/// Create a backing `ValidityAttestation` for a candidate, signed with the given
+	/// `scheduling_parent` as the signing context's parent hash.
+	///
+	/// This mirrors how real backers sign: they use the scheduling parent (not relay
+	/// parent) in the signing context.
+	fn make_backing_attestation(
+		&self,
+		candidate_hash: CandidateHash,
+		validator_index: ValidatorIndex,
+		session: SessionIndex,
+		scheduling_parent: Hash,
+	) -> ValidityAttestation {
+		let keystore = self.master_keystore.clone() as KeystorePtr;
+		let validator_id = self.validators[validator_index.0 as usize].public().into();
+		let context =
+			SigningContext { session_index: session, parent_hash: scheduling_parent };
+
+		let statement = SignedFullStatement::sign(
+			&keystore,
+			Statement::Valid(candidate_hash),
+			&context,
+			validator_index,
+			&validator_id,
+		)
+		.unwrap()
+		.unwrap();
+
+		let sig = statement.signature().clone();
+		ValidityAttestation::Explicit(sig)
+	}
+}
+
+/// Create on-chain votes with a V3 candidate that has backing attestations signed
+/// with the real scheduling_parent.
+fn make_v3_on_chain_votes(
+	test_state: &TestState,
+	session: SessionIndex,
+	relay_parent: Hash,
+	scheduling_parent: Hash,
+) -> ScrapedOnChainVotes {
+	let candidate_receipt =
+		make_v3_candidate_receipt(relay_parent, scheduling_parent, session);
+	let candidate_hash = candidate_receipt.hash();
+
+	// Create a valid backing attestation signed with scheduling_parent
+	let attestation = test_state.make_backing_attestation(
+		candidate_hash,
+		ValidatorIndex(0), // Alice
+		session,
+		scheduling_parent,
+	);
+
+	ScrapedOnChainVotes {
+		session,
+		backing_validators_per_candidate: vec![(
+			candidate_receipt,
+			vec![(ValidatorIndex(0), attestation)],
+		)],
+		disputes: MultiDisputeStatementSet::default(),
+	}
 }
 
 // Generate a `CandidateBacked` event from a `CandidateReceipt`. The rest is dummy data.
@@ -4717,6 +4830,71 @@ fn disputes_unactivated_when_all_raising_parties_disabled() {
 
 				assert_eq!(rx.await.unwrap(), (10, base_hash));
 			}
+
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			test_state
+		})
+	});
+}
+
+/// Regression test: V3 candidate on the very first leaf must be handled correctly.
+///
+/// Before the fix, `Initialized` was created with `v3_ever_seen = false` and
+/// `process_chain_import_backlog` (which processes on-chain backing votes from the
+/// first leaf) ran before `process_active_leaves_update` could set `v3_ever_seen`.
+/// This caused V3 candidates to be misinterpreted as V1, using `relay_parent` instead
+/// of `scheduling_parent` in the backing signature context — breaking the debug_assert.
+#[test]
+fn v3_candidate_on_first_leaf_is_detected_correctly() {
+	let mut test_state = TestState::default();
+	test_state.v3_node_features = true;
+
+	// Add two more blocks after the genesis (which is created in `default()`)
+	let h1 = Header {
+		parent_hash: test_state.last_block,
+		number: 1,
+		digest: dummy_digest(),
+		state_root: dummy_hash(),
+		extrinsics_root: dummy_hash(),
+	};
+	let h1_hash = h1.hash();
+	test_state.headers.insert(h1_hash, h1);
+	test_state.block_num_to_header.insert(1, h1_hash);
+	test_state.last_block = h1_hash;
+
+	let h2 = Header {
+		parent_hash: test_state.last_block,
+		number: 2,
+		digest: dummy_digest(),
+		state_root: dummy_hash(),
+		extrinsics_root: dummy_hash(),
+	};
+	let h2_hash = h2.hash();
+	test_state.headers.insert(h2_hash, h2);
+	test_state.block_num_to_header.insert(2, h2_hash);
+	test_state.last_block = h2_hash;
+
+	let session = 1;
+	// Use a relay_parent from the test state and a distinct scheduling_parent
+	let relay_parent = h1_hash;
+	let scheduling_parent = Hash::repeat_byte(0xBB);
+
+	// Prepare V3 on-chain votes with backing attestation signed using scheduling_parent
+	test_state.initial_on_chain_votes = Some(make_v3_on_chain_votes(
+		&test_state,
+		session,
+		relay_parent,
+		scheduling_parent,
+	));
+
+	test_state.resume(|mut test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Process all initial leaves — this will feed the V3 on-chain votes
+			// through process_chain_import_backlog on the first leaf.
+			// With the fix, v3_ever_seen is set before processing on-chain votes,
+			// so scheduling_parent is used correctly in signature verification.
+			test_state.handle_resume_sync(&mut virtual_overseer, session).await;
 
 			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 

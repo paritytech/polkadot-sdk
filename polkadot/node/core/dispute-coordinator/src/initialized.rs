@@ -206,6 +206,32 @@ impl Initialized {
 		if let Some(InitialData { participations, votes: on_chain_votes, leaf: first_leaf }) =
 			initial_data.take()
 		{
+			// Check V3 on the first leaf *before* processing on-chain votes.
+			// Session info is already cached from handle_startup, so this hits the LRU.
+			// Without this, v3_ever_seen would still be false when process_chain_import_backlog
+			// runs, causing V3 candidates to be misinterpreted as V1.
+			if !self.v3_ever_seen {
+				if let Ok(info) = self
+					.runtime_info
+					.get_session_info_by_index(
+						ctx.sender(),
+						first_leaf.hash,
+						self.highest_session_seen,
+					)
+					.await
+				{
+					if FeatureIndex::CandidateReceiptV3.is_set(&info.node_features) {
+						gum::info!(
+							target: LOG_TARGET,
+							session_idx = self.highest_session_seen,
+							"CandidateReceiptV3 node feature detected on first leaf in \
+							 dispute-coordinator",
+						);
+						self.v3_ever_seen = true;
+					}
+				}
+			}
+
 			for (priority, request) in participations {
 				self.participation.queue_participation(ctx, priority, request).await?;
 			}
@@ -386,8 +412,8 @@ impl Initialized {
 			// round-trip). This runs on every activated leaf while !v3_ever_seen,
 			// because on startup the session is already cached but v3_ever_seen
 			// starts as false.
-			// TODO: This is not sufficient - we skip the check on the _very_ first leaf before
-			// initialized!
+			// Note: The very first leaf is handled separately in run_until_error
+			// before process_chain_import_backlog.
 			if !self.v3_ever_seen {
 				if let Ok(idx) = session_idx {
 					if let Ok(info) = self
