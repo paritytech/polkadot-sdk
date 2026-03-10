@@ -97,6 +97,9 @@ mod benchmarks {
 		)
 		.unwrap();
 
+		// Remove the mapping that was auto-created by the AssetsCallback hook
+		Pallet::<T>::remove_asset_mapping(&asset_id);
+
 		// Verify no precompile mapping exists yet.
 		assert!(Pallet::<T>::asset_index_of(&asset_id).is_none());
 
