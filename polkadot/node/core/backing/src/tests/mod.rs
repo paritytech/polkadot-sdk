@@ -4305,11 +4305,72 @@ fn ambiguous_candidate_rejected_on_statement() {
 	});
 }
 
-// Test that version acceptance filtering behaves correctly before and after V3 activation:
+/// Helper: send a BlockFinalized signal that activates V3 node features.
+///
+/// Uses session 2 (uncached) so the subsystem fetches fresh NodeFeatures with V3 enabled.
+async fn activate_v3_via_block_finalized(virtual_overseer: &mut VirtualOverseer) {
+	let finalized_hash = Hash::repeat_byte(0xFF);
+	virtual_overseer
+		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, 1)))
+		.await;
+
+	// check_v3_on_finalized: SessionIndexForChild → session 2
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::SessionIndexForChild(tx),
+		)) if parent == finalized_hash => {
+			tx.send(Ok(2)).unwrap();
+		}
+	);
+
+	// NodeFeatures for session 2 → V3 enabled
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::NodeFeatures(session_index, tx),
+		)) if parent == finalized_hash && session_index == 2 => {
+			let mut features = NodeFeatures::new();
+			features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+			features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+			tx.send(Ok(features)).unwrap();
+		}
+	);
+}
+
+/// Helper: sign a Seconded statement as validator 2 for use with CandidateBackingMessage::Statement.
+fn sign_seconded_statement(
+	test_state: &TestState,
+	candidate: &CommittedCandidateReceipt,
+	pvd: &PersistedValidationData,
+) -> SignedFullStatementWithPVD {
+	let public = Keystore::sr25519_generate_new(
+		&*test_state.keystore,
+		ValidatorId::ID,
+		Some(&test_state.validators[2].to_seed()),
+	)
+	.expect("Insert key into keystore");
+
+	SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(2),
+		&public.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed")
+}
+
+// Test that version acceptance filtering behaves correctly before and after V3 activation
+// via the CandidateBackingMessage::Second path (local seconding).
 // - Ambiguous candidates (old rules ≠ new rules in an unexpected way) are always rejected.
 // - V3 candidates are rejected before activation but accepted after.
 #[test]
-fn version_acceptance_before_and_after_v3_activation() {
+fn version_acceptance_before_and_after_v3_activation_on_second() {
 	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
@@ -4360,7 +4421,7 @@ fn version_acceptance_before_and_after_v3_activation() {
 				make_erasure_root(&test_state, pov.clone(), pvd.clone()),
 				expected_head_data.hash(),
 				ValidationCode(validation_code.0.clone()).hash(),
-				test_state.relay_parent, // scheduling_parent = relay_parent
+				test_state.relay_parent,
 			),
 			commitments: CandidateCommitments {
 				head_data: expected_head_data.clone(),
@@ -4380,37 +4441,8 @@ fn version_acceptance_before_and_after_v3_activation() {
 			.await;
 		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
 
-		// --- Activate V3 via BlockFinalized with a new session ---
-		// Use session 2 so NodeFeatures isn't cached (session 1 was cached with V3=off).
-		let finalized_hash = Hash::repeat_byte(0xFF);
-		virtual_overseer
-			.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, 1)))
-			.await;
-
-		// check_v3_on_finalized: SessionIndexForChild → session 2
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::SessionIndexForChild(tx),
-			)) if parent == finalized_hash => {
-				tx.send(Ok(2)).unwrap();
-			}
-		);
-
-		// NodeFeatures for session 2 → V3 enabled
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::NodeFeatures(session_index, tx),
-			)) if parent == finalized_hash && session_index == 2 => {
-				let mut features = NodeFeatures::new();
-				features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-				features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-				tx.send(Ok(features)).unwrap();
-			}
-		);
+		// --- Activate V3 ---
+		activate_v3_via_block_finalized(&mut virtual_overseer).await;
 
 		// --- After V3 activation ---
 
@@ -4440,11 +4472,131 @@ fn version_acceptance_before_and_after_v3_activation() {
 			})
 			.await;
 
-		// Any message arriving means it passed the version acceptance check.
+		// The candidate passed version acceptance and proceeds to validation —
+		// executor params are fetched as part of the validation setup.
 		// (Before V3 activation, the same candidate produced a timeout above.)
-		assert!(
-			virtual_overseer.recv().timeout(Duration::from_secs(1)).await.is_some(),
-			"V3 candidate should pass version acceptance after activation"
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutorParams(_, _),
+			))
+		);
+
+		virtual_overseer
+	});
+}
+
+// Same test as above but via the CandidateBackingMessage::Statement path
+// (receiving a Seconded statement from another validator).
+#[test]
+fn version_acceptance_before_and_after_v3_activation_on_statement() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let pov_hash = pov.hash();
+
+		// Ambiguous candidate
+		let mut ambiguous = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		ambiguous.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		// V3 candidate
+		let v3_candidate = CommittedCandidateReceipt {
+			descriptor: CandidateDescriptorV2::new_v3(
+				test_state.chain_ids[0],
+				test_state.relay_parent,
+				CoreIndex(0),
+				1,
+				pvd.hash(),
+				pov_hash,
+				make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+				expected_head_data.hash(),
+				ValidationCode(validation_code.0.clone()).hash(),
+				test_state.relay_parent,
+			),
+			commitments: CandidateCommitments {
+				head_data: expected_head_data.clone(),
+				..Default::default()
+			},
+		};
+
+		// --- Before V3 activation ---
+
+		// 1. Ambiguous candidate via Statement: rejected.
+		let stmt = sign_seconded_statement(&test_state, &ambiguous, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 2. V3 candidate via Statement: rejected (V3NotEnabled).
+		let stmt = sign_seconded_statement(&test_state, &v3_candidate, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// --- Activate V3 ---
+		activate_v3_via_block_finalized(&mut virtual_overseer).await;
+
+		// --- After V3 activation ---
+
+		// 3. Ambiguous candidate via Statement: STILL rejected.
+		let stmt = sign_seconded_statement(&test_state, &ambiguous, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 4. V3 candidate via Statement: NOW ACCEPTED.
+		let stmt = sign_seconded_statement(&test_state, &v3_candidate, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+
+		// The candidate passed version acceptance and is forwarded to
+		// prospective parachains for import — this is the first step of the
+		// Statement path after the version check.
+		// (Before V3 activation, the same candidate produced a timeout above.)
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(_, _),
+			)
 		);
 
 		virtual_overseer
