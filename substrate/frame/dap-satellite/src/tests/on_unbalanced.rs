@@ -28,7 +28,7 @@ type DapSatellitePallet = crate::Pallet<Test>;
 
 #[test]
 fn on_unbalanced_deposits_to_satellite() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let satellite = DapSatellitePallet::satellite_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
@@ -87,20 +87,69 @@ fn on_unbalanced_deposits_to_satellite() {
 
 #[test]
 fn on_unbalanced_handles_zero_amount() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
-		// Given: satellite has ED (=1)
-		assert_eq!(Balances::free_balance(satellite), 1);
+		// Given: satellite has ED
+		assert_eq!(Balances::free_balance(satellite), ed);
 
 		// When: imbalance with zero amount
 		let credit = <Balances as Balanced<u64>>::issue(0);
 		DapSatellitePallet::on_unbalanced(credit);
 
 		// Then: satellite still has just ED (no-op)
-		assert_eq!(Balances::free_balance(satellite), 1);
+		assert_eq!(Balances::free_balance(satellite), ed);
 		// And: active issuance unchanged
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Failed to deposit to DAP satellite")]
+fn on_unbalanced_panics_when_satellite_not_funded_and_deposit_below_ed() {
+	new_test_ext(false).execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+
+		// Given: satellite is not funded
+		assert_eq!(Balances::free_balance(satellite), 0);
+
+		// When: deposit < ED -> triggers defensive panic
+		let credit = <Balances as Balanced<u64>>::withdraw(
+			&1,
+			ed - 1,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
+		DapSatellitePallet::on_unbalanced(credit);
+	});
+}
+
+#[test]
+fn on_unbalanced_creates_satellite_when_not_funded_and_deposit_at_least_ed() {
+	new_test_ext(false).execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+
+		// Given: satellite is not funded
+		assert_eq!(Balances::free_balance(satellite), 0);
+
+		// When: deposit >= ED
+		let credit = <Balances as Balanced<u64>>::withdraw(
+			&1,
+			ed,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
+		DapSatellitePallet::on_unbalanced(credit);
+
+		// Then: satellite is created and funded
+		assert_eq!(Balances::free_balance(satellite), ed);
 	});
 }

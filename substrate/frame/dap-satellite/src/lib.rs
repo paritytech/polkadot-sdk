@@ -32,8 +32,14 @@
 //!
 //! ## Setup
 //!
-//! The satellite account is created at genesis with ED. For existing chains, include
-//! `dap_satellite::migrations::v1::InitSatelliteAccount` in migrations.
+//! The satellite account must be pre-funded with at least ED (existential deposit) before the
+//! pallet is used. For new chains, include the satellite account in the balances genesis config.
+//! For existing chains, fund it via a manual transfer.
+//!
+//! If the satellite account is not pre-funded, deposits below ED will be silently burned.
+//!
+//! Each system chain requires a manual action to ensure the satellite account holds at least ED.
+//! The pallet does not fund itself automatically.
 //!
 //! ## TODO
 //!
@@ -48,8 +54,6 @@
 pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
-
-extern crate alloc;
 
 use frame_support::{
 	pallet_prelude::*,
@@ -106,99 +110,6 @@ pub mod pallet {
 		pub fn satellite_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
-
-		/// Create the satellite account with a provider reference and fund it with ED.
-		///
-		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains). Safe to call multiple times - will early exit if account
-		/// already exists with sufficient balance.
-		pub fn create_satellite_account() {
-			let satellite = Self::satellite_account();
-			let ed = T::Currency::minimum_balance();
-
-			if frame_system::Pallet::<T>::providers(&satellite) > 0 &&
-				T::Currency::balance(&satellite) >= ed
-			{
-				log::debug!(
-					target: LOG_TARGET,
-					"DAP satellite account already initialized: {satellite:?}"
-				);
-				return;
-			}
-
-			// Ensure the account exists by incrementing its provider count.
-			frame_system::Pallet::<T>::inc_providers(&satellite);
-
-			// Fund the account with ED so it can receive deposits of any amount.
-			// Without this, deposits smaller than ED would fail.
-			log::info!(
-				target: LOG_TARGET,
-				"Attempting to mint ED ({ed:?}) into DAP satellite: {satellite:?}"
-			);
-
-			match T::Currency::mint_into(&satellite, ed) {
-				Ok(_) => {
-					log::info!(
-						target: LOG_TARGET,
-						"🛰️ Created DAP satellite account: {satellite:?}"
-					);
-				},
-				Err(e) => {
-					frame_support::defensive!("Failed to mint ED into DAP satellite: {:?}", e);
-				},
-			}
-		}
-	}
-
-	/// Genesis config for the DAP Satellite pallet.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		_phantom: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			// Create and fund the satellite account at genesis.
-			Pallet::<T>::create_satellite_account();
-		}
-	}
-}
-
-/// Migrations for the DAP Satellite pallet.
-pub mod migrations {
-	use super::*;
-
-	/// Version 1 migration.
-	pub mod v1 {
-		use super::*;
-
-		mod inner {
-			use super::*;
-			use frame_support::traits::UncheckedOnRuntimeUpgrade;
-
-			/// Inner migration that creates the satellite account.
-			pub struct InitSatelliteAccountInner<T>(core::marker::PhantomData<T>);
-
-			impl<T: Config> UncheckedOnRuntimeUpgrade for InitSatelliteAccountInner<T> {
-				fn on_runtime_upgrade() -> Weight {
-					Pallet::<T>::create_satellite_account();
-					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-					T::DbWeight::get().reads_writes(3, 3)
-				}
-			}
-		}
-
-		/// Migration to create the DAP satellite account (version 0 → 1).
-		pub type InitSatelliteAccount<T> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			inner::InitSatelliteAccountInner<T>,
-			Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
 	}
 }
 
@@ -277,10 +188,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		let numeric_amount = amount.peek();
 
 		// Resolve should never fail because:
-		// - can_deposit on destination succeeds since satellite exists (created with provider at
-		//   genesis/runtime upgrade so no ED issue)
+		// - can_deposit on destination succeeds since satellite is pre-funded with ED
 		// - amount is guaranteed non-zero by the trait method signature
-		// The only failure would be overflow on destination.
+		// The only failure would be overflow on destination or unfunded satellite.
 		let _ = T::Currency::resolve(&satellite, amount).inspect_err(|_| {
 			frame_support::defensive!(
 				"🚨 Failed to deposit to DAP satellite - funds burned, it should never happen!"

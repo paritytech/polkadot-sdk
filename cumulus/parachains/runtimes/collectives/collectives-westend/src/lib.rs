@@ -821,7 +821,6 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	pallet_dap_satellite::migrations::v1::InitSatelliteAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

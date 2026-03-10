@@ -224,9 +224,6 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
-
-		// Mark funds as inactive so they don't participate in governance voting.
-		T::Currency::deactivate(numeric_amount);
 	}
 }
 

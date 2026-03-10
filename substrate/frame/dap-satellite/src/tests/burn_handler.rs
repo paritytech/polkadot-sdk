@@ -34,7 +34,7 @@ type DapSatellitePallet = crate::Pallet<Test>;
 
 #[test]
 fn pallet_burn_via_satellite_currency_redirects_to_satellite() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// Given
 		let satellite = DapSatellitePallet::satellite_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
@@ -62,7 +62,7 @@ fn pallet_burn_via_satellite_currency_redirects_to_satellite() {
 
 #[test]
 fn pallet_burn_via_satellite_currency_can_reap_account() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// Given
 		let satellite = DapSatellitePallet::satellite_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
@@ -87,7 +87,7 @@ fn pallet_burn_via_satellite_currency_can_reap_account() {
 
 #[test]
 fn standard_balances_burn_from_reduces_total_issuance() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// Given
 		let initial_total = Balances::total_issuance();
 		assert_eq!(Balances::free_balance(1), 100);

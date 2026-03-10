@@ -138,7 +138,6 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	pallet_dap_satellite::migrations::v1::InitSatelliteAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

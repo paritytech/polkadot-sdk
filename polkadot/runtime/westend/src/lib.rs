@@ -2113,7 +2113,6 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-		pallet_dap_satellite::migrations::v1::InitSatelliteAccount<Runtime>,
 	);
 }
 

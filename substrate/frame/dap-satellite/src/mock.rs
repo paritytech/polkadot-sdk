@@ -18,7 +18,9 @@
 //! Test mock for the DAP Satellite pallet.
 
 use crate::{self as pallet_dap_satellite, Config};
-use frame_support::{derive_impl, parameter_types, PalletId};
+use frame_support::{
+	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion, PalletId,
+};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -50,7 +52,7 @@ pub mod pallet_mock_burner {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight({0})]
 		pub fn burn(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			T::NativeBalance::burn_from(
@@ -89,10 +91,12 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type ExistentialDeposit = ExistentialDeposit;
 }
 
 parameter_types! {
 	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+	pub const ExistentialDeposit: u64 = 10;
 }
 
 impl Config for Test {
@@ -104,15 +108,16 @@ impl pallet_mock_burner::Config for Test {
 	type NativeBalance = crate::currency::SatelliteCurrency<Test>;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 100), (2, 200), (3, 300)],
-		..Default::default()
+pub fn new_test_ext(fund_satellite: bool) -> sp_io::TestExternalities {
+	let mut balances = vec![(1, 100), (2, 200), (3, 300)];
+
+	if fund_satellite {
+		let satellite: u64 = DapSatellitePalletId::get().into_account_truncating();
+		balances.push((satellite, ExistentialDeposit::get()));
 	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	crate::pallet::GenesisConfig::<Test>::default()
+
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	t.into()
