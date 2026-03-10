@@ -831,44 +831,15 @@ impl<T: Config> Rotator<T> {
 		});
 	}
 
-	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
-		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
-		let uncapped_era_duration = new_era_start.saturating_sub(previous_era_start);
-
-		// maybe cap the era duration to the maximum allowed by the runtime.
-		let cap = T::MaxEraDuration::get();
-		let era_duration = if cap == 0 {
-			// if the cap is zero (not set), we don't cap the era duration.
-			uncapped_era_duration
-		} else if uncapped_era_duration > cap {
-			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
-
-			// if the cap is set, and era duration exceeds the cap, we cap the era duration to the
-			// maximum allowed.
-			log!(
-				warn,
-				"capping era duration for era {:?} from {:?} to max allowed {:?}",
-				ending_era.index,
-				uncapped_era_duration,
-				cap
-			);
-			cap
-		} else {
-			uncapped_era_duration
-		};
-
-		Self::end_era_compute_payout(ending_era, era_duration);
-	}
-
-	fn end_era_compute_payout(ending_era: &ActiveEraInfo, _era_duration: u64) {
-		log!(debug, "snapshotting reward pots for era {:?}", ending_era.index,);
+	fn end_era(ending_era: &ActiveEraInfo, _new_era_start: u64) {
+		log!(debug, "snapshotting reward pots for era {:?}", ending_era.index);
 
 		// Snapshot general reward pots into era-specific pots.
 		// DAP has been dripping inflation into the general pots since the last era boundary.
 		let allocation = EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
 		if allocation.staker_rewards.is_zero() {
-			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index,);
+			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
 		}
 
 		Eras::<T>::set_validators_reward(ending_era.index, allocation.staker_rewards);

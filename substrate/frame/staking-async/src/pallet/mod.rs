@@ -362,16 +362,6 @@ pub mod pallet {
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Maximum allowed era duration in milliseconds.
-		///
-		/// This provides a defensive upper bound to cap the effective era duration, preventing
-		/// excessively long eras from causing runaway inflation (e.g., due to bugs). If the actual
-		/// era duration exceeds this value, it will be clamped to this maximum.
-		///
-		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
-		/// this can be set to 604,800,000 ms (7 days).
-		#[pallet::constant]
-		type MaxEraDuration: Get<u64>;
-
 		/// Maximum number of storage items that can be pruned in a single call.
 		///
 		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
@@ -480,7 +470,6 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
-			type MaxEraDuration = ();
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
@@ -1410,8 +1399,6 @@ pub mod pallet {
 	/// diagnosing issues in production or test environments.
 	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
-		/// Emitted when calculated era duration exceeds the configured maximum.
-		EraDurationBoundExceeded,
 		/// Received a validator activation event that is not recognized.
 		UnknownValidatorActivation,
 		/// Failed to proceed paged election due to weight limits
