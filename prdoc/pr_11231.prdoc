@@ -13,7 +13,8 @@ migrations:
   - reference: polkadot-runtime-parachains
     description: |
       v12 -> v13 configuration migration. Adds the `max_relay_parent_session_age` field to
-      `SchedulerParams`, initialising it to zero.
+      `HostConfiguration`, initialising it to zero. Also removes the deprecated `ttl` and
+      `max_availability_timeouts` fields from `SchedulerParams`.
 
 crates:
 - name: polkadot-primitives
@@ -38,3 +39,5 @@ crates:
   bump: minor
 - name: pallet-staking-async-rc-runtime
   bump: patch
+- name: penpal-runtime
+  bump: minor
