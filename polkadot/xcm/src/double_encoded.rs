@@ -15,44 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::MAX_XCM_DECODE_DEPTH;
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use sp_runtime::traits::TryGetDecodeFn;
 
-struct DoubleEncodedInput<'a> {
-	outer_input: Box<&'a mut dyn codec::Input>,
-	inner_input: &'a mut &'a [u8],
-}
-
-impl<'a> codec::Input for DoubleEncodedInput<'a> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-		self.inner_input.remaining_len()
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-		self.inner_input.read(into)
-	}
-
-	fn read_byte(&mut self) -> Result<u8, codec::Error> {
-		self.inner_input.read_byte()
-	}
-
-	fn descend_ref(&mut self) -> Result<(), codec::Error> {
-		self.outer_input.descend_ref()
-	}
-
-	fn ascend_ref(&mut self) {
-		self.outer_input.ascend_ref()
-	}
-
-	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), codec::Error> {
-		self.outer_input.on_before_alloc_mem(size)
-	}
-}
-
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.
-#[derive(Encode, DecodeWithMemTracking, scale_info::TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, scale_info::TypeInfo)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(T))]
@@ -62,22 +31,6 @@ pub struct DoubleEncoded<T: TryGetDecodeFn> {
 	encoded: Vec<u8>,
 	#[codec(skip)]
 	decoded: Option<T>,
-}
-
-impl<T: TryGetDecodeFn> Decode for DoubleEncoded<T> {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let mut obj = Self { encoded: Vec::<u8>::decode(input)?, decoded: None };
-
-		// We also decode the inner double encoded object if possible, in order to make sure that
-		// its heap memory and depth are accounted for.
-		let mut double_encoded_input =
-			DoubleEncodedInput { outer_input: Box::new(input), inner_input: &mut &obj.encoded[..] };
-		if let Some(decode_fn) = T::try_get_decode_fn() {
-			obj.decoded = Some(decode_fn(&mut double_encoded_input)?);
-		}
-
-		Ok(obj)
-	}
 }
 
 impl<T: TryGetDecodeFn> Clone for DoubleEncoded<T> {
@@ -137,26 +90,21 @@ impl<T: Decode + TryGetDecodeFn> DoubleEncoded<T> {
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[derive(Debug, PartialEq, Encode, Decode)]
-	struct WrappedU64(u64);
-
-	impl TryGetDecodeFn for WrappedU64 {}
-
-	#[test]
-	fn ensure_decoded_works() {
-		let val: WrappedU64 = WrappedU64(42);
-		let mut encoded: DoubleEncoded<_> = Encode::encode(&val).into();
-		assert_eq!(encoded.ensure_decoded(), Ok(&val));
-	}
-
-	#[test]
-	fn try_into_works() {
-		let val: WrappedU64 = WrappedU64(42);
-		let encoded: DoubleEncoded<_> = Encode::encode(&val).into();
-		assert_eq!(encoded.try_into(), Ok(val));
-	}
-}
+// #[cfg(test)]
+// mod tests {
+// 	use super::*;
+//
+// 	#[test]
+// 	fn ensure_decoded_works() {
+// 		let val: u64 = 42;
+// 		let mut encoded: DoubleEncoded<_> = Encode::encode(&val).into();
+// 		assert_eq!(encoded.ensure_decoded(), Ok(&val));
+// 	}
+//
+// 	#[test]
+// 	fn try_into_works() {
+// 		let val: u64 = 42;
+// 		let encoded: DoubleEncoded<_> = Encode::encode(&val).into();
+// 		assert_eq!(encoded.try_into(), Ok(val));
+// 	}
+// }

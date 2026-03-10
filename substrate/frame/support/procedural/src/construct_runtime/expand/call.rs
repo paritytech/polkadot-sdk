@@ -73,11 +73,7 @@ pub fn expand_outer_dispatch(
 		}
 
 		impl #scrate::sp_runtime::traits::TryGetDecodeFn for RuntimeCall {
-			fn try_get_decode_fn<I: codec::Input>(
-			) -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>> {
-				use #scrate::__private::codec::Decode;
-				Some(Self::decode)
-			}
+
 		}
 
 		#[cfg(test)]

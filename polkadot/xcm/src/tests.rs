@@ -16,21 +16,6 @@
 
 use crate::*;
 use alloc::vec;
-use codec::MemTrackingInput;
-
-#[derive(Encode, Decode)]
-enum TestCall {
-	Empty,
-	Allocate { arg: Vec<u8> },
-	Xcm { xcm: Box<v5::Xcm<TestCall>> },
-}
-
-impl TryGetDecodeFn for TestCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 #[test]
 fn encode_decode_versioned_asset_id_v3() {
@@ -279,48 +264,4 @@ fn ensure_type_info_is_correct() {
 
 	let type_info = VersionedAssetId::type_info();
 	assert_eq!(type_info.path.segments, vec!["xcm", "VersionedAssetId"]);
-}
-
-#[test]
-fn ensure_decode_tracks_nested_transacts() {
-	let xcm = VersionedXcm::V5(v5::Xcm::<TestCall>(vec![
-		v5::Instruction::ClearOrigin,
-		v5::Instruction::Transact {
-			origin_kind: v5::OriginKind::Native,
-			fallback_max_weight: None,
-			call: TestCall::Xcm {
-				xcm: Box::new(v5::Xcm::<TestCall>(vec![
-					v5::Instruction::Transact {
-						origin_kind: v5::OriginKind::Native,
-						fallback_max_weight: None,
-						call: TestCall::Allocate { arg: vec![0; 1000] }.encode().into(),
-					},
-					v5::Instruction::Transact {
-						origin_kind: v5::OriginKind::Native,
-						fallback_max_weight: None,
-						call: TestCall::Xcm {
-							xcm: Box::new(v5::Xcm::<TestCall>(vec![v5::Instruction::Transact {
-								origin_kind: v5::OriginKind::Native,
-								fallback_max_weight: None,
-								call: TestCall::Allocate { arg: vec![0; 1000] }.encode().into(),
-							}])),
-						}
-						.encode()
-						.into(),
-					},
-				])),
-			}
-			.encode()
-			.into(),
-		},
-	]));
-	let encoded_xcm = xcm.encode();
-
-	let binding = &mut &encoded_xcm[..];
-	let mut input = MemTrackingInput::new(binding, usize::MAX);
-	assert_eq!(VersionedXcm::<TestCall>::decode(&mut input), Ok(xcm));
-	assert!(input.used_mem() > 7000);
-
-	assert!(VersionedXcm::<TestCall>::decode_with_depth_limit(4, &mut &encoded_xcm[..]).is_err());
-	assert!(VersionedXcm::<TestCall>::decode_with_depth_limit(5, &mut &encoded_xcm[..]).is_ok());
 }

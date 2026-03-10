@@ -96,12 +96,7 @@ pub enum TestCall {
 	OnlySigned(Weight, Option<Weight>, Option<u64>),
 	Any(Weight, Option<Weight>),
 }
-impl TryGetDecodeFn for TestCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
+impl TryGetDecodeFn for TestCall {}
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
 	type Config = ();
