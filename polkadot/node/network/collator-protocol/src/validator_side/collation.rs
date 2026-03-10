@@ -41,11 +41,11 @@ use std::{
 	task::Poll,
 };
 
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use polkadot_node_network_protocol::{
-	peer_set::CollationVersion,
-	request_response::{outgoing::RequestError, v1 as request_v1, OutgoingResult},
 	PeerId,
+	peer_set::CollationVersion,
+	request_response::{OutgoingResult, outgoing::RequestError, v1 as request_v1},
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;

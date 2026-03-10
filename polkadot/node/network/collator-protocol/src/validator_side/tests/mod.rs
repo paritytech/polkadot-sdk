@@ -592,7 +592,9 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 		.await;
 
 		assert!(
-			overseer_recv_with_timeout(&mut &mut virtual_overseer, Duration::from_millis(30)).await.is_none(),
+			overseer_recv_with_timeout(&mut &mut virtual_overseer, Duration::from_millis(30))
+				.await
+				.is_none(),
 			"There should not be sent any other PoV request while the first one wasn't finished or timed out.",
 		);
 

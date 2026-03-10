@@ -1748,7 +1748,8 @@ where
 				// whose slot is still in progress.
 				state.leaf_scheduling_info.iter().any(|(_leaf_hash, info)| {
 					let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
-					recent_last_finished_slot(slot_age_ms) && scheduling_parent == info.parent_hash
+					slot_age_ms < RELAY_CHAIN_SLOT_DURATION_MILLIS &&
+						scheduling_parent == info.parent_hash
 				})
 			};
 
