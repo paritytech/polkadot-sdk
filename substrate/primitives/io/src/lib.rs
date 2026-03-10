@@ -569,10 +569,10 @@ impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCoun
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
 				assert!(
-					error_code > 0 && error_code <= E::COUNT as i64,
+					error_code < 0 && error_code >= -(E::COUNT as i64),
 					"Error variant index out of bounds"
 				);
-				-error_code
+				error_code
 			},
 		}
 	}
@@ -601,10 +601,10 @@ impl<E: Into<i64> + strum::EnumCount> From<RIIntResult<VoidResult, E>> for i32 {
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
 				assert!(
-					error_code > 0 && error_code <= E::COUNT as i64,
+					error_code < 0 && error_code >= -(E::COUNT as i64),
 					"Error variant index out of bounds"
 				);
-				-(error_code as i32)
+				error_code as i32
 			},
 		}
 	}
