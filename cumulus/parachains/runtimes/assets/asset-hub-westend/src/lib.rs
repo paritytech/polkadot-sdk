@@ -1294,7 +1294,6 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
 		>,
-		pallet_revive::migrations::v3::Migration<Runtime>,
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,

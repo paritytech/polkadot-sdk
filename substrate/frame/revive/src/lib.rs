@@ -811,13 +811,7 @@ pub mod pallet {
 					None => {
 						AccountInfoOf::<T>::insert(
 							address,
-							AccountInfo {
-								account_type: AccountType::EOA {
-									delegate_target: None,
-									contract_info: None,
-								},
-								dust: 0,
-							},
+							AccountInfo { account_type: AccountType::EOA, dust: 0 },
 						);
 					},
 					Some(genesis::ContractData { code, storage }) => {
@@ -2359,10 +2353,10 @@ impl<T: Config> Pallet<T> {
 			AccountType::Contract(contract) => <PristineCode<T>>::get(contract.code_hash)
 				.map(|code| code.into())
 				.unwrap_or_default(),
-			AccountType::EOA { delegate_target: Some(target), .. } => {
+			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => {
 				AccountInfo::<T>::delegation_indicator(&target).to_vec()
 			},
-			AccountType::EOA { .. } => Vec::new(),
+			AccountType::EOA | AccountType::DelegatedEOA { .. } => Vec::new(),
 		}
 	}
 

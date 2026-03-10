@@ -80,13 +80,17 @@ pub enum AccountType<T: Config> {
 	/// An account that is a contract.
 	Contract(ContractInfo<T>),
 
-	/// An externally owned account, optionally delegated via EIP-7702.
+	/// An externally owned account (no delegation).
 	#[default]
-	EOA {
+	EOA,
+
+	/// An EOA that has been delegated via EIP-7702.
+	/// Once delegated, the account stays `DelegatedEOA` even after clearing.
+	DelegatedEOA {
 		/// When `Some`, the account delegates code execution to that address.
 		delegate_target: Option<H160>,
-		/// Storage accounting for this EOA's child trie, when the account is delegated.
-		contract_info: Option<ContractInfo<T>>,
+		/// Storage accounting for this EOA's child trie.
+		contract_info: ContractInfo<T>,
 	},
 }
 
@@ -147,12 +151,19 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 }
 
 impl<T: Config> AccountType<T> {
-	/// Returns the ContractInfo if this account type has one.
+	/// Returns the ContractInfo if this account type has loadable contract code.
+	///
+	/// For `DelegatedEOA`, only returns `Some` when delegation is active and the
+	/// code_hash is non-default (i.e., the target is a contract).
 	pub fn contract_info(self) -> Option<ContractInfo<T>> {
 		match self {
 			AccountType::Contract(info) => Some(info),
-			AccountType::EOA { delegate_target: Some(_), contract_info } => contract_info,
-			AccountType::EOA { delegate_target: None, .. } => None,
+			AccountType::DelegatedEOA { delegate_target: Some(_), contract_info }
+				if !contract_info.code_hash.is_zero() =>
+			{
+				Some(contract_info)
+			},
+			_ => None,
 		}
 	}
 }
@@ -197,8 +208,8 @@ impl<T: Config> AccountInfo<T> {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			if let Some(account) = account {
 				match &mut account.account_type {
-					AccountType::EOA { delegate_target: Some(_), contract_info } => {
-						*contract_info = Some(contract);
+					AccountType::DelegatedEOA { contract_info, .. } => {
+						*contract_info = contract;
 						return;
 					},
 					_ => account.account_type = contract.into(),
@@ -215,7 +226,8 @@ impl<T: Config> AccountInfo<T> {
 			if let Some(account) = account {
 				match &mut account.account_type {
 					AccountType::Contract(info) => *info = contract_info,
-					AccountType::EOA { contract_info: info, .. } => *info = Some(contract_info),
+					AccountType::DelegatedEOA { contract_info: info, .. } => *info = contract_info,
+					AccountType::EOA => {},
 				}
 			}
 		});
@@ -224,14 +236,14 @@ impl<T: Config> AccountInfo<T> {
 	/// EIP-7702: Check if an account has a delegation indicator set
 	pub fn is_delegated(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
-		matches!(info.account_type, AccountType::EOA { delegate_target: Some(_), .. })
+		matches!(info.account_type, AccountType::DelegatedEOA { delegate_target: Some(_), .. })
 	}
 
 	/// EIP-7702: Get the delegation target for an address
 	pub fn get_delegation_target(address: &H160) -> Option<H160> {
 		let info = <AccountInfoOf<T>>::get(address)?;
 		match info.account_type {
-			AccountType::EOA { delegate_target: Some(target), .. } => Some(target),
+			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => Some(target),
 			_ => None,
 		}
 	}
@@ -271,24 +283,20 @@ impl<T: Config> AccountInfo<T> {
 		let mut new_deposit: BalanceOf<T> = Zero::zero();
 		let mut old_deposit: BalanceOf<T> = Zero::zero();
 
-		// Update or create ContractInfo for the delegation target.
-		// Preserves existing contract_info when present, only updating code_hash and deposit.
-		let update_contract_info = |contract_info: &mut Option<ContractInfo<T>>,
+		// Update an existing ContractInfo, adjusting code_hash and deposit.
+		let update_contract_info = |contract_info: &mut ContractInfo<T>,
 		                            new_deposit: &mut BalanceOf<T>| {
 			if let Some(code_hash) = target_code_hash {
-				let info = contract_info.get_or_insert_with(|| {
-					ContractInfo::<T>::new_for_delegation(address, code_hash)
-				});
-				info.code_hash = code_hash;
+				contract_info.code_hash = code_hash;
 				if let Some(cd) = code_deposit {
-					*new_deposit = info.update_base_deposit(cd);
+					*new_deposit = contract_info.update_base_deposit(cd);
 				}
-			} else if let Some(ci) = contract_info.as_mut() {
+			} else {
 				// Target is not a contract: clear stale code_hash and deposit so that
 				// a subsequent re-delegation doesn't double-decrement the refcount
 				// or double-refund the deposit.
-				ci.code_hash = Default::default();
-				ci.storage_base_deposit = Default::default();
+				contract_info.code_hash = Default::default();
+				contract_info.storage_base_deposit = Default::default();
 			}
 		};
 
@@ -297,17 +305,12 @@ impl<T: Config> AccountInfo<T> {
 
 			if let Some(account) = account {
 				match &mut account.account_type {
-					AccountType::EOA { delegate_target, contract_info } => {
+					AccountType::DelegatedEOA { delegate_target, contract_info } => {
 						// Filter out zeroed hashes: after delegating to a non-contract,
 						// code_hash is cleared to default but contract_info is preserved.
-						old_code_hash = contract_info
-							.as_ref()
-							.map(|ci| ci.code_hash)
-							.filter(|h| *h != Default::default());
-						old_deposit = contract_info
-							.as_ref()
-							.map(|ci| ci.storage_base_deposit)
-							.unwrap_or_default();
+						old_code_hash =
+							Some(contract_info.code_hash).filter(|h| !h.is_zero());
+						old_deposit = contract_info.storage_base_deposit;
 						*delegate_target = Some(target);
 						update_contract_info(contract_info, &mut new_deposit);
 					},
@@ -316,17 +319,28 @@ impl<T: Config> AccountInfo<T> {
 							!matches!(ty, AccountType::Contract(_)),
 							"set_delegation must not be called on contract accounts"
 						);
-						let mut contract_info = None;
+						let mut contract_info = ContractInfo::<T>::new_for_delegation(
+							address,
+							target_code_hash.unwrap_or_default(),
+						);
 						update_contract_info(&mut contract_info, &mut new_deposit);
-						account.account_type =
-							AccountType::EOA { delegate_target: Some(target), contract_info };
+						account.account_type = AccountType::DelegatedEOA {
+							delegate_target: Some(target),
+							contract_info,
+						};
 					},
 				}
 			} else {
-				let mut contract_info = None;
+				let mut contract_info = ContractInfo::<T>::new_for_delegation(
+					address,
+					target_code_hash.unwrap_or_default(),
+				);
 				update_contract_info(&mut contract_info, &mut new_deposit);
 				*account = Some(AccountInfo {
-					account_type: AccountType::EOA { delegate_target: Some(target), contract_info },
+					account_type: AccountType::DelegatedEOA {
+						delegate_target: Some(target),
+						contract_info,
+					},
 					dust: 0,
 				});
 			}
@@ -353,30 +367,24 @@ impl<T: Config> AccountInfo<T> {
 		}
 	}
 
-	/// EIP-7702: Clear delegation indicator, resetting account to EOA.
+	/// EIP-7702: Clear delegation indicator.
 	///
-	/// Per EIP-7702, storage is **not** cleaned up here. The child trie persists so
-	/// that a future re-delegation can access the same storage. Callers that want a
-	/// clean slate should clear storage via a delegate contract before revoking.
-	///
-	/// Contract info (deposit accounting, trie_id) is preserved so that a subsequent
-	/// re-delegation does not lose track of held deposits.
+	/// The account stays `DelegatedEOA` with `delegate_target = None` so that
+	/// the child trie and deposit accounting are preserved for future re-delegation.
 	///
 	/// Returns the `storage_base_deposit` to refund.
 	pub(crate) fn clear_delegation(address: &H160) -> StorageDeposit<BalanceOf<T>> {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			let mut refund: BalanceOf<T> = Zero::zero();
 			if let Some(account) = account &&
-				let AccountType::EOA { delegate_target, contract_info } =
+				let AccountType::DelegatedEOA { delegate_target, contract_info } =
 					&mut account.account_type
 			{
 				*delegate_target = None;
-				if let Some(ci) = contract_info.as_mut() &&
-					ci.code_hash != Default::default()
-				{
-					let _ = CodeInfo::<T>::decrement_refcount(ci.code_hash);
-					refund = core::mem::take(&mut ci.storage_base_deposit);
-					ci.code_hash = Default::default();
+				if !contract_info.code_hash.is_zero() {
+					let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash);
+					refund = core::mem::take(&mut contract_info.storage_base_deposit);
+					contract_info.code_hash = Default::default();
 				}
 			}
 			StorageDeposit::Refund(refund)

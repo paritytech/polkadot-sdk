@@ -23,8 +23,5 @@ pub mod v1;
 /// Migrations from the old `CodeInfoOf` to the new `CodeInfoOf` storage
 pub mod v2;
 
-/// Re-encode `AccountInfoOf` after merging the `Delegated` variant into `EOA`
-pub mod v3;
-
 /// A unique identifier across all pallets.
 const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";

@@ -2762,30 +2762,6 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
-	#[benchmark]
-	fn v3_migration_step() {
-		use crate::migrations::v3;
-		let addr = H160::from([1u8; 20]);
-
-		v3::old::AccountInfoOf::<T>::insert(
-			addr,
-			v3::old::AccountInfo { account_type: v3::old::AccountType::EOA, dust: 0 },
-		);
-		let mut meter = WeightMeter::new();
-
-		#[block]
-		{
-			v3::Migration::<T>::step(None, &mut meter).unwrap();
-		}
-
-		let migrated = AccountInfoOf::<T>::get(addr).unwrap();
-		assert!(migrated.account_type.contract_info().is_none());
-		assert!(!AccountInfo::<T>::is_delegated(&addr));
-
-		// uses twice the weight once for migration and then for checking if there is another key.
-		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
-	}
-
 	/// Helper function to create a test signer for finalize_block benchmark
 	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
 		use hex_literal::hex;

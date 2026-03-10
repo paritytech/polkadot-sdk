@@ -37,14 +37,17 @@ doc:
 
     ### Storage changes
 
-    **`AccountType::EOA`** now carries:
+    A new **`AccountType::DelegatedEOA`** variant is introduced:
     - `delegate_target: Option<H160>`: the contract address this EOA delegates to.
-    - `contract_info: Option<ContractInfo>`: storage accounting (child trie, base deposit) for delegated EOAs.
+    - `contract_info: ContractInfo`: storage accounting (child trie, base deposit) for delegated EOAs.
+
+    `AccountType::EOA` remains fieldless (matching master's on-chain encoding), so no storage migration is needed.
 
     Key behaviors:
+    - Once delegated, an account transitions from `EOA` to `DelegatedEOA` permanently.
+    - Clearing delegation sets `delegate_target = None` but the account stays `DelegatedEOA`.
     - Delegated EOAs get their own child trie for storage, keyed by the EOA's address (not the target).
     - Re-delegating to a different target preserves the child trie (storage survives across target changes).
-    - Clearing delegation preserves `ContractInfo` so re-delegating later doesn't lose storage.
     - Code refcounts are managed: setting delegation increments the target's code refcount, clearing it decrements.
 
     ### Execution changes
@@ -58,10 +61,6 @@ doc:
 
     - `process_new_account_authorization(n)`: worst case: creates N new accounts with delegations.
     - `process_existing_account_authorization(n)`: best case: processes N authorizations for existing accounts (used for weight refund calculation).
-
-    ### Migration
-
-    Stepped migration converting old `AccountType::EOA` (no fields) to the new representation with `delegate_target: None, contract_info: None`.
 
     ### RPC integration
 
