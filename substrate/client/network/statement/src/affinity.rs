@@ -16,9 +16,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::config::MAX_STATEMENT_NOTIFICATION_SIZE;
 use codec::{Decode, Encode};
 use fastbloom::BloomFilter;
 use sp_statement_store::Statement;
+
+/// Maximum number of bits allowed in a bloom filter received from the network.
+/// Derived from [`MAX_STATEMENT_NOTIFICATION_SIZE`] so the affinity filter can never exceed the
+/// protocol's notification budget. 1 MiB = 8_388_608 bits.
+const MAX_BLOOM_BITS: usize = MAX_STATEMENT_NOTIFICATION_SIZE as usize * 8;
+
+/// Maximum number of hash functions allowed. Typical bloom filters use 7-10;
+/// 32 is generous but prevents CPU abuse from peers setting `u32::MAX`.
+const MAX_NUM_HASHES: u32 = 32;
 
 /// Wire representation of a bloom filter.
 #[derive(Encode, Decode)]
@@ -34,12 +44,23 @@ struct EncodedBloomFilter {
 	bits: Vec<u64>,
 }
 
-impl From<EncodedBloomFilter> for AffinityFilter {
-	fn from(encoded: EncodedBloomFilter) -> Self {
+impl TryFrom<EncodedBloomFilter> for AffinityFilter {
+	type Error = &'static str;
+
+	fn try_from(encoded: EncodedBloomFilter) -> Result<Self, Self::Error> {
+		if encoded.bits.is_empty() {
+			return Err("bloom filter bits must not be empty");
+		}
+		if encoded.bits.len() * u64::BITS as usize > MAX_BLOOM_BITS {
+			return Err("bloom filter bits exceed maximum allowed size");
+		}
+		if encoded.num_hashes == 0 || encoded.num_hashes > MAX_NUM_HASHES {
+			return Err("num_hashes out of allowed range");
+		}
 		let bloom = BloomFilter::from_vec(encoded.bits)
 			.seed(&encoded.seed)
 			.hashes(encoded.num_hashes);
-		AffinityFilter { bloom, seed: encoded.seed }
+		Ok(AffinityFilter { bloom, seed: encoded.seed })
 	}
 }
 
@@ -83,7 +104,8 @@ impl Encode for AffinityFilter {
 
 impl Decode for AffinityFilter {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		EncodedBloomFilter::decode(input).map(AffinityFilter::from)
+		let encoded = EncodedBloomFilter::decode(input)?;
+		AffinityFilter::try_from(encoded).map_err(|e| codec::Error::from(e))
 	}
 }
 
@@ -93,6 +115,9 @@ mod tests {
 
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
+
+	/// Maximum u64 words derived from [`MAX_BLOOM_BITS`] for use in tests.
+	const MAX_BLOOM_WORDS: usize = MAX_BLOOM_BITS / u64::BITS as usize;
 
 	#[test]
 	fn affinity_filter_encode_decode_roundtrip() {
@@ -252,5 +277,49 @@ mod tests {
 			!filter.matches_statement(&stmt2),
 			"should not match when NO topic is in the filter"
 		);
+	}
+
+	#[test]
+	fn decode_rejects_empty_bits() {
+		let encoded = EncodedBloomFilter { seed: BLOOM_SEED, num_hashes: 7, bits: vec![] };
+		let bytes = encoded.encode();
+		assert!(AffinityFilter::decode(&mut bytes.as_slice()).is_err());
+	}
+
+	#[test]
+	fn decode_rejects_oversized_bits() {
+		let encoded = EncodedBloomFilter {
+			seed: BLOOM_SEED,
+			num_hashes: 7,
+			bits: vec![0u64; MAX_BLOOM_WORDS + 1],
+		};
+		let bytes = encoded.encode();
+		assert!(AffinityFilter::decode(&mut bytes.as_slice()).is_err());
+	}
+
+	#[test]
+	fn decode_rejects_zero_num_hashes() {
+		let encoded = EncodedBloomFilter { seed: BLOOM_SEED, num_hashes: 0, bits: vec![0u64; 16] };
+		let bytes = encoded.encode();
+		assert!(AffinityFilter::decode(&mut bytes.as_slice()).is_err());
+	}
+
+	#[test]
+	fn decode_rejects_excessive_num_hashes() {
+		let encoded =
+			EncodedBloomFilter { seed: BLOOM_SEED, num_hashes: u32::MAX, bits: vec![0u64; 16] };
+		let bytes = encoded.encode();
+		assert!(AffinityFilter::decode(&mut bytes.as_slice()).is_err());
+	}
+
+	#[test]
+	fn decode_accepts_valid_bounds() {
+		let encoded = EncodedBloomFilter {
+			seed: BLOOM_SEED,
+			num_hashes: MAX_NUM_HASHES,
+			bits: vec![0u64; MAX_BLOOM_WORDS],
+		};
+		let bytes = encoded.encode();
+		assert!(AffinityFilter::decode(&mut bytes.as_slice()).is_ok());
 	}
 }
