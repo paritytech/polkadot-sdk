@@ -14958,7 +14958,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "24.0.0"
+version = "24.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -19989,7 +19989,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.51.1"
+version = "0.51.2"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
