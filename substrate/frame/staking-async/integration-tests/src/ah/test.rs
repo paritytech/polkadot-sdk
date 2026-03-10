@@ -789,21 +789,23 @@ fn on_offence_current_era_instant_apply() {
 				]
 			);
 
-			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer
+			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer.
 			let final_dap_balance = Balances::free_balance(&dap_buffer);
 			let final_total_issuance = Balances::total_issuance();
 
-			// DAP buffer should have received all slashed funds (plus any inflation drip).
-			// CLAUDE: Can we somehow do better assertion here? Imagine if drip makes the token above
-			// 150, then the actual problem is missed completely.
-			assert!(
-				final_dap_balance >= initial_dap_balance + 150,
-				"DAP buffer should have received at least 150 from slashes, got delta={}",
-				final_dap_balance.saturating_sub(initial_dap_balance),
+			// 2 roll_next() calls above = 2 blocks of DAP drip.
+			// Each block = 6000ms elapsed, inflation = 6000 tokens minted.
+			// 50% budget to buffer = 3000 per block, so 6000 from drip over 2 blocks.
+			// Plus 150 from slashes (50 per offender * 3 slash events).
+			let expected_drip_to_buffer = 2 * 3000;
+			let expected_slash_to_buffer = 150;
+			assert_eq!(
+				final_dap_balance - initial_dap_balance,
+				expected_drip_to_buffer + expected_slash_to_buffer,
 			);
-			// Total issuance should be >= initial (funds not burned; may increase due to
-			// inflation drip).
-			assert!(final_total_issuance >= initial_total_issuance);
+			// Total issuance increases by exactly the inflation minted (slashes are transfers,
+			// not burns). 2 blocks * 6000 tokens/block = 12000.
+			assert_eq!(final_total_issuance, initial_total_issuance + 2 * 6000);
 		});
 }
 

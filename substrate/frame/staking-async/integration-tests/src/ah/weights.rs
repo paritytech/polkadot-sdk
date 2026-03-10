@@ -195,6 +195,9 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn set_min_commission() -> Weight {
 		unreachable!()
 	}
+	fn set_max_commission() -> Weight {
+		unreachable!()
+	}
 	fn restore_ledger() -> Weight {
 		unreachable!()
 	}

@@ -87,7 +87,6 @@ pub fn roll_next() {
 		RcClient::on_initialize(next),
 		DispatchClass::Mandatory,
 	);
-	// CLAUDE: Should we register weights here for DAP initialise? Check if its needed for some setup/test
 	// Drip inflation into budget recipients.
 	Dap::on_initialize(next);
 
