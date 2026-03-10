@@ -1,0 +1,25 @@
+title: '[Pool] Claim trapped balance via one-time migration'
+doc:
+- audience: Runtime User
+  description: |-
+    One-time migration to recover trapped balance for an affected pool member.
+    A bug (CurrentEra vs ActiveEra mismatch) caused one pool member's balance to become trapped: their points were
+      dissolved but the held funds weren't released. This migration:
+    - Applies any pending slash for the member first
+    - Calculates trapped amount by checking actual held balance vs expected balance from points
+    - Releases trapped funds if present
+crates:
+- name: pallet-nomination-pools
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: sp-staking
+  bump: minor
+- name: pallet-staking
+  bump: minor
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: pallet-staking-async
+  bump: minor
+- name: pallet-fast-unstake
+  bump: minor
