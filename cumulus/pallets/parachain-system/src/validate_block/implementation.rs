@@ -16,28 +16,28 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{MemoryOptimizedValidationParams, trie_cache, trie_recorder};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{
-		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
-	},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
+	relay_chain::{
+		BlockNumber as RNumber, Hash as RHash, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR, UMPSignal,
+	},
 };
 use frame_support::{
-	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
+	traits::{ExecuteBlock, Get, IsSubType},
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
-use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::{hashing::blake2_128, KillStorageResult};
+use sp_core::storage::{ChildInfo, StateVersion, well_known_keys};
+use sp_externalities::{Externalities, set_and_run_with_externalities};
+use sp_io::{KillStorageResult, hashing::blake2_128};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
+use sp_trie::{EMPTY_PREFIX, HashDBT, ProofSizeProvider};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
@@ -247,7 +247,9 @@ where
 				overlay.storage(well_known_keys::CODE).is_some()
 			};
 		if code_upgrade_detected && num_blocks > 1 {
-			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+			panic!(
+				"When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}."
+			)
 		}
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
@@ -287,16 +289,17 @@ where
 						}
 					})
 					.for_each(|m| {
-						upward_messages.try_push(m)
-							.expect(
-								"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-							)
+						upward_messages.try_push(m).expect(
+							"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+						)
 					});
 
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
-				horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
-					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-				);
+				horizontal_messages
+					.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter())
+					.expect(
+						"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+					);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
 				if block_index + 1 == num_blocks {

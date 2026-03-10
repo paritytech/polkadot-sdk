@@ -146,6 +146,15 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Sends a UMP message of specific size (in bytes).
+		#[pallet::weight(0)]
+		pub fn send_upward_message_of_size(_: OriginFor<T>, size: u32) -> DispatchResult {
+			let message = alloc::vec![0u8; size as usize];
+			cumulus_pallet_parachain_system::Pallet::<T>::send_upward_message(message)
+				.map_err(|_| "Failed to send upward message")?;
+			Ok(())
+		}
+
 		/// Queues `n` small HRMP messages to `recipient`.
 		#[pallet::weight(0)]
 		pub fn queue_hrmp_messages(_: OriginFor<T>, n: u32, recipient: ParaId) -> DispatchResult {

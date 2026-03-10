@@ -112,7 +112,7 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::parachain-system";
 
-/// Tracks cumulative UMP and HRMP messages sent across blocks within a single PoV.
+/// Tracks cumulative UMP and HRMP messages and their sizes sent across blocks within a single PoV.
 #[derive(Encode, Decode, Clone, Debug, TypeInfo, Default)]
 pub struct PoVMessages {
 	/// Relay parent storage root of the current PoV.
@@ -123,6 +123,8 @@ pub struct PoVMessages {
 	pub bundle_index: u8,
 	/// Cumulative count of UMP messages sent in this PoV.
 	pub ump_msg_count: u32,
+	/// Cumulative size of UMP messages sent in this PoV.
+	pub ump_msg_size: u32,
 	/// Cumulative count of HRMP outbound messages sent in this PoV.
 	pub hrmp_outbound_count: u32,
 }
@@ -184,7 +186,9 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 		previous: RelayChainBlockNumber,
 	) {
 		if current < previous {
-			panic!("Relay chain block number needs to monotonically increase between Parachain blocks!")
+			panic!(
+				"Relay chain block number needs to monotonically increase between Parachain blocks!"
+			)
 		}
 	}
 }
@@ -377,6 +381,9 @@ pub mod pallet {
 						.saturating_sub(pov_tracker.ump_msg_count),
 				);
 
+				// Also reduce available_size by what we've already sent in this PoV
+				let available_size = available_size.saturating_sub(pov_tracker.ump_msg_size);
+
 				// Count the number of messages we can possibly fit in the given constraints, i.e.
 				// available_capacity and available_size.
 				let (num, total_size) = up
@@ -405,6 +412,7 @@ pub mod pallet {
 				*up = up.split_off(num as usize);
 
 				pov_tracker.ump_msg_count = pov_tracker.ump_msg_count.saturating_add(num);
+				pov_tracker.ump_msg_size = pov_tracker.ump_msg_size.saturating_add(total_size);
 
 				if let Some(core_info) =
 					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())

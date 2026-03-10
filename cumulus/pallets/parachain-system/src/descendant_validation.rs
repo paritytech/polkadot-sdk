@@ -14,15 +14,15 @@
 // limitations under the License.
 
 use crate::{
-	descendant_validation::RelayParentVerificationError::InvalidNumberOfDescendants,
 	RelayChainStateProof,
+	descendant_validation::RelayParentVerificationError::InvalidNumberOfDescendants,
 };
 use alloc::vec::Vec;
 use sp_consensus_babe::{
-	digests::{CompatibleDigestItem, NextEpochDescriptor},
 	AuthorityIndex,
+	digests::{CompatibleDigestItem, NextEpochDescriptor},
 };
-use sp_runtime::{traits::Header, RuntimeAppPublic};
+use sp_runtime::{RuntimeAppPublic, traits::Header};
 
 /// Verifies that the provided relay parent descendants form a valid chain
 /// and are signed by relay chain authorities. If relay chain descendants shall be checked,
@@ -217,15 +217,15 @@ mod tests {
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use rstest::rstest;
 	use sp_consensus_babe::{
+		AuthorityId, AuthorityPair, BABE_ENGINE_ID, BabeAuthorityWeight, ConsensusLog,
 		digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest, PrimaryPreDigest},
-		AuthorityId, AuthorityPair, BabeAuthorityWeight, ConsensusLog, BABE_ENGINE_ID,
 	};
 	use sp_core::{
+		H256, Pair,
 		sr25519::vrf::{VrfPreOutput, VrfProof, VrfSignature},
-		Pair, H256,
 	};
 	use sp_keyring::Sr25519Keyring;
-	use sp_runtime::{testing::Header as TestHeader, DigestItem};
+	use sp_runtime::{DigestItem, testing::Header as TestHeader};
 	const PARA_ID: u32 = 2000;
 
 	/// Verify a header chain with different lengths and different number of authorities included in
@@ -244,13 +244,15 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_relay_parent_descendants(
-			&relay_state_proof,
-			relay_parent_descendants,
-			relay_parent_state_root,
-			expected_number_of_descendants,
-		)
-		.is_ok());
+		assert!(
+			verify_relay_parent_descendants(
+				&relay_state_proof,
+				relay_parent_descendants,
+				relay_parent_state_root,
+				expected_number_of_descendants,
+			)
+			.is_ok()
+		);
 	}
 
 	#[rstest]
@@ -444,13 +446,15 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_relay_parent_descendants(
-			&relay_state_proof,
-			relay_parent_descendants,
-			relay_parent_state_root,
-			expected_number_of_descendants,
-		)
-		.is_ok());
+		assert!(
+			verify_relay_parent_descendants(
+				&relay_state_proof,
+				relay_parent_descendants,
+				relay_parent_state_root,
+				expected_number_of_descendants,
+			)
+			.is_ok()
+		);
 	}
 
 	/// Test some interesting epoch change positions, like epoch change on RP directly, and last
@@ -470,13 +474,15 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_relay_parent_descendants(
-			&relay_state_proof,
-			relay_parent_descendants,
-			relay_parent_state_root,
-			expected_number_of_descendants,
-		)
-		.is_ok());
+		assert!(
+			verify_relay_parent_descendants(
+				&relay_state_proof,
+				relay_parent_descendants,
+				relay_parent_state_root,
+				expected_number_of_descendants,
+			)
+			.is_ok()
+		);
 	}
 
 	/// Helper function to create a mock `RelayChainStateProof`.

@@ -148,8 +148,8 @@ unsafe impl<H: Hasher> Sync for SizeOnlyRecorderProvider<H> {}
 mod tests {
 	use rand::Rng;
 	use sp_trie::{
-		cache::{CacheSize, SharedTrieCache},
 		MemoryDB, ProofSizeProvider, TrieRecorderProvider,
+		cache::{CacheSize, SharedTrieCache},
 	};
 	use trie_db::{Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut, TrieRecorder};
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};

@@ -19,12 +19,12 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
+	AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId, relay_chain,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
+use sp_trie::{EMPTY_PREFIX, HashDBT, MemoryDB, StorageProof};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are

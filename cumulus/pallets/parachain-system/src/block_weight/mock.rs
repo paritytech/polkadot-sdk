@@ -27,18 +27,18 @@ use frame_support::{
 	parameter_types,
 	traits::PreInherents,
 	weights::{
-		constants::{BlockExecutionWeight, ExtrinsicBaseWeight},
 		Weight,
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight},
 	},
 };
-use frame_system::{limits::BlockWeights, CheckWeight};
+use frame_system::{CheckWeight, limits::BlockWeights};
 use polkadot_primitives::PersistedValidationData;
 use sp_core::ConstU32;
 use sp_io;
 use sp_runtime::{
+	BuildStorage, Perbill,
 	generic::{self, UncheckedExtrinsic},
 	testing::UintAuthorityId,
-	BuildStorage, Perbill,
 };
 
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
@@ -126,7 +126,7 @@ pub mod test_pallet {
 	use frame_support::{
 		dispatch::DispatchClass,
 		pallet_prelude::*,
-		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, WeightMeter},
+		weights::{WeightMeter, constants::WEIGHT_REF_TIME_PER_SECOND},
 	};
 	use frame_system::pallet_prelude::*;
 

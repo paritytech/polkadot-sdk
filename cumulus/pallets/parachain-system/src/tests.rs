@@ -22,11 +22,11 @@ use crate::mock::*;
 use alloc::collections::BTreeMap;
 use core::num::NonZeroU32;
 use cumulus_primitives_core::{
-	relay_chain::ApprovedPeerId, AbridgedHrmpChannel, ClaimQueueOffset, CoreInfo, CoreSelector,
-	InboundDownwardMessage, InboundHrmpMessage, CUMULUS_CONSENSUS_ID,
+	AbridgedHrmpChannel, CUMULUS_CONSENSUS_ID, ClaimQueueOffset, CoreInfo, CoreSelector,
+	InboundDownwardMessage, InboundHrmpMessage, relay_chain::ApprovedPeerId,
 };
 use cumulus_primitives_parachain_inherent::{
-	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
+	INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0, v0,
 };
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
@@ -905,10 +905,12 @@ fn runtime_upgrade_events() {
 					})
 				);
 
-				assert!(System::digest()
-					.logs()
-					.iter()
-					.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
+				assert!(
+					System::digest()
+						.logs()
+						.iter()
+						.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated)
+				);
 			},
 		);
 }
@@ -1698,10 +1700,10 @@ fn deposits_relay_parent_storage_root() {
 		|| {},
 		|| {
 			let digest = System::digest();
-			assert!(cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
-				&digest
-			)
-			.is_some());
+			assert!(
+				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(&digest)
+					.is_some()
+			);
 		},
 	);
 }
@@ -1826,3 +1828,4 @@ fn ump_signals_are_sent_correctly() {
 			);
 	}
 }
+

@@ -18,10 +18,10 @@
 use alloc::boxed::Box;
 
 use core::cell::{RefCell, RefMut};
-use hashbrown::{hash_map::Entry, HashMap};
+use hashbrown::{HashMap, hash_map::Entry};
 use sp_state_machine::TrieCacheProvider;
 use sp_trie::{NodeCodec, RandomState};
-use trie_db::{node::NodeOwned, Hasher};
+use trie_db::{Hasher, node::NodeOwned};
 
 /// Special purpose trie cache implementation that is able to cache an unlimited number
 /// of values. To be used in `validate_block` to serve values and nodes that
