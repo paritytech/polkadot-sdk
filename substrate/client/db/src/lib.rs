@@ -1363,9 +1363,19 @@ impl<Block: BlockT> Backend<Block> {
 			});
 		}
 
+		// Non archive nodes cannot fill the missing block gap with bodies.
+		// If the gap is present, it means that every restart will try to fill the gap:
+		// - a block request is made for each and every block in the gap
+		// - the request is fulfilled putting pressure on the network and other nodes
+		// - upon receiving the block, the block cannot be executed since the state
+		//  of the parent block might have been discarded
+		// - then the sync engine closes the gap in memory, but never in DB.
+		//
+		// This leads to inefficient syncing and high CPU usage on every restart. To mitigate this,
+		// remove the gap from the DB if we detect it and the current node is not an archive.
 		match (backend.is_archive, info.block_gap) {
 			(false, Some(gap)) if matches!(gap.gap_type, BlockGapType::MissingBody) => {
-				debug!(
+				warn!(
 					"Detected a missing body gap for non-archive nodes. Removing the gap={:?}",
 					gap
 				);
