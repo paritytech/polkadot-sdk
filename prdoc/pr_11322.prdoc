@@ -1,0 +1,17 @@
+title: '[WIP][pallet-assets-precompiles] Idiomatic Rust cleanups'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+    - Remove explicit `return` statements in favor of idiomatic tail expressions
+    - Use `take()` instead of `get()` + `remove()` for atomic map operations
+    - Remove redundant type conversions (`.into()`, `H160::from()`)
+    - Flatten nested `if let` using `let...else` pattern in migration logic
+    - Fix typos and comments (doc comment, module description, duplicate license header)
+
+    ## Test plan
+    - [ ] Existing tests pass (`cargo test -p pallet-assets-precompiles`)
+    - No behavioral changes; all modifications are strictly cosmetic/idiomatic
+crates:
+- name: pallet-assets-precompiles
+  bump: patch
