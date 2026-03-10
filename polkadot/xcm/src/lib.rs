@@ -30,7 +30,6 @@ use codec::{
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
-use sp_runtime::traits::TryGetDecodeFn;
 
 pub mod v3;
 pub mod v4;
@@ -325,7 +324,7 @@ versioned_type! {
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum VersionedXcm<RuntimeCall: TryGetDecodeFn> {
+pub enum VersionedXcm<RuntimeCall> {
 	#[codec(index = 3)]
 	V3(v3::Xcm<RuntimeCall>),
 	#[codec(index = 4)]
@@ -334,7 +333,7 @@ pub enum VersionedXcm<RuntimeCall: TryGetDecodeFn> {
 	V5(v5::Xcm<RuntimeCall>),
 }
 
-impl<C: Decode + TryGetDecodeFn + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
+impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
 	fn into_version(self, n: Version) -> Result<Self, ()> {
 		Ok(match n {
 			3 => Self::V3(self.try_into()?),
@@ -345,7 +344,7 @@ impl<C: Decode + TryGetDecodeFn + GetDispatchInfo> IntoVersion for VersionedXcm<
 	}
 }
 
-impl<C: TryGetDecodeFn> IdentifyVersion for VersionedXcm<C> {
+impl<C> IdentifyVersion for VersionedXcm<C> {
 	fn identify_version(&self) -> Version {
 		match self {
 			Self::V3(_) => v3::VERSION,
@@ -355,7 +354,7 @@ impl<C: TryGetDecodeFn> IdentifyVersion for VersionedXcm<C> {
 	}
 }
 
-impl<C: TryGetDecodeFn> VersionedXcm<C> {
+impl<C> VersionedXcm<C> {
 	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
 	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
@@ -371,27 +370,25 @@ impl<C: TryGetDecodeFn> VersionedXcm<C> {
 	}
 }
 
-impl<RuntimeCall: TryGetDecodeFn> From<v3::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
+impl<RuntimeCall> From<v3::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	fn from(x: v3::Xcm<RuntimeCall>) -> Self {
 		VersionedXcm::V3(x)
 	}
 }
 
-impl<RuntimeCall: TryGetDecodeFn> From<v4::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
+impl<RuntimeCall> From<v4::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	fn from(x: v4::Xcm<RuntimeCall>) -> Self {
 		VersionedXcm::V4(x)
 	}
 }
 
-impl<RuntimeCall: TryGetDecodeFn> From<v5::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
+impl<RuntimeCall> From<v5::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	fn from(x: v5::Xcm<RuntimeCall>) -> Self {
 		VersionedXcm::V5(x)
 	}
 }
 
-impl<Call: Decode + TryGetDecodeFn + GetDispatchInfo> TryFrom<VersionedXcm<Call>>
-	for v3::Xcm<Call>
-{
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
@@ -406,9 +403,7 @@ impl<Call: Decode + TryGetDecodeFn + GetDispatchInfo> TryFrom<VersionedXcm<Call>
 	}
 }
 
-impl<Call: Decode + TryGetDecodeFn + GetDispatchInfo> TryFrom<VersionedXcm<Call>>
-	for v4::Xcm<Call>
-{
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
@@ -420,9 +415,7 @@ impl<Call: Decode + TryGetDecodeFn + GetDispatchInfo> TryFrom<VersionedXcm<Call>
 	}
 }
 
-impl<Call: Decode + TryGetDecodeFn + GetDispatchInfo> TryFrom<VersionedXcm<Call>>
-	for v5::Xcm<Call>
-{
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v5::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
@@ -440,7 +433,7 @@ impl<Call: Decode + TryGetDecodeFn + GetDispatchInfo> TryFrom<VersionedXcm<Call>
 /// Convert an `Xcm` datum into a `VersionedXcm`, based on a destination `Location` which will
 /// interpret it.
 pub trait WrapVersion {
-	fn wrap_version<RuntimeCall: Decode + TryGetDecodeFn + GetDispatchInfo>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
@@ -461,7 +454,7 @@ pub trait GetVersion {
 /// `()` implementation does nothing with the XCM, just sending with whatever version it was
 /// authored as.
 impl WrapVersion for () {
-	fn wrap_version<RuntimeCall: TryGetDecodeFn>(
+	fn wrap_version<RuntimeCall>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -473,7 +466,7 @@ impl WrapVersion for () {
 /// wrapping it.
 pub struct AlwaysV3;
 impl WrapVersion for AlwaysV3 {
-	fn wrap_version<Call: Decode + TryGetDecodeFn + GetDispatchInfo>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
@@ -490,7 +483,7 @@ impl GetVersion for AlwaysV3 {
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
-	fn wrap_version<Call: Decode + TryGetDecodeFn + GetDispatchInfo>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
@@ -507,7 +500,7 @@ impl GetVersion for AlwaysV4 {
 /// wrapping it.
 pub struct AlwaysV5;
 impl WrapVersion for AlwaysV5 {
-	fn wrap_version<Call: Decode + TryGetDecodeFn + GetDispatchInfo>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {

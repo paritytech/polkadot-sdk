@@ -19,7 +19,6 @@
 use super::mock::*;
 use crate::{universal_exports::*, WithTopicSource};
 use frame_support::{parameter_types, traits::Get};
-use sp_runtime::traits::TryGetDecodeFn;
 use std::{cell::RefCell, marker::PhantomData};
 use xcm::AlwaysLatest;
 use xcm_executor::{
@@ -54,7 +53,7 @@ fn maybe_with_topic(f: impl Fn()) {
 	f();
 }
 
-fn xcm_with_topic<T: TryGetDecodeFn>(topic: XcmHash, mut xcm: Vec<Instruction<T>>) -> Xcm<T> {
+fn xcm_with_topic<T>(topic: XcmHash, mut xcm: Vec<Instruction<T>>) -> Xcm<T> {
 	if UsingTopic::get() {
 		xcm.push(SetTopic(topic));
 	}

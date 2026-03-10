@@ -42,7 +42,6 @@ pub use polkadot_runtime_parachains::{
 	dmp,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
-use sp_runtime::traits::TryGetDecodeFn;
 pub use xcm::{latest::prelude::*, VersionedXcm};
 pub use xcm_builder::ProcessXcmMessage;
 pub use xcm_executor::XcmExecutor;
@@ -89,7 +88,7 @@ pub fn encode_xcm(message: Xcm<()>, message_kind: MessageKind) -> Vec<u8> {
 	}
 }
 
-pub fn fake_message_hash<T: TryGetDecodeFn>(message: &Xcm<T>) -> XcmHash {
+pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(blake2_256)
 }
 
@@ -460,7 +459,7 @@ pub mod helpers {
 	use std::collections::{HashMap, HashSet};
 
 	/// Derives a topic ID for an XCM in tests.
-	pub fn derive_topic_id<T: TryGetDecodeFn>(message: &Xcm<T>) -> XcmHash {
+	pub fn derive_topic_id<T>(message: &Xcm<T>) -> XcmHash {
 		if let Some(SetTopic(topic_id)) = message.last() {
 			*topic_id
 		} else {

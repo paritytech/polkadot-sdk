@@ -49,7 +49,6 @@ pub use assets::AssetsInHolding;
 mod config;
 use crate::assets::BackupAssetsInHolding;
 pub use config::Config;
-use sp_runtime::traits::TryGetDecodeFn;
 
 pub mod test_helpers;
 #[cfg(test)]
@@ -217,15 +216,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 }
 
-pub struct WeighedMessage<Call: TryGetDecodeFn>(Weight, Xcm<Call>);
-impl<C: TryGetDecodeFn> PreparedMessage for WeighedMessage<C> {
+pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
+impl<C> PreparedMessage for WeighedMessage<C> {
 	fn weight_of(&self) -> Weight {
 		self.0
 	}
 }
 
 #[cfg(any(test, feature = "std"))]
-impl<C: TryGetDecodeFn> WeighedMessage<C> {
+impl<C> WeighedMessage<C> {
 	pub fn new(weight: Weight, message: Xcm<C>) -> Self {
 		Self(weight, message)
 	}

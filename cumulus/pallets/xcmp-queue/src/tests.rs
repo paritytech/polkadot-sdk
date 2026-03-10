@@ -33,11 +33,11 @@ use std::iter::{once, repeat};
 use xcm::{MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
-fn generate_mock_xcm(idx: usize) -> VersionedXcm<()> {
-	VersionedXcm::<()>::from(Xcm::<()>(vec![Trap(idx as u64)]))
+fn generate_mock_xcm(idx: usize) -> VersionedXcm<Test> {
+	VersionedXcm::<Test>::from(Xcm::<Test>(vec![Trap(idx as u64)]))
 }
 
-fn generate_mock_xcm_batch(start_idx: usize, xcm_count: usize) -> Vec<VersionedXcm<()>> {
+fn generate_mock_xcm_batch(start_idx: usize, xcm_count: usize) -> Vec<VersionedXcm<Test>> {
 	let mut batch = vec![];
 	for i in 0..xcm_count {
 		batch.push(generate_mock_xcm(start_idx + i));
@@ -46,7 +46,7 @@ fn generate_mock_xcm_batch(start_idx: usize, xcm_count: usize) -> Vec<VersionedX
 }
 
 fn encode_xcm_batch(
-	xcms: Vec<VersionedXcm<()>>,
+	xcms: Vec<VersionedXcm<Test>>,
 	xcm_encoding: XcmEncoding,
 ) -> Vec<BoundedVec<u8, MaxXcmpMessageLenOf<Test>>> {
 	let mut data = vec![];
@@ -388,7 +388,7 @@ fn xcm_enqueueing_broken_xcm_works() {
 	new_test_ext().execute_with(|| {
 		let mut encoded_xcms = vec![];
 		for _ in 0..10 {
-			let xcm = VersionedXcm::<()>::from(Xcm::<()>(vec![ClearOrigin]));
+			let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
 			encoded_xcms.push(xcm.encode());
 		}
 		let mut good = ConcatenatedVersionedXcm.encode();
@@ -465,7 +465,7 @@ fn bad_blob_message_no_panic() {
 #[cfg(debug_assertions)]
 fn handle_invalid_data_panics() {
 	new_test_ext().execute_with(|| {
-		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<()>(vec![]).encode()].concat();
+		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<Test>(vec![]).encode()].concat();
 
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, data.as_slice())), Weight::MAX);
 	});
@@ -476,7 +476,7 @@ fn handle_invalid_data_panics() {
 #[cfg(not(debug_assertions))]
 fn handle_invalid_data_no_panic() {
 	new_test_ext().execute_with(|| {
-		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<()>(vec![]).encode()].concat();
+		let data = [ConcatenatedVersionedXcm.encode(), Xcm::<Test>(vec![]).encode()].concat();
 
 		frame_support::assert_storage_noop!(XcmpQueue::handle_xcmp_messages(
 			once((1000.into(), 1, data.as_slice())),

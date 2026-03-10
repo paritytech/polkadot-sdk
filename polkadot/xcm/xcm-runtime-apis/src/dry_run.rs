@@ -20,10 +20,7 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use frame_support::{
-	pallet_prelude::{DispatchResultWithPostInfo, TypeInfo},
-	sp_runtime::traits::TryGetDecodeFn,
-};
+use frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
 use xcm::prelude::*;
 
 /// Effects of dry-running an extrinsic.
@@ -63,7 +60,7 @@ sp_api::decl_runtime_apis! {
 	#[api_version(2)]
 	pub trait DryRunApi<Call, Event, OriginCaller>
 	where
-		Call: Encode + TryGetDecodeFn,
+		Call: Encode,
 		Event: Decode,
 		OriginCaller: Encode
 	{

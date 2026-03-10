@@ -29,7 +29,7 @@ use frame_support::{
 		WeightToFee as WeightToFeeT,
 	},
 };
-use sp_runtime::traits::{TryGetDecodeFn, Zero};
+use sp_runtime::traits::Zero;
 use xcm::latest::{prelude::*, GetWeight, Weight};
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
@@ -38,7 +38,7 @@ use xcm_executor::{
 
 pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
 
-impl<T: Get<Weight>, C: Decode + TryGetDecodeFn + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
+impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	for FixedWeightBounds<T, C, M>
 {
 	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
@@ -72,7 +72,7 @@ impl<T: Get<Weight>, C: Decode + TryGetDecodeFn + GetDispatchInfo, M: Get<u32>> 
 	}
 }
 
-impl<T: Get<Weight>, C: Decode + TryGetDecodeFn + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
+impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
 	fn weight_with_limit(
 		message: &mut Xcm<C>,
 		instructions_left: &mut u32,
@@ -128,7 +128,7 @@ pub struct WeightInfoBounds<W, C, M>(PhantomData<(W, C, M)>);
 impl<W, C, M> WeightBounds<C> for WeightInfoBounds<W, C, M>
 where
 	W: XcmWeightInfo<C>,
-	C: Decode + TryGetDecodeFn + GetDispatchInfo,
+	C: Decode + GetDispatchInfo,
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
@@ -166,7 +166,7 @@ where
 impl<W, C, M> WeightInfoBounds<W, C, M>
 where
 	W: XcmWeightInfo<C>,
-	C: Decode + TryGetDecodeFn + GetDispatchInfo,
+	C: Decode + GetDispatchInfo,
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {

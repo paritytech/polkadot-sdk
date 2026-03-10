@@ -54,7 +54,6 @@ type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 
 // Re-export test_case from `parachains-runtimes-test-utils`
 pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
-use sp_runtime::traits::TryGetDecodeFn;
 
 /// Test-case makes sure that `Runtime` can receive native asset from relay chain and can teleport
 /// it back
@@ -1671,7 +1670,6 @@ where
 			AssetKind = xcm::v5::Location,
 			Balance = <Runtime as pallet_balances::Config>::Balance,
 		>,
-	RuntimeCall: TryGetDecodeFn,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
@@ -1859,7 +1857,6 @@ pub fn xcm_payment_api_foreign_asset_pool_works<
 			AssetKind = xcm::v5::Location,
 			Balance = <Runtime as pallet_balances::Config>::Balance,
 		>,
-	RuntimeCall: TryGetDecodeFn,
 	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:

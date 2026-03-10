@@ -280,7 +280,7 @@ pub trait PreparedMessage {
 }
 
 /// Type of XCM message executor.
-pub trait ExecuteXcm<Call: TryGetDecodeFn> {
+pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
 	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, Xcm<Call>>;
 	fn execute(
@@ -361,7 +361,7 @@ impl PreparedMessage for Weightless {
 	}
 }
 
-impl<C: TryGetDecodeFn> ExecuteXcm<C> for () {
+impl<C> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
 	fn prepare(message: Xcm<C>) -> result::Result<Self::Prepared, Xcm<C>> {
 		Err(message)

@@ -53,7 +53,7 @@ use sp_core::H256;
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
-		Saturating, TryGetDecodeFn, Zero,
+		Saturating, Zero,
 	},
 	Debug, Either, SaturatedConversion,
 };
@@ -303,7 +303,6 @@ pub mod pallet {
 
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
-			+ TryGetDecodeFn
 			+ GetDispatchInfo
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
@@ -3825,7 +3824,7 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 }
 
 impl<T: Config> WrapVersion for Pallet<T> {
-	fn wrap_version<RuntimeCall: Decode + TryGetDecodeFn + GetDispatchInfo>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -4171,7 +4170,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 }
 
 impl<T: Config> CheckSuspension for Pallet<T> {
-	fn is_suspended<Call: TryGetDecodeFn>(
+	fn is_suspended<Call>(
 		_origin: &Location,
 		_instructions: &mut [Instruction<Call>],
 		_max_weight: Weight,

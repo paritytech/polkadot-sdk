@@ -26,7 +26,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::{
-	traits::{Convert, IdentityLookup, TryGetDecodeFn},
+	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
@@ -306,7 +306,7 @@ impl pallet_revive::Config for Test {
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
-pub(crate) fn buy_execution<C: TryGetDecodeFn>(fees: impl Into<Asset>) -> Instruction<C> {
+pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	use xcm::latest::prelude::*;
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }

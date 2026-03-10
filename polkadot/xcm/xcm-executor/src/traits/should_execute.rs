@@ -16,7 +16,6 @@
 
 use core::result::Result;
 use frame_support::traits::ProcessMessageError;
-use sp_runtime::traits::TryGetDecodeFn;
 use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
 /// Properties of an XCM message and its imminent execution.
@@ -43,7 +42,7 @@ pub trait ShouldExecute {
 	/// - `max_weight`: The (possibly over-) estimation of the weight of execution of the message.
 	/// - `properties`: Various pre-established properties of the message which may be mutated by
 	///   this API.
-	fn should_execute<RuntimeCall: TryGetDecodeFn>(
+	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -53,7 +52,7 @@ pub trait ShouldExecute {
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl ShouldExecute for Tuple {
-	fn should_execute<RuntimeCall: TryGetDecodeFn>(
+	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -103,7 +102,7 @@ impl ShouldExecute for Tuple {
 /// elements returns false, then execution is not suspended. Otherwise, execution is suspended
 /// if any of the tuple elements returns true.
 pub trait CheckSuspension {
-	fn is_suspended<Call: TryGetDecodeFn>(
+	fn is_suspended<Call>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
@@ -113,7 +112,7 @@ pub trait CheckSuspension {
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl CheckSuspension for Tuple {
-	fn is_suspended<Call: TryGetDecodeFn>(
+	fn is_suspended<Call>(
 		origin: &Location,
 		instruction: &mut [Instruction<Call>],
 		max_weight: Weight,
@@ -143,7 +142,7 @@ pub trait DenyExecution {
 	/// - `max_weight`: The (possibly over-) estimation of the weight of execution of the message.
 	/// - `properties`: Various pre-established properties of the message which may be mutated by
 	///   this API.
-	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -153,7 +152,7 @@ pub trait DenyExecution {
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 impl DenyExecution for Tuple {
-	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,

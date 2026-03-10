@@ -17,7 +17,6 @@
 use crate::MAX_XCM_DECODE_DEPTH;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
-use sp_runtime::traits::TryGetDecodeFn;
 
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.
@@ -27,49 +26,49 @@ use sp_runtime::traits::TryGetDecodeFn;
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub struct DoubleEncoded<T: TryGetDecodeFn> {
+pub struct DoubleEncoded<T> {
 	encoded: Vec<u8>,
 	#[codec(skip)]
 	decoded: Option<T>,
 }
 
-impl<T: TryGetDecodeFn> Clone for DoubleEncoded<T> {
+impl<T> Clone for DoubleEncoded<T> {
 	fn clone(&self) -> Self {
 		Self { encoded: self.encoded.clone(), decoded: None }
 	}
 }
 
-impl<T: TryGetDecodeFn> PartialEq for DoubleEncoded<T> {
+impl<T> PartialEq for DoubleEncoded<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.encoded.eq(&other.encoded)
 	}
 }
-impl<T: TryGetDecodeFn> Eq for DoubleEncoded<T> {}
+impl<T> Eq for DoubleEncoded<T> {}
 
-impl<T: TryGetDecodeFn> core::fmt::Debug for DoubleEncoded<T> {
+impl<T> core::fmt::Debug for DoubleEncoded<T> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		array_bytes::bytes2hex("0x", &self.encoded).fmt(f)
 	}
 }
 
-impl<T: TryGetDecodeFn> From<Vec<u8>> for DoubleEncoded<T> {
+impl<T> From<Vec<u8>> for DoubleEncoded<T> {
 	fn from(encoded: Vec<u8>) -> Self {
 		Self { encoded, decoded: None }
 	}
 }
 
-impl<T: TryGetDecodeFn> DoubleEncoded<T> {
+impl<T> DoubleEncoded<T> {
 	pub fn encoded(&self) -> &[u8] {
 		&self.encoded
 	}
 
 	/// Converts a `DoubleEncoded<T>` into a `DoubleEncoded<S>`, dropping the decoded value.
-	pub fn transmute_encoded<S: TryGetDecodeFn>(self) -> DoubleEncoded<S> {
+	pub fn transmute_encoded<S>(self) -> DoubleEncoded<S> {
 		DoubleEncoded { encoded: self.encoded, decoded: None }
 	}
 }
 
-impl<T: Decode + TryGetDecodeFn> DoubleEncoded<T> {
+impl<T: Decode> DoubleEncoded<T> {
 	/// Decode the inner encoded value and store it.
 	/// Returns a reference to the value in case of success and `Err(())` in case the decoding
 	/// fails.
@@ -90,21 +89,21 @@ impl<T: Decode + TryGetDecodeFn> DoubleEncoded<T> {
 	}
 }
 
-// #[cfg(test)]
-// mod tests {
-// 	use super::*;
-//
-// 	#[test]
-// 	fn ensure_decoded_works() {
-// 		let val: u64 = 42;
-// 		let mut encoded: DoubleEncoded<_> = Encode::encode(&val).into();
-// 		assert_eq!(encoded.ensure_decoded(), Ok(&val));
-// 	}
-//
-// 	#[test]
-// 	fn try_into_works() {
-// 		let val: u64 = 42;
-// 		let encoded: DoubleEncoded<_> = Encode::encode(&val).into();
-// 		assert_eq!(encoded.try_into(), Ok(val));
-// 	}
-// }
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn ensure_decoded_works() {
+		let val: u64 = 42;
+		let mut encoded: DoubleEncoded<_> = Encode::encode(&val).into();
+		assert_eq!(encoded.ensure_decoded(), Ok(&val));
+	}
+
+	#[test]
+	fn try_into_works() {
+		let val: u64 = 42;
+		let encoded: DoubleEncoded<_> = Encode::encode(&val).into();
+		assert_eq!(encoded.try_into(), Ok(val));
+	}
+}

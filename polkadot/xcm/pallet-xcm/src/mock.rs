@@ -31,7 +31,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{Convert, IdentityLookup, TryGetDecodeFn},
+	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
@@ -708,12 +708,12 @@ pub(crate) fn last_event() -> RuntimeEvent {
 	last_events(1).pop().expect("RuntimeEvent expected")
 }
 
-pub(crate) fn buy_execution<C: TryGetDecodeFn>(fees: impl Into<Asset>) -> Instruction<C> {
+pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	use xcm::latest::prelude::*;
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
-pub(crate) fn buy_limited_execution<C: TryGetDecodeFn>(
+pub(crate) fn buy_limited_execution<C>(
 	fees: impl Into<Asset>,
 	weight_limit: WeightLimit,
 ) -> Instruction<C> {

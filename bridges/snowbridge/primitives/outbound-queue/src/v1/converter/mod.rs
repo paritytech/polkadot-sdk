@@ -13,7 +13,7 @@ use super::message::{Command, Message, SendMessage};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{AgentId, ChannelId, ParaId, TokenId, TokenIdOf};
 use sp_core::{H160, H256};
-use sp_runtime::traits::{MaybeConvert, TryGetDecodeFn};
+use sp_runtime::traits::MaybeConvert;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
@@ -186,13 +186,13 @@ macro_rules! match_expression {
 	};
 }
 
-struct XcmConverter<'a, ConvertAssetId, Call: TryGetDecodeFn> {
+struct XcmConverter<'a, ConvertAssetId, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
 	agent_id: AgentId,
 	_marker: PhantomData<ConvertAssetId>,
 }
-impl<'a, ConvertAssetId, Call: TryGetDecodeFn> XcmConverter<'a, ConvertAssetId, Call>
+impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
 where
 	ConvertAssetId: MaybeConvert<TokenId, Location>,
 {

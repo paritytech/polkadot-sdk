@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_runtime::traits::TryGetDecodeFn;
 use std::marker::PhantomData;
 use xcm_executor::traits::Properties;
 
@@ -901,7 +900,7 @@ fn deny_then_try_works() {
 	/// `ClearTransactStatus`
 	struct DenyClearTransactStatusAsYield;
 	impl DenyExecution for DenyClearTransactStatusAsYield {
-		fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+		fn deny_execution<RuntimeCall>(
 			_origin: &Location,
 			instructions: &mut [Instruction<RuntimeCall>],
 			_max_weight: Weight,
@@ -922,7 +921,7 @@ fn deny_then_try_works() {
 	/// contains `ClearOrigin` with origin location from `Here`
 	struct DenyClearOriginFromHereAsBadFormat;
 	impl DenyExecution for DenyClearOriginFromHereAsBadFormat {
-		fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+		fn deny_execution<RuntimeCall>(
 			origin: &Location,
 			instructions: &mut [Instruction<RuntimeCall>],
 			_max_weight: Weight,
@@ -949,7 +948,7 @@ fn deny_then_try_works() {
 	/// contains a single `UnsubscribeVersion`
 	struct DenyUnsubscribeVersionAsStackLimitReached;
 	impl DenyExecution for DenyUnsubscribeVersionAsStackLimitReached {
-		fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+		fn deny_execution<RuntimeCall>(
 			_origin: &Location,
 			instructions: &mut [Instruction<RuntimeCall>],
 			_max_weight: Weight,
@@ -969,7 +968,7 @@ fn deny_then_try_works() {
 	/// else return `ProcessMessageError::Yield`
 	struct AllowSingleClearErrorOrYield;
 	impl ShouldExecute for AllowSingleClearErrorOrYield {
-		fn should_execute<Call: TryGetDecodeFn>(
+		fn should_execute<Call>(
 			_origin: &Location,
 			instructions: &mut [Instruction<Call>],
 			_max_weight: Weight,
@@ -989,7 +988,7 @@ fn deny_then_try_works() {
 	/// origin from `Here`, else return `ProcessMessageError::Unsupported`
 	struct AllowClearTopicFromHere;
 	impl ShouldExecute for AllowClearTopicFromHere {
-		fn should_execute<Call: TryGetDecodeFn>(
+		fn should_execute<Call>(
 			origin: &Location,
 			instructions: &mut [Instruction<Call>],
 			_max_weight: Weight,
@@ -1132,7 +1131,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 // Dummy filter to allow all
 struct AllowAll;
 impl ShouldExecute for AllowAll {
-	fn should_execute<RuntimeCall: TryGetDecodeFn>(
+	fn should_execute<RuntimeCall>(
 		_: &Location,
 		_: &mut [Instruction<RuntimeCall>],
 		_: Weight,
@@ -1145,7 +1144,7 @@ impl ShouldExecute for AllowAll {
 // Dummy filter which denies `ClearOrigin`
 struct DenyClearOrigin;
 impl DenyExecution for DenyClearOrigin {
-	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+	fn deny_execution<RuntimeCall>(
 		_: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		_: Weight,
@@ -1165,7 +1164,7 @@ impl DenyExecution for DenyClearOrigin {
 // Dummy filter which denies nothing
 struct DenyNothing;
 impl DenyExecution for DenyNothing {
-	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
+	fn deny_execution<RuntimeCall>(
 		_origin: &Location,
 		_instructions: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
@@ -1178,7 +1177,7 @@ impl DenyExecution for DenyNothing {
 // Test helper: Adapts a `DenyExecution` barrier to the `ShouldExecute` trait
 struct Executable<Barrier: DenyExecution>(PhantomData<Barrier>);
 impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
-	fn should_execute<RuntimeCall: TryGetDecodeFn>(
+	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -1191,7 +1190,7 @@ impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
 #[test]
 fn deny_recursively_then_try_works() {
 	type Barrier = DenyThenTry<DenyRecursively<DenyReserveTransferToRelayChain>, AllowAll>;
-	let xcm = Xcm::<()>(vec![DepositReserveAsset {
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Location::parent(),
 		xcm: vec![].into(),
@@ -1206,7 +1205,7 @@ fn deny_recursively_then_try_works() {
 	assert!(result.is_err());
 
 	// Should deny with `SetAppendix`
-	let mut message = Xcm::<()>(vec![SetAppendix(xcm.clone())]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
 	let result =
 		Barrier::should_execute(&origin, message.clone().inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
@@ -1218,18 +1217,20 @@ fn deny_recursively_then_try_works() {
 	assert!(result.is_ok());
 
 	// Should deny with `SetErrorHandler`
-	let mut message = Xcm::<()>(vec![SetErrorHandler(xcm.clone())]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
 
 	// Should deny with `ExecuteWithOrigin`
-	let mut message =
-		Xcm::<()>(vec![ExecuteWithOrigin { xcm: xcm.clone(), descendant_origin: None }]);
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
+		xcm: xcm.clone(),
+		descendant_origin: None,
+	}]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_err());
 
 	// Should deny with more levels
-	let mut message = Xcm::<()>(vec![ExecuteWithOrigin {
+	let mut message = Xcm::<Instruction<()>>(vec![ExecuteWithOrigin {
 		xcm: vec![SetErrorHandler(vec![SetAppendix(xcm.clone())].into())].into(),
 		descendant_origin: None,
 	}]);
@@ -1237,18 +1238,20 @@ fn deny_recursively_then_try_works() {
 	assert!(result.is_err());
 
 	// Should allow for valid XCM with `SetAppendix`
-	let xcm = Xcm::<()>(vec![DepositReserveAsset {
+	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
 		assets: Wild(All),
 		dest: Here.into_location(),
 		xcm: vec![].into(),
 	}]);
-	let mut message = Xcm::<()>(vec![SetAppendix(xcm.clone())]);
+	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
 
 	// Should ensure unrelated XCMs are not blocked
-	let mut unrelated_xcm =
-		Xcm::<()>(vec![BuyExecution { fees: (Parent, 100).into(), weight_limit: Unlimited }]);
+	let mut unrelated_xcm = Xcm::<Instruction<()>>(vec![BuyExecution {
+		fees: (Parent, 100).into(),
+		weight_limit: Unlimited,
+	}]);
 	let result =
 		Barrier::should_execute(&origin, unrelated_xcm.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
@@ -1277,7 +1280,7 @@ fn compare_deny_filters() {
 		let mut properties = props(Weight::zero());
 
 		// Validate Top-Level
-		let xcm = Xcm::<()>(
+		let xcm = Xcm::<Instruction<()>>(
 			vec![DepositReserveAsset {
 				assets: Wild(All),
 				dest: Location::parent(),
@@ -1290,7 +1293,7 @@ fn compare_deny_filters() {
 		assert_eq!(top_level_result, result);
 
 		// Validate Nested
-		let mut nested_xcm = Xcm::<()>(vec![SetErrorHandler(xcm.into())].into());
+		let mut nested_xcm = Xcm::<Instruction<()>>(vec![SetErrorHandler(xcm.into())].into());
 		let result =
 			Barrier::should_execute(&origin, nested_xcm.inner_mut(), max_weight, &mut properties);
 		assert_eq!(nested_result, result);

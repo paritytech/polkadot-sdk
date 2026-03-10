@@ -278,11 +278,11 @@ mod benchmarks {
 	fn take_first_concatenated_xcm(
 		n: Linear<0, { MAX_INSTRUCTIONS_TO_DECODE as u32 - MAX_XCM_DECODE_DEPTH }>,
 	) {
-		let mut xcm = Xcm::<()>(vec![ClearOrigin; n as usize]);
+		let mut xcm = Xcm::<T>(vec![ClearOrigin; n as usize]);
 		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
-			xcm = Xcm::<()>(vec![Instruction::SetAppendix(xcm)]);
+			xcm = Xcm::<T>(vec![Instruction::SetAppendix(xcm)]);
 		}
-		let data = VersionedXcm::<()>::from(xcm).encode();
+		let data = VersionedXcm::<T>::from(xcm).encode();
 
 		#[block]
 		{

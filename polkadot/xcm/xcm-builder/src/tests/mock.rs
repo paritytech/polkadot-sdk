@@ -40,7 +40,6 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
-use sp_runtime::traits::TryGetDecodeFn;
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
@@ -96,7 +95,6 @@ pub enum TestCall {
 	OnlySigned(Weight, Option<Weight>, Option<u64>),
 	Any(Weight, Option<Weight>),
 }
-impl TryGetDecodeFn for TestCall {}
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
 	type Config = ();
@@ -620,7 +618,7 @@ parameter_types! {
 
 pub struct TestSuspender;
 impl CheckSuspension for TestSuspender {
-	fn is_suspended<Call: TryGetDecodeFn>(
+	fn is_suspended<Call>(
 		_origin: &Location,
 		_instructions: &mut [Instruction<Call>],
 		_max_weight: Weight,
@@ -1044,6 +1042,6 @@ pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 	(AssetId::from(location), Fungibility::Fungible(amount)).into()
 }
 
-pub fn fake_message_hash<T: TryGetDecodeFn>(message: &Xcm<T>) -> XcmHash {
+pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }

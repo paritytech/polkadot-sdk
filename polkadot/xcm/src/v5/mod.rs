@@ -47,7 +47,6 @@ pub use junction::{
 };
 pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
-use sp_runtime::traits::TryGetDecodeFn;
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, InstructionError, InstructionIndex, Outcome,
 	PreparedMessage, Reanchorable, Result, SendError, SendResult, SendXcm, Weight, XcmHash,
@@ -65,15 +64,15 @@ pub type QueryId = u64;
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
-pub struct Xcm<Call: TryGetDecodeFn>(pub Vec<Instruction<Call>>);
+pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-impl<Call: TryGetDecodeFn> Decode for Xcm<Call> {
+impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
 		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
-impl<Call: TryGetDecodeFn> Xcm<Call> {
+impl<Call> Xcm<Call> {
 	/// Create an empty instance.
 	pub fn new() -> Self {
 		Self(vec![])
@@ -159,13 +158,13 @@ impl<Call: TryGetDecodeFn> Xcm<Call> {
 	}
 }
 
-impl<Call: TryGetDecodeFn> From<Vec<Instruction<Call>>> for Xcm<Call> {
+impl<Call> From<Vec<Instruction<Call>>> for Xcm<Call> {
 	fn from(c: Vec<Instruction<Call>>) -> Self {
 		Self(c)
 	}
 }
 
-impl<Call: TryGetDecodeFn> From<Xcm<Call>> for Vec<Instruction<Call>> {
+impl<Call> From<Xcm<Call>> for Vec<Instruction<Call>> {
 	fn from(c: Xcm<Call>) -> Self {
 		c.0
 	}
@@ -390,7 +389,7 @@ impl XcmContext {
 #[codec(decode_bound())]
 #[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
-pub enum Instruction<Call: TryGetDecodeFn> {
+pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
 	///
@@ -1161,20 +1160,20 @@ pub enum Hint {
 	AssetClaimer { location: Location },
 }
 
-impl<Call: TryGetDecodeFn> Xcm<Call> {
-	pub fn into<C: TryGetDecodeFn>(self) -> Xcm<C> {
+impl<Call> Xcm<Call> {
+	pub fn into<C>(self) -> Xcm<C> {
 		Xcm::from(self)
 	}
-	pub fn from<C: TryGetDecodeFn>(xcm: Xcm<C>) -> Self {
+	pub fn from<C>(xcm: Xcm<C>) -> Self {
 		Self(xcm.0.into_iter().map(Instruction::<Call>::from).collect())
 	}
 }
 
-impl<Call: TryGetDecodeFn> Instruction<Call> {
-	pub fn into<C: TryGetDecodeFn>(self) -> Instruction<C> {
+impl<Call> Instruction<Call> {
+	pub fn into<C>(self) -> Instruction<C> {
 		Instruction::from(self)
 	}
-	pub fn from<C: TryGetDecodeFn>(xcm: Instruction<C>) -> Self {
+	pub fn from<C>(xcm: Instruction<C>) -> Self {
 		use Instruction::*;
 		match xcm {
 			WithdrawAsset(assets) => WithdrawAsset(assets),
@@ -1260,7 +1259,7 @@ impl<Call: TryGetDecodeFn> Instruction<Call> {
 }
 
 // TODO: Automate Generation
-impl<Call: TryGetDecodeFn, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
+impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 	fn weight(&self) -> Weight {
 		use Instruction::*;
 		match self {
@@ -1359,7 +1358,7 @@ pub mod opaque {
 }
 
 // Convert from a v4 XCM to a v5 XCM
-impl<Call: TryGetDecodeFn> TryFrom<OldXcm<Call>> for Xcm<Call> {
+impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, Self::Error> {
 		Ok(Xcm(old_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
@@ -1367,7 +1366,7 @@ impl<Call: TryGetDecodeFn> TryFrom<OldXcm<Call>> for Xcm<Call> {
 }
 
 // Convert from a v4 instruction to a v5 instruction
-impl<Call: TryGetDecodeFn> TryFrom<OldInstruction<Call>> for Instruction<Call> {
+impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, Self::Error> {
 		use OldInstruction::*;

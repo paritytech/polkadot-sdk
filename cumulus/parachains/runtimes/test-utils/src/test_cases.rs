@@ -28,7 +28,7 @@ use frame_support::{
 };
 use parachains_common::AccountId;
 use sp_runtime::{
-	traits::{Block as BlockT, SaturatedConversion, StaticLookup, TryGetDecodeFn},
+	traits::{Block as BlockT, SaturatedConversion, StaticLookup},
 	DispatchError, Either,
 };
 use xcm::prelude::InstructionError;
@@ -167,7 +167,6 @@ where
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
 		+ pallet_timestamp::Config,
-	RuntimeCall: TryGetDecodeFn,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:

@@ -25,7 +25,7 @@ use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
-use sp_runtime::{traits::TryGetDecodeFn, BoundedVec};
+use sp_runtime::BoundedVec;
 use xcm::{
 	latest::{prelude::*, AssetTransferFilter},
 	DoubleEncoded,
@@ -91,7 +91,7 @@ impl WeighAssets for Assets {
 }
 
 pub struct AssetHubWestendXcmWeight<Call>(core::marker::PhantomData<Call>);
-impl<Call: TryGetDecodeFn> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
+impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}

@@ -3,7 +3,6 @@
 
 use codec::Encode;
 use core::cell::RefCell;
-use frame_support::sp_runtime::traits::TryGetDecodeFn;
 use xcm::prelude::*;
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, TransactAsset},
@@ -137,7 +136,7 @@ impl PreparedMessage for Weightless {
 
 /// Mock the XCM executor with an overridable `charge_fees` function.
 pub struct MockXcmExecutor;
-impl<C: TryGetDecodeFn> ExecuteXcm<C> for MockXcmExecutor {
+impl<C> ExecuteXcm<C> for MockXcmExecutor {
 	type Prepared = Weightless;
 	fn prepare(_: Xcm<C>, _: Weight) -> Result<Self::Prepared, InstructionError> {
 		unreachable!()

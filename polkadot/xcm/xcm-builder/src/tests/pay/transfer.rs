@@ -23,7 +23,6 @@ use frame_support::{
 	assert_ok, parameter_types,
 	traits::{fungible::Mutate, fungibles::Mutate as FungiblesMutate},
 };
-use sp_runtime::traits::TryGetDecodeFn;
 use xcm::{
 	latest::{InteriorLocation, Junctions::X2, Xcm},
 	v5::{AssetId, Location, Parent},
@@ -155,7 +154,7 @@ fn assert_send_and_execute_msg(expected_message: Xcm<()>) {
 	);
 }
 
-fn remote_transfer_xcm<Call: TryGetDecodeFn>(
+fn remote_transfer_xcm<Call>(
 	recipient: AccountId,
 	transfer_asset: Asset,
 	fee_asset: Asset,

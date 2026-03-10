@@ -46,7 +46,6 @@ pub use multiasset::{
 pub use multilocation::{
 	Ancestor, AncestorThen, InteriorMultiLocation, Location, MultiLocation, Parent, ParentThen,
 };
-use sp_runtime::traits::TryGetDecodeFn;
 pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, GetWeight, Outcome, PreparedMessage, Result,
 	SendError, SendResult, SendXcm, Weight, XcmHash,
@@ -64,15 +63,15 @@ pub type QueryId = u64;
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub struct Xcm<Call: TryGetDecodeFn>(pub Vec<Instruction<Call>>);
+pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-impl<Call: TryGetDecodeFn> Decode for Xcm<Call> {
+impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
 		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
-impl<Call: TryGetDecodeFn> Xcm<Call> {
+impl<Call> Xcm<Call> {
 	/// Create an empty instance.
 	pub fn new() -> Self {
 		Self(vec![])
@@ -158,13 +157,13 @@ impl<Call: TryGetDecodeFn> Xcm<Call> {
 	}
 }
 
-impl<Call: TryGetDecodeFn> From<Vec<Instruction<Call>>> for Xcm<Call> {
+impl<Call> From<Vec<Instruction<Call>>> for Xcm<Call> {
 	fn from(c: Vec<Instruction<Call>>) -> Self {
 		Self(c)
 	}
 }
 
-impl<Call: TryGetDecodeFn> From<Xcm<Call>> for Vec<Instruction<Call>> {
+impl<Call> From<Xcm<Call>> for Vec<Instruction<Call>> {
 	fn from(c: Xcm<Call>) -> Self {
 		c.0
 	}
@@ -479,7 +478,7 @@ impl XcmContext {
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub enum Instruction<Call: TryGetDecodeFn> {
+pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
 	///
@@ -1134,20 +1133,20 @@ pub enum Instruction<Call: TryGetDecodeFn> {
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<MultiLocation> },
 }
 
-impl<Call: TryGetDecodeFn> Xcm<Call> {
-	pub fn into<C: TryGetDecodeFn>(self) -> Xcm<C> {
+impl<Call> Xcm<Call> {
+	pub fn into<C>(self) -> Xcm<C> {
 		Xcm::from(self)
 	}
-	pub fn from<C: TryGetDecodeFn>(xcm: Xcm<C>) -> Self {
+	pub fn from<C>(xcm: Xcm<C>) -> Self {
 		Self(xcm.0.into_iter().map(Instruction::<Call>::from).collect())
 	}
 }
 
-impl<Call: TryGetDecodeFn> Instruction<Call> {
-	pub fn into<C: TryGetDecodeFn>(self) -> Instruction<C> {
+impl<Call> Instruction<Call> {
+	pub fn into<C>(self) -> Instruction<C> {
 		Instruction::from(self)
 	}
-	pub fn from<C: TryGetDecodeFn>(xcm: Instruction<C>) -> Self {
+	pub fn from<C>(xcm: Instruction<C>) -> Self {
 		use Instruction::*;
 		match xcm {
 			WithdrawAsset(assets) => WithdrawAsset(assets),
@@ -1225,7 +1224,7 @@ impl<Call: TryGetDecodeFn> Instruction<Call> {
 }
 
 // TODO: Automate Generation
-impl<Call: TryGetDecodeFn, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
+impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 	fn weight(&self) -> Weight {
 		use Instruction::*;
 		match self {
@@ -1316,7 +1315,7 @@ pub mod opaque {
 }
 
 // Convert from a v4 XCM to a v3 XCM.
-impl<Call: TryGetDecodeFn> TryFrom<NewXcm<Call>> for Xcm<Call> {
+impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(new_xcm: NewXcm<Call>) -> result::Result<Self, Self::Error> {
 		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
@@ -1324,7 +1323,7 @@ impl<Call: TryGetDecodeFn> TryFrom<NewXcm<Call>> for Xcm<Call> {
 }
 
 // Convert from a v4 instruction to a v3 instruction.
-impl<Call: TryGetDecodeFn> TryFrom<NewInstruction<Call>> for Instruction<Call> {
+impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(new_instruction: NewInstruction<Call>) -> result::Result<Self, Self::Error> {
 		use NewInstruction::*;

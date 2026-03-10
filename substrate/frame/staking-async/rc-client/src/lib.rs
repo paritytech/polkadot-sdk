@@ -129,8 +129,6 @@ use core::fmt::Display;
 use frame_support::storage::transactional::with_transaction_opaque_err;
 use frame_support::{pallet_prelude::*, traits::tokens::Balance as BalanceTrait, weights::Weight};
 #[cfg(feature = "xcm-sender")]
-use sp_runtime::traits::TryGetDecodeFn;
-#[cfg(feature = "xcm-sender")]
 use sp_runtime::{traits::Convert, TransactionOutcome};
 use sp_runtime::{traits::OpaqueKeys, Perbill};
 use sp_staking::SessionIndex;
@@ -655,7 +653,6 @@ where
 	) -> Result<Balance, SendKeysError<Balance>>
 	where
 		XcmExec: ExecuteXcm<Call>,
-		Call: TryGetDecodeFn,
 		AccountToLoc: Convert<AccountId, Location>,
 		Balance: TryFrom<u128>
 			+ Into<u128>

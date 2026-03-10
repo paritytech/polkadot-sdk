@@ -2587,19 +2587,6 @@ impl BlockNumberProvider for () {
 	}
 }
 
-/// Try to get the decoding function for a type.
-pub trait TryGetDecodeFn: Sized {
-	/// Try to get the decoding function for a type.
-	///
-	/// Returns the decoding function, if the type implements decode or `None` otherwise.
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		None::<fn(&mut I) -> Result<Self, codec::Error>>
-	}
-}
-
-impl TryGetDecodeFn for () {}
-
 #[cfg(test)]
 mod tests {
 	use super::*;

@@ -24,10 +24,7 @@ use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Contains, Equals},
 };
-use sp_runtime::{
-	traits::{ConstU128, TryGetDecodeFn},
-	BuildStorage,
-};
+use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
 use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem};
@@ -189,6 +186,6 @@ pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 	})
 }
 
-pub(crate) fn fake_message_hash<T: TryGetDecodeFn>(message: &Xcm<T>) -> XcmHash {
+pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }
