@@ -965,15 +965,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
 	) -> DispatchResult {
-		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
-		ensure!(d.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+		let mut asset_details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(asset_details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 
 		let approval =
 			Approvals::<T, I>::take((id.clone(), owner, delegate)).ok_or(Error::<T, I>::Unknown)?;
 		T::Currency::unreserve(owner, approval.deposit);
 
-		d.approvals.saturating_dec();
-		Asset::<T, I>::insert(id.clone(), d);
+		asset_details.approvals.saturating_dec();
+		Asset::<T, I>::insert(id.clone(), asset_details);
 
 		Self::deposit_event(Event::ApprovalCancelled {
 			asset_id: id,
