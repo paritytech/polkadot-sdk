@@ -507,19 +507,38 @@ where
 					Error::Revert(Revert { reason: msg.into() })
 				})?;
 
-				// TODO: do_approve_transfer saturating-adds; EIP-2612 requires set.
-				// Apply cancel + approve (set semantics) once PR #11279 lands.
+				// Delete-set semantic: cancel any existing approval first so
+				// do_approve_transfer sets (not accumulates) the new value.
+				use frame_support::traits::fungibles::approvals::Inspect as ApprovalsInspect;
 				let owner_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner_h160);
 				let spender_account =
 					<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender_h160);
 
-				pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
-					asset_id,
+				let new_amount = Self::to_balance(call.value)?;
+				let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
+					asset_id.clone(),
 					&owner_account,
 					&spender_account,
-					Self::to_balance(call.value)?,
-				)?;
+				);
+
+				use sp_runtime::traits::Zero;
+				if !current.is_zero() {
+					pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+						asset_id.clone(),
+						&owner_account,
+						&spender_account,
+					)?;
+				}
+
+				if !new_amount.is_zero() {
+					pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
+						asset_id,
+						&owner_account,
+						&spender_account,
+						new_amount,
+					)?;
+				}
 
 				// Emit Approval event
 				Self::deposit_event(
