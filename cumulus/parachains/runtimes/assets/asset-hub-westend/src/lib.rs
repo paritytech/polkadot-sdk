@@ -71,7 +71,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets_precompiles::{InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -590,6 +590,18 @@ parameter_types! {
 	pub const ForeignAssetsMetadataDepositPerByte: Balance = MetadataDepositPerByte::get();
 }
 
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
+	// must match the AssetId type used by the `ForeignAssets` instance
+	type ForeignAssetId = <Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = ForeignAssetsInstance;
+}
+
+impl pallet_assets_precompiles::PermitConfig for Runtime {
+	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
+}
+
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set
 /// an individual, local account as a proxy for the issuance of their assets. This issuance should
@@ -622,7 +634,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -733,7 +745,7 @@ pub enum ProxyType {
 	/// destinations, or nominate.
 	///
 	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
-	/// and `Utility` pallets.
+	/// and `Utility` batching calls (batch, batch_all, force_batch).
 	StakingOperator,
 }
 impl Default for ProxyType {
@@ -892,7 +904,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Utility { .. }
+				) | RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
 		}
 	}
@@ -1246,6 +1260,7 @@ impl pallet_revive::Config for Runtime {
 	type Precompiles = (
 		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
+		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
@@ -1273,12 +1288,17 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations =
+	type Migrations = (
 		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
 			Runtime,
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
-		>;
+		>,
+		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
+			Runtime,
+			ForeignAssetsInstance,
+		>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1420,14 +1440,18 @@ construct_runtime!(
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
+		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
+		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
-		// Staking.
+		// Staking
+		// NOTE: Following pallet indices differ from PAH. For remote snapshot testing with PAH data,
+		// temporarily align to PAH indices (DO NOT COMMIT): Staking: 89, NominationPools: 80,
+		// VoterList: 82, DelegatedStaking: 83, StakingRcClient: 84
+		// Refer: https://github.com/polkadot-fellows/runtimes/blob/main/system-parachains/asset-hubs/asset-hub-polkadot/src/lib.rs#L1545
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
-		// decommissioned in AHs.
-		// FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
@@ -1514,6 +1538,15 @@ impl EthExtra for EthExtraImpl {
 pub type UncheckedExtrinsic =
 	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
 
+parameter_types! {
+	// Account `15jAYzPdLorBGAj4LLGaqohpzpw4mEohVkzszNpaBPbnDaXn` (Nomination Pool #296)
+	// has trapped funds on PAH. On WAH this will be a no-op (member won't exist), but
+	// leaving here as a reference when we add to PAH. To be skipped on KAH.
+	pub TrappedBalanceMember: AccountId = AccountId::from(
+		hex_literal::hex!("d11964e74f0571827c231ee07fc7268fc835499db3a0089c9e6f02c2435f50fc")
+	);
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1542,6 +1575,12 @@ pub type Migrations = (
 	frame_support::migrations::RemovePallet<
 		FastUnstakeName,
 		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	// unreleased
+	// no-op if member has no trapped balance, so second run is safe.
+	pallet_nomination_pools::migration::unversioned::ClaimTrappedBalance<
+		Runtime,
+		TrappedBalanceMember,
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,

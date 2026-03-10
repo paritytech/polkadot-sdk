@@ -231,7 +231,8 @@ where
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
 
@@ -284,7 +285,15 @@ where
 	)
 	.await
 	{
-		Ok(result) => result,
+		Ok(Some(result)) => Some(result),
+		Ok(None) => {
+			tracing::warn!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				"Could not find parent to build upon.",
+			);
+			None
+		},
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
