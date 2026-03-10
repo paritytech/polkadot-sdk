@@ -9680,7 +9680,11 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "yamux 0.12.1",
+<<<<<<< HEAD
  "yamux 0.13.8",
+=======
+ "yamux 0.13.10",
+>>>>>>> 7f277d4f (cargo: Update litep2p to v0.13.3 (#11316))
 ]
 
 [[package]]
@@ -9898,7 +9902,61 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser 0.17.0",
+<<<<<<< HEAD
  "yamux 0.13.8",
+=======
+ "yamux 0.13.10",
+ "yasna",
+ "zeroize",
+]
+
+[[package]]
+name = "litep2p"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbf3924cf539a761465543592b34c4198d60db2cda16594769edd43451e5ab41"
+dependencies = [
+ "async-trait",
+ "bs58",
+ "bytes",
+ "cid 0.11.1",
+ "ed25519-dalek",
+ "enum-display",
+ "futures",
+ "futures-timer",
+ "hickory-resolver 0.25.2",
+ "indexmap 2.9.0",
+ "ip_network",
+ "libc",
+ "mockall",
+ "multiaddr 0.17.1",
+ "multihash 0.17.0",
+ "network-interface",
+ "parking_lot 0.12.3",
+ "pin-project",
+ "prost 0.13.5",
+ "prost-build 0.14.1",
+ "rand 0.8.5",
+ "ring 0.17.14",
+ "serde",
+ "sha2 0.10.9",
+ "simple-dns 0.11.0",
+ "smallvec",
+ "snow",
+ "socket2",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite 0.27.0",
+ "tokio-util",
+ "tracing",
+ "uint 0.10.0",
+ "unsigned-varint 0.8.0",
+ "url",
+ "x25519-dalek",
+ "x509-parser 0.17.0",
+ "yamux 0.13.10",
+>>>>>>> 7f277d4f (cargo: Update litep2p to v0.13.3 (#11316))
  "yasna",
  "zeroize",
 ]
@@ -20197,7 +20255,11 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
+<<<<<<< HEAD
  "litep2p",
+=======
+ "litep2p 0.13.3",
+>>>>>>> 7f277d4f (cargo: Update litep2p to v0.13.3 (#11316))
  "log",
  "mockall",
  "multistream-select",
@@ -20409,7 +20471,11 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
+<<<<<<< HEAD
  "litep2p",
+=======
+ "litep2p 0.13.3",
+>>>>>>> 7f277d4f (cargo: Update litep2p to v0.13.3 (#11316))
  "log",
  "multiaddr 0.18.1",
  "multihash 0.19.1",
@@ -27863,9 +27929,15 @@ dependencies = [
 
 [[package]]
 name = "yamux"
+<<<<<<< HEAD
 version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "deab71f2e20691b4728b349c6cee8fc7223880fa67b6b4f92225ec32225447e5"
+=======
+version = "0.13.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1991f6690292030e31b0144d73f5e8368936c58e45e7068254f7138b23b00672"
+>>>>>>> 7f277d4f (cargo: Update litep2p to v0.13.3 (#11316))
 dependencies = [
  "futures",
  "log",
