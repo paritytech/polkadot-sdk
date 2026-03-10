@@ -414,12 +414,11 @@ impl TestState {
 					_new_leaf,
 					RuntimeApiRequest::FetchOnChainVotes(tx),
 				)) => {
-					let votes =
-						self.initial_on_chain_votes.take().unwrap_or(ScrapedOnChainVotes {
-							session,
-							backing_validators_per_candidate: Vec::default(),
-							disputes: MultiDisputeStatementSet::default(),
-						});
+					let votes = self.initial_on_chain_votes.take().unwrap_or(ScrapedOnChainVotes {
+						session,
+						backing_validators_per_candidate: Vec::default(),
+						disputes: MultiDisputeStatementSet::default(),
+					});
 					tx.send(Ok(Some(votes))).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -671,25 +670,22 @@ fn make_v3_candidate_receipt(
 ) -> CandidateReceipt {
 	use polkadot_primitives::CandidateDescriptorV2;
 	let descriptor = CandidateDescriptorV2::new_from_raw(
-		0.into(),                                       // para_id
-		relay_parent,                                    // relay_parent
-		1,                                               // version = V3
-		0,                                               // core_index
-		session_index,                                   // session_index
-		0,                                               // scheduling_session_offset
-		[0u8; 24],                                       // reserved1
-		dummy_hash(),                                    // persisted_validation_data_hash
-		dummy_hash(),                                    // pov_hash
-		dummy_hash(),                                    // erasure_root
-		scheduling_parent,                               // scheduling_parent
-		[0u8; 32],                                       // reserved2
-		dummy_hash(),                                    // para_head
+		0.into(),                                                         // para_id
+		relay_parent,                                                     // relay_parent
+		1,                                                                // version = V3
+		0,                                                                // core_index
+		session_index,                                                    // session_index
+		0,                                                                /* scheduling_session_offset */
+		[0u8; 24],                                                        // reserved1
+		dummy_hash(),      // persisted_validation_data_hash
+		dummy_hash(),      // pov_hash
+		dummy_hash(),      // erasure_root
+		scheduling_parent, // scheduling_parent
+		[0u8; 32],         // reserved2
+		dummy_hash(),      // para_head
 		polkadot_primitives_test_helpers::dummy_validation_code().hash(), // validation_code_hash
 	);
-	CandidateReceipt {
-		descriptor,
-		commitments_hash: CandidateCommitments::default().hash(),
-	}
+	CandidateReceipt { descriptor, commitments_hash: CandidateCommitments::default().hash() }
 }
 
 fn make_invalid_candidate_receipt() -> CandidateReceipt {
@@ -717,8 +713,7 @@ impl TestState {
 	) -> ValidityAttestation {
 		let keystore = self.master_keystore.clone() as KeystorePtr;
 		let validator_id = self.validators[validator_index.0 as usize].public().into();
-		let context =
-			SigningContext { session_index: session, parent_hash: scheduling_parent };
+		let context = SigningContext { session_index: session, parent_hash: scheduling_parent };
 
 		let statement = SignedFullStatement::sign(
 			&keystore,
@@ -743,8 +738,7 @@ fn make_v3_on_chain_votes(
 	relay_parent: Hash,
 	scheduling_parent: Hash,
 ) -> ScrapedOnChainVotes {
-	let candidate_receipt =
-		make_v3_candidate_receipt(relay_parent, scheduling_parent, session);
+	let candidate_receipt = make_v3_candidate_receipt(relay_parent, scheduling_parent, session);
 	let candidate_hash = candidate_receipt.hash();
 
 	// Create a valid backing attestation signed with scheduling_parent
@@ -4887,12 +4881,8 @@ fn v3_candidate_on_first_leaf_is_detected_correctly() {
 	test_state.v3_node_features = true;
 
 	let session = 1;
-	test_state.initial_on_chain_votes = Some(make_v3_on_chain_votes(
-		&test_state,
-		session,
-		relay_parent,
-		scheduling_parent,
-	));
+	test_state.initial_on_chain_votes =
+		Some(make_v3_on_chain_votes(&test_state, session, relay_parent, scheduling_parent));
 
 	test_state.resume(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
@@ -4944,12 +4934,7 @@ fn v3_candidate_on_subsequent_leaf_is_detected_correctly() {
 			// scraper messages and SessionIndexForChild, but NOT the session caching
 			// for the new session (since known_session is already Some).
 			test_state
-				.activate_leaf_at_session(
-					&mut virtual_overseer,
-					new_session,
-					3,
-					Vec::new(),
-				)
+				.activate_leaf_at_session(&mut virtual_overseer, new_session, 3, Vec::new())
 				.await;
 
 			// Manually handle session caching messages for the new session.

@@ -3377,10 +3377,7 @@ pub mod tests {
 		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
 
 		// Before V3 activation: descriptor is treated as V1 — relay_parent is used.
-		assert_eq!(
-			desc.version_for_candidate_validation(false),
-			CandidateDescriptorVersion::V1,
-		);
+		assert_eq!(desc.version_for_candidate_validation(false), CandidateDescriptorVersion::V1,);
 		assert_eq!(
 			desc.scheduling_parent_for_candidate_validation(false),
 			Hash::repeat_byte(1), // relay_parent
@@ -3392,10 +3389,7 @@ pub mod tests {
 		);
 
 		// After V3 activation: descriptor is correctly identified as V3.
-		assert_eq!(
-			desc.version_for_candidate_validation(true),
-			CandidateDescriptorVersion::V3,
-		);
+		assert_eq!(desc.version_for_candidate_validation(true), CandidateDescriptorVersion::V3,);
 		assert_eq!(
 			desc.scheduling_parent_for_candidate_validation(true),
 			Hash::repeat_byte(7), // scheduling_parent

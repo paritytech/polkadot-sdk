@@ -1240,8 +1240,7 @@ pub(crate) mod tests {
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 	) -> ValidationContext {
-		let candidate_receipt: CandidateReceipt =
-			dummy_candidate_receipt(H256::default()).into();
+		let candidate_receipt: CandidateReceipt = dummy_candidate_receipt(H256::default()).into();
 		ValidationContext {
 			candidate_receipt,
 			pvd,

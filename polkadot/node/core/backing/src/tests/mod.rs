@@ -4340,7 +4340,8 @@ async fn activate_v3_via_block_finalized(virtual_overseer: &mut VirtualOverseer)
 	);
 }
 
-/// Helper: sign a Seconded statement as validator 2 for use with CandidateBackingMessage::Statement.
+/// Helper: sign a Seconded statement as validator 2 for use with
+/// CandidateBackingMessage::Statement.
 fn sign_seconded_statement(
 	test_state: &TestState,
 	candidate: &CommittedCandidateReceipt,

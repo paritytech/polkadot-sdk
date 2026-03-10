@@ -30,10 +30,10 @@ use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystem
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, NodeFeatures,
+	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
 	CommittedCandidateReceiptError, CoreIndex, CoreSelector, GroupIndex, HeadData, Id as ParaId,
-	MutateDescriptorV2, OccupiedCoreAssumption, SessionInfo, UMPSignal, UpwardMessage, ValidatorId,
-	DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
+	MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption, SessionInfo, UMPSignal,
+	UpwardMessage, ValidatorId, DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
@@ -554,10 +554,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		&Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
 		false,
-		Some(BackingExtras {
-			claim_queue: ClaimQueueSnapshot(cq),
-			expected_scheduling_session: 1,
-		}),
+		Some(BackingExtras { claim_queue: ClaimQueueSnapshot(cq), expected_scheduling_session: 1 }),
 	))
 	.unwrap();
 
@@ -646,10 +643,7 @@ fn invalid_session_or_ump_signals() {
 			&Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
 			false,
-			Some(BackingExtras {
-				claim_queue: Default::default(),
-				expected_scheduling_session: 1,
-			}),
+			Some(BackingExtras { claim_queue: Default::default(), expected_scheduling_session: 1 }),
 		))
 		.unwrap();
 
@@ -673,10 +667,7 @@ fn invalid_session_or_ump_signals() {
 			&Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
 			false,
-			Some(BackingExtras {
-				claim_queue: Default::default(),
-				expected_scheduling_session: 1,
-			}),
+			Some(BackingExtras { claim_queue: Default::default(), expected_scheduling_session: 1 }),
 		))
 		.unwrap();
 		assert_matches!(
@@ -782,10 +773,7 @@ fn invalid_session_or_ump_signals() {
 			&Default::default(),
 			VALIDATION_CODE_BOMB_LIMIT,
 			false,
-			Some(BackingExtras {
-				claim_queue: Default::default(),
-				expected_scheduling_session: 1,
-			}),
+			Some(BackingExtras { claim_queue: Default::default(), expected_scheduling_session: 1 }),
 		))
 		.unwrap();
 		assert_matches!(
@@ -1654,10 +1642,7 @@ fn compressed_code_works() {
 		&Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
 		false,
-		Some(BackingExtras {
-			claim_queue: Default::default(),
-			expected_scheduling_session: 1,
-		}),
+		Some(BackingExtras { claim_queue: Default::default(), expected_scheduling_session: 1 }),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
@@ -2100,7 +2085,7 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 		pvf_prep: PvfPrepState {
 			is_next_session_authority: true,
 			already_prepared_code_hashes: HashSet::from_iter(vec![
-				ValidationCode(vec![0; 16]).hash(),
+				ValidationCode(vec![0; 16]).hash()
 			]),
 			..Default::default()
 		},
@@ -2560,8 +2545,13 @@ fn v3_feature_detected_on_session_change() {
 	let leaf1_hash = Hash::repeat_byte(0x01);
 	let update1 = dummy_active_leaves_update(leaf1_hash);
 
-	let check_fut =
-		handle_active_leaves_update(ctx.sender(), keystore.clone(), &mut backend, update1, &mut state);
+	let check_fut = handle_active_leaves_update(
+		ctx.sender(),
+		keystore.clone(),
+		&mut backend,
+		update1,
+		&mut state,
+	);
 
 	let test_fut = async move {
 		// Standard leaf activation messages
@@ -2614,8 +2604,13 @@ fn v3_feature_detected_on_session_change() {
 	let leaf2_hash = Hash::repeat_byte(0x02);
 	let update2 = dummy_active_leaves_update(leaf2_hash);
 
-	let check_fut =
-		handle_active_leaves_update(ctx.sender(), keystore.clone(), &mut backend, update2, &mut state);
+	let check_fut = handle_active_leaves_update(
+		ctx.sender(),
+		keystore.clone(),
+		&mut backend,
+		update2,
+		&mut state,
+	);
 
 	let test_fut = async move {
 		assert_new_active_leaf_messages(&mut ctx_handle, 2).await;
