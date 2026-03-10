@@ -2413,7 +2413,7 @@ fn local_node_respects_statement_mask() {
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						scheduling_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,

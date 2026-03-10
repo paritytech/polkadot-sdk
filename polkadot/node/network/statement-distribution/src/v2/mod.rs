@@ -954,7 +954,7 @@ async fn send_pending_cluster_statements<Context>(
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 async fn send_pending_grid_messages<Context>(
 	ctx: &mut Context,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	peer_id: &(PeerId, ValidationVersion),
 	peer_validator_id: ValidatorIndex,
 	groups: &Groups,
@@ -1037,7 +1037,7 @@ async fn send_pending_grid_messages<Context>(
 					peer_validator_id,
 					groups,
 					scheduling_parent_state,
-					relay_parent,
+					scheduling_parent,
 					group_index,
 					candidate_hash,
 					local_knowledge,
@@ -1067,7 +1067,7 @@ async fn send_pending_grid_messages<Context>(
 			.filter_map(|(originator, compact)| {
 				let res = pending_statement_network_message(
 					&scheduling_parent_state.statement_store,
-					relay_parent,
+					scheduling_parent,
 					peer_id,
 					originator,
 					compact.clone(),
@@ -2825,11 +2825,12 @@ async fn apply_post_confirmation<Context>(
 	let candidate_hash = post_confirmation.hypothetical.candidate_hash();
 	state.request_manager.remove_for(candidate_hash);
 
+	// Scheduling context: look up per_scheduling_parent state for statement circulation.
 	send_cluster_candidate_statements(
 		ctx,
 		state,
 		candidate_hash,
-		post_confirmation.hypothetical.relay_parent(),
+		post_confirmation.hypothetical.scheduling_parent(),
 		metrics,
 	)
 	.await;

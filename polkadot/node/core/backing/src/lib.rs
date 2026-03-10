@@ -246,7 +246,7 @@ struct PerSchedulingParentState {
 struct PerCandidateState {
 	persisted_validation_data: PersistedValidationData,
 	seconded_locally: bool,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 }
 
 /// A cache for storing data per-session to reduce repeated
@@ -766,7 +766,8 @@ async fn request_candidate_validation(
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
-	let relay_parent = candidate_receipt.descriptor.relay_parent();
+	// PVF execution uses this for pruning obsolete jobs - we need the scheduling parent here:
+	let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -776,9 +777,9 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecKind::BackingSystemParas(relay_parent)
+				PvfExecKind::BackingSystemParas(scheduling_parent)
 			} else {
-				PvfExecKind::Backing(relay_parent)
+				PvfExecKind::Backing(scheduling_parent)
 			},
 			response_sender: tx,
 		})
@@ -1016,7 +1017,7 @@ async fn handle_active_leaves_update<Context>(
 	// are known.
 	state
 		.per_candidate
-		.retain(|_, pc| state.per_scheduling_parent.contains_key(&pc.relay_parent));
+		.retain(|_, pc| state.per_scheduling_parent.contains_key(&pc.scheduling_parent));
 
 	// Get relay parents which might be fresh but might be known already
 	// that are explicit or implicit from the new active leaf.
@@ -1309,14 +1310,18 @@ async fn seconding_sanity_check<Context>(
 	let mut leaves_for_seconding = Vec::new();
 	let mut responses = FuturesOrdered::<BoxFuture<'_, Result<_, oneshot::Canceled>>>::new();
 
-	let candidate_relay_parent = hypothetical_candidate.relay_parent();
+	// Scheduling context: the scheduling parent determines which leaves this candidate
+	// can be seconded under (it must be in the allowed ancestry).
+	let candidate_scheduling_parent = hypothetical_candidate.scheduling_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for head in implicit_view.leaves() {
-		// Check that the candidate relay parent is allowed for para, skip the
-		// leaf otherwise.
+		// Check that the candidate scheduling parent is allowed under this leaf.
 		let allowed_parents_for_para = implicit_view.known_allowed_relay_parents_under(head);
-		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
+		if !allowed_parents_for_para
+			.unwrap_or_default()
+			.contains(&candidate_scheduling_parent)
+		{
 			continue;
 		}
 
@@ -1388,13 +1393,13 @@ async fn handle_can_second_request<Context>(
 	request: CanSecondRequest,
 	tx: oneshot::Sender<bool>,
 ) {
-	let relay_parent = request.candidate_scheduling_parent;
-	let response = if state.per_scheduling_parent.get(&relay_parent).is_some() {
+	let scheduling_parent = request.candidate_scheduling_parent;
+	let response = if state.per_scheduling_parent.get(&scheduling_parent).is_some() {
 		let hypothetical_candidate = HypotheticalCandidate::Incomplete {
 			candidate_hash: request.candidate_hash,
 			candidate_para: request.candidate_para_id,
 			parent_head_data_hash: request.parent_head_data_hash,
-			candidate_relay_parent: relay_parent,
+			candidate_scheduling_parent: scheduling_parent,
 		};
 
 		let result =
@@ -1505,14 +1510,13 @@ async fn handle_validated_candidate_command<Context>(
 							let candidate_hash = candidate.hash();
 							gum::debug!(
 								target: LOG_TARGET,
-								relay_parent = ?candidate.descriptor().relay_parent(),
+								scheduling_parent = ?candidate.descriptor().scheduling_parent(),
 								?candidate_hash,
 								"Attempted to second candidate but was rejected by prospective parachains",
 							);
 
-							// Ensure the collator is reported.
 							ctx.send_message(CollatorProtocolMessage::Invalid(
-								candidate.descriptor().relay_parent(),
+								candidate.descriptor().scheduling_parent(),
 								candidate,
 							))
 							.await;
@@ -1711,7 +1715,8 @@ async fn import_statement<Context>(
 					persisted_validation_data: pvd.clone(),
 					// This is set after importing when seconding locally.
 					seconded_locally: false,
-					relay_parent: candidate.descriptor.relay_parent(),
+					// Scheduling context: used for cleanup against per_scheduling_parent.
+					scheduling_parent: candidate.descriptor.scheduling_parent(),
 				},
 			);
 		}

@@ -154,7 +154,7 @@ impl Candidates {
 		assigned_group: GroupIndex,
 	) -> Option<PostConfirmation> {
 		let parent_hash = persisted_validation_data.parent_head.hash();
-		let relay_parent = candidate_receipt.descriptor.relay_parent();
+		let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
 		let para_id = candidate_receipt.descriptor.para_id();
 
 		let prev_state = self.candidates.insert(
@@ -185,7 +185,7 @@ impl Candidates {
 				let mut reckoning = PostConfirmationReckoning::default();
 
 				for (leaf_hash, x) in u.unconfirmed_importable_under {
-					if x.relay_parent == relay_parent &&
+					if x.scheduling_parent == scheduling_parent &&
 						x.parent_hash == parent_hash &&
 						x.para_id == para_id
 					{
@@ -209,7 +209,7 @@ impl Candidates {
 						}
 					}
 
-					if claims.check(relay_parent, assigned_group, parent_hash, para_id) {
+					if claims.check(scheduling_parent, assigned_group, parent_hash, para_id) {
 						reckoning.correct.insert(peer);
 					} else {
 						reckoning.incorrect.insert(peer);
@@ -256,10 +256,10 @@ impl Candidates {
 				candidate_hash,
 				candidate_para,
 				parent_head_data_hash,
-				candidate_relay_parent,
+				candidate_scheduling_parent,
 			} => {
 				let u = UnconfirmedImportable {
-					relay_parent: *candidate_relay_parent,
+					scheduling_parent: *candidate_scheduling_parent,
 					parent_hash: *parent_head_data_hash,
 					para_id: *candidate_para,
 				};
@@ -404,7 +404,7 @@ impl CandidateClaims {
 // properties of an unconfirmed but hypothetically importable candidate.
 #[derive(Debug, Hash, PartialEq, Eq)]
 struct UnconfirmedImportable {
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	parent_hash: Hash,
 	para_id: ParaId,
 }
@@ -477,7 +477,7 @@ impl UnconfirmedCandidate {
 		});
 
 		self.unconfirmed_importable_under
-			.retain(|(l, props)| leaves.contains(l) && relay_parent_live(&props.relay_parent));
+			.retain(|(l, props)| leaves.contains(l) && relay_parent_live(&props.scheduling_parent));
 	}
 
 	fn extend_hypotheticals(
@@ -497,7 +497,7 @@ impl UnconfirmedCandidate {
 						candidate_hash,
 						candidate_para: *para_id,
 						parent_head_data_hash: *parent_head_hash,
-						candidate_relay_parent: *relay_parent,
+						candidate_scheduling_parent: *relay_parent,
 					});
 				}
 			}
@@ -1263,19 +1263,19 @@ mod tests {
 			candidate_hash: candidate_hash_b,
 			candidate_para: 1.into(),
 			parent_head_data_hash: candidate_head_data_hash_a,
-			candidate_relay_parent: relay_hash,
+			candidate_scheduling_parent: relay_hash,
 		};
 		let hypothetical_c = HypotheticalCandidate::Incomplete {
 			candidate_hash: candidate_hash_c,
 			candidate_para: 1.into(),
 			parent_head_data_hash: candidate_head_data_hash_a,
-			candidate_relay_parent: relay_hash,
+			candidate_scheduling_parent: relay_hash,
 		};
 		let hypothetical_d = HypotheticalCandidate::Incomplete {
 			candidate_hash: candidate_hash_d,
 			candidate_para: 1.into(),
 			parent_head_data_hash: candidate_head_data_hash_b,
-			candidate_relay_parent: relay_hash,
+			candidate_scheduling_parent: relay_hash,
 		};
 
 		let hypotheticals = candidates.frontier_hypotheticals(Some((relay_hash, 1.into())));

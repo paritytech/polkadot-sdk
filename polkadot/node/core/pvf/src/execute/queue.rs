@@ -316,12 +316,12 @@ impl Queue {
 				.iter()
 				.enumerate()
 				.filter_map(|(index, job)| {
-					let relay_parent = match job.exec_kind {
+					let scheduling_parent = match job.exec_kind {
 						PvfExecKind::Backing(x) | PvfExecKind::BackingSystemParas(x) => x,
 						_ => return None,
 					};
 					let in_active_fork = self.active_leaves.iter().any(|(hash, ancestors)| {
-						*hash == relay_parent || ancestors.contains(&relay_parent)
+						*hash == scheduling_parent || ancestors.contains(&scheduling_parent)
 					});
 					if in_active_fork {
 						None

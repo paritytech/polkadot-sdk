@@ -634,6 +634,7 @@ struct FragmentNode {
 }
 
 impl FragmentNode {
+	/// Execution context: the relay parent determines PVD, constraints, and message state.
 	fn relay_parent(&self) -> Hash {
 		self.fragment.relay_parent().hash
 	}
@@ -643,6 +644,7 @@ impl From<&FragmentNode> for CandidateEntry {
 	fn from(node: &FragmentNode) -> Self {
 		// We don't need to perform the checks done in `CandidateEntry::new()`, since a
 		// `FragmentNode` always comes from a `CandidateEntry`
+		// Execution context: preserves relay parent for constraint validation.
 		let relay_parent = node.relay_parent();
 		Self {
 			candidate_hash: node.candidate_hash,
@@ -1020,6 +1022,8 @@ impl FragmentChain {
 	// The value returned may not be valid if we want to add a candidate pending availability, which
 	// may have a relay parent which is out of scope. Special handling is needed in that case.
 	// `None` is returned if the candidate's relay parent info cannot be found.
+	// Execution context: the relay parent determines constraint progression
+	// (HRMP watermark, DMP advancement must not regress).
 	fn earliest_relay_parent(
 		&self,
 		relay_chain_scope: &RelayChainScope,
@@ -1110,6 +1114,7 @@ impl FragmentChain {
 		relay_chain_scope: &RelayChainScope,
 		candidate: &impl HypotheticalOrConcreteCandidate,
 	) -> Result<(), Error> {
+		// TODO: This still needs to be untangled!
 		let relay_parent = candidate.relay_parent();
 		let parent_head_hash = candidate.parent_head_data_hash();
 
@@ -1181,6 +1186,8 @@ impl FragmentChain {
 						.base_constraints
 						.apply_modifications(&parent_candidate.cumulative_modifications)
 						.map_err(Error::ComputeConstraints)?,
+					// Execution context: relay parent block number for HRMP
+					// watermark and DMP constraint checking.
 					relay_chain_scope
 						.ancestor(&parent_candidate.relay_parent())
 						.map(|rp| rp.number),
@@ -1496,7 +1503,7 @@ impl FragmentChain {
 
 				// Update the cumulative constraint modifications.
 				cumulative_modifications.stack(fragment.constraint_modifications());
-				// Update the earliest rp
+				// Execution context: track earliest relay parent for constraint validation.
 				earliest_rp = fragment.relay_parent().clone();
 
 				let node = FragmentNode {

@@ -72,8 +72,8 @@ use std::{
 /// anything other than the candidate hash.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CandidateIdentifier {
-	/// The relay-parent this candidate is ostensibly under.
-	pub relay_parent: Hash,
+	/// The scheduling-parent this candidate is ostensibly under.
+	pub scheduling_parent: Hash,
 	/// The hash of the candidate.
 	pub candidate_hash: CandidateHash,
 	/// The index of the group claiming to be assigned to the candidate's
@@ -184,7 +184,8 @@ impl RequestManager {
 		candidate_hash: CandidateHash,
 		group_index: GroupIndex,
 	) -> Entry<'_> {
-		let identifier = CandidateIdentifier { relay_parent, candidate_hash, group_index };
+		let identifier =
+			CandidateIdentifier { scheduling_parent: relay_parent, candidate_hash, group_index };
 
 		let (candidate, fresh) = match self.requests.entry(identifier.clone()) {
 			HEntry::Occupied(e) => (e.into_mut(), false),
@@ -245,7 +246,7 @@ impl RequestManager {
 
 		// Remove from `by_priority` and `requests`.
 		self.by_priority.retain(|(_priority, id)| {
-			let retain = relay_parent != id.relay_parent;
+			let retain = relay_parent != id.scheduling_parent;
 			if !retain {
 				self.requests.remove(id);
 				candidate_hashes.insert(id.candidate_hash);
@@ -257,7 +258,7 @@ impl RequestManager {
 		for candidate_hash in candidate_hashes {
 			match self.unique_identifiers.entry(candidate_hash) {
 				HEntry::Occupied(mut entry) => {
-					entry.get_mut().retain(|id| relay_parent != id.relay_parent);
+					entry.get_mut().retain(|id| relay_parent != id.scheduling_parent);
 					if entry.get().is_empty() {
 						entry.remove();
 					}
@@ -703,7 +704,8 @@ fn validate_complete_response(
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
+		if response.candidate_receipt.descriptor.scheduling_parent() != identifier.scheduling_parent
+		{
 			return invalid_candidate_output(COST_INVALID_RESPONSE);
 		}
 
@@ -766,7 +768,7 @@ fn validate_complete_response(
 		let index_in_group = |v: ValidatorIndex| group.iter().position(|x| &v == x);
 
 		let signing_context =
-			SigningContext { parent_hash: identifier.relay_parent, session_index: session };
+			SigningContext { parent_hash: identifier.scheduling_parent, session_index: session };
 
 		for unchecked_statement in response.statements.into_iter().take(group.len() * 2) {
 			// ensure statement is from a validator in the group.
