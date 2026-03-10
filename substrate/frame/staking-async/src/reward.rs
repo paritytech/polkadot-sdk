@@ -58,6 +58,13 @@ impl<T: Config> EraRewardManager<T> {
 	/// 2. Reads balance from general pots (accumulated since last era)
 	/// 3. Transfers from general → era-specific pots
 	///
+	/// # Note on general pot account lifecycle
+	/// General pot accounts do not have explicit provider references. They are kept alive by
+	/// their balance: the first DAP inflation drip (which exceeds ED) creates the account, and
+	/// subsequent snapshots use `Preservation::Preserve` to keep ED in the account. Someone (a
+	/// runtime maintainer) can also send ED to the general pot account to ensure they are created
+	/// before mint.
+	///
 	/// # Returns
 	/// The allocation breakdown showing amounts transferred into each era pot.
 	pub fn snapshot_era_rewards(era: EraIndex) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
