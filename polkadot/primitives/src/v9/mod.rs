@@ -3369,6 +3369,44 @@ pub mod tests {
 	}
 
 	#[test]
+	fn v3_feature_activation_changes_descriptor_interpretation() {
+		let desc = make_v3_descriptor();
+
+		// Sanity: the descriptor IS V3 under new rules but looks like V1 under old rules.
+		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
+		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
+
+		// Before V3 activation: descriptor is treated as V1 — relay_parent is used.
+		assert_eq!(
+			desc.version_for_candidate_validation(false),
+			CandidateDescriptorVersion::V1,
+		);
+		assert_eq!(
+			desc.scheduling_parent_for_candidate_validation(false),
+			Hash::repeat_byte(1), // relay_parent
+		);
+		assert_eq!(
+			desc.scheduling_session_for_candidate_validation(false),
+			None,
+			"V1 has no embedded session — must be fetched from runtime",
+		);
+
+		// After V3 activation: descriptor is correctly identified as V3.
+		assert_eq!(
+			desc.version_for_candidate_validation(true),
+			CandidateDescriptorVersion::V3,
+		);
+		assert_eq!(
+			desc.scheduling_parent_for_candidate_validation(true),
+			Hash::repeat_byte(7), // scheduling_parent
+		);
+		assert_eq!(
+			desc.scheduling_session_for_candidate_validation(true),
+			Some(1), // session_index from descriptor, offset=0
+		);
+	}
+
+	#[test]
 	fn check_version_acceptance_ambiguous_scheduling_parent_nonzero() {
 		// Descriptor with scheduling_parent non-zero but version=0.
 		// Old rules: V1 (scheduling_parent non-zero triggers old_v1_detected).

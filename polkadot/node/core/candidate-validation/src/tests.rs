@@ -1958,6 +1958,15 @@ async fn assert_new_active_leaf_messages(
 			let _ = response_channel.send(Ok((0..(lookahead_value - 1)).into_iter().map(|i| Hash::from_low_u64_be(i as u64)).collect()));
 		}
 	);
+
+	// Second SessionIndexForChild — from handle_active_leaves_update's own
+	// get_session_index call (separate from the one in update_active_leaves_validation_backend).
+	assert_matches!(
+		recv_handle.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+			let _ = tx.send(Ok(expected_session_index));
+		}
+	);
 }
 
 #[test]
@@ -2521,4 +2530,154 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 	assert!(state.session_index.is_some());
 	assert!(state.pvf_prep.is_next_session_authority);
 	assert_eq!(state.pvf_prep.already_prepared_code_hashes.len(), 3);
+}
+
+/// Verify that a V3 descriptor is interpreted differently depending on `v3_ever_seen`.
+///
+/// Before V3 activation: old rules apply — V3 descriptors appear as V1, so
+/// `scheduling_parent` falls back to `relay_parent`.
+///
+/// After V3 activation: new rules apply — V3 descriptors are correctly identified,
+/// so `scheduling_parent` returns the real scheduling parent from the descriptor.
+///
+/// Verify that `handle_active_leaves_update` correctly detects V3 node features on
+/// session changes and sets `v3_ever_seen` accordingly.
+///
+/// Scenario:
+/// 1. First leaf at session 1, V3 OFF → `v3_ever_seen` stays false
+/// 2. Second leaf at session 2, V3 ON → `v3_ever_seen` becomes true
+/// 3. Third leaf at session 2 (same session) → no re-check (monotonic flag)
+#[test]
+fn v3_feature_detected_on_session_change() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let mut backend = MockHeadsUp::default();
+	let mut state = State::default();
+
+	// --- Leaf 1: session 1, V3 feature NOT enabled ---
+	let leaf1_hash = Hash::repeat_byte(0x01);
+	let update1 = dummy_active_leaves_update(leaf1_hash);
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore.clone(), &mut backend, update1, &mut state);
+
+	let test_fut = async move {
+		// Standard leaf activation messages
+		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		// NodeFeatures request — return EMPTY (no V3)
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, tx),
+			)) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
+
+		// Authorities (PVF prep) — return empty so we skip PVF prep
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::Authorities(tx),
+			)) => {
+				let _ = tx.send(Ok(vec![]));
+			}
+		);
+
+		// SessionInfo (check_next_session_authority always fetches this)
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionInfo(idx, tx),
+			)) => {
+				assert_eq!(idx, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![]))));
+			}
+		);
+
+		ctx_handle
+	};
+
+	let (test_fut, check_fut) = (test_fut, check_fut);
+	let (mut ctx_handle, _) = executor::block_on(future::join(test_fut, check_fut));
+
+	assert_eq!(state.session_index, Some(1));
+	assert!(!state.v3_ever_seen, "V3 should not be detected yet");
+
+	// --- Leaf 2: session 2, V3 feature ENABLED ---
+	let leaf2_hash = Hash::repeat_byte(0x02);
+	let update2 = dummy_active_leaves_update(leaf2_hash);
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore.clone(), &mut backend, update2, &mut state);
+
+	let test_fut = async move {
+		assert_new_active_leaf_messages(&mut ctx_handle, 2).await;
+
+		// NodeFeatures request — return V3 ENABLED
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, tx),
+			)) => {
+				let mut features = NodeFeatures::new();
+				features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+				features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+				let _ = tx.send(Ok(features));
+			}
+		);
+
+		// Authorities + SessionInfo for PVF prep
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::Authorities(tx),
+			)) => {
+				let _ = tx.send(Ok(vec![]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionInfo(idx, tx),
+			)) => {
+				assert_eq!(idx, 2);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![]))));
+			}
+		);
+
+		ctx_handle
+	};
+
+	let (mut ctx_handle, _) = executor::block_on(future::join(test_fut, check_fut));
+
+	assert_eq!(state.session_index, Some(2));
+	assert!(state.v3_ever_seen, "V3 should be detected now");
+
+	// --- Leaf 3: same session 2, no new session → no V3 re-check ---
+	let leaf3_hash = Hash::repeat_byte(0x03);
+	let update3 = dummy_active_leaves_update(leaf3_hash);
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update3, &mut state);
+
+	let test_fut = async move {
+		// Same session — only the standard leaf messages, no NodeFeatures query
+		assert_new_active_leaf_messages(&mut ctx_handle, 2).await;
+	};
+
+	executor::block_on(future::join(test_fut, check_fut));
+
+	assert_eq!(state.session_index, Some(2));
+	assert!(state.v3_ever_seen, "V3 flag is monotonic — stays true");
 }
