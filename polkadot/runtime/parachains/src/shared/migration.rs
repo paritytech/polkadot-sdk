@@ -50,6 +50,36 @@ pub mod v1 {
 		pub buffer: VecDeque<RelayParentInfo<Hash>>,
 		pub latest_number: BlockNumber,
 	}
+
+	impl<Hash, BlockNumber> From<v1::AllowedRelayParentsTracker<Hash, BlockNumber>>
+		for AllowedSchedulingParentsTracker<Hash, BlockNumber>
+	{
+		fn from(old: v1::AllowedRelayParentsTracker<Hash, BlockNumber>) -> Self {
+			Self {
+				buffer: old
+					.buffer
+					.into_iter()
+					.map(|info| SchedulingParentInfo {
+						scheduling_parent: info.relay_parent,
+						claim_queue: info.claim_queue,
+					})
+					.collect(),
+				latest_number: old.latest_number,
+			}
+		}
+	}
+
+	impl<Hash, BlockNumber: AtLeast32BitUnsigned> AllowedRelayParentsTracker<Hash, BlockNumber> {
+		pub(crate) fn hypothetical_earliest_block_number(
+			&self,
+			now: BlockNumber,
+			max_ancestry_len: u32,
+		) -> BlockNumber {
+			let allowed_ancestry_len = max_ancestry_len.min(self.buffer.len() as u32);
+
+			now - allowed_ancestry_len.into()
+		}
+	}
 }
 
 mod v2 {
