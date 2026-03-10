@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Make candidate descriptor version detection self-contained
+title: Fix issue #11272 - Make candidate descriptor version detection self-contained
 
 doc:
   - audience: Node Dev
@@ -25,6 +25,15 @@ doc:
       collator protocol) no longer need to look up node features for version detection, since any
       candidate that reaches them on-chain was already validated by the runtime.
 
+      Additional changes:
+      - **Candidate validation**: V3 feature detection is based on session changes via
+        `handle_active_leaves_update`. Uses `scheduling_parent_for_candidate_validation(v3_ever_seen)`
+        and `version_for_candidate_validation(v3_ever_seen)` to transition safely.
+      - **Dispute coordinator**: V3 feature detection on both first and subsequent leaves.
+        Uses `scheduling_parent_for_candidate_validation(v3_ever_seen)` in dispute participation
+        queue ordering (`CandidateComparator`), so V3 candidates are ordered by their scheduling
+        parent's block number rather than relay parent.
+
 crates:
   - name: polkadot-primitives
     bump: major
@@ -41,7 +50,7 @@ crates:
   - name: polkadot-node-core-prospective-parachains
     bump: major
   - name: polkadot-node-core-dispute-coordinator
-    bump: patch
+    bump: minor
   - name: polkadot-node-core-provisioner
     bump: patch
   - name: polkadot-collator-protocol

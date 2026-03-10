@@ -850,17 +850,17 @@ impl CurrentlyCheckingSet {
 async fn get_extended_session_info<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 ) -> Option<&'a ExtendedSessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info.get_session_info(sender, relay_parent).await {
+	match runtime_info.get_session_info(sender, block_hash).await {
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
 			gum::debug!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?block_hash,
 				"Can't obtain SessionInfo or ExecutorParams"
 			);
 			None
@@ -871,22 +871,19 @@ where
 async fn get_extended_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a ExtendedSessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info_by_index(sender, relay_parent, session_index)
-		.await
-	{
+	match runtime_info.get_session_info_by_index(sender, block_hash, session_index).await {
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				session = session_index,
-				?relay_parent,
+				?block_hash,
 				"Can't obtain SessionInfo or ExecutorParams"
 			);
 			None
@@ -897,13 +894,13 @@ where
 async fn get_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a SessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	get_extended_session_info_by_index(runtime_info, sender, relay_parent, session_index)
+	get_extended_session_info_by_index(runtime_info, sender, block_hash, session_index)
 		.await
 		.map(|extended_info| &extended_info.session_info)
 }
