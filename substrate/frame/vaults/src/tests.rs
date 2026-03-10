@@ -4096,6 +4096,46 @@ mod parameter_edge_cases {
 			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), max_liq));
 		});
 	}
+
+	/// **Test: Raising MCR makes previously safe vaults liquidatable**
+	///
+	/// When governance raises MinimumCollateralizationRatio, vaults that were safe
+	/// under the old threshold may become undercollateralized and eligible for
+	/// liquidation under the new threshold.
+	#[test]
+	fn raising_mcr_makes_safe_vault_liquidatable() {
+		build_and_execute(|| {
+			// Create vault: 100 DOT at $4.21 = $421 collateral
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			// Mint 200 pUSD → CR = 421/200 = 210.5%
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Vault is safe under current MCR of 180%
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+
+			// Governance raises initial ratio first (must be >= new MCR)
+			assert_ok!(Vaults::set_initial_collateralization_ratio(
+				RuntimeOrigin::root(),
+				FixedU128::from_rational(250, 100) // 250%
+			));
+
+			// Now raise MCR from 180% to 220%
+			// ALICE's CR of 210.5% is now below the new 220% threshold
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				FixedU128::from_rational(220, 100)
+			));
+
+			// ALICE's vault is now undercollateralized and can be liquidated
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+		});
+	}
 }
 
 mod oracle_staleness {
