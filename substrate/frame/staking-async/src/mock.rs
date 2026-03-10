@@ -451,7 +451,6 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
-	pub static MaxEraDuration: u64 = time_per_era() * 7;
 	pub const MaxPruningItems: u32 = 100;
 	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stkng");
 }
@@ -520,7 +519,6 @@ impl Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type RcClientInterface = session_mock::Session;
 	type Filter = MockedRestrictList;
