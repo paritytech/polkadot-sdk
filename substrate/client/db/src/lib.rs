@@ -1363,6 +1363,20 @@ impl<Block: BlockT> Backend<Block> {
 			});
 		}
 
+		match (backend.is_archive, info.block_gap) {
+			(false, Some(gap)) if matches!(gap.gap_type, BlockGapType::MissingBody) => {
+				debug!(
+					"Detected a missing body gap for non-archive nodes. Removing the gap={:?}",
+					gap
+				);
+
+				db_init_transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+				db_init_transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+				backend.blockchain.update_block_gap(None);
+			},
+			_ => {},
+		}
+
 		db.commit(db_init_transaction)?;
 
 		Ok(backend)
