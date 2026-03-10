@@ -197,8 +197,10 @@ impl Queues {
 		sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
 		priority: ParticipationPriority,
 		req: ParticipationRequest,
+		v3_ever_seen: bool,
 	) -> Result<()> {
-		let comparator = CandidateComparator::new(sender, &req.candidate_receipt).await?;
+		let comparator =
+			CandidateComparator::new(sender, &req.candidate_receipt, v3_ever_seen).await?;
 
 		self.queue_with_comparator(comparator, priority, req)?;
 		Ok(())
@@ -224,8 +226,9 @@ impl Queues {
 		&mut self,
 		sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
 		receipt: &CandidateReceipt,
+		v3_ever_seen: bool,
 	) -> Result<()> {
-		let comparator = CandidateComparator::new(sender, receipt).await?;
+		let comparator = CandidateComparator::new(sender, receipt, v3_ever_seen).await?;
 		self.prioritize_with_comparator(comparator)?;
 		Ok(())
 	}
@@ -404,9 +407,12 @@ impl CandidateComparator {
 	pub async fn new(
 		sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
 		candidate: &CandidateReceipt,
+		v3_ever_seen: bool,
 	) -> FatalResult<Self> {
 		let candidate_hash = candidate.hash();
-		let n = get_block_number(sender, candidate.descriptor().relay_parent()).await?;
+		let scheduling_parent =
+			candidate.descriptor().scheduling_parent_for_candidate_validation(v3_ever_seen);
+		let n = get_block_number(sender, scheduling_parent).await?;
 
 		if n.is_none() {
 			gum::warn!(

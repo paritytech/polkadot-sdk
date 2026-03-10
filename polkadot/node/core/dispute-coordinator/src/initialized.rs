@@ -233,7 +233,9 @@ impl Initialized {
 			}
 
 			for (priority, request) in participations {
-				self.participation.queue_participation(ctx, priority, request).await?;
+				self.participation
+					.queue_participation(ctx, priority, request, self.v3_ever_seen)
+					.await?;
 			}
 
 			let mut overlay_db = OverlayedBackend::new(backend);
@@ -341,7 +343,11 @@ impl Initialized {
 			self.scraper.process_active_leaves_update(ctx.sender(), &update).await?;
 		log_error(
 			self.participation
-				.bump_to_priority_for_candidates(ctx, &scraped_updates.included_receipts)
+				.bump_to_priority_for_candidates(
+					ctx,
+					&scraped_updates.included_receipts,
+					self.v3_ever_seen,
+				)
 				.await,
 		)?;
 		self.participation.process_active_leaves_update(ctx, &update).await?;
@@ -1270,6 +1276,7 @@ impl Initialized {
 						env.executor_params().clone(),
 						request_timer,
 					),
+					self.v3_ever_seen,
 				)
 				.await;
 			log_error(r)?;
