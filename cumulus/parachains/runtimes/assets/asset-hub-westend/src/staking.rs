@@ -268,7 +268,6 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	// alias for 16, which is the max nominations per nominator in the runtime.
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
-	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
 	pub const StakingPalletId: PalletId = PalletId(*b"py/stkng");
 }
@@ -303,7 +302,6 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
-	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
