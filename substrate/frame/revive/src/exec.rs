@@ -2471,8 +2471,16 @@ where
 			return;
 		}
 
-		// EIP-7702: delegated EOAs return 0xef0100 || target as their code
-		let code = if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+		let code = if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes())
+			.or_else(|| {
+				self.exec_config
+					.mock_handler
+					.as_ref()
+					.and_then(|handler| handler.mocked_code(*address))
+			}) {
+			code.to_vec()
+		} else if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+			// EIP-7702: delegated EOAs return 0xef0100 || target as their code
 			<AccountInfo<T>>::delegation_indicator(&target).to_vec()
 		} else {
 			let code_hash = self.code_hash(address);
