@@ -12,7 +12,6 @@ doc:
       all fungible traits, delegating to the inner currency but redirecting `burn_from` to the
       satellite account.
     - **pallet-dap**: Added `DapCurrency<T>` wrapper (same pattern) for AssetHub.
-    - DAP funds are excluded from `active_issuance`.
     - Redirect all burns to DAP or DAP satellite on Westend chains
     - Fee split set to 100% DAP on Westend chains
 
@@ -31,13 +30,13 @@ doc:
     The pallet-balances extrinsics (like `burn`) continue to use standard burn semantics.
 crates:
 - name: pallet-dap-satellite
-  bump: minor
+  bump: patch
 - name: pallet-dap
   bump: minor
 - name: polkadot-sdk
   bump: minor
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: major
 - name: westend-runtime
   bump: minor
 - name: bridge-hub-westend-runtime
