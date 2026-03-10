@@ -635,6 +635,32 @@ mod liquidate {
 		});
 	}
 
+	#[test]
+	fn failed_auction_start_rolls_back_hold_changes() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			set_mock_auction_start_failure(true);
+
+			let result = Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE);
+			assert!(result.is_err(), "liquidation should fail when auction start fails");
+
+			let vault =
+				VaultsStorage::<Test>::get(ALICE).expect("vault should remain after failure");
+			assert_eq!(vault.status, VaultStatus::Healthy);
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::VaultDeposit.into(), &ALICE),
+				deposit
+			);
+			assert_eq!(Balances::balance_on_hold(&HoldReason::Seized.into(), &ALICE), 0);
+		});
+	}
+
 	/// **Test: Cannot liquidate a healthy vault**
 	///
 	/// Vaults with collateralization ratio ≥ 180% are considered "safe" and
@@ -2302,6 +2328,20 @@ mod liquidation_limits {
 		});
 	}
 
+	#[test]
+	fn auction_callback_fails_on_underflow() {
+		build_and_execute(|| {
+			CurrentLiquidationAmount::<Test>::put(100 * PUSD);
+
+			assert_noop!(
+				Vaults::test_reduce_liquidation_amount(400 * PUSD),
+				Error::<Test>::ArithmeticUnderflow
+			);
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 100 * PUSD);
+		});
+	}
+
 	/// **Test: Auction shortfall increases `BadDebt` and reduces `CurrentLiquidationAmount`**
 	///
 	/// When an auction completes with a shortfall (couldn't raise enough to cover the tab),
@@ -2341,6 +2381,22 @@ mod liquidation_limits {
 			System::assert_has_event(
 				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 200 * PUSD }.into(),
 			);
+		});
+	}
+
+	#[test]
+	fn auction_shortfall_fails_on_underflow() {
+		build_and_execute(|| {
+			CurrentLiquidationAmount::<Test>::put(100 * PUSD);
+			assert_eq!(BadDebt::<Test>::get(), 0);
+
+			assert_noop!(
+				Vaults::test_record_shortfall(ALICE, 400 * PUSD),
+				Error::<Test>::ArithmeticUnderflow
+			);
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 100 * PUSD);
+			assert_eq!(BadDebt::<Test>::get(), 0);
 		});
 	}
 
@@ -3255,6 +3311,36 @@ mod collateral_manager {
 		});
 	}
 
+	#[test]
+	fn complete_auction_finalizes_when_keeper_incentive_payment_fails() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let shortfall = 100 * PUSD;
+			let keeper_incentive = 10 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 0);
+
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, shortfall, &BOB, keeper_incentive,));
+
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+			assert_eq!(BadDebt::<Test>::get(), shortfall);
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 100 * PUSD);
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, BOB), 0);
+			System::assert_has_event(
+				Event::<Test>::KeeperIncentivePaymentFailed {
+					keeper: BOB,
+					amount: keeper_incentive,
+				}
+				.into(),
+			);
+		});
+	}
+
 	/// **Test: `get_dot_price` returns oracle price for the collateral asset**
 	///
 	/// The `CollateralManager` trait exposes the oracle price to the Auctions pallet.
@@ -4130,6 +4216,16 @@ mod governance_new_params {
 		});
 	}
 
+	#[test]
+	fn set_minimum_deposit_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_deposit(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
+			);
+		});
+	}
+
 	/// **Test: Emergency privilege cannot set minimum deposit**
 	#[test]
 	fn set_minimum_deposit_requires_full_privilege() {
@@ -4164,6 +4260,16 @@ mod governance_new_params {
 			assert_eq!(MinimumMint::<Test>::get(), Some(new_value));
 			System::assert_has_event(
 				Event::<Test>::MinimumMintUpdated { old_value, new_value }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_minimum_mint_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_mint(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
 			);
 		});
 	}
@@ -4206,6 +4312,16 @@ mod governance_new_params {
 		});
 	}
 
+	#[test]
+	fn set_stale_vault_threshold_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_stale_vault_threshold(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
+			);
+		});
+	}
+
 	/// **Test: Emergency privilege cannot set stale vault threshold**
 	#[test]
 	fn set_stale_vault_threshold_requires_full_privilege() {
@@ -4243,6 +4359,16 @@ mod governance_new_params {
 			assert_eq!(OracleStalenessThreshold::<Test>::get(), Some(new_value));
 			System::assert_has_event(
 				Event::<Test>::OracleStalenessThresholdUpdated { old_value, new_value }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_oracle_staleness_threshold_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_oracle_staleness_threshold(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
 			);
 		});
 	}
@@ -4510,6 +4636,46 @@ mod on_idle_coverage {
 				OnIdleCursor::<Test>::get().is_none(),
 				"Cursor should be cleared after processing all vaults"
 			);
+		});
+	}
+
+	/// **Test: `on_idle` advances cursor even when stale vault updates are skipped**
+	///
+	/// If `update_vault_fees` fails for the current vault, pagination must still
+	/// progress; otherwise a low `MaxOnIdleItems` setting can get stuck forever
+	/// on the same failing account.
+	#[test]
+	fn cursor_advances_across_skipped_vaults() {
+		build_and_execute(|| {
+			set_max_on_idle_items(1);
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 100 * PUSD));
+
+			advance_timestamp(15_000_000);
+
+			// Force `update_vault_fees` to fail for every stale vault.
+			StabilityFee::<Test>::kill();
+
+			Vaults::on_idle(1, Weight::MAX);
+			assert_eq!(
+				OnIdleCursor::<Test>::get(),
+				Some(ALICE),
+				"Cursor should advance past the first skipped vault"
+			);
+
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_none(),
+				"Cursor should clear after later calls progress past skipped vaults"
+			);
+
+			// Restore for try_state validation.
+			StabilityFee::<Test>::put(Permill::from_percent(4));
+			set_max_on_idle_items(u32::MAX);
 		});
 	}
 }

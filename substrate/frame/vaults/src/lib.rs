@@ -225,12 +225,13 @@ pub mod pallet {
 			tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, Restriction},
 			DefensiveSaturating, Time,
 		},
+		transactional,
 		weights::WeightMeter,
 		DefaultNoBound,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{Bounded, Zero},
+		traits::{Bounded, CheckedSub, Zero},
 		FixedPointNumber, FixedPointOperand, FixedU128, Permill, SaturatedConversion, Saturating,
 	};
 	use xcm::latest::Location;
@@ -676,6 +677,8 @@ pub mod pallet {
 		AuctionDebtCollected { amount: BalanceOf<T> },
 		/// Auction completed with principal shortfall; recorded as `BadDebt`.
 		AuctionShortfall { shortfall: BalanceOf<T> },
+		/// Keeper incentive payment could not be paid from the Insurance Fund.
+		KeeperIncentivePaymentFailed { keeper: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -710,6 +713,11 @@ pub mod pallet {
 		///
 		/// This indicates an internal calculation exceeded safe bounds. Try different amounts.
 		ArithmeticOverflow,
+		/// Arithmetic operation underflowed.
+		///
+		/// This indicates inconsistent accounting, such as an auction callback trying to remove
+		/// more liquidation exposure than is currently tracked.
+		ArithmeticUnderflow,
 		/// Vault is sufficiently collateralized and cannot be liquidated.
 		///
 		/// The vault's collateralization ratio is above [`MinimumCollateralizationRatio`].
@@ -765,6 +773,8 @@ pub mod pallet {
 		/// The pallet requires all parameters to be set via migration or governance
 		/// before any operations can proceed.
 		NotConfigured,
+		/// Zero is not a valid value for this parameter.
+		ZeroValueNotAllowed,
 	}
 
 	#[pallet::hooks]
@@ -806,12 +816,15 @@ pub mod pallet {
 				Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(last_key))
 			});
 
+			// Tracks the last vault that consumed an iteration slot. This is the cursor invariant:
+			// once a vault has consumed weight / item budget for this pass, pagination advances
+			// past it even if fee processing later decides to skip or fails.
 			let mut last_processed: Option<T::AccountId> = None;
 			let mut items_processed: u32 = 0;
 			let mut stopped_early = false;
 
 			loop {
-				let Some((owner, mut vault)) = iter.next() else { break };
+				let Some((owner, vault)) = iter.next() else { break };
 
 				// Safety limit: stop if we've processed max items, regardless of weight
 				if items_processed >= max_items {
@@ -826,34 +839,8 @@ pub mod pallet {
 				}
 
 				items_processed = items_processed.saturating_add(1);
-
-				// Only process healthy vaults that are stale.
-				if vault.status == VaultStatus::Healthy {
-					let time_since = current_timestamp.saturating_sub(vault.last_fee_update);
-					if time_since >= stale_threshold {
-						if let Err(e) =
-							Self::update_vault_fees(&mut vault, &owner, Some(current_timestamp))
-						{
-							log::warn!(
-								target: LOG_TARGET,
-								"on_idle: failed to update vault fees for {:?}: {:?}",
-								owner,
-								e
-							);
-							// Skip this vault; will retry next time
-							continue;
-						}
-						log::debug!(
-							target: LOG_TARGET,
-							"on_idle: updated stale vault fees for {:?}, time_since={:?}ms",
-							owner,
-							time_since
-						);
-						Vaults::<T>::insert(&owner, vault);
-					}
-				}
-
-				last_processed = Some(owner);
+				last_processed = Some(owner.clone());
+				Self::process_on_idle_vault(owner, vault, current_timestamp, stale_threshold);
 			}
 
 			// Update cursor based on how we exited
@@ -1249,6 +1236,7 @@ pub mod pallet {
 		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::liquidate_vault())]
+		#[transactional]
 		pub fn liquidate_vault(
 			origin: OriginFor<T>,
 			vault_owner: T::AccountId,
@@ -1773,6 +1761,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(!new_value.is_zero(), Error::<T>::ZeroValueNotAllowed);
 
 			let old_value = MinimumDeposit::<T>::get().unwrap_or_default();
 			MinimumDeposit::<T>::put(new_value);
@@ -1805,6 +1794,7 @@ pub mod pallet {
 		pub fn set_minimum_mint(origin: OriginFor<T>, new_value: BalanceOf<T>) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(!new_value.is_zero(), Error::<T>::ZeroValueNotAllowed);
 
 			let old_value = MinimumMint::<T>::get().unwrap_or_default();
 			MinimumMint::<T>::put(new_value);
@@ -1842,6 +1832,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(!new_value.is_zero(), Error::<T>::ZeroValueNotAllowed);
 
 			let old_value = StaleVaultThreshold::<T>::get().unwrap_or_default();
 			StaleVaultThreshold::<T>::put(new_value);
@@ -1879,6 +1870,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(!new_value.is_zero(), Error::<T>::ZeroValueNotAllowed);
 
 			let old_value = OracleStalenessThreshold::<T>::get().unwrap_or_default();
 			OracleStalenessThreshold::<T>::put(new_value);
@@ -1952,9 +1944,12 @@ pub mod pallet {
 
 			// Reduce CurrentLiquidationAmount by principal paid (tracks solvency risk only)
 			if !payment.principal_paid.is_zero() {
-				CurrentLiquidationAmount::<T>::mutate(|current| {
-					*current = current.saturating_sub(payment.principal_paid);
-				});
+				CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
+					*current = current
+						.checked_sub(&payment.principal_paid)
+						.ok_or(Error::<T>::ArithmeticUnderflow)?;
+					Ok(())
+				})?;
 			}
 
 			Self::deposit_event(Event::AuctionDebtCollected { amount: payment.total() });
@@ -1969,16 +1964,6 @@ pub mod pallet {
 			keeper: &T::AccountId,
 			keeper_incentive: BalanceOf<T>,
 		) -> DispatchResult {
-			// Pay keeper incentive from Insurance Fund
-			if !keeper_incentive.is_zero() {
-				T::Asset::transfer(
-					&T::InsuranceFund::get(),
-					keeper,
-					keeper_incentive,
-					Preservation::Expendable,
-				)?;
-			}
-
 			// Return excess collateral to vault owner
 			if !remaining_collateral.is_zero() {
 				T::Currency::release(
@@ -1991,9 +1976,11 @@ pub mod pallet {
 
 			// Record shortfall as bad debt
 			if !shortfall.is_zero() {
-				CurrentLiquidationAmount::<T>::mutate(|current| {
-					*current = current.saturating_sub(shortfall);
-				});
+				CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
+					*current =
+						current.checked_sub(&shortfall).ok_or(Error::<T>::ArithmeticUnderflow)?;
+					Ok(())
+				})?;
 
 				BadDebt::<T>::mutate(|bad_debt| {
 					bad_debt.saturating_accrue(shortfall);
@@ -2016,6 +2003,29 @@ pub mod pallet {
 
 			Vaults::<T>::remove(vault_owner);
 			Self::deposit_event(Event::VaultClosed { owner: vault_owner.clone() });
+
+			// Keeper rewards are best-effort and must not block liquidation finalization.
+			if !keeper_incentive.is_zero() {
+				if T::Asset::transfer(
+					&T::InsuranceFund::get(),
+					keeper,
+					keeper_incentive,
+					Preservation::Expendable,
+				)
+				.is_err()
+				{
+					log::warn!(
+						target: LOG_TARGET,
+						"Keeper incentive payment failed: keeper={:?}, amount={:?}",
+						keeper,
+						keeper_incentive
+					);
+					Self::deposit_event(Event::KeeperIncentivePaymentFailed {
+						keeper: keeper.clone(),
+						amount: keeper_incentive,
+					});
+				}
+			}
 
 			Ok(())
 		}
@@ -2093,9 +2103,10 @@ pub mod pallet {
 		/// Reduce CurrentLiquidationAmount (simulates debt collection in auction).
 		/// Test-only helper for isolated unit testing.
 		pub fn test_reduce_liquidation_amount(amount: BalanceOf<T>) -> DispatchResult {
-			CurrentLiquidationAmount::<T>::mutate(|current| {
-				*current = current.saturating_sub(amount);
-			});
+			CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
+				*current = current.checked_sub(&amount).ok_or(Error::<T>::ArithmeticUnderflow)?;
+				Ok(())
+			})?;
 			Self::deposit_event(Event::AuctionDebtCollected { amount });
 			Ok(())
 		}
@@ -2107,9 +2118,11 @@ pub mod pallet {
 			shortfall: BalanceOf<T>,
 		) -> DispatchResult {
 			if !shortfall.is_zero() {
-				CurrentLiquidationAmount::<T>::mutate(|current| {
-					*current = current.saturating_sub(shortfall);
-				});
+				CurrentLiquidationAmount::<T>::try_mutate(|current| -> DispatchResult {
+					*current =
+						current.checked_sub(&shortfall).ok_or(Error::<T>::ArithmeticUnderflow)?;
+					Ok(())
+				})?;
 				BadDebt::<T>::mutate(|bad_debt| {
 					bad_debt.saturating_accrue(shortfall);
 				});
@@ -2304,6 +2317,45 @@ pub mod pallet {
 		/// - Writing cursor update (1 write, worst case)
 		pub(crate) fn on_idle_base_weight() -> Weight {
 			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		/// Process one vault during `on_idle`.
+		///
+		/// Only healthy stale vaults are updated. Failures are logged and skipped so the
+		/// cursor can continue progressing across the vault set.
+		pub(crate) fn process_on_idle_vault(
+			owner: T::AccountId,
+			mut vault: Vault<T>,
+			current_timestamp: MomentOf<T>,
+			stale_threshold: MomentOf<T>,
+		) {
+			if vault.status != VaultStatus::Healthy {
+				return;
+			}
+
+			let time_since = current_timestamp.saturating_sub(vault.last_fee_update);
+			if time_since < stale_threshold {
+				return;
+			}
+
+			if let Err(e) = Self::update_vault_fees(&mut vault, &owner, Some(current_timestamp)) {
+				log::warn!(
+					target: LOG_TARGET,
+					"on_idle: failed to update vault fees for {:?}: {:?}",
+					owner,
+					e
+				);
+				// Skip this vault for the current pass; it can be revisited on a later full pass.
+				return;
+			}
+
+			log::debug!(
+				target: LOG_TARGET,
+				"on_idle: updated stale vault fees for {:?}, time_since={:?}ms",
+				owner,
+				time_since
+			);
+			Vaults::<T>::insert(&owner, vault);
 		}
 
 		/// Benchmarked weight to process one stale vault.

@@ -55,6 +55,8 @@ thread_local! {
 	static MOCK_RAW_PRICE: RefCell<Option<FixedU128>> = const { RefCell::new(Some(FixedU128::from_rational(421, 100))) };
 	// Counter for mock auction IDs
 	static MOCK_AUCTION_ID: RefCell<u32> = const { RefCell::new(0) };
+	// Force `start_auction` to fail for liquidation atomicity tests.
+	static FAIL_AUCTION_START: RefCell<bool> = const { RefCell::new(false) };
 	// Timestamp when mock oracle price was last updated (milliseconds since Unix epoch)
 	// Default: 0 (will be set to current timestamp on first price set or in test setup)
 	static MOCK_PRICE_TIMESTAMP: RefCell<u64> = const { RefCell::new(0) };
@@ -72,6 +74,10 @@ impl Get<u32> for MockMaxOnIdleItems {
 
 pub fn set_max_on_idle_items(n: u32) {
 	MAX_ON_IDLE_ITEMS.with(|v| *v.borrow_mut() = n);
+}
+
+pub fn set_mock_auction_start_failure(should_fail: bool) {
+	FAIL_AUCTION_START.with(|v| *v.borrow_mut() = should_fail);
 }
 
 /// Mock Timestamp implementation for testing.
@@ -168,6 +174,10 @@ impl AuctionsHandler<u64, u128> for MockAuctions {
 		_debt: sp_pusd::DebtComponents<u128>,
 		_keeper: u64,
 	) -> Result<u32, DispatchError> {
+		if FAIL_AUCTION_START.with(|v| *v.borrow()) {
+			return Err(DispatchError::Other("mock auction start failure"));
+		}
+
 		let auction_id = MOCK_AUCTION_ID.with(|id| {
 			let mut id = id.borrow_mut();
 			*id += 1;
@@ -409,6 +419,7 @@ pub fn new_test_ext() -> TestState {
 		// Initialize timestamp to a reasonable starting value (e.g., Monday, 1 December 2025
 		// 09:00:00 GMT+01:00)
 		MockTimestamp::set_timestamp(1764576000000);
+		set_mock_auction_start_failure(false);
 		// Reset mock price to default: 1 DOT = 4.21 USD
 		set_mock_price(Some(FixedU128::from_rational(421, 100)));
 	});
