@@ -17,31 +17,31 @@
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{
+	relay_chain,
+	relay_chain::{UMPSignal, UMP_SEPARATOR},
 	BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem, ParaId,
-	ParachainBlockData, PersistedValidationData, relay_chain,
-	relay_chain::{UMP_SEPARATOR, UMPSignal},
+	ParachainBlockData, PersistedValidationData,
 };
 use cumulus_test_client::{
-	BlockData, BlockOrigin, BuildParachainBlockData, Client, DefaultTestClientBuilderExt, HeadData,
-	InitBlockBuilder,
-	Sr25519Keyring::{Alice, Bob, Charlie},
-	TestClientBuilder, TestClientBuilderExt, ValidationParams, generate_extrinsic,
-	generate_extrinsic_with_pair,
+	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
 		self as test_runtime, Block, Hash, Header, SudoCall, SystemCall, TestPalletCall,
 		UncheckedExtrinsic, WASM_BINARY,
 	},
-	seal_block, transfer,
+	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
+	Sr25519Keyring::{Alice, Bob, Charlie},
+	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
-use sp_core::{H256, Hasher};
+use sp_core::{Hasher, H256};
 use sp_runtime::{
-	DigestItem,
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
+	DigestItem,
 };
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
 use std::{env, process::Command};
@@ -214,13 +214,11 @@ fn build_multiple_blocks_with_witness(
 			sproof_builder.clone(),
 			timestamp,
 			ignored_nodes.clone(),
-			Some(vec![
-				CumulusDigestItem::BundleInfo(BundleInfo {
-					index: i as u8,
-					maybe_last: i as u32 + 1 == num_blocks,
-				})
-				.to_digest_item(),
-			]),
+			Some(vec![CumulusDigestItem::BundleInfo(BundleInfo {
+				index: i as u8,
+				maybe_last: i as u32 + 1 == num_blocks,
+			})
+			.to_digest_item()]),
 		);
 
 		persisted_validation_data = Some(p_v_data);
@@ -454,10 +452,8 @@ fn validate_block_invalid_parent_hash() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 
-		assert!(
-			dbg!(String::from_utf8(output.stderr).unwrap())
-				.contains("Parachain head needs to be the parent of the first block")
-		);
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Parachain head needs to be the parent of the first block"));
 	}
 }
 
@@ -484,10 +480,8 @@ fn validate_block_fails_on_invalid_validation_data() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 
-		assert!(
-			dbg!(String::from_utf8(output.stderr).unwrap())
-				.contains("Relay parent storage root doesn't match")
-		);
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Relay parent storage root doesn't match"));
 	}
 }
 
@@ -642,14 +636,12 @@ fn validate_block_handles_ump_signal() {
 		extra_extrinsics,
 		parent_head.clone(),
 		Default::default(),
-		vec![
-			CumulusDigestItem::CoreInfo(CoreInfo {
-				selector: CoreSelector(0),
-				claim_queue_offset: ClaimQueueOffset(0),
-				number_of_cores: 1.into(),
-			})
-			.to_digest_item(),
-		],
+		vec![CumulusDigestItem::CoreInfo(CoreInfo {
+			selector: CoreSelector(0),
+			claim_queue_offset: ClaimQueueOffset(0),
+			number_of_cores: 1.into(),
+		})
+		.to_digest_item()],
 	);
 
 	let upward_messages = call_validate_block_validation_result(
@@ -699,10 +691,8 @@ fn ensure_we_only_like_blockchains() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 
-		assert!(
-			dbg!(String::from_utf8(output.stderr).unwrap())
-				.contains("Not a valid chain of blocks :(")
-		);
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Not a valid chain of blocks :("));
 	}
 }
 
@@ -787,10 +777,8 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 
 		assert!(output.status.success());
 
-		assert!(
-			dbg!(String::from_utf8(output.stderr).unwrap())
-				.contains("only one block per PoV is allowed")
-		);
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("only one block per PoV is allowed"));
 	}
 }
 
@@ -918,7 +906,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 					Some(i),
 				),
 			];
-			
+
 			// Add UMP message of 500 bytes in each block
 			if i < 3 {
 				// Send 500 bytes in blocks 0, 1, 2 (total 1500 bytes)
@@ -929,7 +917,8 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 					Some(i),
 				));
 			}
-			// Block 3: try to send 600 bytes, should be deferred due to size limit (2000 - 1500 = 500 remaining)
+			// Block 3: try to send 600 bytes, should be deferred due to size limit (2000 - 1500 =
+			// 500 remaining)
 			else {
 				extrinsics.push(generate_extrinsic_with_pair(
 					&client,
@@ -938,7 +927,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 					Some(i),
 				));
 			}
-			
+
 			extrinsics
 		},
 	);
@@ -958,11 +947,15 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 
 	// Verify HRMP messages (original assertion)
 	assert_eq!(result.horizontal_messages.len(), max_per_candidate as usize);
-	
+
 	// Verify UMP size enforcement: only 3 messages should be sent (blocks 0, 1, 2)
 	// Block 3's 600 byte message should be deferred because only 500 bytes remain
-	assert_eq!(result.upward_messages.len(), 3, "Expected 3 UMP messages to be sent (block 3's message deferred due to size limit)");
-	
+	assert_eq!(
+		result.upward_messages.len(),
+		3,
+		"Expected 3 UMP messages to be sent (block 3's message deferred due to size limit)"
+	);
+
 	// Verify sizes of sent messages
 	for msg in result.upward_messages.iter() {
 		assert_eq!(msg.len(), 500, "Each sent message should be 500 bytes");

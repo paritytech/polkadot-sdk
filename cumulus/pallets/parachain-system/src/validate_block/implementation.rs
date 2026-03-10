@@ -16,28 +16,28 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{MemoryOptimizedValidationParams, trie_cache, trie_recorder};
+use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 	relay_chain::{
-		BlockNumber as RNumber, Hash as RHash, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR, UMPSignal,
+		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
 	},
+	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
-	BoundedVec,
 	traits::{ExecuteBlock, Get, IsSubType},
+	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{ChildInfo, StateVersion, well_known_keys};
-use sp_externalities::{Externalities, set_and_run_with_externalities};
-use sp_io::{KillStorageResult, hashing::blake2_128};
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
+use sp_externalities::{set_and_run_with_externalities, Externalities};
+use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{EMPTY_PREFIX, HashDBT, ProofSizeProvider};
+use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;

@@ -19,10 +19,10 @@
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::fmt::Debug;
 use cumulus_primitives_core::{
-	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 	relay_chain::{
 		ApprovedPeerId, BlockNumber as RelayChainBlockNumber, BlockNumber, Header as RelayHeader,
 	},
+	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::{HashedMessage, ParachainInherentData};
 use frame_support::{
@@ -30,7 +30,7 @@ use frame_support::{
 	pallet_prelude::{Decode, DecodeWithMemTracking, Encode},
 };
 use scale_info::TypeInfo;
-use sp_core::{Get, bounded::BoundedSlice};
+use sp_core::{bounded::BoundedSlice, Get};
 
 /// A structure that helps identify a message inside a collection of messages sorted by `sent_at`.
 ///

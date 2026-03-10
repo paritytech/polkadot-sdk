@@ -21,12 +21,12 @@
 //! sent to relay chain.
 
 use super::relay_state_snapshot::{MessagingStateSnapshot, RelayDispatchQueueRemainingCapacity};
-use Debug;
 use alloc::collections::btree_map::BTreeMap;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use cumulus_primitives_core::{ParaId, relay_chain};
+use cumulus_primitives_core::{relay_chain, ParaId};
 use scale_info::TypeInfo;
+use Debug;
 
 /// Constraints on outbound HRMP channel.
 #[derive(Clone, Debug)]

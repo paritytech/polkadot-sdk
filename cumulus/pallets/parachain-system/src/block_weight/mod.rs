@@ -67,11 +67,11 @@ use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use cumulus_primitives_core::CumulusDigestItem;
 use frame_support::{
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 	CloneNoBound, DebugNoBound,
-	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{MAX_POV_SIZE, executor_params::DEFAULT_BACKING_EXECUTION_TIMEOUT};
+use polkadot_primitives::{executor_params::DEFAULT_BACKING_EXECUTION_TIMEOUT, MAX_POV_SIZE};
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::Digest;

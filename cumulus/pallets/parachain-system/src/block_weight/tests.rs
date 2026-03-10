@@ -31,8 +31,8 @@ use frame_system::{CheckWeight, RawOrigin as SystemOrigin};
 use polkadot_primitives::MAX_POV_SIZE;
 use sp_core::ConstU32;
 use sp_runtime::{
-	Digest,
 	traits::{DispatchTransaction, Header, TransactionExtension},
+	Digest,
 };
 
 type TxExtension =
@@ -802,14 +802,12 @@ fn executive_validate_block_handles_operational_transactions() {
 				ExtrinsicOnlyOperational::new_bare(call)
 			};
 
-			assert!(
-				ExecutiveOnlyOperational::validate_transaction(
-					TransactionSource::External,
-					xt,
-					Default::default()
-				)
-				.is_ok()
-			);
+			assert!(ExecutiveOnlyOperational::validate_transaction(
+				TransactionSource::External,
+				xt,
+				Default::default()
+			)
+			.is_ok());
 		});
 	}
 }
@@ -975,13 +973,11 @@ fn executive_validate_transaction_respects_dispatch_class_max_block_size() {
 
 	for signed in [true, false] {
 		TestExtBuilder::new().previous_core_count(4).build().execute_with(|| {
-			assert!(
-				<RuntimeOnlyOperational as frame_system::Config>::BlockWeights::get()
-					.get(DispatchClass::Normal)
-					.max_total
-					.unwrap()
-					.all_lt(call_weight)
-			);
+			assert!(<RuntimeOnlyOperational as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap()
+				.all_lt(call_weight));
 			assert!(MaximumBlockWeight::target_block_weight().all_gt(call_weight));
 
 			let call =

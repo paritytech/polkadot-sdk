@@ -15,8 +15,8 @@
 // limitations under the License.
 
 use super::{
-	BlockWeightMode, FULL_CORE_WEIGHT, LOG_TARGET, MaxParachainBlockWeight,
 	block_weight_over_target_block_weight, inside_pre_validate, is_first_block_in_core_with_digest,
+	BlockWeightMode, MaxParachainBlockWeight, FULL_CORE_WEIGHT, LOG_TARGET,
 };
 use crate::WeightInfo;
 use alloc::vec::Vec;
@@ -32,8 +32,8 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	DispatchResult,
 	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
+	DispatchResult,
 };
 
 /// Transaction extension that dynamically changes the max block weight.
@@ -108,12 +108,12 @@ impl<T, S, TargetBlockRate, const MAX_TRANSACTION_TO_CONSIDER: u32, const ALLOW_
 }
 
 impl<
-	Config,
-	Inner,
-	TargetBlockRate,
-	const MAX_TRANSACTION_TO_CONSIDER: u32,
-	const ALLOW_NORMAL: bool,
-> DynamicMaxBlockWeight<Config, Inner, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ALLOW_NORMAL>
+		Config,
+		Inner,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ALLOW_NORMAL: bool,
+	> DynamicMaxBlockWeight<Config, Inner, TargetBlockRate, MAX_TRANSACTION_TO_CONSIDER, ALLOW_NORMAL>
 where
 	Config: crate::Config,
 	TargetBlockRate: Get<u32>,
@@ -363,12 +363,12 @@ where
 }
 
 impl<
-	Config,
-	Inner,
-	TargetBlockRate,
-	const MAX_TRANSACTION_TO_CONSIDER: u32,
-	const ALLOW_NORMAL: bool,
-> From<Inner>
+		Config,
+		Inner,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ALLOW_NORMAL: bool,
+	> From<Inner>
 	for DynamicMaxBlockWeight<
 		Config,
 		Inner,
@@ -383,12 +383,12 @@ impl<
 }
 
 impl<
-	Config,
-	Inner: core::fmt::Debug,
-	TargetBlockRate,
-	const MAX_TRANSACTION_TO_CONSIDER: u32,
-	const ALLOW_NORMAL: bool,
-> core::fmt::Debug
+		Config,
+		Inner: core::fmt::Debug,
+		TargetBlockRate,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ALLOW_NORMAL: bool,
+	> core::fmt::Debug
 	for DynamicMaxBlockWeight<
 		Config,
 		Inner,
@@ -403,12 +403,12 @@ impl<
 }
 
 impl<
-	Config: crate::Config + Send + Sync,
-	Inner: TransactionExtension<Config::RuntimeCall>,
-	TargetBlockRate: Get<u32> + Send + Sync + 'static,
-	const MAX_TRANSACTION_TO_CONSIDER: u32,
-	const ALLOW_NORMAL: bool,
-> TransactionExtension<Config::RuntimeCall>
+		Config: crate::Config + Send + Sync,
+		Inner: TransactionExtension<Config::RuntimeCall>,
+		TargetBlockRate: Get<u32> + Send + Sync + 'static,
+		const MAX_TRANSACTION_TO_CONSIDER: u32,
+		const ALLOW_NORMAL: bool,
+	> TransactionExtension<Config::RuntimeCall>
 	for DynamicMaxBlockWeight<
 		Config,
 		Inner,

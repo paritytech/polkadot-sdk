@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use super::{
-	BlockWeightMode, LOG_TARGET, block_weight_over_target_block_weight, is_first_block_in_core,
+	block_weight_over_target_block_weight, is_first_block_in_core, BlockWeightMode, LOG_TARGET,
 };
 use crate::block_weight::FULL_CORE_WEIGHT;
 use cumulus_primitives_core::CumulusDigestItem;

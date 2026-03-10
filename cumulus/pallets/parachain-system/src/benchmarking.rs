@@ -22,12 +22,12 @@
 use super::*;
 use crate::{
 	block_weight::{
-		BlockWeightMode, DynamicMaxBlockWeight, FULL_CORE_WEIGHT, MaxParachainBlockWeight,
+		BlockWeightMode, DynamicMaxBlockWeight, MaxParachainBlockWeight, FULL_CORE_WEIGHT,
 	},
 	parachain_inherent::InboundDownwardMessages,
 };
 use cumulus_primitives_core::{
-	BundleInfo, CoreInfo, InboundDownwardMessage, relay_chain::Hash as RelayHash,
+	relay_chain::Hash as RelayHash, BundleInfo, CoreInfo, InboundDownwardMessage,
 };
 use frame_benchmarking::v2::*;
 use frame_support::{
