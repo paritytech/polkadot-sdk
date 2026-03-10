@@ -102,7 +102,7 @@ impl Candidates {
 
 		match entry {
 			CandidateState::Confirmed(ref c) => {
-				if c.relay_parent() != claimed_relay_parent {
+				if c.scheduling_parent() != claimed_relay_parent {
 					return Err(BadAdvertisement);
 				}
 
@@ -337,7 +337,7 @@ impl Candidates {
 		};
 		self.candidates.retain(|c_hash, state| match state {
 			CandidateState::Confirmed(ref mut c) => {
-				if !relay_parent_live(&c.relay_parent()) {
+				if !relay_parent_live(&c.scheduling_parent()) {
 					remove_parent_claims(*c_hash, c.parent_head_data_hash(), c.para_id());
 					false
 				} else {
@@ -531,8 +531,8 @@ pub struct ConfirmedCandidate {
 
 impl ConfirmedCandidate {
 	/// Get the relay-parent of the candidate.
-	pub fn relay_parent(&self) -> Hash {
-		self.receipt.descriptor.relay_parent()
+	pub fn scheduling_parent(&self) -> Hash {
+		self.receipt.descriptor.scheduling_parent()
 	}
 
 	/// Get the para-id of the candidate.

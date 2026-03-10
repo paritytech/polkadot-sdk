@@ -738,8 +738,8 @@ pub mod v3 {
 	/// of the statements backing it.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub struct BackedCandidateManifest {
-		/// The relay-parent of the candidate.
-		pub relay_parent: Hash,
+		/// The scheduling-parent of the candidate.
+		pub scheduling_parent: Hash,
 		/// The hash of the candidate.
 		pub candidate_hash: CandidateHash,
 		/// The group index backing the candidate at the relay-parent.
