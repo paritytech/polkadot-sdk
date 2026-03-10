@@ -15,7 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A module that is responsible for migration of storage for the configuration pallet.
-//! v12 -> v13: Added `max_relay_parent_session_age` field to `SchedulerParams`.
+//! v12 -> v13: Added `max_relay_parent_session_age` field to `SchedulerParams` and removed `ttl`
+//! and `max_availability_timeouts`.
 
 use crate::configuration::{self, Config, Pallet};
 use alloc::vec::Vec;
@@ -237,19 +238,16 @@ fn migrate_to_v13<T: Config>() -> Weight {
 					minimum_backing_votes                    : pre.minimum_backing_votes,
 					node_features                            : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
-					#[allow(deprecated)]
 					scheduler_params: SchedulerParams {
 							group_rotation_frequency             : pre.scheduler_params.group_rotation_frequency,
 							paras_availability_period            : pre.scheduler_params.paras_availability_period,
 							max_validators_per_core              : pre.scheduler_params.max_validators_per_core,
 							lookahead                            : pre.scheduler_params.lookahead,
 							num_cores                            : pre.scheduler_params.num_cores,
-							max_availability_timeouts            : pre.scheduler_params.max_availability_timeouts,
 							on_demand_queue_max_size             : pre.scheduler_params.on_demand_queue_max_size,
 							on_demand_target_queue_utilization   : pre.scheduler_params.on_demand_target_queue_utilization,
 							on_demand_fee_variability            : pre.scheduler_params.on_demand_fee_variability,
 							on_demand_base_fee                   : pre.scheduler_params.on_demand_base_fee,
-							ttl                                  : pre.scheduler_params.ttl,
 							// New field: default to 0 (only allowing backing of candidates with relay parent in the current session).
 							max_relay_parent_session_age         : 0,
 					}
@@ -343,12 +341,10 @@ mod tests {
 					assert_eq!(v12.scheduler_params.max_validators_per_core , v13.scheduler_params.max_validators_per_core);
 					assert_eq!(v12.scheduler_params.lookahead               , v13.scheduler_params.lookahead);
 					assert_eq!(v12.scheduler_params.num_cores               , v13.scheduler_params.num_cores);
-					assert_eq!(v12.scheduler_params.max_availability_timeouts, v13.scheduler_params.max_availability_timeouts);
 					assert_eq!(v12.scheduler_params.on_demand_queue_max_size, v13.scheduler_params.on_demand_queue_max_size);
 					assert_eq!(v12.scheduler_params.on_demand_target_queue_utilization, v13.scheduler_params.on_demand_target_queue_utilization);
 					assert_eq!(v12.scheduler_params.on_demand_fee_variability, v13.scheduler_params.on_demand_fee_variability);
 					assert_eq!(v12.scheduler_params.on_demand_base_fee      , v13.scheduler_params.on_demand_base_fee);
-					assert_eq!(v12.scheduler_params.ttl                     , v13.scheduler_params.ttl);
 					// New field should default to zero.
 					assert_eq!(v13.scheduler_params.max_relay_parent_session_age, 0);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.

@@ -316,19 +316,16 @@ fn setting_pending_config_members() {
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-			#[allow(deprecated)]
 			scheduler_params: SchedulerParams {
 				group_rotation_frequency: 20,
 				paras_availability_period: 10,
 				max_validators_per_core: None,
 				lookahead: 3,
 				num_cores: 2,
-				max_availability_timeouts: 0,
 				on_demand_queue_max_size: 10_000u32,
 				on_demand_base_fee: 10_000_000u128,
 				on_demand_fee_variability: Perbill::from_percent(3),
 				on_demand_target_queue_utilization: Perbill::from_percent(25),
-				ttl: 5u32,
 				max_relay_parent_session_age: 5,
 			},
 		};

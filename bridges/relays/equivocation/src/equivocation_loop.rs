@@ -109,11 +109,12 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 				self.finality_proofs_buf.fill(&mut self.finality_proofs_stream);
 				let block_checker = BlockChecker::new(current_block_number);
 				let _ = block_checker
-					.run(
+					.run_with_retry(
 						&mut self.source_client,
 						&mut self.target_client,
 						&mut self.finality_proofs_buf,
 						&mut self.reporter,
+						(5, tick),
 					)
 					.await;
 				current_block_number = current_block_number.saturating_add(1.into());

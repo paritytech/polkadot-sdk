@@ -86,10 +86,6 @@ pub struct SchedulerParams<BlockNumber> {
 	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
 	pub num_cores: u32,
-	/// Deprecated and no longer used by the runtime.
-	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
-	#[deprecated]
-	pub max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
 	pub on_demand_queue_max_size: u32,
 	/// The target utilization of the spot price queue in percentages.
@@ -99,10 +95,6 @@ pub struct SchedulerParams<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// Deprecated and no longer used by the runtime.
-	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
-	#[deprecated]
-	pub ttl: BlockNumber,
 	/// The maximum session age of a relay parent that a parachain block can build upon.
 	pub max_relay_parent_session_age: u32,
 }
@@ -116,12 +108,10 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 			max_validators_per_core: Default::default(),
 			lookahead: 1,
 			num_cores: Default::default(),
-			max_availability_timeouts: Default::default(),
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_base_fee: 10_000_000u128,
-			ttl: 5u32.into(),
 			max_relay_parent_session_age: 0,
 		}
 	}
