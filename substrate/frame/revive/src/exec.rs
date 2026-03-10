@@ -2500,10 +2500,14 @@ where
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 
+		let contract_address = T::AddressMapper::to_address(&parent.account_id);
+
+		// EIP-7702: delegated EOAs cannot be destroyed via the system precompile
+		ensure!(!AccountInfo::<T>::is_delegated(&contract_address), Error::<T>::ContractNotFound);
+
 		let info = parent.contract_info();
 		let trie_id = info.trie_id.clone();
 		let code_hash = info.code_hash;
-		let contract_address = T::AddressMapper::to_address(&parent.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
 		let parent_account_id = parent.account_id.clone();

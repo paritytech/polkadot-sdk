@@ -51,7 +51,7 @@ fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
 /// Common setup for delegation tests that call `process_authorizations` directly.
 pub struct DelegationTestSetup {
 	pub signer: TestSigner,
-	authority_id: AccountId32,
+	pub authority_id: AccountId32,
 	origin: AccountId32,
 	exec_config: ExecConfig<Test>,
 	chain_id: U256,
@@ -111,33 +111,26 @@ impl DelegationTestSetup {
 }
 
 #[test]
-fn clear_delegation_restores_eoa() {
-	ExtBuilder::default().build().execute_with(|| {
-		let authority = H160::from([0x11; 20]);
-		let target = H160::from([0x22; 20]);
-
-		AccountInfo::<Test>::set_delegation(&authority, target);
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
-
-		AccountInfo::<Test>::clear_delegation(&authority);
-		assert!(!AccountInfo::<Test>::is_delegated(&authority));
-	});
-}
-
-#[test]
-fn delegation_can_be_updated() {
+fn delegation_storage_basics() {
 	ExtBuilder::default().build().execute_with(|| {
 		let authority = H160::from([0x11; 20]);
 		let target1 = H160::from([0x22; 20]);
 		let target2 = H160::from([0x33; 20]);
 
+		// Set delegation
 		AccountInfo::<Test>::set_delegation(&authority, target1);
+		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target1));
 
+		// Update to different target
 		AccountInfo::<Test>::set_delegation(&authority, target2);
+		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target2));
 
-		assert!(AccountInfo::<Test>::is_delegated(&authority));
+		// Clear delegation
+		AccountInfo::<Test>::clear_delegation(&authority);
+		assert!(!AccountInfo::<Test>::is_delegated(&authority));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
 	});
 }
 
@@ -157,111 +150,85 @@ fn regular_contract_is_not_delegation() {
 }
 
 #[test]
-fn eip3607_allows_delegated_accounts_to_originate_transactions() {
-	ExtBuilder::default().build().execute_with(|| {
-		let authority = H160::from([0x11; 20]);
-		let target = H160::from([0x22; 20]);
-
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-
-		AccountInfo::<Test>::set_delegation(&authority, target);
-
-		let origin = RuntimeOrigin::signed(authority_id.clone());
-		assert_ok!(Contracts::ensure_non_contract_if_signed(&origin));
-	});
-}
-
-#[test]
-fn eip3607_rejects_regular_contract_originating_transactions() {
+fn eip3607_checks() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 1_000_000_000);
-		let bytecode = dummy_evm_contract();
 
+		// Delegated EOAs are allowed to originate transactions
+		let authority = H160::from([0x11; 20]);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
+		AccountInfo::<Test>::set_delegation(&authority, H160::from([0x22; 20]));
+		assert_ok!(Contracts::ensure_non_contract_if_signed(&RuntimeOrigin::signed(authority_id)));
+
+		// Regular contracts are rejected
 		let Contract { account_id, .. } =
-			builder::bare_instantiate(Code::Upload(bytecode)).build_and_unwrap_contract();
-
-		let origin = RuntimeOrigin::signed(account_id);
-		assert!(Contracts::ensure_non_contract_if_signed(&origin).is_err());
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+		assert!(
+			Contracts::ensure_non_contract_if_signed(&RuntimeOrigin::signed(account_id)).is_err()
+		);
 	});
 }
 
 #[test]
-fn valid_signature_is_verified_correctly() {
+fn authorization_happy_path() {
 	ExtBuilder::default().build().execute_with(|| {
-		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
+		let existing_one = AuthorizationResult {
+			existing_accounts: 1,
+			new_accounts: 0,
+			deposit: 0,
+			weight_refund: expected_weight_refund(0, 1),
+		};
 
+		// Valid signature → delegated, nonce incremented
+		let setup = DelegationTestSetup::new([1u8; 32]);
+		let nonce_before = frame_system::Pallet::<Test>::account_nonce(&setup.authority_id);
 		let auth = setup.sign_authorization(target);
-
+		assert_eq!(setup.process(&[auth]), existing_one);
+		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 		assert_eq!(
-			setup.process(&[auth]),
-			AuthorizationResult {
-				existing_accounts: 1,
-				new_accounts: 0,
-				deposit: 0,
-				weight_refund: expected_weight_refund(0, 1)
-			},
+			frame_system::Pallet::<Test>::account_nonce(&setup.authority_id),
+			nonce_before + 1
 		);
 
+		// chain_id = 0 (wildcard) is accepted
+		let setup = DelegationTestSetup::new([2u8; 32]);
+		let auth = setup.signer.sign_authorization(U256::zero(), target, setup.nonce());
+		assert_eq!(setup.process(&[auth]), existing_one);
 		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 	});
 }
 
 #[test]
-fn invalid_chain_id_rejects_authorization() {
+fn invalid_authorization_is_skipped() {
 	ExtBuilder::default().build().execute_with(|| {
-		let setup = DelegationTestSetup::new([1u8; 32]);
 		let target = H160::from([0x42; 20]);
+		let skipped = AuthorizationResult {
+			existing_accounts: 0,
+			new_accounts: 0,
+			deposit: 0,
+			weight_refund: expected_weight_refund_for(1, 0, 0),
+		};
 
+		// Wrong chain_id
+		let setup = DelegationTestSetup::new([1u8; 32]);
 		let auth = setup.signer.sign_authorization(U256::from(999), target, setup.nonce());
-
-		// Authorization with wrong chain_id should be skipped (not error)
-		assert_eq!(
-			setup.process(&[auth]),
-			AuthorizationResult {
-				existing_accounts: 0,
-				new_accounts: 0,
-				deposit: 0,
-				weight_refund: expected_weight_refund_for(1, 0, 0)
-			}
-		);
-
+		assert_eq!(setup.process(&[auth]), skipped);
 		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
-	});
-}
 
-#[test]
-fn nonce_mismatch_rejects_authorization() {
-	ExtBuilder::default().build().execute_with(|| {
-		let setup = DelegationTestSetup::new([1u8; 32]);
-		let target = H160::from([0x42; 20]);
-
+		// Wrong nonce
+		let setup = DelegationTestSetup::new([2u8; 32]);
 		let wrong_nonce = setup.nonce().saturating_add(U256::from(1));
 		let auth = setup.signer.sign_authorization(setup.chain_id, target, wrong_nonce);
-
-		// Authorization with wrong nonce should be skipped (not error)
-		assert_eq!(
-			setup.process(&[auth]),
-			AuthorizationResult {
-				existing_accounts: 0,
-				new_accounts: 0,
-				deposit: 0,
-				weight_refund: expected_weight_refund_for(1, 0, 0)
-			}
-		);
-
+		assert_eq!(setup.process(&[auth]), skipped);
 		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
-	});
-}
 
-#[test]
-fn corrupted_signature_rejects_authorization() {
-	ExtBuilder::default().build().execute_with(|| {
-		let setup = DelegationTestSetup::new([1u8; 32]);
-		let target = H160::from([0x42; 20]);
-
+		// Corrupted signature
+		let setup = DelegationTestSetup::new([3u8; 32]);
 		let auth = AuthorizationListEntry {
 			chain_id: setup.chain_id,
 			address: target,
@@ -270,17 +237,7 @@ fn corrupted_signature_rejects_authorization() {
 			r: U256::from(0xdeadbeef_u64),
 			s: U256::from(0xcafebabe_u64),
 		};
-
-		assert_eq!(
-			setup.process(&[auth]),
-			AuthorizationResult {
-				existing_accounts: 0,
-				new_accounts: 0,
-				deposit: 0,
-				weight_refund: expected_weight_refund_for(1, 0, 0)
-			}
-		);
-
+		assert_eq!(setup.process(&[auth]), skipped);
 		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
 	});
 }
@@ -362,56 +319,6 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 			AccountInfo::<Test>::get_delegation_target(&setup.signer.address),
 			Some(target1)
 		);
-	});
-}
-
-#[test]
-fn authorization_increments_nonce() {
-	ExtBuilder::default().build().execute_with(|| {
-		let setup = DelegationTestSetup::new([1u8; 32]);
-		let target = H160::from([0x42; 20]);
-
-		let nonce_before = frame_system::Pallet::<Test>::account_nonce(&setup.authority_id);
-		let auth =
-			setup
-				.signer
-				.sign_authorization(setup.chain_id, target, U256::from(nonce_before));
-
-		assert_eq!(
-			setup.process(&[auth]),
-			AuthorizationResult {
-				existing_accounts: 1,
-				new_accounts: 0,
-				deposit: 0,
-				weight_refund: expected_weight_refund(0, 1)
-			},
-		);
-
-		let nonce_after = frame_system::Pallet::<Test>::account_nonce(&setup.authority_id);
-		assert_eq!(nonce_after, nonce_before + 1);
-	});
-}
-
-#[test]
-fn chain_id_zero_accepts_any_chain() {
-	ExtBuilder::default().build().execute_with(|| {
-		let setup = DelegationTestSetup::new([1u8; 32]);
-		let target = H160::from([0x42; 20]);
-
-		let auth = setup.signer.sign_authorization(U256::zero(), target, setup.nonce());
-
-		assert_eq!(
-			setup.process(&[auth]),
-			AuthorizationResult {
-				existing_accounts: 1,
-				new_accounts: 0,
-				deposit: 0,
-				weight_refund: expected_weight_refund(0, 1)
-			},
-		);
-
-		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 	});
 }
 
@@ -504,11 +411,8 @@ fn process_multiple_authorizations_from_different_signers() {
 	});
 }
 
-/// Runtime test: Set and clear authorization via eth_call
-///
-/// This test verifies that an EOA can delegate to a contract via EIP-7702
-/// authorization list, and then clear its delegation by setting the
-/// authorization address to 0x0 (zero address).
+/// Runtime test: Set and clear authorization via eth_call.
+/// Verifies delegation state, nonce increment, and deposit lifecycle.
 #[test]
 fn test_runtime_set_and_clear_authorization() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -530,30 +434,39 @@ fn test_runtime_set_and_clear_authorization() {
 		// Set delegation
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth1 = signer.sign_authorization(chain_id, target_contract.addr, nonce);
-		let result1 = builder::eth_call(target_contract.addr)
-			.authorization_list(vec![auth1])
-			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-			.build();
-		assert_ok!(result1);
+		assert_ok!(
+			builder::eth_call(target_contract.addr)
+				.authorization_list(vec![auth1])
+				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
+				.build()
+		);
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(
 			AccountInfo::<Test>::get_delegation_target(&authority),
 			Some(target_contract.addr)
 		);
 		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&authority_id), 1);
+		let hold_after_set =
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
+		assert!(hold_after_set > 0, "deposit should be held after delegation");
 
 		// Clear delegation via zero address
 		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
-		let result2 = builder::eth_call(target_contract.addr)
-			.authorization_list(vec![auth2])
-			.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-			.build();
-		assert_ok!(result2);
-
+		assert_ok!(
+			builder::eth_call(target_contract.addr)
+				.authorization_list(vec![auth2])
+				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
+				.build()
+		);
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
 		assert!(!AccountInfo::<Test>::is_contract(&authority));
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
+			0,
+			"deposit should be fully released"
+		);
 	});
 }
 
@@ -999,9 +912,9 @@ fn selfdestruct_on_delegated_account() {
 	});
 }
 
-/// Delegating to a contract charges a storage base deposit (held on the authority).
+/// Delegating to a contract charges a storage deposit; clearing refunds it.
 #[test]
-fn delegation_charges_storage_deposit() {
+fn delegation_deposit_lifecycle() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 
@@ -1009,45 +922,26 @@ fn delegation_charges_storage_deposit() {
 			.build_and_unwrap_contract();
 
 		let setup = DelegationTestSetup::new([0xCC; 32]);
-		let hold_before =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
-		assert_eq!(hold_before, 0);
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
+			0
+		);
 
+		// Set delegation → deposit charged
 		setup.authorize(target.addr);
-
-		let hold_after =
+		let hold =
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
-		assert!(hold_after > 0, "should have a storage deposit hold after delegation");
+		assert!(hold > 0, "should have a storage deposit hold after delegation");
+		assert_eq!(hold, get_contract(&setup.signer.address).storage_base_deposit());
 
-		let contract_info = get_contract(&setup.signer.address);
-		assert_eq!(hold_after, contract_info.storage_base_deposit());
-	});
-}
-
-/// Clearing a delegation refunds the storage base deposit.
-#[test]
-fn clear_delegation_refunds_storage_deposit() {
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
-
-		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
-			.build_and_unwrap_contract();
-
-		let setup = DelegationTestSetup::new([0xDD; 32]);
-		setup.authorize(target.addr);
-
-		let hold_after_set =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
-		assert!(hold_after_set > 0);
-
-		// Clear delegation (address = zero)
+		// Clear delegation → deposit refunded
 		let auth = setup.sign_authorization(H160::zero());
 		setup.process(&[auth]);
-
-		let hold_after_clear =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
-		assert_eq!(hold_after_clear, 0, "hold should be fully released after clearing delegation");
-
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
+			0,
+			"hold should be fully released after clearing delegation"
+		);
 		assert!(get_contract_checked(&setup.signer.address).is_none());
 	});
 }
@@ -1087,6 +981,7 @@ fn redelegation_adjusts_deposit() {
 }
 
 /// Delegation to a contract increments its code refcount; clearing decrements it.
+/// Re-delegation to the same target does not change the refcount.
 #[test]
 fn delegation_manages_code_refcount() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1098,21 +993,19 @@ fn delegation_manages_code_refcount() {
 		let code_hash = get_contract(&target.addr).code_hash;
 		let refcount_before = CodeInfoOf::<Test>::get(code_hash).unwrap().refcount();
 
-		// Delegate authority → target
 		let authority = H160::from([0x11; 20]);
+
+		// Set delegation → refcount++
 		AccountInfo::<Test>::set_delegation(&authority, target.addr);
+		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before + 1);
 
-		let refcount_after_set = CodeInfoOf::<Test>::get(code_hash).unwrap().refcount();
-		assert_eq!(refcount_after_set, refcount_before + 1, "delegation should increment refcount");
+		// Re-delegate to same target → refcount unchanged
+		AccountInfo::<Test>::set_delegation(&authority, target.addr);
+		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before + 1);
 
-		// Clear delegation
+		// Clear delegation → refcount--
 		AccountInfo::<Test>::clear_delegation(&authority);
-
-		let refcount_after_clear = CodeInfoOf::<Test>::get(code_hash).unwrap().refcount();
-		assert_eq!(
-			refcount_after_clear, refcount_before,
-			"clearing delegation should decrement refcount"
-		);
+		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before);
 	});
 }
 
@@ -1251,33 +1144,6 @@ fn delegation_to_eoa_has_no_deposit() {
 	});
 }
 
-/// Delegating to a contract and then to a plain EOA refunds the deposit.
-#[test]
-fn redelegation_from_contract_to_eoa_refunds() {
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
-
-		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
-			.build_and_unwrap_contract();
-
-		let setup = DelegationTestSetup::new([0xAA; 32]);
-		setup.authorize(target.addr);
-
-		let hold_after_contract =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
-		assert!(hold_after_contract > 0);
-
-		// Re-delegate to a plain EOA (no code)
-		let plain_eoa = H160::from([0x77; 20]);
-		let auth = setup.sign_authorization(plain_eoa);
-		setup.process(&[auth]);
-
-		let hold_after_eoa =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id);
-		assert_eq!(hold_after_eoa, 0, "deposit should be refunded when re-delegating to EOA");
-	});
-}
-
 /// Multiple delegations from different authorities to the same contract each get their own deposit.
 #[test]
 fn multiple_delegations_each_have_own_deposit() {
@@ -1307,78 +1173,5 @@ fn multiple_delegations_each_have_own_deposit() {
 		assert_eq!(ci_a.storage_base_deposit(), ci_b.storage_base_deposit());
 		// But different trie_ids (storage is per-delegator)
 		assert_ne!(ci_a.child_trie_info(), ci_b.child_trie_info());
-	});
-}
-
-/// Re-delegation to the same target does not change the refcount.
-#[test]
-fn redelegation_to_same_target_keeps_refcount() {
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
-
-		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
-			.build_and_unwrap_contract();
-		let code_hash = get_contract(&target.addr).code_hash;
-
-		let authority = H160::from([0x11; 20]);
-
-		AccountInfo::<Test>::set_delegation(&authority, target.addr);
-		let refcount_after_first = CodeInfoOf::<Test>::get(code_hash).unwrap().refcount();
-
-		// Re-delegate to the same target
-		AccountInfo::<Test>::set_delegation(&authority, target.addr);
-		let refcount_after_second = CodeInfoOf::<Test>::get(code_hash).unwrap().refcount();
-
-		assert_eq!(
-			refcount_after_second, refcount_after_first,
-			"re-delegation to same target should not change refcount"
-		);
-	});
-}
-
-/// Full round-trip via runtime: set delegation → verify deposit → clear → verify refund.
-#[test]
-fn runtime_delegation_deposit_roundtrip() {
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
-		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
-
-		let target = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
-			.build_and_unwrap_contract();
-
-		let chain_id = U256::from(<Test as Config>::ChainId::get());
-		let seed = H256::from([0xBB; 32]);
-		let signer = TestSigner::new(&seed.0);
-		let authority = signer.address;
-		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
-
-		// Set delegation via eth_call
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth = signer.sign_authorization(chain_id, target.addr, nonce);
-		assert_ok!(
-			builder::eth_call(target.addr)
-				.authorization_list(vec![auth])
-				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-				.build()
-		);
-
-		let hold_after_set =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
-		assert!(hold_after_set > 0, "deposit should be held after delegation");
-
-		// Clear delegation via eth_call (zero address)
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
-		let auth = signer.sign_authorization(chain_id, H160::zero(), nonce);
-		assert_ok!(
-			builder::eth_call(target.addr)
-				.authorization_list(vec![auth])
-				.eth_gas_limit(crate::test_utils::ETH_GAS_LIMIT.into())
-				.build()
-		);
-
-		let hold_after_clear =
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id);
-		assert_eq!(hold_after_clear, 0, "deposit should be fully released");
 	});
 }
