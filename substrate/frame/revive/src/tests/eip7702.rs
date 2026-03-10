@@ -33,9 +33,12 @@ use sp_core::{H160, H256, U256};
 
 /// Compute the expected weight refund for a given mix of new/existing processed accounts.
 /// Mirrors the logic in `process_authorizations`.
-fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
+fn expected_weight_refund_for(
+	total: u32,
+	new_accounts: u32,
+	existing_accounts: u32,
+) -> Weight {
 	use crate::weights::WeightInfo;
-	let total = new_accounts + existing_accounts;
 	let worst = <Test as Config>::WeightInfo::process_new_account_authorization(total)
 		.saturating_add(<Test as Config>::WeightInfo::process_existing_account_authorization(0));
 	let actual = <Test as Config>::WeightInfo::process_new_account_authorization(new_accounts)
@@ -43,6 +46,10 @@ fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
 			existing_accounts,
 		));
 	worst.saturating_sub(actual)
+}
+
+fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
+	expected_weight_refund_for(new_accounts + existing_accounts, new_accounts, existing_accounts)
 }
 
 /// Common setup for delegation tests that call `process_authorizations` directly.
@@ -202,7 +209,7 @@ fn invalid_chain_id_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: expected_weight_refund(0, 0)
+				weight_refund: expected_weight_refund_for(1, 0, 0)
 			}
 		);
 
@@ -226,7 +233,7 @@ fn nonce_mismatch_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: expected_weight_refund(0, 0)
+				weight_refund: expected_weight_refund_for(1, 0, 0)
 			}
 		);
 
@@ -255,7 +262,7 @@ fn corrupted_signature_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: expected_weight_refund(0, 0)
+				weight_refund: expected_weight_refund_for(1, 0, 0)
 			}
 		);
 
@@ -298,7 +305,7 @@ fn contract_account_rejects_authorization() {
 				existing_accounts: 0,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: expected_weight_refund(0, 0)
+				weight_refund: expected_weight_refund_for(1, 0, 0)
 			}
 		);
 
@@ -330,7 +337,7 @@ fn multiple_authorizations_from_same_authority_first_wins() {
 				existing_accounts: 1,
 				new_accounts: 0,
 				deposit: 0,
-				weight_refund: expected_weight_refund(0, 1)
+				weight_refund: expected_weight_refund_for(3, 0, 1)
 			},
 		);
 

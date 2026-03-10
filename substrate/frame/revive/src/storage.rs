@@ -19,7 +19,7 @@
 
 use crate::{
 	AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfoOf, Config, DeletionQueue,
-	DeletionQueueCounter, Error, SENTINEL, TrieId,
+	DeletionQueueCounter, Error, LOG_TARGET, SENTINEL, TrieId,
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
@@ -212,7 +212,13 @@ impl<T: Config> AccountInfo<T> {
 						*contract_info = contract;
 						return;
 					},
-					_ => account.account_type = contract.into(),
+					ty => {
+					debug_assert!(
+						!matches!(ty, AccountType::EOA),
+						"insert_contract called on an EOA account"
+					);
+					account.account_type = contract.into();
+				},
 				}
 			} else {
 				*account = Some(AccountInfo { account_type: contract.into(), dust: 0 });
@@ -351,12 +357,16 @@ impl<T: Config> AccountInfo<T> {
 		if let Some(new_hash) = target_code_hash &&
 			Some(new_hash) != old_code_hash
 		{
-			let _ = CodeInfo::<T>::increment_refcount(new_hash);
+			if let Err(e) = CodeInfo::<T>::increment_refcount(new_hash) {
+				log::warn!(target: LOG_TARGET, "increment_refcount({new_hash:?}) failed: {e:?}");
+			}
 		}
 		if let Some(old_hash) = old_code_hash &&
 			Some(old_hash) != target_code_hash
 		{
-			let _ = CodeInfo::<T>::decrement_refcount(old_hash);
+			if let Err(e) = CodeInfo::<T>::decrement_refcount(old_hash) {
+				log::warn!(target: LOG_TARGET, "decrement_refcount({old_hash:?}) failed: {e:?}");
+			}
 		}
 
 		if new_deposit >= old_deposit {
@@ -381,7 +391,9 @@ impl<T: Config> AccountInfo<T> {
 			{
 				*delegate_target = None;
 				if !contract_info.code_hash.is_zero() {
-					let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash);
+					if let Err(e) = CodeInfo::<T>::decrement_refcount(contract_info.code_hash) {
+						log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
+					}
 					refund = core::mem::take(&mut contract_info.storage_base_deposit);
 					contract_info.code_hash = Default::default();
 				}
