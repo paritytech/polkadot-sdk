@@ -282,6 +282,10 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 		Weight::from_parts(4_098_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn set_max_commission() -> Weight {
+		// TODO(ank4n): Run benchmarks
+		todo!()
+	}
 	fn restore_ledger() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6948`
