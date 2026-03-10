@@ -4304,3 +4304,149 @@ fn ambiguous_candidate_rejected_on_statement() {
 		virtual_overseer
 	});
 }
+
+// Test that version acceptance filtering behaves correctly before and after V3 activation:
+// - Ambiguous candidates (old rules ≠ new rules in an unexpected way) are always rejected.
+// - V3 candidates are rejected before activation but accepted after.
+#[test]
+fn version_acceptance_before_and_after_v3_activation() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let pov_hash = pov.hash();
+
+		// --- Before V3 activation ---
+
+		// 1. Ambiguous candidate: rejected (Inconsistency).
+		// scheduling_parent non-zero + version=0 → old rules see V1, new rules see V2.
+		let mut ambiguous = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		ambiguous.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: ambiguous.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 2. V3 candidate: rejected (V3NotEnabled).
+		let v3_candidate = CommittedCandidateReceipt {
+			descriptor: CandidateDescriptorV2::new_v3(
+				test_state.chain_ids[0],
+				test_state.relay_parent,
+				CoreIndex(0),
+				1,
+				pvd.hash(),
+				pov_hash,
+				make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+				expected_head_data.hash(),
+				ValidationCode(validation_code.0.clone()).hash(),
+				test_state.relay_parent, // scheduling_parent = relay_parent
+			),
+			commitments: CandidateCommitments {
+				head_data: expected_head_data.clone(),
+				..Default::default()
+			},
+		};
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: v3_candidate.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// --- Activate V3 via BlockFinalized with a new session ---
+		// Use session 2 so NodeFeatures isn't cached (session 1 was cached with V3=off).
+		let finalized_hash = Hash::repeat_byte(0xFF);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, 1)))
+			.await;
+
+		// check_v3_on_finalized: SessionIndexForChild → session 2
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) if parent == finalized_hash => {
+				tx.send(Ok(2)).unwrap();
+			}
+		);
+
+		// NodeFeatures for session 2 → V3 enabled
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::NodeFeatures(session_index, tx),
+			)) if parent == finalized_hash && session_index == 2 => {
+				let mut features = NodeFeatures::new();
+				features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+				features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+				tx.send(Ok(features)).unwrap();
+			}
+		);
+
+		// --- After V3 activation ---
+
+		// 3. Ambiguous candidate: STILL rejected (Inconsistency is always fatal).
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: ambiguous.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 4. V3 candidate: NOW ACCEPTED — passes check_version_acceptance.
+		// It proceeds past the version check into the normal seconding flow.
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: v3_candidate.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+
+		// Any message arriving means it passed the version acceptance check.
+		// (Before V3 activation, the same candidate produced a timeout above.)
+		assert!(
+			virtual_overseer.recv().timeout(Duration::from_secs(1)).await.is_some(),
+			"V3 candidate should pass version acceptance after activation"
+		);
+
+		virtual_overseer
+	});
+}
