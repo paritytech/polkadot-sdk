@@ -256,12 +256,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::ERC20::<T, crate::ForeignIdConfig<0x0120, T, T::AssetsInstance>, T::AssetsInstance>::permit(
-				asset_id,
-				verifying_contract,
-				&call,
-				&mut ext,
-			)
+			crate::ERC20::<
+				T,
+				crate::ForeignIdConfig<0x0120, T, T::AssetsInstance>,
+				T::AssetsInstance,
+			>::permit(asset_id, verifying_contract, &call, &mut ext)
 			.expect("permit should succeed");
 		}
 
