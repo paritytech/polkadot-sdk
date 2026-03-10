@@ -9,6 +9,8 @@ mod functional;
 #[cfg(feature = "zombie-ci")]
 mod parachains;
 #[cfg(feature = "zombie-ci")]
+mod scheduling;
+#[cfg(feature = "zombie-ci")]
 mod smoke;
 #[cfg(feature = "zombie-ci")]
 mod utils;
