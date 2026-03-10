@@ -41,14 +41,14 @@ fn large_deposit<T: Config>() -> BalanceOf<T> {
 		.saturating_mul(10u32.into())
 }
 
-/// Safe mint amount that maintains ICR with large_deposit
-/// With 200% ICR and $4.21/DOT price:
-/// large_deposit (1000 DOT) = $4210 collateral value
-/// Max safe mint = $4210 / 2.0 ≈ $2105 pUSD
-/// We use a conservative $2000 pUSD (2_000_000_000 with 6 decimals)
+/// Safe mint amount that maintains ICR with large_deposit.
+///
+/// The multiplier (400×) is chosen so the result stays well under the ICR
+/// ceiling with `large_deposit` at typical oracle prices.
 fn safe_mint_amount<T: Config>() -> BalanceOf<T> {
-	// 2000 pUSD with 6 decimals = 2_000_000_000
-	2_000_000_000u128.try_into().unwrap_or_else(|_| 1u32.into())
+	MinimumMint::<T>::get()
+		.expect("set in genesis; qed")
+		.saturating_mul(400u32.into())
 }
 
 /// Fund an account with native currency (DOT)
@@ -469,7 +469,9 @@ mod benchmarks {
 	/// Benchmark: set_max_liquidation_amount
 	#[benchmark]
 	fn set_max_liquidation_amount() -> Result<(), BenchmarkError> {
-		let new_amount: BalanceOf<T> = safe_mint_amount::<T>().saturating_mul(1000u32.into());
+		// Must be >= MaxPositionAmount to satisfy the invariant
+		let max_position = MaxPositionAmount::<T>::get().unwrap_or_default();
+		let new_amount = max_position.max(safe_mint_amount::<T>().saturating_mul(1000u32.into()));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, new_amount);
@@ -552,7 +554,9 @@ mod benchmarks {
 	/// Benchmark: set_max_position_amount
 	#[benchmark]
 	fn set_max_position_amount() -> Result<(), BenchmarkError> {
-		let new_amount: BalanceOf<T> = safe_mint_amount::<T>().saturating_mul(100u32.into());
+		// Must be <= MaxLiquidationAmount to satisfy the invariant
+		let max_liq = MaxLiquidationAmount::<T>::get().unwrap_or_default();
+		let new_amount = max_liq.min(safe_mint_amount::<T>().saturating_mul(100u32.into()));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, new_amount);
