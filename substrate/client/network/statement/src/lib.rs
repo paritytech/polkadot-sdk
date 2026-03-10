@@ -127,7 +127,12 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
-/// Maximim time we wait for sending a notification to a peer.
+/// V2 statement protocol suffix, work in progress protocol with topic affinity and other
+/// improvements, may have breaking changes before stabilization.
+const STATEMENT_PROTOCOL_V2: &str = "statement/2";
+/// V1 statement protocol suffix, current stable protocol, no breaking changes will be made to it.
+const STATEMENT_PROTOCOL_V1: &str = "statement/1";
+/// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
@@ -302,11 +307,11 @@ impl StatementHandlerPrototype {
 		let hex = array_bytes::bytes2hex("", genesis_hash);
 		let (protocol_name, fallback_name) = if let Some(fork_id) = fork_id {
 			(
-				format!("/{}/{}/statement/2", hex, fork_id),
-				format!("/{}/{}/statement/1", hex, fork_id),
+				format!("/{hex}/{fork_id}/{STATEMENT_PROTOCOL_V2}"),
+				format!("/{hex}/{fork_id}/{STATEMENT_PROTOCOL_V1}"),
 			)
 		} else {
-			(format!("/{}/statement/2", hex), format!("/{}/statement/1", hex))
+			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
 		};
 		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone().into(),
@@ -1728,7 +1733,7 @@ mod tests {
 		);
 
 		let handler = StatementHandler {
-			protocol_name: "/statement/1".into(),
+			protocol_name: format!("/{STATEMENT_PROTOCOL_V1}").into(),
 			notification_service: Box::new(notification_service.clone()),
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
@@ -1935,7 +1940,7 @@ mod tests {
 		let notification_service = TestNotificationService::new();
 
 		let handler = StatementHandler {
-			protocol_name: "/statement/1".into(),
+			protocol_name: format!("/{STATEMENT_PROTOCOL_V1}").into(),
 			notification_service: Box::new(notification_service.clone()),
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
@@ -1973,7 +1978,7 @@ mod tests {
 		let notification_service = TestNotificationService::new();
 
 		let handler = StatementHandler {
-			protocol_name: "/statement/1".into(),
+			protocol_name: format!("/{STATEMENT_PROTOCOL_V1}").into(),
 			notification_service: Box::new(notification_service.clone()),
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
@@ -2028,7 +2033,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -2113,7 +2118,7 @@ mod tests {
 					peer,
 					direction: sc_network::service::traits::Direction::Inbound,
 					handshake: vec![],
-					negotiated_fallback: Some("/statement/1".into()),
+					negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 				})
 				.await;
 		}
@@ -2344,7 +2349,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -2660,7 +2665,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -2686,7 +2691,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -2900,7 +2905,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -3288,7 +3293,7 @@ mod tests {
 				peer: v1_peer,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -3353,7 +3358,7 @@ mod tests {
 				peer: peer_id,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: Some("/statement/1".into()),
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.await;
 
@@ -3396,7 +3401,7 @@ mod tests {
 		sync.major_syncing.store(true, Ordering::Relaxed);
 
 		let mut handler = StatementHandler {
-			protocol_name: "/statement/1".into(),
+			protocol_name: format!("/{STATEMENT_PROTOCOL_V1}").into(),
 			notification_service: Box::new(notification_service.clone()),
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
