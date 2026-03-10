@@ -73,7 +73,10 @@ impl<T: Config, P: LastInflationTimestampProvider> OnRuntimeUpgrade
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		let ts = crate::pallet::LastInflationTimestamp::<T>::get();
-		frame_support::ensure!(ts != 0, "LastInflationTimestamp should be non-zero after migration");
+		frame_support::ensure!(
+			ts != 0,
+			"LastInflationTimestamp should be non-zero after migration"
+		);
 		Ok(())
 	}
 }

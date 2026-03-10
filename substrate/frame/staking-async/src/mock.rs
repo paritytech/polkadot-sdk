@@ -141,11 +141,8 @@ impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type InflationCurve = OneTokenPerMillisecond;
-	type BudgetRecipients = (
-		Dap,
-		StakerRewardRecipient<SequentialTest>,
-		ValidatorIncentiveRecipient<SequentialTest>,
-	);
+	type BudgetRecipients =
+		(Dap, StakerRewardRecipient<SequentialTest>, ValidatorIncentiveRecipient<SequentialTest>);
 	type Time = MockTime;
 	type InflationCadence = TestInflationCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;

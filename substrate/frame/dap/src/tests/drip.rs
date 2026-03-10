@@ -178,11 +178,7 @@ fn drip_emits_inflation_dripped_event() {
 		advance_time_and_drip(60_000);
 
 		System::assert_has_event(
-			Event::<Test>::InflationDripped {
-				total_minted: 100,
-				elapsed_millis: 60_000,
-			}
-			.into(),
+			Event::<Test>::InflationDripped { total_minted: 100, elapsed_millis: 60_000 }.into(),
 		);
 	});
 }

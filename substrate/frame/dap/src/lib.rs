@@ -51,10 +51,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_runtime::{
-	traits::Zero,
-	BoundedBTreeMap, Perbill, SaturatedConversion,
-};
+use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion};
 use sp_staking::{BudgetKey, BudgetRecipientList, InflationCurve};
 
 pub use pallet::*;

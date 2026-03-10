@@ -27,19 +27,19 @@ use frame_support::{
 };
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
+use pallet_staking_async::{
+	ActiveEra, CurrentEra, Forcing, GeneralPotAccountProvider, GeneralPotType, SequentialTest,
+};
 use pallet_staking_async_rc_client::{
 	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{BudgetRecipient, SessionIndex};
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
 use xcm_executor::{
 	traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset},
 	AssetsInHolding,
 };
-use pallet_staking_async::{GeneralPotAccountProvider, GeneralPotType, SequentialTest};
-use sp_staking::BudgetRecipient;
 
 pub const LOG_TARGET: &str = "ahm-test";
 
@@ -544,7 +544,6 @@ impl frame_support::traits::Time for MockTime {
 }
 
 pub fn general_staker_pot() -> AccountId {
-
 	SequentialTest::general_pot_account(GeneralPotType::StakerRewards)
 }
 
@@ -557,7 +556,9 @@ pub fn staker_reward_key() -> sp_staking::BudgetKey {
 }
 
 pub fn validator_incentive_key() -> sp_staking::BudgetKey {
-	<pallet_staking_async::ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+	<pallet_staking_async::ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<
+		AccountId,
+	>>::budget_key()
 }
 
 pub fn buffer_key() -> sp_staking::BudgetKey {
@@ -565,9 +566,7 @@ pub fn buffer_key() -> sp_staking::BudgetKey {
 }
 
 /// Build a DAP budget allocation map from `(key, percent)` pairs.
-pub fn build_budget(
-	entries: &[(sp_staking::BudgetKey, u32)],
-) -> pallet_dap::BudgetAllocationMap {
+pub fn build_budget(entries: &[(sp_staking::BudgetKey, u32)]) -> pallet_dap::BudgetAllocationMap {
 	let mut budget = BoundedBTreeMap::new();
 	for (key, pct) in entries {
 		budget.try_insert(key.clone(), Perbill::from_percent(*pct)).unwrap();
