@@ -1,4 +1,4 @@
-title: '[WIP][pallet-assets-precompiles] Idiomatic Rust cleanups'
+title: '[pallet-assets-precompiles] Idiomatic Rust cleanups'
 doc:
 - audience: Runtime Dev
   description: |-
@@ -8,10 +8,8 @@ doc:
     - Remove redundant type conversions (`.into()`, `H160::from()`)
     - Flatten nested `if let` using `let...else` pattern in migration logic
     - Fix typos and comments (doc comment, module description, duplicate license header)
+    - Added pallet-assets-precompiles to westend benchmark
 
-    ## Test plan
-    - [ ] Existing tests pass (`cargo test -p pallet-assets-precompiles`)
-    - No behavioral changes; all modifications are strictly cosmetic/idiomatic
 crates:
 - name: pallet-assets-precompiles
   bump: patch
