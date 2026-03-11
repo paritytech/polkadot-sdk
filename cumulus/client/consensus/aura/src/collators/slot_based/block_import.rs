@@ -219,7 +219,7 @@ mod tests {
 		let block_builder_data = client.init_block_builder(None, sproof);
 		let block = block_builder_data.block_builder.build().unwrap().block;
 
-		let (slot_based_import, _handle) =
+		let (slot_based_import, mut handle) =
 			SlotBasedBlockImport::new(MockBlockImport, client.clone());
 
 		// Simulate the gap-sync scenario: a block arrives with StateAction::Skip
@@ -237,6 +237,17 @@ mod tests {
 		// forwarded directly to the inner import without execution.
 		let result = slot_based_import.import_block(params).await;
 		assert!(result.is_ok(), "Gap-sync block with StateAction::Skip must not fail: {result:?}");
+
+		// The channel must be empty — execution should have been skipped entirely,
+		// so no (block, proof) was sent. This is the key assertion: without the
+		// StateAction::Skip guard, execute_block() would run and send a message.
+		//
+		// Drop the sender side so the channel closes, then verify no message was queued.
+		drop(slot_based_import);
+		assert!(
+			handle.receiver.next().await.is_none(),
+			"No block+proof should be sent through the channel for StateAction::Skip"
+		);
 	}
 
 	/// Verify that `StateAction::Execute` still triggers runtime execution.
