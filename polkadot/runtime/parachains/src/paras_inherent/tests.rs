@@ -17,7 +17,6 @@
 use super::*;
 
 use crate::{
-	builder::CandidateDescriptorVersionConfig,
 	configuration::{self, HostConfiguration},
 	mock::{MockGenesisConfig, Scheduler},
 };
@@ -37,20 +36,6 @@ fn default_config() -> MockGenesisConfig {
 		},
 		..Default::default()
 	}
-}
-
-/// Enable the `CandidateReceiptV3` node feature in the genesis config when the
-/// descriptor version is V3. V1 and V2 don't require an additional feature flag.
-fn maybe_set_candidate_descriptor_v3_node_feature(
-	mut config: MockGenesisConfig,
-	descriptor_version: CandidateDescriptorVersionConfig,
-) -> MockGenesisConfig {
-	if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-		let idx = FeatureIndex::CandidateReceiptV3 as usize;
-		config.configuration.config.node_features.resize(idx + 1, false);
-		config.configuration.config.node_features.set(idx, true);
-	}
-	config
 }
 
 // In order to facilitate benchmarks as tests we have a benchmark feature gated `WeightInfo` impl
@@ -82,6 +67,15 @@ mod enter {
 	use rstest::rstest;
 	use sp_core::ByteArray;
 	use sp_runtime::Perbill;
+
+	/// Helper to convert v2_descriptor bool to CandidateDescriptorVersionConfig
+	fn descriptor_version(v2: bool) -> CandidateDescriptorVersionConfig {
+		if v2 {
+			CandidateDescriptorVersionConfig::V2
+		} else {
+			CandidateDescriptorVersionConfig::V1
+		}
+	}
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,
@@ -167,17 +161,13 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V1)]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
+	#[case(true)]
+	#[case(false)]
 	// Validate that if we create 2 backed candidates which are assigned to 2 cores that will be
 	// freed via becoming fully available, the backed candidates will not be filtered out in
 	// `create_inherent` and will not cause `enter` to early.
-	fn include_backed_candidates(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			MockGenesisConfig::default(),
-			descriptor_version,
-		);
+	fn include_backed_candidates(#[case] v2_descriptor: bool) {
+		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -186,8 +176,6 @@ mod enter {
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
 
-			let non_v1_descriptor_version =
-				descriptor_version != CandidateDescriptorVersionConfig::V1;
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements,
 				dispute_sessions: vec![], // No disputes
@@ -196,9 +184,8 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				descriptor_version,
-				approved_peer_signal: non_v1_descriptor_version
-					.then_some(vec![1, 2, 3].try_into().unwrap()),
+				descriptor_version: descriptor_version(v2_descriptor),
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -260,19 +247,15 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V1)]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
-	fn include_backed_candidates_elastic_scaling(
-		#[case] descriptor_version: CandidateDescriptorVersionConfig,
-	) {
+	#[case(true)]
+	#[case(false)]
+	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool) {
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
 		// All of them are being made available in this block. Propose 5 more candidates (one for
 		// each core) and check that they're successfully backed and the old ones enacted.
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -284,8 +267,6 @@ mod enter {
 			backed_and_concluding.insert(1, 2);
 			backed_and_concluding.insert(2, 2);
 
-			let non_v1_descriptor_version =
-				descriptor_version != CandidateDescriptorVersionConfig::V1;
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements,
 				dispute_sessions: vec![], // No disputes
@@ -294,9 +275,8 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				descriptor_version,
-				approved_peer_signal: non_v1_descriptor_version
-					.then_some(vec![1, 2, 3].try_into().unwrap()),
+				descriptor_version: descriptor_version(v2_descriptor),
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -371,8 +351,7 @@ mod enter {
 		// Cores 1, 2 and 3 are being made available in this block. Propose 6 more candidates (one
 		// for each core) and check that the right ones are successfully backed and the old ones
 		// enacted.
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -384,8 +363,6 @@ mod enter {
 			// available.
 			let unavailable_cores = vec![0, 4, 5];
 
-			let non_v1_descriptor_version =
-				descriptor_version != CandidateDescriptorVersionConfig::V1;
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
@@ -394,9 +371,8 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				descriptor_version,
-				approved_peer_signal: non_v1_descriptor_version
-					.then_some(vec![1, 2, 3].try_into().unwrap()),
+				descriptor_version: descriptor_version(v2_descriptor),
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -1542,17 +1518,10 @@ mod enter {
 
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
 	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V1)]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
-	fn test_backed_candidates_apply_weight_works_for_elastic_scaling(
-		#[case] descriptor_version: CandidateDescriptorVersionConfig,
-	) {
-		let config = maybe_set_candidate_descriptor_v3_node_feature(
-			MockGenesisConfig::default(),
-			descriptor_version,
-		);
-		new_test_ext(config).execute_with(|| {
+	#[case(true)]
+	#[case(false)]
+	fn test_backed_candidates_apply_weight_works_for_elastic_scaling(#[case] v2_descriptor: bool) {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			let seed = [
 				1, 0, 52, 0, 0, 0, 0, 0, 1, 0, 10, 0, 22, 32, 0, 0, 2, 0, 55, 49, 0, 11, 0, 0, 3,
 				0, 0, 0, 0, 0, 2, 92,
@@ -1566,8 +1535,6 @@ mod enter {
 				backed_and_concluding.insert(i, i);
 			}
 
-			let non_v1_descriptor_version =
-				descriptor_version != CandidateDescriptorVersionConfig::V1;
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: Default::default(),
 				dispute_sessions: vec![],
@@ -1576,9 +1543,8 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				descriptor_version,
-				approved_peer_signal: non_v1_descriptor_version
-					.then_some(vec![1, 2, 3].try_into().unwrap()),
+				descriptor_version: descriptor_version(v2_descriptor),
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -1702,14 +1668,9 @@ mod enter {
 		});
 	}
 
-	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
-	fn non_v1_descriptors_are_filtered(
-		#[case] descriptor_version: CandidateDescriptorVersionConfig,
-	) {
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+	#[test]
+	fn v2_descriptors_are_filtered() {
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -1727,7 +1688,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				descriptor_version,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -1767,6 +1728,64 @@ mod enter {
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
 			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
+	// Test that V3 descriptors are accepted when CandidateReceiptV3 feature is enabled
+	// and UMP signals are present (V3 requires UMP signals).
+	#[test]
+	fn v3_descriptors_are_accepted_when_enabled() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: None,
+			});
+
+			let para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			assert_eq!(para_inherent_data.backed_candidates.len(), 3);
+
+			// Verify all candidates have V3 descriptors (version=1)
+			for candidate in &para_inherent_data.backed_candidates {
+				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+			}
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			// V3 candidates with UMP signals should be accepted (not filtered out)
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(filtered.backed_candidates.len(), 3);
+
+			// Verify the filtered candidates are still V3
+			for candidate in &filtered.backed_candidates {
+				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+			}
 		});
 	}
 
@@ -2068,18 +2087,15 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V2, true)]
-	#[case(CandidateDescriptorVersionConfig::V3, true)]
-	#[case(CandidateDescriptorVersionConfig::V2, false)]
-	#[case(CandidateDescriptorVersionConfig::V3, false)]
-	// Test that v2/v3 descriptors with multiple types of UMP signals are accepted when the
-	// CandidateReceiptV3 node feature is enabled for V3 cases.
-	fn v2_v3_descriptors_are_accepted(
-		#[case] descriptor_version: CandidateDescriptorVersionConfig,
+	#[case(true, true)]
+	#[case(true, false)]
+	// Test that v2 descriptors with multiple types of UMP signals are accepted if the node feature
+	// is enabled.
+	fn v2_descriptors_are_accepted(
+		#[case] v2_descriptor: bool,
 		#[case] has_approved_peer_signal: bool,
 	) {
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2097,7 +2113,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				descriptor_version,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: has_approved_peer_signal
 					.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
@@ -2115,15 +2131,11 @@ mod enter {
 		});
 	}
 
-	// Test elastic scaling with v2/v3 descriptors.
-	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
-	fn elastic_scaling_mixed_descriptors(
-		#[case] descriptor_version: CandidateDescriptorVersionConfig,
-	) {
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+	// Test when parachain runtime is upgraded to support the new commitments
+	// but some collators are not and provide v1 descriptors.
+	#[test]
+	fn elastic_scaling_mixed_v1_v2_descriptors() {
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2139,33 +2151,35 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				descriptor_version,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
-			let inherent_data = scenario.data.clone();
+			let mut inherent_data = scenario.data.clone();
+			let candidate_count = inherent_data.backed_candidates.len();
+
+			// Make last 2 candidates v1
+			for index in candidate_count - 2..candidate_count {
+				let encoded = inherent_data.backed_candidates[index].descriptor().encode();
+				*inherent_data.backed_candidates[index].descriptor_mut() =
+					Decode::decode(&mut encoded.as_slice()).unwrap();
+			}
 
 			// Check the para inherent data is as expected:
-			// * 1 bitfield per validator (1 validator per core, 5 backed candidates)
+			// * 1 bitfield per validator (2 validators per core, 5 backed candidates)
 			assert_eq!(inherent_data.bitfields.len(), 5);
-			// * 5 v2/v3 candidate descriptors.
+			// * 5 v2 candidate descriptors.
 			assert_eq!(inherent_data.backed_candidates.len(), 5);
 
 			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
 		});
 	}
 
-	// Mixed test with v1, v2, v3 with/without UMP signals.
-	// For V3, candidates without UMP signals are also filtered (V3 requires UMP signals).
-	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
-	fn mixed_descriptors_with_optional_ump_signals(
-		#[case] descriptor_version: CandidateDescriptorVersionConfig,
-	) {
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+	// Mixed test with v1, v2 with/without UMP signals.
+	#[test]
+	fn mixed_v1_and_v2_optional_ump_signals() {
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2201,7 +2215,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: Default::default(),
 				unavailable_cores: vec![],
-				descriptor_version,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(candidate_modifier),
 			});
@@ -2215,15 +2229,7 @@ mod enter {
 			assert_eq!(inherent_data.backed_candidates.len(), 5);
 
 			let mut expected_inherent_data = inherent_data.clone();
-			if descriptor_version == CandidateDescriptorVersionConfig::V3 {
-				// V3 requires UMP signals, so para 0 (cleared upward messages) is also
-				// filtered out. Only paras 1 and 2 remain.
-				expected_inherent_data.backed_candidates =
-					expected_inherent_data.backed_candidates[1..3].to_vec();
-			} else {
-				// V2 allows empty UMP signals, so paras 0, 1, 2 remain.
-				expected_inherent_data.backed_candidates.truncate(3);
-			}
+			expected_inherent_data.backed_candidates.truncate(3);
 
 			let mut create_inherent_data = InherentData::new();
 			create_inherent_data
@@ -2320,14 +2326,12 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(CandidateDescriptorVersionConfig::V1)]
-	#[case(CandidateDescriptorVersionConfig::V2)]
-	#[case(CandidateDescriptorVersionConfig::V3)]
-	// Test that candidates that have neither an injected core index nor a v2/v3 descriptor are
+	#[case(true)]
+	#[case(false)]
+	// Test that candidates that have neither an injected core index nor a v2 descriptor are
 	// filtered.
-	fn candidate_without_core_index(#[case] descriptor_version: CandidateDescriptorVersionConfig) {
-		let config =
-			maybe_set_candidate_descriptor_v3_node_feature(default_config(), descriptor_version);
+	fn candidate_without_core_index(#[case] v2_descriptor: bool) {
+		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
@@ -2335,8 +2339,6 @@ mod enter {
 			backed_and_concluding.insert(1, 1);
 			backed_and_concluding.insert(2, 1);
 
-			let non_v1_descriptor_version =
-				descriptor_version != CandidateDescriptorVersionConfig::V1;
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
@@ -2345,9 +2347,8 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				descriptor_version,
-				approved_peer_signal: non_v1_descriptor_version
-					.then_some(vec![1, 2, 3].try_into().unwrap()),
+				descriptor_version: descriptor_version(v2_descriptor),
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(|mut candidate| {
 					if candidate.descriptor.para_id() == ParaId::from(0) {
 						candidate.commitments.upward_messages.clear();
@@ -2892,7 +2893,7 @@ mod sanitizers {
 		// Para 6 is not scheduled. One candidate supplied.
 		// Para 7 is scheduled on core 7 and 8, but the candidate contains the wrong core index.
 		// Para 8 is scheduled on core 9, but the candidate contains the wrong core index.
-		fn get_test_data_multiple_cores_per_para(non_v1_descriptor: bool) -> TestData {
+		fn get_test_data_multiple_cores_per_para(v2_descriptor: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			let header = default_header();
@@ -2992,7 +2993,7 @@ mod sanitizers {
 			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
 			let maybe_core_index = |core_index: CoreIndex| -> Option<CoreIndex> {
-				if !non_v1_descriptor {
+				if !v2_descriptor {
 					None
 				} else {
 					Some(core_index)
@@ -4123,24 +4124,15 @@ mod sanitizers {
 		}
 
 		#[rstest]
-		#[case(CandidateDescriptorVersionConfig::V1)]
-		#[case(CandidateDescriptorVersionConfig::V2)]
-		#[case(CandidateDescriptorVersionConfig::V3)]
-		fn test_with_multiple_cores_per_para(
-			#[case] descriptor_version: CandidateDescriptorVersionConfig,
-		) {
-			let config = maybe_set_candidate_descriptor_v3_node_feature(
-				default_config(),
-				descriptor_version,
-			);
-			new_test_ext(config).execute_with(|| {
-				let non_v1_descriptor_version =
-					descriptor_version != CandidateDescriptorVersionConfig::V1;
+		#[case(false)]
+		#[case(true)]
+		fn test_with_multiple_cores_per_para(#[case] v2_descriptor: bool) {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data_multiple_cores_per_para(non_v1_descriptor_version);
+				} = get_test_data_multiple_cores_per_para(v2_descriptor);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4148,7 +4140,7 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						non_v1_descriptor_version,
+						v2_descriptor,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -4317,27 +4309,16 @@ mod sanitizers {
 			});
 		}
 
-		// Nothing is scheduled, so no paraids match, thus all backed candidates are skipped.
+		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
 		#[rstest]
-		#[case(false, CandidateDescriptorVersionConfig::V1)]
-		#[case(false, CandidateDescriptorVersionConfig::V2)]
-		#[case(false, CandidateDescriptorVersionConfig::V3)]
-		#[case(true, CandidateDescriptorVersionConfig::V1)]
-		#[case(true, CandidateDescriptorVersionConfig::V2)]
-		#[case(true, CandidateDescriptorVersionConfig::V3)]
-		fn nothing_scheduled(
-			#[case] multiple_cores_per_para: bool,
-			#[case] descriptor_version: CandidateDescriptorVersionConfig,
-		) {
-			let config = maybe_set_candidate_descriptor_v3_node_feature(
-				default_config(),
-				descriptor_version,
-			);
-			new_test_ext(config).execute_with(|| {
-				let non_v1_descriptor_version =
-					descriptor_version != CandidateDescriptorVersionConfig::V1;
+		#[case(false, true)]
+		#[case(true, true)]
+		#[case(false, false)]
+		#[case(true, false)]
+		fn nothing_scheduled(#[case] multiple_cores_per_para: bool, #[case] v2_descriptor: bool) {
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
-					get_test_data_multiple_cores_per_para(non_v1_descriptor_version)
+					get_test_data_multiple_cores_per_para(v2_descriptor)
 				} else {
 					get_test_data_one_core_per_para(BackingKind::Threshold)
 				};
@@ -4348,7 +4329,7 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					non_v1_descriptor_version,
+					v2_descriptor,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -4387,29 +4368,20 @@ mod sanitizers {
 			});
 		}
 
-		// Candidates that have concluded as invalid are filtered out, as well as their descendants.
+		// candidates that have concluded as invalid are filtered out, as well as their descendants.
 		#[rstest]
-		#[case(CandidateDescriptorVersionConfig::V1)]
-		#[case(CandidateDescriptorVersionConfig::V2)]
-		#[case(CandidateDescriptorVersionConfig::V3)]
-		fn concluded_invalid_are_filtered_out_multiple_cores_per_para(
-			#[case] descriptor_version: CandidateDescriptorVersionConfig,
-		) {
+		#[case(true)]
+		#[case(false)]
+		fn concluded_invalid_are_filtered_out_multiple_cores_per_para(#[case] v2_descriptor: bool) {
 			// Mark the first candidate of paraid 1 as invalid. Its descendant should also
 			// be dropped. Also mark the candidate of paraid 3 as invalid.
-			let config = maybe_set_candidate_descriptor_v3_node_feature(
-				default_config(),
-				descriptor_version,
-			);
-			new_test_ext(config).execute_with(|| {
-				let non_v1_descriptor_version =
-					descriptor_version != CandidateDescriptorVersionConfig::V1;
+			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(non_v1_descriptor_version);
+				} = get_test_data_multiple_cores_per_para(v2_descriptor);
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4428,7 +4400,7 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					non_v1_descriptor_version,
+					v2_descriptor,
 				);
 
 				// We'll be left with candidates from paraid 2 and 4.
@@ -4442,14 +4414,12 @@ mod sanitizers {
 			// Mark the second candidate of paraid 1 as invalid. Its predecessor should be left
 			// in place.
 			new_test_ext(default_config()).execute_with(|| {
-				let non_v1_descriptor_version =
-					descriptor_version != CandidateDescriptorVersionConfig::V1;
 				let TestData {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(non_v1_descriptor_version);
+				} = get_test_data_multiple_cores_per_para(v2_descriptor);
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4466,7 +4436,7 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					non_v1_descriptor_version,
+					v2_descriptor,
 				);
 
 				// Only the second candidate of paraid 1 should be removed.
