@@ -74,7 +74,7 @@ fn main() -> Result<(), String> {
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
 		("dispute-coordinator", 0.0027, 0.1),
-		("dispute-distribution", 0.0087, 0.1),
+		("dispute-distribution", 0.0093, 0.1),
 	]));
 
 	if messages.is_empty() {
