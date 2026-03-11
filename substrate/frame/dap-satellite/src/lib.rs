@@ -25,7 +25,7 @@
 //! ## Usage
 //!
 //! - **Fees**: Use [`DealWithFeesSplit`] to split fees between DAP satellite and other handlers
-//! - **Slashes/revenue**: Use `DapSatellite` as `OnUnbalanced` handler
+//! - **Revenue**: Use `DapSatellite` as `OnUnbalanced<CreditOf>` handler (e.g., coretime revenue)
 //! - **Burn redirection**: Use [`currency::SatelliteCurrency<T>`] as `type Currency` in pallets
 //!
 //! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic bypass the wrapper.
@@ -174,6 +174,11 @@ where
 ///
 /// Use this on system chains (not AssetHub) or Relay Chain to collect imbalances
 /// (e.g., coretime revenue) that would otherwise be burned.
+///
+/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
+/// for the old `Currency` trait is not provided because there are no active consumers: all pallets
+/// that could produce `NegativeImbalance` on satellite chains (staking, identity,
+/// election-provider) are either deprecated, or already use the new fungible traits.
 ///
 /// # Example
 ///

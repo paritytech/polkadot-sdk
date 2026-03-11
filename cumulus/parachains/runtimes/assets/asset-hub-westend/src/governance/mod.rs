@@ -136,6 +136,8 @@ impl pallet_treasury::Config for Runtime {
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
+	// NOTE: Treasury burn is currently disabled. If ever enabled (`Burn > 0`), wire
+	// `BurnDestination = Dap` so burned funds flow to the DAP buffer instead of being destroyed.
 	type Burn = ();
 	type BurnDestination = ();
 	type MaxApprovals = MaxApprovals;

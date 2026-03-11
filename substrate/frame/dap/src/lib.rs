@@ -201,6 +201,9 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
+///
+/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
+/// for the old `Currency` trait is not provided because there are no consumers.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let buffer = Self::buffer_account();
@@ -213,7 +216,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// The only failure would be overflow on destination.
 		let _ = T::Currency::resolve(&buffer, amount)
 			.inspect_err(|_| {
-				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
+				defensive!(
+					"🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!"
+				);
 			})
 			.inspect(|_| {
 				// Mark funds as inactive so they don't participate in governance voting.
