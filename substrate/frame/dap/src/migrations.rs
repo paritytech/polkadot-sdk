@@ -32,10 +32,19 @@ pub trait LastInflationTimestampProvider {
 	fn last_inflation_timestamp() -> u64;
 }
 
-/// Migration to initialize `LastInflationTimestamp` from an external source.
+/// Wrap with [`VersionedMigration`] to get version checks and storage version bumps.
 ///
-/// This must run on first upgrade to DAP to prevent the first `drip_inflation()` call
-/// from seeing `last == 0` and treating it as a genesis scenario.
+/// [`VersionedMigration`]: frame_support::migrations::VersionedMigration
+pub type MigrateV1ToV2<T, P> = frame_support::migrations::VersionedMigration<
+	1,
+	2,
+	InitLastInflationTimestamp<T, P>,
+	pallet::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Inner migration logic: initializes `LastInflationTimestamp` from an external source.
+/// Use [`MigrateV1ToV2`] instead of this type directly.
 ///
 /// # Type Parameters
 /// - `T`: DAP pallet config
@@ -47,11 +56,11 @@ impl<T: Config, P: LastInflationTimestampProvider> OnRuntimeUpgrade
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let current = crate::pallet::LastInflationTimestamp::<T>::get();
-		// ensure migration is idempotent
+		// Idempotent: if already set, nothing to do.
 		if current != 0 {
 			log::info!(
 				target: LOG_TARGET,
-				"LastInflationTimestamp already set to {current}, skipping migration"
+				"LastInflationTimestamp already set to {current}, skipping"
 			);
 			return T::DbWeight::get().reads(1);
 		}
