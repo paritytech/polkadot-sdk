@@ -2118,3 +2118,128 @@ mod session_keys {
 		});
 	}
 }
+
+/// End-to-end test: validator incentive vesting batch conversion with pallet-vesting.
+///
+/// Verifies that the full hold → release → self-transfer → vesting schedule flow works
+/// with unmocked pallet-vesting.
+#[test]
+fn incentive_vesting_e2e_with_real_pallet_vesting() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// GIVEN: Set up validator incentive config and include it in the DAP budget.
+		// BondingDuration = 3, VestingDuration = 600 blocks, BlocksPerSession = 10,
+		// SessionsPerEra = 6 → blocks_per_era = 60, vesting_eras = 600/60 = 10.
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			staking_async::ConfigOp::Set(30),   // OptimumSelfStake
+			staking_async::ConfigOp::Set(1000), // HardCapSelfStake
+			staking_async::ConfigOp::Set(Perbill::from_rational(1u32, 2u32)), // SelfStakeSlopeFactor
+		));
+
+		// Add validator incentive to the budget (40% staker, 10% incentive, 50% buffer).
+		pallet_dap::BudgetAllocation::<Runtime>::put(build_budget(&[
+			(staker_reward_key(), 40),
+			(validator_incentive_key(), 10),
+			(buffer_key(), 50),
+		]));
+
+		// Advance to era 1 — election happens, validator weights are set.
+		let active_validators = roll_until_next_active(0);
+		assert!(!active_validators.is_empty());
+		let validator = active_validators[0];
+
+		// Send session reports with reward points so payout_stakers has something to pay.
+		let send_points = |end_index: sp_staking::SessionIndex| {
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_session_report(
+				RuntimeOrigin::root(),
+				rc_client::SessionReport {
+					end_index,
+					activation_timestamp: None,
+					leftover: false,
+					validator_points: active_validators
+						.iter()
+						.map(|v| (*v, 100))
+						.collect(),
+				},
+			));
+			roll_next();
+		};
+
+		// Advance to era 2 with reward points for era 1.
+		// Era 1 starts at session 7. Send session reports with points during era 1.
+		send_points(7);
+		roll_until_next_active(8);
+
+		// Advance to era 3 with reward points for era 2.
+		send_points(13);
+		roll_until_next_active(14);
+
+		// Advance to era 4 with reward points for era 3.
+		send_points(19);
+		roll_until_next_active(20);
+
+		let _ = staking_events_since_last_call();
+
+		// Verify no vesting schedules exist for the validator yet.
+		let schedules = Vesting::vesting(validator);
+		assert!(
+			schedules.is_none() || schedules.unwrap().is_empty(),
+			"No vesting schedule should exist before payout"
+		);
+
+		// WHEN: Pay out eras 1 and 2 (accumulate incentive under hold).
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1), validator, 1,));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1), validator, 2,));
+
+		// Check that incentive is held (accumulated from eras 1 and 2).
+		let held_before = <Balances as HoldInspect<AccountId>>::balance_on_hold(
+			&staking_async::HoldReason::IncentiveVesting.into(),
+			&validator,
+		);
+		// CLAUDE: can you try to put hard values in these assertions.
+		assert!(held_before > 0, "Incentive should be held after eras 1 and 2");
+
+		// Pay out era 3 — batch boundary triggers conversion.
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1), validator, 3,));
+
+		let events = staking_events_since_last_call();
+
+		// THEN: Hold should be fully released after conversion.
+		let held_after = <Balances as HoldInspect<AccountId>>::balance_on_hold(
+			&staking_async::HoldReason::IncentiveVesting.into(),
+			&validator,
+		);
+		assert_eq!(held_after, 0, "Hold should be fully released after batch conversion");
+
+		// A real vesting schedule was created via pallet-vesting.
+		let vesting_schedules = Vesting::vesting(validator);
+		assert!(
+			vesting_schedules.is_some() && !vesting_schedules.as_ref().unwrap().is_empty(),
+			"A vesting schedule should exist after batch conversion"
+		);
+
+		// Verify the conversion event was emitted.
+		let converted = events.iter().find(|e| {
+			matches!(
+				e,
+				StakingEvent::IncentiveVestingConverted { validator_stash, .. }
+					if *validator_stash == validator
+			)
+		});
+		assert!(
+			converted.is_some(),
+			"IncentiveVestingConverted event should be emitted. Events: {:?}",
+			events
+		);
+
+		// Verify the vesting schedule has the expected liquid/vested split:
+		// Retroactive unlock = BondingDuration / vesting_eras = 3/10 = 30%.
+		if let Some(StakingEvent::IncentiveVestingConverted { liquid, vested, .. }) = converted {
+			let total = liquid + vested;
+			assert!(total > 0, "Incentive amount should be non-zero");
+			let expected_liquid = Perbill::from_rational(3u32, 10u32).mul_floor(total);
+			assert_eq!(*liquid, expected_liquid, "30% should be released liquid");
+			assert_eq!(*vested, total - expected_liquid, "70% should be vested");
+		}
+	});
+}
