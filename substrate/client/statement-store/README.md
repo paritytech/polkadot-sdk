@@ -17,7 +17,7 @@ guarantee message delivery or specific delivery times.**
 > This starts a standalone Substrate node with StatementStore turned on. Quota is set directly in
 > storage in the next step, without an individuality runtime.
 
-1. Build substrate-node
+1. Build Substrate node
 
     ```bash
     cargo build --profile production --locked --bin substrate-node --target x86_64-unknown-linux-gnu
