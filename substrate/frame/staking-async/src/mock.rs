@@ -84,6 +84,7 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static VestingDurationBlocks: BlockNumber = 0;
+	pub static BlocksPerSession: BlockNumber = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub static NominatorFastUnbondDuration: EraIndex = 2;
 	pub static HistoryDepth: u32 = 80;
@@ -521,6 +522,7 @@ impl Config for Test {
 	type Filter = MockedRestrictList;
 	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator;
 	type VestingDuration = VestingDurationBlocks;
+	type BlocksPerSession = BlocksPerSession;
 	type ValidatorIncentivePayout = ImmediateIncentivePayout<Balances>;
 	type WeightInfo = ();
 }

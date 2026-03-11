@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::session_rotation::Eras;
+use crate::{asset, session_rotation::Eras};
 
 /// Sets up the default validator self-stake incentive config used across tests.
 fn setup_incentive_config() {
@@ -892,5 +892,309 @@ fn very_small_self_stake_weight() {
 
 		// THEN: Incentive is paid (small but non-zero)
 		assert!(incentive_paid_for(alice, &events).is_some());
+	});
+}
+
+// CLAUDE: shouldn't this go to mock.rs instead of being here? You can make this fn take vesting blocks and blocks
+// per session as param.
+/// Helper: configures mock for vesting-based incentive tests.
+///
+/// VestingDuration = 150 blocks, BlocksPerSession = 5, SessionsPerEra = 3 (default).
+/// Derived: blocks_per_era = 5 * 3 = 15, vesting_eras = 150 / 15 = 10.
+/// BondingDuration = 3 (default).
+///
+/// Batch conversion triggers at eras 3, 6, 9, ...
+/// Retroactive unlock fraction = BondingDuration / vesting_eras = 3/10 = 30%.
+fn setup_vesting_params() {
+	VestingDurationBlocks::set(150);
+	BlocksPerSession::set(5);
+}
+
+/// Finds the held incentive amount from events.
+fn incentive_held_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	events.iter().find_map(|e| match e {
+		Event::ValidatorIncentiveHeld { validator_stash, amount, .. }
+			if *validator_stash == stash =>
+		{
+			Some(*amount)
+		},
+		_ => None,
+	})
+}
+
+/// Finds vesting conversion details from events.
+fn vesting_converted_for(stash: AccountId, events: &[Event<Test>]) -> Option<(Balance, Balance)> {
+	events.iter().find_map(|e| match e {
+		Event::IncentiveVestingConverted { validator_stash, liquid, vested, .. }
+			if *validator_stash == stash =>
+		{
+			Some((*liquid, *vested))
+		},
+		_ => None,
+	})
+}
+
+
+#[test]
+fn incentive_held_when_vesting_enabled() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Vesting enabled, non-batch-boundary era
+		let alice = 11; // validator
+		setup_vesting_params();
+		setup_incentive_with_budget(45, 5);
+
+		// Advance to era 2 so validator weights are set by election
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let alice_balance_before = asset::total_balance::<Test>(&alice);
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+
+		// WHEN: Payout era 2 (not a batch boundary: 2 % 3 != 0)
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: Incentive is held, not paid liquid
+		let held_amount = incentive_held_for(alice, &events).expect("should emit held event");
+		assert!(held_amount > 0);
+		assert_eq!(asset::incentive_held::<Test>(&alice), held_amount);
+
+		// Balance increased (transfer from pot) but part is held
+		let alice_balance_after = asset::total_balance::<Test>(&alice);
+		assert!(alice_balance_after > alice_balance_before);
+
+		// No ValidatorIncentivePaid event (that's for liquid path)
+		assert!(incentive_paid_for(alice, &events).is_none());
+		// No conversion event (not a batch boundary)
+		assert!(vesting_converted_for(alice, &events).is_none());
+	});
+}
+
+#[test]
+fn incentive_accumulates_and_converts_at_batch_boundary() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Vesting enabled with BondingDuration = 3
+		// Batch boundaries at eras 3, 6, 9, ...
+		let alice = 11; // validator
+		setup_vesting_params();
+		setup_incentive_with_budget(45, 5);
+
+		// Advance through eras 2-6, rewarding each. Era 6 is a batch boundary (6 % 3 == 0).
+		for target_era in 2..=6 {
+			Session::roll_until_active_era(target_era);
+			Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		}
+		Session::roll_until_active_era(7);
+		let _ = staking_events_since_last_call();
+
+		// Pay eras 2-5, hold accumulates (non-boundary eras for 2,4,5; era 3 is boundary
+		// but we claim it with pages left from other eras still unclaimed)
+		make_all_reward_payment(2);
+		make_all_reward_payment(4);
+		make_all_reward_payment(5);
+		// Also pay era 3 — batch boundary but hold already accumulated from era 2
+		make_all_reward_payment(3);
+
+		// After era 3 payout, conversion should have triggered for eras 2+3 incentive.
+		// Remaining from eras 4+5 is still held. Flush events before era 6 payout.
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Payout era 6 (batch boundary, 6 % 3 == 0)
+		make_all_reward_payment(6);
+		let events = staking_events_since_last_call();
+
+		// THEN: Conversion triggered for eras 4+5+6 incentive
+		let (liquid, vested) = vesting_converted_for(alice, &events)
+			.expect("Should emit IncentiveVestingConverted at era 6");
+
+		// Retroactive unlock = 30% (BondingDuration=3 / vesting_eras=10)
+		let total_converted = liquid + vested;
+		let expected_liquid = Perbill::from_rational(3u32, 10u32).mul_floor(total_converted);
+		assert_eq!(liquid, expected_liquid);
+		assert_eq!(vested, total_converted - expected_liquid);
+
+		// Hold should be fully released after conversion
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+	});
+}
+
+#[test]
+fn no_conversion_on_non_batch_era() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Vesting enabled
+		let alice = 11; // validator
+		setup_vesting_params();
+		setup_incentive_with_budget(45, 5);
+
+		// Eras 2, 4, 5 are not batch boundaries (none are % 3 == 0)
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(4);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(5);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(6);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Payout eras 2, 4, 5 (none are batch boundaries)
+		make_all_reward_payment(2);
+		make_all_reward_payment(4);
+		make_all_reward_payment(5);
+		let events = staking_events_since_last_call();
+
+		// THEN: No conversion, hold accumulates
+		assert!(vesting_converted_for(alice, &events).is_none());
+		assert!(asset::incentive_held::<Test>(&alice) > 0);
+	});
+}
+
+#[test]
+fn vesting_duration_zero_pays_liquid() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: VestingDuration = 0 (default), so no hold, pay liquid directly.
+		let alice = 11; // validator
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Payout era 2
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: Paid liquid via ValidatorIncentivePaid, no hold
+		assert!(incentive_paid_for(alice, &events).is_some());
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+		assert!(vesting_converted_for(alice, &events).is_none());
+	});
+}
+
+#[test]
+fn conversion_succeeds_with_self_transfer() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Vesting enabled, mock uses ImmediateIncentivePayout which succeeds
+		// for self-transfers (Currency::transfer is a no-op when source == dest)
+		let alice = 11; // validator
+		setup_vesting_params();
+		setup_incentive_with_budget(45, 5);
+
+		// Accumulate eras 2 and 3. Era 3 is a batch boundary.
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(4);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Payout era 2, then era 3 (batch boundary triggers conversion)
+		make_all_reward_payment(2);
+		make_all_reward_payment(3);
+		let events = staking_events_since_last_call();
+
+		// THEN: Conversion happened
+		assert!(vesting_converted_for(alice, &events).is_some());
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+	});
+}
+
+#[test]
+fn multiple_batch_cycles() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Vesting enabled, run through two batch cycles
+		let alice = 11; // validator
+		setup_vesting_params();
+		setup_incentive_with_budget(45, 5);
+
+		// First cycle: eras 2-3. Era 3 is first batch boundary (3 % 3 == 0).
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(4);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(2);
+		make_all_reward_payment(3);
+		let events1 = staking_events_since_last_call();
+
+		let (liquid1, vested1) =
+			vesting_converted_for(alice, &events1).expect("Should convert at era 3");
+		assert!(liquid1 > 0);
+		assert!(vested1 > 0);
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+
+		// Second cycle: eras 4-6. Era 6 is second batch boundary.
+		for target_era in 4..=6 {
+			Session::roll_until_active_era(target_era);
+			Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		}
+		Session::roll_until_active_era(7);
+		let _ = staking_events_since_last_call();
+
+		make_all_reward_payment(4);
+		make_all_reward_payment(5);
+		make_all_reward_payment(6);
+		let events2 = staking_events_since_last_call();
+
+		// THEN: Second conversion also happens at era 6
+		let (liquid2, vested2) =
+			vesting_converted_for(alice, &events2).expect("Should convert at era 6");
+		assert!(liquid2 > 0);
+		assert!(vested2 > 0);
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+
+		// Both cycles apply the same 30% formula: liquid = floor(held * 3/10)
+		let total1 = liquid1 + vested1;
+		let total2 = liquid2 + vested2;
+		let expected_liquid1 = Perbill::from_rational(3u32, 10u32).mul_floor(total1);
+		let expected_liquid2 = Perbill::from_rational(3u32, 10u32).mul_floor(total2);
+		assert_eq!(liquid1, expected_liquid1);
+		assert_eq!(liquid2, expected_liquid2);
+	});
+}
+
+#[test]
+fn vesting_duration_in_eras_equals_bonding_releases_all_liquid() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: vesting_eras == BondingDuration → 100% unlocked at conversion
+		let alice = 11; // validator
+		VestingDurationBlocks::set(45); // 3 eras * 15 blocks/era
+		BlocksPerSession::set(5); // vesting_eras = 45 / (5*3) = 3, same as BondingDuration
+		setup_incentive_with_budget(45, 5);
+
+		// Advance to era 2+ for validator weights, accumulate through era 3 (batch boundary)
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(4);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: Payout era 2 and 3 (era 3 = batch boundary, vesting_eras == BondingDuration)
+		make_all_reward_payment(2);
+		make_all_reward_payment(3);
+		let events = staking_events_since_last_call();
+
+		// THEN: Everything released liquid (no vesting schedule created)
+		let converted = events.iter().find_map(|e| match e {
+			Event::IncentiveVestingConverted { validator_stash, liquid, vested }
+				if *validator_stash == alice =>
+			{
+				Some((*liquid, *vested))
+			},
+			_ => None,
+		});
+		assert!(
+			converted.is_some(),
+			"Should release all liquid when vesting_eras == BondingDuration"
+		);
+		let (liquid, vested) = converted.unwrap();
+		assert!(liquid > 0, "liquid portion should be non-zero");
+		assert_eq!(vested, 0, "vested should be zero when vesting_eras == BondingDuration");
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
 	});
 }
