@@ -471,6 +471,32 @@ async fn advertise_collation(
 	.await;
 }
 
+/// Advertise a collation using the V3 protocol, which includes the candidate descriptor version.
+async fn advertise_collation_v3(
+	virtual_overseer: &mut VirtualOverseer,
+	peer: PeerId,
+	scheduling_parent: Hash,
+	candidate_hash: CandidateHash,
+	parent_head_data_hash: Hash,
+	candidate_descriptor_version: CandidateDescriptorVersion,
+) {
+	let wire_message =
+		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+		});
+	overseer_send(
+		virtual_overseer,
+		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+			peer,
+			wire_message,
+		)),
+	)
+	.await;
+}
+
 // Test that we verify the signatures on `Declare` and `AdvertiseCollation` messages.
 #[test]
 fn collator_authentication_verification_works() {
@@ -566,7 +592,9 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 		.await;
 
 		assert!(
-			overseer_recv_with_timeout(&mut &mut virtual_overseer, Duration::from_millis(30)).await.is_none(),
+			overseer_recv_with_timeout(&mut &mut virtual_overseer, Duration::from_millis(30))
+				.await
+				.is_none(),
 			"There should not be sent any other PoV request while the first one wasn't finished or timed out.",
 		);
 

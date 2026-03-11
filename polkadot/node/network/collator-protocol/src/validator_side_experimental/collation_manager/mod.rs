@@ -32,6 +32,7 @@ use crate::{
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
 	OurView, PeerId,
 };
@@ -496,6 +497,7 @@ impl CollationManager {
 					session_info.v2_receipts,
 					per_rp.core_index,
 					per_rp.session_index,
+					CollationVersion::V2, // experimental module doesn't support V3 yet
 				) {
 					gum::warn!(
 						target: LOG_TARGET,

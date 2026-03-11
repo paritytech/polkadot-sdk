@@ -612,7 +612,10 @@ async fn distribute_collation<Context>(
 		})
 		.map(|(id, _)| id);
 
+<<<<<<< HEAD
 	// Make sure already connected peers get collations:
+=======
+>>>>>>> 4ad511e8 (collator-protocol: check v3 candidate against last finished slot block (#11239))
 	for peer_id in interested {
 		advertise_collation(
 			ctx,
@@ -829,7 +832,11 @@ async fn advertise_collation<Context>(
 	advertisement_timeouts: &mut FuturesUnordered<ResetInterestTimeout>,
 	metrics: &Metrics,
 ) {
+<<<<<<< HEAD
 	for (candidate_hash, collation_and_core) in per_relay_parent.collations.iter_mut() {
+=======
+	for (candidate_hash, collation_and_core) in per_scheduling_parent.collations.iter_mut() {
+>>>>>>> 4ad511e8 (collator-protocol: check v3 candidate against last finished slot block (#11239))
 		let core_index = *collation_and_core.core_index();
 		let collation = collation_and_core.collation_mut();
 
@@ -1289,8 +1296,18 @@ async fn advertise_collations_for_relay_parents<Context>(
 ) -> Vec<Hash> {
 	let mut unknown_relay_parents = Vec::new();
 
+<<<<<<< HEAD
 	for relay_parent in relay_parents {
 		let block_hashes = match state.per_relay_parent.contains_key(&relay_parent) {
+=======
+	let peer_version = match state.peer_data.get(peer_id) {
+		Some(peer) => peer.version,
+		None => return unknown_scheduling_parents,
+	};
+
+	for scheduling_parent in scheduling_parents {
+		let block_hashes = match state.per_scheduling_parent.contains_key(&scheduling_parent) {
+>>>>>>> 4ad511e8 (collator-protocol: check v3 candidate against last finished slot block (#11239))
 			true => state
 				.implicit_view
 				.as_ref()
@@ -1650,6 +1667,21 @@ async fn handle_our_view_change<Context>(
 
 			// Announce relevant collations to these peers.
 			for peer_id in &peers {
+<<<<<<< HEAD
+=======
+				// Get the peer's protocol version, skip if peer disconnected
+				let Some(peer_version) = state.peer_data.get(peer_id).map(|data| data.version)
+				else {
+					gum::debug!(
+						target: LOG_TARGET,
+						?peer_id,
+						?block_hash,
+						"Peer not found in peer_data, likely disconnected. Skipping advertisement.",
+					);
+					continue;
+				};
+
+>>>>>>> 4ad511e8 (collator-protocol: check v3 candidate against last finished slot block (#11239))
 				advertise_collation(
 					ctx,
 					*block_hash,

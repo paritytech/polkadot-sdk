@@ -1296,6 +1296,19 @@ impl FragmentChain {
 						return None; // relay parent moved backwards.
 					}
 
+<<<<<<< HEAD
+=======
+					// Note: we intentionally do NOT check that scheduling_parent
+					// advances between candidates. Scheduling_parent backwards
+					// movement is primarily a censorship resistance concern, which
+					// is handled by the collator protocol's slot-based check
+					// (validators reject advertisements where the scheduling_parent
+					// does not correspond to the last finished relay chain slot).
+					// The scheduling_parent may not be the tip of a fork (e.g. when
+					// a new relay block arrives mid-slot), which is still valid.
+					// From the relay chain's perspective, we only require that the
+					// scheduling_parent is within allowed scheduling parents.
+>>>>>>> 4ad511e8 (collator-protocol: check v3 candidate against last finished slot block (#11239))
 					// don't add candidates if they're already present in the chain.
 					// this can never happen, as candidates can only be duplicated if there's a
 					// cycle and we shouldn't have allowed for a cycle to be chained.
