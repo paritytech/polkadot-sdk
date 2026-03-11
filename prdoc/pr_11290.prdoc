@@ -68,7 +68,7 @@ crates:
   - name: polkadot-statement-distribution
     bump: major
   - name: polkadot-dispute-distribution
-    bump: patch
+    bump: major
   - name: polkadot-node-collation-generation
     bump: patch
   - name: polkadot-runtime-parachains
@@ -80,7 +80,7 @@ crates:
   - name: polkadot-node-core-approval-voting
     bump: major
   - name: polkadot-node-network-protocol
-    bump: patch
+    bump: major
   - name: polkadot-subsystem-bench
     bump: patch
   - name: polkadot-test-malus
