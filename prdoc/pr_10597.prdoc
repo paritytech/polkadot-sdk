@@ -2,32 +2,14 @@ title: 'Introduce pallet-dap-satellite with fungible currency wrappers'
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR introduces pallet-dap-satellite, allowing system chains different from AssetHub
-    to collect funds (to be periodically sent to DAP on AssetHub in future PRs) instead of
-    burning them directly.
-
-    **Changes:**
-
-    - **pallet-dap-satellite**: New pallet with `SatelliteCurrency<T>` wrapper that implements
-      all fungible traits, delegating to the inner currency but redirecting `burn_from` to the
-      satellite account.
-    - **pallet-dap**: Added `DapCurrency<T>` wrapper (same pattern) for AssetHub.
-    - Redirect all burns to DAP or DAP satellite on Westend chains
-    - Fee split set to 100% DAP on Westend chains
-
-    **Usage:**
-
-    Runtimes that want burns redirected to DAP/satellite should use the currency wrapper:
-    ```rust
-    // On AssetHub:
-    type NativeBalance = pallet_dap::currency::DapCurrency<Runtime>;
-
-    // On other system chains (Coretime, Collective, People, BridgeHub, RelayChain):
-    type NativeBalance = pallet_dap_satellite::currency::SatelliteCurrency<Runtime>;
-    ```
-
-    Other pallets using `T::Currency::burn_from` will use the wrapper's redirected behavior.
-    The pallet-balances extrinsics (like `burn`) continue to use standard burn semantics.
+      - Introduce pallet-dap-satellite for system chains (RC, BridgeHub, Coretime, People,
+      Collectives) to collect funds that would otherwise be burned, staging them for periodic
+      transfer to the central DAP on AssetHub.
+      - Introduce DapCurrency and SatelliteCurrency fungible wrappers, intercepting `burn_from()`
+      calls through the fungible traits so that imbalance is intercepted before being dropped, funds
+      are deposited to DAP / DAP satellite  and total isssuance is unchanged.
+      - Redirect all system burns to DAP or DAP satellite on Westend system chains, including
+      tx fees, dust removal and coretime revenue burns.
 crates:
 - name: pallet-dap-satellite
   bump: patch
