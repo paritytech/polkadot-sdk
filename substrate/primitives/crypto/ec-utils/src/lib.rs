@@ -64,7 +64,7 @@ mod utils;
 	feature = "ed-on-bls12-377",
 	feature = "ed-on-bls12-381-bandersnatch",
 ))]
-pub type EllipticCurveHostFunctions = (
+pub type HostFunctions = (
 	bls12_381::host_calls::HostFunctions,
 	bls12_377::host_calls::HostFunctions,
 	bw6_761::host_calls::HostFunctions,

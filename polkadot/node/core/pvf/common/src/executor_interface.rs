@@ -209,7 +209,7 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
-	sp_crypto_ec_utils::EllipticCurveHostFunctions,
+	sp_crypto_ec_utils::HostFunctions,
 );
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
