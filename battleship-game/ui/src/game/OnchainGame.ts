@@ -2,8 +2,6 @@ import { Board } from "./Board.ts";
 import { getShipCells } from "./Ship.ts";
 import { getChainClient, disconnectClient } from "../chain/client.ts";
 import {
-  getDevPlayerAccount,
-  getOpponentAddress,
   type PlayerAccount,
 } from "../chain/accounts.ts";
 import {
@@ -83,9 +81,9 @@ export class OnchainGame {
   private currentShipIndex = 0;
   private placementOrientation: Orientation = "horizontal";
 
-  constructor(player: Player, account?: PlayerAccount) {
+  constructor(player: Player, account: PlayerAccount) {
     this.player = player;
-    this.account = account ?? getDevPlayerAccount(player as "alice" | "bob");
+    this.account = account;
     this.ourBoard = new Board();
     this.opponentBoard = new Board();
     console.log(`[${player}] === NEW OnchainGame instance created ===${account ? ' addr=' + account.address.slice(0, 8) : ''}`);
@@ -94,7 +92,7 @@ export class OnchainGame {
   async initialize(): Promise<void> {
     const client = await getChainClient();
     this.battleshipClient = await BattleshipClient.create(client);
-    this.setMessage(`Connected as ${this.player.toUpperCase()}`);
+    this.setMessage(`Connected`);
   }
 
   // State management
@@ -428,8 +426,12 @@ export class OnchainGame {
         pos.y,
         this.currentRound,
         () => {
-          console.log(`[${this.player}] Attack tx reorged, clearing pendingAttack for retry`);
+          console.log(`[${this.player}] Attack tx reorged, resetting attack state for retry`);
           this.pendingAttack = null;
+          this.lastAttackRound = -1;
+          this._lastAttackTime = 0;
+          this.isAttacking = false;
+          resetLocalNonce(this.account.address);
           this.notifyStateChange();
         }
       );
@@ -526,8 +528,11 @@ export class OnchainGame {
         coord,
         this.currentRound,
         () => {
-          console.log(`[${this.player}] Reveal tx reorged, clearing pendingRevealTx for retry`);
+          console.log(`[${this.player}] Reveal tx reorged, resetting reveal state for retry`);
           this.pendingRevealTx = null;
+          this.lastSuccessfulRevealRound = -1;
+          this.isRevealing = false;
+          resetLocalNonce(this.account.address);
         }
       );
 
@@ -540,9 +545,7 @@ export class OnchainGame {
         this.currentRound++;
         this.pendingAttack = null;
         this.isOurTurn = false;
-        if (cell.isOccupied) {
-          this.ourBoard.receiveAttack(coord);
-        }
+        this.ourBoard.receiveAttack(coord);
         if (this.phase !== "finished") {
           this.setMessage("Opponent's turn...");
         }
@@ -582,7 +585,7 @@ export class OnchainGame {
     console.log(`[${this.player}] Surrender result:`, result);
 
     if (result.ok) {
-      this.winner = this.player === "alice" ? "bob" : "alice";
+      this.winner = null;
       this.gameId = null; // Clear game ID so we don't try to resume
       this.setPhase("finished");
       this.setMessage("You surrendered.");
@@ -637,7 +640,7 @@ export class OnchainGame {
 
   private handleGameEndedEvent(event: { winner: string; loser: string; reason: string }): void {
     const weAreWinner = event.winner === this.account.address;
-    this.winner = weAreWinner ? this.player : (this.player === "alice" ? "bob" : "alice");
+    this.winner = weAreWinner ? this.player : null;
     this.setPhase("finished");
 
     const reason = event.reason;
@@ -749,7 +752,8 @@ export class OnchainGame {
         this.setMessage("Place your ships.");
       }
 
-      if ((this.player === "alice" && p1Ready) || (this.player === "bob" && p2Ready)) {
+      const weArePlayer1 = game.player1?.toString() === this.account.address;
+      if ((weArePlayer1 && p1Ready) || (!weArePlayer1 && p2Ready)) {
         if (this.phase !== "waiting_commit") {
           this.setPhase("waiting_commit");
           this.setMessage("Waiting for opponent to commit grid...");
@@ -772,7 +776,7 @@ export class OnchainGame {
       this.currentRound = newRound;
 
       if (phaseChanged || roundChanged) {
-        await this.updateOpponentBoardFromChain();
+        await this.updateOpponentBoardFromChain(game);
       }
 
       const weArePlayer1 = game.player1?.toString() === this.account.address;
@@ -847,6 +851,11 @@ export class OnchainGame {
         (winnerRole?.type === "Player1" && weArePlayer1) ||
         (winnerRole?.type === "Player2" && !weArePlayer1);
 
+      // Sync both boards from chain before showing end state
+      await this.updateOpponentBoardFromChain(game);
+      await this.updateOurBoardFromChain(game);
+      this.notifyStateChange();
+
       if (weAreWinner) {
         // We need to reveal our grid
         this.setPhase("revealing");
@@ -866,7 +875,12 @@ export class OnchainGame {
         (winnerRole?.type === "Player1" && weArePlayer1) ||
         (winnerRole?.type === "Player2" && !weArePlayer1);
 
-      this.winner = weWon ? this.player : (this.player === "alice" ? "bob" : "alice");
+      // Sync both boards from chain before showing final state
+      await this.updateOpponentBoardFromChain(game);
+      await this.updateOurBoardFromChain(game);
+      this.notifyStateChange();
+
+      this.winner = weWon ? this.player : null;
       this.setPhase("finished");
 
       // Set appropriate message based on reason
@@ -951,10 +965,23 @@ export class OnchainGame {
   }
 
   // Update opponent board based on chain data (our attacks on opponent)
-  private async updateOpponentBoardFromChain(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async updateOpponentBoardFromChain(game?: any): Promise<void> {
     if (!this.battleshipClient || this.gameId === null) return;
 
-    const opponentAddress = getOpponentAddress(this.player);
+    // Determine opponent address from game data
+    let opponentAddress: string | undefined;
+    if (game) {
+      const weArePlayer1 = game.player1?.toString() === this.account.address;
+      opponentAddress = weArePlayer1 ? game.player2?.toString() : game.player1?.toString();
+    } else {
+      const { game: g } = await this.battleshipClient.getGame(this.gameId);
+      if (!g) return;
+      const weArePlayer1 = g.player1?.toString() === this.account.address;
+      opponentAddress = weArePlayer1 ? g.player2?.toString() : g.player1?.toString();
+    }
+    if (!opponentAddress) return;
+
     const opponentData = await this.battleshipClient.getPlayerData(this.gameId, opponentAddress);
     if (!opponentData) return;
 
@@ -979,6 +1006,26 @@ export class OnchainGame {
         const y = Math.floor(i / 10);
         const isHit = hitSet.has(`${x},${y}`);
         this.opponentBoard.markAttackResult({ x, y }, isHit);
+      }
+    }
+  }
+
+  // Update our board based on chain data (opponent's attacks on us)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async updateOurBoardFromChain(_game?: any): Promise<void> {
+    if (!this.battleshipClient || this.gameId === null) return;
+
+    const ourData = await this.battleshipClient.getPlayerData(this.gameId, this.account.address);
+    if (!ourData) return;
+
+    const revealed = ourData.revealed;
+    if (!revealed || !Array.isArray(revealed)) return;
+
+    for (let i = 0; i < 100 && i < revealed.length; i++) {
+      if (revealed[i] === 1) {
+        const x = i % 10;
+        const y = Math.floor(i / 10);
+        this.ourBoard.receiveAttack({ x, y });
       }
     }
   }

@@ -697,4 +697,44 @@ export class BattleshipClient {
       subscription.unsubscribe();
     };
   }
+
+  async requestFunds(address: string): Promise<boolean> {
+    try {
+      const REQUEST_FUNDS_CALL_INDEX = 0x09;
+      const accountBytes = AccountId().enc(address);
+      const callData = new Uint8Array(2 + accountBytes.length);
+      callData[0] = BATTLESHIP_PALLET_INDEX;
+      callData[1] = REQUEST_FUNDS_CALL_INDEX;
+      callData.set(accountBytes, 2);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const request = (this.client as any)._request;
+      // Unsigned extrinsic: version_byte(0x04) + call_data
+      const extrinsic = new Uint8Array(1 + callData.length);
+      extrinsic[0] = 0x04; // version 4, unsigned (no signature bit)
+      extrinsic.set(callData, 1);
+
+      // Compact-encode the length prefix
+      const len = extrinsic.length;
+      let prefix: Uint8Array;
+      if (len < 64) {
+        prefix = new Uint8Array([len << 2]);
+      } else if (len < 16384) {
+        prefix = new Uint8Array([(len << 2) & 0xff, ((len << 2) >> 8) & 0xff]);
+      } else {
+        prefix = new Uint8Array([(len << 2) & 0xff, ((len << 2) >> 8) & 0xff, ((len << 2) >> 16) & 0xff, ((len << 2) >> 24) & 0xff]);
+      }
+
+      const fullExtrinsic = new Uint8Array(prefix.length + extrinsic.length);
+      fullExtrinsic.set(prefix, 0);
+      fullExtrinsic.set(extrinsic, prefix.length);
+
+      await request("author_submitExtrinsic", [bytesToHex(fullExtrinsic)]);
+      console.log("[request_funds] Submitted successfully");
+      return true;
+    } catch (e) {
+      console.error("[request_funds] Error:", e);
+      return false;
+    }
+  }
 }

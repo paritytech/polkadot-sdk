@@ -1,9 +1,11 @@
 import { getClient, disconnectClient } from "./client.js";
 import { BattleshipClient } from "./battleship.js";
 import { BattleshipBot } from "./bot.js";
-import { botAccount } from "./accounts.js";
+import { createRandomAccount } from "./accounts.js";
 
 async function main() {
+  const botAccount = createRandomAccount();
+
   console.log("=".repeat(60));
   console.log("Battleship Bot Starting");
   console.log("=".repeat(60));
@@ -12,11 +14,16 @@ async function main() {
   console.log("=".repeat(60));
 
   try {
-    // Connect to chain via smoldot
     const client = await getClient();
     const battleshipClient = await BattleshipClient.create(client);
 
-    // Start bot
+    // Request funds from faucet
+    console.log("[Bot] Requesting funds from faucet...");
+    await battleshipClient.requestFunds(botAccount.address);
+    // Wait for the faucet tx to be included
+    await new Promise(r => setTimeout(r, 6000));
+    console.log("[Bot] Faucet request submitted, proceeding...");
+
     const bot = new BattleshipBot(battleshipClient, botAccount);
     await bot.run();
   } catch (e) {
@@ -26,7 +33,6 @@ async function main() {
   }
 }
 
-// Handle graceful shutdown
 process.on("SIGINT", () => {
   console.log("\n[Bot] Shutting down...");
   disconnectClient();

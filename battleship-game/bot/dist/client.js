@@ -45,6 +45,45 @@ export async function getClient() {
     }
     return clientInstance;
 }
+export async function createNewClient(label) {
+    const tag = label || "new";
+    console.log(`[client:${tag}] Starting smoldot light client...`);
+    const sm = start({
+        maxLogLevel: 5,
+        logCallback: (level, target, message) => {
+            if (level <= 5) {
+                const levelNames = ["", "ERROR", "WARN", "DEBUG"];
+                console.log(`[smoldot:${tag}:${levelNames[level]}:${target}] ${message.slice(0, 300)}`);
+            }
+        },
+    });
+    console.log(`[client:${tag}] Adding relay chain...`);
+    const relayChain = await sm.addChain({ chainSpec: relayChainSpec });
+    console.log(`[client:${tag}] Adding parachain...`);
+    const smProvider = getSmProvider(() => sm.addChain({
+        chainSpec: parachainSpec,
+        potentialRelayChains: [relayChain],
+    }));
+    console.log(`[client:${tag}] Creating PAPI client...`);
+    const client = createClient(smProvider);
+    console.log(`[client:${tag}] Waiting for first best block...`);
+    const api = client.getUnsafeApi();
+    await api.query.Battleship.NextGameId.getValue({ at: "best" });
+    console.log(`[client:${tag}] Connected!`);
+    return {
+        client,
+        destroy: () => {
+            try {
+                client.destroy();
+            }
+            catch { }
+            try {
+                sm.terminate();
+            }
+            catch { }
+        },
+    };
+}
 export function disconnectClient() {
     if (clientInstance) {
         console.log("[client] Disconnecting...");

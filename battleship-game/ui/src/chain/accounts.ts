@@ -1,12 +1,11 @@
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import {
-  DEV_PHRASE,
   entropyToMiniSecret,
   mnemonicToEntropy,
+  generateMnemonic,
 } from "@polkadot-labs/hdkd-helpers";
 import { getPolkadotSigner, type PolkadotSigner } from "polkadot-api/signer";
 import { AccountId } from "polkadot-api";
-import type { Player } from "../types/index.ts";
 
 export interface PlayerAccount {
   signer: PolkadotSigner;
@@ -14,47 +13,21 @@ export interface PlayerAccount {
   publicKey?: Uint8Array;
 }
 
-const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
-const derive = sr25519CreateDerive(miniSecret);
+const STORAGE_KEY = "battleship-wallet-mnemonic";
 
-const aliceKeyPair = derive("//Alice");
-const bobKeyPair = derive("//Bob");
+export function getOrCreateWallet(): PlayerAccount {
+  let mnemonic = localStorage.getItem(STORAGE_KEY);
+  if (!mnemonic) {
+    mnemonic = generateMnemonic(128);
+    localStorage.setItem(STORAGE_KEY, mnemonic);
+  }
 
-export const alice: PlayerAccount = {
-  signer: getPolkadotSigner(aliceKeyPair.publicKey, "Sr25519", aliceKeyPair.sign),
-  address: AccountId().dec(aliceKeyPair.publicKey),
-  publicKey: aliceKeyPair.publicKey,
-};
+  const miniSecret = entropyToMiniSecret(mnemonicToEntropy(mnemonic));
+  const derive = sr25519CreateDerive(miniSecret);
+  const keyPair = derive("");
 
-export const bob: PlayerAccount = {
-  signer: getPolkadotSigner(bobKeyPair.publicKey, "Sr25519", bobKeyPair.sign),
-  address: AccountId().dec(bobKeyPair.publicKey),
-  publicKey: bobKeyPair.publicKey,
-};
+  const signer = getPolkadotSigner(keyPair.publicKey, "Sr25519", keyPair.sign);
+  const address = AccountId().dec(keyPair.publicKey);
 
-export function isDevMode(): boolean {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("devMode") === "true" || params.has("player");
-}
-
-export function getPlayerFromUrl(): Player {
-  const params = new URLSearchParams(window.location.search);
-  const player = params.get("player");
-  return player === "bob" ? "bob" : "alice";
-}
-
-export function getDevPlayerAccount(player: Player): PlayerAccount {
-  return player === "alice" ? alice : bob;
-}
-
-export function getPlayerAccount(player: Player): PlayerAccount {
-  return player === "alice" ? alice : bob;
-}
-
-export function getOpponentAccount(player: Player): PlayerAccount {
-  return player === "alice" ? bob : alice;
-}
-
-export function getOpponentAddress(player: Player): string {
-  return getOpponentAccount(player).address;
+  return { signer, address, publicKey: keyPair.publicKey };
 }

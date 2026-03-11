@@ -23,6 +23,7 @@ sp-runtime = { workspace = true }
 sp-core = { workspace = true }
 binary-merkle-tree = { workspace = true }
 bitvec = { workspace = true }
+sp-statement-store = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
@@ -41,6 +42,7 @@ std = [
 	"binary-merkle-tree/std",
 	"bitvec/std",
 	"log/std",
+	"sp-statement-store/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

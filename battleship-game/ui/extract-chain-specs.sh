@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(dirname "$0")"
 CHAIN_SPECS_DIR="$SCRIPT_DIR/public/chain-specs"
 
-ZOMBIE_DIR=$(find /tmp -maxdepth 1 -name "zombie-*" -type d 2>/dev/null | head -1)
+ZOMBIE_DIR=$(ls -td /tmp/zombie-* 2>/dev/null | head -1)
 
 if [ -z "$ZOMBIE_DIR" ]; then
     echo "Error: No zombienet directory found in /tmp"

@@ -57,6 +57,9 @@ function wrapSignerWithCallData(signer, rawCallData) {
     };
 }
 const localNonceMap = new Map();
+export function resetLocalNonce(address) {
+    localNonceMap.delete(address);
+}
 async function submitTx(tx, signer, client, label, api) {
     const pubkey = signer.publicKey;
     const address = AccountId().dec(pubkey);
@@ -224,6 +227,17 @@ export class BattleshipClient {
             return false;
         }
     }
+    async surrender(signer, gameId) {
+        try {
+            const tx = this.api.tx.Battleship.surrender({ game_id: gameId });
+            await submitTx(tx, signer, this.client, "surrender", this.api);
+            return true;
+        }
+        catch (e) {
+            console.error("[surrender] Error:", e);
+            return false;
+        }
+    }
     async getGame(gameId) {
         try {
             return await this.api.query.Battleship.Games.getValue(gameId, { at: "best" });
@@ -239,6 +253,17 @@ export class BattleshipClient {
         }
         catch (e) {
             console.error("[getPlayerData] Error:", e);
+            return null;
+        }
+    }
+    async getPlayerGame(address) {
+        try {
+            const val = await this.api.query.Battleship.PlayerGame.getValue(address, { at: "best" });
+            if (val === null || val === undefined)
+                return null;
+            return typeof val === "bigint" ? val : BigInt(val);
+        }
+        catch {
             return null;
         }
     }
@@ -262,6 +287,43 @@ export class BattleshipClient {
         catch (e) {
             console.error("[findWaitingGames] Error:", e);
             return [];
+        }
+    }
+    async requestFunds(address) {
+        try {
+            const REQUEST_FUNDS_CALL_INDEX = 0x09;
+            const accountBytes = AccountId().enc(address);
+            const callData = new Uint8Array(2 + accountBytes.length);
+            callData[0] = BATTLESHIP_PALLET_INDEX;
+            callData[1] = REQUEST_FUNDS_CALL_INDEX;
+            callData.set(accountBytes, 2);
+            const request = this.client._request;
+            // Unsigned extrinsic: version_byte(0x04) + call_data
+            const extrinsic = new Uint8Array(1 + callData.length);
+            extrinsic[0] = 0x04;
+            extrinsic.set(callData, 1);
+            // Compact-encode the length prefix
+            const len = extrinsic.length;
+            let prefix;
+            if (len < 64) {
+                prefix = new Uint8Array([len << 2]);
+            }
+            else if (len < 16384) {
+                prefix = new Uint8Array([(len << 2) & 0xff, ((len << 2) >> 8) & 0xff]);
+            }
+            else {
+                prefix = new Uint8Array([(len << 2) & 0xff, ((len << 2) >> 8) & 0xff, ((len << 2) >> 16) & 0xff, ((len << 2) >> 24) & 0xff]);
+            }
+            const fullExtrinsic = new Uint8Array(prefix.length + extrinsic.length);
+            fullExtrinsic.set(prefix, 0);
+            fullExtrinsic.set(extrinsic, prefix.length);
+            await request("author_submitExtrinsic", [bytesToHex(fullExtrinsic)]);
+            console.log("[request_funds] Submitted successfully for", address.slice(0, 8));
+            return true;
+        }
+        catch (e) {
+            console.error("[request_funds] Error:", e);
+            return false;
         }
     }
 }

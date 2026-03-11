@@ -49,7 +49,7 @@ export const SHIP_DEFINITIONS: ShipDefinition[] = [
   { id: "destroyer", name: "Destroyer", size: 2 },
 ];
 
-export type Player = "alice" | "bob" | "player";
+export type Player = "player";
 
 export interface ChainCell {
   salt: Uint8Array;

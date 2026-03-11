@@ -28,6 +28,9 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const TurnTimeout: u64 = 100;
 	pub const AbandonTimeout: u64 = 960;
+	pub const FaucetAmount: u64 = 5_000;
+	pub const StatementAllowanceCount: u32 = 10;
+	pub const StatementAllowanceBytes: u32 = 4096;
 }
 
 impl pallet_battleship::Config for Test {
@@ -36,6 +39,9 @@ impl pallet_battleship::Config for Test {
 	type TurnTimeout = TurnTimeout;
 	type AbandonTimeout = AbandonTimeout;
 	type WeightInfo = ();
+	type FaucetAmount = FaucetAmount;
+	type StatementAllowanceCount = StatementAllowanceCount;
+	type StatementAllowanceBytes = StatementAllowanceBytes;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

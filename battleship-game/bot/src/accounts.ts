@@ -1,6 +1,6 @@
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import {
-  DEV_PHRASE,
+  generateMnemonic,
   entropyToMiniSecret,
   mnemonicToEntropy,
 } from "@polkadot-labs/hdkd-helpers";
@@ -13,23 +13,18 @@ export interface BotAccount {
   publicKey: Uint8Array;
 }
 
-const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
-const derive = sr25519CreateDerive(miniSecret);
+export function createRandomAccount(): BotAccount {
+  const mnemonic = generateMnemonic(128);
+  return createAccountFromMnemonic(mnemonic);
+}
 
-// Bot uses Charlie dev account
-const charlieKeyPair = derive("//Charlie");
-
-export const botAccount: BotAccount = {
-  signer: getPolkadotSigner(charlieKeyPair.publicKey, "Sr25519", charlieKeyPair.sign),
-  address: AccountId().dec(charlieKeyPair.publicKey),
-  publicKey: charlieKeyPair.publicKey,
-};
-
-// Alice dev account for testing
-const aliceKeyPair = derive("//Alice");
-
-export const aliceAccount: BotAccount = {
-  signer: getPolkadotSigner(aliceKeyPair.publicKey, "Sr25519", aliceKeyPair.sign),
-  address: AccountId().dec(aliceKeyPair.publicKey),
-  publicKey: aliceKeyPair.publicKey,
-};
+export function createAccountFromMnemonic(mnemonic: string): BotAccount {
+  const miniSecret = entropyToMiniSecret(mnemonicToEntropy(mnemonic));
+  const derive = sr25519CreateDerive(miniSecret);
+  const keyPair = derive("");
+  return {
+    signer: getPolkadotSigner(keyPair.publicKey, "Sr25519", keyPair.sign),
+    address: AccountId().dec(keyPair.publicKey),
+    publicKey: keyPair.publicKey,
+  };
+}

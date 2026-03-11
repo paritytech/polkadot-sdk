@@ -1,4 +1,4 @@
-import { BattleshipClient } from "./battleship.js";
+import { BattleshipClient, resetLocalNonce } from "./battleship.js";
 import { BotAccount } from "./accounts.js";
 import { placeShipsRandomly, selectAttackTarget } from "./game.js";
 import { buildMerkleTree } from "./merkle.js";
@@ -228,6 +228,14 @@ export class BattleshipBot {
     const currentRound = playingPhase.round ? Number(playingPhase.round) : 0;
     const currentTurn = playingPhase.current_turn?.type; // "Player1" or "Player2"
     const pendingAttack = playingPhase.pending_attack;
+
+    // Detect fork: round went backwards or state doesn't match our tracking
+    if (currentRound < state.lastAttackRound) {
+      console.log(`[Bot] Fork detected in game ${gameId}: round ${state.lastAttackRound} -> ${currentRound}, resetting state`);
+      state.lastAttackRound = -1;
+      state.lastRevealCoord = "";
+      resetLocalNonce(state.myAddress);
+    }
 
     // Determine if it's my turn
     const myTurnType = state.amIPlayer1 ? "Player1" : "Player2";

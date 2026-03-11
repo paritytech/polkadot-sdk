@@ -35,7 +35,11 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, Saturating};
+use sp_runtime::{
+	traits::{BlakeTwo256, Saturating},
+	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+};
+use sp_statement_store::StatementAllowance;
 
 /// Grid coordinate (0-9 for both x and y)
 #[derive(
@@ -271,6 +275,18 @@ pub mod pallet {
 
 		/// Weight info
 		type WeightInfo: WeightInfo;
+
+		/// Amount of funds to mint when requesting via faucet
+		#[pallet::constant]
+		type FaucetAmount: Get<BalanceOf<Self>>;
+
+		/// Max number of statements allowed per faucet claim
+		#[pallet::constant]
+		type StatementAllowanceCount: Get<u32>;
+
+		/// Max total bytes of statements allowed per faucet claim
+		#[pallet::constant]
+		type StatementAllowanceBytes: Get<u32>;
 	}
 
 	#[pallet::composite_enum]
@@ -291,6 +307,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type PlayerGame<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, GameId>;
+
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -321,6 +338,8 @@ pub mod pallet {
 		GameAbandoned { game_id: GameId, burned_amount: BalanceOf<T> },
 		/// Game cancelled by creator before opponent joined
 		GameCancelled { game_id: GameId, creator: T::AccountId, refunded: BalanceOf<T> },
+		/// Faucet funds requested and statement store allowance granted
+		FundsRequested { who: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -945,6 +964,55 @@ pub mod pallet {
 			Self::deposit_event(Event::GameCancelled { game_id, creator, refunded });
 
 			Ok(())
+		}
+		/// Request funds from the faucet (unsigned transaction).
+		///
+		/// This mints tokens for the given account and grants statement store
+		/// allowance so the account can participate in battleship games.
+		/// Each account can only claim once.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::request_funds())]
+		pub fn request_funds(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+
+
+			let amount = T::FaucetAmount::get();
+			T::Currency::mint_into(&account, amount)?;
+
+			// Grant statement store allowance
+			let allowance = StatementAllowance::new(
+				T::StatementAllowanceCount::get(),
+				T::StatementAllowanceBytes::get(),
+			);
+			sp_statement_store::increase_allowance_by(account.encode(), allowance);
+
+
+			Self::deposit_event(Event::FundsRequested { who: account, amount });
+
+			Ok(())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(
+			_source: TransactionSource,
+			call: &Self::Call,
+		) -> TransactionValidity {
+			if let Call::request_funds { account } = call {
+				ValidTransaction::with_tag_prefix("BattleshipFaucet")
+					.and_provides(account.encode())
+					.longevity(3)
+					.propagate(true)
+					.build()
+			} else {
+				InvalidTransaction::Call.into()
+			}
 		}
 	}
 

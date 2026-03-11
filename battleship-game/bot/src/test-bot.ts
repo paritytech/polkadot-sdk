@@ -1,5 +1,5 @@
 import { BattleshipClient } from './battleship.js';
-import { aliceAccount } from './accounts.js';
+import { createRandomAccount } from './accounts.js';
 import { placeShipsRandomly } from './game.js';
 import { buildMerkleTree } from './merkle.js';
 import { getClient } from './client.js';
@@ -15,11 +15,12 @@ async function testBotGame() {
   console.log('[Test] Initializing client...');
   const client = await getClient();
   const battleshipClient = await BattleshipClient.create(client);
-  
-  // Wait a bit for initialization
-  await new Promise(r => setTimeout(r, 3000));
 
-  const alice = aliceAccount;
+  // Create a random account and request funds
+  const alice = createRandomAccount();
+  console.log(`[Test] Alice address: ${alice.address}`);
+  await battleshipClient.requestFunds(alice.address);
+  await new Promise(r => setTimeout(r, 6000));
 
   // Find bot's waiting game
   console.log('[Test] Looking for bot\'s game...');

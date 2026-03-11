@@ -63,7 +63,7 @@ use super::{
 	MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
 	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, CENTS, EXISTENTIAL_DEPOSIT, HOURS,
-	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, MILLICENTS, NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
+	MAXIMUM_BLOCK_WEIGHT, MICRO_UNIT, MILLICENTS, NORMAL_DISPATCH_RATIO, SLOT_DURATION, UNIT, VERSION,
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
@@ -345,6 +345,9 @@ impl pallet_collator_selection::Config for Runtime {
 parameter_types! {
 	pub const TurnTimeout: BlockNumber = 720;
 	pub const AbandonTimeout: BlockNumber = 2400;
+	pub const FaucetAmount: Balance = 10_000 * UNIT;
+	pub const StatementAllowanceCount: u32 = 10;
+	pub const StatementAllowanceBytes: u32 = 4096;
 }
 
 /// Configure the battleship pallet.
@@ -354,6 +357,9 @@ impl pallet_battleship::Config for Runtime {
 	type TurnTimeout = TurnTimeout;
 	type AbandonTimeout = AbandonTimeout;
 	type WeightInfo = pallet_battleship::weights::SubstrateWeight<Runtime>;
+	type FaucetAmount = FaucetAmount;
+	type StatementAllowanceCount = StatementAllowanceCount;
+	type StatementAllowanceBytes = StatementAllowanceBytes;
 }
 
 parameter_types! {

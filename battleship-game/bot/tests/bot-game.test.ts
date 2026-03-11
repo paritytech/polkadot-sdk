@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { BattleshipClient } from '../src/battleship.js';
 import { BattleshipBot } from '../src/bot.js';
-import { aliceAccount, botAccount } from '../src/accounts.js';
+import { createRandomAccount } from '../src/accounts.js';
 import { placeShipsRandomly } from '../src/game.js';
 import { buildMerkleTree } from '../src/merkle.js';
 import { getClient, disconnectClient } from '../src/client.js';
@@ -16,21 +16,23 @@ describe('Bot Game Test', () => {
   let battleshipClient: BattleshipClient;
   let gameId: bigint;
   let botRunning = false;
+  let aliceAccount: ReturnType<typeof createRandomAccount>;
+  let botAccount: ReturnType<typeof createRandomAccount>;
 
   beforeAll(async () => {
+    aliceAccount = createRandomAccount();
+    botAccount = createRandomAccount();
+
     console.log('[Test] Initializing client...');
     const client = await getClient();
     battleshipClient = await BattleshipClient.create(client);
 
-    // Surrender any existing games for both Alice and bot
-    for (const account of [aliceAccount, botAccount]) {
-      const existingGameId = await battleshipClient.getPlayerGame(account.address);
-      if (existingGameId !== null) {
-        console.log(`[Test] ${account.address.slice(0, 8)}... is in game ${existingGameId}, surrendering...`);
-        await battleshipClient.surrender(account.signer, existingGameId);
-        await new Promise(r => setTimeout(r, 6000));
-      }
-    }
+    // Request funds for both accounts
+    console.log('[Test] Requesting funds for alice and bot...');
+    await battleshipClient.requestFunds(aliceAccount.address);
+    await battleshipClient.requestFunds(botAccount.address);
+    await new Promise(r => setTimeout(r, 6000));
+    console.log('[Test] Faucet requests submitted, proceeding...');
 
     // Start the bot in the background
     console.log('[Test] Starting bot...');

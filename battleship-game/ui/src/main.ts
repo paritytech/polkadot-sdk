@@ -1,13 +1,13 @@
 import { OnchainGame } from "./game/OnchainGame.ts";
 import { Renderer } from "./render/Renderer.ts";
 import { InputHandler } from "./input/InputHandler.ts";
-import { isDevMode, getPlayerFromUrl, getDevPlayerAccount, type PlayerAccount } from "./chain/accounts.ts";
-import { getWalletManager, WalletManager, type WalletInfo, type WalletAccount } from "./chain/wallet.ts";
+import { getOrCreateWallet, type PlayerAccount } from "./chain/accounts.ts";
+import { getWalletManager, WalletManager } from "./chain/wallet.ts";
 import { getChainClient } from "./chain/client.ts";
 import { BattleshipClient, resetLocalNonce } from "./chain/battleship.ts";
-import type { Position, Player } from "./types/index.ts";
+import type { Position } from "./types/index.ts";
 
-type Screen = "wallet-connect" | "game-lobby" | "game";
+type Screen = "loading" | "game-lobby" | "game";
 
 class BattleshipApp {
   private game: OnchainGame | null = null;
@@ -28,20 +28,62 @@ class BattleshipApp {
   private currentBalance: bigint = 0n;
   private selectedPotAmount: bigint = 0n;
   private lobbyRefreshInterval: number | null = null;
-  private devModePlayer: Player = "alice";
   private buttonAbortController: AbortController | null = null;
-
   constructor() {
     this.walletManager = getWalletManager();
     this.init();
   }
 
-  private init(): void {
-    if (isDevMode()) {
-      this.setupDevMode();
-    } else {
-      this.setupWalletConnect();
+  private async init(): Promise<void> {
+    const account = getOrCreateWallet();
+    this.currentAccount = account;
+
+    this.setLoadingStatus("Connecting");
+    try {
+      await getChainClient();
+    } catch (e) {
+      console.error("Failed to connect to chain:", e);
+      this.setLoadingStatus("Failed to connect. Retrying");
+      // Retry once after a short delay
+      await new Promise((r) => setTimeout(r, 2000));
+      await getChainClient();
     }
+
+    this.setLoadingStatus("Requesting funds");
+    const client = await getChainClient();
+    const battleshipClient = await BattleshipClient.create(client);
+    try {
+      await battleshipClient.requestFunds(account.address);
+    } catch (e) {
+      console.error("Faucet request failed:", e);
+    }
+
+    this.setLoadingStatus("Waiting for funds");
+    for (let i = 0; i < 30; i++) {
+      await this.loadDevBalance(account.address);
+      if (this.currentBalance > 0n) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    if (this.currentBalance === 0n) {
+      this.setLoadingStatus("No funds received. Retrying faucet");
+      try {
+        await battleshipClient.requestFunds(account.address);
+      } catch (e) {
+        console.error("Faucet retry failed:", e);
+      }
+      for (let i = 0; i < 15; i++) {
+        await this.loadDevBalance(account.address);
+        if (this.currentBalance > 0n) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+
+    this.onAccountReady();
+  }
+  private setLoadingStatus(msg: string): void {
+    const el = document.getElementById("loading-status");
+    if (el) el.textContent = msg;
   }
 
   private showScreen(screen: Screen): void {
@@ -60,89 +102,12 @@ class BattleshipApp {
     }
   }
 
-  private setupDevMode(): void {
-    this.devModePlayer = getPlayerFromUrl();
-    const devToggle = document.getElementById("dev-mode-toggle") as HTMLInputElement;
-    if (devToggle) devToggle.checked = true;
-
-    this.toggleDevModeUI(true);
-    this.initRpcEndpointFromUrl();
-    this.applyRpcEndpoint();
-
-
-
-    this.selectDevPlayer(this.devModePlayer);
-
-    devToggle?.addEventListener("change", () => {
-      if (!devToggle.checked) {
-        window.location.search = "";
-      }
-    });
-
-    document.querySelectorAll("#dev-mode-section .card").forEach((card) => {
-      card.addEventListener("click", () => {
-        const player = (card as HTMLElement).dataset.player as Player;
-        this.selectDevPlayer(player);
-      });
-    });
-
-    document.getElementById("wallet-continue-btn")?.addEventListener("click", () => {
-      this.applyRpcEndpoint();
-      this.onAccountReady();
-    });
-  }
-
-  private initRpcEndpointFromUrl(): void {
-    const input = document.getElementById("rpc-endpoint-input") as HTMLInputElement;
-    if (!input) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const rpcFromUrl = params.get("rpc");
-    if (rpcFromUrl) {
-      input.value = rpcFromUrl;
-    } else {
-      const cached = localStorage.getItem("battleship-rpc-endpoint");
-      if (cached) {
-        input.value = cached;
-      }
-    }
-  }
-
-  private applyRpcEndpoint(): void {
-    // Light client mode - RPC endpoint not used, connecting via chain spec bootnodes
-  }
-
-  private toggleDevModeUI(devMode: boolean): void {
-    const devSection = document.getElementById("dev-mode-section");
-    const walletSection = document.getElementById("wallet-section");
-    const accountSection = document.getElementById("account-section");
-
-    if (devSection) devSection.style.display = devMode ? "block" : "none";
-    if (walletSection) walletSection.style.display = devMode ? "none" : "block";
-    if (accountSection) accountSection.style.display = "none";
-  }
-
-  private selectDevPlayer(player: Player): void {
-    this.devModePlayer = player;
-    const account = getDevPlayerAccount(player);
-    this.currentAccount = account;
-
-    document.querySelectorAll("#dev-mode-section .card").forEach((card) => {
-      card.classList.toggle("selected", (card as HTMLElement).dataset.player === player);
-    });
-
-    this.updateSelectedAccountDisplay(account.address, "Dev Account");
-    document.getElementById("wallet-continue-btn")?.removeAttribute("disabled");
-  }
-
   private async loadDevBalance(address: string): Promise<void> {
     try {
       console.log(`[loadDevBalance] Fetching balance for ${address.slice(0, 8)}...`);
       this.currentBalance = await this.walletManager.getBalance(address);
       const formatted = WalletManager.formatBalance(this.currentBalance) + " UNIT";
       console.log(`[loadDevBalance] Balance: ${formatted}`);
-      const selectedEl = document.getElementById("selected-balance");
-      if (selectedEl) selectedEl.textContent = formatted;
       const lobbyEl = document.getElementById("lobby-balance");
       if (lobbyEl) lobbyEl.textContent = formatted;
     } catch (e) {
@@ -150,133 +115,9 @@ class BattleshipApp {
     }
   }
 
-  private setupWalletConnect(): void {
-    const devToggle = document.getElementById("dev-mode-toggle") as HTMLInputElement;
-
-    devToggle?.addEventListener("change", () => {
-      if (devToggle.checked) {
-        window.location.search = "?devMode=true";
-      } else {
-        this.toggleDevModeUI(false);
-      }
-    });
-
-    this.loadWallets();
-
-    document.getElementById("wallet-continue-btn")?.addEventListener("click", () => {
-      this.onAccountReady();
-    });
-  }
-
-  private loadWallets(): void {
-    const walletList = document.getElementById("wallet-list");
-    const noWalletsMsg = document.getElementById("no-wallets-message");
-    if (!walletList) return;
-
-    const wallets = this.walletManager.detectWallets();
-
-    if (wallets.length === 0) {
-      if (noWalletsMsg) noWalletsMsg.style.display = "block";
-      return;
-    }
-
-    if (noWalletsMsg) noWalletsMsg.style.display = "none";
-
-    wallets.forEach((wallet) => {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <div class="card-icon">${this.getWalletIcon(wallet.name)}</div>
-        <div class="card-title">${wallet.displayName}</div>
-      `;
-      card.addEventListener("click", () => this.connectWallet(wallet));
-      walletList.appendChild(card);
-    });
-  }
-
-  private getWalletIcon(walletName: string): string {
-    const icons: Record<string, string> = {
-      "polkadot-js": "🔴",
-      "talisman": "🌙",
-      "subwallet-js": "📱",
-      "enkrypt": "🔐",
-    };
-    return icons[walletName] || "💳";
-  }
-
-  private async connectWallet(wallet: WalletInfo): Promise<void> {
-    const success = await this.walletManager.connect(wallet.name);
-    if (!success) {
-      alert("Failed to connect to wallet. Please try again.");
-      return;
-    }
-
-    document.querySelectorAll("#wallet-list .card").forEach((card) => {
-      card.classList.toggle("selected", card.querySelector(".card-title")?.textContent === wallet.displayName);
-    });
-
-    this.showAccountSelection();
-  }
-
-  private async showAccountSelection(): Promise<void> {
-    const accountSection = document.getElementById("account-section");
-    const accountList = document.getElementById("account-list");
-    if (!accountSection || !accountList) return;
-
-    accountSection.style.display = "block";
-    accountList.innerHTML = "";
-
-    const accounts = this.walletManager.getAccounts();
-
-    for (const account of accounts) {
-      const balance = await this.walletManager.getBalance(account.address);
-      const formatted = WalletManager.formatBalance(balance);
-
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <div class="card-title">${account.name}</div>
-        <div class="card-subtitle">${this.truncateAddress(account.address)}</div>
-        <div class="card-balance">${formatted} UNIT</div>
-      `;
-      card.addEventListener("click", () => this.selectWalletAccount(account, balance));
-      accountList.appendChild(card);
-    }
-  }
-
-  private selectWalletAccount(account: WalletAccount, balance: bigint): void {
-    this.walletManager.selectAccount(account.address);
-    this.currentAccount = {
-      address: account.address,
-      signer: account.signer,
-    };
-    this.currentBalance = balance;
-
-    document.querySelectorAll("#account-list .card").forEach((card) => {
-      const subtitle = card.querySelector(".card-subtitle")?.textContent;
-      card.classList.toggle("selected", subtitle === this.truncateAddress(account.address));
-    });
-
-    this.updateSelectedAccountDisplay(account.address, WalletManager.formatBalance(balance) + " UNIT");
-    document.getElementById("wallet-continue-btn")?.removeAttribute("disabled");
-  }
-
-  private updateSelectedAccountDisplay(address: string, balance: string): void {
-    const info = document.getElementById("selected-account-info");
-    const addressEl = document.getElementById("selected-address");
-    const balanceEl = document.getElementById("selected-balance");
-
-    if (info) info.style.display = "flex";
-    if (addressEl) addressEl.textContent = this.truncateAddress(address);
-    if (balanceEl) balanceEl.textContent = balance;
-  }
-
   private async onAccountReady(): Promise<void> {
     this.showScreen("game-lobby");
     this.setupLobby();
-    if (this.currentAccount) {
-      await this.loadDevBalance(this.currentAccount.address);
-    }
     await this.checkExistingGame();
     await this.refreshGamesList();
     this.startLobbyRefresh();
@@ -630,8 +471,7 @@ class BattleshipApp {
     const statusEl = document.querySelector("#waiting-card .game-status");
     if (statusEl) statusEl.textContent = "Opponent found! Starting game...";
 
-    const player = isDevMode() ? this.devModePlayer : "player";
-    this.game = new OnchainGame(player, this.currentAccount);
+    this.game = new OnchainGame("player", this.currentAccount);
     await this.game.initialize();
 
     this.game.onStateChange(() => this.updateUI());
@@ -680,8 +520,7 @@ class BattleshipApp {
     this.stopLobbyRefresh();
 
     try {
-      const player = isDevMode() ? this.devModePlayer : "player";
-      this.game = new OnchainGame(player, this.currentAccount);
+    this.game = new OnchainGame("player", this.currentAccount);
       await this.game.initialize();
 
       this.game.onStateChange(() => this.updateUI());
@@ -944,12 +783,7 @@ class BattleshipApp {
     this.walletManager.disconnect();
     this.currentAccount = null;
     this.currentBalance = 0n;
-
-    if (isDevMode()) {
-      window.location.search = "";
-    } else {
-      window.location.reload();
-    }
+    window.location.reload();
   }
 
   private gameLoop(time: number): void {
