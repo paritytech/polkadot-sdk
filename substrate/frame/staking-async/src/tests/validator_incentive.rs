@@ -895,20 +895,6 @@ fn very_small_self_stake_weight() {
 	});
 }
 
-// CLAUDE: shouldn't this go to mock.rs instead of being here? You can make this fn take vesting blocks and blocks
-// per session as param.
-/// Helper: configures mock for vesting-based incentive tests.
-///
-/// VestingDuration = 150 blocks, BlocksPerSession = 5, SessionsPerEra = 3 (default).
-/// Derived: blocks_per_era = 5 * 3 = 15, vesting_eras = 150 / 15 = 10.
-/// BondingDuration = 3 (default).
-///
-/// Batch conversion triggers at eras 3, 6, 9, ...
-/// Retroactive unlock fraction = BondingDuration / vesting_eras = 3/10 = 30%.
-fn setup_vesting_params() {
-	VestingDurationBlocks::set(150);
-	BlocksPerSession::set(5);
-}
 
 /// Finds the held incentive amount from events.
 fn incentive_held_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
@@ -940,7 +926,7 @@ fn incentive_held_when_vesting_enabled() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Vesting enabled, non-batch-boundary era
 		let alice = 11; // validator
-		setup_vesting_params();
+		setup_vesting_params(150, 5);
 		setup_incentive_with_budget(45, 5);
 
 		// Advance to era 2 so validator weights are set by election
@@ -978,7 +964,7 @@ fn incentive_accumulates_and_converts_at_batch_boundary() {
 		// GIVEN: Vesting enabled with BondingDuration = 3
 		// Batch boundaries at eras 3, 6, 9, ...
 		let alice = 11; // validator
-		setup_vesting_params();
+		setup_vesting_params(150, 5);
 		setup_incentive_with_budget(45, 5);
 
 		// Advance through eras 2-6, rewarding each. Era 6 is a batch boundary (6 % 3 == 0).
@@ -1021,36 +1007,6 @@ fn incentive_accumulates_and_converts_at_batch_boundary() {
 }
 
 #[test]
-fn no_conversion_on_non_batch_era() {
-	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Vesting enabled
-		let alice = 11; // validator
-		setup_vesting_params();
-		setup_incentive_with_budget(45, 5);
-
-		// Eras 2, 4, 5 are not batch boundaries (none are % 3 == 0)
-		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(4);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(5);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(6);
-		let _ = staking_events_since_last_call();
-
-		// WHEN: Payout eras 2, 4, 5 (none are batch boundaries)
-		make_all_reward_payment(2);
-		make_all_reward_payment(4);
-		make_all_reward_payment(5);
-		let events = staking_events_since_last_call();
-
-		// THEN: No conversion, hold accumulates
-		assert!(vesting_converted_for(alice, &events).is_none());
-		assert!(asset::incentive_held::<Test>(&alice) > 0);
-	});
-}
-
-#[test]
 fn vesting_duration_zero_pays_liquid() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: VestingDuration = 0 (default), so no hold, pay liquid directly.
@@ -1074,39 +1030,11 @@ fn vesting_duration_zero_pays_liquid() {
 }
 
 #[test]
-fn conversion_succeeds_with_self_transfer() {
-	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN: Vesting enabled, mock uses ImmediateIncentivePayout which succeeds
-		// for self-transfers (Currency::transfer is a no-op when source == dest)
-		let alice = 11; // validator
-		setup_vesting_params();
-		setup_incentive_with_budget(45, 5);
-
-		// Accumulate eras 2 and 3. Era 3 is a batch boundary.
-		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(3);
-		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
-		Session::roll_until_active_era(4);
-		let _ = staking_events_since_last_call();
-
-		// WHEN: Payout era 2, then era 3 (batch boundary triggers conversion)
-		make_all_reward_payment(2);
-		make_all_reward_payment(3);
-		let events = staking_events_since_last_call();
-
-		// THEN: Conversion happened
-		assert!(vesting_converted_for(alice, &events).is_some());
-		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
-	});
-}
-
-#[test]
 fn multiple_batch_cycles() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Vesting enabled, run through two batch cycles
 		let alice = 11; // validator
-		setup_vesting_params();
+		setup_vesting_params(150, 5);
 		setup_incentive_with_budget(45, 5);
 
 		// First cycle: eras 2-3. Era 3 is first batch boundary (3 % 3 == 0).

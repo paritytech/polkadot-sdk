@@ -953,6 +953,18 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 	}
 }
 
+/// Configures mock for vesting-based incentive tests.
+///
+/// With default `SessionsPerEra = 3` and `BondingDuration = 3`:
+/// - `blocks_per_era = blocks_per_session * 3`
+/// - `vesting_eras = vesting_blocks / blocks_per_era`
+/// - Batch conversion triggers at eras 3, 6, 9, ...
+/// - Retroactive unlock fraction = `BondingDuration / vesting_eras`
+pub(crate) fn setup_vesting_params(vesting_blocks: BlockNumber, blocks_per_session: BlockNumber) {
+	VestingDurationBlocks::set(vesting_blocks);
+	BlocksPerSession::set(blocks_per_session);
+}
+
 pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> Result<(), String> {
 	<Bonded<Test>>::get(&stash).map_or(Ok(()), |_| Err("stash already bonded"))?;
 	<Ledger<Test>>::get(&controller).map_or(Ok(()), |_| Err("controller already bonded"))?;
