@@ -1858,10 +1858,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 #[case(false, CollationVersion::V2)] // V3 descriptor via V2 protocol → rejected (wrong protocol)
 #[case(true, CollationVersion::V1)] // Crafted unknown descriptor via V1 → rejected
 #[case(true, CollationVersion::V2)] // Crafted unknown descriptor via V2 → rejected
-fn v3_descriptor(
-	#[case] crafted_unknown: bool,
-	#[case] collation_version: CollationVersion,
-) {
+fn v3_descriptor(#[case] crafted_unknown: bool, #[case] collation_version: CollationVersion) {
 	let mut test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
@@ -2000,7 +1997,6 @@ fn v3_descriptor(
 #[test]
 fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	let mut test_state = TestState::default();
-
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;

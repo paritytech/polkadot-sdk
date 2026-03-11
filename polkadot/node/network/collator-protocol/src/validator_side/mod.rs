@@ -168,9 +168,9 @@ use polkadot_node_subsystem_util::{
 	request_claim_queue, request_session_index_for_child,
 };
 use polkadot_primitives::{
-	CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId,
-	CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	SessionIndex, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId, CoreIndex, Hash,
+	HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use sp_consensus_babe::digests::CompatibleDigestItem;
 use sp_consensus_slots::SlotDuration;
