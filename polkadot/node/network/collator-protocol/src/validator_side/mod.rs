@@ -210,6 +210,17 @@ const COST_WRONG_PARA: Rep = Rep::Malicious("A collator provided a collation for
 const COST_PROTOCOL_MISUSE: Rep =
 	Rep::Malicious("A collator advertising a collation for an async backing relay parent using V1");
 const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator connected");
+/// Minor penalty for V3 advertisements whose scheduling parent doesn't match the
+/// last finished relay chain slot. This deters spamming invalid advertisements while
+/// remaining safe for honest collators that occasionally hit slot-boundary timing edges.
+///
+/// `CostMinor` = -100,000 reputation per event. The ban threshold is ~-1.52 billion
+/// (`71% * i32::MIN`). Reputation decays toward 0 at `1/200` per second (~139s half-life).
+/// An honest collator hitting this once per 6s slot reaches a steady-state of roughly
+/// -3.4 million — about 450x away from the ban threshold. Only sustained rapid-fire
+/// spamming (thousands of bad advertisements) can accumulate enough to trigger a disconnect.
+const COST_INVALID_SCHEDULING_PARENT: Rep =
+	Rep::CostMinor("V3 advertisement with invalid scheduling parent");
 const BENEFIT_NOTIFY_GOOD: Rep =
 	Rep::BenefitMinor("A collator was noted good by another subsystem");
 
@@ -566,19 +577,13 @@ struct HeldOffAdvertisement {
 }
 
 /// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
-/// Determines whether a leaf's relay chain slot has finished, so the scheduling parent
-/// check can accept the last finished slot's block.
+/// Stores the leaf's BABE slot and parent hash so the validator can determine whether
+/// the scheduling parent corresponds to the last finished relay chain slot.
 struct LeafSchedulingInfo {
 	/// The parent hash of the leaf block.
 	parent_hash: Hash,
-	/// The BABE slot timestamp of the leaf block.
-	slot_timestamp: sp_timestamp::Timestamp,
-}
-
-impl LeafSchedulingInfo {
-	fn new(parent_hash: Hash, slot_timestamp: sp_timestamp::Timestamp) -> Self {
-		Self { parent_hash, slot_timestamp }
-	}
+	/// The BABE slot of the leaf block.
+	slot: sp_consensus_slots::Slot,
 }
 
 /// All state relevant for the validator side of the protocol lives here.
@@ -1393,9 +1398,8 @@ impl AdvertisementError {
 			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
 				Some(COST_UNEXPECTED_MESSAGE)
 			},
-			UnknownPeer | SecondedLimitReached | BlockedByBacking | SchedulingParentNotValid => {
-				None
-			},
+			SchedulingParentNotValid => Some(COST_INVALID_SCHEDULING_PARENT),
+			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
 		}
 	}
 }
@@ -1728,27 +1732,23 @@ where
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
 	// V3 candidate descriptors require the scheduling_parent to be the block from the last
-	// finished relay chain slot, but the slot shouldn't be older than 2 *
-	// RELAY_CHAIN_SLOT_DURATION_MILLIS.
+	// finished relay chain slot. We compare slot numbers rather than timestamps to keep
+	// the logic simple and aligned with how BABE/Aura reason about slots.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
-		let now = sp_timestamp::Timestamp::current();
-		let recent_last_finished_slot = |slot_age_ms| {
-			slot_age_ms >= RELAY_CHAIN_SLOT_DURATION_MILLIS &&
-				slot_age_ms < 2 * RELAY_CHAIN_SLOT_DURATION_MILLIS
-		};
+		let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
+		let current_slot =
+			sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
 
 		let scheduling_parent_valid =
 			if let Some(info) = state.leaf_scheduling_info.get(&scheduling_parent) {
-				// scheduling_parent is a leaf — valid only if the leaf's slot has recently
-				// finished (between 1x and 2x slot duration). Ancient leaves are rejected.
-				let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
-				recent_last_finished_slot(slot_age_ms)
+				// scheduling_parent is a leaf — valid only if the leaf's slot is exactly
+				// one behind the current slot (i.e., it just finished).
+				*current_slot == *info.slot + 1
 			} else {
-				// scheduling_parent is not a leaf — check if it's the parent of any leaf
-				// whose slot is still in progress.
+				// scheduling_parent is not a leaf — valid if it's the parent of any leaf
+				// whose slot is the current slot (still in progress).
 				state.leaf_scheduling_info.iter().any(|(_leaf_hash, info)| {
-					let slot_age_ms = (*now).saturating_sub(*info.slot_timestamp);
-					slot_age_ms < RELAY_CHAIN_SLOT_DURATION_MILLIS &&
+					*current_slot == *info.slot &&
 						scheduling_parent == info.parent_hash
 				})
 			};
@@ -1984,22 +1984,27 @@ where
 		state.per_scheduling_parent.insert(*leaf, per_relay_parent);
 		state.leaf_claim_queues.insert(*leaf, leaf_claim_queue);
 
-		// Fetch leaf header to extract BABE slot for scheduling parent validation.
+		// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
+		// Without this info, V3 advertisements referencing this leaf will be rejected.
 		let (tx, rx) = oneshot::channel();
 		sender.send_message(ChainApiMessage::BlockHeader(*leaf, tx)).await;
-		if let Ok(Ok(Some(header))) = rx.await {
-			let babe_pre_digest =
-				header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest());
-			if let Some(pre_digest) = babe_pre_digest {
-				if let Some(slot_timestamp) = pre_digest
-					.slot()
-					.timestamp(SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS))
-				{
-					state
-						.leaf_scheduling_info
-						.insert(*leaf, LeafSchedulingInfo::new(header.parent_hash, slot_timestamp));
-				}
-			}
+		let header = rx.await.ok().and_then(|r| r.ok()).flatten();
+		match header.and_then(|h| {
+			let slot = h.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())?.slot();
+			Some(LeafSchedulingInfo { parent_hash: h.parent_hash, slot })
+		}) {
+			Some(info) => {
+				state.leaf_scheduling_info.insert(*leaf, info);
+			},
+			None => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?leaf,
+					"Could not extract BABE slot from leaf header; \
+					 V3 scheduling parent validation will reject advertisements \
+					 referencing this leaf",
+				);
+			},
 		}
 
 		state

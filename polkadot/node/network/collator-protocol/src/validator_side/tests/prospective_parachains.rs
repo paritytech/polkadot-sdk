@@ -2101,7 +2101,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 		let parent_head_data_hash = Hash::zero();
 
 		// V3 advertisement with a stale scheduling_parent — should be rejected
-		// silently (SchedulingParentNotValid, no reputation penalty).
+		// with a minor reputation penalty.
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2112,12 +2112,15 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 		)
 		.await;
 
-		// No CanSecond or reputation message should arrive.
-		assert!(
-			overseer_recv_with_timeout(&mut virtual_overseer, Duration::from_millis(100))
-				.await
-				.is_none(),
-			"Expected no message after rejected stale scheduling parent"
+		// Expect minor reputation penalty for invalid scheduling parent.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_INVALID_SCHEDULING_PARENT.cost_or_benefit());
+			}
 		);
 
 		virtual_overseer
@@ -2456,12 +2459,15 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 		)
 		.await;
 
-		// Rejected by slot check — no CanSecond should arrive.
-		assert!(
-			overseer_recv_with_timeout(&mut virtual_overseer, Duration::from_millis(100))
-				.await
-				.is_none(),
-			"Expected rejection: in-progress slot requires parent, not leaf"
+		// Rejected by slot check — expect minor reputation penalty.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_INVALID_SCHEDULING_PARENT.cost_or_benefit());
+			}
 		);
 
 		virtual_overseer
@@ -2548,12 +2554,15 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		)
 		.await;
 
-		// Rejected by slot check — no CanSecond should arrive.
-		assert!(
-			overseer_recv_with_timeout(&mut virtual_overseer, Duration::from_millis(100))
-				.await
-				.is_none(),
-			"Expected rejection: finished slot requires leaf, not parent"
+		// Rejected by slot check — expect minor reputation penalty.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_INVALID_SCHEDULING_PARENT.cost_or_benefit());
+			}
 		);
 
 		virtual_overseer
