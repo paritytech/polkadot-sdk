@@ -68,7 +68,7 @@ pub trait Destroy<AccountId>: Inspect<AccountId> {
 	///   function. This value should be small enough to allow the operation fit into a logical
 	///   block.
 	///
-	///	Response:
+	/// 	Response:
 	/// * u32: Total number of approvals which were actually destroyed
 	///
 	/// Due to weight restrictions, this function may need to be called multiple
@@ -84,7 +84,7 @@ pub trait Destroy<AccountId>: Inspect<AccountId> {
 	///   function. This value should be small enough to allow the operation fit into a logical
 	///   block.
 	///
-	///	Response:
+	/// 	Response:
 	/// * u32: Total number of approvals which were actually destroyed
 	///
 	/// Due to weight restrictions, this function may need to be called multiple

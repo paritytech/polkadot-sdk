@@ -36,10 +36,23 @@ use pallet_revive::precompiles::{
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
 
+pub mod foreign_assets;
+pub mod migration;
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) mod migration_benchmarks;
+pub mod weights;
+
+#[cfg(test)]
+mod foreign_assets_tests;
+#[cfg(test)]
+mod migration_tests;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+
+pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
+pub use migration::MigrateForeignAssetPrecompileMappings;
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
@@ -77,6 +90,43 @@ impl<const P: u16> AssetPrecompileConfig for InlineIdConfig<P> {
 	type AssetIdExtractor = InlineAssetIdExtractor;
 }
 
+/// An `AssetIdExtractor` that maps a local asset id (4 bytes taken from the address) to a foreign
+/// asset id.
+pub struct ForeignAssetIdExtractor<Runtime, Instance = ()> {
+	_phantom: PhantomData<(Runtime, Instance)>,
+}
+
+impl<Runtime, Instance: 'static> AssetIdExtractor for ForeignAssetIdExtractor<Runtime, Instance>
+where
+	Runtime: pallet_assets::Config<Instance>
+		+ pallet::Config<ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId>
+		+ pallet_revive::Config,
+{
+	type AssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId;
+	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
+		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
+		let index = u32::from_be_bytes(bytes);
+		pallet::Pallet::<Runtime>::asset_id_of(index)
+			.ok_or(Error::Revert(Revert { reason: "Invalid foreign asset id".into() }))
+	}
+}
+
+/// A precompile configuration that uses a prefix [`AddressMatcher`].
+pub struct ForeignIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
+	_phantom: PhantomData<(Runtime, Instance)>,
+}
+
+impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig
+	for ForeignIdConfig<P, Runtime, Instance>
+where
+	Runtime: pallet_assets::Config<Instance>
+		+ pallet::Config<ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId>
+		+ pallet_revive::Config,
+{
+	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
+	type AssetIdExtractor = ForeignAssetIdExtractor<Runtime, Instance>;
+}
+
 /// An ERC20 precompile.
 pub struct ERC20<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
@@ -110,7 +160,9 @@ where
 		match input {
 			IERC20Calls::transfer(_) | IERC20Calls::approve(_) | IERC20Calls::transferFrom(_)
 				if env.is_read_only() =>
-				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into())),
+			{
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
+			},
 
 			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
@@ -118,6 +170,9 @@ where
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
 			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+			IERC20Calls::name(_) => Self::name(asset_id, env),
+			IERC20Calls::symbol(_) => Self::symbol(asset_id, env),
+			IERC20Calls::decimals(_) => Self::decimals(asset_id, env),
 		}
 	}
 }
@@ -321,5 +376,50 @@ where
 		)?;
 
 		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
+	}
+
+	/// Execute the name call.
+	fn name(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let name = alloc::string::String::from_utf8(metadata.name.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in name".into() }))?;
+
+		Ok(IERC20::nameCall::abi_encode_returns(&name))
+	}
+
+	/// Execute the symbol call.
+	fn symbol(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let symbol = alloc::string::String::from_utf8(metadata.symbol.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in symbol".into() }))?;
+
+		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
+	}
+
+	/// Execute the decimals call.
+	fn decimals(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals))
 	}
 }

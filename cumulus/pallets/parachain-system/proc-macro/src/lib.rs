@@ -67,7 +67,7 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::CheckInherents) {
 				return Err(Error::new(input.span(), "`CheckInherents` is not supported anymore!"));
 			} else {
-				return Err(lookahead.error())
+				return Err(lookahead.error());
 			}
 		}
 
@@ -80,8 +80,9 @@ impl Parse for Input {
 
 fn crate_() -> Result<Ident, Error> {
 	match crate_name("cumulus-pallet-parachain-system") {
-		Ok(FoundCrate::Itself) =>
-			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site())),
+		Ok(FoundCrate::Itself) => {
+			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site()))
+		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}
@@ -106,6 +107,10 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				use super::*;
 
 				#[no_mangle]
+				#[cfg_attr(
+					target_arch = "riscv64",
+					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
+				)]
 				unsafe fn validate_block(arguments: *mut u8, arguments_len: usize) -> u64 {
 					// We convert the `arguments` into a boxed slice and then into `Bytes`.
 					let args = #crate_::validate_block::Box::from_raw(

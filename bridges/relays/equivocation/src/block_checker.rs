@@ -23,6 +23,7 @@ use bp_header_chain::{FinalityProof, FindEquivocations as FindEquivocationsT};
 use finality_relay::FinalityProofsBuf;
 use futures::future::{BoxFuture, FutureExt};
 use num_traits::Saturating;
+use std::time::Duration;
 
 /// First step in the block checking state machine.
 ///
@@ -39,8 +40,9 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 		target_client: &mut TC,
 	) -> Result<ReadContext<P>, Self> {
 		match target_client.synced_headers_finality_info(self.target_block_num).await {
-			Ok(synced_headers) =>
-				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers }),
+			Ok(synced_headers) => {
+				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers })
+			},
 			Err(e) => {
 				tracing::error!(
 					target: "bridge",
@@ -127,13 +129,14 @@ impl<P: EquivocationDetectionPipeline> FindEquivocations<P> {
 				&synced_header.finality_proof,
 				finality_proofs_buf.buf().as_slice(),
 			) {
-				Ok(equivocations) =>
+				Ok(equivocations) => {
 					if !equivocations.is_empty() {
 						result.push(ReportEquivocations {
 							source_block_hash: self.context.synced_header_hash,
 							equivocations,
 						})
-					},
+					}
+				},
 				Err(e) => {
 					tracing::error!(
 						target: "bridge",
@@ -195,7 +198,7 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 
 		self.equivocations = unprocessed_equivocations;
 		if !self.equivocations.is_empty() {
-			return Err(self)
+			return Err(self);
 		}
 
 		Ok(())
@@ -213,6 +216,44 @@ pub enum BlockChecker<P: EquivocationDetectionPipeline> {
 impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 	pub fn new(target_block_num: P::TargetNumber) -> Self {
 		Self::ReadSyncedHeaders(ReadSyncedHeaders { target_block_num })
+	}
+
+	pub fn run_with_retry<'a, SC: SourceClient<P>, TC: TargetClient<P>>(
+		self,
+		source_client: &'a mut SC,
+		target_client: &'a mut TC,
+		finality_proofs_buf: &'a mut FinalityProofsBuf<P>,
+		reporter: &'a mut EquivocationsReporter<P, SC>,
+		retry_params: (u32, Duration),
+	) -> BoxFuture<'a, Result<(), Self>> {
+		let (max_attempts, retry_tick) = retry_params;
+		async move {
+			let mut block_checker = self;
+			let mut retry_range = (0..max_attempts).peekable();
+			while let Some(_) = retry_range.next() {
+				block_checker = match block_checker
+					.run(source_client, target_client, finality_proofs_buf, reporter)
+					.await
+				{
+					Ok(_) => return Ok(()),
+					Err(err) => err,
+				};
+
+				// We don't need to sleep after the last attempt
+				if retry_range.peek().is_some() {
+					tracing::warn!(
+						target: "bridge",
+						source=%P::SOURCE_NAME,
+						target=%P::TARGET_NAME,
+						"Error running block checker. Retrying."
+					);
+					tokio::time::sleep(retry_tick).await;
+				}
+			}
+
+			Err(block_checker)
+		}
+		.boxed()
 	}
 
 	pub fn run<'a, SC: SourceClient<P>, TC: TargetClient<P>>(
@@ -253,7 +294,7 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 					}
 
 					if !failures.is_empty() {
-						return Err(Self::ReportEquivocations(failures))
+						return Err(Self::ReportEquivocations(failures));
 					}
 
 					Ok(())
@@ -298,7 +339,7 @@ mod tests {
 		}
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn block_checker_works() {
 		let mut source_client = TestSourceClient { ..Default::default() };
 		let mut target_client = TestTargetClient {
@@ -348,7 +389,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn block_checker_works_with_empty_context() {
 		let mut target_client = TestTargetClient {
 			best_synced_header_hash: HashMap::from([(9, Ok(None))]),
@@ -379,7 +420,7 @@ mod tests {
 		assert_eq!(*source_client.reported_equivocations.lock().unwrap(), HashMap::default());
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn read_synced_headers_handles_errors() {
 		let mut target_client = TestTargetClient {
 			synced_headers_finality_info: HashMap::from([
@@ -423,7 +464,7 @@ mod tests {
 		assert_eq!(target_client.num_reconnects, 1);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn read_context_handles_errors() {
 		let mut target_client = TestTargetClient {
 			synced_headers_finality_info: HashMap::from([(10, Ok(vec![])), (11, Ok(vec![]))]),

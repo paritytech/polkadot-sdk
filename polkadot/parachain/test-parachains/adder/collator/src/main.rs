@@ -68,7 +68,7 @@ fn main() -> Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run.base).map_err(|e| {
 				SubstrateCliError::Application(
-					Box::new(e) as Box<(dyn 'static + Send + Sync + std::error::Error)>
+					Box::new(e) as Box<dyn 'static + Send + Sync + std::error::Error>
 				)
 			})?;
 
@@ -101,6 +101,8 @@ fn main() -> Result<()> {
 						keep_finalized_for: None,
 						invulnerable_ah_collators: HashSet::new(),
 						collator_protocol_hold_off: None,
+						experimental_collator_protocol: false,
+						collator_reputation_persist_interval: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

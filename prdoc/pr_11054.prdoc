@@ -1,0 +1,22 @@
+title: 'pallet-revive: minor cleanups and fixes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    Preparatory cleanup PR extracted from the EIP-7702 branch to simplify review.
+
+    - **Counter.sol uint64**: Change `uint256` to `uint64` in Counter/NestedCounter fixtures, to avoid U256 conversion in tests.
+    - **Remove k256 dependency**: Replace `k256::ecdsa::SigningKey` with `sp_core::ecdsa::Pair` in benchmark signing helpers
+    - **Debug log**: Add debug log for `eth_transact` substrate tx hash
+    - **Formatting**: Fix indentation in call.rs closure body, remove stray blank line in lib.rs
+    - **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed incorrect `gas_price` field at index 4, aligned with encoder)
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+  validate: false
+- name: pallet-revive-eth-rpc
+  bump: patch
+  validate: false

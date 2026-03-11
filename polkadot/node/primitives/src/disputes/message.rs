@@ -129,12 +129,12 @@ impl DisputeMessage {
 		let candidate_hash = *valid_statement.candidate_hash();
 		// Check statements concern same candidate:
 		if candidate_hash != *invalid_statement.candidate_hash() {
-			return Err(Error::CandidateHashMismatch)
+			return Err(Error::CandidateHashMismatch);
 		}
 
 		let session_index = valid_statement.session_index();
 		if session_index != invalid_statement.session_index() {
-			return Err(Error::SessionIndexMismatch)
+			return Err(Error::SessionIndexMismatch);
 		}
 
 		let valid_id = session_info
@@ -147,15 +147,15 @@ impl DisputeMessage {
 			.ok_or(Error::InvalidStatementInvalidValidatorIndex)?;
 
 		if valid_id != valid_statement.validator_public() {
-			return Err(Error::InvalidValidKey)
+			return Err(Error::InvalidValidKey);
 		}
 
 		if invalid_id != invalid_statement.validator_public() {
-			return Err(Error::InvalidInvalidKey)
+			return Err(Error::InvalidInvalidKey);
 		}
 
 		if candidate_receipt.hash() != candidate_hash {
-			return Err(Error::InvalidCandidateReceipt)
+			return Err(Error::InvalidCandidateReceipt);
 		}
 
 		let valid_kind = match valid_statement.statement() {

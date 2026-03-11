@@ -41,7 +41,7 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 		let msg = r#"Invalid `define_env` attribute macro: expected no attributes:
 					 - `#[define_env]`"#;
 		let span = TokenStream2::from(attr).span();
-		return syn::Error::new(span, msg).to_compile_error().into()
+		return syn::Error::new(span, msg).to_compile_error().into();
 	}
 
 	let item = syn::parse_macro_input!(item as syn::ItemMod);
@@ -86,6 +86,15 @@ impl HostFnReturn {
 			Self::U32 => parse_quote! { -> u32 },
 			Self::U64 => parse_quote! { -> u64 },
 			Self::ReturnCode => parse_quote! { -> ReturnErrorCode },
+		}
+	}
+
+	fn trace_return_value(&self) -> TokenStream2 {
+		match self {
+			Self::Unit => quote! { None },
+			Self::U32 => quote! { result.as_ref().ok().map(|r| *r as u64) },
+			Self::ReturnCode => quote! { result.as_ref().ok().copied().map(u64::from) },
+			Self::U64 => quote! { result.as_ref().ok().copied() },
 		}
 	}
 }
@@ -134,13 +143,13 @@ impl HostFn {
 			match ident.as_str() {
 				"mutating" => {
 					if mutating {
-						return Err(err(span, "#[mutating] can only be specified once"))
+						return Err(err(span, "#[mutating] can only be specified once"));
 					}
 					mutating = true;
 				},
 				"cfg" => {
 					if cfg.is_some() {
-						return Err(err(span, "#[cfg] can only be specified once"))
+						return Err(err(span, "#[cfg] can only be specified once"));
 					}
 					cfg = Some(attr);
 				},
@@ -170,7 +179,7 @@ impl HostFn {
 			.fold(0u32, |acc, valid| if valid { acc + 1 } else { acc });
 
 		if special_args != 2 {
-			return Err(err(span, msg))
+			return Err(err(span, msg));
 		}
 
 		// process return type
@@ -192,7 +201,7 @@ impl HostFn {
 				match &result.arguments {
 					syn::PathArguments::AngleBracketed(group) => {
 						if group.args.len() != 2 {
-							return Err(err(span, &msg))
+							return Err(err(span, &msg));
 						};
 
 						let arg2 = group.args.last().ok_or(err(span, &msg))?;
@@ -231,7 +240,7 @@ impl HostFn {
 								.to_string()),
 							syn::Type::Tuple(tt) => {
 								if !tt.elems.is_empty() {
-									return Err(err(arg1.span(), &msg))
+									return Err(err(arg1.span(), &msg));
 								};
 								Ok("()".to_string())
 							},
@@ -259,10 +268,13 @@ fn is_valid_special_arg(idx: usize, arg: &FnArg) -> bool {
 	match (idx, arg) {
 		(0, FnArg::Receiver(rec)) => rec.reference.is_some() && rec.mutability.is_some(),
 		(1, FnArg::Typed(pat)) => {
-			let ident =
-				if let syn::Pat::Ident(ref ident) = *pat.pat { &ident.ident } else { return false };
+			let ident = if let syn::Pat::Ident(ref ident) = *pat.pat {
+				&ident.ident
+			} else {
+				return false;
+			};
 			if !(ident == "memory" || ident == "_memory") {
-				return false
+				return false;
 			}
 			matches!(*pat.ty, syn::Type::Reference(_))
 		},
@@ -317,10 +329,17 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
 	let all_syscalls = expand_func_list(def);
+	let lookup_syscall = expand_func_lookup(def);
 
 	quote! {
+		/// Returns the list of all syscalls.
 		pub fn list_syscalls() -> &'static [&'static [u8]] {
 			#all_syscalls
+		}
+
+		/// Return the index of a syscall in the `all_syscalls()` list.
+		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
+			#lookup_syscall
 		}
 
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
@@ -377,10 +396,10 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		let syscall_symbol = Literal::byte_string(name.as_bytes());
 		let body = &f.item.block;
 		let map_output = f.returns.map_output();
+		let trace_return = f.returns.trace_return_value();
 		let output = &f.item.sig.output;
 
 		// wrapped host function body call with host function traces
-		// see https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts#host-function-tracing
 		let wrapped_body_with_trace = {
 			let trace_fmt_args = params.clone().filter_map(|arg| match arg {
 				syn::FnArg::Receiver(_) => None,
@@ -396,11 +415,18 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 				.collect::<Vec<_>>()
 				.join(", ");
 			let trace_fmt_str = format!("{}({}) = {{:?}} weight_consumed: {{:?}}", name, params_fmt_str);
+			let trace_args_for_tracer: Vec<_> = trace_fmt_args.clone().collect();
 
 			quote! {
+				crate::tracing::if_tracing(|tracer| {
+					tracer.enter_ecall(#name, &[#( #trace_args_for_tracer as u64 ),*], self)
+				});
+
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
 				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
+
+				crate::tracing::if_tracing(|tracer| tracer.exit_step(self, #trace_return));
 				result
 			}
 		};
@@ -516,6 +542,22 @@ fn expand_func_list(def: &EnvDef) -> TokenStream2 {
 		{
 			static FUNCS: [&[u8]; #len] = [#(#docs),*];
 			FUNCS.as_slice()
+		}
+	}
+}
+
+fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
+	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
+		let name_str = &f.name;
+		quote! {
+			#name_str => Some(#idx as u8)
+		}
+	});
+
+	quote! {
+		match name {
+			#( #arms, )*
+			_ => None,
 		}
 	}
 }

@@ -87,7 +87,7 @@ pub(super) fn check_header<B: BlockT + Sized>(
 
 	if pre_digest.slot() > slot_now {
 		header.digest_mut().push(seal);
-		return Ok(CheckedHeader::Deferred(header, pre_digest.slot()))
+		return Ok(CheckedHeader::Deferred(header, pre_digest.slot()));
 	}
 
 	match &pre_digest {
@@ -160,13 +160,13 @@ fn check_primary_header<B: BlockT + Sized>(
 	}
 
 	if !AuthorityPair::verify(&signature, pre_hash, authority_id) {
-		return Err(babe_err(Error::BadSignature(pre_hash)))
+		return Err(babe_err(Error::BadSignature(pre_hash)));
 	}
 
 	let data = make_vrf_sign_data(&epoch.randomness, pre_digest.slot, epoch_index);
 
 	if !authority_id.as_inner_ref().vrf_verify(&data, &pre_digest.vrf_signature) {
-		return Err(babe_err(Error::VrfVerificationFailed))
+		return Err(babe_err(Error::VrfVerificationFailed));
 	}
 
 	let threshold =
@@ -183,7 +183,7 @@ fn check_primary_header<B: BlockT + Sized>(
 		.map_err(|_| babe_err(Error::VrfVerificationFailed))?;
 
 	if score >= threshold {
-		return Err(babe_err(Error::VrfThresholdExceeded(threshold)))
+		return Err(babe_err(Error::VrfThresholdExceeded(threshold)));
 	}
 
 	Ok(())
@@ -211,11 +211,11 @@ fn check_secondary_plain_header<B: BlockT>(
 		.0;
 
 	if expected_author != author {
-		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()))
+		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()));
 	}
 
 	if !AuthorityPair::verify(&signature, pre_hash.as_ref(), author) {
-		return Err(Error::BadSignature(pre_hash))
+		return Err(Error::BadSignature(pre_hash));
 	}
 
 	Ok(())
@@ -240,7 +240,7 @@ fn check_secondary_vrf_header<B: BlockT>(
 		.0;
 
 	if expected_author != author {
-		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()))
+		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()));
 	}
 
 	let mut epoch_index = epoch.epoch_index;
@@ -250,13 +250,13 @@ fn check_secondary_vrf_header<B: BlockT>(
 	}
 
 	if !AuthorityPair::verify(&signature, pre_hash.as_ref(), author) {
-		return Err(Error::BadSignature(pre_hash))
+		return Err(Error::BadSignature(pre_hash));
 	}
 
 	let data = make_vrf_sign_data(&epoch.randomness, pre_digest.slot, epoch_index);
 
 	if !author.as_inner_ref().vrf_verify(&data, &pre_digest.vrf_signature) {
-		return Err(Error::VrfVerificationFailed)
+		return Err(Error::VrfVerificationFailed);
 	}
 
 	Ok(())

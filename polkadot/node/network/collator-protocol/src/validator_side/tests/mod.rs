@@ -293,7 +293,7 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 /// Assert that the next message is a `CandidateBacking(Second())`.
 async fn assert_candidate_backing_second(
 	virtual_overseer: &mut VirtualOverseer,
-	expected_relay_parent: Hash,
+	expected_scheduling_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
 	version: CollationVersion,
@@ -310,18 +310,18 @@ async fn assert_candidate_backing_second(
 				hash,
 				RuntimeApiRequest::PersistedValidationData(para_id, assumption, tx),
 			)) => {
-				assert_eq!(expected_relay_parent, hash);
+				assert_eq!(expected_scheduling_parent, hash);
 				assert_eq!(expected_para_id, para_id);
 				assert_eq!(OccupiedCoreAssumption::Free, assumption);
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 			) => {
-				assert_eq!(expected_relay_parent, request.candidate_relay_parent);
+				assert_eq!(expected_scheduling_parent, request.candidate_relay_parent);
 				assert_eq!(expected_para_id, request.para_id);
 				tx.send(Some(pvd.clone())).unwrap();
 			}
@@ -330,13 +330,13 @@ async fn assert_candidate_backing_second(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::CandidateBacking(CandidateBackingMessage::Second(
-			relay_parent,
-			candidate_receipt,
-			received_pvd,
-			incoming_pov,
-		)) => {
-			assert_eq!(expected_relay_parent, relay_parent);
+		AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+			scheduling_parent,
+			candidate: candidate_receipt,
+			pvd: received_pvd,
+			pov: incoming_pov,
+		}) => {
+			assert_eq!(expected_scheduling_parent, scheduling_parent);
 			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
 			assert_eq!(*expected_pov, incoming_pov);
 			assert_eq!(pvd, received_pvd);
@@ -362,7 +362,7 @@ async fn assert_collator_disconnect(virtual_overseer: &mut VirtualOverseer, expe
 /// Assert that a fetch collation request was send.
 async fn assert_fetch_collation_request(
 	virtual_overseer: &mut VirtualOverseer,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	candidate_hash: Option<CandidateHash>,
 ) -> ResponseSender {
@@ -377,7 +377,7 @@ async fn assert_fetch_collation_request(
 				req,
 				Requests::CollationFetchingV1(req) => {
 					let payload = req.payload;
-					assert_eq!(payload.relay_parent, relay_parent);
+					assert_eq!(payload.scheduling_parent, scheduling_parent);
 					assert_eq!(payload.para_id, para_id);
 					req.pending_response
 				}
@@ -386,7 +386,7 @@ async fn assert_fetch_collation_request(
 				req,
 				Requests::CollationFetchingV2(req) => {
 					let payload = req.payload;
-					assert_eq!(payload.relay_parent, relay_parent);
+					assert_eq!(payload.scheduling_parent, scheduling_parent);
 					assert_eq!(payload.para_id, para_id);
 					assert_eq!(payload.candidate_hash, candidate_hash);
 					req.pending_response
@@ -416,18 +416,20 @@ async fn connect_and_declare_collator(
 	.await;
 
 	let wire_message = match version {
-		CollationVersion::V1 =>
+		CollationVersion::V1 => {
 			CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
-		CollationVersion::V2 =>
+			))
+		},
+		CollationVersion::V2 | CollationVersion::V3 => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
-			)),
+			))
+		},
 	};
 
 	overseer_send(
@@ -444,18 +446,19 @@ async fn connect_and_declare_collator(
 async fn advertise_collation(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	candidate: Option<(CandidateHash, Hash)>, // Candidate hash + parent head data hash.
 ) {
 	let wire_message = match candidate {
-		Some((candidate_hash, parent_head_data_hash)) =>
+		Some((candidate_hash, parent_head_data_hash)) => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
-				relay_parent,
+				scheduling_parent,
 				candidate_hash,
 				parent_head_data_hash,
-			}),
+			})
+		},
 		None => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
-			relay_parent,
+			scheduling_parent,
 		)),
 	};
 	overseer_send(
@@ -1110,7 +1113,7 @@ fn delay_reputation_change() {
 			match overseer_recv(&mut virtual_overseer).await {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(_, _)) => {
 					gum::trace!("`Disconnecting inactive peer` message skipped");
-					continue
+					continue;
 				},
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 					ReportPeerMessage::Batch(v),
@@ -1120,7 +1123,7 @@ fn delay_reputation_change() {
 						add_reputation(&mut expected_change, peer_b, rep);
 					}
 					assert_eq!(v, expected_change);
-					break
+					break;
 				},
 				_ => panic!("Message should be either `DisconnectPeer` or `ReportPeer`"),
 			}
@@ -1157,6 +1160,140 @@ fn view_change_clears_old_collators() {
 		update_view(&mut virtual_overseer, &mut test_state, vec![]).await;
 
 		assert_collator_disconnect(&mut virtual_overseer, peer).await;
+
+		virtual_overseer
+	})
+}
+
+/// Test that when a peer disconnects, their pending collations are removed from the waiting queue.
+/// This prevents "NotAdvertised" errors when the peer reconnects with empty advertisement state.
+#[test]
+fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
+	let mut test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let relay_parent = test_state.relay_parent;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent, 0)]).await;
+
+		// Connect first collator and have them advertise - this will trigger a fetch.
+		let peer_a = PeerId::random();
+		let collator_a = test_state.collators[0].clone();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			collator_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		advertise_collation(&mut virtual_overseer, peer_a, relay_parent, None).await;
+
+		// First collation fetch is initiated.
+		let response_channel_a = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			relay_parent,
+			test_state.chain_ids[0],
+			None,
+		)
+		.await;
+
+		// Connect second collator and have them advertise.
+		// Since we're already fetching, this goes into the waiting queue.
+		let peer_b = PeerId::random();
+		let collator_b = test_state.collators[1].clone();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			collator_b.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		advertise_collation(&mut virtual_overseer, peer_b, relay_parent, None).await;
+
+		// Now disconnect peer_b. This should clean up their entry from the waiting queue.
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerDisconnected(
+				peer_b,
+			)),
+		)
+		.await;
+
+		// Peer_b reconnects and declares again (but does NOT re-advertise yet).
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerConnected(
+				peer_b,
+				ObservedRole::Full,
+				CollationVersion::V1.into(),
+				None,
+			)),
+		)
+		.await;
+
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+				peer_b,
+				CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
+					collator_b.public(),
+					test_state.chain_ids[0],
+					collator_b.sign(&protocol_v1::declare_signature_payload(&peer_b)),
+				)),
+			)),
+		)
+		.await;
+
+		// Complete the first fetch from peer_a.
+		let pov = PoV { block_data: BlockData(vec![]) };
+		let mut candidate_a =
+			dummy_candidate_receipt_bad_sig(dummy_hash(), Some(Default::default()));
+		candidate_a.descriptor.para_id = test_state.chain_ids[0];
+		candidate_a.descriptor.relay_parent = relay_parent;
+		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+
+		response_channel_a
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(
+					candidate_a.clone().into(),
+					pov.clone(),
+				)
+				.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// This triggers candidate backing.
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			relay_parent,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V1,
+		)
+		.await;
+
+		// Ensure the subsystem is polled.
+		test_helpers::Yield::new().await;
+
+		// The key assertion: after completing the first fetch, the subsystem should NOT
+		// attempt to fetch from peer_b because their waiting queue entry was cleaned up
+		// on disconnect. Without the fix, we would see a fetch request here that would
+		// fail with "NotAdvertised" because peer_b's advertisement state was cleared
+		// when they disconnected.
+		assert!(
+			overseer_recv_with_timeout(&mut virtual_overseer, Duration::from_millis(100))
+				.await
+				.is_none(),
+			"There should be no fetch request for peer_b - their entry was cleaned from waiting queue on disconnect"
+		);
 
 		virtual_overseer
 	})
