@@ -1899,18 +1899,24 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 									if !block_entry.candidate_is_pending_signature(*candidate_hash)
 									{
-										// Use block_hash (the relay chain block) rather than the
-										// candidate's relay_parent for the runtime API query.
-										// The relay_parent may reference an old/finalized block
-										// whose state is already pruned, but executor params are
-										// session-buffered so any recent relay chain block in the
-										// same session will return the same result.
+										// Executor params are session-buffered, so we use
+										// block_hash (the including relay block) for the runtime
+										// API query — its state is guaranteed available. The
+										// session index comes from the candidate descriptor
+										// (relay_parent's session), falling back to the including
+										// block's session for V1 descriptors where relay_parent
+										// == scheduling_parent.
+										let session = candidate_entry
+											.candidate_receipt()
+											.descriptor()
+											.session_index()
+											.unwrap_or(block_entry.session());
 										let ExtendedSessionInfo { ref executor_params, .. } =
 											match get_extended_session_info_by_index(
 												session_info_provider,
 												sender,
 												block_hash,
-												block_entry.session(),
+												session,
 											)
 											.await
 											{
@@ -3368,16 +3374,20 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
-		// Use relay_block (the relay chain block) rather than the candidate's relay_parent
-		// for the runtime API query. The relay_parent may reference an old/finalized block
-		// whose state is already pruned, but executor params are session-buffered so any
-		// recent relay chain block in the same session will return the same result.
+		// Executor params are session-buffered, so we use relay_block (the including relay
+		// block) for the runtime API query — its state is guaranteed available. The session
+		// index comes from the candidate descriptor (relay_parent's session), falling back
+		// to the including block's session for V1 descriptors.
+		let session = candidate_receipt
+			.descriptor
+			.session_index()
+			.unwrap_or(block_entry.session());
 		let ExtendedSessionInfo { ref executor_params, .. } =
 			match get_extended_session_info_by_index(
 				session_info_provider,
 				sender,
 				relay_block,
-				block_entry.session(),
+				session,
 			)
 			.await
 			{
