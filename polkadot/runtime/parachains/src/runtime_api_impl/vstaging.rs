@@ -16,7 +16,7 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{disputes, initializer, paras};
+use crate::{configuration, disputes, initializer, paras};
 use alloc::vec::Vec;
 
 use polkadot_primitives::{slashing, CandidateHash, Id as ParaId, SessionIndex};
@@ -24,6 +24,11 @@ use polkadot_primitives::{slashing, CandidateHash, Id as ParaId, SessionIndex};
 /// Implementation of `para_ids` runtime API
 pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
 	paras::Heads::<T>::iter_keys().collect()
+}
+
+/// Implementation of `max_relay_parent_session_age` runtime API.
+pub fn max_relay_parent_session_age<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_relay_parent_session_age
 }
 
 /// Implementation of `unapplied_slashes_v2` runtime API
