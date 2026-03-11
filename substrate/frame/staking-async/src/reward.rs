@@ -21,10 +21,13 @@
 //! including creation, funding, and cleanup.
 
 use crate::*;
-use frame_support::traits::{
-	fungible::{Inspect, Mutate},
-	tokens::Preservation,
-	Defensive,
+use frame_support::{
+	defensive,
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::Preservation,
+		Defensive,
+	},
 };
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, UnclaimedRewardSink};
@@ -88,35 +91,63 @@ impl<T: Config> EraRewardManager<T> {
 		);
 
 		// Transfer from general pots to era-specific pots, keeping general pots alive.
-		if !staker_balance.is_zero() {
-			let _ = T::Currency::transfer(
+		// Track actual transferred amounts — if a transfer fails, we must not report
+		// the intended amount as available in the era pot.
+		let actual_staker = if !staker_balance.is_zero() {
+			match T::Currency::transfer(
 				&general_staker_pot,
 				&staker_era_pot,
 				staker_balance,
 				Preservation::Preserve,
-			)
-			.defensive();
-		}
+			) {
+				Ok(_) => staker_balance,
+				Err(e) => {
+					log!(
+						error,
+						"Era {:?}: staker reward transfer failed: {:?}",
+						era,
+						e
+					);
+					defensive!("Failed to transfer staker rewards to era pot");
+					Zero::zero()
+				},
+			}
+		} else {
+			Zero::zero()
+		};
 
-		if !incentive_balance.is_zero() {
-			let _ = T::Currency::transfer(
+		let actual_incentive = if !incentive_balance.is_zero() {
+			match T::Currency::transfer(
 				&general_incentive_pot,
 				&incentive_era_pot,
 				incentive_balance,
 				Preservation::Preserve,
-			)
-			.defensive();
-		}
+			) {
+				Ok(_) => incentive_balance,
+				Err(e) => {
+					log!(
+						error,
+						"Era {:?}: validator incentive transfer failed: {:?}",
+						era,
+						e
+					);
+					defensive!("Failed to transfer validator incentive to era pot");
+					Zero::zero()
+				},
+			}
+		} else {
+			Zero::zero()
+		};
 
 		log::info!(
 			target: LOG_TARGET,
-			"Era {era}: snapshotted staker_rewards={staker_balance:?}, \
-			 validator_incentive={incentive_balance:?}"
+			"Era {era}: snapshotted staker_rewards={actual_staker:?}, \
+			 validator_incentive={actual_incentive:?}"
 		);
 
 		sp_staking::EraRewardAllocation {
-			staker_rewards: staker_balance,
-			validator_incentive: incentive_balance,
+			staker_rewards: actual_staker,
+			validator_incentive: actual_incentive,
 		}
 	}
 
