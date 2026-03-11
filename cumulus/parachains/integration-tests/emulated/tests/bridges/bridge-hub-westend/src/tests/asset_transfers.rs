@@ -238,6 +238,9 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	// use USDT for fees
 	let fee: AssetId = usdt_at_asset_hub_westend.into();
 
+	// process XCMP `ConcatenatedOpaqueVersionedXcm` negotiation message.
+	BridgeHubWestend::execute_with(|| {});
+	BridgeHubRococo::execute_with(|| {});
 	// use the more involved transfer extrinsic
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(assets.len() as u32)),

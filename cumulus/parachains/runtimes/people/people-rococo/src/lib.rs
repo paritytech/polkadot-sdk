@@ -116,10 +116,14 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+<<<<<<< HEAD:cumulus/parachains/runtimes/people/people-rococo/src/lib.rs
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+=======
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+>>>>>>> 0bb1645f (XCMP: implement `ConcatenatedOpaqueVersionedXcm` negotiation (#11263)):cumulus/parachains/runtimes/contracts/contracts-rococo/src/lib.rs
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,

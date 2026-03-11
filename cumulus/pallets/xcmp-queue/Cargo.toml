@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+bitflags = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 cumulus-primitives-core.workspace = true
 frame-support.workspace = true
