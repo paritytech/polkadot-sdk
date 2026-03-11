@@ -482,6 +482,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn para_ids(&self, at: Hash) -> Result<Vec<ParaId>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_para_ids(at).await?)
 	}
+
+	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_max_relay_parent_session_age(at).await?)
+	}
 }
 
 #[async_trait::async_trait]
