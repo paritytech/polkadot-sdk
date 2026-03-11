@@ -1736,8 +1736,10 @@ where
 	// the logic simple and aligned with how BABE/Aura reason about slots.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
 		let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
-		let current_slot =
-			sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+		let current_slot = sp_consensus_slots::Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			slot_duration,
+		);
 
 		let scheduling_parent_valid =
 			if let Some(info) = state.leaf_scheduling_info.get(&scheduling_parent) {
@@ -1748,8 +1750,7 @@ where
 				// scheduling_parent is not a leaf — valid if it's the parent of any leaf
 				// whose slot is the current slot (still in progress).
 				state.leaf_scheduling_info.iter().any(|(_leaf_hash, info)| {
-					*current_slot == *info.slot &&
-						scheduling_parent == info.parent_hash
+					*current_slot == *info.slot && scheduling_parent == info.parent_hash
 				})
 			};
 
