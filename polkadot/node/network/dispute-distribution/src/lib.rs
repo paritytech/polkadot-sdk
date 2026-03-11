@@ -44,8 +44,8 @@ use polkadot_node_subsystem::{
 	messages::DisputeDistributionMessage, overseer, FromOrchestra, OverseerSignal,
 	SpawnedSubsystem, SubsystemError,
 };
-use polkadot_primitives::node_features::FeatureIndex;
 use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
+use polkadot_primitives::node_features::FeatureIndex;
 
 /// ## The sender [`DisputeSender`]
 ///
@@ -264,13 +264,10 @@ where
 							.get_session_index_for_child(ctx.sender(), activated.hash)
 							.await
 						{
-							if let Ok(Ok(features)) = request_node_features(
-								activated.hash,
-								session_index,
-								ctx.sender(),
-							)
-							.await
-							.await
+							if let Ok(Ok(features)) =
+								request_node_features(activated.hash, session_index, ctx.sender())
+									.await
+									.await
 							{
 								if FeatureIndex::CandidateReceiptV3.is_set(&features) {
 									gum::info!(
