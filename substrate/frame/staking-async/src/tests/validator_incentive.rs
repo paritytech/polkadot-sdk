@@ -895,7 +895,6 @@ fn very_small_self_stake_weight() {
 	});
 }
 
-
 /// Finds the held incentive amount from events.
 fn incentive_held_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
 	events.iter().find_map(|e| match e {
@@ -919,7 +918,6 @@ fn vesting_converted_for(stash: AccountId, events: &[Event<Test>]) -> Option<(Ba
 		_ => None,
 	})
 }
-
 
 #[test]
 fn incentive_held_when_vesting_enabled() {

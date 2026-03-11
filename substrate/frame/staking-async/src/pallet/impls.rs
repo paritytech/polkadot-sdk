@@ -908,8 +908,8 @@ impl<T: Config> Pallet<T> {
 
 		let bonding_duration = T::BondingDuration::get();
 		let vesting_duration = T::VestingDuration::get();
-		let blocks_per_era = T::BlocksPerSession::get()
-			.saturating_mul(T::SessionsPerEra::get().into());
+		let blocks_per_era =
+			T::BlocksPerSession::get().saturating_mul(T::SessionsPerEra::get().into());
 
 		// Derive vesting duration in eras from block-denominated config values.
 		let vesting_eras: u32 = if blocks_per_era.is_zero() {

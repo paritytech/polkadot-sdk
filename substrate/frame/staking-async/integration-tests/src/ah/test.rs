@@ -2156,10 +2156,7 @@ fn incentive_vesting_e2e_with_real_pallet_vesting() {
 					end_index,
 					activation_timestamp: None,
 					leftover: false,
-					validator_points: active_validators
-						.iter()
-						.map(|v| (*v, 100))
-						.collect(),
+					validator_points: active_validators.iter().map(|v| (*v, 100)).collect(),
 				},
 			));
 			roll_next();
