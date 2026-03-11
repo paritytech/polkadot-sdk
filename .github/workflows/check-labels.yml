@@ -44,9 +44,15 @@ jobs:
           # Temporary, before https://github.com/paritytech/labels/pull/29 is not merged
           git clone https://github.com/paritytech/labels
 
-          # Fetch the labels for the PR under test
+          # Extract valid label names from the specs file
+          valid_names=$(grep -oP '(?<=- name: )\S+' $PWD/${RULES_PATH}/${CHECK_SPECS} | jq -R . | jq -s .)
+
+          # Fetch PR labels and keep only those defined in the specs.
+          # This filters out GitHub Project labels (e.g. "feature") that are not
+          # part of the repo's label specs and would cause ruled_labels to panic.
           echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
-          labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+          labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" \
+            | jq --argjson valid "$valid_names" '[.labels[].name | select(. as $n | $valid | any(. == $n))] | map(@json) | join(",")' -r)
           echo "Labels: ${labels}"
 
           if [ -z "${labels}" ]; then
