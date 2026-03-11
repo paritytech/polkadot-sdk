@@ -1,13 +1,10 @@
-title: 'Introduce pallet-dap-satellite with fungible currency wrappers'
+title: 'Introduce pallet-dap-satellite and redirect system burns to DAP'
 doc:
 - audience: Runtime Dev
   description: |-
       - Introduce pallet-dap-satellite for system chains (RC, BridgeHub, Coretime, People,
       Collectives) to collect funds that would otherwise be burned, staging them for periodic
       transfer to the central DAP on AssetHub.
-      - Introduce DapCurrency and SatelliteCurrency fungible wrappers, intercepting `burn_from()`
-      calls through the fungible traits so that imbalance is intercepted before being dropped, funds
-      are deposited to DAP / DAP satellite  and total isssuance is unchanged.
       - Redirect all system burns to DAP or DAP satellite on Westend system chains, including
       tx fees, dust removal and coretime revenue burns.
 crates:

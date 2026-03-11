@@ -18,24 +18,16 @@
 
 use collectives_westend_runtime::{
 	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Balances, Block, DapSatellite, Runtime, RuntimeCall, RuntimeOrigin,
+	Block, Runtime, RuntimeCall, RuntimeOrigin,
 };
-use frame_support::{
-	assert_err, assert_ok,
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
-	},
-};
+use frame_support::{assert_err, assert_ok};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
+use parachains_runtimes_test_utils::GovernanceOrigin;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::Either;
-use testnet_parachains_constants::westend::{currency::UNITS, fee::WeightToFee};
+use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
-
-type SatelliteCurrency = pallet_dap_satellite::currency::SatelliteCurrency<Runtime>;
 
 const ALICE: [u8; 32] = [1u8; 32];
 
@@ -207,49 +199,4 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
-}
-
-/// Tests the two burn paths:
-/// 1. `Balances::burn()` extrinsic → classic burn (reduces total issuance)
-/// 2. `SatelliteCurrency::burn_from()` → redirects to satellite buffer (preserves total issuance)
-#[test]
-fn burn_behaviors_classic_vs_satellite_wrapper() {
-	ExtBuilder::<Runtime>::default().build().execute_with(|| {
-		const BOB: [u8; 32] = [2u8; 32];
-		let user: AccountId = BOB.into();
-		let initial_balance = 100 * UNITS;
-		let burn_amount = 10 * UNITS;
-
-		assert_ok!(<Balances as Mutate<_>>::mint_into(&user, initial_balance));
-
-		let satellite = DapSatellite::satellite_account();
-		let initial_satellite_balance = <Balances as Inspect<_>>::balance(&satellite);
-		let initial_issuance = <Balances as Inspect<_>>::total_issuance();
-
-		// 1. Direct Balances::burn() → classic burn (reduces total issuance)
-		assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
-
-		assert_eq!(<Balances as Inspect<_>>::balance(&user), initial_balance - burn_amount);
-		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_issuance - burn_amount);
-		assert_eq!(<Balances as Inspect<_>>::balance(&satellite), initial_satellite_balance);
-
-		// 2. SatelliteCurrency::burn_from() → redirects to satellite buffer
-		let issuance_after_classic_burn = <Balances as Inspect<_>>::total_issuance();
-		assert_ok!(<SatelliteCurrency as Mutate<_>>::burn_from(
-			&user,
-			burn_amount,
-			Expendable,
-			Exact,
-			Polite
-		));
-
-		assert_eq!(<Balances as Inspect<_>>::balance(&user), initial_balance - 2 * burn_amount);
-		// Total issuance unchanged (redirected, not burned)
-		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance_after_classic_burn);
-		// Satellite buffer received the funds
-		assert_eq!(
-			<Balances as Inspect<_>>::balance(&satellite),
-			initial_satellite_balance + burn_amount
-		);
-	});
 }

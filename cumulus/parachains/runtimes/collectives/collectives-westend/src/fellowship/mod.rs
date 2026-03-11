@@ -296,6 +296,10 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
+	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
+	// `BurnDestination` to a DAP satellite `OnUnbalanced<NegativeImbalance>` impl so burned funds
+	// flow to the satellite instead of being destroyed. Currently, the satellite only implements
+	// `OnUnbalanced<Credit>`.
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;

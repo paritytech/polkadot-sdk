@@ -17,6 +17,5 @@
 
 //! Tests for the DAP pallet.
 
-mod burn_handler;
 mod genesis;
 mod on_unbalanced;

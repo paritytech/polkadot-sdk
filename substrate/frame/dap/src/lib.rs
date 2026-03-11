@@ -27,10 +27,7 @@
 //! must be reactivated before transfer.
 //!
 //! - **Fees/slashes**: Use `Dap` as `OnUnbalanced` handler (e.g., `type Slash = Dap`)
-//! - **Burn redirection**: Use [`currency::DapCurrency<T>`] as `type Currency` in pallets that call
-//!   `burn_from` - redirects burns to buffer instead of reducing total issuance
-//!
-//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic bypass the wrapper.
+//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -39,14 +36,11 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
-extern crate alloc;
-
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		tokens::{Fortitude, Precision, Precision::BestEffort, Preservation},
+		fungible::{Balanced, Credit, Inspect, Unbalanced},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -76,7 +70,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
@@ -132,137 +125,5 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
-	}
-}
-
-/// Fungible currency adapter module.
-pub mod currency {
-	use super::*;
-	use frame_support::traits::{
-		fungible::Dust,
-		tokens::{DepositConsequence, Provenance, WithdrawConsequence},
-	};
-	use sp_runtime::TokenError;
-
-	/// Fungible currency wrapper that redirects burns to the DAP buffer.
-	///
-	/// Use this as `type NativeBalance = pallet_dap::currency::DapCurrency<Runtime>`
-	/// in runtimes that want to redirect burns to DAP instead of reducing total issuance.
-	///
-	/// All fungible trait methods delegate to the inner currency except `burn_from`,
-	/// which transfers funds to the DAP buffer account.
-	pub struct DapCurrency<T>(core::marker::PhantomData<T>);
-
-	impl<T: Config> Inspect<T::AccountId> for DapCurrency<T> {
-		type Balance = BalanceOf<T>;
-
-		fn total_issuance() -> Self::Balance {
-			T::Currency::total_issuance()
-		}
-		fn active_issuance() -> Self::Balance {
-			T::Currency::active_issuance()
-		}
-		fn minimum_balance() -> Self::Balance {
-			T::Currency::minimum_balance()
-		}
-		fn total_balance(who: &T::AccountId) -> Self::Balance {
-			T::Currency::total_balance(who)
-		}
-		fn balance(who: &T::AccountId) -> Self::Balance {
-			T::Currency::balance(who)
-		}
-		fn reducible_balance(
-			who: &T::AccountId,
-			preservation: Preservation,
-			force: Fortitude,
-		) -> Self::Balance {
-			T::Currency::reducible_balance(who, preservation, force)
-		}
-		fn can_deposit(
-			who: &T::AccountId,
-			amount: Self::Balance,
-			provenance: Provenance,
-		) -> DepositConsequence {
-			T::Currency::can_deposit(who, amount, provenance)
-		}
-		fn can_withdraw(
-			who: &T::AccountId,
-			amount: Self::Balance,
-		) -> WithdrawConsequence<Self::Balance> {
-			T::Currency::can_withdraw(who, amount)
-		}
-	}
-
-	impl<T: Config> Unbalanced<T::AccountId> for DapCurrency<T> {
-		fn handle_dust(dust: Dust<T::AccountId, Self>) {
-			T::Currency::handle_dust(Dust(dust.0));
-		}
-		fn write_balance(
-			who: &T::AccountId,
-			amount: Self::Balance,
-		) -> Result<Option<Self::Balance>, DispatchError> {
-			T::Currency::write_balance(who, amount)
-		}
-		fn set_total_issuance(amount: Self::Balance) {
-			T::Currency::set_total_issuance(amount)
-		}
-		fn decrease_balance(
-			who: &T::AccountId,
-			amount: Self::Balance,
-			precision: Precision,
-			preservation: Preservation,
-			force: Fortitude,
-		) -> Result<Self::Balance, DispatchError> {
-			T::Currency::decrease_balance(who, amount, precision, preservation, force)
-		}
-		fn increase_balance(
-			who: &T::AccountId,
-			amount: Self::Balance,
-			precision: Precision,
-		) -> Result<Self::Balance, DispatchError> {
-			T::Currency::increase_balance(who, amount, precision)
-		}
-		fn deactivate(amount: Self::Balance) {
-			T::Currency::deactivate(amount)
-		}
-		fn reactivate(amount: Self::Balance) {
-			T::Currency::reactivate(amount)
-		}
-	}
-
-	impl<T: Config> Mutate<T::AccountId> for DapCurrency<T> {
-		fn burn_from(
-			who: &T::AccountId,
-			amount: Self::Balance,
-			preservation: Preservation,
-			precision: Precision,
-			force: Fortitude,
-		) -> Result<Self::Balance, DispatchError> {
-			let actual = T::Currency::reducible_balance(who, preservation, force).min(amount);
-			frame_support::ensure!(
-				actual == amount || precision == BestEffort,
-				TokenError::FundsUnavailable
-			);
-			let actual =
-				T::Currency::decrease_balance(who, actual, BestEffort, preservation, force)?;
-
-			// Credit the buffer account instead of reducing total issuance.
-			let buffer = Pallet::<T>::buffer_account();
-			let _ = T::Currency::increase_balance(&buffer, actual, BestEffort).inspect_err(|e| {
-				// Try to restore balance to source account - should never happen.
-				let _ = T::Currency::increase_balance(who, actual, BestEffort);
-				defensive!("Failed to credit DAP buffer: {:?}", e);
-			});
-
-			// Mark funds as inactive so they don't participate in governance voting.
-			T::Currency::deactivate(actual);
-
-			Ok(actual)
-		}
-	}
-
-	impl<T: Config> Balanced<T::AccountId> for DapCurrency<T> {
-		type OnDropCredit = <T::Currency as Balanced<T::AccountId>>::OnDropCredit;
-		type OnDropDebt = <T::Currency as Balanced<T::AccountId>>::OnDropDebt;
 	}
 }

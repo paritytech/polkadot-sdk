@@ -32,9 +32,9 @@ use bridge_hub_westend_runtime::{
 		GovernanceLocation, LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
-	BridgeRelayers, DapSatellite, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment,
-	TxExtension, UncheckedExtrinsic,
+	BridgeRelayers, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension,
+	UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
@@ -43,14 +43,7 @@ use bridge_to_rococo_config::{
 use codec::{Decode, Encode};
 use cumulus_primitives_core::UpwardMessageSender;
 use frame_support::{
-	assert_err, assert_ok,
-	dispatch::GetDispatchInfo,
-	parameter_types,
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
-		ConstU8,
-	},
+	assert_err, assert_ok, dispatch::GetDispatchInfo, parameter_types, traits::ConstU8,
 };
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId, Balance};
@@ -68,8 +61,6 @@ use xcm::{
 	VersionedLocation,
 };
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
-
-type SatelliteCurrency = pallet_dap_satellite::currency::SatelliteCurrency<Runtime>;
 
 // Random para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 2053;
@@ -848,49 +839,4 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(Governance::get()));
-}
-
-/// Tests the two burn paths:
-/// 1. `Balances::burn()` extrinsic → classic burn (reduces total issuance)
-/// 2. `SatelliteCurrency::burn_from()` → redirects to satellite buffer (preserves total issuance)
-#[test]
-fn burn_behaviors_classic_vs_satellite_wrapper() {
-	ExtBuilder::<Runtime>::default().build().execute_with(|| {
-		const BOB: [u8; 32] = [2u8; 32];
-		let user: AccountId = BOB.into();
-		let initial_balance = 100 * UNITS;
-		let burn_amount = 10 * UNITS;
-
-		assert_ok!(<Balances as Mutate<_>>::mint_into(&user, initial_balance));
-
-		let satellite = DapSatellite::satellite_account();
-		let initial_satellite_balance = <Balances as Inspect<_>>::balance(&satellite);
-		let initial_issuance = <Balances as Inspect<_>>::total_issuance();
-
-		// 1. Direct Balances::burn() → classic burn (reduces total issuance)
-		assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
-
-		assert_eq!(<Balances as Inspect<_>>::balance(&user), initial_balance - burn_amount);
-		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_issuance - burn_amount);
-		assert_eq!(<Balances as Inspect<_>>::balance(&satellite), initial_satellite_balance);
-
-		// 2. SatelliteCurrency::burn_from() → redirects to satellite buffer
-		let issuance_after_classic_burn = <Balances as Inspect<_>>::total_issuance();
-		assert_ok!(<SatelliteCurrency as Mutate<_>>::burn_from(
-			&user,
-			burn_amount,
-			Expendable,
-			Exact,
-			Polite
-		));
-
-		assert_eq!(<Balances as Inspect<_>>::balance(&user), initial_balance - 2 * burn_amount);
-		// Total issuance unchanged (redirected, not burned)
-		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance_after_classic_burn);
-		// Satellite buffer received the funds
-		assert_eq!(
-			<Balances as Inspect<_>>::balance(&satellite),
-			initial_satellite_balance + burn_amount
-		);
-	});
 }

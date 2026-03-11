@@ -25,60 +25,11 @@ use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-/// Mock pallet that uses `SatelliteCurrency` as its `Currency` type.
-/// Used to test that burns through a pallet's `T::Currency::burn_from` are redirected.
-#[frame_support::pallet]
-pub mod pallet_mock_burner {
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			fungible::{Inspect, Mutate},
-			tokens::{Fortitude, Precision, Preservation},
-		},
-	};
-	use frame_system::pallet_prelude::*;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type NativeBalance: Inspect<Self::AccountId> + Mutate<Self::AccountId>;
-	}
-
-	pub type BalanceOf<T> =
-		<<T as Config>::NativeBalance as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		#[pallet::call_index(0)]
-		#[pallet::weight({0})]
-		pub fn burn(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			T::NativeBalance::burn_from(
-				&who,
-				amount,
-				Preservation::Expendable,
-				Precision::Exact,
-				Fortitude::Polite,
-			)?;
-			Ok(())
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		pub fn balance(who: &T::AccountId) -> BalanceOf<T> {
-			T::NativeBalance::balance(who)
-		}
-	}
-}
-
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		DapSatellite: pallet_dap_satellite,
-		MockBurner: pallet_mock_burner,
 	}
 );
 
@@ -102,10 +53,6 @@ parameter_types! {
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
-}
-
-impl pallet_mock_burner::Config for Test {
-	type NativeBalance = crate::currency::SatelliteCurrency<Test>;
 }
 
 pub fn new_test_ext(fund_satellite: bool) -> sp_io::TestExternalities {
