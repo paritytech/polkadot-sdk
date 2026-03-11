@@ -15,24 +15,19 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	validator_side::{
-		descriptor_version_sanity_check_with_params, error::SecondingError,
-		request_persisted_validation_data, request_prospective_validation_data, BlockedCollationId,
-		PerLeafClaimQueueState,
-	},
-	validator_side_experimental::{
+	LOG_TARGET, validator_side::{
+		BlockedCollationId, PerLeafClaimQueueState, descriptor_version_sanity_check_with_params, error::SecondingError, request_persisted_validation_data, request_prospective_validation_data
+	}, validator_side_experimental::{
 		common::{
-			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
-			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
+			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse, FAILED_FETCH_SLASH, INSTANT_FETCH_REP_THRESHOLD, INVALID_COLLATION_SLASH, MAX_FETCH_DELAY, ProspectiveCandidate, Score, SecondingRejectionInfo
 		},
 		error::{Error, FatalResult, Result},
-	},
-	LOG_TARGET,
+	}
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v2 as request_v2, Requests},
 	OurView, PeerId,
 };
@@ -450,6 +445,7 @@ impl CollationManager {
 		&mut self,
 		sender: &mut Sender,
 		res: CollationFetchResponse,
+		maybe_collattion_version: Option<CollationVersion>,
 	) -> CanSecond {
 		let advertisement = res.0;
 		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
@@ -465,7 +461,16 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent out of view"
 			);
-			return CanSecond::No(None, reject_info);
+			return CanSecond::No(Some(INVALID_COLLATION_SLASH), reject_info);
+		};
+
+		let Some(collation_version) = maybe_collattion_version else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?advertisement,
+				"Peer may not be connected."
+			);
+			return CanSecond::No(None, reject_info)
 		};
 
 		per_sp.remove_advertisement(&advertisement);
@@ -500,6 +505,7 @@ impl CollationManager {
 					per_sp.v3_enabled,
 					per_sp.core_index,
 					per_sp.session_index,
+					collation_version
 				) {
 					gum::warn!(
 						target: LOG_TARGET,

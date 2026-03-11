@@ -427,6 +427,10 @@ pub mod well_known_keys {
 	}
 }
 
+/// Relay chain slot duration in milliseconds, which is the same
+/// value across all networks (e.g. Polkadot, Kusama, Westend, Rococo).
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
 /// Unique identifier for the Parachains Inherent
 pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 
@@ -1868,15 +1872,11 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	pub(super) core_index: u16,
 	/// The session index of the candidate relay parent.
 	session_index: SessionIndex,
-	/// Session index for determining secondary checkers.
+	/// Offset from `session_index` to derive the scheduling session (introduced in v3).
 	///
-	/// The session index is provided as an offset to the provided session_index
-	/// of the relay parent to save space:
-	///
-	/// ```text
-	///   let scheduling_session = session_index + scheduling_session_offset;
-	/// ```
-	scheduling_session_offset: u8, // Introduced in v3
+	/// Stored as a `u8` offset rather than a full `SessionIndex` to fit within the
+	/// descriptor layout: `scheduling_session = session_index + scheduling_session_offset`.
+	scheduling_session_offset: u8,
 	/// Reserved bytes.
 	reserved1: [u8; 24],
 	/// The blake2-256 hash of the persisted validation data. This is extra data derived from

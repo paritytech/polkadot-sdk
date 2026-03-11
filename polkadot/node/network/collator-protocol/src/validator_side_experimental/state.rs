@@ -330,7 +330,8 @@ impl<B: Backend> State<B> {
 			);
 		}
 
-		let can_second = self.collation_manager.note_fetched(sender, res).await;
+		let collation_version = self.peer_manager.get_version(&advertisement.peer_id);
+		let can_second = self.collation_manager.note_fetched(sender, res, collation_version).await;
 
 		// To be consistent with the old implementation, if the fetch is successful we count the
 		// request as successful, despite we might not be able to second it.
