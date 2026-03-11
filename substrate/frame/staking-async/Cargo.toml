@@ -82,10 +82,10 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-dap/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-dap/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -93,7 +93,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-dap/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-dap/try-runtime",
 ]
