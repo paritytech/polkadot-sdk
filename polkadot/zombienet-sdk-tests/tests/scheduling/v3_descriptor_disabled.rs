@@ -4,12 +4,15 @@
 //! Test that parachains produce blocks and finalize when the V3 candidate descriptor is disabled.
 //!
 //! Only `CandidateReceiptV2` (bit 3) is enabled in node_features; `CandidateReceiptV3` (bit 4)
-//! is NOT set. Verifies that:
+//! is NOT set. The validator set contains both standard and experimental-collator-protocol
+//! validators.
+//!
+//! Verifies that:
 //! - The relay chain finalizes blocks after the first session change.
-//! - Parachains produce and back V2 candidates.
+//! - Parachains produce and back V2 candidates with both validator protocol variants.
 //! - Parachain finality progresses with acceptable lag.
 
-use super::assert_candidates_version;
+use super::{assert_candidates_version, assert_validator_backed_candidates};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_finality_lag;
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
@@ -37,8 +40,7 @@ async fn v3_disabled_produces_v2_candidates() -> Result<(), anyhow::Error> {
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			let r = r
-				.with_chain("rococo-local")
+			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug,runtime=debug").into()])
@@ -46,17 +48,32 @@ async fn v3_disabled_produces_v2_candidates() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
+								// 2 validators per backing group: one standard + one experimental.
+								"max_validators_per_core": 2,
 								"group_rotation_frequency": 4
 							},
 							"node_features": node_features_v2_only,
 						}
 					}
 				}))
-				.with_validator(|node| node.with_name("validator-0"));
-
-			(1..4).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
-			})
+				// Standard collator protocol validators.
+				.with_validator(|node| node.with_name("validator-0"))
+				.with_validator(|node| node.with_name("validator-1"))
+				// Experimental collator protocol validators.
+				.with_validator(|node| {
+					node.with_name("validator-2").with_args(vec![
+						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
+							.into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
+				.with_validator(|node| {
+					node.with_name("validator-3").with_args(vec![
+						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
+							.into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
 		})
 		.with_parachain(|p| {
 			p.with_id(2600)
@@ -76,10 +93,12 @@ async fn v3_disabled_produces_v2_candidates() -> Result<(), anyhow::Error> {
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-2600")?;
+	let experimental_validator_2 = network.get_node("validator-2")?;
+	let experimental_validator_3 = network.get_node("validator-3")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	// V3 is NOT enabled. Verify at least 15 V2 candidates are backed within 20 relay blocks.
+	// V3 is NOT enabled. Candidates backed by both standard and experimental validators count.
 	assert_candidates_version(
 		&relay_client,
 		ParaId::from(2600),
@@ -89,6 +108,13 @@ async fn v3_disabled_produces_v2_candidates() -> Result<(), anyhow::Error> {
 		20,
 	)
 	.await?;
+
+	// Verify that validators from both backing groups signed statements: group 0 (standard
+	// protocol) and group 1 (experimental-collator-protocol). Group rotation ensures both groups
+	// get assigned to back candidates.
+	assert_validator_backed_candidates(relay_node, 30).await?;
+	assert_validator_backed_candidates(experimental_validator_2, 30).await?;
+	assert_validator_backed_candidates(experimental_validator_3, 30).await?;
 
 	// Verify the parachain is finalizing blocks with acceptable lag.
 	assert_finality_lag(&para_node.wait_client().await?, 5).await?;

@@ -9,21 +9,42 @@ use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::wait_for_first_session_change;
 use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
-use zombienet_sdk::subxt::{utils::H256, OnlineClient, PolkadotConfig};
+use zombienet_sdk::{
+	subxt::{utils::H256, OnlineClient, PolkadotConfig},
+	NetworkNode,
+};
 
-/// Find and decode all `ParaInclusion::CandidateBacked` events from a block.
+/// Metric name for the total number of backing statements signed by a validator.
+const SIGNED_STATEMENTS_METRIC: &str =
+	"polkadot_parachain_candidate_backing_signed_statements_total";
+
+/// Asserts that a validator node has signed at least one backing statement.
+pub async fn assert_validator_backed_candidates(
+	node: &NetworkNode,
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	node.wait_metric_with_timeout(SIGNED_STATEMENTS_METRIC, |v| v >= 1.0, timeout_secs)
+		.await
+		.map_err(|e| {
+			anyhow!(
+				"Validator {} did not sign any backing statements within {timeout_secs}s: {e}",
+				node.name()
+			)
+		})
+}
+
+/// Find CandidateBacked events and decode them.
 fn find_candidate_backed_events(
 	events: &zombienet_sdk::subxt::events::Events<PolkadotConfig>,
 ) -> Result<Vec<CandidateReceiptV2<H256>>, anyhow::Error> {
-	events
-		.iter()
-		.filter_map(|event| {
-			let event = event.ok()?;
-			(event.pallet_name() == "ParaInclusion" && event.variant_name() == "CandidateBacked")
-				.then(|| CandidateReceiptV2::<H256>::decode(&mut &event.field_bytes()[..]))
-		})
-		.collect::<Result<Vec<_>, _>>()
-		.map_err(Into::into)
+	let mut result = vec![];
+	for event in events.iter() {
+		let event = event?;
+		if event.pallet_name() == "ParaInclusion" && event.variant_name() == "CandidateBacked" {
+			result.push(CandidateReceiptV2::<H256>::decode(&mut &event.field_bytes()[..])?);
+		}
+	}
+	Ok(result)
 }
 
 /// Asserts that candidates of the expected version are being backed for a given parachain.
