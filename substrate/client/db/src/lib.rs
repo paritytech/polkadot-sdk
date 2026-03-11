@@ -5573,28 +5573,30 @@ pub(crate) mod tests {
 
 	#[test]
 	fn missing_body_gap_is_removed_for_non_archive_node() {
-		// Create a non-archive backend and produce a MissingBody gap.
+		// Create a non-archive backend and produce a multi-block MissingBody gap.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(100), 0);
 		assert!(!backend.is_archive);
 
 		let genesis_hash = insert_header(&backend, 0, Default::default(), None, Default::default());
 
-		// Insert block 1 without body — creates a MissingBody gap at block 1.
-		insert_header_no_body_as_best(&backend, 1, genesis_hash);
+		// Insert blocks 1..3 without bodies — creates a MissingBody gap spanning blocks 1 to 3.
+		let hash_1 = insert_header_no_body_as_best(&backend, 1, genesis_hash);
+		let hash_2 = insert_header_no_body_as_best(&backend, 2, hash_1);
+		insert_header_no_body_as_best(&backend, 3, hash_2);
 
 		let info = backend.blockchain().info();
 		assert!(info.block_gap.is_some(), "MissingBody gap should have been created");
 		let gap = info.block_gap.unwrap();
 		assert!(matches!(gap.gap_type, BlockGapType::MissingBody));
 		assert_eq!(gap.start, 1);
-		assert_eq!(gap.end, 1);
+		assert_eq!(gap.end, 3);
 
 		// Re-open the same database as a non-archive node.
 		let db = backend.storage.db.clone();
 		let backend = reopen_backend(db, BlocksPruning::Some(100));
 		assert!(!backend.is_archive);
 
-		// The gap should have been removed on re-open.
+		// The multi-block gap should have been removed on re-open.
 		let info = backend.blockchain().info();
 		assert!(
 			info.block_gap.is_none(),
@@ -5605,19 +5607,23 @@ pub(crate) mod tests {
 
 	#[test]
 	fn missing_body_gap_is_preserved_for_archive_node() {
-		// Create a backend with archive pruning and produce a MissingBody gap.
+		// Create a backend with archive pruning and produce a multi-block MissingBody gap.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::KeepAll, 0);
 		assert!(backend.is_archive);
 
 		let genesis_hash = insert_header(&backend, 0, Default::default(), None, Default::default());
 
-		// Insert block 1 without body — creates a MissingBody gap at block 1.
-		insert_header_no_body_as_best(&backend, 1, genesis_hash);
+		// Insert blocks 1..3 without bodies — creates a MissingBody gap spanning blocks 1 to 3.
+		let hash_1 = insert_header_no_body_as_best(&backend, 1, genesis_hash);
+		let hash_2 = insert_header_no_body_as_best(&backend, 2, hash_1);
+		insert_header_no_body_as_best(&backend, 3, hash_2);
 
 		let info = backend.blockchain().info();
 		assert!(info.block_gap.is_some(), "MissingBody gap should have been created");
 		let gap = info.block_gap.unwrap();
 		assert!(matches!(gap.gap_type, BlockGapType::MissingBody));
+		assert_eq!(gap.start, 1);
+		assert_eq!(gap.end, 3);
 
 		// Re-open the same database as an archive node.
 		let db = backend.storage.db.clone();
@@ -5630,7 +5636,7 @@ pub(crate) mod tests {
 		let gap = info.block_gap.unwrap();
 		assert!(matches!(gap.gap_type, BlockGapType::MissingBody));
 		assert_eq!(gap.start, 1);
-		assert_eq!(gap.end, 1);
+		assert_eq!(gap.end, 3);
 	}
 
 	#[test]
