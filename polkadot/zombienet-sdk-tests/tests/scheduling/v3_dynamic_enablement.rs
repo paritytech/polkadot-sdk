@@ -18,7 +18,9 @@
 //! - Validators from both groups (standard and experimental) sign backing statements.
 //! - Parachain finality progresses with acceptable lag.
 
-use super::{assert_candidates_version, assert_validator_backed_candidates, enable_v3_node_features};
+use super::{
+	assert_candidates_version, assert_validator_backed_candidates, enable_v3_node_features,
+};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};

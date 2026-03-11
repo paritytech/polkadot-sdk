@@ -5,18 +5,14 @@ mod v3_descriptor_disabled;
 mod v3_descriptor_enabled;
 mod v3_dynamic_enablement;
 mod v3_elastic_scaling;
+mod v3_rolling_upgrade;
 
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::wait_for_first_session_change;
 use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
 use zombienet_sdk::{
-	subxt::{
-		ext::scale_value::value,
-		tx::dynamic,
-		utils::H256,
-		OnlineClient, PolkadotConfig,
-	},
+	subxt::{ext::scale_value::value, tx::dynamic, utils::H256, OnlineClient, PolkadotConfig},
 	NetworkNode,
 };
 
