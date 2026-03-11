@@ -629,12 +629,6 @@ async fn distribute_collation<Context>(
 		})
 		.map(|(id, _)| id);
 
-	// Make sure already connected peers get collations:
-	let is_active_leaf = state
-		.implicit_view
-		.as_ref()
-		.map_or(false, |iv| iv.leaves().any(|l| *l == scheduling_parent));
-
 	for peer_id in interested {
 		// Get the peer's protocol version. The peer should exist in peer_data
 		// since we iterated over it to build `interested`.
@@ -650,7 +644,6 @@ async fn distribute_collation<Context>(
 			&state.peer_ids,
 			&mut state.advertisement_timeouts,
 			&state.metrics,
-			is_active_leaf,
 		)
 		.await;
 	}
@@ -894,21 +887,7 @@ async fn advertise_collation<Context>(
 	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	advertisement_timeouts: &mut FuturesUnordered<ResetInterestTimeout>,
 	metrics: &Metrics,
-	is_active_leaf: bool,
 ) {
-	// Skip advertising to V3 peers if the scheduling parent is not an active
-	// leaf and v3 is enabled — V3 validators will reject (and penalize) such
-	// advertisements.
-	if peer_version == CollationVersion::V3 && per_scheduling_parent.v3_enabled && !is_active_leaf {
-		gum::debug!(
-			target: LOG_TARGET,
-			?scheduling_parent,
-			peer_id = %peer,
-			"Skipping V3 advertisement: scheduling parent is not an active leaf",
-		);
-		return;
-	}
-
 	for (candidate_hash, collation_and_core) in per_scheduling_parent.collations.iter_mut() {
 		let core_index = *collation_and_core.core_index();
 		let collation = collation_and_core.collation_mut();
@@ -1406,12 +1385,6 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 		None => return unknown_scheduling_parents,
 	};
 
-	let active_leaves: HashSet<Hash> = state
-		.implicit_view
-		.as_ref()
-		.map(|iv| iv.leaves().copied().collect())
-		.unwrap_or_default();
-
 	for scheduling_parent in scheduling_parents {
 		let block_hashes = match state.per_scheduling_parent.contains_key(&scheduling_parent) {
 			true => state
@@ -1438,7 +1411,6 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
-					active_leaves.contains(block_hash),
 				)
 				.await;
 			}
@@ -1789,7 +1761,6 @@ async fn handle_our_view_change<Context>(
 					continue;
 				};
 
-				let is_active_leaf = implicit_view.leaves().any(|l| l == block_hash);
 				advertise_collation(
 					ctx,
 					*block_hash,
@@ -1799,7 +1770,6 @@ async fn handle_our_view_change<Context>(
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
-					is_active_leaf,
 				)
 				.await;
 			}

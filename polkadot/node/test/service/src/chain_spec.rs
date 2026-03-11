@@ -18,7 +18,7 @@
 
 use pallet_staking::Forcing;
 use polkadot_primitives::{
-	node_features, AccountId, AssignmentId, NodeFeatures, SchedulerParams, ValidatorId,
+	node_features, vstaging::SchedulerParams, AccountId, AssignmentId, NodeFeatures, ValidatorId,
 	MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 use polkadot_service::chain_spec::Extensions;
