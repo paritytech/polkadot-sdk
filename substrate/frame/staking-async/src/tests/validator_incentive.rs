@@ -64,7 +64,7 @@ fn incentive_paid_details(
 		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
 			if *validator_stash == stash =>
 		{
-			Some((*amount, dest.clone()))
+			Some((*amount, *dest))
 		},
 		_ => None,
 	})
