@@ -176,7 +176,7 @@ pub enum ClientError {
 	/// Chain identity mismatch between stored genesis and connected node.
 	#[error("Genesis hash mismatch")]
 	ChainMismatch,
-	/// Stored sync boundary no longer matches the chain (e.g. after reorganization).
+	/// Stored sync boundary no longer matches the chain
 	#[error("Sync boundary mismatch")]
 	SyncBoundaryMismatch,
 }

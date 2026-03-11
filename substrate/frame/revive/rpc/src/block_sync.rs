@@ -32,14 +32,14 @@ pub trait SyncStateKey: std::fmt::Display {}
 /// Labels used to track sync progress in the `sync_state` table.
 #[derive(Debug, Clone, Copy, derive_more::Display)]
 pub enum SyncLabel {
-	/// Lowest block synced by the historic sync.
-	#[display(fmt = "sync-lower-bound")]
-	LowerBound,
-	/// Upper boundary of contiguous DB coverage, used to resume sync after a crash.
-	/// Non-zero means sync is in progress (or was interrupted).
-	/// Zero means sync completed; absent means sync never started.
-	#[display(fmt = "sync-upper-bound")]
-	UpperBound,
+	/// Lowest block synced by the historic backfill.
+	#[display(fmt = "backfill-lower-bound")]
+	BackfillLowerBound,
+	/// Upper boundary of contiguous DB coverage, used to resume backfill after a restart.
+	/// Non-zero means backfill is in progress (or was interrupted).
+	/// Zero means backfill completed; absent means backfill never started.
+	#[display(fmt = "backfill-upper-bound")]
+	BackfillUpperBound,
 	/// Latest finalized block, tracked by the live subscription.
 	#[display(fmt = "sync-finalized")]
 	LastFinalized,
@@ -59,7 +59,7 @@ pub enum ChainMetadata {
 impl SyncStateKey for SyncLabel {}
 impl SyncStateKey for ChainMetadata {}
 
-/// Sync checkpoint persisted in the `sync_state` table to allow resuming after a crash.
+/// Sync checkpoint persisted in the `sync_state` table to allow resuming after a restart.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SyncCheckpoint {
 	pub block_number: SubstrateBlockNumber,
@@ -141,9 +141,9 @@ impl Client {
 	/// Must be called before subscriptions start.
 	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
 		let Some(checkpoint) =
-			self.receipt_provider().get_sync_label(SyncLabel::UpperBound).await?
+			self.receipt_provider().get_sync_label(SyncLabel::BackfillUpperBound).await?
 		else {
-			// No UpperBound row — fresh DB.
+			// No BackfillUpperBound row — fresh DB.
 			return Ok(None);
 		};
 
@@ -155,7 +155,7 @@ impl Client {
 			return Ok(Some(checkpoint));
 		}
 
-		// UpperBound=0 means a previous sync completed successfully.
+		// BackfillUpperBound=0 means a previous sync completed successfully.
 		// Use LastFinalized as the new upper bound to sync blocks
 		// produced since the last completed sync.
 		let finalized = self.receipt_provider().get_sync_label(SyncLabel::LastFinalized).await?;
@@ -199,7 +199,8 @@ impl Client {
 			.set_sync_label(ChainMetadata::Genesis, SyncCheckpoint::new(0, genesis_hash))
 			.await?;
 
-		let lower_boundary = self.receipt_provider().get_sync_label(SyncLabel::LowerBound).await?;
+		let lower_boundary =
+			self.receipt_provider().get_sync_label(SyncLabel::BackfillLowerBound).await?;
 
 		match (lower_boundary, upper_boundary) {
 			(Some(lower), Some(upper)) => {
@@ -209,7 +210,7 @@ impl Client {
 			},
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
-					"🗄️ LowerBound exists without UpperBound — possible partial corruption, \
+					"🗄️ BackfillLowerBound exists without BackfillUpperBound — possible partial corruption, \
 					 starting fresh sync from #{}", latest_finalized.block_number);
 				self.fresh_sync(latest_finalized.block_number).await?;
 			},
@@ -220,9 +221,9 @@ impl Client {
 			},
 		}
 
-		// Clear UpperBound to mark sync as complete.
+		// Clear BackfillUpperBound to mark sync as complete.
 		self.receipt_provider()
-			.set_sync_label(SyncLabel::UpperBound, SyncCheckpoint::from_number(0))
+			.set_sync_label(SyncLabel::BackfillUpperBound, SyncCheckpoint::from_number(0))
 			.await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Historic sync complete");
@@ -230,7 +231,8 @@ impl Client {
 	}
 
 	/// Fresh sync: backward from `latest_finalized` down to the first EVM block.
-	/// Registers hooks to set `UpperBound` on the first synced block and checkpoint `LowerBound`.
+	/// Registers hooks to set `BackfillUpperBound` on the first synced block and checkpoint
+	/// `BackfillLowerBound`.
 	async fn fresh_sync(&self, latest_finalized: SubstrateBlockNumber) -> Result<(), ClientError> {
 		let lower_bound = self.receipt_provider().first_evm_block().unwrap_or(0);
 		self.sync_backward(
@@ -250,9 +252,9 @@ impl Client {
 		db_upper_bound: SyncCheckpoint,
 		latest_finalized: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		// Mark sync in-progress. On crash, this value is the safe upper boundary.
+		// Mark sync in-progress. On restart, this value is the safe upper boundary.
 		self.receipt_provider()
-			.set_sync_label(SyncLabel::UpperBound, db_upper_bound)
+			.set_sync_label(SyncLabel::BackfillUpperBound, db_upper_bound)
 			.await?;
 
 		log::info!(target: LOG_TARGET,
@@ -269,9 +271,9 @@ impl Client {
 			)
 			.await?;
 
-			// Mark top gap complete so a crash during the bottom gap won't redo it.
+			// Mark top gap complete so a restart during the bottom gap won't redo it.
 			self.receipt_provider()
-				.set_sync_label(SyncLabel::UpperBound, latest_finalized)
+				.set_sync_label(SyncLabel::BackfillUpperBound, latest_finalized)
 				.await?;
 		}
 
@@ -292,7 +294,7 @@ impl Client {
 		Ok(())
 	}
 
-	/// Hook that sets `SyncLabel::UpperBound` once the first block is in the DB.
+	/// Hook that sets `SyncLabel::BackfillUpperBound` once the first block is in the DB.
 	fn set_sync_upper_bound_hook<'a>(
 		&'a self,
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
@@ -300,27 +302,29 @@ impl Client {
 			Box::pin(async move {
 				let cp = SyncCheckpoint::new(num, hash);
 				if let Err(err) =
-					self.receipt_provider().set_sync_label(SyncLabel::UpperBound, cp).await
+					self.receipt_provider().set_sync_label(SyncLabel::BackfillUpperBound, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to set sync_label[{}]: {err:?}", SyncLabel::UpperBound);
+						"Failed to set sync_label[{}]: {err:?}", SyncLabel::BackfillUpperBound);
 				}
 			})
 		}
 	}
 
-	/// Hook that checkpoints `SyncLabel::LowerBound` to DB, only decreasing.
+	/// Hook that checkpoints `SyncLabel::BackfillLowerBound` to DB, only decreasing.
 	fn checkpoint_lower_bound_hook<'a>(
 		&'a self,
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
 				let cp = SyncCheckpoint::new(num, hash);
-				if let Err(err) =
-					self.receipt_provider().recede_sync_label(SyncLabel::LowerBound, cp).await
+				if let Err(err) = self
+					.receipt_provider()
+					.recede_sync_label(SyncLabel::BackfillLowerBound, cp)
+					.await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to checkpoint sync_label[{}]: {err:?}", SyncLabel::LowerBound);
+						"Failed to checkpoint sync_label[{}]: {err:?}", SyncLabel::BackfillLowerBound);
 				}
 			})
 		}

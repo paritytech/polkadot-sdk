@@ -1019,7 +1019,9 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Fresh DB — sync_state table should be empty.
-	for label in [SyncLabel::LowerBound, SyncLabel::UpperBound, SyncLabel::LastFinalized] {
+	for label in
+		[SyncLabel::BackfillLowerBound, SyncLabel::BackfillUpperBound, SyncLabel::LastFinalized]
+	{
 		assert!(
 			client.receipt_provider().get_sync_label(label).await?.is_none(),
 			"sync_state[{label}] should be absent on fresh DB"
@@ -1050,25 +1052,25 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		"Stored genesis should match chain genesis"
 	);
 
-	// UpperBound = {0, None} marks a completed sync.
+	// BackfillUpperBound = {0, None} marks a completed sync.
 	let upper_bound = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::UpperBound)
+		.get_sync_label(SyncLabel::BackfillUpperBound)
 		.await?
-		.expect("UpperBound should be set after sync");
+		.expect("BackfillUpperBound should be set after sync");
 	assert_eq!(
 		upper_bound,
 		SyncCheckpoint::from_number(0),
-		"UpperBound should be {{0, None}} after completed sync"
+		"BackfillUpperBound should be {{0, None}} after completed sync"
 	);
 
-	// LowerBound should be genesis (block 0) — on the dev node all blocks have EVM hashes.
+	// BackfillLowerBound should be genesis (block 0) — on the dev node all blocks have EVM hashes.
 	let lower_bound = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::LowerBound)
+		.get_sync_label(SyncLabel::BackfillLowerBound)
 		.await?
-		.expect("LowerBound should be set after sync");
-	assert_eq!(lower_bound, genesis, "LowerBound should be genesis");
+		.expect("BackfillLowerBound should be set after sync");
+	assert_eq!(lower_bound, genesis, "BackfillLowerBound should be genesis");
 
 	// On the dev node all blocks (including genesis) have EVM hashes
 	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
@@ -1095,15 +1097,15 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	client.sync_past_blocks(upper).await?;
 	let upper_bound = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::UpperBound)
+		.get_sync_label(SyncLabel::BackfillUpperBound)
 		.await?
-		.expect("UpperBound should exist after re-sync");
-	assert_eq!(upper_bound.block_number, 0, "UpperBound should remain 0 after re-sync");
+		.expect("BackfillUpperBound should exist after re-sync");
+	assert_eq!(upper_bound.block_number, 0, "BackfillUpperBound should remain 0 after re-sync");
 
 	Ok(())
 }
 
-/// Simulate an interrupted sync by manually setting both UpperBound and LowerBound
+/// Simulate an interrupted sync by manually setting both BackfillUpperBound and BackfillLowerBound
 /// to create a top gap and a bottom gap, then verify that `resume_sync` fills both.
 async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
@@ -1134,17 +1136,17 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.await?
 		.expect("Upper block should exist");
 
-	// Overwrite both labels to simulate a crash mid-sync with a partial range.
+	// Overwrite both labels to simulate an interrupted sync with a partial range.
 	let interrupted_lower = SyncCheckpoint::new(lower_block.number(), lower_block.hash());
 	let interrupted_upper = SyncCheckpoint::new(upper_block.number(), upper_block.hash());
 
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::LowerBound, interrupted_lower)
+		.set_sync_label(SyncLabel::BackfillLowerBound, interrupted_lower)
 		.await?;
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::UpperBound, interrupted_upper)
+		.set_sync_label(SyncLabel::BackfillUpperBound, interrupted_upper)
 		.await?;
 
 	// prepare_sync should detect the interrupted sync
@@ -1152,29 +1154,29 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	assert_eq!(
 		upper,
 		Some(interrupted_upper),
-		"prepare_sync should return the interrupted UpperBound"
+		"prepare_sync should return the interrupted BackfillUpperBound"
 	);
 
 	// Resume sync — fills top gap and bottom gap.
 	client.sync_past_blocks(upper).await?;
 
-	// After resume, UpperBound should be 0 (sync complete).
+	// After resume, BackfillUpperBound should be 0 (sync complete).
 	let new_upper = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::UpperBound)
+		.get_sync_label(SyncLabel::BackfillUpperBound)
 		.await?
-		.expect("UpperBound should exist after resume");
-	assert_eq!(new_upper.block_number, 0, "UpperBound should be 0 after resumed sync");
+		.expect("BackfillUpperBound should exist after resume");
+	assert_eq!(new_upper.block_number, 0, "BackfillUpperBound should be 0 after resumed sync");
 
-	// LowerBound should reach genesis (bottom gap fully filled).
+	// BackfillLowerBound should reach genesis (bottom gap fully filled).
 	let new_lower = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::LowerBound)
+		.get_sync_label(SyncLabel::BackfillLowerBound)
 		.await?
-		.expect("LowerBound should exist after resume");
+		.expect("BackfillLowerBound should exist after resume");
 	assert_eq!(
 		new_lower.block_number, 0,
-		"LowerBound should be 0 after resume fills the bottom gap, got #{}",
+		"BackfillLowerBound should be 0 after resume fills the bottom gap, got #{}",
 		new_lower.block_number,
 	);
 
@@ -1193,7 +1195,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 
 /// Corrupted sync labels should be detected on resume:
 /// - Fake Genesis hash → `ChainMismatch`
-/// - Fake UpperBound hash → `SyncBoundaryMismatch`
+/// - Fake BackfillUpperBound hash → `SyncBoundaryMismatch`
 async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	use crate::{block_sync::SyncCheckpoint, client::ClientError};
 
@@ -1224,19 +1226,19 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(ChainMetadata::Genesis, real_genesis)
 		.await?;
 
-	// --- SyncBoundaryMismatch: corrupted UpperBound hash ---
+	// --- SyncBoundaryMismatch: corrupted BackfillUpperBound hash ---
 	let chain_len = client.latest_finalized_block().await.number();
 	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::UpperBound, corrupted_upper)
+		.set_sync_label(SyncLabel::BackfillUpperBound, corrupted_upper)
 		.await?;
 
 	let upper = client.prepare_sync().await?;
 	assert_eq!(
 		upper.unwrap(),
 		corrupted_upper,
-		"prepare_sync should return the corrupted UpperBound"
+		"prepare_sync should return the corrupted BackfillUpperBound"
 	);
 
 	let err = client.sync_past_blocks(upper).await.unwrap_err();
