@@ -957,7 +957,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(15)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1140,6 +1140,10 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			staging_runtime_impl::para_ids::<Runtime>()
+		}
+
+		fn max_relay_parent_session_age() -> u32 {
+			staging_runtime_impl::max_relay_parent_session_age::<Runtime>()
 		}
 	}
 
