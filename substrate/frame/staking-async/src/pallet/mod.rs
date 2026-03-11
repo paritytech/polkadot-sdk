@@ -395,19 +395,46 @@ pub mod pallet {
 			BalanceOf<Self>,
 		>;
 
-		/// Duration of vesting for validator self-stake incentive rewards, in blocks.
+		/// Total duration of vesting for validator self-stake incentive rewards, in relay
+		/// chain (RC) blocks.
 		///
-		/// The incentive reward will vest linearly over this many blocks starting from
-		/// the block at which the payout is claimed.
+		/// Incentive rewards are not paid out immediately. Instead, they are accumulated
+		/// under a hold ([`HoldReason::IncentiveVesting`]) for [`Config::BondingDuration`]
+		/// eras, then batch-converted to a vesting schedule. This avoids exhausting
+		/// `MaxVestingSchedules` (typically 28) by creating at most
+		/// `vesting_eras / BondingDuration` schedules over the full vesting period, where
+		/// `vesting_eras = VestingDuration / (BlocksPerSession * SessionsPerEra)`.
 		///
-		/// Set to `0` to pay the incentive as liquid funds immediately (no vesting).
+		/// At conversion time, the fraction `BondingDuration / vesting_eras` is released
+		/// as liquid (retroactive unlock), and the remainder is vested over the remaining
+		/// blocks.
+		///
+		/// Denominated in RC blocks (not parachain blocks, which are variable). This
+		/// matches the block number provider used in the vesting trait implementation.
+		///
+		/// Set to `0` to pay the incentive as liquid funds immediately (no vesting or hold).
 		#[pallet::constant]
 		#[pallet::no_default]
 		type VestingDuration: Get<BlockNumberFor<Self>>;
 
+		/// Number of relay chain (RC) blocks per session.
+		///
+		/// Used together with [`Config::SessionsPerEra`] and [`Config::VestingDuration`]
+		/// to derive the vesting duration in eras
+		/// (`VestingDuration / (BlocksPerSession * SessionsPerEra)`) and compute the
+		/// retroactive unlock fraction at batch conversion time.
+		///
+		/// Denominated in RC blocks (not parachain blocks, which are variable). This
+		/// matches the block number provider used in the vesting trait implementation.
+		#[pallet::constant]
+		#[pallet::no_default]
+		type BlocksPerSession: Get<BlockNumberFor<Self>>;
+
 		/// Mechanism for paying out validator self-stake incentive rewards.
 		///
-		/// Implementations may pay immediately as liquid funds or apply a vesting schedule.
+		/// Used during batch conversion to create vesting schedules from accumulated
+		/// incentive holds. See [`HoldReason::IncentiveVesting`] for the full lifecycle.
+		///
 		/// Use [`crate::ImmediateIncentivePayout`] for liquid payouts (no vesting).
 		/// Use [`crate::VestedIncentivePayout`] to vest over [`Config::VestingDuration`] blocks.
 		#[pallet::no_default_bounds]
@@ -428,6 +455,13 @@ pub mod pallet {
 		/// Funds on stake by a nominator or a validator.
 		#[codec(index = 0)]
 		Staking,
+		/// Validator incentive rewards awaiting conversion to a vesting schedule.
+		///
+		/// Incentive rewards are accumulated under this hold for [`Config::BondingDuration`]
+		/// eras, then batch-converted to a vesting schedule to avoid exhausting
+		/// `MaxVestingSchedules`.
+		#[codec(index = 1)]
+		IncentiveVesting,
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -1378,6 +1412,24 @@ pub mod pallet {
 		/// An old era with the given index was pruned.
 		EraPruned {
 			index: EraIndex,
+		},
+		/// Validator incentive has been transferred from the era pot and placed under
+		/// an [`HoldReason::IncentiveVesting`] hold, awaiting batch conversion to a
+		/// vesting schedule.
+		ValidatorIncentiveHeld {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
+		/// Accumulated validator incentive hold has been converted to a vesting schedule.
+		///
+		/// The `liquid` portion was released immediately (retroactive unlock for the
+		/// accumulation period), and `vested` was placed under a vesting schedule.
+		IncentiveVestingConverted {
+			validator_stash: T::AccountId,
+			liquid: BalanceOf<T>,
+			vested: BalanceOf<T>,
 		},
 		/// The validator has been paid their self-stake incentive bonus.
 		///

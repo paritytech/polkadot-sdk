@@ -39,8 +39,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
+		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
+		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -49,7 +49,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
-	ArithmeticError, DispatchResult, Perbill,
+	ArithmeticError, DispatchResult, Perbill, SaturatedConversion,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -435,11 +435,24 @@ impl<T: Config> Pallet<T> {
 		let _validator_incentive_paid =
 			Self::pay_validator_incentive_for_page(era, &stash, page_stake_part);
 
+		let next_page = Eras::<T>::get_next_claimable_page(era, &stash);
+
+		// On batch-boundary eras, convert accumulated incentive holds to vesting
+		// once all pages for this validator have been claimed.
+		let bonding_duration = T::BondingDuration::get();
+		if bonding_duration > 0 &&
+			era % bonding_duration == 0 &&
+			!T::VestingDuration::get().is_zero() &&
+			next_page.is_none()
+		{
+			Self::maybe_convert_incentive_to_vesting(&stash);
+		}
+
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
 			validator_stash: stash.clone(),
 			page,
-			next: Eras::<T>::get_next_claimable_page(era, &stash),
+			next: next_page,
 		});
 
 		// Track the number of payout ops to nominators. Note:
@@ -760,12 +773,16 @@ impl<T: Config> Pallet<T> {
 		Some(validator_incentive_for_page)
 	}
 
-	/// Transfer validator incentive to the destination account.
+	/// Transfer validator incentive from the era pot to the validator's account, placing
+	/// the amount under an [`HoldReason::IncentiveVesting`] hold.
 	///
-	/// Uses [`Config::ValidatorIncentivePayout`] to pay the amount from the era's validator
-	/// incentive pot. The payout may be liquid or vested depending on [`Config::VestingDuration`].
+	/// Incentives are accumulated under hold and batch-converted to a vesting schedule
+	/// every [`Config::BondingDuration`] eras via [`Self::maybe_convert_incentive_to_vesting`].
 	///
-	/// Returns the amount paid if successful, 0 otherwise.
+	/// If [`Config::VestingDuration`] is zero, the incentive is paid as liquid immediately
+	/// (no hold, no vesting).
+	///
+	/// Returns the amount transferred if successful, 0 otherwise.
 	fn transfer_validator_incentive(
 		era: EraIndex,
 		stash: &T::AccountId,
@@ -795,34 +812,175 @@ impl<T: Config> Pallet<T> {
 
 		let vesting_duration = T::VestingDuration::get();
 
-		match T::ValidatorIncentivePayout::payout(
+		// If vesting duration is zero, pay liquid immediately (no hold needed).
+		if vesting_duration.is_zero() {
+			match T::Currency::transfer(
+				&validator_incentive_pot_account,
+				&payout_account,
+				amount,
+				Preservation::Expendable,
+			) {
+				Ok(_) => {
+					Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
+						era,
+						validator_stash: stash.clone(),
+						dest,
+						amount,
+					});
+					return amount;
+				},
+				Err(e) => {
+					log!(warn, "Failed to transfer liquid incentive: {:?}", e);
+					defensive!("Validator incentive liquid transfer failed");
+					Self::deposit_event(Event::<T>::Unexpected(
+						UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+					));
+					return Zero::zero();
+				},
+			}
+		}
+
+		// Transfer from era pot to the payout account, then hold.
+		if let Err(e) = T::Currency::transfer(
 			&validator_incentive_pot_account,
 			&payout_account,
 			amount,
-			vesting_duration,
+			Preservation::Expendable,
 		) {
-			Ok(paid) => {
-				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
-					era,
+			log!(warn, "Failed to transfer incentive from era pot: {:?}", e);
+			defensive!("Validator incentive transfer from era pot failed");
+			Self::deposit_event(Event::<T>::Unexpected(
+				UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+			));
+			return Zero::zero();
+		}
+
+		// Hold the transferred amount. The hold accumulates across eras and is
+		// batch-converted to a vesting schedule when era % BondingDuration == 0.
+		if let Err(e) = asset::hold_incentive::<T>(&payout_account, amount) {
+			log!(warn, "Failed to hold incentive for {:?}: {:?}", payout_account, e);
+			defensive!("Incentive hold failed after transfer");
+			// Funds are in the account but unheld — not ideal but not lost.
+			// Still return the transferred amount since the transfer itself succeeded.
+			return amount;
+		}
+
+		Self::deposit_event(Event::<T>::ValidatorIncentiveHeld {
+			era,
+			validator_stash: stash.clone(),
+			dest,
+			amount,
+		});
+
+		amount
+	}
+
+	/// Attempt to convert accumulated incentive hold into a vesting schedule.
+	///
+	/// Called when `era % BondingDuration == 0` and all pages for the validator have been
+	/// claimed. Derives `vesting_eras = VestingDuration / BlocksPerEra`, then computes
+	/// the retroactive unlock fraction (`BondingDuration / vesting_eras`) and creates a
+	/// vesting schedule for the remainder via a self-transfer.
+	///
+	/// If vesting schedule creation fails (e.g., slots full, amount below `MinVestedTransfer`),
+	/// the hold is re-applied and conversion deferred to the next batch interval.
+	fn maybe_convert_incentive_to_vesting(stash: &T::AccountId) {
+		let payout_account = match Self::payee(Stash(stash.clone())) {
+			Some(d) if !matches!(d, RewardDestination::None) => {
+				match Self::payout_account_for_dest(stash, &d) {
+					Some(account) => account,
+					None => {
+						defensive!("Unable to determine payout account for vesting conversion");
+						return;
+					},
+				}
+			},
+			_ => {
+				defensive!("Validator missing payee during vesting conversion");
+				return;
+			},
+		};
+
+		let held = asset::incentive_held::<T>(&payout_account);
+		if held.is_zero() {
+			return;
+		}
+
+		let bonding_duration = T::BondingDuration::get();
+		let vesting_duration = T::VestingDuration::get();
+		let blocks_per_era = T::BlocksPerSession::get()
+			.saturating_mul(T::SessionsPerEra::get().into());
+
+		// Derive vesting duration in eras from block-denominated config values.
+		let vesting_eras: u32 = if blocks_per_era.is_zero() {
+			0u32
+		} else {
+			(vesting_duration / blocks_per_era).saturated_into::<u32>()
+		};
+
+		// If vesting eras is zero or bonding duration exceeds it, release everything liquid.
+		if vesting_eras == 0 || bonding_duration >= vesting_eras {
+			let released = asset::release_incentive_hold::<T>(&payout_account);
+			Self::deposit_event(Event::<T>::IncentiveVestingConverted {
+				validator_stash: stash.clone(),
+				liquid: released,
+				vested: Zero::zero(),
+			});
+			return;
+		}
+
+		// Retroactive unlock: the incentive was earned over BondingDuration eras but held,
+		// so that fraction is already "vested" and released as liquid.
+		let already_unlocked =
+			Perbill::from_rational(bonding_duration, vesting_eras).mul_floor(held);
+		let remaining = held.saturating_sub(already_unlocked);
+
+		// Remaining fraction of the vesting duration in blocks.
+		let remaining_duration_blocks =
+			Perbill::from_rational(vesting_eras.saturating_sub(bonding_duration), vesting_eras)
+				.mul_floor(vesting_duration);
+
+		// Release the entire hold.
+		asset::release_incentive_hold::<T>(&payout_account);
+
+		if remaining.is_zero() {
+			Self::deposit_event(Event::<T>::IncentiveVestingConverted {
+				validator_stash: stash.clone(),
+				liquid: held,
+				vested: Zero::zero(),
+			});
+			return;
+		}
+
+		// Self-transfer: the funds are already in payout_account. `vested_transfer` does
+		// a no-op Currency::transfer for self-transfers, then adds the vesting lock.
+		match T::ValidatorIncentivePayout::payout(
+			&payout_account,
+			&payout_account,
+			remaining,
+			remaining_duration_blocks,
+		) {
+			Ok(_) => {
+				Self::deposit_event(Event::<T>::IncentiveVestingConverted {
 					validator_stash: stash.clone(),
-					dest,
-					amount: paid,
+					liquid: already_unlocked,
+					vested: remaining,
 				});
-				paid
 			},
 			Err(e) => {
+				// Vesting slots full or amount below MinVestedTransfer.
+				// Re-apply the hold; conversion will be retried next batch interval.
 				log!(
 					warn,
-					"Failed to pay validator incentive ({:?}) to {:?}: {:?}",
-					amount,
+					"Deferred incentive vesting conversion for {:?}: {:?}",
 					payout_account,
 					e
 				);
-				defensive!("Validator incentive payout failed");
-				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
-				));
-				Zero::zero()
+				if let Err(hold_err) = asset::hold_incentive::<T>(&payout_account, held) {
+					// This should not happen since we just released the same amount.
+					log!(error, "Failed to re-hold incentive: {:?}", hold_err);
+					defensive!("Re-hold after failed vesting conversion should succeed");
+				}
 			},
 		}
 	}

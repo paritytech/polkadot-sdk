@@ -376,14 +376,19 @@ where
 
 /// Handles paying out the validator self-stake incentive reward.
 ///
-/// Implementations may pay immediately (liquid) or via a vesting schedule.
+/// Implementations define how the incentive is delivered to the validator. The pallet
+/// may call this with `source == dest` (self-transfer) when converting accumulated
+/// incentive holds into a vesting schedule.
+///
+/// ## Implementations
+///
+/// - [`ImmediateIncentivePayout`]: liquid transfer (no vesting).
+/// - [`VestedIncentivePayout`]: creates a linear vesting schedule via `pallet-vesting`.
 pub trait ValidatorIncentivePayout<AccountId, Balance, BlockNumber> {
 	/// Pay `amount` from `source` to `dest`.
 	///
-	/// `vesting_duration` is the number of blocks over which to vest the payment linearly.
-	/// If zero, pay liquid immediately.
-	///
-	/// Returns the amount paid, or an error.
+	/// `vesting_duration` is the number of blocks over which to vest the payment. May be
+	/// called with `source == dest` for self-transfer patterns.
 	fn payout(
 		source: &AccountId,
 		dest: &AccountId,
@@ -419,6 +424,15 @@ where
 }
 
 /// Pays validator incentive via a linear vesting schedule.
+///
+/// Incentive pay is accumulated under [`HoldReason::IncentiveVesting`] for the first
+/// [`Config::BondingDuration`] eras (the accumulation period). At the end of each
+/// accumulation period, the hold is released: a retroactive fraction is paid as liquid,
+/// and the remainder is placed under a vesting schedule that unlocks per-block over the
+/// remaining vesting duration.
+///
+/// The pallet calls this as a self-transfer (`source == dest`): the `Currency::transfer`
+/// is a no-op and only the vesting lock is created.
 ///
 /// Type parameter:
 /// - `Vesting`: a [`frame_support::traits::tokens::VestedPayout`] implementor (e.g.
