@@ -6,7 +6,7 @@ doc:
       Collectives) to collect funds that would otherwise be burned, staging them for periodic
       transfer to the central DAP on AssetHub.
       - Redirect all system burns to DAP or DAP satellite on Westend system chains, including
-      tx fees, dust removal and coretime revenue burns.
+      tx fees, dust removal, coretime revenue burns and EVM gas rounding burns.
 crates:
 - name: pallet-dap-satellite
   bump: patch
@@ -25,4 +25,10 @@ crates:
 - name: coretime-westend-runtime
   bump: minor
 - name: people-westend-runtime
+  bump: minor
+- name: pallet-revive
+  bump: major
+- name: kitchensink-runtime
+  bump: minor
+- name: penpal-runtime
   bump: minor
