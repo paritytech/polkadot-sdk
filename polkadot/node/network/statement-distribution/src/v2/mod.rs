@@ -2974,11 +2974,11 @@ pub(crate) async fn handle_response<Context>(
 	);
 
 	let post_confirmation = {
-		let scheduling_parent_state =
-			match state.per_scheduling_parent.get_mut(&scheduling_parent) {
-				None => return,
-				Some(s) => s,
-			};
+		let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent)
+		{
+			None => return,
+			Some(s) => s,
+		};
 
 		let per_session = match state.per_session.get(&scheduling_parent_state.session) {
 			None => return,

@@ -834,15 +834,12 @@ fn answer_hypothetical_membership_request(
 					);
 					match entry {
 						Ok(entry) => fragment_chain
-							.can_add_candidate_as_potential(
-								&leaf_view.relay_chain_scope,
-								&entry,
-							),
+							.can_add_candidate_as_potential(&leaf_view.relay_chain_scope, &entry),
 						Err(_) => continue,
 					}
 				},
-				HypotheticalCandidate::Incomplete { .. } =>
-					fragment_chain.can_add_candidate_as_potential_hypothetical(
+				HypotheticalCandidate::Incomplete { .. } => fragment_chain
+					.can_add_candidate_as_potential_hypothetical(
 						&leaf_view.relay_chain_scope,
 						candidate.scheduling_parent(),
 						candidate.candidate_hash(),

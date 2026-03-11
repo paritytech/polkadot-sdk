@@ -422,7 +422,6 @@ impl CandidateEntry {
 	}
 }
 
-
 /// A candidate existing on-chain but pending availability, for special treatment
 /// in the [`Scope`].
 #[derive(Debug, Clone)]

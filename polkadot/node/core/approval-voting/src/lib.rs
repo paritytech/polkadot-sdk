@@ -3378,10 +3378,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		// block) for the runtime API query — its state is guaranteed available. The session
 		// index comes from the candidate descriptor (relay_parent's session), falling back
 		// to the including block's session for V1 descriptors.
-		let session = candidate_receipt
-			.descriptor
-			.session_index()
-			.unwrap_or(block_entry.session());
+		let session = candidate_receipt.descriptor.session_index().unwrap_or(block_entry.session());
 		let ExtendedSessionInfo { ref executor_params, .. } =
 			match get_extended_session_info_by_index(
 				session_info_provider,

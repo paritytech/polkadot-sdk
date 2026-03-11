@@ -793,7 +793,6 @@ fn validate_against_constraints(
 		.map_err(FragmentValidityError::OutputsInvalid)
 }
 
-
 #[cfg(test)]
 mod tests {
 	use super::*;
