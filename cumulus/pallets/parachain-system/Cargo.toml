@@ -114,7 +114,6 @@ std = [
 	"trie-db/std",
 	"xcm-builder/std",
 	"xcm/std",
-	"frame-executive/std"
 ]
 
 runtime-benchmarks = [

@@ -903,7 +903,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 					&client,
 					Charlie.into(),
 					TestPalletCall::queue_hrmp_messages { n: max_per_candidate, recipient },
-					Some(i),
+					Some(i * 2),
 				),
 			];
 
@@ -914,7 +914,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 					&client,
 					Charlie.into(),
 					TestPalletCall::send_upward_message_of_size { size: 500 },
-					Some(i),
+					Some(i * 2 + 1),
 				));
 			}
 			// Block 3: try to send 600 bytes, should be deferred due to size limit (2000 - 1500 =
@@ -924,7 +924,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 					&client,
 					Charlie.into(),
 					TestPalletCall::send_upward_message_of_size { size: 600 },
-					Some(i),
+					Some(i * 2 + 1),
 				));
 			}
 
