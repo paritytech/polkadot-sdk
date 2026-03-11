@@ -955,11 +955,11 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// Needed for all versions to access relay chain state.
 	let relay_parent = candidate.descriptor().relay_parent();
 
-	let session_index = if v3_enabled {
+	let session_index = if descriptor_version == CandidateDescriptorVersion::V3 {
 		candidate
 			.descriptor()
 			.session_index(v3_enabled)
-			.unwrap_or(current_session_index)
+			.expect("Candidate descriptor version is 3")
 	} else {
 		current_session_index
 	};

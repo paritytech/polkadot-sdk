@@ -1239,14 +1239,10 @@ impl<T: Config> CandidateCheckContext<T> {
 		let para_id = backed_candidate_receipt.descriptor.para_id();
 		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
-		let session_index = if v3_enabled {
-			backed_candidate_receipt
-				.descriptor
-				.session_index(v3_enabled)
-				.unwrap_or_else(|| shared::CurrentSessionIndex::<T>::get())
-		} else {
-			shared::CurrentSessionIndex::<T>::get()
-		};
+		let session_index = backed_candidate_receipt
+			.descriptor
+			.session_index(v3_enabled)
+			.unwrap_or_else(|| shared::CurrentSessionIndex::<T>::get());
 
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (state_root, relay_parent_number) = {

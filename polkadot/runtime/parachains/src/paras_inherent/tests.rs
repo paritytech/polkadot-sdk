@@ -2097,6 +2097,114 @@ mod enter {
 		});
 	}
 
+	// Test that V2 candidates with cross-session relay parents are rejected even when V3 is
+	// enabled. Only V3 descriptors support cross-session relay parents by embedding a
+	// session_index. V2 candidates always use the current session for relay parent lookup,
+	// so a relay parent from an older session won't be found.
+	#[test]
+	fn v2_cross_session_candidate_rejected() {
+		let config = MockGenesisConfig {
+			configuration: configuration::GenesisConfig {
+				config: HostConfiguration { max_relay_parent_session_age: 2, ..Default::default() },
+			},
+			..Default::default()
+		};
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let old_relay_parent = sp_core::H256::repeat_byte(0xCC);
+			let old_session: SessionIndex = 1;
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				// Point para 0's relay parent to an old session's relay parent.
+				candidate_modifier: Some(|mut candidate| {
+					if candidate.descriptor.para_id() == ParaId::from(0) {
+						candidate.descriptor.set_relay_parent(sp_core::H256::repeat_byte(0xCC));
+						candidate.descriptor.set_session_index(1);
+					}
+					candidate
+				}),
+			});
+
+			let para_inherent_data = scenario.data.clone();
+			assert_eq!(para_inherent_data.backed_candidates.len(), 2);
+
+			// Verify the first candidate is V2.
+			assert_eq!(
+				para_inherent_data.backed_candidates[0].descriptor().version(true),
+				CandidateDescriptorVersion::V2,
+			);
+
+			// Insert the old relay parent in the old session so that it would be found
+			// if the code incorrectly read session_index from the V2 descriptor.
+			let current_relay_parent_number: u32 =
+				(frame_system::Pallet::<Test>::block_number() - 1).try_into().unwrap_or(0);
+			shared::AllowedRelayParents::<Test>::insert(
+				old_session,
+				old_relay_parent,
+				RelayParentInfo {
+					number: current_relay_parent_number,
+					state_root: Default::default(),
+				},
+			);
+
+			assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 2);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			// The V2 candidate with old relay parent should be filtered out because V2
+			// uses current_session_index for relay parent lookup (not the descriptor's
+			// session_index), and the old relay parent doesn't exist in the current session.
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(
+				filtered.backed_candidates.len(),
+				1,
+				"V2 cross-session candidate should be rejected: relay parent lookup \
+				 uses current session, not descriptor session_index"
+			);
+			// The surviving candidate should be para 1 (the unmodified one).
+			assert_eq!(filtered.backed_candidates[0].descriptor().para_id(), ParaId::from(1));
+
+			// Enter with the filtered data should succeed.
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), filtered).unwrap();
+
+			// Only para 1 should be pending availability.
+			assert!(inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+				.unwrap_or_default()
+				.is_empty());
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(1)]
+			);
+		});
+	}
+
 	#[test]
 	fn too_many_ump_signals() {
 		let config = default_config();
