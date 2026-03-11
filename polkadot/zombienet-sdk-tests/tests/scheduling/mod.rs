@@ -3,6 +3,7 @@
 
 mod v3_descriptor_disabled;
 mod v3_descriptor_enabled;
+mod v3_dynamic_enablement;
 mod v3_elastic_scaling;
 
 use anyhow::anyhow;
@@ -10,7 +11,12 @@ use codec::Decode;
 use cumulus_zombienet_sdk_helpers::wait_for_first_session_change;
 use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
 use zombienet_sdk::{
-	subxt::{utils::H256, OnlineClient, PolkadotConfig},
+	subxt::{
+		ext::scale_value::value,
+		tx::dynamic,
+		utils::H256,
+		OnlineClient, PolkadotConfig,
+	},
 	NetworkNode,
 };
 
@@ -110,4 +116,34 @@ async fn assert_candidates_version(
 		"Only found {matched} {:?} candidates (needed {min_candidates}) out of {total} total for para {para_id} in {block_count} blocks",
 		expected_version,
 	))
+}
+
+/// Enables `CandidateReceiptV3` (bit 4) in `node_features` at runtime via a sudo extrinsic.
+///
+/// Bit 3 (`CandidateReceiptV2`) is already set via genesis; this sets bit 4.
+/// The change takes effect after the next session change.
+pub(super) async fn enable_v3_node_features(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	// set_node_feature(index, value) sets a single bit in node_features.
+	// Bit 4 = CandidateReceiptV3.
+	let call = dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			Configuration(set_node_feature { index: 4u8, value: true })
+		}],
+	);
+
+	client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&call,
+			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	Ok(())
 }
