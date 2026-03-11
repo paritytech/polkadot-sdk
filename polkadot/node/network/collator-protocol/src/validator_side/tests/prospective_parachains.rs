@@ -2039,9 +2039,9 @@ fn v3_descriptor_version_detection(
 	});
 }
 
-/// When the relay chain stalls, the active leaf's slot can be arbitrarily old.
-/// V3 candidates using that stale leaf as scheduling_parent must be rejected
-/// because the slot is too old (older than 2x slot duration).
+/// When the relay chain stalls, the active leaf's slot can be many slots behind
+/// the current slot. V3 candidates using that stale leaf as scheduling_parent
+/// must be rejected because its slot is not `current_slot - 1`.
 #[test]
 fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	let mut test_state = TestState::default();
@@ -2062,8 +2062,8 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 0;
 
-		// Use a slot from far in the past (many slot durations ago) to simulate a stalled
-		// relay chain where no new block has been produced for a long time.
+		// Use a slot far behind the current slot to simulate a stalled relay chain
+		// where no new block has been produced for a long time.
 		let stale_slot = Slot::from(1);
 
 		update_view_with_slot(
@@ -2127,8 +2127,8 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	});
 }
 
-/// V3 scheduling parent validation: when the leaf's slot is still in progress,
-/// the scheduling parent must be the leaf's parent (the previous slot's block).
+/// V3 scheduling parent validation: when the leaf's slot equals the current slot
+/// (still in progress), the scheduling parent must be the leaf's parent.
 #[test]
 fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 	let mut test_state = TestState::default();
@@ -2154,7 +2154,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		let head_b_parent = get_parent_hash(head_b);
 		let head_b_grandparent = get_parent_hash(head_b_parent);
 
-		// Use the current slot so slot_age < slot_duration (slot in progress).
+		// Use the current slot so leaf.slot == current_slot (slot in progress).
 		let current_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::current(),
 			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
@@ -2196,8 +2196,8 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
-		// V3 advertisement with scheduling_parent == leaf's parent. Since the leaf's slot
-		// is in progress, the slot check accepts the leaf's parent.
+		// V3 advertisement with scheduling_parent == leaf's parent. Since
+		// leaf.slot == current_slot, the leaf's parent is the valid scheduling parent.
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2259,8 +2259,8 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 	});
 }
 
-/// V3 scheduling parent validation: when the leaf's slot has finished, the scheduling
-/// parent must be the leaf itself.
+/// V3 scheduling parent validation: when the leaf's slot is `current_slot - 1`
+/// (just finished), the scheduling parent must be the leaf itself.
 #[test]
 fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 	let mut test_state = TestState::default();
@@ -2285,7 +2285,7 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		let head_b_num: u32 = 1;
 		let head_b_parent = get_parent_hash(head_b);
 
-		// Use a slot from one slot_duration ago so slot_age >= slot_duration (finished).
+		// Use current_slot - 1 so leaf.slot == current_slot - 1 (just finished).
 		let finished_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::new(
 				*sp_timestamp::Timestamp::current() - RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -2312,7 +2312,7 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		)
 		.await;
 
-		// relay_parent is the parent, scheduling_parent is the leaf (finished slot).
+		// relay_parent is the parent, scheduling_parent is the leaf (slot just finished).
 		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
@@ -2327,8 +2327,8 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
-		// V3 advertisement with scheduling_parent == leaf. Since the leaf's slot
-		// has finished, the slot check accepts the leaf.
+		// V3 advertisement with scheduling_parent == leaf. Since
+		// leaf.slot == current_slot - 1, the leaf itself is the valid scheduling parent.
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2385,9 +2385,10 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 	});
 }
 
-/// V3 scheduling parent validation: when the leaf's slot is in progress, using the leaf
-/// itself as scheduling_parent (instead of the leaf's parent) must be rejected.
-/// This proves the slot check is the gating logic, since the leaf IS in per_scheduling_parent.
+/// V3 scheduling parent validation: when `leaf.slot == current_slot` (in progress),
+/// using the leaf itself as scheduling_parent (instead of the leaf's parent) must be
+/// rejected. This proves the slot check is the gating logic, since the leaf IS in
+/// per_scheduling_parent.
 #[test]
 fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 	let mut test_state = TestState::default();
@@ -2410,7 +2411,7 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 		let head_b_num: u32 = 1;
 		let head_b_parent = get_parent_hash(head_b);
 
-		// Use the current slot so slot_age < slot_duration (slot in progress).
+		// Use the current slot so leaf.slot == current_slot (slot in progress).
 		let current_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::current(),
 			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
@@ -2435,8 +2436,8 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 		)
 		.await;
 
-		// Use the leaf itself as scheduling_parent — wrong for in-progress slot
-		// (should be leaf's parent). relay_parent is the leaf's parent.
+		// Use the leaf itself as scheduling_parent — wrong when leaf.slot == current_slot
+		// (should be leaf's parent).
 		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
@@ -2474,9 +2475,10 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 	});
 }
 
-/// V3 scheduling parent validation: when the leaf's slot has finished, using the leaf's
-/// parent as scheduling_parent (instead of the leaf itself) must be rejected.
-/// This proves the slot check is the gating logic, since the parent IS in per_scheduling_parent.
+/// V3 scheduling parent validation: when `leaf.slot == current_slot - 1` (just finished),
+/// using the leaf's parent as scheduling_parent (instead of the leaf itself) must be
+/// rejected. This proves the slot check is the gating logic, since the parent IS in
+/// per_scheduling_parent.
 #[test]
 fn v3_scheduling_parent_finished_slot_rejects_parent() {
 	let mut test_state = TestState::default();
@@ -2496,13 +2498,13 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		let pair_a = CollatorPair::generate().0;
 
 		let head_b = Hash::from_low_u64_be(128);
-		// Use block 2 so the parent (block 1) is the scheduling_parent and the
-		// grandparent (block 0) serves as relay_parent.
+		// Use block 2 so the parent (block 1) can be used as the (wrong) scheduling_parent
+		// and the grandparent (block 0) serves as relay_parent.
 		let head_b_num: u32 = 2;
 		let head_b_parent = get_parent_hash(head_b);
 		let head_b_grandparent = get_parent_hash(head_b_parent);
 
-		// Use a slot from one slot_duration ago so slot_age >= slot_duration (finished).
+		// Use current_slot - 1 so leaf.slot == current_slot - 1 (just finished).
 		let finished_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::new(
 				*sp_timestamp::Timestamp::current() - RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -2529,8 +2531,8 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		)
 		.await;
 
-		// Use the parent as scheduling_parent — wrong for finished slot (should be leaf).
-		// relay_parent is the grandparent (older than scheduling_parent).
+		// Use the leaf's parent as scheduling_parent — wrong when leaf.slot == current_slot - 1
+		// (should be the leaf itself).
 		let mut committed_candidate =
 			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
