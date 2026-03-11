@@ -460,6 +460,8 @@ impl pallet_staking_async::Config for Runtime {
 	/// Vest validator self-stake incentive rewards over approximately one year of relay-chain
 	/// blocks.
 	type VestingDuration = ConstU32<{ 365 * DAYS }>;
+	/// Relay chain session length in RC blocks (1 hour on Westend).
+	type BlocksPerSession = ConstU32<{ 1 * HOURS }>;
 	type ValidatorIncentivePayout =
 		pallet_staking_async::VestedIncentivePayout<pallet_vesting::Pallet<Runtime>>;
 }

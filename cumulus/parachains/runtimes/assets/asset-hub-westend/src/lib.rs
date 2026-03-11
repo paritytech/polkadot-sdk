@@ -96,7 +96,7 @@ use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, snowbridge::EthereumNetwork, time::*,
 };
-use westend_runtime_constants::time::DAYS as RC_DAYS;
+use westend_runtime_constants::time::{DAYS as RC_DAYS, HOURS as RC_HOURS};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
 	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
