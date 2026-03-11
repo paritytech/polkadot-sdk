@@ -279,6 +279,7 @@ pub mod pallet {
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			let recipients = T::BudgetRecipients::recipients();
+			let mut total_minted = BalanceOf::<T>::zero();
 
 			for (key, account) in &recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
@@ -287,6 +288,8 @@ pub mod pallet {
 					if let Err(_) = T::Currency::mint_into(account, amount) {
 						defensive!("Inflation mint should not fail");
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
+					} else {
+						total_minted += amount;
 					}
 				}
 			}
@@ -296,7 +299,7 @@ pub mod pallet {
 			LastInflationTimestamp::<T>::put(now);
 
 			Self::deposit_event(Event::InflationDripped {
-				total_minted: inflation,
+				total_minted,
 				elapsed_millis: elapsed,
 			});
 
