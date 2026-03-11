@@ -485,7 +485,7 @@ mod inflation {
 		ExtBuilder::default().build_and_execute(|| {
 			// 50% of time_per_era() (other half goes to buffer as per mock::default_budget()
 			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert_eq!(default_stakers_payout, time_per_era().into() / 2);
+			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
 
 			assert_eq!(<MaxStakedRewards<Test>>::get(), None);
 
@@ -510,7 +510,7 @@ mod inflation {
 	fn max_staked_rewards_default_equal_100() {
 		ExtBuilder::default().build_and_execute(|| {
 			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert_eq!(default_stakers_payout, time_per_era().into() / 2);
+			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
 			<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
 
 			Session::roll_until_active_era(2);

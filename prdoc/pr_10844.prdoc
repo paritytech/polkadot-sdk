@@ -1,0 +1,36 @@
+title: "Move era reward minting to DAP with era-based allocation in Staking"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Rewires staking reward minting by introducing DAP as the central inflation engine.
+
+    **DAP (`pallet-dap`)**: Becomes a generic inflation drip and distribution engine. Inflation
+    is minted per-block (configurable cadence) via `InflationCurve` and distributed across
+    registered `BudgetRecipient` implementors through a governance-updatable `BudgetAllocation`
+    map. New budget categories can be added without changing DAP code.
+
+    **Staking (`pallet-staking-async`)**: At era boundaries, staking snapshots accumulated
+    reward pots (filled continuously by DAP) into era-specific accounts. Adds a validator
+    self-stake incentive: a sqrt-based weight function rewards validators for increasing their
+    own stake with governance-configurable thresholds (`OptimumSelfStake`, `HardCapSelfStake`,
+    `SelfStakeSlopeFactor`). Payouts can be immediate or vested via `ValidatorIncentivePayout`.
+
+    **Primitives (`sp-staking`)**: New traits -- `InflationCurve`, `BudgetRecipient`,
+    `UnclaimedRewardSink`, `StakerRewardCalculator`.
+
+crates:
+- name: pallet-dap
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: sp-staking
+  bump: major
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: pallet-nomination-pools-test-delegate-stake
+  bump: patch
+  validate: false
+- name: asset-hub-westend-runtime
+  bump: patch

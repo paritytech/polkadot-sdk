@@ -107,6 +107,14 @@ impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
 	}
 }
 
+/// Simple UnclaimedRewardSink for tests that returns a fixed account.
+pub struct TestUnclaimedRewardSink;
+impl sp_staking::UnclaimedRewardSink<AccountId> for TestUnclaimedRewardSink {
+	fn unclaimed_reward_sink() -> AccountId {
+		999
+	}
+}
+
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
@@ -119,6 +127,9 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type RcClientInterface = MockRcClient;
+	type UnclaimedRewardSink = TestUnclaimedRewardSink;
+	type VestingDuration = ConstU64<0>;
+	type ValidatorIncentivePayout = pallet_staking_async::ImmediateIncentivePayout<Balances>;
 }
 
 parameter_types! {

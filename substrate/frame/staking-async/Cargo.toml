@@ -85,6 +85,7 @@ runtime-benchmarks = [
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-dap/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -94,4 +95,5 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-dap/try-runtime",
 ]
