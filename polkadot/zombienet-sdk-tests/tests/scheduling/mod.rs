@@ -1,8 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-mod v3_descriptor_disabled;
-mod v3_descriptor_enabled;
 mod v3_dynamic_enablement;
 mod v3_elastic_scaling;
 mod v3_rolling_upgrade;
