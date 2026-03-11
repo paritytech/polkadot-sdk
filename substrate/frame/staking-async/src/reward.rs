@@ -102,12 +102,7 @@ impl<T: Config> EraRewardManager<T> {
 			) {
 				Ok(_) => staker_balance,
 				Err(e) => {
-					log!(
-						error,
-						"Era {:?}: staker reward transfer failed: {:?}",
-						era,
-						e
-					);
+					log!(error, "Era {:?}: staker reward transfer failed: {:?}", era, e);
 					defensive!("Failed to transfer staker rewards to era pot");
 					Zero::zero()
 				},
@@ -125,12 +120,7 @@ impl<T: Config> EraRewardManager<T> {
 			) {
 				Ok(_) => incentive_balance,
 				Err(e) => {
-					log!(
-						error,
-						"Era {:?}: validator incentive transfer failed: {:?}",
-						era,
-						e
-					);
+					log!(error, "Era {:?}: validator incentive transfer failed: {:?}", era, e);
 					defensive!("Failed to transfer validator incentive to era pot");
 					Zero::zero()
 				},

@@ -298,10 +298,7 @@ pub mod pallet {
 
 			LastInflationTimestamp::<T>::put(now);
 
-			Self::deposit_event(Event::InflationDripped {
-				total_minted,
-				elapsed_millis: elapsed,
-			});
+			Self::deposit_event(Event::InflationDripped { total_minted, elapsed_millis: elapsed });
 
 			log::debug!(
 				target: LOG_TARGET,
