@@ -847,27 +847,6 @@ impl CurrentlyCheckingSet {
 	}
 }
 
-async fn get_extended_session_info<'a, Sender>(
-	runtime_info: &'a mut RuntimeInfo,
-	sender: &mut Sender,
-	block_hash: Hash,
-) -> Option<&'a ExtendedSessionInfo>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	match runtime_info.get_session_info(sender, block_hash).await {
-		Ok(extended_info) => Some(&extended_info),
-		Err(_) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?block_hash,
-				"Can't obtain SessionInfo or ExecutorParams"
-			);
-			None
-		},
-	}
-}
-
 async fn get_extended_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
@@ -1920,14 +1899,18 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 									if !block_entry.candidate_is_pending_signature(*candidate_hash)
 									{
+										// Use block_hash (the relay chain block) rather than the
+										// candidate's relay_parent for the runtime API query.
+										// The relay_parent may reference an old/finalized block
+										// whose state is already pruned, but executor params are
+										// session-buffered so any recent relay chain block in the
+										// same session will return the same result.
 										let ExtendedSessionInfo { ref executor_params, .. } =
-											match get_extended_session_info(
+											match get_extended_session_info_by_index(
 												session_info_provider,
 												sender,
-												candidate_entry
-													.candidate_receipt()
-													.descriptor()
-													.relay_parent(),
+												block_hash,
+												block_entry.session(),
 											)
 											.await
 											{
@@ -3385,16 +3368,22 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
-		let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
-			session_info_provider,
-			sender,
-			candidate_entry.candidate_receipt().descriptor().relay_parent(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(actions),
-		};
+		// Use relay_block (the relay chain block) rather than the candidate's relay_parent
+		// for the runtime API query. The relay_parent may reference an old/finalized block
+		// whose state is already pruned, but executor params are session-buffered so any
+		// recent relay chain block in the same session will return the same result.
+		let ExtendedSessionInfo { ref executor_params, .. } =
+			match get_extended_session_info_by_index(
+				session_info_provider,
+				sender,
+				relay_block,
+				block_entry.session(),
+			)
+			.await
+			{
+				Some(i) => i,
+				None => return Ok(actions),
+			};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
