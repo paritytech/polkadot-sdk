@@ -1863,6 +1863,9 @@ mod runtime {
 	pub type Balances = pallet_balances;
 	#[runtime::pallet_index(26)]
 	pub type TransactionPayment = pallet_transaction_payment;
+	// DAP Satellite - collects funds for transfer to DAP on AssetHub
+	#[runtime::pallet_index(106)]
+	pub type DapSatellite = pallet_dap_satellite;
 
 	// Consensus support.
 	// Authorship must be before session in order to note author in the correct session and era.
@@ -2034,10 +2037,6 @@ mod runtime {
 	// Root offences pallet
 	#[runtime::pallet_index(105)]
 	pub type RootOffences = pallet_root_offences;
-
-	// DAP Satellite - collects funds for transfer to DAP on AssetHub
-	#[runtime::pallet_index(106)]
-	pub type DapSatellite = pallet_dap_satellite;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]

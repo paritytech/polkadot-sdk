@@ -31,11 +31,6 @@
 //!   `burn_from` - redirects burns to buffer instead of reducing total issuance
 //!
 //! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic bypass the wrapper.
-//!
-//! ## Setup
-//!
-//! The buffer account is created at genesis with ED. For existing chains, include
-//! `dap::migrations::v1::InitBufferAccount` in migrations.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -100,98 +95,6 @@ pub mod pallet {
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
-
-		/// Create the buffer account with a provider reference and fund it with ED.
-		///
-		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains). Safe to call multiple times - will early exit if account
-		/// already exists with sufficient balance.
-		pub fn create_buffer_account() {
-			let buffer = Self::buffer_account();
-			let ed = T::Currency::minimum_balance();
-
-			if frame_system::Pallet::<T>::providers(&buffer) > 0 &&
-				T::Currency::balance(&buffer) >= ed
-			{
-				log::debug!(
-					target: LOG_TARGET,
-					"DAP buffer account already initialized: {buffer:?}"
-				);
-				return;
-			}
-
-			// Ensure the account exists by incrementing its provider count.
-			frame_system::Pallet::<T>::inc_providers(&buffer);
-			log::info!(
-				target: LOG_TARGET,
-				"Attempting to mint ED ({ed:?}) into DAP buffer: {buffer:?}"
-			);
-
-			match T::Currency::mint_into(&buffer, ed) {
-				Ok(_) => {
-					// Mark ED as inactive so it doesn't participate in governance.
-					T::Currency::deactivate(ed);
-					log::info!(
-						target: LOG_TARGET,
-						"🏦 Created DAP buffer account: {buffer:?}"
-					);
-				},
-				Err(e) => {
-					frame_support::defensive!("Failed to mint ED into DAP buffer: {:?}", e);
-				},
-			}
-		}
-	}
-
-	/// Genesis config for the DAP pallet.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		_phantom: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			// Create and fund the buffer account at genesis.
-			Pallet::<T>::create_buffer_account();
-		}
-	}
-}
-
-/// Migrations for the DAP pallet.
-pub mod migrations {
-	use super::*;
-
-	/// Version 1 migration.
-	pub mod v1 {
-		use super::*;
-
-		mod inner {
-			use super::*;
-			use frame_support::traits::UncheckedOnRuntimeUpgrade;
-
-			/// Inner migration that creates the buffer account.
-			pub struct InitBufferAccountInner<T>(core::marker::PhantomData<T>);
-
-			impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
-				fn on_runtime_upgrade() -> Weight {
-					Pallet::<T>::create_buffer_account();
-					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-					T::DbWeight::get().reads_writes(3, 3)
-				}
-			}
-		}
-
-		/// Migration to create the DAP buffer account (version 0 → 1).
-		pub type InitBufferAccount<T> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			inner::InitBufferAccountInner<T>,
-			Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
 	}
 }
 

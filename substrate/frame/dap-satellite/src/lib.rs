@@ -38,9 +38,6 @@
 //!
 //! If the satellite account is not pre-funded, deposits below ED will be silently burned.
 //!
-//! Each system chain requires a manual action to ensure the satellite account holds at least ED.
-//! The pallet does not fund itself automatically.
-//!
 //! ## TODO
 //!
 //! - Periodic XCM transfer to AssetHub DAP buffer
@@ -179,14 +176,6 @@ where
 /// for the old `Currency` trait is not provided because there are no active consumers: all pallets
 /// that could produce `NegativeImbalance` on satellite chains (staking, identity,
 /// election-provider) are either deprecated, or already use the new fungible traits.
-///
-/// # Example
-///
-/// ```ignore
-/// impl pallet_broker::Config for Runtime {
-///     type OnRevenue = DapSatellite;
-/// }
-/// ```
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let satellite = Self::satellite_account();
