@@ -659,6 +659,8 @@ pub(super) async fn spawn_network_sudo(
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
 					"--force-authoring".into(),
+					"--authoring".into(),
+					"slot-based".into(),
 					"--max-runtime-instances=32".into(),
 					"-linfo,statement-store=info,statement-gossip=info".into(),
 					"--enable-statement-store".into(),
