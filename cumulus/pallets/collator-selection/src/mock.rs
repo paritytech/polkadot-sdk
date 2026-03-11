@@ -17,7 +17,7 @@ use super::*;
 use crate as collator_selection;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
+	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, OnGenesis, ValidatorRegistration},
 	PalletId,
 };
 use frame_system as system;
@@ -208,7 +208,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	collator_selection.assimilate_storage(&mut t).unwrap();
 	session.assimilate_storage(&mut t).unwrap();
 
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| {
+		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+	});
+	ext.commit_all().expect("Failed to commit on_genesis changes");
+	ext
 }
 
 pub fn initialize_to_block(n: u64) {

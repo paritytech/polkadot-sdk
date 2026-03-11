@@ -23,7 +23,10 @@ use crate as pallet_session;
 use crate::historical as pallet_session_historical;
 
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU64, Hooks},
+};
 use pallet_balances::{self, AccountData};
 use sp_core::crypto::key_types::DUMMY;
 use sp_runtime::{
@@ -33,6 +36,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 use sp_staking::SessionIndex;
+
 use std::collections::BTreeMap;
 
 impl_opaque_keys! {
@@ -260,10 +264,15 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
-
 	let v = NextValidators::get().iter().map(|&i| (i, i)).collect();
 	ValidatorAccounts::mutate(|m| *m = v);
-	sp_io::TestExternalities::new(t)
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| {
+		<pallet_session::Pallet<Test> as Hooks<BlockNumberFor<Test>>>::on_genesis();
+	});
+	ext.commit_all().expect("Failed to commit on_genesis changes");
+	ext
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

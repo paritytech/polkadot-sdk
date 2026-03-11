@@ -123,9 +123,10 @@ fn main() -> Result<()> {
 
 				let config = CollationGenerationConfig {
 					key: collator.collator_key(),
-					collator: Some(
-						collator.create_collation_function(full_node.task_manager.spawn_handle()),
-					),
+					collator: Some(collator.create_collation_function(
+						full_node.task_manager.spawn_handle(),
+						cli.run.tolerate_state_mismatch,
+					)),
 					para_id,
 				};
 				overseer_handle

@@ -42,6 +42,12 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 		>::name::<Self>().unwrap_or("<unknown pallet name>")
 	};
 
+	let storage_version = if let Some(v) = def.pallet_struct.storage_version.as_ref() {
+		quote::quote! { #v }
+	} else {
+		quote::quote! { core::default::Default::default() }
+	};
+
 	let initialize_on_chain_storage_version = if let Some(in_code_version) =
 		&def.pallet_struct.storage_version
 	{
@@ -188,6 +194,21 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 						#frame_system::pallet_prelude::BlockNumberFor::<T>
 					>
 				>::on_poll(n, weight);
+			}
+		}
+
+		impl<#type_impl_gen>
+			#frame_support::traits::OnGenesis
+			for #pallet_ident<#type_use_gen> #where_clause
+		{
+			fn on_genesis() {
+				let storage_version: #frame_support::traits::StorageVersion = #storage_version;
+				storage_version.put::<Self>();
+				<
+					Self as #frame_support::traits::Hooks<
+						#frame_system::pallet_prelude::BlockNumberFor::<T>
+					>
+				>::on_genesis();
 			}
 		}
 

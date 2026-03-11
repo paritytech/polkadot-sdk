@@ -118,7 +118,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
 use core::{
 	marker::PhantomData,
@@ -524,22 +524,18 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			if T::SessionHandler::KEY_TYPE_IDS.len() != T::Keys::key_ids().len() {
-				panic!("Number of keys in session handler and session keys does not match");
+			// Verify that session handlers and session keys have the same key types.
+			// Note: The order may differ - handlers extract keys by KeyTypeId, not position.
+			let handler_keys: BTreeSet<_> = T::SessionHandler::KEY_TYPE_IDS.iter().collect();
+			let session_keys: BTreeSet<_> = T::Keys::key_ids().iter().collect();
+			if handler_keys != session_keys {
+				panic!(
+					"Session handler key types do not match session key types. \
+					 Handler: {:?}, Keys: {:?}",
+					T::SessionHandler::KEY_TYPE_IDS,
+					T::Keys::key_ids(),
+				);
 			}
-
-			T::SessionHandler::KEY_TYPE_IDS
-				.iter()
-				.zip(T::Keys::key_ids())
-				.enumerate()
-				.for_each(|(i, (sk, kk))| {
-					if sk != kk {
-						panic!(
-							"Session handler and session key expect different key type at index: {}",
-							i,
-						);
-					}
-				});
 
 			for (account, val, keys) in
 				self.keys.iter().chain(self.non_authority_keys.iter()).cloned()
@@ -554,31 +550,6 @@ pub mod pallet {
 					frame_system::Pallet::<T>::inc_providers(&account);
 				}
 			}
-
-			let initial_validators_0 =
-				T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
-					frame_support::print(
-						"No initial validator provided by `SessionManager`, use \
-						session config keys to generate initial validator set.",
-					);
-					self.keys.iter().map(|x| x.1.clone()).collect()
-				});
-
-			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
-				.unwrap_or_else(|| initial_validators_0.clone());
-
-			let queued_keys: Vec<_> = initial_validators_1
-				.into_iter()
-				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
-				.collect();
-
-			// Tell everyone about the genesis session keys
-			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
-
-			Validators::<T>::put(initial_validators_0);
-			QueuedKeys::<T>::put(queued_keys);
-
-			T::SessionManager::start_session(0);
 		}
 	}
 
@@ -666,6 +637,27 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_genesis() {
+			let initial_keys = NextKeys::<T>::iter_keys().collect::<Vec<_>>();
+			let initial_validators_0 =
+				T::SessionManager::new_session_genesis(0).unwrap_or(initial_keys);
+
+			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
+				.unwrap_or_else(|| initial_validators_0.clone());
+
+			let queued_keys: Vec<_> = initial_validators_1
+				.into_iter()
+				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
+				.collect();
+
+			// Tell everyone about the genesis session keys
+			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
+
+			Validators::<T>::put(initial_validators_0);
+			QueuedKeys::<T>::put(queued_keys);
+
+			T::SessionManager::start_session(0);
+		}
 		/// Called when a block is initialized. Will rotate session if it is the last
 		/// block of the current session.
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {

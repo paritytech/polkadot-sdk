@@ -28,7 +28,7 @@ use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
 	pallet_prelude::Get,
-	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
+	traits::{OnFinalize, OnGenesis, OnInitialize, OriginTrait, UnfilteredDispatchable},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
@@ -254,6 +254,10 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 			.unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| {
+			<pallet_session::Pallet<Runtime> as OnGenesis>::on_genesis();
+		});
+		ext.commit_all().expect("Failed to commit on_genesis changes");
 
 		ext.execute_with(|| {
 			frame_system::Pallet::<Runtime>::set_block_number(1u32.into());

@@ -401,7 +401,7 @@ pub(crate) mod tests {
 	use sp_runtime::{key_types::DUMMY, testing::UintAuthorityId, BuildStorage};
 	use sp_state_machine::BasicExternalities;
 
-	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
+	use frame_support::traits::{KeyOwnerProofSystem, OnGenesis, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
@@ -420,7 +420,12 @@ pub(crate) mod tests {
 		pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
-		sp_io::TestExternalities::new(t)
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| {
+			Session::on_genesis();
+		});
+		ext.commit_all().expect("Failed to commit on_genesis changes");
+		ext
 	}
 
 	#[test]

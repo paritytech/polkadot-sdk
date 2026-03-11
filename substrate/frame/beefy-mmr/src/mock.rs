@@ -20,7 +20,7 @@ use std::vec;
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
+	traits::{ConstU32, ConstU64, OnGenesis},
 };
 use sp_consensus_beefy::mmr::MmrLeafVersion;
 use sp_io::TestExternalities;
@@ -203,6 +203,10 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExt
 		.unwrap();
 
 	let mut ext: TestExternalities = t.into();
+	ext.execute_with(|| {
+		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+	});
+	ext.commit_all().expect("Failed to commit on_genesis changes");
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));

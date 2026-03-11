@@ -55,7 +55,10 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 use crate::{log, log_current_time};
-use frame_support::{derive_impl, traits::Nothing};
+use frame_support::{
+	derive_impl,
+	traits::{Nothing, OnGenesis},
+};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -627,6 +630,11 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
+
+		ext.execute_with(|| {
+			<pallet_session::Pallet<Runtime> as OnGenesis>::on_genesis();
+		});
+		ext.commit_all().expect("Failed to commit on_genesis changes");
 
 		// We consider all test to start after timestamp is initialized This must be ensured by
 		// having `timestamp::on_initialize` called before `staking::on_initialize`.

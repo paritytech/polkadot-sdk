@@ -22,7 +22,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
+	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnGenesis, OnInitialize},
 };
 use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
@@ -318,7 +318,12 @@ impl ExtBuilder {
 
 		staking_config.assimilate_storage(&mut t).unwrap();
 
-		t.into()
+		let mut ext: sp_io::TestExternalities = t.into();
+		ext.execute_with(|| {
+			<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+		});
+		ext.commit_all().expect("Failed to commit on_genesis changes");
+		ext
 	}
 
 	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
@@ -373,7 +378,8 @@ pub fn start_session(session_index: SessionIndex) {
 	assert_eq!(Session::current_index(), session_index);
 }
 
+/// Progress to the first block at the given era
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
+	assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, era_index);
 }
