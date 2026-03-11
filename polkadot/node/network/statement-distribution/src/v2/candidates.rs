@@ -124,7 +124,7 @@ impl Candidates {
 				c.add_claims(
 					peer,
 					CandidateClaims {
-						relay_parent: claimed_scheduling_parent,
+						scheduling_parent: claimed_scheduling_parent,
 						group_index: claimed_group_index,
 						parent_hash_and_id: claimed_parent_hash_and_id,
 					},
@@ -378,8 +378,8 @@ enum CandidateState {
 /// Claims made alongside the advertisement of a candidate.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct CandidateClaims {
-	/// The relay-parent committed to by the candidate.
-	relay_parent: Hash,
+	/// The scheduling-parent committed to by the candidate.
+	scheduling_parent: Hash,
 	/// The group index assigned to this candidate.
 	group_index: GroupIndex,
 	/// The hash of the parent head-data and the ParaId. This is optional,
@@ -390,12 +390,12 @@ struct CandidateClaims {
 impl CandidateClaims {
 	fn check(
 		&self,
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		group_index: GroupIndex,
 		parent_hash: Hash,
 		para_id: ParaId,
 	) -> bool {
-		self.relay_parent == relay_parent &&
+		self.scheduling_parent == scheduling_parent &&
 			self.group_index == group_index &&
 			self.parent_hash_and_id.map_or(true, |p| p == (parent_hash, para_id))
 	}
@@ -429,9 +429,9 @@ impl UnconfirmedCandidate {
 		// memory consumption is bounded in the same way.
 		if let Some(parent_claims) = claims.parent_hash_and_id {
 			let sub_claims = self.parent_claims.entry(parent_claims).or_default();
-			match sub_claims.iter().position(|x| x.0 == claims.relay_parent) {
+			match sub_claims.iter().position(|x| x.0 == claims.scheduling_parent) {
 				Some(p) => sub_claims[p].1 += 1,
-				None => sub_claims.push((claims.relay_parent, 1)),
+				None => sub_claims.push((claims.scheduling_parent, 1)),
 			}
 		}
 		self.claims.push((peer, claims));
@@ -452,12 +452,12 @@ impl UnconfirmedCandidate {
 		relay_parent_live: impl Fn(&Hash) -> bool,
 	) {
 		self.claims.retain(|c| {
-			if relay_parent_live(&c.1.relay_parent) {
+			if relay_parent_live(&c.1.scheduling_parent) {
 				true
 			} else {
 				if let Some(parent_claims) = c.1.parent_hash_and_id {
 					if let Entry::Occupied(mut e) = self.parent_claims.entry(parent_claims) {
-						if let Some(p) = e.get().iter().position(|x| x.0 == c.1.relay_parent) {
+						if let Some(p) = e.get().iter().position(|x| x.0 == c.1.scheduling_parent) {
 							let sub_claims = e.get_mut();
 							sub_claims[p].1 -= 1;
 							if sub_claims[p].1 == 0 {
@@ -491,13 +491,13 @@ impl UnconfirmedCandidate {
 			v: &mut Vec<HypotheticalCandidate>,
 			i: impl IntoIterator<Item = (&'a (Hash, ParaId), &'a Vec<(Hash, usize)>)>,
 		) {
-			for ((parent_head_hash, para_id), possible_relay_parents) in i {
-				for (relay_parent, _rc) in possible_relay_parents {
+			for ((parent_head_hash, para_id), possible_scheduling_parents) in i {
+				for (scheduling_parent, _rc) in possible_scheduling_parents {
 					v.push(HypotheticalCandidate::Incomplete {
 						candidate_hash,
 						candidate_para: *para_id,
 						parent_head_data_hash: *parent_head_hash,
-						candidate_scheduling_parent: *relay_parent,
+						candidate_scheduling_parent: *scheduling_parent,
 					});
 				}
 			}

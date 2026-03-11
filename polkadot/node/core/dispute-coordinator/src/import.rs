@@ -70,9 +70,8 @@ impl<'a> CandidateEnvironment<'a> {
 		controlled_indices: &mut ControlledValidatorIndices,
 	) -> Option<CandidateEnvironment<'a>> {
 		// We use the scheduling parent here to have consensus on disabled state among validators.
-		// If this fetch fails because e.g. we have never seen the fork of the candidate, not
-		// seeing the disabled state is acceptable, because we have spam protection for these
-		// cases in place anyways.
+		// If this fetch fails because e.g. we have never seen the fork of the candidate, we are
+		// still fine, because we have spam protection for these cases in place anyways.
 		let disabled_onchain = runtime_info
 			.get_disabled_validators(ctx.sender(), scheduling_parent)
 			.await

@@ -240,12 +240,12 @@ impl RequestManager {
 	}
 
 	/// Remove based on relay-parent.
-	pub fn remove_by_relay_parent(&mut self, relay_parent: Hash) {
+	pub fn remove_by_scheduling_parent(&mut self, scheduling_parent: Hash) {
 		let mut candidate_hashes = HashSet::new();
 
 		// Remove from `by_priority` and `requests`.
 		self.by_priority.retain(|(_priority, id)| {
-			let retain = relay_parent != id.scheduling_parent;
+			let retain = scheduling_parent != id.scheduling_parent;
 			if !retain {
 				self.requests.remove(id);
 				candidate_hashes.insert(id.candidate_hash);
@@ -257,7 +257,7 @@ impl RequestManager {
 		for candidate_hash in candidate_hashes {
 			match self.unique_identifiers.entry(candidate_hash) {
 				HEntry::Occupied(mut entry) => {
-					entry.get_mut().retain(|id| relay_parent != id.scheduling_parent);
+					entry.get_mut().retain(|id| scheduling_parent != id.scheduling_parent);
 					if entry.get().is_empty() {
 						entry.remove();
 					}
@@ -966,7 +966,7 @@ mod tests {
 		assert_eq!(request_manager.by_priority.len(), 6);
 		assert_eq!(request_manager.unique_identifiers.len(), 5);
 
-		request_manager.remove_by_relay_parent(parent_a);
+		request_manager.remove_by_scheduling_parent(parent_a);
 
 		assert_eq!(request_manager.requests.len(), 3);
 		assert_eq!(request_manager.by_priority.len(), 3);
@@ -977,7 +977,7 @@ mod tests {
 		// Duplicate hash should still be there (under a different parent).
 		assert!(request_manager.unique_identifiers.contains_key(&duplicate_hash));
 
-		request_manager.remove_by_relay_parent(parent_b);
+		request_manager.remove_by_scheduling_parent(parent_b);
 
 		assert_eq!(request_manager.requests.len(), 1);
 		assert_eq!(request_manager.by_priority.len(), 1);
@@ -986,7 +986,7 @@ mod tests {
 		assert!(!request_manager.unique_identifiers.contains_key(&candidate_b1));
 		assert!(!request_manager.unique_identifiers.contains_key(&candidate_b2));
 
-		request_manager.remove_by_relay_parent(parent_c);
+		request_manager.remove_by_scheduling_parent(parent_c);
 
 		assert!(request_manager.requests.is_empty());
 		assert!(request_manager.by_priority.is_empty());
@@ -1227,7 +1227,7 @@ mod tests {
 		}
 
 		// Garbage collect based on relay parent.
-		request_manager.remove_by_relay_parent(relay_parent);
+		request_manager.remove_by_scheduling_parent(relay_parent);
 
 		// Try to validate response.
 		{

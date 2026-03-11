@@ -772,7 +772,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 				});
 
 			// clean up requests related to this scheduling parent.
-			state.request_manager.remove_by_relay_parent(*leaf);
+			state.request_manager.remove_by_scheduling_parent(*leaf);
 		}
 	}
 
@@ -3266,7 +3266,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 			gum::info!(
 				target: LOG_TARGET,
 				?candidate_hash,
-				relay_parent = ?confirmed.scheduling_parent(),
+				scheduling_parent = ?confirmed.scheduling_parent(),
 				?group_index,
 				"Dropping a request from a grid peer because the backing threshold is no longer met."
 			);

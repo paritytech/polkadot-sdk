@@ -47,7 +47,7 @@ pub struct ValidationContext {
 	/// During the V3 transition period, this flag determines whether to trust
 	/// `descriptor.version()` or fall back to `descriptor.version_old_rules()`
 	/// for approval/dispute validations.
-	/// See `CandidateDescriptorV2::version_for_approval_dispute`.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation`.
 	pub v3_seen: bool,
 }
 
@@ -58,10 +58,8 @@ impl ValidationContext {
 	}
 
 	/// Get the scheduling parent hash, using transition-safe logic.
-	// TODO: This is using _for_approval_dispute, but is also used in backing context.
-	// Might be fine, but:
-	// 1. Definitely needs a renaming then.
-	// 2. We should remove the special casing in tho other cases then too.
+	// Note: This uses _for_candidate_validation which is the transition-safe version.
+	// It is used in both backing and approval/dispute contexts.
 	pub fn scheduling_parent(&self) -> Hash {
 		self.candidate_receipt
 			.descriptor

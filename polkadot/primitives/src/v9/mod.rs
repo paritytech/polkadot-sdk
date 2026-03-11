@@ -1980,9 +1980,9 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// reject V3 candidates outright when V3 is not enabled.
 	///
 	/// During the V3 transition, approval checkers, dispute participants,
-	/// and on-chain vote scrapers must use [`Self::version_for_approval_dispute`]
-	/// (and the corresponding `scheduling_parent_for_approval_dispute` /
-	/// `scheduling_session_for_approval_dispute`) instead of `version()`
+	/// and on-chain vote scrapers must use [`Self::version_for_candidate_validation`]
+	/// (and the corresponding `scheduling_parent_for_candidate_validation` /
+	/// `scheduling_session_for_candidate_validation`) instead of `version()`
 	/// directly. This ensures they match old backer semantics before the V3
 	/// node feature is confirmed enabled. See those methods for the full
 	/// safety argument.
@@ -2070,7 +2070,7 @@ impl<H> CandidateDescriptorV2<H> {
 		//
 		// Impact if it still happened would also be fairly minimal: We would
 		// drop a parachain block, which is not a big deal on v1, where we are
-		// not aiming for perfect block confidence yet.
+		// not aiming for perfect block confidence.
 		let new_v1_detected = self.reserved1[0..16] != [0u8; 16];
 
 		if new_v1_detected {
@@ -2240,7 +2240,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 	/// Scheduling parent for use in candidate validation.
 	///
-	/// See [`Self::version_for_approval_dispute`] for the safety argument.
+	/// See [`Self::version_for_candidate_validation`] for the safety argument.
 	pub fn scheduling_parent_for_candidate_validation(&self, v3_ever_seen: bool) -> H
 	where
 		H: Copy,
@@ -2253,7 +2253,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 	/// Scheduling session for use candidate validation.
 	///
-	/// See [`Self::version_for_approval_dispute`] for the safety argument.
+	/// See [`Self::version_for_candidate_validation`] for the safety argument.
 	pub fn scheduling_session_for_candidate_validation(
 		&self,
 		v3_ever_seen: bool,
@@ -2828,8 +2828,6 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 			},
 			_ if signals.is_empty() => {
 				// V3 and above require UMP signals.
-				// This is technically changed behavior, but this is fine as it is only checked in
-				// the runtime and in backing!
 				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
 			},
 			_ => {},

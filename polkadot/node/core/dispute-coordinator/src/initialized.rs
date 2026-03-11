@@ -673,7 +673,7 @@ impl Initialized {
 			// Use transition-safe descriptor methods for scheduling context.
 			// Before the V3 node feature is seen, these fall back to old-rules
 			// behavior to match old backers and prevent slashing.
-			// See `CandidateDescriptorV2::version_for_approval_dispute`.
+			// See `CandidateDescriptorV2::version_for_candidate_validation`.
 			let scheduling_session = candidate_receipt
 				.descriptor
 				.scheduling_session_for_candidate_validation(self.v3_ever_seen)
