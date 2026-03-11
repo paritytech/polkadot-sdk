@@ -2573,8 +2573,6 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 
 /// V3 advertisement with a scheduling parent outside the allowed ancestry must be rejected
 /// at the `per_scheduling_parent` lookup (`SchedulingParentUnknown`).
-/// Uses `CandidateDescriptorVersion::V2` so the slot check is skipped and the
-/// `per_scheduling_parent` check is exercised directly.
 #[test]
 fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
 	let mut test_state = TestState::default();
@@ -2623,15 +2621,13 @@ fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
-		// Use CandidateDescriptorVersion::V2 to skip the slot check and exercise
-		// the per_scheduling_parent lookup directly.
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
 			unknown_scheduling_parent,
 			candidate_hash,
 			parent_head_data_hash,
-			CandidateDescriptorVersion::V2,
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
