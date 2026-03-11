@@ -237,6 +237,90 @@ pub mod unversioned {
 			Ok(())
 		}
 	}
+
+	/// One-time migration to claim trapped balance for a specific pool member.
+	///
+	/// Generic over `T: Config` and `A: Get<T::AccountId>` where `A` provides the account
+	/// of the affected member. If `A` does not have trapped balance, this is a no-op.
+	pub struct ClaimTrappedBalance<T, A>(core::marker::PhantomData<(T, A)>);
+
+	impl<T: Config, A: Get<T::AccountId>> OnRuntimeUpgrade for ClaimTrappedBalance<T, A> {
+		fn on_runtime_upgrade() -> Weight {
+			let member_account = A::get();
+			match Pallet::<T>::do_claim_trapped_balance(&member_account) {
+				Ok(()) => {
+					log!(info, "Successfully claimed trapped balance for {:?}", member_account);
+				},
+				Err(e) => {
+					log!(info, "No trapped balance to claim for {:?}: {:?}", member_account, e);
+				},
+			}
+
+			// Worst case: slash applied + trapped balance withdrawn.
+			T::WeightInfo::apply_slash()
+				.saturating_add(T::WeightInfo::withdraw_unbonded_update(T::MaxUnbonding::get()))
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let member_account = A::get();
+			let expected = PoolMembers::<T>::get(&member_account)
+				.map(|m| m.total_balance())
+				.unwrap_or_default();
+			let actual =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+					.unwrap_or_default();
+
+			log!(
+				info,
+				"pre_upgrade: member {:?}, expected_balance: {:?}, actual_balance: {:?}, \
+				 trapped: {:?}",
+				member_account,
+				expected,
+				actual,
+				actual.saturating_sub(expected)
+			);
+
+			Ok((expected, actual).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let member_account = A::get();
+			let (pre_expected, pre_actual): (BalanceOf<T>, BalanceOf<T>) =
+				Decode::decode(&mut &data[..])
+					.map_err(|_| TryRuntimeError::Other("Failed to decode pre_upgrade data"))?;
+
+			let post_actual =
+				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+					.unwrap_or_default();
+
+			let post_expected = PoolMembers::<T>::get(&member_account)
+				.map(|m| m.total_balance())
+				.unwrap_or_default();
+
+			log!(
+				info,
+				"post_upgrade: member {:?}, pre_expected: {:?}, pre_actual: {:?}, \
+				 post_expected: {:?}, post_actual: {:?}",
+				member_account,
+				pre_expected,
+				pre_actual,
+				post_expected,
+				post_actual
+			);
+
+			// If there was trapped balance before, it should now be resolved
+			if pre_actual > pre_expected {
+				ensure!(
+					post_actual == post_expected,
+					TryRuntimeError::Other("Trapped balance was not fully claimed after migration")
+				);
+			}
+
+			Ok(())
+		}
+	}
 }
 
 pub mod v8 {
