@@ -91,14 +91,6 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 	let node_features = configuration::ActiveConfig::<T>::get().node_features;
 	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
-	// Workaround for issue #64.
-	let allowed_scheduling_parents =
-		if shared::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(1) {
-			shared::migration::v1::AllowedRelayParents::<T>::get().into()
-		} else {
-			shared::AllowedSchedulingParents::<T>::get()
-		};
-
 	(0..n_cores)
 		.map(|core_idx| {
 			let core_idx = CoreIndex(core_idx as u32);
@@ -106,22 +98,39 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				// Use the same block number for determining the responsible group as what
 				// the backing subsystem would use when it calls validator_groups API.
 				// For V3 candidates, look up the scheduling parent block number from the
-				// tracker. For V1/V2, fall back to the relay parent number.
-				let scheduling_parent_number = if v3_enabled &&
-					pending_availability.candidate_descriptor().version(v3_enabled) ==
-						CandidateDescriptorVersion::V3
+				// relay parent tracker (because it may no longer be in the scheduling parent
+				// tracker, as pending availability candidates can have out of scope scheduling
+				// parents).
+				// For V1/V2, fall back to the relay parent number from the storage.
+				// This is a temporary fallback, because when this is rolled out, the relay parent
+				// tracker does not contain entries for all relay parents in the session. After v3
+				// receipt feature is enabled, we can remove this and always use the scheduling
+				// parent.
+				let scheduling_parent_number = if pending_availability
+					.candidate_descriptor()
+					.version(v3_enabled) ==
+					CandidateDescriptorVersion::V3
 				{
 					let sp = pending_availability.candidate_descriptor().scheduling_parent(true);
-					allowed_scheduling_parents.acquire_info(sp).map(|(_, num)| num).unwrap_or_else(
-						|| {
-							log::warn!(
-								target: "runtime::polkadot-api",
-								"Could not determine the scheduling parent of this v3 candidate {:?}",
-								pending_availability.candidate_hash()
-							);
-							pending_availability.relay_parent_number()
-						},
-					)
+					// Workaround for issue #64.
+					let scheduling_parent_number = if shared::Pallet::<T>::on_chain_storage_version(
+					) == StorageVersion::new(1)
+					{
+						shared::migration::v1::AllowedRelayParents::<T>::get().get_number(sp)
+					} else {
+						let session_index = shared::CurrentSessionIndex::<T>::get();
+						shared::Pallet::<T>::get_relay_parent_info(session_index, sp)
+							.map(|info| info.number)
+					};
+
+					scheduling_parent_number.unwrap_or_else(|| {
+						log::warn!(
+							target: "runtime::polkadot-api",
+							"Could not determine the scheduling parent of this v3 candidate {:?}",
+							pending_availability.candidate_hash()
+						);
+						pending_availability.relay_parent_number()
+					})
 				} else {
 					pending_availability.relay_parent_number()
 				};

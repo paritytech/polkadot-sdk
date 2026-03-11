@@ -20,7 +20,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	mock::{MockGenesisConfig, Scheduler},
 };
-use polkadot_primitives::vstaging::{RelayParentInfo, SchedulerParams};
+use polkadot_primitives::vstaging::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -58,9 +58,9 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, CandidateDescriptorVersion,
-		ClaimQueueOffset, CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreSelector,
-		MutateDescriptorV2, UMPSignal, UncheckedSigned,
+		vstaging::RelayParentInfo, ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2,
+		CandidateDescriptorVersion, ClaimQueueOffset, CollatorId, CollatorSignature,
+		CommittedCandidateReceiptV2, CoreSelector, MutateDescriptorV2, UMPSignal, UncheckedSigned,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use pretty_assertions::assert_eq;

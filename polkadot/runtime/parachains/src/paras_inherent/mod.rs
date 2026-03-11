@@ -1026,16 +1026,6 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 		return false;
 	};
 
-	if candidate.descriptor().session_index(v3_enabled).is_none() {
-		log::debug!(
-			target: LOG_TARGET,
-			"Invalid V2/V3 candidate receipt {:?} for paraid {:?}, missing session index.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id(),
-		);
-		return false;
-	};
-
 	// Check if scheduling session is equal to current session index.
 	if scheduling_session != current_session_index {
 		log::debug!(
