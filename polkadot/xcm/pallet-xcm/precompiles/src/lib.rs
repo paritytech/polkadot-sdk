@@ -131,7 +131,7 @@ where
 
 				let result = pallet_xcm::Pallet::<Runtime>::execute(
 					frame_origin,
-					Box::new(final_message),
+					final_message.into(),
 					max_weight,
 				);
 
