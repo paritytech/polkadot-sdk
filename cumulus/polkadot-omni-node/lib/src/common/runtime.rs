@@ -212,19 +212,18 @@ impl MetadataInspector {
 			let path = &portable_type.ty.path;
 			let segments = &path.segments;
 
-			if segments.len() >= 3 {
-				let last_three = &segments[segments.len() - 3..];
-				if last_three[0] == "sp_consensus_aura" &&
-					last_three[1] == "sr25519" &&
-					last_three[2] == "AuthorityId"
-				{
-					return Some(AuraConsensusId::Sr25519);
-				}
-				if last_three[0] == "sp_consensus_aura" &&
-					last_three[1] == "ed25519" &&
-					last_three[2] == "AuthorityId"
-				{
-					return Some(AuraConsensusId::Ed25519);
+			// Check if the type is related to Aura consensus
+			if segments.iter().any(|s| s == "sp_consensus_aura") {
+				let is_authority_id = segments.iter().any(|s| s == "AuthorityId") ||
+					segments.iter().any(|s| s == "Public");
+
+				if is_authority_id {
+					if segments.iter().any(|s| s == "sr25519") {
+						return Some(AuraConsensusId::Sr25519);
+					}
+					if segments.iter().any(|s| s == "ed25519") {
+						return Some(AuraConsensusId::Ed25519);
+					}
 				}
 			}
 		}
