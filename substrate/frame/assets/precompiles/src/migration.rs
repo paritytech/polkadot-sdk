@@ -79,7 +79,7 @@ const LOG_TARGET: &str = "runtime::MigrateForeignAssetPrecompileMappings";
 /// clearing and repopulating would reassign indices, breaking EVM contracts that
 /// cached precompile addresses derived from those indices.
 
-pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<(T, I, W)>);
+pub struct MigrateForeignAssetPrecompileMappings<T, I, W>(PhantomData<(T, I, W)>);
 
 impl<T, I, W> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I, W>
 where

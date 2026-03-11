@@ -1297,6 +1297,7 @@ impl pallet_migrations::Config for Runtime {
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
+			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
