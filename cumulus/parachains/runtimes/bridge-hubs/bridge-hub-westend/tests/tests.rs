@@ -43,7 +43,13 @@ use bridge_to_rococo_config::{
 use codec::{Decode, Encode};
 use cumulus_primitives_core::UpwardMessageSender;
 use frame_support::{
-	assert_err, assert_ok, dispatch::GetDispatchInfo, parameter_types, traits::ConstU8,
+	assert_err, assert_ok,
+	dispatch::GetDispatchInfo,
+	parameter_types,
+	traits::{
+		fungible::{Inspect, Mutate},
+		ConstU8,
+	},
 };
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId, Balance};
@@ -55,7 +61,7 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Either, Perbill,
 };
-use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
+use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 	VersionedLocation,
@@ -839,4 +845,64 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(Governance::get()));
+}
+
+#[test]
+fn tx_fees_go_to_dap_satellite() {
+	let alice = AccountId::from(Alice);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![(alice.clone(), 100 * ed), (satellite.clone(), ed)],
+		|| {
+			let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+			let xt = construct_extrinsic(Alice, call);
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let alice_after = <Balances as Inspect<AccountId>>::balance(&alice);
+			let fee_paid = alice_before - alice_after;
+			assert!(fee_paid > 0, "a fee should have been paid");
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+
+			assert_eq!(satellite_after, satellite_before + fee_paid);
+			assert_eq!(issuance_before, issuance_after);
+		},
+	);
+}
+
+#[test]
+fn dust_removal_goes_to_dap_satellite() {
+	let alice = AccountId::from(Alice);
+	let bob = AccountId::from(Bob);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+	let dust = ed / 2;
+
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![(alice.clone(), 100 * ed), (bob.clone(), ed + dust), (satellite.clone(), ed)],
+		|| {
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(bob.clone()),
+				alice.clone().into(),
+				ed,
+			));
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			assert_eq!(satellite_after, satellite_before + dust);
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+		},
+	);
 }
