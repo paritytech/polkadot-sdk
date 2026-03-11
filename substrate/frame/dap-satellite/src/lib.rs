@@ -20,7 +20,7 @@
 //! Collects funds into a satellite buffer on non-AssetHub chains for eventual transfer to the
 //! central DAP on AssetHub.
 //!
-//! Use on: Relay Chain, Coretime, People, BridgeHub. Do NOT use on AssetHub (use `pallet-dap`).
+//! Do NOT use on AssetHub (use `pallet-dap`).
 //!
 //! ## Usage
 //!
@@ -30,8 +30,8 @@
 //!
 //! ## Setup
 //!
-//! The satellite account must be pre-funded with at least ED (existential deposit) before the
-//! pallet is used. For new chains, include the satellite account in the balances genesis config.
+//! The satellite account must be pre-funded with at least existential deposit.
+//! For new chains, include the satellite account in the balances genesis config.
 //! For existing chains, fund it via a manual transfer.
 //!
 //! If the satellite account is not pre-funded, deposits below ED will be silently burned.
@@ -166,12 +166,12 @@ where
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 ///
 /// Use this on system chains (not AssetHub) or Relay Chain to collect imbalances
-/// (e.g., coretime revenue) that would otherwise be burned.
+/// (e.g. coretime revenue, tx fees, dust removal) that would otherwise be burned.
 ///
 /// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
 /// for the old `Currency` trait is not provided because there are no active consumers: all pallets
 /// that could produce `NegativeImbalance` on satellite chains (staking, identity,
-/// election-provider) are either deprecated, or already use the new fungible traits.
+/// election-provider, ...) are either deprecated, or already use the new fungible traits.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let satellite = Self::satellite_account();
