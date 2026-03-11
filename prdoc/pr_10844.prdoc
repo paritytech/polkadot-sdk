@@ -15,6 +15,14 @@ doc:
     own stake with governance-configurable thresholds (`OptimumSelfStake`, `HardCapSelfStake`,
     `SelfStakeSlopeFactor`). Payouts can be immediate or vested via `ValidatorIncentivePayout`.
 
+    **Incentive vesting batch conversion**: To avoid exhausting `MaxVestingSchedules` (typically
+    28), validator incentive rewards are accumulated under a `HoldReason::IncentiveVesting` hold
+    and batch-converted to a vesting schedule every `BondingDuration` eras. At conversion, a
+    retroactive unlock fraction (`BondingDuration / vesting_eras`) is released as liquid,
+    and the remainder is vested over the remaining duration, where
+    `vesting_eras = VestingDuration / (BlocksPerSession * SessionsPerEra)`. New config type
+    `BlocksPerSession` (in relay chain blocks) is required alongside `VestingDuration`.
+
     **Primitives (`sp-staking`)**: New traits -- `InflationCurve`, `BudgetRecipient`,
     `UnclaimedRewardSink`, `StakerRewardCalculator`.
 
