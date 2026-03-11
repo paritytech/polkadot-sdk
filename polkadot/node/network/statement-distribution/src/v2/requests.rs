@@ -180,12 +180,11 @@ impl RequestManager {
 	/// manager doesn't store this request already.
 	pub fn get_or_insert(
 		&mut self,
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		candidate_hash: CandidateHash,
 		group_index: GroupIndex,
 	) -> Entry<'_> {
-		let identifier =
-			CandidateIdentifier { scheduling_parent: relay_parent, candidate_hash, group_index };
+		let identifier = CandidateIdentifier { scheduling_parent, candidate_hash, group_index };
 
 		let (candidate, fresh) = match self.requests.entry(identifier.clone()) {
 			HEntry::Occupied(e) => (e.into_mut(), false),

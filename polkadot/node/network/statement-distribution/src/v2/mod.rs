@@ -533,19 +533,22 @@ pub(crate) async fn handle_network_update<Context>(
 async fn handle_active_leaf_update<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	new_relay_parent: Hash,
+	new_scheduling_parent: Hash,
 ) -> JfyiErrorResult<()> {
 	let disabled_validators: HashSet<_> =
-		polkadot_node_subsystem_util::request_disabled_validators(new_relay_parent, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchDisabledValidators)?
-			.into_iter()
-			.collect();
+		polkadot_node_subsystem_util::request_disabled_validators(
+			new_scheduling_parent,
+			ctx.sender(),
+		)
+		.await
+		.await
+		.map_err(JfyiError::RuntimeApiUnavailable)?
+		.map_err(JfyiError::FetchDisabledValidators)?
+		.into_iter()
+		.collect();
 
 	let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
-		new_relay_parent,
+		new_scheduling_parent,
 		ctx.sender(),
 	)
 	.await
@@ -555,7 +558,7 @@ async fn handle_active_leaf_update<Context>(
 
 	if !state.per_session.contains_key(&session_index) {
 		let session_info = polkadot_node_subsystem_util::request_session_info(
-			new_relay_parent,
+			new_scheduling_parent,
 			session_index,
 			ctx.sender(),
 		)
@@ -568,7 +571,7 @@ async fn handle_active_leaf_update<Context>(
 			None => {
 				gum::warn!(
 					target: LOG_TARGET,
-					relay_parent = ?new_relay_parent,
+					scheduling_parent = ?new_scheduling_parent,
 					"No session info available for current session"
 				);
 
@@ -578,7 +581,7 @@ async fn handle_active_leaf_update<Context>(
 		};
 
 		let minimum_backing_votes =
-			request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
+			request_min_backing_votes(new_scheduling_parent, session_index, ctx.sender())
 				.await
 				.await
 				.map_err(JfyiError::RuntimeApiUnavailable)?
@@ -599,7 +602,7 @@ async fn handle_active_leaf_update<Context>(
 	if !disabled_validators.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			relay_parent = ?new_relay_parent,
+			scheduling_parent = ?new_scheduling_parent,
 			?session_index,
 			?disabled_validators,
 			"Disabled validators detected"
@@ -607,7 +610,7 @@ async fn handle_active_leaf_update<Context>(
 	}
 
 	let group_rotation_info =
-		polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
+		polkadot_node_subsystem_util::request_validator_groups(new_scheduling_parent, ctx.sender())
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiUnavailable)?
@@ -615,7 +618,7 @@ async fn handle_active_leaf_update<Context>(
 			.1;
 
 	let claim_queue = ClaimQueueSnapshot(
-		polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+		polkadot_node_subsystem_util::request_claim_queue(new_scheduling_parent, ctx.sender())
 			.await
 			.await
 			.map_err(JfyiError::RuntimeApiUnavailable)?
@@ -640,7 +643,7 @@ async fn handle_active_leaf_update<Context>(
 	let transposed_cq = transpose_claim_queue(claim_queue.0);
 
 	state.per_scheduling_parent.insert(
-		new_relay_parent,
+		new_scheduling_parent,
 		PerSchedulingParentState {
 			local_validator,
 			statement_store: StatementStore::new(&per_session.groups),
@@ -668,18 +671,18 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		.await
 		.map_err(JfyiError::ActivateLeafFailure)?;
 
-	let new_relay_parents =
+	let new_scheduling_parents =
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::<Vec<_>>();
 
-	for new_relay_parent in new_relay_parents.iter().cloned() {
-		if state.per_scheduling_parent.contains_key(&new_relay_parent) {
+	for new_scheduling_parent in new_scheduling_parents.iter().cloned() {
+		if state.per_scheduling_parent.contains_key(&new_scheduling_parent) {
 			continue;
 		}
 
-		if let Err(err) = handle_active_leaf_update(ctx, state, new_relay_parent).await {
+		if let Err(err) = handle_active_leaf_update(ctx, state, new_scheduling_parent).await {
 			gum::warn!(
 				target: LOG_TARGET,
-				relay_parent = ?new_relay_parent,
+				scheduling_parent = ?new_scheduling_parent,
 				error = ?err,
 				"Failed to handle active leaf update"
 			);
@@ -701,16 +704,22 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	{
 		let mut update_peers = Vec::new();
 		for (peer, peer_state) in state.peers.iter_mut() {
-			let fresh = peer_state.reconcile_active_leaf(activated.hash, &new_relay_parents);
+			let fresh = peer_state.reconcile_active_leaf(activated.hash, &new_scheduling_parents);
 			if !fresh.is_empty() {
 				update_peers.push((*peer, fresh));
 			}
 		}
 
 		for (peer, fresh) in update_peers {
-			for fresh_relay_parent in fresh {
-				send_peer_messages_for_relay_parent(ctx, state, peer, fresh_relay_parent, metrics)
-					.await;
+			for fresh_scheduling_parent in fresh {
+				send_peer_messages_for_scheduling_parent(
+					ctx,
+					state,
+					peer,
+					fresh_scheduling_parent,
+					metrics,
+				)
+				.await;
 			}
 		}
 	}
@@ -803,8 +812,9 @@ async fn handle_peer_view_update<Context>(
 		peer_data.update_view(new_view, &state.implicit_view)
 	};
 
-	for new_relay_parent in fresh_implicit {
-		send_peer_messages_for_relay_parent(ctx, state, peer, new_relay_parent, metrics).await;
+	for new_scheduling_parent in fresh_implicit {
+		send_peer_messages_for_scheduling_parent(ctx, state, peer, new_scheduling_parent, metrics)
+			.await;
 	}
 }
 
@@ -830,11 +840,11 @@ fn find_validator_ids<'a>(
 /// This function is designed to be cheap and not to send duplicate messages in repeated
 /// cases.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn send_peer_messages_for_relay_parent<Context>(
+async fn send_peer_messages_for_scheduling_parent<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	peer: PeerId,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	metrics: &Metrics,
 ) {
 	let peer_data = match state.peers.get_mut(&peer) {
@@ -842,7 +852,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 		Some(p) => p,
 	};
 
-	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&relay_parent) {
+	let scheduling_parent_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		None => return,
 		Some(s) => s,
 	};
@@ -862,7 +872,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 		{
 			send_pending_cluster_statements(
 				ctx,
-				relay_parent,
+				scheduling_parent,
 				&(peer, peer_data.protocol_version),
 				validator_id,
 				&mut active.cluster_tracker,
@@ -875,7 +885,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 
 		send_pending_grid_messages(
 			ctx,
-			relay_parent,
+			scheduling_parent,
 			&(peer, peer_data.protocol_version),
 			validator_id,
 			&per_session_state.groups,

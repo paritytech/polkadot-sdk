@@ -88,7 +88,7 @@ impl Candidates {
 		&mut self,
 		peer: PeerId,
 		candidate_hash: CandidateHash,
-		claimed_relay_parent: Hash,
+		claimed_scheduling_parent: Hash,
 		claimed_group_index: GroupIndex,
 		claimed_parent_hash_and_id: Option<(Hash, ParaId)>,
 	) -> Result<(), BadAdvertisement> {
@@ -102,7 +102,7 @@ impl Candidates {
 
 		match entry {
 			CandidateState::Confirmed(ref c) => {
-				if c.scheduling_parent() != claimed_relay_parent {
+				if c.scheduling_parent() != claimed_scheduling_parent {
 					return Err(BadAdvertisement);
 				}
 
@@ -124,7 +124,7 @@ impl Candidates {
 				c.add_claims(
 					peer,
 					CandidateClaims {
-						relay_parent: claimed_relay_parent,
+						relay_parent: claimed_scheduling_parent,
 						group_index: claimed_group_index,
 						parent_hash_and_id: claimed_parent_hash_and_id,
 					},
@@ -564,7 +564,7 @@ impl ConfirmedCandidate {
 	}
 
 	/// Get the group index of the assigned group. Note that this is in the context
-	/// of the state of the chain at the candidate's relay parent and its para-id.
+	/// of the state of the chain at the candidate's scheduling parent and its para-id.
 	pub fn group_index(&self) -> GroupIndex {
 		self.assigned_group
 	}
