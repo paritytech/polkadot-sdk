@@ -2196,8 +2196,8 @@ fn incentive_vesting_e2e_with_real_pallet_vesting() {
 			&staking_async::HoldReason::IncentiveVesting.into(),
 			&validator,
 		);
-		// CLAUDE: can you try to put hard values in these assertions.
-		assert!(held_before > 0, "Incentive should be held after eras 1 and 2");
+		// 2 eras of incentive at 3900 per era = 7800.
+		assert_eq!(held_before, 7800, "Incentive should be held after eras 1 and 2");
 
 		// Pay out era 3 — batch boundary triggers conversion.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1), validator, 3,));
