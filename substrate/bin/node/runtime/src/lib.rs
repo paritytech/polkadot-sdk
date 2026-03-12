@@ -1856,7 +1856,7 @@ parameter_types! {
 impl pallet_lottery::Config for Runtime {
 	type PalletId = LotteryPalletId;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type Randomness = RandomnessCollectiveFlip;
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerOrigin = EnsureRoot<AccountId>;
