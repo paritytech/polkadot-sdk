@@ -60,6 +60,7 @@ use polkadot_primitives_test_helpers::{
 };
 use sc_network::{OutboundFailure, RequestFailure};
 use sc_network_types::multihash::Multihash;
+use sp_consensus_babe::digests::{PreDigest, SecondaryPlainPreDigest};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
@@ -186,6 +187,7 @@ struct TestState {
 	candidate_nonce: u64,
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
+	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
 }
 
 impl Default for TestState {
@@ -294,6 +296,7 @@ impl Default for TestState {
 			candidate_nonce: 0,
 			keystore,
 			node_features,
+			slot_overrides: HashMap::default(),
 		}
 	}
 }
@@ -386,6 +389,21 @@ impl TestState {
 
 			match msg {
 				AllMessages::ChainApi(ChainApiMessage::BlockHeader(rp, tx)) => {
+					let slot = self.slot_overrides.get(&rp).copied().unwrap_or_else(|| {
+						sp_consensus_slots::Slot::from_timestamp(
+							sp_timestamp::Timestamp::current(),
+							sp_consensus_slots::SlotDuration::from_millis(
+								polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
+							),
+						)
+					});
+					let pre_digest =
+						sp_consensus_babe::digests::CompatibleDigestItem::babe_pre_digest(
+							PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+								authority_index: 0,
+								slot,
+							}),
+						);
 					tx.send(Ok(Some(
 						self.rp_info
 							.get(&rp)
@@ -394,7 +412,7 @@ impl TestState {
 								number: info.number,
 								state_root: Hash::zero(),
 								extrinsics_root: Hash::zero(),
-								digest: Default::default(),
+								digest: sp_runtime::Digest { logs: vec![pre_digest] },
 							})
 							.unwrap(),
 					)))
@@ -3304,6 +3322,69 @@ async fn v3_descriptor_accepted_when_v3_enabled() {
 		.node_features
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	test_state.rp_info.insert(
+		get_hash(10),
+		RelayParentInfo {
+			number: 10,
+			parent: get_parent_hash(10),
+			session_index: leaf_info.session_index,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let (ccr, adv) = dummy_candidate_v3(
+		get_hash(9),
+		get_hash(9),
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	// Advertise the v3 candidate
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V3, ccr, active_leaf)
+		.await;
+}
+
+#[tokio::test]
+// V3 advertisement is accepted when the scheduling parent is a leaf
+// whose slot has already finished (current_slot == leaf_slot + 1).
+async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let slot_duration = sp_consensus_slots::SlotDuration::from_millis(
+		polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	);
+	let current_slot =
+		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	test_state
+		.slot_overrides
+		.insert(get_hash(10), sp_consensus_slots::Slot::from(*current_slot - 1));
+
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
@@ -3334,9 +3415,10 @@ async fn v3_descriptor_accepted_when_v3_enabled() {
 }
 
 #[tokio::test]
-// Test that V3 advertisement is rejected when the scheduling
-// parent is not an active leaf.
-async fn v3_advertisement_rejected_when_sp_not_active_leaf() {
+// V3 advertisements require the scheduling parent to be a RC block from
+// the last finished slot. Check that the leaf of an active slot and its
+// grand parent are rejected
+async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 	let mut test_state = TestState::default();
 	test_state
 		.node_features
@@ -3347,17 +3429,30 @@ async fn v3_advertisement_rejected_when_sp_not_active_leaf() {
 
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-
 	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 	let peer_id = PeerId::random();
 
+	test_state.rp_info.insert(
+		get_hash(11),
+		RelayParentInfo {
+			number: 11,
+			parent: get_parent_hash(10),
+			session_index: leaf_info.session_index,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	test_state.activate_leaf(&mut state, 11).await;
+
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
+	// Test that the grand parent of a block from the current, unfinished slot is rejected
 	let (_ccr, adv) = dummy_candidate_v3(
 		get_hash(9),
-		get_hash(8),
+		get_hash(9),
 		100.into(),
 		peer_id,
 		leaf_info.assigned_core,
@@ -3365,6 +3460,29 @@ async fn v3_advertisement_rejected_when_sp_not_active_leaf() {
 		dummy_pvd().hash(),
 	);
 
+	state
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			adv.scheduling_parent,
+			adv.prospective_candidate,
+			Some(CandidateDescriptorVersion::V3),
+		)
+		.await;
+	assert!(state.advertisements().is_empty());
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Test that the current leaf is rejected as the slot is not yet finished.
+	let (_ccr, adv) = dummy_candidate_v3(
+		get_hash(8),
+		get_hash(11),
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
 	state
 		.handle_advertisement(
 			&mut sender,
@@ -3436,12 +3554,25 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 		.node_features
 		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 
-	let active_leaf = get_hash(10);
+	let active_leaf = get_hash(9);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 	let peer_id = PeerId::random();
+
+	test_state.rp_info.insert(
+		get_hash(10),
+		RelayParentInfo {
+			number: 10,
+			parent: get_parent_hash(10),
+			session_index: leaf_info.session_index,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	test_state.activate_leaf(&mut state, 10).await;
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
@@ -3462,7 +3593,7 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 	let adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
-		scheduling_parent: active_leaf,
+		scheduling_parent: get_hash(9),
 		prospective_candidate: Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
@@ -3485,12 +3616,24 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 	let mut test_state = TestState::default();
 
-	let active_leaf = get_hash(10);
+	let active_leaf = get_hash(9);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 	let peer_id = PeerId::random();
+	test_state.rp_info.insert(
+		get_hash(10),
+		RelayParentInfo {
+			number: 10,
+			parent: get_parent_hash(9),
+			session_index: leaf_info.session_index,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	test_state.activate_leaf(&mut state, 10).await;
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;

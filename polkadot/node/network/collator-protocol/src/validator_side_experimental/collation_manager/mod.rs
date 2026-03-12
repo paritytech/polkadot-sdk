@@ -15,14 +15,20 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	LOG_TARGET, validator_side::{
-		BlockedCollationId, PerLeafClaimQueueState, descriptor_version_sanity_check_with_params, error::SecondingError, request_persisted_validation_data, request_prospective_validation_data
-	}, validator_side_experimental::{
+	validator_side::{
+		descriptor_version_sanity_check_with_params, error::SecondingError,
+		request_persisted_validation_data, request_prospective_validation_data, BlockedCollationId,
+		PerLeafClaimQueueState,
+	},
+	validator_side_experimental::{
 		common::{
-			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse, FAILED_FETCH_SLASH, INSTANT_FETCH_REP_THRESHOLD, INVALID_COLLATION_SLASH, MAX_FETCH_DELAY, ProspectiveCandidate, Score, SecondingRejectionInfo
+			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
+			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
+			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
-	}
+	},
+	LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -33,7 +39,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
-	messages::{CanSecondRequest, CandidateBackingMessage},
+	messages::{CanSecondRequest, CandidateBackingMessage, ChainApiMessage},
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
@@ -45,9 +51,12 @@ use polkadot_primitives::{
 	node_features, CandidateDescriptorVersion, CandidateHash,
 	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
 	HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
+use sp_consensus_babe::digests::CompatibleDigestItem;
+use sp_consensus_slots::SlotDuration;
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
@@ -72,8 +81,13 @@ pub enum AdvertisementError {
 	BlockedByBacking,
 	#[error("V1 advertisements are only allowed on active leaves")]
 	V1AdvertisementForImplicitParent,
-	#[error("For V3 candidate descriptors, scheduling_parent must be an active leaf")]
-	SchedulingParentNotActiveLeaf,
+	#[error("For V3 candidate descriptors, scheduling_parent does not match any expected scheduling parent.")]
+	SchedulingParentNotValid,
+}
+
+struct LeafSchedulingInfo {
+	parent_hash: Hash,
+	slot: sp_consensus_slots::Slot,
 }
 
 pub struct CollationManager {
@@ -102,6 +116,7 @@ pub struct CollationManager {
 
 	// Key store.
 	keystore: KeystorePtr,
+	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
 }
 
 impl CollationManager {
@@ -118,6 +133,7 @@ impl CollationManager {
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
 			keystore,
+			leaf_scheduling_info: HashMap::default(),
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -150,6 +166,29 @@ impl CollationManager {
 		);
 
 		for leaf in added.iter() {
+			// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
+			// Without this info, V3 advertisements referencing this leaf will be rejected.
+			let (tx, rx) = oneshot::channel();
+			sender.send_message(ChainApiMessage::BlockHeader(*leaf, tx)).await;
+			let header = rx.await.ok().and_then(|r| r.ok()).flatten();
+			match header.and_then(|h| {
+				let slot = h.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())?.slot();
+				Some(LeafSchedulingInfo { parent_hash: h.parent_hash, slot })
+			}) {
+				Some(info) => {
+					self.leaf_scheduling_info.insert(*leaf, info);
+				},
+				None => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?leaf,
+						"Could not extract BABE slot from leaf header; \
+						 V3 scheduling parent validation will reject advertisements \
+						 referencing this leaf",
+					);
+				},
+			}
+
 			if let Err(err) = self
 				.implicit_view
 				.activate_leaf(sender, *leaf)
@@ -163,6 +202,7 @@ impl CollationManager {
 
 		for leaf in removed {
 			let deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
+			self.leaf_scheduling_info.remove(&leaf);
 
 			gum::trace!(
 				target: LOG_TARGET,
@@ -297,12 +337,32 @@ impl CollationManager {
 			return Err(AdvertisementError::V1AdvertisementForImplicitParent);
 		}
 
-		// V3 candidate descriptors require scheduling_parent to be an active leaf.
-		// For V1/V2 candidate descriptors sent over V3 protocol, we have to be more lenient.
-		if advertisement.advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) &&
-			!self.implicit_view.contains_leaf(&advertisement.scheduling_parent)
-		{
-			return Err(AdvertisementError::SchedulingParentNotActiveLeaf);
+		// V3 candidate descriptors require scheduling_parent to be the block from the last
+		// finished relay chain slot.
+		if advertisement.advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) {
+			let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
+			let current_slot = sp_consensus_slots::Slot::from_timestamp(
+				sp_timestamp::Timestamp::current(),
+				slot_duration,
+			);
+
+			let scheduling_parent_valid = if let Some(leaf_scheduling_info) =
+				self.leaf_scheduling_info.get(&advertisement.scheduling_parent)
+			{
+				// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
+				// the previous slot.
+				*current_slot == *leaf_scheduling_info.slot + 1
+			} else {
+				// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
+				// any leaf whose slot is still in progress.
+				self.leaf_scheduling_info.iter().any(|(_, leaf_scheduling_info)| {
+					*current_slot == *leaf_scheduling_info.slot &&
+						advertisement.scheduling_parent == leaf_scheduling_info.parent_hash
+				})
+			};
+			if !scheduling_parent_valid {
+				return Err(AdvertisementError::SchedulingParentNotValid);
+			}
 		}
 
 		let now = Instant::now();
@@ -461,7 +521,7 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent out of view"
 			);
-			return CanSecond::No(Some(INVALID_COLLATION_SLASH), reject_info);
+			return CanSecond::No(None, reject_info);
 		};
 
 		let Some(collation_version) = maybe_collattion_version else {
@@ -470,7 +530,7 @@ impl CollationManager {
 				?advertisement,
 				"Peer may not be connected."
 			);
-			return CanSecond::No(None, reject_info)
+			return CanSecond::No(None, reject_info);
 		};
 
 		per_sp.remove_advertisement(&advertisement);
@@ -505,7 +565,7 @@ impl CollationManager {
 					per_sp.v3_enabled,
 					per_sp.core_index,
 					per_sp.session_index,
-					collation_version
+					collation_version,
 				) {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -1514,6 +1574,7 @@ mod tests {
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
+			leaf_scheduling_info: HashMap::new(),
 		};
 
 		// No advertisements - returns Left(None).

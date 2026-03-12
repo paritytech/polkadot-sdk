@@ -209,7 +209,7 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
@@ -233,6 +233,17 @@ impl std::hash::Hash for Advertisement {
 		self.prospective_candidate.hash(state);
 	}
 }
+
+impl PartialEq for Advertisement {
+	fn eq(&self, other: &Self) -> bool {
+		self.scheduling_parent == other.scheduling_parent &&
+			self.para_id == other.para_id &&
+			self.peer_id == other.peer_id &&
+			self.prospective_candidate == other.prospective_candidate
+	}
+}
+
+impl Eq for Advertisement {}
 
 impl Advertisement {
 	pub fn candidate_hash(&self) -> Option<CandidateHash> {
