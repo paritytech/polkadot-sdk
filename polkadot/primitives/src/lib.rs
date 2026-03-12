@@ -53,12 +53,12 @@ pub use v9::{
 	ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
 	ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT, HeadData, Header,
 	HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
-	InherentData, InternalVersion, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet,
-	NodeFeatures, Nonce, OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage,
-	ParathreadClaim, ParathreadEntry, PersistedValidationData, PvfCheckStatement, PvfExecKind,
-	PvfPrepKind, RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues,
-	RuntimeMetricLabels, RuntimeMetricOp, RuntimeMetricUpdate, ScheduledCore, SchedulerParams,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signature, Signed, SignedAvailabilityBitfield,
+	InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, NodeFeatures,
+	Nonce, OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage, ParathreadClaim,
+	ParathreadEntry, PersistedValidationData, PvfCheckStatement, PvfExecKind, PvfPrepKind,
+	RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues, RuntimeMetricLabels,
+	RuntimeMetricOp, RuntimeMetricUpdate, ScheduledCore, SchedulerParams, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Signature, Signed, SignedAvailabilityBitfield,
 	SignedAvailabilityBitfields, SignedStatement, SigningContext, Slot, TransposedClaimQueue,
 	UMPSignal, UncheckedSigned, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields, UncheckedSignedStatement, UpgradeGoAhead,
@@ -68,7 +68,7 @@ pub use v9::{
 	DEFAULT_SCHEDULING_LOOKAHEAD, LEGACY_MIN_BACKING_VOTES, LOWEST_PUBLIC_ID, MAX_CODE_SIZE,
 	MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, MIN_CODE_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 	ON_DEMAND_MAX_QUEUE_MAX_SIZE, PARACHAINS_INHERENT_IDENTIFIER, PARACHAIN_KEY_TYPE_ID,
-	UMP_SEPARATOR,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS, UMP_SEPARATOR,
 };
 
 #[cfg(feature = "test")]

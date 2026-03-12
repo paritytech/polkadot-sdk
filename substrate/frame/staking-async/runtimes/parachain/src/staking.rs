@@ -486,9 +486,8 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
-	type Balance = Balance;
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
+	type Currency = Balances;
+	type KeyDeposit = ConstU128<{ 10_000 * UNITS }>;
 	type WeightInfo = ();
 }
 

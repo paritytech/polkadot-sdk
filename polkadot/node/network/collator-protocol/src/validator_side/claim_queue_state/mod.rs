@@ -24,7 +24,6 @@ use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 mod basic;
 mod per_leaf;
 
-pub(crate) use basic::ClaimQueueState;
 pub(crate) use per_leaf::PerLeafClaimQueueState;
 
 /// Represents the state of a claim.
