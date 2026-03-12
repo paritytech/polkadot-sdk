@@ -54,6 +54,12 @@ pub(crate) use builtin::{
 	System as BenchmarkSystem, WithInfo as BenchmarkWithInfo,
 };
 
+/// Vesting precompile (address 0x0902) that calls `pallet_vesting::vest()`.
+///
+/// Runtimes that want this precompile should include it in their `Config::Precompiles` tuple
+/// and ensure they implement `pallet_vesting::Config`.
+pub use builtin::vesting::Vesting;
+
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
 
 /// A minimal EVM bytecode to be returned when a pre-compile is queried for its code.

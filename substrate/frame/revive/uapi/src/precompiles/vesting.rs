@@ -12,10 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod storage;
-pub mod system;
-pub mod utils;
-pub mod vesting;
-
-/// The directory with all the precompile interface files.
-pub const INTERFACE_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/sol/");
+#[cfg(feature = "precompiles-sol-interfaces")]
+alloy_core::sol!("sol/IVesting.sol");

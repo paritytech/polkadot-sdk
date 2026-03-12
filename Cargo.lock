@@ -13226,6 +13226,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-utility",
+ "pallet-vesting",
  "parity-scale-codec",
  "paste",
  "polkavm 0.31.0",
