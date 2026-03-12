@@ -115,11 +115,13 @@
 
 use crate::{
 	async_backing::{BackingState, Constraints},
-	slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -326,5 +328,14 @@ sp_api::decl_runtime_apis! {
 		/// Retrieve the maximum relay parent session age allowed for parachain blocks.
 		#[api_version(16)]
 		fn max_relay_parent_session_age() -> u32;
+
+		/// Retrieve the relay parent info (block number and state root) for a given
+		/// session index and relay parent hash. Returns `None` if the relay parent
+		/// is not found in the allowed relay parents for that session.
+		#[api_version(16)]
+		fn allowed_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<RelayParentInfo<Hash, BlockNumber>>;
 	}
 }
