@@ -6,7 +6,7 @@
 //! with the same old version.
 
 use crate::utils::{
-	check_log_lines, check_metrics, env_or_default, initialize_network,
+	check_log_lines, check_metrics, env_or_default, initialize_network, MetricCheckSetup,
 	APPROVAL_CHECKING_FINALITY_LAG_METRIC, APPROVAL_NO_SHOWS_TOTAL_METRIC,
 	AVAILABILITY_RECOVERY_RECOVERIES_FINISHED, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
 	DATA_RECOVERY_CHUNKS_PATTERN, DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN,
@@ -52,7 +52,7 @@ async fn chunk_fetching_network_compatibility_test() -> Result<(), anyhow::Error
 	log::info!("All parachains producing blocks");
 
 	log::info!("Ensure approval checking works.");
-	let metric_checks: Vec<(&str, Box<dyn Fn(f64) -> bool>, u64)> = vec![
+	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 30.0), 400),
 		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
 		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),
@@ -97,7 +97,7 @@ async fn chunk_fetching_network_compatibility_test() -> Result<(), anyhow::Error
 	check_log_lines(&validator_nodes, &log_lines_checks).await?;
 
 	log::info!("Ensure availability-distribution worked fine.");
-	let metric_checks: Vec<(&str, Box<dyn Fn(f64) -> bool>, u64)> = vec![
+	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(
 			"polkadot_parachain_fetched_chunks_total{success=\"succeeded\"}",
 			Box::new(|v| v == 10.0),

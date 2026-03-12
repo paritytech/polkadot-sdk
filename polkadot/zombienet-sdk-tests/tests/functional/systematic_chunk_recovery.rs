@@ -6,7 +6,7 @@
 //! chunk mapping feature and check systematic chunk recovery.
 
 use crate::utils::{
-	check_log_lines, check_metrics, env_or_default, initialize_network,
+	check_log_lines, check_metrics, env_or_default, initialize_network, MetricCheckSetup,
 	APPROVAL_CHECKING_FINALITY_LAG_METRIC, APPROVAL_NO_SHOWS_TOTAL_METRIC,
 	AVAILABILITY_RECOVERY_RECOVERIES_FINISHED, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
 	DATA_RECOVERY_CHUNKS_NOT_POSSIBLE_PATTERN, DATA_RECOVERY_CHUNKS_PATTERN,
@@ -68,7 +68,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 		validator_nodes.push(network.get_node(name)?);
 	}
 
-	let metric_checks: Vec<(&str, Box<dyn Fn(f64) -> bool>, u64)> = vec![
+	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 30.0), 400),
 		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
 		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),
@@ -125,7 +125,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Configuration::set_node_feature updated");
 
-	let metric_checks: Vec<(&str, Box<dyn Fn(f64) -> bool>, u64)> = vec![
+	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 60.0), 400),
 		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
 		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),

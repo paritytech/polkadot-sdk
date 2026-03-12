@@ -70,9 +70,10 @@ pub async fn check_log_lines(
 	Ok(())
 }
 
+pub type MetricCheckSetup<'a> = (&'a str, Box<dyn Fn(f64) -> bool>, u64);
 pub async fn check_metrics(
 	validator_nodes: &[&NetworkNode],
-	metric_checks: &[(&str, Box<dyn Fn(f64) -> bool>, u64)],
+	metric_checks: &[MetricCheckSetup<'_>],
 ) -> Result<(), anyhow::Error> {
 	for (metric, predicate, timeout) in metric_checks {
 		for validator in validator_nodes {
@@ -118,8 +119,8 @@ pub fn create_force_register_call(
 	para_id: u32,
 	registrar_account: Value,
 ) -> Vec<Value> {
-	let genesis_head_value = Value::from_bytes(&genesis_header);
-	let validation_code_value = Value::from_bytes(&validation_code);
+	let genesis_head_value = Value::from_bytes(genesis_header);
+	let validation_code_value = Value::from_bytes(validation_code);
 
 	let force_register_call = value! {
 		Registrar(force_register { who: registrar_account, deposit: 0u128, id: para_id, genesis_head: genesis_head_value, validation_code: validation_code_value.clone() })
