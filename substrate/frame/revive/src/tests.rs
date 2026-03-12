@@ -40,7 +40,7 @@ use frame_support::{
 	DefaultNoBound, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion},
+	traits::{ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion, WithdrawReasons},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_revive_fixtures::compile_module;
@@ -90,6 +90,7 @@ frame_support::construct_runtime!(
 		Contracts: pallet_revive,
 		Proxy: pallet_proxy,
 		TransactionPayment: pallet_transaction_payment,
+		Vesting: pallet_vesting,
 		Dummy: pallet_dummy
 	}
 );
@@ -325,6 +326,23 @@ impl pallet_transaction_payment::Config for Test {
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
+parameter_types! {
+	pub const MinVestedTransfer: u128 = 1;
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = sp_runtime::traits::ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = ();
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
+}
+
 impl pallet_dummy::Config for Test {}
 
 parameter_types! {
@@ -397,7 +415,11 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
-	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
+	type Precompiles = (
+		precompiles::WithInfo<Self>,
+		precompiles::NoInfo<Self>,
+		crate::precompiles::Vesting<Self>,
+	);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = DebugFlag;
 }
