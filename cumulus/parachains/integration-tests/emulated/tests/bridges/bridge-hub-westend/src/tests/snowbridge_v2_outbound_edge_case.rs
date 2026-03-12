@@ -21,11 +21,63 @@ use crate::{
 		usdt_at_ah_westend,
 	},
 };
-use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
+use emulated_integration_tests_common::{
+	impls::Network,
+	snowbridge::{SEPOLIA_ID, WETH},
+};
 use frame_support::assert_noop;
+use hex_literal::hex;
+use rococo_westend_system_emulated_network::WestendMockNet;
 use snowbridge_core::AssetMetadata;
+use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use sp_runtime::DispatchError::BadOrigin;
+use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::v5::AssetTransferFilter;
+
+fn unprivileged_attacker() -> AccountId {
+	// ALICE here is a regular signed user in the emulator setup, not a privileged origin.
+	AssetHubWestend::account_id_of(ALICE)
+}
+
+fn build_exploit_message(alias_origin: Location, ethereum_network: NetworkId) -> Xcm<()> {
+	let token_key: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_key: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(200_000_000_000) };
+	let token_assets: Assets = vec![Asset {
+		id: AssetId(Location::new(
+			0,
+			[AccountKey20 { network: Some(ethereum_network), key: token_key }],
+		)),
+		fun: Fungible(1_000),
+	}]
+	.into();
+	let token_filter: AssetFilter = token_assets.clone().into();
+	let call = ContractCall::V1 {
+		target: hex!("3000000000000000000000000000000000000000"),
+		calldata: vec![0xde, 0xad, 0xbe, 0xef],
+		value: 100_000_000_000_000_000_000, // 100 ETH
+		gas: 120_000,
+	};
+
+	Xcm(vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(token_assets),
+		AliasOrigin(alias_origin),
+		DepositAsset {
+			assets: token_filter,
+			beneficiary: AccountKey20 { network: Some(ethereum_network), key: beneficiary_key }
+				.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: None,
+			call: call.encode().into(),
+		},
+		SetTopic([0xab; 32]),
+	])
+}
 
 #[test]
 fn register_penpal_a_asset_from_penpal_b_will_fail() {
@@ -429,4 +481,35 @@ pub fn exploit_v2_route_with_legacy_v1_transfer_will_fail() {
 			]
 		);
 	})
+}
+
+#[test]
+fn snowbridge_v2_alias_origin_spoof() {
+	WestendMockNet::reset();
+	fund_on_bh();
+	fund_on_ah();
+	let attacker = unprivileged_attacker();
+	AssetHubWestend::fund_accounts(vec![(attacker.clone(), 2_000_000_000_000)]);
+
+	let ethereum_network: NetworkId = EthereumNetwork::get().into();
+	let spoofed_origin =
+		Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)]);
+
+	// The message starts with DescendOrigin (prepended by pallet_xcm::send for signed
+	// origins), so the RejectDescendOriginExporter on AH rejects it before it reaches BH.
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_noop!(
+			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::send(
+				RuntimeOrigin::signed(attacker.clone()),
+				bx!(VersionedLocation::from(ethereum())),
+				bx!(VersionedXcm::from(build_exploit_message(
+					spoofed_origin.clone(),
+					ethereum_network
+				))),
+			),
+			pallet_xcm::Error::<<AssetHubWestend as Chain>::Runtime>::Unreachable
+		);
+	});
 }

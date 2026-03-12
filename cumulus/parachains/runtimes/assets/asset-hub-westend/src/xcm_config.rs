@@ -44,7 +44,9 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
+use snowbridge_outbound_queue_primitives::v2::exporter::{
+	PausableExporter, RejectDescendOriginExporter,
+};
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
@@ -538,13 +540,15 @@ pub type XcmRouter = WithUniqueTopic<(
 	PausableExporter<
 		crate::SnowbridgeSystemFrontend,
 		(
-			UnpaidRemoteExporter<
-				(
-					bridging::to_ethereum::EthereumNetworkExportTableV2,
-					bridging::to_ethereum::EthereumNetworkExportTableV1,
-				),
-				XcmpQueue,
-				UniversalLocation,
+			RejectDescendOriginExporter<
+				UnpaidRemoteExporter<
+					(
+						bridging::to_ethereum::EthereumNetworkExportTableV2,
+						bridging::to_ethereum::EthereumNetworkExportTableV1,
+					),
+					XcmpQueue,
+					UniversalLocation,
+				>,
 			>,
 		),
 	>,
