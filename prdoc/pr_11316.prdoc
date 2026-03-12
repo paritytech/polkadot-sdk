@@ -3,4 +3,8 @@ doc:
 - audience: Node Dev
   description: |-
     Update litep2p to latest 0.13.3 version
-crates: []
+crates:
+- name: sc-network-types
+  bump: patch
+- name: sc-network
+  bump: patch
