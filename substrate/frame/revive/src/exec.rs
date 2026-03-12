@@ -1845,6 +1845,12 @@ where
 		self.block_number = block_number;
 	}
 
+	/// Set the delegate call info on the top frame for testing purposes.
+	#[cfg(test)]
+	pub(crate) fn set_delegate_call(&mut self, delegate: DelegateInfo<T>) {
+		self.top_frame_mut().delegate = Some(delegate);
+	}
+
 	fn block_hash(&self, block_number: U256) -> Option<H256> {
 		let Ok(block_number) = BlockNumberFor::<T>::try_from(block_number) else {
 			return None;

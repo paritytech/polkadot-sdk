@@ -320,6 +320,65 @@ mod tests {
 	}
 
 	#[test]
+	fn vest_reverts_on_delegate_call() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::{DelegateInfo, exec::Origin};
+			use sp_core::H160;
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			ext.set_delegate_call(DelegateInfo {
+				caller: Origin::from_account_id(ext.account_id().clone()),
+				callee: H160::from_low_u64_be(0x902),
+			});
+
+			let input = IVesting::IVestingCalls::vest(IVesting::vestCall {});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			match result {
+				Err(Error::Revert(revert)) => {
+					assert!(
+						revert.reason.contains("cannot be called via delegate call"),
+						"unexpected revert message: {}",
+						revert.reason
+					);
+				},
+				other => panic!("expected Error::Revert for delegate call, got: {:?}", other),
+			}
+		})
+	}
+
+	#[test]
+	fn vesting_balance_reverts_on_delegate_call() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::{DelegateInfo, exec::Origin};
+			use sp_core::H160;
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			ext.set_delegate_call(DelegateInfo {
+				caller: Origin::from_account_id(ext.account_id().clone()),
+				callee: H160::from_low_u64_be(0x902),
+			});
+
+			let input =
+				IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			match result {
+				Err(Error::Revert(revert)) => {
+					assert!(
+						revert.reason.contains("cannot be called via delegate call"),
+						"unexpected revert message: {}",
+						revert.reason
+					);
+				},
+				other => panic!("expected Error::Revert for delegate call, got: {:?}", other),
+			}
+		})
+	}
+
+	#[test]
 	fn vesting_balance_returns_zero_for_no_schedule() {
 		ExtBuilder::default().build().execute_with(|| {
 			use alloy_core::sol_types::SolValue;
