@@ -1406,26 +1406,26 @@ mod tests {
 
 		// First insert creates the row.
 		provider
-			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(100, hash_a))
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(100, hash_a))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Head).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Higher value advances.
 		provider
-			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(200, hash_b))
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(200, hash_b))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Head).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Lower and equal values are ignored (strict >).
 		provider
-			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(50, hash_a))
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(50, hash_a))
 			.await?;
 		provider
-			.advance_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(200, hash_a))
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(200, hash_a))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Head).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		Ok(())
@@ -1439,26 +1439,26 @@ mod tests {
 
 		// First insert creates the row.
 		provider
-			.recede_sync_label(SyncLabel::BackfillLowerBound, SyncCheckpoint::new(100, hash_a))
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(100, hash_a))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::BackfillLowerBound).await?.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Tail).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Lower value recedes.
 		provider
-			.recede_sync_label(SyncLabel::BackfillLowerBound, SyncCheckpoint::new(50, hash_b))
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(50, hash_b))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::BackfillLowerBound).await?.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Tail).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Higher and equal values are ignored (strict <).
 		provider
-			.recede_sync_label(SyncLabel::BackfillLowerBound, SyncCheckpoint::new(200, hash_a))
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(200, hash_a))
 			.await?;
 		provider
-			.recede_sync_label(SyncLabel::BackfillLowerBound, SyncCheckpoint::new(50, hash_a))
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(50, hash_a))
 			.await?;
-		let checkpoint = provider.get_sync_label(SyncLabel::BackfillLowerBound).await?.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Tail).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		Ok(())

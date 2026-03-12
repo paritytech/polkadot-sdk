@@ -1019,9 +1019,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Fresh DB — sync_state table should be empty.
-	for label in
-		[SyncLabel::BackfillLowerBound, SyncLabel::BackfillUpperBound, SyncLabel::LastFinalized]
-	{
+	for label in [SyncLabel::Tail, SyncLabel::Head] {
 		assert!(
 			client.receipt_provider().get_sync_label(label).await?.is_none(),
 			"sync_state[{label}] should be absent on fresh DB"
@@ -1034,11 +1032,11 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		);
 	}
 
-	let upper = client.prepare_sync().await?;
-	assert!(upper.is_none(), "Fresh DB should have no sync state, got: {upper:?}");
+	// Capture finalized before sync — Head will be set to this snapshot.
+	let finalized_before_sync = client.latest_finalized_block().await.number();
 
 	// Run the full backward sync.
-	client.sync_past_blocks(upper).await?;
+	client.sync_past_blocks().await?;
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -1052,25 +1050,24 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		"Stored genesis should match chain genesis"
 	);
 
-	// BackfillUpperBound = {0, None} marks a completed sync.
-	let upper_bound = client
+	// Head should be exactly the finalized block at sync start.
+	let sync_head = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::BackfillUpperBound)
+		.get_sync_label(SyncLabel::Head)
 		.await?
-		.expect("BackfillUpperBound should be set after sync");
+		.expect("Head should be set after sync");
 	assert_eq!(
-		upper_bound,
-		SyncCheckpoint::from_number(0),
-		"BackfillUpperBound should be {{0, None}} after completed sync"
+		sync_head.block_number, finalized_before_sync,
+		"Head should equal finalized at sync start"
 	);
 
-	// BackfillLowerBound should be genesis (block 0) — on the dev node all blocks have EVM hashes.
-	let lower_bound = client
+	// Tail should be genesis (block 0) — on the dev node all blocks have EVM hashes.
+	let sync_tail = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::BackfillLowerBound)
+		.get_sync_label(SyncLabel::Tail)
 		.await?
-		.expect("BackfillLowerBound should be set after sync");
-	assert_eq!(lower_bound, genesis, "BackfillLowerBound should be genesis");
+		.expect("Tail should be set after sync");
+	assert_eq!(sync_tail, genesis, "Tail should be genesis");
 
 	// On the dev node all blocks (including genesis) have EVM hashes
 	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
@@ -1093,19 +1090,21 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	);
 
 	// Re-syncing should complete without errors (exercises the resume path).
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
-	let upper_bound = client
+	client.sync_past_blocks().await?;
+	let sync_head_after = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::BackfillUpperBound)
+		.get_sync_label(SyncLabel::Head)
 		.await?
-		.expect("BackfillUpperBound should exist after re-sync");
-	assert_eq!(upper_bound.block_number, 0, "BackfillUpperBound should remain 0 after re-sync");
+		.expect("Head should exist after re-sync");
+	assert!(
+		sync_head_after.block_number >= sync_head.block_number,
+		"Head should not regress after re-sync"
+	);
 
 	Ok(())
 }
 
-/// Simulate an interrupted sync by manually setting both BackfillUpperBound and BackfillLowerBound
+/// Simulate an interrupted sync by manually setting both Head and Tail
 /// to create a top gap and a bottom gap, then verify that `resume_sync` fills both.
 async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
@@ -1116,78 +1115,75 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so the DB has all blocks and labels.
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
+	client.sync_past_blocks().await?;
 
-	// Pick two blocks to simulate partial coverage: lower at 1/3, upper at 2/3.
+	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
 	let chain_len = client.latest_finalized_block().await.number();
 
-	let lower_num = chain_len / 3;
-	let lower_block = client
+	let tail_num = chain_len / 3;
+	let tail_block = client
 		.block_provider()
-		.block_by_number(lower_num)
+		.block_by_number(tail_num)
 		.await?
-		.expect("Lower block should exist");
+		.expect("Tail block should exist");
 
-	let upper_num = chain_len * 2 / 3;
-	let upper_block = client
+	let head_num = chain_len * 2 / 3;
+	let head_block = client
 		.block_provider()
-		.block_by_number(upper_num)
+		.block_by_number(head_num)
 		.await?
-		.expect("Upper block should exist");
+		.expect("Head block should exist");
 
 	// Overwrite both labels to simulate an interrupted sync with a partial range.
-	let interrupted_lower = SyncCheckpoint::new(lower_block.number(), lower_block.hash());
-	let interrupted_upper = SyncCheckpoint::new(upper_block.number(), upper_block.hash());
+	let interrupted_tail = SyncCheckpoint::new(tail_block.number(), tail_block.hash());
+	let interrupted_head = SyncCheckpoint::new(head_block.number(), head_block.hash());
 
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::BackfillLowerBound, interrupted_lower)
+		.set_sync_label(SyncLabel::Tail, interrupted_tail)
 		.await?;
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::BackfillUpperBound, interrupted_upper)
+		.set_sync_label(SyncLabel::Head, interrupted_head)
 		.await?;
 
-	// prepare_sync should detect the interrupted sync
-	let upper = client.prepare_sync().await?;
-	assert_eq!(
-		upper,
-		Some(interrupted_upper),
-		"prepare_sync should return the interrupted BackfillUpperBound"
-	);
+	// Capture finalized before resume — Head will be set to this snapshot.
+	let finalized_before_resume = client.latest_finalized_block().await.number();
 
 	// Resume sync — fills top gap and bottom gap.
-	client.sync_past_blocks(upper).await?;
+	client.sync_past_blocks().await?;
 
-	// After resume, BackfillUpperBound should be 0 (sync complete).
-	let new_upper = client
+	// After resume, Head should be at the finalized block that was current at resume start.
+	let new_head = client
 		.receipt_provider()
-		.get_sync_label(SyncLabel::BackfillUpperBound)
+		.get_sync_label(SyncLabel::Head)
 		.await?
-		.expect("BackfillUpperBound should exist after resume");
-	assert_eq!(new_upper.block_number, 0, "BackfillUpperBound should be 0 after resumed sync");
-
-	// BackfillLowerBound should reach genesis (bottom gap fully filled).
-	let new_lower = client
-		.receipt_provider()
-		.get_sync_label(SyncLabel::BackfillLowerBound)
-		.await?
-		.expect("BackfillLowerBound should exist after resume");
+		.expect("Head should exist after resume");
 	assert_eq!(
-		new_lower.block_number, 0,
-		"BackfillLowerBound should be 0 after resume fills the bottom gap, got #{}",
-		new_lower.block_number,
+		new_head.block_number, finalized_before_resume,
+		"Head should equal finalized at resume start",
+	);
+
+	// Tail should reach genesis (bottom gap fully filled).
+	let new_tail = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Tail)
+		.await?
+		.expect("Tail should exist after resume");
+	assert_eq!(
+		new_tail.block_number, 0,
+		"Tail should be 0 after resume fills the bottom gap, got #{}",
+		new_tail.block_number,
 	);
 
 	log::debug!(
 		target: LOG_TARGET,
 		"Resume interrupted OK: simulated partial range #{}..#{}, \
-		 after resume lower=#{}, upper=#{}",
-		interrupted_lower.block_number,
-		interrupted_upper.block_number,
-		new_lower.block_number,
-		new_upper.block_number,
+		 after resume tail=#{}, head=#{}",
+		interrupted_tail.block_number,
+		interrupted_head.block_number,
+		new_tail.block_number,
+		new_head.block_number,
 	);
 
 	Ok(())
@@ -1195,7 +1191,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 
 /// Corrupted sync labels should be detected on resume:
 /// - Fake Genesis hash → `ChainMismatch`
-/// - Fake BackfillUpperBound hash → `SyncBoundaryMismatch`
+/// - Fake Head hash → `SyncBoundaryMismatch`
 async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	use crate::{block_sync::SyncCheckpoint, client::ClientError};
 
@@ -1205,8 +1201,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so all labels are stored.
-	let upper = client.prepare_sync().await?;
-	client.sync_past_blocks(upper).await?;
+	client.sync_past_blocks().await?;
 
 	// --- ChainMismatch: overwrite Genesis with a fake hash ---
 	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
@@ -1215,8 +1210,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
 		.await?;
 
-	let upper = client.prepare_sync().await?;
-	let err = client.sync_past_blocks(upper).await.unwrap_err();
+	let err = client.sync_past_blocks().await.unwrap_err();
 	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
 
 	// Restore the real genesis so we can test the next corruption.
@@ -1226,22 +1220,15 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(ChainMetadata::Genesis, real_genesis)
 		.await?;
 
-	// --- SyncBoundaryMismatch: corrupted BackfillUpperBound hash ---
+	// --- SyncBoundaryMismatch: corrupted Head hash ---
 	let chain_len = client.latest_finalized_block().await.number();
 	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::BackfillUpperBound, corrupted_upper)
+		.set_sync_label(SyncLabel::Head, corrupted_upper)
 		.await?;
 
-	let upper = client.prepare_sync().await?;
-	assert_eq!(
-		upper.unwrap(),
-		corrupted_upper,
-		"prepare_sync should return the corrupted BackfillUpperBound"
-	);
-
-	let err = client.sync_past_blocks(upper).await.unwrap_err();
+	let err = client.sync_past_blocks().await.unwrap_err();
 	assert!(
 		matches!(err, ClientError::SyncBoundaryMismatch),
 		"Expected SyncBoundaryMismatch, got: {err:?}"
@@ -1257,8 +1244,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client1 = create_sync_test_client().await?;
 	let finalized1 = client1.latest_finalized_block().await.number();
 
-	let upper1 = client1.prepare_sync().await?;
-	client1.sync_past_blocks(upper1).await?;
+	client1.sync_past_blocks().await?;
 
 	// Submit a transaction to produce at least one new block.
 	submit_evm_transfers(1).await?;
@@ -1267,8 +1253,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client2 = create_sync_test_client().await?;
 	let finalized2 = client2.latest_finalized_block().await;
 
-	let upper2 = client2.prepare_sync().await?;
-	client2.sync_past_blocks(upper2).await?;
+	client2.sync_past_blocks().await?;
 	assert!(
 		finalized2.number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",

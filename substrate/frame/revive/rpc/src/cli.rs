@@ -351,17 +351,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
-	// Read the sync boundary before subscriptions start, so the finalized
-	// subscription cannot advance `Finalized` past actual contiguous coverage.
-	let upper_boundary = if eth_pruning.is_archive() {
-		log::info!(target: "eth-rpc",
-			"🔄 Historical block sync enabled (--eth-pruning archive). For a complete sync, \
-			 the connected node should be an archive node.");
-		Some(tokio_runtime.block_on(client.prepare_sync())?)
-	} else {
-		None
-	};
-
 	let rpc_server_handle = start_rpc_servers(
 		&rpc_config,
 		prometheus_registry,
@@ -378,8 +367,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
 			];
 
-			if let Some(boundary) = upper_boundary {
-				futures.push(Box::pin(client.sync_past_blocks(boundary)));
+			if eth_pruning.is_archive() {
+				futures.push(Box::pin(client.sync_past_blocks()));
 			}
 
 			if let Err(err) = futures::future::try_join_all(futures).await {

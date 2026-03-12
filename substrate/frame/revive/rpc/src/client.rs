@@ -39,7 +39,13 @@ use pallet_revive::{
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{sync::Arc, time::Duration};
+use std::{
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering},
+	},
+	time::Duration,
+};
 use storage_api::StorageApi;
 use subxt::{
 	Config, OnlineClient,
@@ -241,6 +247,8 @@ pub struct Client {
 	subscription_lock: Arc<Mutex<()>>,
 	/// Whether archive mode is enabled
 	is_archive: bool,
+	/// Whether historic backfill has completed. `false` if not started or in progress.
+	backfill_complete: Arc<AtomicBool>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -320,9 +328,20 @@ impl Client {
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
 			is_archive,
+			backfill_complete: Arc::new(AtomicBool::new(false)),
 		};
 
 		Ok(client)
+	}
+
+	/// Signal that historic backfill is complete.
+	pub(crate) fn mark_backfill_complete(&self) {
+		self.backfill_complete.store(true, Ordering::Release);
+	}
+
+	/// Whether archive sync is active and backfill has completed.
+	fn should_advance_head(&self) -> bool {
+		self.is_archive && self.backfill_complete.load(Ordering::Acquire)
 	}
 
 	/// Creates a block notifier instance.
@@ -420,19 +439,19 @@ impl Client {
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
 			match (subscription_type, &self.block_notifier) {
-				(SubscriptionType::FinalizedBlocks, _) if self.is_archive => {
+				(SubscriptionType::FinalizedBlocks, _) if self.should_advance_head() => {
 					// Track finalized block in sync_state (monotonic advance).
 					if let Err(err) = self
 						.receipt_provider
 						.advance_sync_label(
-							SyncLabel::LastFinalized,
+							SyncLabel::Head,
 							SyncCheckpoint::new(block_number, hash),
 						)
 						.await
 					{
 						log::warn!(target: LOG_TARGET,
 							"Failed to update sync_label[{}]: {err:?}",
-							SyncLabel::LastFinalized);
+							SyncLabel::Head);
 					}
 				},
 				// Only broadcast for best blocks to avoid duplicate notifications.
