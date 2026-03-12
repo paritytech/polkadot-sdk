@@ -101,23 +101,11 @@ impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
 	}
 }
 
-/// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`)
+/// Macro to define named skip handlers for custom non-empty transaction extensions
 ///
-/// Empty types are automatically skipped by `AnyOf`, so our catch-all handlers must not claim
-/// them - otherwise they waste a slot that could be used for a non-empty unknown extension
-fn is_type_empty(type_id: u32, types: &::scale_info::PortableRegistry) -> bool {
-	use scale_info::TypeDef;
-	let Some(ty) = types.resolve(type_id) else {
-		return false;
-	};
-	match &ty.type_def {
-		TypeDef::Composite(c) => c.fields.iter().all(|f| is_type_empty(f.ty.id, types)),
-		TypeDef::Array(a) => a.len == 0 || is_type_empty(a.type_param.id, types),
-		TypeDef::Tuple(t) => t.fields.iter().all(|f| is_type_empty(f.id, types)),
-		_ => false,
-	}
-}
-
+/// Each generated struct matches by its identifier name via `stringify!($name)` and encodes as
+/// `0x00` (first-variant enum / `None`). Invoke with actual extension names when targeting
+/// runtimes with custom non-empty extensions
 macro_rules! define_skip_unknown_extensions {
 	($($name:ident),+ $(,)?) => { $(
 		pub struct $name;
@@ -143,28 +131,29 @@ macro_rules! define_skip_unknown_extensions {
 			type Decoded = Static<u8>;
 
 			fn matches(
-				_identifier: &str,
-				type_id: u32,
-				types: &::scale_info::PortableRegistry,
+				identifier: &str,
+				_type_id: u32,
+				_types: &::scale_info::PortableRegistry,
 			) -> bool {
-				!is_type_empty(type_id, types)
+				identifier == stringify!($name)
 			}
 		}
 	)+ };
 }
 
+// Skip handlers for custom non-empty extensions in the people-westend runtime
+// Zero-sized extensions (e.g. ProvideForVoucherClaimer) are auto-skipped by AnyOf
 define_skip_unknown_extensions!(
-	SkipUnknown1,
-	SkipUnknown2,
-	SkipUnknown3,
-	SkipUnknown4,
-	SkipUnknown5,
-	SkipUnknown6,
-	SkipUnknown7,
-	SkipUnknown8,
+	AsPerson,
+	AsProofOfInkParticipant,
+	ScoreAsParticipant,
+	GameAsInvited,
+	PeopleLiteAuth,
+	AsCoinage,
+	RestrictOrigins, // encodes as a bool false (0x00) disables it
 );
 
-type BenchExtrinsicParams<T> = AnyOf<
+type CustomExtrinsicParams<T> = AnyOf<
 	T,
 	(
 		VerifyMultiSignature<T>,
@@ -176,28 +165,27 @@ type BenchExtrinsicParams<T> = AnyOf<
 		ChargeAssetTxPayment<T>,
 		ChargeTransactionPayment,
 		CheckMetadataHash,
-		SkipUnknown1,
-		SkipUnknown2,
-		SkipUnknown3,
-		SkipUnknown4,
-		SkipUnknown5,
-		SkipUnknown6,
-		SkipUnknown7,
-		SkipUnknown8,
+		AsPerson,
+		AsProofOfInkParticipant,
+		ScoreAsParticipant,
+		GameAsInvited,
+		PeopleLiteAuth,
+		AsCoinage,
+		RestrictOrigins,
 	),
 >;
 
-/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`BenchExtrinsicParams`].
+/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`CustomExtrinsicParams`].
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum BenchConfig {}
+pub enum CustomConfig {}
 
-impl Config for BenchConfig {
+impl Config for CustomConfig {
 	type AccountId = <PolkadotConfig as Config>::AccountId;
 	type Address = <PolkadotConfig as Config>::Address;
 	type Signature = <PolkadotConfig as Config>::Signature;
 	type Hasher = <PolkadotConfig as Config>::Hasher;
 	type Header = <PolkadotConfig as Config>::Header;
-	type ExtrinsicParams = BenchExtrinsicParams<Self>;
+	type ExtrinsicParams = CustomExtrinsicParams<Self>;
 	type AssetId = <PolkadotConfig as Config>::AssetId;
 }
 
@@ -564,7 +552,7 @@ async fn set_allowances(
 	max_size: u32,
 	max_batch_calls: usize,
 ) -> Result<(), anyhow::Error> {
-	let client = OnlineClient::<BenchConfig>::from_insecure_url(rpc_url).await?;
+	let client = OnlineClient::<CustomConfig>::from_insecure_url(rpc_url).await?;
 
 	let uri = SecretUri::from_str(sudo_seed).map_err(|e| anyhow!("Invalid sudo seed URI: {e}"))?;
 	let sudo_key =
@@ -607,9 +595,9 @@ async fn set_allowances(
 		let chunk_calls: Vec<Value> = chunk.to_vec();
 		let batch_call = value! { Utility(batch_all { calls: chunk_calls }) };
 		let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
-		let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new().immortal().build();
+		let dp = DefaultExtrinsicParamsBuilder::<CustomConfig>::new().immortal().build();
 		let extensions =
-			(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (), ());
+			(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), ());
 
 		let mut progress = client
 			.tx()
