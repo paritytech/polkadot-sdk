@@ -120,6 +120,9 @@ pub enum ExecutorParam {
 	/// Enables WASM bulk memory proposal
 	#[codec(index = 7)]
 	WasmExtBulkMemory,
+	/// Enables elliptic curve cryptography (ECC) host functions.
+	#[codec(index = 8)]
+	WasmExtEccHostFunctions,
 }
 
 /// Possible inconsistencies of executor params.
@@ -242,6 +245,7 @@ impl ExecutorParams {
 				PvfPrepTimeout(..) => None,
 				PvfExecTimeout(..) => None,
 				WasmExtBulkMemory => Some(param),
+				WasmExtEccHostFunctions => Some(param),
 			})
 			.for_each(|p| enc.extend(p.encode()));
 
@@ -311,7 +315,7 @@ impl ExecutorParams {
 
 		for param in &self.0 {
 			// should ensure to be unique
-			let param_ident = match *param {
+			let param_ident = match param {
 				MaxMemoryPages(_) => "MaxMemoryPages",
 				StackLogicalMax(_) => "StackLogicalMax",
 				StackNativeMax(_) => "StackNativeMax",
@@ -325,6 +329,7 @@ impl ExecutorParams {
 					PvfExecKind::Approval => "PvfExecKind::Approval",
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
+				WasmExtEccHostFunctions => "WasmExtEccHostFunctions",
 			};
 
 			match *param {
@@ -357,6 +362,10 @@ impl ExecutorParams {
 				},
 
 				WasmExtBulkMemory => {
+					check!(param_ident, 1);
+				},
+
+				WasmExtEccHostFunctions => {
 					check!(param_ident, 1);
 				},
 			}
@@ -429,6 +438,7 @@ fn ensure_prep_hash_changes() {
 			PvfExecTimeout(PvfExecKind::Backing, 0),
 			PvfExecTimeout(PvfExecKind::Approval, 0),
 			WasmExtBulkMemory,
+			WasmExtEccHostFunctions,
 		][..],
 	);
 
@@ -448,6 +458,9 @@ fn ensure_prep_hash_changes() {
 			PvfExecTimeout(_, _) => continue,
 			WasmExtBulkMemory => {
 				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..]))
+			},
+			WasmExtEccHostFunctions => {
+				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtEccHostFunctions][..]))
 			},
 		};
 

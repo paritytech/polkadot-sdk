@@ -142,10 +142,21 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	let mut config = DEFAULT_CONFIG.clone();
 	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
-	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
-		compiled_artifact_blob,
-		config,
-	)
+	let ecc_hf_enabled = executor_params
+		.iter()
+		.any(|p| matches!(p, ExecutorParam::WasmExtEccHostFunctions));
+
+	if ecc_hf_enabled {
+		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctionsWithEcc>(
+			compiled_artifact_blob,
+			config,
+		)
+	} else {
+		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
+			compiled_artifact_blob,
+			config,
+		)
+	}
 }
 
 /// Takes the default config and overwrites any settings with existing executor parameters.
@@ -170,7 +181,8 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
 			ExecutorParam::PrecheckingMaxMemory(_) |
 			ExecutorParam::PvfPrepTimeout(_, _) |
-			ExecutorParam::PvfExecTimeout(_, _) => (), // Not used here
+			ExecutorParam::PvfExecTimeout(_, _) |
+			ExecutorParam::WasmExtEccHostFunctions => (), // Not used here
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit.clone());
@@ -209,8 +221,11 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
-	sp_crypto_ec_utils::HostFunctions,
 );
+
+/// Host functions with ECC (elliptic curve cryptography) support.
+/// Only used when `ExecutorParam::WasmExtEccHostFunctions` is present.
+type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctions);
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
 /// have a notion of a persistent storage/trie.)
@@ -400,6 +415,7 @@ mod tests {
 			PvfPrepTimeout(_, _) => true,
 			PvfExecTimeout(_, _) => true,
 			WasmExtBulkMemory => true,
+			WasmExtEccHostFunctions => true,
 		};
 
 		// A minimal module with memory and an exported `validate_block` function.
@@ -478,6 +494,11 @@ mod tests {
 				"WasmExtBulkMemory",
 				base.clone(),
 				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
+			),
+			(
+				"WasmExtEccHostFunctions",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::WasmExtEccHostFunctions][..]),
 			),
 		];
 
