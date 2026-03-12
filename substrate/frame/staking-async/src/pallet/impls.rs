@@ -441,7 +441,7 @@ impl<T: Config> Pallet<T> {
 		// once all pages for this validator have been claimed.
 		let bonding_duration = T::BondingDuration::get();
 		if bonding_duration > 0 &&
-			era % bonding_duration == 0 &&
+			era.is_multiple_of(bonding_duration) &&
 			!T::VestingDuration::get().is_zero() &&
 			next_page.is_none()
 		{

@@ -1547,6 +1547,17 @@ parameter_types! {
 	);
 }
 
+/// Provides the initial `LastInflationTimestamp` for DAP migration by reading staking's active era
+/// start.
+pub struct DapLastInflationTimestampProvider;
+impl pallet_dap::migrations::LastInflationTimestampProvider for DapLastInflationTimestampProvider {
+	fn last_inflation_timestamp() -> u64 {
+		pallet_staking_async::ActiveEra::<Runtime>::get()
+			.and_then(|era| era.start)
+			.unwrap_or(0)
+	}
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1586,6 +1597,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// unreleased
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastInflationTimestampProvider>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

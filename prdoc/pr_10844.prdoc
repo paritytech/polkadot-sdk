@@ -40,5 +40,13 @@ crates:
 - name: pallet-nomination-pools-test-delegate-stake
   bump: patch
   validate: false
+- name: frame-support
+  bump: minor
+- name: pallet-staking
+  bump: patch
+- name: pallet-vesting
+  bump: minor
+- name: westend-runtime
+  bump: patch
 - name: asset-hub-westend-runtime
   bump: patch

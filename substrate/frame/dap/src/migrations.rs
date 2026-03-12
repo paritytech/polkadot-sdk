@@ -18,7 +18,7 @@
 //! DAP pallet migrations.
 
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
 /// Trait to provide the initial value for [`LastInflationTimestamp`].
 ///
@@ -51,7 +51,7 @@ pub type MigrateV1ToV2<T, P> = frame_support::migrations::VersionedMigration<
 /// - `P`: Provider of the initial timestamp (e.g., reads `ActiveEra.start` from staking)
 pub struct InitLastInflationTimestamp<T, P>(core::marker::PhantomData<(T, P)>);
 
-impl<T: Config, P: LastInflationTimestampProvider> OnRuntimeUpgrade
+impl<T: Config, P: LastInflationTimestampProvider> UncheckedOnRuntimeUpgrade
 	for InitLastInflationTimestamp<T, P>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
