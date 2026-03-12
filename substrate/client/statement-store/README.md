@@ -30,28 +30,23 @@ guarantee message delivery or specific delivery times.**
     ```
 
 3. Set quota using sudo, you can use this
-   [extrinsic as template][quota-extrinsic-template].
-
-> NOTE: This link assumes that you are running a node locally on `127.0.0.1:9944`. Use this
-> template if not:
-> [Custom RPC template][custom-rpc-template]
-
-## How do I get statement-store allowance for accounts?
-
-1. Identify the account you use, it should be an [account publick key][statement-allowance-code].
-2. Obtain the storage key by running this Python code. You would need your account ID from the
-   previous step.
-
+  - 3.1. Identify the account you use, it should be an [account publick key][statement-allowance-code].
+  - 3.2. Obtain the storage key by running this Python code. You would need your account ID from the
+    previous step.
     ```python
-    >>> statement_allowance_key = lambda account_id_hex: "0x" + (b":statement_allowance:" + bytes.fromhex(account_id_hex.removeprefix("0x"))).hex()
-    >>> statement_allowance_key("YOUR_ACCOUNT_BYTES_IN_HEX")
+      >>> statement_allowance_key = lambda account_id_hex: "0x" + (b":statement_allowance:" + bytes.fromhex(account_id_hex.removeprefix ("0x"))).hex()
+      >>> statement_allowance_key("YOUR_ACCOUNT_BYTES_IN_HEX")
     ```
-
-3. Call `sudo->system->set_storage` with obtained account key and `StatementAllowance`, SCALE
-   encoded.
-   For example, to allow an account to store 10 statements and a maximum of 20k you can use
-   `0x0a00000000500000`. LLMs know how to answer this question if you want to use a different
-   quota.
+  - 3.3. Using `https://polkadot.js.org/apps/`
+    call `sudo->system->set_storage` with obtained account key and `StatementAllowance`, SCALE encoded.
+    For example, to allow an account to store 10 statements and a maximum size of 20 KiB you can use
+    `0x0a00000000500000`.
+    `0x0a00000000500000` is SCALE for:
+    `StatementAllowance { max_count: 10, max_size: 20480 }`
+    `0a000000 -> 10 (max_count)`
+    `00500000 -> 20480 bytes (max_size, i.e. 20 KiB)`
+    > LLMs know how to answer this question if you want to use a different
+    quota.
 
 > **Warning:** Use carefully. Do not set big quotas on test environments with SUDO because then
 > they will not match production quotas.
@@ -164,7 +159,5 @@ information.
 Message expiration is based on the `expiry` field. Please refer to the in-code
 [description][expiration-description].
 
-[quota-extrinsic-template]: https://polkadot.js.org/apps/#/extrinsics
-[custom-rpc-template]: https://polkadot.js.org/apps/
 [statement-allowance-code]: https://github.com/paritytech/polkadot-sdk/blob/cac11f4a5325b217ca74b0c339459597daf03838/substrate/primitives/statement-store/src/lib.rs#L217
 [expiration-description]: ../../primitives/statement-store/src/lib.rs
