@@ -44,8 +44,6 @@ pub struct ValidationContext {
 	pub exec_timeout: Duration,
 	/// Whether V3 features are enabled
 	pub v3_enabled: bool,
-	/// Whether ECC host functions are enabled.
-	pub ecc_hf_enabled: bool,
 }
 
 impl ValidationContext {
@@ -76,7 +74,6 @@ impl ValidationContext {
 			relay_parent: self.relay_parent(),
 			scheduling_parent: self.scheduling_parent(),
 			descriptor_version: self.descriptor_version(),
-			ecc_hf_enabled: self.ecc_hf_enabled,
 		}
 	}
 }
@@ -117,8 +114,6 @@ pub struct ExecuteRequest {
 	pub scheduling_parent: Hash,
 	/// The candidate descriptor version (determines ValidationParams format)
 	pub descriptor_version: CandidateDescriptorVersion,
-	/// Whether ECC host functions are enabled via NodeFeatures
-	pub ecc_hf_enabled: bool,
 }
 
 /// The response from the execution worker.

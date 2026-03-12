@@ -325,11 +325,7 @@ fn runtime_construction_check(
 	executor_params: &ExecutorParams,
 ) -> Result<(), PrepareError> {
 	// SAFETY: We just compiled this artifact.
-	// The value of `ecc_hf_enabled` does not matter here: `allow_missing_func_imports` is true,
-	// so instantiation succeeds regardless of which host functions are registered. We pass `true`
-	// to register the full set since the prepare worker has no access to `NodeFeatures`.
-	let result =
-		unsafe { create_runtime_from_artifact_bytes(artifact_bytes, executor_params, true) };
+	let result = unsafe { create_runtime_from_artifact_bytes(artifact_bytes, executor_params) };
 	result
 		.map(|_runtime| ())
 		.map_err(|err| PrepareError::RuntimeConstruction(format!("{:?}", err)))

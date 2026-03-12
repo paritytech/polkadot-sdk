@@ -207,15 +207,12 @@ where
 				return;
 			};
 
-			let (v3_enabled, ecc_hf_enabled) =
+			let v3_enabled =
 				match util::request_node_features(relay_parent, session_index, &mut sender)
 					.await
 					.await
 				{
-					Ok(Ok(features)) => (
-						FeatureIndex::CandidateReceiptV3.is_set(&features),
-						FeatureIndex::EccHostFunctions.is_set(&features),
-					),
+					Ok(Ok(features)) => FeatureIndex::CandidateReceiptV3.is_set(&features),
 					Ok(Err(e)) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -304,7 +301,6 @@ where
 				&metrics,
 				maybe_claim_queue,
 				v3_enabled,
-				ecc_hf_enabled,
 				validation_code_bomb_limit,
 			)
 			.await;
@@ -926,7 +922,6 @@ async fn validate_candidate_exhaustive(
 	metrics: &Metrics,
 	maybe_claim_queue: Option<ClaimQueueSnapshot>,
 	v3_enabled: bool,
-	ecc_hf_enabled: bool,
 	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -979,7 +974,6 @@ async fn validate_candidate_exhaustive(
 		executor_params: executor_params.clone(),
 		exec_timeout: pvf_exec_timeout(&executor_params, exec_kind.into()),
 		v3_enabled,
-		ecc_hf_enabled,
 	};
 
 	let result = match exec_kind {
