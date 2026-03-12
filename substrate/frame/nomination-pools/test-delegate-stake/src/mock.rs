@@ -107,11 +107,11 @@ impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
 	}
 }
 
-/// Simple UnclaimedRewardSink for tests that returns a fixed account.
+/// Simple UnclaimedRewardSink for tests — no-op.
 pub struct TestUnclaimedRewardSink;
-impl sp_staking::UnclaimedRewardSink<AccountId> for TestUnclaimedRewardSink {
-	fn unclaimed_reward_sink() -> AccountId {
-		999
+impl sp_staking::UnclaimedRewardSink<AccountId, u128> for TestUnclaimedRewardSink {
+	fn deposit(_source: &AccountId, _amount: u128) -> sp_runtime::DispatchResult {
+		Ok(())
 	}
 }
 
