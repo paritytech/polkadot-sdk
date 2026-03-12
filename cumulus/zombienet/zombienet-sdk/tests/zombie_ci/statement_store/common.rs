@@ -28,7 +28,10 @@ use zombienet_sdk::{
 			Config, DefaultExtrinsicParamsBuilder, ExtrinsicParams, ExtrinsicParamsEncoder,
 		},
 		dynamic::Value,
-		ext::{scale_value::value, subxt_rpcs::{client::RpcSubscription, rpc_params}},
+		ext::{
+			scale_value::value,
+			subxt_rpcs::{client::RpcSubscription, rpc_params},
+		},
 		tx::{signer::Signer, DynamicPayload, TxStatus},
 		utils::{Static, H256},
 		OnlineClient, PolkadotConfig,

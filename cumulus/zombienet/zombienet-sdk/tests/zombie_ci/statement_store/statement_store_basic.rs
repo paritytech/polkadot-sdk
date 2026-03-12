@@ -162,7 +162,8 @@ async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 	tokio::time::sleep(Duration::from_secs(remaining_wait as u64)).await;
 
 	// Re-submit with a new expiry
-	let fresh_statement = create_test_statement(&keypair, &[topic], None, vec![10, 20, 30], u32::MAX, 0);
+	let fresh_statement =
+		create_test_statement(&keypair, &[topic], None, vec![10, 20, 30], u32::MAX, 0);
 	let result = submit_statement(&charlie_rpc, &fresh_statement).await?;
 
 	match result {
@@ -220,7 +221,8 @@ async fn statement_store_quota_enforcement() -> Result<(), anyhow::Error> {
 	log::info!("Filling quota for participant 0 (max_count=3)");
 	let keypair_0 = get_keypair(0);
 	for seq in [100u32, 200, 300] {
-		let statement = create_test_statement(&keypair_0, &[topic], None, vec![seq as u8], u32::MAX, seq);
+		let statement =
+			create_test_statement(&keypair_0, &[topic], None, vec![seq as u8], u32::MAX, seq);
 		let result = submit_statement(&charlie_rpc, &statement).await?;
 		assert_eq!(result, SubmitResult::New, "Statement with seq={} should be New", seq);
 	}

@@ -44,8 +44,14 @@ async fn statement_store_concurrent_multi_account_submission() -> Result<(), any
 		let alice_rpc = alice.rpc().await?;
 		handles.push(tokio::spawn(async move {
 			let keypair = get_keypair(idx);
-			let statement =
-				create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, idx * 100);
+			let statement = create_test_statement(
+				&keypair,
+				&[topic],
+				None,
+				vec![idx as u8],
+				u32::MAX,
+				idx * 100,
+			);
 			let result = submit_statement(&alice_rpc, &statement).await?;
 			assert_eq!(result, SubmitResult::New, "Participant {} should be accepted", idx);
 			Ok::<_, anyhow::Error>(())
@@ -255,13 +261,15 @@ async fn statement_store_channel_replacement() -> Result<(), anyhow::Error> {
 	let keypair = get_keypair(0);
 
 	// Submit initial channel message with seq=100
-	let stmt_100 = create_test_statement(&keypair, &[topic], Some(channel_1), vec![100], u32::MAX, 100);
+	let stmt_100 =
+		create_test_statement(&keypair, &[topic], Some(channel_1), vec![100], u32::MAX, 100);
 	let result = submit_statement(&alice_rpc, &stmt_100).await?;
 	assert_eq!(result, SubmitResult::New, "Channel 1 seq=100 should be New");
 	info!("Channel 1: seq=100 accepted");
 
 	// Try lower seq=50 on same channel -> ChannelPriorityTooLow
-	let stmt_50 = create_test_statement(&keypair, &[topic], Some(channel_1), vec![50], u32::MAX, 50);
+	let stmt_50 =
+		create_test_statement(&keypair, &[topic], Some(channel_1), vec![50], u32::MAX, 50);
 	let result = submit_statement(&alice_rpc, &stmt_50).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. }) => {
@@ -282,13 +290,15 @@ async fn statement_store_channel_replacement() -> Result<(), anyhow::Error> {
 	}
 
 	// Higher seq=200 on same channel -> replaces
-	let stmt_200 = create_test_statement(&keypair, &[topic], Some(channel_1), vec![200], u32::MAX, 200);
+	let stmt_200 =
+		create_test_statement(&keypair, &[topic], Some(channel_1), vec![200], u32::MAX, 200);
 	let result = submit_statement(&alice_rpc, &stmt_200).await?;
 	assert_eq!(result, SubmitResult::New, "Channel 1 seq=200 should replace seq=100");
 	info!("Channel 1: seq=200 accepted (replaced seq=100)");
 
 	// Different channel is independent. seq=50 on channel_2 should succeed
-	let stmt_ch2 = create_test_statement(&keypair, &[topic], Some(channel_2), vec![50], u32::MAX, 50);
+	let stmt_ch2 =
+		create_test_statement(&keypair, &[topic], Some(channel_2), vec![50], u32::MAX, 50);
 	let result = submit_statement(&alice_rpc, &stmt_ch2).await?;
 	assert_eq!(result, SubmitResult::New, "Channel 2 seq=50 should be independent");
 	info!("Channel 2: seq=50 accepted (independent from channel 1)");

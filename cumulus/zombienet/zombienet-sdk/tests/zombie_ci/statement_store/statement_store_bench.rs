@@ -221,7 +221,7 @@ fn create_chain_spec_with_allowances(
 	participant_count: u32,
 	base_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
-	let chain_spec_template = include_str!("people-westend-local-spec.json");
+	let chain_spec_template = include_str!("../people-westend-local-spec.json");
 	let mut chain_spec: serde_json::Value = serde_json::from_str(chain_spec_template)
 		.map_err(|e| anyhow!("Failed to parse chain spec JSON: {}", e))?;
 	let genesis = chain_spec
