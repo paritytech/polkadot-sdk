@@ -7,9 +7,17 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[lib]
+name = "statement_latency_bench"
+path = "src/lib.rs"
+
+[[bin]]
+name = "setup-allowances"
+path = "src/setup.rs"
+
 [[bin]]
 name = "statement-latency-bench"
-path = "src/main.rs"
+path = "src/bench.rs"
 
 [dependencies]
 anyhow = { workspace = true }
