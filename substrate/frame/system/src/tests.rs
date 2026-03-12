@@ -19,10 +19,11 @@ use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::{Pays, PostDispatchInfo, WithPostDispatchInfo},
+	storage,
 	traits::{OnRuntimeUpgrade, WhitelistedStorageKeys},
 };
 use mock::{RuntimeOrigin, *};
-use sp_core::{hexdisplay::HexDisplay, H256};
+use sp_core::{hexdisplay::HexDisplay, storage::well_known_keys, H256};
 use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::{BlakeTwo256, Header},
@@ -753,7 +754,7 @@ fn set_code_via_authorization_works() {
 		);
 
 		// Can apply correct runtime
-		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
+		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.to_vec()));
 		System::assert_has_event(SysEvent::CodeUpdated.into());
 		assert!(System::authorized_upgrade().is_none());
 	});
@@ -978,6 +979,56 @@ fn initialize_block_number_must_be_sequential() {
 		System::initialize(&3, &[0u8; 32].into(), &Default::default());
 	});
 }
+
+#[test]
+fn set_code_version_3_schedules_and_applies_pending_code() {
+	let code = vec![1, 2, 3];
+	let mut ext = new_test_ext();
+	ext.execute_with(|| {
+		let mut version = Version::get();
+		version.system_version = 3;
+		Version::set(version);
+		// Move to block 1
+		crate::Pallet::<Test>::set_block_number(1);
+		// Schedule new code
+		assert_ok!(<() as crate::SetCode<Test>>::set_code(code.clone()));
+		// Pending code stored
+		let pending = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
+			.expect("Pending code should exist");
+		assert_eq!(pending, code.clone());
+		// BlocksTillUpgrade should be set to 2
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(2u8));
+		// Immediate code not updated
+		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+		assert_ne!(current, code.clone());
+		// RuntimeEnvironmentUpdated digest should already be present
+		assert!(System::digest()
+			.logs()
+			.iter()
+			.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
+		// CodeUpdated event is emitted immediately when the upgrade is scheduled.
+		System::assert_has_event(SysEvent::CodeUpdated.into());
+		// First on_finalize (block N): counter goes 2 -> 1, no apply yet
+		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(1u8));
+		// Code still not updated
+		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+		assert_ne!(current, code.clone());
+		// Second on_finalize (block N+1): counter goes 1 -> 0, apply
+		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
+		// Code should now be updated
+		let updated =
+			storage::unhashed::get_raw(well_known_keys::CODE).expect("Code should be updated");
+		assert_eq!(updated, code);
+		// Pending code should be cleaned up
+		assert!(storage::unhashed::get_raw(well_known_keys::PENDING_CODE).is_none());
+		// BlocksTillUpgrade should be killed
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), None);
+		// CodeUpdated event should now be emitted
+		System::assert_has_event(SysEvent::CodeUpdated.into());
+	});
+}
+
 #[test]
 fn preinherent_digest_is_preserved() {
 	new_test_ext().execute_with(|| {

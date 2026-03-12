@@ -23,7 +23,7 @@
 //! cargo install polkadot-omni-node
 //! ```
 //!
-//! Next, we need to install the [`chain-spec-builder`]. This is the tool that allows us to build
+//! Next, we need to install the `chain-spec-builder`. This is the tool that allows us to build
 //! chain-specifications, through interacting with the genesis related APIs of the runtime, as
 //! described in [`crate::guides::your_first_runtime#genesis-configuration`].
 //!

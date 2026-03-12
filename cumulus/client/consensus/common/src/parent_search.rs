@@ -76,7 +76,7 @@ pub async fn find_parent_for_building<B: BlockT>(
 	backend: &impl Backend<B>,
 	relay_client: &impl RelayChainInterface,
 ) -> Result<Option<ParentSearchResult<B>>, RelayChainError> {
-	tracing::trace!("Parent search parameters: {params:?}");
+	tracing::trace!(target: LOG_TARGET, "Parent search parameters: {params:?}");
 
 	// Get the included block.
 	let Some((included_header, included_hash)) =

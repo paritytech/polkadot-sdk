@@ -1,0 +1,24 @@
+title: 'pallet-revive: add zero-value transfer/send stipend tests'
+doc:
+- audience: Runtime Dev
+  description: "## Summary\n\nAdd tests that verify the `AllowNext` reentrancy path\
+    \ is triggered for zero-value `transfer` and `send` calls.\n\n### How solc 0.8.30\
+    \ handles the 2300 gas stipend\n\n| Solidity call | value | gas passed by compiler\
+    \ | Stipend source |\n|---|---|---|---|\n| `target.transfer(amount)` | > 0 | `0`\
+    \ | EVM adds 2300 automatically |\n| `target.send(amount)` | > 0 | `0` | EVM adds\
+    \ 2300 automatically |\n| `target.transfer(0)` | 0 | `2300` | Compiler injects\
+    \ explicitly |\n| `target.send(0)` | 0 | `2300` | Compiler injects explicitly\
+    \ |\n| `target.call{value: v}(\"\")` | any | remaining gas | No stipend (forwards\
+    \ all gas) |\n\nThe zero-value case is the one detected by our `gas_limit == CALL_STIPEND`\
+    \ heuristic, which triggers `AllowNext`.\n\n## Changes\n\n- Add `testTransferZero`\
+    \ / `testSendZero` to `Stipends.sol` fixture \u2014 these call `transfer(0)` and\
+    \ `send(0)` on EOA, DoNothingReceiver, and SimpleReceiver\n- Add corresponding\
+    \ Rust tests that exercise the `AllowNext` path\n- Add trace logs to the call\
+    \ stipend match for debugging\n\n## Test plan\n\n- [x] `evm_call_stipends_work_for_transfer_zero`\
+    \ passes, logs show `gas_limit=2300` \u2192 `AllowNext`\n- [x] `evm_call_stipends_work_for_send_zero`\
+    \ passes, logs show `gas_limit=2300` \u2192 `AllowNext`"
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
