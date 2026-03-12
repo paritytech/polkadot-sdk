@@ -59,6 +59,7 @@ impl DestinationMerkleTree {
 
 		let mut sorted: Vec<(ParaId, H256)> = destinations.to_vec();
 		sorted.sort_by_key(|(id, _)| *id);
+		sorted.dedup_by_key(|(id, _)| *id);
 
 		let mut level: Vec<H256> = sorted.iter().map(|(id, root)| hash_leaf(*id, *root)).collect();
 
@@ -92,6 +93,9 @@ impl DestinationMerkleTree {
 	) -> Result<(H256, MerkleProof), SpeculativeMessagingError> {
 		let mut sorted: Vec<(ParaId, H256)> = destinations.to_vec();
 		sorted.sort_by_key(|(id, _)| *id);
+		if sorted.windows(2).any(|w| w[0].0 == w[1].0) {
+			return Err(SpeculativeMessagingError::DuplicateDestination);
+		}
 
 		let leaf_index = sorted
 			.iter()
@@ -153,6 +157,11 @@ impl DestinationMerkleTree {
 		mmr_root: H256,
 		proof: &MerkleProof,
 	) -> Result<(), SpeculativeMessagingError> {
+		// C3: Validate proof fields from untrusted input.
+		if proof.leaf_count == 0 || proof.leaf_index >= proof.leaf_count {
+			return Err(SpeculativeMessagingError::InvalidMerkleProof);
+		}
+
 		let mut current = hash_leaf(para_id, mmr_root);
 		let mut idx = proof.leaf_index as usize;
 
@@ -175,6 +184,11 @@ impl DestinationMerkleTree {
 			level_size = level_size.div_ceil(2);
 		}
 
+		// H2: Reject proofs with unconsumed trailing siblings.
+		if sibling_iter.next().is_some() {
+			return Err(SpeculativeMessagingError::UnconsumedProofData);
+		}
+
 		if current == root {
 			Ok(())
 		} else {
@@ -183,17 +197,21 @@ impl DestinationMerkleTree {
 	}
 }
 
-/// Hash a single `(ParaId, H256)` leaf.
+/// Hash a single `(ParaId, H256)` leaf with a `0x00` domain prefix to prevent
+/// second-preimage attacks between leaves and internal nodes.
 fn hash_leaf(para_id: ParaId, mmr_root: H256) -> H256 {
-	let encoded = (para_id, mmr_root).encode();
-	H256::from(sp_core::hashing::blake2_256(&encoded))
+	let mut buf = alloc::vec![0x00u8];
+	codec::Encode::encode_to(&(para_id, mmr_root), &mut buf);
+	H256::from(sp_core::hashing::blake2_256(&buf))
 }
 
-/// Hash two child nodes together to form a parent node.
+/// Hash two child nodes together to form a parent node, using a `0x01` domain
+/// prefix to prevent second-preimage attacks between internal nodes and leaves.
 fn hash_pair(left: H256, right: H256) -> H256 {
-	let mut buf = [0u8; 64];
-	buf[..32].copy_from_slice(left.as_bytes());
-	buf[32..].copy_from_slice(right.as_bytes());
+	let mut buf = [0u8; 65];
+	buf[0] = 0x01;
+	buf[1..33].copy_from_slice(left.as_bytes());
+	buf[33..65].copy_from_slice(right.as_bytes());
 	H256::from(sp_core::hashing::blake2_256(&buf))
 }
 
@@ -233,6 +251,7 @@ impl StoredMerkleTree {
 	pub fn from_destinations(destinations: &[(ParaId, H256)]) -> Self {
 		let mut leaves: Vec<(ParaId, H256)> = destinations.to_vec();
 		leaves.sort_by_key(|(id, _)| *id);
+		leaves.dedup_by_key(|(id, _)| *id);
 
 		let levels = Self::build_levels(&leaves);
 		Self { leaves, levels }
@@ -241,7 +260,7 @@ impl StoredMerkleTree {
 	/// The current Merkle root. **O(1)**.
 	pub fn root(&self) -> H256 {
 		match self.levels.last() {
-			Some(top) => top[0],
+			Some(top) => top.first().copied().unwrap_or(H256::zero()),
 			None => H256::zero(),
 		}
 	}

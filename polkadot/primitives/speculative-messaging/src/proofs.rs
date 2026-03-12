@@ -55,9 +55,10 @@ fn bag_peaks(peaks: &[H256]) -> H256 {
 	// Safe because we checked len >= 2 above; qed
 	let mut acc = *iter.next().expect("peaks has at least 2 elements; qed");
 	for peak in iter {
-		let mut combined = [0u8; 64];
-		combined[..32].copy_from_slice(peak.as_bytes());
-		combined[32..].copy_from_slice(acc.as_bytes());
+		let mut combined = [0u8; 65];
+		combined[0] = 0x02;
+		combined[1..33].copy_from_slice(peak.as_bytes());
+		combined[33..65].copy_from_slice(acc.as_bytes());
 		acc = H256::from(sp_core::hashing::blake2_256(&combined));
 	}
 	acc
@@ -74,6 +75,10 @@ pub struct MmrExtensionProof {
 	pub new_peaks: Vec<H256>,
 	/// Nodes proving old peaks are a prefix of the new structure.
 	pub connecting_nodes: Vec<H256>,
+	/// For each connecting node, whether the current hash is on the left
+	/// (`true`) or right (`false`) side of the merge. Must have the same
+	/// length as `connecting_nodes`.
+	pub merge_directions: Vec<bool>,
 }
 
 impl MmrExtensionProof {
@@ -84,6 +89,11 @@ impl MmrExtensionProof {
 	/// 3. Checks computed roots match the expected values.
 	/// 4. Verifies the prefix relationship using `connecting_nodes`.
 	pub fn verify(&self, old_root: H256, new_root: H256) -> Result<(), SpeculativeMessagingError> {
+		// C1: Validate that merge_directions matches connecting_nodes length.
+		if self.merge_directions.len() != self.connecting_nodes.len() {
+			return Err(SpeculativeMessagingError::InvalidMmrExtensionProof);
+		}
+
 		let computed_old = bag_peaks(&self.old_peaks);
 		let computed_new = bag_peaks(&self.new_peaks);
 
@@ -108,10 +118,17 @@ impl MmrExtensionProof {
 			let mut found = false;
 			while conn_idx < self.connecting_nodes.len() {
 				let sibling = self.connecting_nodes[conn_idx];
+				let current_is_left = self.merge_directions[conn_idx];
 				conn_idx += 1;
-				let mut combined = [0u8; 64];
-				combined[..32].copy_from_slice(current.as_bytes());
-				combined[32..].copy_from_slice(sibling.as_bytes());
+				let mut combined = [0u8; 65];
+				combined[0] = 0x02;
+				if current_is_left {
+					combined[1..33].copy_from_slice(current.as_bytes());
+					combined[33..65].copy_from_slice(sibling.as_bytes());
+				} else {
+					combined[1..33].copy_from_slice(sibling.as_bytes());
+					combined[33..65].copy_from_slice(current.as_bytes());
+				}
 				current = H256::from(sp_core::hashing::blake2_256(&combined));
 				if self.new_peaks.contains(&current) {
 					found = true;
@@ -121,6 +138,11 @@ impl MmrExtensionProof {
 			if !found {
 				return Err(SpeculativeMessagingError::InvalidMmrExtensionProof);
 			}
+		}
+
+		// C2: All connecting nodes must be consumed.
+		if conn_idx != self.connecting_nodes.len() {
+			return Err(SpeculativeMessagingError::UnconsumedProofData);
 		}
 
 		Ok(())
@@ -173,7 +195,13 @@ impl LateBlockProof {
 		&self,
 		old_provides_root: H256,
 		receiver_para_id: ParaId,
+		expected_source: ParaId,
 	) -> Result<RequiresCommitment, SpeculativeMessagingError> {
+		// M2: Validate source matches expected.
+		if self.source != expected_source {
+			return Err(SpeculativeMessagingError::SourceMismatch);
+		}
+
 		// Step 1: Verify old subtree proof.
 		DestinationMerkleTree::verify_proof(
 			old_provides_root,
@@ -217,10 +245,11 @@ mod tests {
 		H256::from([byte; 32])
 	}
 
-	fn hash_pair(a: H256, b: H256) -> H256 {
-		let mut combined = [0u8; 64];
-		combined[..32].copy_from_slice(a.as_bytes());
-		combined[32..].copy_from_slice(b.as_bytes());
+	fn mmr_merge(a: H256, b: H256) -> H256 {
+		let mut combined = [0u8; 65];
+		combined[0] = 0x02;
+		combined[1..33].copy_from_slice(a.as_bytes());
+		combined[33..65].copy_from_slice(b.as_bytes());
 		H256::from(blake2_256(&combined))
 	}
 
@@ -257,7 +286,7 @@ mod tests {
 		let a = make_hash(1);
 		let b = make_hash(2);
 		// Fold right: start with B, then H(A ++ B)
-		let expected = hash_pair(a, b);
+		let expected = mmr_merge(a, b);
 		assert_eq!(bag_peaks(&[a, b]), expected);
 	}
 
@@ -267,8 +296,8 @@ mod tests {
 		let b = make_hash(2);
 		let c = make_hash(3);
 		// Fold right: start with C, then H(B ++ C), then H(A ++ H(B ++ C))
-		let bc = hash_pair(b, c);
-		let expected = hash_pair(a, bc);
+		let bc = mmr_merge(b, c);
+		let expected = mmr_merge(a, bc);
 		assert_eq!(bag_peaks(&[a, b, c]), expected);
 	}
 
@@ -282,6 +311,7 @@ mod tests {
 			old_peaks: vec![peak],
 			new_peaks: vec![peak],
 			connecting_nodes: vec![],
+			merge_directions: vec![],
 		};
 		assert_eq!(proof.verify(root, root), Ok(()));
 	}
@@ -295,6 +325,7 @@ mod tests {
 			old_peaks: vec![peak],
 			new_peaks: vec![peak],
 			connecting_nodes: vec![],
+			merge_directions: vec![],
 		};
 		assert_eq!(proof.verify(wrong_root, root), Err(SpeculativeMessagingError::RootMismatch));
 		assert_eq!(proof.verify(root, wrong_root), Err(SpeculativeMessagingError::RootMismatch));
@@ -322,7 +353,7 @@ mod tests {
 			subtree_extension: None,
 		};
 
-		let result = proof.verify(old_root, receiver);
+		let result = proof.verify(old_root, receiver, source);
 		assert!(result.is_ok());
 		let commitment = result.unwrap();
 		assert_eq!(commitment.source, source);
@@ -337,7 +368,7 @@ mod tests {
 		// Simulate the subtree growing: the new root is the result of
 		// merging the old peak with a new sibling.
 		let new_sibling = make_hash(6);
-		let new_subtree = hash_pair(old_subtree, new_sibling);
+		let new_subtree = mmr_merge(old_subtree, new_sibling);
 
 		let (old_root, old_proof) = build_tree_and_proof(&[(receiver, old_subtree)], receiver);
 		let (new_root, new_proof) = build_tree_and_proof(&[(receiver, new_subtree)], receiver);
@@ -346,6 +377,7 @@ mod tests {
 			old_peaks: vec![old_subtree],
 			new_peaks: vec![new_subtree],
 			connecting_nodes: vec![new_sibling],
+			merge_directions: vec![true],
 		};
 
 		let proof = LateBlockProof {
@@ -358,7 +390,7 @@ mod tests {
 			subtree_extension: Some(extension),
 		};
 
-		let result = proof.verify(old_root, receiver);
+		let result = proof.verify(old_root, receiver, source);
 		assert!(result.is_ok());
 		let commitment = result.unwrap();
 		assert_eq!(commitment.source, source);
@@ -386,7 +418,7 @@ mod tests {
 		};
 
 		assert_eq!(
-			proof.verify(old_root, receiver),
+			proof.verify(old_root, receiver, source),
 			Err(SpeculativeMessagingError::MissingSubtreeExtension)
 		);
 	}
@@ -405,6 +437,7 @@ mod tests {
 			old_peaks: vec![subtree_root],
 			new_peaks: vec![subtree_root],
 			connecting_nodes: vec![],
+			merge_directions: vec![],
 		};
 
 		let proof = LateBlockProof {
@@ -418,7 +451,7 @@ mod tests {
 		};
 
 		assert_eq!(
-			proof.verify(old_root, receiver),
+			proof.verify(old_root, receiver, source),
 			Err(SpeculativeMessagingError::InvalidMmrExtensionProof)
 		);
 	}
@@ -442,7 +475,7 @@ mod tests {
 			subtree_extension: None,
 		};
 
-		let commitment = proof.verify(old_root, receiver).unwrap();
+		let commitment = proof.verify(old_root, receiver, source).unwrap();
 		assert_eq!(commitment, RequiresCommitment { source, expected_root: new_root });
 	}
 
@@ -477,7 +510,7 @@ mod tests {
 			subtree_extension: None,
 		};
 
-		assert!(proof.verify(old_root, receiver).is_err());
+		assert!(proof.verify(old_root, receiver, source).is_err());
 	}
 
 	#[test]
@@ -510,7 +543,7 @@ mod tests {
 			subtree_extension: None,
 		};
 
-		assert!(proof.verify(old_root, receiver).is_err());
+		assert!(proof.verify(old_root, receiver, source).is_err());
 	}
 
 	#[test]
@@ -520,6 +553,7 @@ mod tests {
 			old_peaks: vec![make_hash(1), make_hash(2)],
 			new_peaks: vec![make_hash(3)],
 			connecting_nodes: vec![make_hash(4)],
+			merge_directions: vec![true],
 		};
 		let encoded = ext_proof.encode();
 		let decoded =
@@ -543,6 +577,7 @@ mod tests {
 				old_peaks: vec![subtree_root],
 				new_peaks: vec![subtree_root],
 				connecting_nodes: vec![],
+				merge_directions: vec![],
 			}),
 		};
 		let encoded = late_proof.encode();

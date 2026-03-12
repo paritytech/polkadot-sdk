@@ -31,6 +31,7 @@ use sp_core::H256;
 
 use crate::{
 	commitments::ProvidesCommitment,
+	error::SpeculativeMessagingError,
 	merkle_tree::{DestinationMerkleTree, StoredMerkleTree},
 };
 
@@ -47,15 +48,25 @@ use crate::{
 pub struct SourceState {
 	/// Number of messages processed from this source (0-indexed count).
 	/// The next expected position equals this value.
-	pub last_processed: u64,
+	last_processed: u64,
 	/// The source's provides root we last built against.
-	pub last_seen_root: H256,
+	last_seen_root: H256,
 }
 
 impl SourceState {
 	/// Create a new [`SourceState`] with default values (0, zero hash).
 	pub fn new() -> Self {
 		Self::default()
+	}
+
+	/// Number of messages processed from this source.
+	pub fn last_processed(&self) -> u64 {
+		self.last_processed
+	}
+
+	/// The source's provides root we last built against.
+	pub fn last_seen_root(&self) -> H256 {
+		self.last_seen_root
 	}
 
 	/// Returns the next expected message position (0-indexed).
@@ -67,10 +78,18 @@ impl SourceState {
 	}
 
 	/// Advance the processed count by `count` messages and update the
-	/// last seen root.
-	pub fn advance(&mut self, count: u64, new_root: H256) {
-		self.last_processed += count;
+	/// last seen root. Returns an error if the addition would overflow.
+	pub fn advance(
+		&mut self,
+		count: u64,
+		new_root: H256,
+	) -> Result<(), SpeculativeMessagingError> {
+		self.last_processed = self
+			.last_processed
+			.checked_add(count)
+			.ok_or(SpeculativeMessagingError::InvalidMessagePosition)?;
 		self.last_seen_root = new_root;
+		Ok(())
 	}
 }
 
@@ -105,8 +124,13 @@ impl IncomingMessageState {
 
 	/// Convenience method: advance the given source's state by `count`
 	/// messages and update its last seen root.
-	pub fn advance_source(&mut self, source: ParaId, count: u64, new_root: H256) {
-		self.get_source_mut(source).advance(count, new_root);
+	pub fn advance_source(
+		&mut self,
+		source: ParaId,
+		count: u64,
+		new_root: H256,
+	) -> Result<(), SpeculativeMessagingError> {
+		self.get_source_mut(source).advance(count, new_root)
 	}
 
 	/// Returns a sorted list of all tracked source [`ParaId`]s.
@@ -133,9 +157,11 @@ impl OutgoingMessageState {
 		Self::default()
 	}
 
-	/// Update the MMR root for a particular destination.
+	/// Update the MMR root for a particular destination and recompute the
+	/// top-level Merkle root.
 	pub fn update_destination(&mut self, dest: ParaId, new_mmr_root: H256) {
 		self.destination_roots.insert(dest, new_mmr_root);
+		self.recompute_root();
 	}
 
 	/// Recompute `current_root` from `destination_roots` using
@@ -199,8 +225,8 @@ mod tests {
 	#[test]
 	fn source_state_new_defaults() {
 		let state = SourceState::new();
-		assert_eq!(state.last_processed, 0);
-		assert_eq!(state.last_seen_root, H256::zero());
+		assert_eq!(state.last_processed(), 0);
+		assert_eq!(state.last_seen_root(), H256::zero());
 	}
 
 	#[test]
@@ -208,7 +234,7 @@ mod tests {
 		let mut state = SourceState::new();
 		assert_eq!(state.next_expected_position(), 0);
 
-		state.advance(3, make_hash(1));
+		state.advance(3, make_hash(1)).expect("advance should succeed");
 		assert_eq!(state.next_expected_position(), 3);
 	}
 
@@ -218,13 +244,13 @@ mod tests {
 		let root_a = make_hash(10);
 		let root_b = make_hash(20);
 
-		state.advance(5, root_a);
-		assert_eq!(state.last_processed, 5);
-		assert_eq!(state.last_seen_root, root_a);
+		state.advance(5, root_a).expect("advance should succeed");
+		assert_eq!(state.last_processed(), 5);
+		assert_eq!(state.last_seen_root(), root_a);
 
-		state.advance(3, root_b);
-		assert_eq!(state.last_processed, 8);
-		assert_eq!(state.last_seen_root, root_b);
+		state.advance(3, root_b).expect("advance should succeed");
+		assert_eq!(state.last_processed(), 8);
+		assert_eq!(state.last_seen_root(), root_b);
 	}
 
 	#[test]
@@ -241,20 +267,20 @@ mod tests {
 		let source = ParaId::from(2000);
 		let root = make_hash(42);
 
-		state.advance_source(source, 7, root);
+		state.advance_source(source, 7, root).expect("advance should succeed");
 
 		let source_state = state.get_source(source);
-		assert_eq!(source_state.last_processed, 7);
-		assert_eq!(source_state.last_seen_root, root);
+		assert_eq!(source_state.last_processed(), 7);
+		assert_eq!(source_state.last_seen_root(), root);
 	}
 
 	#[test]
 	fn incoming_state_tracked_sources() {
 		let mut state = IncomingMessageState::new();
 
-		state.advance_source(ParaId::from(300), 1, make_hash(1));
-		state.advance_source(ParaId::from(100), 1, make_hash(2));
-		state.advance_source(ParaId::from(200), 1, make_hash(3));
+		state.advance_source(ParaId::from(300), 1, make_hash(1)).unwrap();
+		state.advance_source(ParaId::from(100), 1, make_hash(2)).unwrap();
+		state.advance_source(ParaId::from(200), 1, make_hash(3)).unwrap();
 
 		let sources = state.tracked_sources();
 		assert_eq!(sources, alloc::vec![ParaId::from(100), ParaId::from(200), ParaId::from(300),]);
@@ -268,7 +294,6 @@ mod tests {
 		let root_b = make_hash(2);
 		state.update_destination(ParaId::from(100), root_a);
 		state.update_destination(ParaId::from(200), root_b);
-		state.recompute_root();
 
 		let entries = alloc::vec![(ParaId::from(100), root_a), (ParaId::from(200), root_b),];
 		let expected = DestinationMerkleTree::compute_root(&entries);
@@ -279,7 +304,6 @@ mod tests {
 	fn outgoing_state_provides_commitment() {
 		let mut state = OutgoingMessageState::new();
 		state.update_destination(ParaId::from(500), make_hash(55));
-		state.recompute_root();
 
 		let commitment = state.provides_commitment();
 		assert_eq!(commitment.root, state.current_root);
@@ -309,15 +333,15 @@ mod tests {
 	fn encode_decode_roundtrip() {
 		// SourceState roundtrip
 		let mut source = SourceState::new();
-		source.advance(10, make_hash(99));
+		source.advance(10, make_hash(99)).unwrap();
 		let encoded = source.encode();
 		let decoded = SourceState::decode(&mut &encoded[..]).expect("SourceState should decode");
 		assert_eq!(source, decoded);
 
 		// IncomingMessageState roundtrip
 		let mut incoming = IncomingMessageState::new();
-		incoming.advance_source(ParaId::from(100), 5, make_hash(1));
-		incoming.advance_source(ParaId::from(200), 3, make_hash(2));
+		incoming.advance_source(ParaId::from(100), 5, make_hash(1)).unwrap();
+		incoming.advance_source(ParaId::from(200), 3, make_hash(2)).unwrap();
 		let encoded = incoming.encode();
 		let decoded = IncomingMessageState::decode(&mut &encoded[..])
 			.expect("IncomingMessageState should decode");
@@ -326,7 +350,6 @@ mod tests {
 		// OutgoingMessageState roundtrip
 		let mut outgoing = OutgoingMessageState::new();
 		outgoing.update_destination(ParaId::from(300), make_hash(30));
-		outgoing.recompute_root();
 		let encoded = outgoing.encode();
 		let decoded = OutgoingMessageState::decode(&mut &encoded[..])
 			.expect("OutgoingMessageState should decode");
@@ -352,7 +375,6 @@ mod tests {
 		state.update_destination(ParaId::from(100), make_hash(1));
 		state.update_destination(ParaId::from(200), make_hash(2));
 		state.update_destination(ParaId::from(300), make_hash(3));
-		state.recompute_root();
 
 		let tree = state.build_tree();
 		assert_eq!(tree.root(), state.current_root);
@@ -453,7 +475,6 @@ mod tests {
 		state.update_destination(ParaId::from(100), make_hash(1));
 		state.update_destination(ParaId::from(200), make_hash(2));
 		state.update_destination(ParaId::from(300), make_hash(3));
-		state.recompute_root();
 
 		let original = state.clone();
 		let tree = state.build_tree();

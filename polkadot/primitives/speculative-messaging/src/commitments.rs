@@ -69,10 +69,10 @@ pub struct RequiresCommitment {
 }
 
 impl RequiresCommitment {
-	/// Returns `true` if the `expected_root` matches the root in the given
-	/// [`ProvidesCommitment`].
-	pub fn matches_provides(&self, provides: &ProvidesCommitment) -> bool {
-		self.expected_root == provides.root
+	/// Returns `true` if both the `source` and `expected_root` match the
+	/// given source [`ParaId`] and [`ProvidesCommitment`] root.
+	pub fn matches_provides(&self, source: ParaId, provides: &ProvidesCommitment) -> bool {
+		self.source == source && self.expected_root == provides.root
 	}
 }
 
@@ -81,7 +81,7 @@ impl RequiresCommitment {
 ///
 /// This is useful when validating a candidate that both provides messages to
 /// downstream consumers and requires messages from upstream senders.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct CommitmentPair {
 	/// The provides commitment published by this parachain.
 	pub provides: ProvidesCommitment,
@@ -91,14 +91,18 @@ pub struct CommitmentPair {
 
 impl CommitmentPair {
 	/// Returns the subset of [`RequiresCommitment`]s that do not match any
-	/// of the given available provides commitments.
+	/// of the given available provides commitments (paired with their source
+	/// [`ParaId`]).
 	pub fn unmatched_requires<'a>(
 		&'a self,
-		available_provides: &[ProvidesCommitment],
+		available_provides: &[(ParaId, ProvidesCommitment)],
 	) -> Vec<&'a RequiresCommitment> {
+		use alloc::collections::BTreeSet;
+		let available: BTreeSet<(ParaId, H256)> =
+			available_provides.iter().map(|(id, p)| (*id, p.root)).collect();
 		self.requires
 			.iter()
-			.filter(|req| !available_provides.iter().any(|p| req.matches_provides(p)))
+			.filter(|req| !available.contains(&(req.source, req.expected_root)))
 			.collect()
 	}
 }
@@ -123,12 +127,17 @@ mod tests {
 	#[test]
 	fn requires_matches_provides() {
 		let root = make_hash(42);
+		let source = ParaId::from(1000);
 		let provides = ProvidesCommitment { root };
-		let requires = RequiresCommitment { source: ParaId::from(1000), expected_root: root };
-		assert!(requires.matches_provides(&provides));
+		let requires = RequiresCommitment { source, expected_root: root };
+		assert!(requires.matches_provides(source, &provides));
 
 		let different_provides = ProvidesCommitment { root: make_hash(99) };
-		assert!(!requires.matches_provides(&different_provides));
+		assert!(!requires.matches_provides(source, &different_provides));
+
+		// Wrong source should not match even with correct root.
+		let wrong_source = ParaId::from(2000);
+		assert!(!requires.matches_provides(wrong_source, &provides));
 	}
 
 	#[test]
@@ -146,8 +155,10 @@ mod tests {
 			],
 		};
 
-		let available =
-			alloc::vec![ProvidesCommitment { root: root_a }, ProvidesCommitment { root: root_c },];
+		let available = alloc::vec![
+			(ParaId::from(100), ProvidesCommitment { root: root_a }),
+			(ParaId::from(300), ProvidesCommitment { root: root_c }),
+		];
 
 		let unmatched = pair.unmatched_requires(&available);
 		assert_eq!(unmatched.len(), 1);
@@ -195,7 +206,7 @@ mod tests {
 
 		// With no requires, unmatched should also be empty regardless of
 		// available provides.
-		let available = alloc::vec![ProvidesCommitment { root: make_hash(5) }];
+		let available = alloc::vec![(ParaId::from(1), ProvidesCommitment { root: make_hash(5) })];
 		let unmatched = pair.unmatched_requires(&available);
 		assert!(unmatched.is_empty());
 

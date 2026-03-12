@@ -16,12 +16,12 @@
 
 //! Error types for speculative messaging primitives.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt;
 use scale_info::TypeInfo;
 
 /// Errors that can occur during speculative messaging operations.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub enum SpeculativeMessagingError {
 	/// Top-level Merkle proof verification failed.
 	InvalidMerkleProof,
@@ -41,6 +41,12 @@ pub enum SpeculativeMessagingError {
 	InvalidMessagePosition,
 	/// Message batch contains no messages.
 	EmptyBatch,
+	/// Duplicate ParaId found in destination set.
+	DuplicateDestination,
+	/// Proof contains unconsumed data.
+	UnconsumedProofData,
+	/// Source ParaId doesn't match expected source.
+	SourceMismatch,
 }
 
 impl fmt::Display for SpeculativeMessagingError {
@@ -59,6 +65,13 @@ impl fmt::Display for SpeculativeMessagingError {
 				write!(f, "Message position is out of bounds or non-sequential")
 			},
 			Self::EmptyBatch => write!(f, "Message batch contains no messages"),
+			Self::DuplicateDestination => {
+				write!(f, "Duplicate ParaId found in destination set")
+			},
+			Self::UnconsumedProofData => write!(f, "Proof contains unconsumed data"),
+			Self::SourceMismatch => {
+				write!(f, "Source ParaId doesn't match expected source")
+			},
 		}
 	}
 }
@@ -134,6 +147,9 @@ mod tests {
 			SpeculativeMessagingError::DestinationNotFound,
 			SpeculativeMessagingError::InvalidMessagePosition,
 			SpeculativeMessagingError::EmptyBatch,
+			SpeculativeMessagingError::DuplicateDestination,
+			SpeculativeMessagingError::UnconsumedProofData,
+			SpeculativeMessagingError::SourceMismatch,
 		];
 
 		for variant in &variants {
@@ -156,6 +172,9 @@ mod tests {
 			SpeculativeMessagingError::DestinationNotFound,
 			SpeculativeMessagingError::InvalidMessagePosition,
 			SpeculativeMessagingError::EmptyBatch,
+			SpeculativeMessagingError::DuplicateDestination,
+			SpeculativeMessagingError::UnconsumedProofData,
+			SpeculativeMessagingError::SourceMismatch,
 		];
 
 		for (i, variant) in variants.iter().enumerate() {
