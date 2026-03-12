@@ -353,8 +353,7 @@ where
 		let owner_account =
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 		let spender: H160 = call.spender.into_array().into();
-		let spender_account =
-			env.to_account_id(&spender);
+		let spender_account = env.to_account_id(&spender);
 		let new_amount = Self::to_balance(call.value)?;
 
 		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
@@ -535,14 +534,12 @@ where
 							&owner_account,
 							&spender_account,
 						)?;
-						actual_weight =
-							<Runtime as Config<Instance>>::WeightInfo::allowance()
-								.saturating_add(
-									<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
-								);
+						actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+							.saturating_add(
+								<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
+							);
 					} else {
-						actual_weight =
-							<Runtime as Config<Instance>>::WeightInfo::allowance();
+						actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance();
 					}
 				} else {
 					if !current.is_zero() {
@@ -553,11 +550,10 @@ where
 						)?;
 						actual_weight = worst_case;
 					} else {
-						actual_weight =
-							<Runtime as Config<Instance>>::WeightInfo::allowance()
-								.saturating_add(
-									<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
-								);
+						actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+							.saturating_add(
+								<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
+							);
 					}
 					pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 						asset_id,
