@@ -1045,6 +1045,8 @@ pub mod pallet {
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// Tracks cumulative `UMP` and `HRMP` messages sent across blocks in the current `PoV`.
+	///
+	/// Across different candidates/PoVs the budgets are tracked by [`AggregatedUnincludedSegment`].
 	#[pallet::storage]
 	pub type PoVMessagesTracker<T: Config> = StorageValue<_, PoVMessages, OptionQuery>;
 
