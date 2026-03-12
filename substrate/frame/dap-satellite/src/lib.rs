@@ -17,16 +17,19 @@
 
 //! # DAP Satellite Pallet
 //!
-//! Collects funds into a satellite buffer on non-AssetHub chains for eventual transfer to the
-//! central DAP on AssetHub.
+//! Intercepts native token burns (transaction fees, dust removal, coretime revenue) on
+//! non-AssetHub chains and redirects them into a local buffer account for eventual transfer
+//! to the central DAP on AssetHub.
 //!
 //! Do NOT use on AssetHub (use `pallet-dap`).
 //!
 //! ## Usage
 //!
 //! - **Fees**: Use [`DealWithFeesSplit`] to split fees between DAP satellite and other handlers
-//! - **Revenue**: Use `DapSatellite` as `OnUnbalanced<CreditOf>` handler (e.g., coretime revenue)
-//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected.
+//! - **Burns/Revenue**: Use `DapSatellite` as `OnUnbalanced<CreditOf>` handler (e.g., dust removal,
+//!   coretime revenue)
+//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected to
+//! the satellite buffer — they still reduce total issuance directly.
 //!
 //! ## Setup
 //!

@@ -17,17 +17,21 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
-//! instead of burning them. The buffer account must be pre-funded with at least ED (existential
-//! deposit), e.g., via balances genesis config or a transfer. If the buffer account is not
-//! pre-funded, deposits below ED will be silently burned.
+//! Intercepts native token burns (staking slashes, transaction fees, dust removal, reward
+//! remainders, EVM gas rounding) on AssetHub and redirects them into a buffer account instead
+//! of destroying them.
+//! The buffer account must be pre-funded with at least ED (existential deposit), e.g., via
+//! balances genesis config or a transfer. If the buffer account is not pre-funded, deposits
+//! below ED will be silently burned.
 //!
 //! Incoming funds are deactivated to exclude them from governance voting.
 //! When DAP distributes funds (e.g., to validators, nominators, treasury, collators), those funds
 //! must be reactivated before transfer.
 //!
-//! - **Fees/slashes**: Use `Dap` as `OnUnbalanced` handler (e.g., `type Slash = Dap`)
-//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected.
+//! - **Burns**: Use `Dap` as `OnUnbalanced` handler for any burn source (e.g., `type Slash = Dap`,
+//!   `type DustRemoval = Dap`, `type OnBurn = Dap`)
+//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected to
+//! the buffer — they still reduce total issuance directly.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

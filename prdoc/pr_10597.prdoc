@@ -5,6 +5,8 @@ doc:
       - Introduce pallet-dap-satellite for system chains (RC, BridgeHub, Coretime, People,
       Collectives) to collect funds that would otherwise be burned, staging them for periodic
       transfer to the central DAP on AssetHub.
+      - DAP and DAP satellite  implement `OnUnbalanced<Credit>` to intercept every Credit before
+      it's dropped/burned and resolve it into the buffer account instead.
       - Redirect all system burns to DAP or DAP satellite on Westend system chains, including
       tx fees, dust removal, coretime revenue burns and EVM gas rounding burns.
 crates:
