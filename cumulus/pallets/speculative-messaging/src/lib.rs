@@ -66,8 +66,12 @@ pub mod pallet {
 	};
 	use sp_core::H256;
 
+	/// Current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -85,6 +89,10 @@ pub mod pallet {
 		/// destination in one block.
 		#[pallet::constant]
 		type MaxMessagesPerBlock: Get<u32>;
+
+		/// Maximum payload size in bytes for a single message.
+		#[pallet::constant]
+		type MaxPayloadSize: Get<u32>;
 	}
 
 	// =========================================================================
@@ -176,6 +184,10 @@ pub mod pallet {
 		EmptyBatch,
 		/// Too many sources processed in this block.
 		TooManySources,
+		/// Payload exceeds `MaxPayloadSize`.
+		PayloadTooLarge,
+		/// This source has already been processed in this block.
+		DuplicateSourceInBlock,
 	}
 
 	// =========================================================================
@@ -187,9 +199,16 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// Clear block-local storage from the previous block.
 			let _ = PendingRequires::<T>::kill();
-			let removed = PendingOutgoing::<T>::clear(T::MaxDestinations::get(), None);
+			// Use u32::MAX to guarantee full removal even if MaxDestinations
+			// was lowered via a runtime upgrade since the entries were written.
+			let removed = PendingOutgoing::<T>::clear(u32::MAX, None);
 
-			T::DbWeight::get().writes(1 + removed.unique as u64)
+			// 1 write for PendingRequires::kill().
+			// For PendingOutgoing::clear(): each entry requires a read + write.
+			T::DbWeight::get().reads_writes(
+				1 + removed.unique as u64,
+				1 + removed.unique as u64,
+			)
 		}
 	}
 
@@ -210,6 +229,18 @@ pub mod pallet {
 			destination: ParaId,
 			payload: Vec<u8>,
 		) -> Result<(u64, H256), DispatchError> {
+			ensure!(
+				payload.len() as u32 <= T::MaxPayloadSize::get(),
+				Error::<T>::PayloadTooLarge
+			);
+
+			// Check per-block message limit before any mutations.
+			let pending_count = PendingOutgoing::<T>::decode_len(destination).unwrap_or(0);
+			ensure!(
+				(pending_count as u32) < T::MaxMessagesPerBlock::get(),
+				Error::<T>::TooManyMessagesPerBlock
+			);
+
 			let mut mmr = DestinationMmrs::<T>::get(destination).unwrap_or_default();
 			let position = mmr.leaf_count;
 
@@ -274,6 +305,18 @@ pub mod pallet {
 			provides_root: H256,
 		) -> Result<(), DispatchError> {
 			ensure!(count > 0, Error::<T>::EmptyBatch);
+
+			// Check limits before any mutations.
+			let requires = PendingRequires::<T>::get();
+			ensure!(
+				(requires.len() as u32) < T::MaxSources::get(),
+				Error::<T>::TooManySources
+			);
+			ensure!(
+				!requires.iter().any(|r| r.source == source),
+				Error::<T>::DuplicateSourceInBlock
+			);
+			drop(requires);
 
 			PerSourceState::<T>::mutate(source, |state| {
 				state

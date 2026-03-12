@@ -49,10 +49,14 @@ pub struct OutgoingMessage {
 impl OutgoingMessage {
 	/// Compute the leaf hash for this message.
 	///
-	/// Returns `blake2_256(self.encode())` as an `H256`. This is the value
-	/// stored as a leaf in the per-destination MMR.
+	/// Returns `blake2_256(0x03 ++ self.encode())` as an `H256`. This is the
+	/// value stored as a leaf in the per-destination MMR. The `0x03` domain
+	/// prefix prevents second-preimage collisions with Merkle tree leaves
+	/// (`0x00`), internal nodes (`0x01`), and MMR peak merges (`0x02`).
 	pub fn leaf_hash(&self) -> H256 {
-		H256::from(sp_core::hashing::blake2_256(&self.encode()))
+		let mut buf = alloc::vec![0x03u8];
+		self.encode_to(&mut buf);
+		H256::from(sp_core::hashing::blake2_256(&buf))
 	}
 }
 

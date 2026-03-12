@@ -29,6 +29,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
+use polkadot_primitives_speculative_messaging::{bag_peaks, merge_mmr_nodes};
 use scale_info::TypeInfo;
 use sp_core::H256;
 
@@ -53,6 +54,14 @@ impl MmrState {
 	/// Create a new empty MMR state.
 	pub fn new() -> Self {
 		Self::default()
+	}
+
+	/// Validate internal consistency after decoding from untrusted data.
+	///
+	/// An MMR with `n` leaves has exactly `n.count_ones()` peaks.
+	pub fn validate(&self) -> bool {
+		let expected = self.leaf_count.count_ones() as usize;
+		self.peaks.len() == expected && self.peaks.len() <= MAX_PEAKS as usize
 	}
 
 	/// Compute the MMR root by bagging the peaks right-to-left.
@@ -85,45 +94,15 @@ impl MmrState {
 				"peaks must be non-empty when merging; \
 				 each trailing 1-bit in leaf_count corresponds to an existing peak; qed",
 			);
-			current = merge_peaks(left, current);
+			current = merge_mmr_nodes(left, current);
 			pos >>= 1;
 		}
 
 		self.peaks.push(current);
-		self.leaf_count += 1;
+		self.leaf_count = self.leaf_count.saturating_add(1);
 
 		self.root()
 	}
-}
-
-/// Merge two MMR nodes using the `0x02` domain prefix, consistent with
-/// [`polkadot_primitives_speculative_messaging::proofs::bag_peaks`].
-fn merge_peaks(left: H256, right: H256) -> H256 {
-	let mut buf = [0u8; 65];
-	buf[0] = 0x02;
-	buf[1..33].copy_from_slice(left.as_bytes());
-	buf[33..65].copy_from_slice(right.as_bytes());
-	H256::from(sp_core::hashing::blake2_256(&buf))
-}
-
-/// Bag MMR peaks into a single root hash.
-///
-/// Folds right-to-left: starts with the last peak, then for each preceding
-/// peak computes `merge_peaks(peak, acc)`.
-pub fn bag_peaks(peaks: &[H256]) -> H256 {
-	if peaks.is_empty() {
-		return H256::zero();
-	}
-	if peaks.len() == 1 {
-		return peaks[0];
-	}
-	let mut iter = peaks.iter().rev();
-	// Safe because we checked len >= 2 above; qed
-	let mut acc = *iter.next().expect("peaks has at least 2 elements; qed");
-	for peak in iter {
-		acc = merge_peaks(*peak, acc);
-	}
-	acc
 }
 
 #[cfg(test)]
@@ -164,8 +143,8 @@ mod tests {
 		// After 2 leaves: one peak = merge(h0, h1)
 		assert_eq!(state.leaf_count, 2);
 		assert_eq!(state.peaks.len(), 1);
-		assert_eq!(state.peaks[0], merge_peaks(h0, h1));
-		assert_eq!(root, merge_peaks(h0, h1));
+		assert_eq!(state.peaks[0], merge_mmr_nodes(h0, h1));
+		assert_eq!(root, merge_mmr_nodes(h0, h1));
 	}
 
 	#[test]
@@ -183,7 +162,7 @@ mod tests {
 		assert_eq!(state.leaf_count, 3);
 		assert_eq!(state.peaks.len(), 2);
 
-		let p0 = merge_peaks(h0, h1);
+		let p0 = merge_mmr_nodes(h0, h1);
 		assert_eq!(state.peaks[0], p0);
 		assert_eq!(state.peaks[1], h2);
 		assert_eq!(root, bag_peaks(&[p0, h2]));
@@ -201,9 +180,9 @@ mod tests {
 		assert_eq!(state.leaf_count, 4);
 		assert_eq!(state.peaks.len(), 1);
 
-		let p01 = merge_peaks(leaves[0], leaves[1]);
-		let p23 = merge_peaks(leaves[2], leaves[3]);
-		let expected = merge_peaks(p01, p23);
+		let p01 = merge_mmr_nodes(leaves[0], leaves[1]);
+		let p23 = merge_mmr_nodes(leaves[2], leaves[3]);
+		let expected = merge_mmr_nodes(p01, p23);
 		assert_eq!(state.peaks[0], expected);
 		assert_eq!(state.root(), expected);
 	}

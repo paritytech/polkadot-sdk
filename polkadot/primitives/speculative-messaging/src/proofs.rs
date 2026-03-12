@@ -39,12 +39,24 @@ use crate::{
 	merkle_tree::{DestinationMerkleTree, MerkleProof},
 };
 
+/// Merge two MMR nodes using the standard `0x02` domain prefix.
+///
+/// This is the canonical implementation used by both the pallet's
+/// per-destination MMR and the proof verification logic.
+pub fn merge_mmr_nodes(left: H256, right: H256) -> H256 {
+	let mut combined = [0u8; 65];
+	combined[0] = 0x02;
+	combined[1..33].copy_from_slice(left.as_bytes());
+	combined[33..65].copy_from_slice(right.as_bytes());
+	H256::from(sp_core::hashing::blake2_256(&combined))
+}
+
 /// Bags MMR peaks into a single root hash using the standard MMR peak bagging
 /// algorithm.
 ///
 /// Folds right-to-left: starts with the last peak, then for each preceding peak
-/// computes `blake2_256(peak ++ acc)`.
-fn bag_peaks(peaks: &[H256]) -> H256 {
+/// computes `merge_mmr_nodes(peak, acc)`.
+pub fn bag_peaks(peaks: &[H256]) -> H256 {
 	if peaks.is_empty() {
 		return H256::zero();
 	}
@@ -55,11 +67,7 @@ fn bag_peaks(peaks: &[H256]) -> H256 {
 	// Safe because we checked len >= 2 above; qed
 	let mut acc = *iter.next().expect("peaks has at least 2 elements; qed");
 	for peak in iter {
-		let mut combined = [0u8; 65];
-		combined[0] = 0x02;
-		combined[1..33].copy_from_slice(peak.as_bytes());
-		combined[33..65].copy_from_slice(acc.as_bytes());
-		acc = H256::from(sp_core::hashing::blake2_256(&combined));
+		acc = merge_mmr_nodes(*peak, acc);
 	}
 	acc
 }
@@ -129,16 +137,11 @@ impl MmrExtensionProof {
 				let sibling = self.connecting_nodes[conn_idx];
 				let current_is_left = self.merge_directions[conn_idx];
 				conn_idx += 1;
-				let mut combined = [0u8; 65];
-				combined[0] = 0x02;
 				if current_is_left {
-					combined[1..33].copy_from_slice(current.as_bytes());
-					combined[33..65].copy_from_slice(sibling.as_bytes());
+					current = merge_mmr_nodes(current, sibling);
 				} else {
-					combined[1..33].copy_from_slice(sibling.as_bytes());
-					combined[33..65].copy_from_slice(current.as_bytes());
+					current = merge_mmr_nodes(sibling, current);
 				}
-				current = H256::from(sp_core::hashing::blake2_256(&combined));
 				if let Some(pos) = self.new_peaks.iter().position(|p| p == &current) {
 					if !claimed_new_peaks.insert(pos) {
 						return Err(SpeculativeMessagingError::InvalidMmrExtensionProof);
@@ -251,18 +254,13 @@ mod tests {
 	use super::*;
 	use alloc::vec;
 	use codec::{Decode, Encode};
-	use sp_core::hashing::blake2_256;
 
 	fn make_hash(byte: u8) -> H256 {
 		H256::from([byte; 32])
 	}
 
 	fn mmr_merge(a: H256, b: H256) -> H256 {
-		let mut combined = [0u8; 65];
-		combined[0] = 0x02;
-		combined[1..33].copy_from_slice(a.as_bytes());
-		combined[33..65].copy_from_slice(b.as_bytes());
-		H256::from(blake2_256(&combined))
+		merge_mmr_nodes(a, b)
 	}
 
 	/// Helper: build a Merkle tree from a set of `(ParaId, mmr_root)`
