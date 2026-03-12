@@ -191,10 +191,221 @@ fn hash_leaf(para_id: ParaId, mmr_root: H256) -> H256 {
 
 /// Hash two child nodes together to form a parent node.
 fn hash_pair(left: H256, right: H256) -> H256 {
-	let mut combined = Vec::with_capacity(64);
-	combined.extend_from_slice(left.as_bytes());
-	combined.extend_from_slice(right.as_bytes());
-	H256::from(sp_core::hashing::blake2_256(&combined))
+	let mut buf = [0u8; 64];
+	buf[..32].copy_from_slice(left.as_bytes());
+	buf[32..].copy_from_slice(right.as_bytes());
+	H256::from(sp_core::hashing::blake2_256(&buf))
+}
+
+/// A Merkle tree that stores its internal nodes for O(log D) incremental
+/// updates when a destination's MMR root changes.
+///
+/// # Performance
+///
+/// | Operation | Complexity |
+/// |-----------|------------|
+/// | `from_destinations` | O(D) |
+/// | `root` | O(1) |
+/// | `update` (existing dest) | O(log D) |
+/// | `upsert` (new dest) | O(D) rebuild |
+/// | `remove` | O(D) rebuild |
+/// | `generate_proof` | O(log D) read |
+///
+/// The common hot-path — updating an existing destination's MMR root after
+/// sending new messages — touches only the single leaf-to-root path.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct StoredMerkleTree {
+	/// Sorted leaves: `(ParaId, MMR root)`.
+	leaves: Vec<(ParaId, H256)>,
+	/// Hashed nodes level-by-level. `levels[0]` = leaf hashes,
+	/// `levels[last]` = `[root]`. Empty when the tree has no leaves.
+	levels: Vec<Vec<H256>>,
+}
+
+impl Default for StoredMerkleTree {
+	fn default() -> Self {
+		Self { leaves: Vec::new(), levels: Vec::new() }
+	}
+}
+
+impl StoredMerkleTree {
+	/// Build a tree from a set of `(ParaId, mmr_root)` pairs. **O(D)**.
+	pub fn from_destinations(destinations: &[(ParaId, H256)]) -> Self {
+		let mut leaves: Vec<(ParaId, H256)> = destinations.to_vec();
+		leaves.sort_by_key(|(id, _)| *id);
+
+		let levels = Self::build_levels(&leaves);
+		Self { leaves, levels }
+	}
+
+	/// The current Merkle root. **O(1)**.
+	pub fn root(&self) -> H256 {
+		match self.levels.last() {
+			Some(top) => top[0],
+			None => H256::zero(),
+		}
+	}
+
+	/// Number of leaves (destinations) in the tree.
+	pub fn len(&self) -> usize {
+		self.leaves.len()
+	}
+
+	/// Whether the tree is empty.
+	pub fn is_empty(&self) -> bool {
+		self.leaves.is_empty()
+	}
+
+	/// Update an **existing** destination's MMR root. **O(log D)**.
+	///
+	/// Only the leaf-to-root path is rehashed.
+	pub fn update(
+		&mut self,
+		dest: ParaId,
+		new_mmr_root: H256,
+	) -> Result<(), SpeculativeMessagingError> {
+		let idx = self
+			.leaves
+			.binary_search_by_key(&dest, |(id, _)| *id)
+			.map_err(|_| SpeculativeMessagingError::DestinationNotFound)?;
+
+		self.leaves[idx].1 = new_mmr_root;
+		self.levels[0][idx] = hash_leaf(dest, new_mmr_root);
+		self.rehash_path(idx);
+		Ok(())
+	}
+
+	/// Insert or update a destination. **O(log D)** when updating,
+	/// **O(D)** when inserting a new destination (full rebuild).
+	pub fn upsert(&mut self, dest: ParaId, mmr_root: H256) {
+		match self.leaves.binary_search_by_key(&dest, |(id, _)| *id) {
+			Ok(idx) => {
+				self.leaves[idx].1 = mmr_root;
+				self.levels[0][idx] = hash_leaf(dest, mmr_root);
+				self.rehash_path(idx);
+			},
+			Err(_) => {
+				// New destination — positions shift, full rebuild required.
+				self.leaves.push((dest, mmr_root));
+				self.leaves.sort_by_key(|(id, _)| *id);
+				self.levels = Self::build_levels(&self.leaves);
+			},
+		}
+	}
+
+	/// Remove a destination. **O(D)** (full rebuild).
+	pub fn remove(&mut self, dest: ParaId) -> Result<(), SpeculativeMessagingError> {
+		let idx = self
+			.leaves
+			.binary_search_by_key(&dest, |(id, _)| *id)
+			.map_err(|_| SpeculativeMessagingError::DestinationNotFound)?;
+
+		self.leaves.remove(idx);
+		self.levels = Self::build_levels(&self.leaves);
+		Ok(())
+	}
+
+	/// Generate a Merkle proof by reading stored nodes. **O(log D)**.
+	pub fn generate_proof(
+		&self,
+		target: ParaId,
+	) -> Result<(H256, MerkleProof), SpeculativeMessagingError> {
+		let leaf_index = self
+			.leaves
+			.binary_search_by_key(&target, |(id, _)| *id)
+			.map_err(|_| SpeculativeMessagingError::DestinationNotFound)? as u32;
+
+		let leaf_count = self.leaves.len() as u32;
+		let mut siblings = Vec::new();
+		let mut idx = leaf_index as usize;
+
+		for level_idx in 0..self.levels.len().saturating_sub(1) {
+			let level = &self.levels[level_idx];
+			let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
+
+			if sibling_idx < level.len() {
+				siblings.push(level[sibling_idx]);
+			} else {
+				// Odd promotion: paired with itself.
+				siblings.push(level[idx]);
+			}
+
+			idx /= 2;
+		}
+
+		Ok((self.root(), MerkleProof { leaf_index, leaf_count, siblings }))
+	}
+
+	/// Look up a specific destination's MMR root.
+	pub fn get_destination_root(&self, dest: ParaId) -> Option<H256> {
+		self.leaves
+			.binary_search_by_key(&dest, |(id, _)| *id)
+			.ok()
+			.map(|idx| self.leaves[idx].1)
+	}
+
+	/// Sorted slice of all `(ParaId, MMR root)` leaves.
+	pub fn destinations(&self) -> &[(ParaId, H256)] {
+		&self.leaves
+	}
+
+	/// Produce a [`ProvidesCommitment`] from the current root.
+	pub fn provides_commitment(&self) -> crate::commitments::ProvidesCommitment {
+		crate::commitments::ProvidesCommitment { root: self.root() }
+	}
+
+	// ------------------------------------------------------------------
+	// Internal helpers
+	// ------------------------------------------------------------------
+
+	/// Build all levels bottom-up from sorted leaves.
+	fn build_levels(leaves: &[(ParaId, H256)]) -> Vec<Vec<H256>> {
+		if leaves.is_empty() {
+			return Vec::new();
+		}
+
+		let mut levels = Vec::new();
+		let leaf_hashes: Vec<H256> =
+			leaves.iter().map(|(id, root)| hash_leaf(*id, *root)).collect();
+		levels.push(leaf_hashes);
+
+		while levels.last().map_or(true, |l| l.len() > 1) {
+			let prev = levels.last().unwrap();
+			let mut next = Vec::with_capacity(prev.len().div_ceil(2));
+			let mut i = 0;
+			while i < prev.len() {
+				if i + 1 < prev.len() {
+					next.push(hash_pair(prev[i], prev[i + 1]));
+					i += 2;
+				} else {
+					next.push(hash_pair(prev[i], prev[i]));
+					i += 1;
+				}
+			}
+			levels.push(next);
+		}
+
+		levels
+	}
+
+	/// Rehash from `levels[0][leaf_idx]` up to the root.
+	fn rehash_path(&mut self, leaf_idx: usize) {
+		let mut idx = leaf_idx;
+
+		for level_idx in 0..self.levels.len().saturating_sub(1) {
+			let pair_start = idx & !1; // round down to even
+			let left = self.levels[level_idx][pair_start];
+			let right = if pair_start + 1 < self.levels[level_idx].len() {
+				self.levels[level_idx][pair_start + 1]
+			} else {
+				left // odd promotion
+			};
+
+			let parent_idx = pair_start / 2;
+			self.levels[level_idx + 1][parent_idx] = hash_pair(left, right);
+			idx = parent_idx;
+		}
+	}
 }
 
 #[cfg(test)]
@@ -448,5 +659,364 @@ mod tests {
 			DestinationMerkleTree::verify_proof(root, id, mmr, &proof)
 				.expect("verification should succeed");
 		}
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — consistency tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_empty() {
+		let tree = StoredMerkleTree::from_destinations(&[]);
+		assert_eq!(tree.root(), H256::zero());
+		assert_eq!(tree.len(), 0);
+		assert!(tree.is_empty());
+	}
+
+	#[test]
+	fn stored_tree_root_matches_stateless() {
+		for count in [1, 2, 3, 5, 8, 16, 100] {
+			let dests: Vec<(ParaId, H256)> =
+				(1..=count).map(|i| (para(i), dummy_root(i as u8))).collect();
+
+			let stored = StoredMerkleTree::from_destinations(&dests);
+			let stateless = DestinationMerkleTree::compute_root(&dests);
+
+			assert_eq!(stored.root(), stateless, "root mismatch for {} destinations", count);
+			assert_eq!(stored.len(), count as usize);
+			assert!(!stored.is_empty());
+		}
+	}
+
+	#[test]
+	fn stored_tree_sorting() {
+		let forward =
+			[(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB)), (para(3), dummy_root(0xCC))];
+		let shuffled =
+			[(para(3), dummy_root(0xCC)), (para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB))];
+
+		let t1 = StoredMerkleTree::from_destinations(&forward);
+		let t2 = StoredMerkleTree::from_destinations(&shuffled);
+		assert_eq!(t1.root(), t2.root());
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — incremental update tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_update_existing() {
+		let dests =
+			[(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB)), (para(3), dummy_root(0xCC))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		let new_root = dummy_root(0xFF);
+		tree.update(para(2), new_root).expect("update should succeed");
+
+		let expected_dests =
+			[(para(1), dummy_root(0xAA)), (para(2), new_root), (para(3), dummy_root(0xCC))];
+		let fresh = StoredMerkleTree::from_destinations(&expected_dests);
+		assert_eq!(tree.root(), fresh.root());
+	}
+
+	#[test]
+	fn stored_tree_update_nonexistent_fails() {
+		let dests = [(para(1), dummy_root(0xAA))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		let result = tree.update(para(99), dummy_root(0xFF));
+		assert_eq!(result, Err(SpeculativeMessagingError::DestinationNotFound));
+	}
+
+	#[test]
+	fn stored_tree_update_multiple_sequential() {
+		let dests: Vec<(ParaId, H256)> = (1..=10).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		// Update destinations 3, 7, 10 sequentially.
+		let updates = [(3u32, 0xA0u8), (7, 0xB0), (10, 0xC0)];
+
+		let mut current_dests = dests.clone();
+		for (id, seed) in updates {
+			let new_val = dummy_root(seed);
+			tree.update(para(id), new_val).expect("update should succeed");
+
+			// Apply same change to our reference vector.
+			let pos = current_dests.iter().position(|(p, _)| *p == para(id)).unwrap();
+			current_dests[pos].1 = new_val;
+
+			let fresh = StoredMerkleTree::from_destinations(&current_dests);
+			assert_eq!(tree.root(), fresh.root(), "mismatch after updating para {}", id);
+		}
+	}
+
+	#[test]
+	fn stored_tree_update_same_dest_twice() {
+		let dests = [(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		tree.update(para(1), dummy_root(0x11)).expect("first update should succeed");
+		tree.update(para(1), dummy_root(0x22)).expect("second update should succeed");
+
+		let expected = [(para(1), dummy_root(0x22)), (para(2), dummy_root(0xBB))];
+		let fresh = StoredMerkleTree::from_destinations(&expected);
+		assert_eq!(tree.root(), fresh.root());
+	}
+
+	#[test]
+	fn stored_tree_update_all_destinations() {
+		let dests: Vec<(ParaId, H256)> = (1..=50).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		// Update every destination with a new root.
+		let updated: Vec<(ParaId, H256)> =
+			(1..=50).map(|i| (para(i), dummy_root((i as u8).wrapping_add(128)))).collect();
+
+		for &(id, new_val) in &updated {
+			tree.update(id, new_val).expect("update should succeed");
+		}
+
+		let fresh = StoredMerkleTree::from_destinations(&updated);
+		assert_eq!(tree.root(), fresh.root());
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — upsert tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_upsert_existing() {
+		let dests = [(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		tree.upsert(para(2), dummy_root(0xFF));
+
+		let expected = [(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xFF))];
+		let fresh = StoredMerkleTree::from_destinations(&expected);
+		assert_eq!(tree.root(), fresh.root());
+		assert_eq!(tree.len(), 2);
+	}
+
+	#[test]
+	fn stored_tree_upsert_new_destination() {
+		let dests = [(para(1), dummy_root(0xAA)), (para(3), dummy_root(0xCC))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		tree.upsert(para(2), dummy_root(0xBB));
+
+		let expected =
+			[(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB)), (para(3), dummy_root(0xCC))];
+		let fresh = StoredMerkleTree::from_destinations(&expected);
+		assert_eq!(tree.root(), fresh.root());
+		assert_eq!(tree.len(), 3);
+	}
+
+	#[test]
+	fn stored_tree_upsert_multiple_new() {
+		let dests = [(para(10), dummy_root(0x10))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		let additions = [
+			(para(1), dummy_root(0x01)),
+			(para(5), dummy_root(0x05)),
+			(para(15), dummy_root(0x0F)),
+			(para(20), dummy_root(0x14)),
+			(para(25), dummy_root(0x19)),
+		];
+
+		let mut all_dests = dests.to_vec();
+		for (id, root) in additions {
+			tree.upsert(id, root);
+			all_dests.push((id, root));
+
+			let fresh = StoredMerkleTree::from_destinations(&all_dests);
+			assert_eq!(tree.root(), fresh.root(), "mismatch after upserting para {:?}", id);
+		}
+		assert_eq!(tree.len(), 6);
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — remove tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_remove_existing() {
+		let dests =
+			[(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB)), (para(3), dummy_root(0xCC))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		tree.remove(para(2)).expect("remove should succeed");
+
+		let remaining = [(para(1), dummy_root(0xAA)), (para(3), dummy_root(0xCC))];
+		let fresh = StoredMerkleTree::from_destinations(&remaining);
+		assert_eq!(tree.root(), fresh.root());
+		assert_eq!(tree.len(), 2);
+	}
+
+	#[test]
+	fn stored_tree_remove_nonexistent_fails() {
+		let dests = [(para(1), dummy_root(0xAA))];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		let result = tree.remove(para(99));
+		assert_eq!(result, Err(SpeculativeMessagingError::DestinationNotFound));
+	}
+
+	#[test]
+	fn stored_tree_remove_all() {
+		let dests: Vec<(ParaId, H256)> = (1..=5).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		for i in 1..=5u32 {
+			tree.remove(para(i)).expect("remove should succeed");
+		}
+
+		assert_eq!(tree.root(), H256::zero());
+		assert!(tree.is_empty());
+		assert_eq!(tree.len(), 0);
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — proof tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_proof_matches_stateless() {
+		let dests: Vec<(ParaId, H256)> = (1..=10).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let tree = StoredMerkleTree::from_destinations(&dests);
+
+		for &(id, mmr) in &dests {
+			let (root, proof) =
+				tree.generate_proof(id).expect("stored proof generation should succeed");
+
+			// Verify using the stateless verifier.
+			DestinationMerkleTree::verify_proof(root, id, mmr, &proof)
+				.expect("stateless verification should succeed");
+
+			// Also cross-check root matches.
+			assert_eq!(root, tree.root());
+		}
+	}
+
+	#[test]
+	fn stored_tree_proof_after_update() {
+		let dests = [
+			(para(1), dummy_root(0xAA)),
+			(para(2), dummy_root(0xBB)),
+			(para(3), dummy_root(0xCC)),
+			(para(4), dummy_root(0xDD)),
+		];
+		let mut tree = StoredMerkleTree::from_destinations(&dests);
+
+		let new_root = dummy_root(0xFF);
+		tree.update(para(2), new_root).expect("update should succeed");
+
+		// Proof for the updated destination.
+		let (root, proof) =
+			tree.generate_proof(para(2)).expect("proof for updated dest should succeed");
+		DestinationMerkleTree::verify_proof(root, para(2), new_root, &proof)
+			.expect("verification of updated dest should succeed");
+
+		// Proof for an unchanged destination.
+		let (root2, proof2) =
+			tree.generate_proof(para(4)).expect("proof for unchanged dest should succeed");
+		DestinationMerkleTree::verify_proof(root2, para(4), dummy_root(0xDD), &proof2)
+			.expect("verification of unchanged dest should succeed");
+
+		assert_eq!(root, root2);
+	}
+
+	#[test]
+	fn stored_tree_proof_all_destinations_100() {
+		let dests: Vec<(ParaId, H256)> =
+			(1..=100).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let tree = StoredMerkleTree::from_destinations(&dests);
+		let expected_root = tree.root();
+
+		for &(id, mmr) in &dests {
+			let (root, proof) = tree.generate_proof(id).expect("proof should succeed");
+
+			assert_eq!(root, expected_root);
+			assert_eq!(proof.leaf_count, 100);
+
+			DestinationMerkleTree::verify_proof(root, id, mmr, &proof)
+				.expect("verification should succeed");
+		}
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — state integration tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_provides_commitment() {
+		use crate::commitments::ProvidesCommitment;
+
+		let dests = [(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB))];
+		let tree = StoredMerkleTree::from_destinations(&dests);
+
+		let commitment = tree.provides_commitment();
+		assert_eq!(commitment, ProvidesCommitment { root: tree.root() });
+	}
+
+	#[test]
+	fn stored_tree_get_destination_root() {
+		let dests =
+			[(para(1), dummy_root(0xAA)), (para(2), dummy_root(0xBB)), (para(3), dummy_root(0xCC))];
+		let tree = StoredMerkleTree::from_destinations(&dests);
+
+		assert_eq!(tree.get_destination_root(para(1)), Some(dummy_root(0xAA)));
+		assert_eq!(tree.get_destination_root(para(2)), Some(dummy_root(0xBB)));
+		assert_eq!(tree.get_destination_root(para(3)), Some(dummy_root(0xCC)));
+		assert_eq!(tree.get_destination_root(para(99)), None);
+	}
+
+	#[test]
+	fn stored_tree_destinations_sorted() {
+		let dests = [
+			(para(5), dummy_root(0x55)),
+			(para(1), dummy_root(0x11)),
+			(para(3), dummy_root(0x33)),
+			(para(10), dummy_root(0xAA)),
+			(para(2), dummy_root(0x22)),
+		];
+		let tree = StoredMerkleTree::from_destinations(&dests);
+
+		let sorted = tree.destinations();
+		for window in sorted.windows(2) {
+			assert!(
+				window[0].0 < window[1].0,
+				"destinations not sorted: {:?} >= {:?}",
+				window[0].0,
+				window[1].0
+			);
+		}
+
+		// Also verify after upsert which triggers rebuild.
+		let mut tree2 = tree.clone();
+		tree2.upsert(para(4), dummy_root(0x44));
+		let sorted2 = tree2.destinations();
+		for window in sorted2.windows(2) {
+			assert!(
+				window[0].0 < window[1].0,
+				"destinations not sorted after upsert: {:?} >= {:?}",
+				window[0].0,
+				window[1].0
+			);
+		}
+	}
+
+	#[test]
+	fn stored_tree_encode_decode_roundtrip() {
+		let dests: Vec<(ParaId, H256)> = (1..=10).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let tree = StoredMerkleTree::from_destinations(&dests);
+
+		let encoded = tree.encode();
+		let decoded = StoredMerkleTree::decode(&mut &encoded[..]).expect("decoding should succeed");
+
+		assert_eq!(tree, decoded);
+		assert_eq!(tree.root(), decoded.root());
+		assert_eq!(tree.len(), decoded.len());
+		assert_eq!(tree.destinations(), decoded.destinations());
 	}
 }

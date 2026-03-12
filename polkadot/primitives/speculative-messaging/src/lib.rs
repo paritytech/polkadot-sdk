@@ -44,7 +44,7 @@ pub mod state;
 
 pub use commitments::{ProvidesCommitment, RequiresCommitment};
 pub use error::SpeculativeMessagingError;
-pub use merkle_tree::{DestinationMerkleTree, MerkleProof};
+pub use merkle_tree::{DestinationMerkleTree, MerkleProof, StoredMerkleTree};
 pub use messages::{MessageBatch, OutgoingMessage};
 pub use proofs::{LateBlockProof, MmrExtensionProof};
 pub use state::{IncomingMessageState, OutgoingMessageState, SourceState};

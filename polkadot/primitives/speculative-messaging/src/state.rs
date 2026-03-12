@@ -29,7 +29,10 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_core::H256;
 
-use crate::{commitments::ProvidesCommitment, merkle_tree::DestinationMerkleTree};
+use crate::{
+	commitments::ProvidesCommitment,
+	merkle_tree::{DestinationMerkleTree, StoredMerkleTree},
+};
 
 /// Per-source tracking on the receiver side.
 ///
@@ -156,6 +159,32 @@ impl OutgoingMessageState {
 	/// Returns the MMR root for a particular destination, if tracked.
 	pub fn get_destination_root(&self, dest: ParaId) -> Option<H256> {
 		self.destination_roots.get(&dest).copied()
+	}
+
+	/// Build a [`StoredMerkleTree`] from the current destination roots.
+	///
+	/// The returned tree supports O(log D) incremental updates via
+	/// [`StoredMerkleTree::update`] and O(log D) proof generation via
+	/// [`StoredMerkleTree::generate_proof`]. Use this when you expect
+	/// multiple operations in the same block — mutate the tree, then call
+	/// [`Self::sync_from_tree`] once at the end to persist.
+	pub fn build_tree(&self) -> StoredMerkleTree {
+		let entries: Vec<(ParaId, H256)> =
+			self.destination_roots.iter().map(|(&k, &v)| (k, v)).collect();
+		StoredMerkleTree::from_destinations(&entries)
+	}
+
+	/// Synchronise this state from a [`StoredMerkleTree`] that was mutated
+	/// externally (e.g. via [`StoredMerkleTree::update`]).
+	///
+	/// Replaces `destination_roots` and `current_root` with the tree's
+	/// contents.
+	pub fn sync_from_tree(&mut self, tree: &StoredMerkleTree) {
+		self.destination_roots.clear();
+		for &(id, root) in tree.destinations() {
+			self.destination_roots.insert(id, root);
+		}
+		self.current_root = tree.root();
 	}
 }
 
@@ -302,5 +331,134 @@ mod tests {
 		let decoded = OutgoingMessageState::decode(&mut &encoded[..])
 			.expect("OutgoingMessageState should decode");
 		assert_eq!(outgoing, decoded);
+	}
+
+	// ---------------------------------------------------------------
+	// Tests for build_tree() and sync_from_tree()
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn outgoing_state_build_tree_empty() {
+		let state = OutgoingMessageState::new();
+		let tree = state.build_tree();
+		assert_eq!(tree.root(), H256::zero());
+		assert!(tree.is_empty());
+		assert_eq!(tree.len(), 0);
+	}
+
+	#[test]
+	fn outgoing_state_build_tree_matches_recompute() {
+		let mut state = OutgoingMessageState::new();
+		state.update_destination(ParaId::from(100), make_hash(1));
+		state.update_destination(ParaId::from(200), make_hash(2));
+		state.update_destination(ParaId::from(300), make_hash(3));
+		state.recompute_root();
+
+		let tree = state.build_tree();
+		assert_eq!(tree.root(), state.current_root);
+	}
+
+	#[test]
+	fn outgoing_state_build_tree_and_update() {
+		let mut state = OutgoingMessageState::new();
+		state.update_destination(ParaId::from(100), make_hash(1));
+		state.update_destination(ParaId::from(200), make_hash(2));
+		state.update_destination(ParaId::from(300), make_hash(3));
+
+		let mut tree = state.build_tree();
+		let new_root_200 = make_hash(22);
+		tree.update(ParaId::from(200), new_root_200)
+			.expect("update existing dest should succeed");
+
+		// A fresh compute_root with the updated value must match.
+		let expected = DestinationMerkleTree::compute_root(&[
+			(ParaId::from(100), make_hash(1)),
+			(ParaId::from(200), new_root_200),
+			(ParaId::from(300), make_hash(3)),
+		]);
+		assert_eq!(tree.root(), expected);
+	}
+
+	#[test]
+	fn outgoing_state_sync_from_tree() {
+		let mut state = OutgoingMessageState::new();
+		state.update_destination(ParaId::from(100), make_hash(1));
+		state.update_destination(ParaId::from(200), make_hash(2));
+
+		let mut tree = state.build_tree();
+		let new_root_200 = make_hash(22);
+		tree.update(ParaId::from(200), new_root_200)
+			.expect("update existing dest should succeed");
+
+		state.sync_from_tree(&tree);
+
+		assert_eq!(state.current_root, tree.root());
+		assert_eq!(
+			state.get_destination_root(ParaId::from(200)),
+			Some(new_root_200),
+		);
+		assert_eq!(state.destination_count(), 2);
+	}
+
+	#[test]
+	fn outgoing_state_sync_from_tree_with_new_dest() {
+		let mut state = OutgoingMessageState::new();
+		state.update_destination(ParaId::from(100), make_hash(1));
+		state.update_destination(ParaId::from(200), make_hash(2));
+
+		let mut tree = state.build_tree();
+		let new_dest_root = make_hash(33);
+		tree.upsert(ParaId::from(300), new_dest_root);
+
+		state.sync_from_tree(&tree);
+
+		assert_eq!(state.current_root, tree.root());
+		assert_eq!(
+			state.get_destination_root(ParaId::from(300)),
+			Some(new_dest_root),
+		);
+		assert_eq!(state.destination_count(), 3);
+	}
+
+	#[test]
+	fn outgoing_state_sync_from_tree_with_removal() {
+		let mut state = OutgoingMessageState::new();
+		state.update_destination(ParaId::from(100), make_hash(1));
+		state.update_destination(ParaId::from(200), make_hash(2));
+		state.update_destination(ParaId::from(300), make_hash(3));
+
+		let mut tree = state.build_tree();
+		tree.remove(ParaId::from(200))
+			.expect("remove existing dest should succeed");
+
+		state.sync_from_tree(&tree);
+
+		assert_eq!(state.current_root, tree.root());
+		assert_eq!(state.get_destination_root(ParaId::from(200)), None);
+		assert_eq!(state.destination_count(), 2);
+		// Remaining destinations are intact.
+		assert_eq!(
+			state.get_destination_root(ParaId::from(100)),
+			Some(make_hash(1)),
+		);
+		assert_eq!(
+			state.get_destination_root(ParaId::from(300)),
+			Some(make_hash(3)),
+		);
+	}
+
+	#[test]
+	fn outgoing_state_roundtrip_build_sync() {
+		let mut state = OutgoingMessageState::new();
+		state.update_destination(ParaId::from(100), make_hash(1));
+		state.update_destination(ParaId::from(200), make_hash(2));
+		state.update_destination(ParaId::from(300), make_hash(3));
+		state.recompute_root();
+
+		let original = state.clone();
+		let tree = state.build_tree();
+		state.sync_from_tree(&tree);
+
+		assert_eq!(state, original);
 	}
 }
