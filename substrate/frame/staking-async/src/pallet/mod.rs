@@ -262,7 +262,7 @@ pub mod pallet {
 		/// When era pot accounts are cleaned up after history depth expires, any remaining
 		/// unclaimed rewards are transferred to this sink.
 		#[pallet::no_default_bounds]
-		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId>;
+		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId, BalanceOf<Self>>;
 
 		/// Provider for general (non-era) reward pot accounts.
 		///

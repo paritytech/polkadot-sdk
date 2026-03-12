@@ -159,16 +159,27 @@ impl<T: Config> EraRewardManager<T> {
 
 		// Transfer any remaining funds to unclaimed reward sink
 		if !remaining.is_zero() {
-			let sink = T::UnclaimedRewardSink::unclaimed_reward_sink();
-			let _ = T::Currency::transfer(&pot_account, &sink, remaining, Preservation::Expendable)
-				.defensive();
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"Transferred {:?} unclaimed rewards from era {:?} {:?} pot to sink",
-				remaining,
-				era,
-				pot_type
-			);
+			match T::UnclaimedRewardSink::deposit(&pot_account, remaining) {
+				Ok(_) => {
+					log::debug!(
+						target: crate::LOG_TARGET,
+						"Transferred {:?} unclaimed rewards from era {:?} {:?} pot to sink",
+						remaining,
+						era,
+						pot_type
+					);
+				},
+				Err(e) => {
+					defensive!("Failed to transfer unclaimed rewards to sink");
+					log::error!(
+						target: crate::LOG_TARGET,
+						"Era {:?} {:?}: unclaimed reward transfer failed: {:?}",
+						era,
+						pot_type,
+						e
+					);
+				},
+			}
 		}
 
 		// Decrement provider to allow account to be reaped.
