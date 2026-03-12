@@ -354,7 +354,7 @@ where
 			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&owner);
 		let spender: H160 = call.spender.into_array().into();
 		let spender_account =
-			<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
+			env.to_account_id(&spender);
 		let new_amount = Self::to_balance(call.value)?;
 
 		let current = pallet_assets::Pallet::<Runtime, Instance>::allowance(
