@@ -379,6 +379,34 @@ mod tests {
 	}
 
 	#[test]
+	fn vest_reverts_in_read_only_context() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			ext.set_read_only(true);
+
+			let input = IVesting::IVestingCalls::vest(IVesting::vestCall {});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			match result {
+				Err(Error::Error(err)) => {
+					let expected: sp_runtime::DispatchError =
+						crate::Error::<Test>::StateChangeDenied.into();
+					assert_eq!(
+						err.error, expected,
+						"expected StateChangeDenied, got: {:?}",
+						err.error
+					);
+				},
+				other => panic!(
+					"expected Error::Error(StateChangeDenied) for read-only vest, got: {:?}",
+					other
+				),
+			}
+		})
+	}
+
+	#[test]
 	fn vesting_balance_returns_zero_for_no_schedule() {
 		ExtBuilder::default().build().execute_with(|| {
 			use alloy_core::sol_types::SolValue;
