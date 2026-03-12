@@ -961,11 +961,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Removes the approval entry and unreserves the deposit. Emits `ApprovalCancelled`.
 	pub fn do_cancel_approval(
-		id: T::AssetId,
+		id: &T::AssetId,
 		owner: &T::AccountId,
 		delegate: &T::AccountId,
 	) -> DispatchResult {
-		let mut asset_details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		let mut asset_details = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(asset_details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 
 		let approval =
@@ -973,10 +973,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::Currency::unreserve(owner, approval.deposit);
 
 		asset_details.approvals.saturating_dec();
-		Asset::<T, I>::insert(id.clone(), asset_details);
+		Asset::<T, I>::insert(id, asset_details);
 
 		Self::deposit_event(Event::ApprovalCancelled {
-			asset_id: id,
+			asset_id: id.clone(),
 			owner: owner.clone(),
 			delegate: delegate.clone(),
 		});

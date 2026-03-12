@@ -369,7 +369,7 @@ where
 				// Revoke: use the pallet's cancel logic to remove the approval and
 				// unreserve the deposit.
 				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
-					asset_id,
+					&asset_id,
 					&owner_account,
 					&spender_account,
 				)?;
@@ -387,7 +387,7 @@ where
 			// or use increaseAllowance/decreaseAllowance if available.
 			if !current.is_zero() {
 				pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
-					asset_id.clone(),
+					&asset_id,
 					&owner_account,
 					&spender_account,
 				)?;
@@ -525,7 +525,7 @@ where
 				use sp_runtime::traits::Zero;
 				if !current.is_zero() {
 					pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
-						asset_id.clone(),
+						&asset_id,
 						&owner_account,
 						&spender_account,
 					)?;

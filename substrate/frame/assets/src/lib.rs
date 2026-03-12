@@ -1566,7 +1566,7 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
 			let id: T::AssetId = id.into();
-			Self::do_cancel_approval(id, &owner, &delegate)
+			Self::do_cancel_approval(&id, &owner, &delegate)
 		}
 
 		/// Cancel all of some asset approved for delegated transfer by a third-party account.
@@ -1601,7 +1601,7 @@ pub mod pallet {
 
 			let owner = T::Lookup::lookup(owner)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-			Self::do_cancel_approval(id, &owner, &delegate)
+			Self::do_cancel_approval(&id, &owner, &delegate)
 		}
 
 		/// Transfer some asset balance from a previously delegated account to some third-party
