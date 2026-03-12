@@ -109,7 +109,7 @@ impl Client {
 		match (num, hash) {
 			(_, None) => {
 				log::error!(target: LOG_TARGET,
-					"Boundary #{num}: non-genesis block has no stored hash");
+					"Boundary #{num}: missing stored hash");
 				Err(ClientError::SyncBoundaryMismatch)
 			},
 			(_, Some(stored_hash)) => {
