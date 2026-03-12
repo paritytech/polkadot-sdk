@@ -33,10 +33,6 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use codec::Encode;
-use statement_latency_bench::{
-	calc_stats, connect_to_endpoints, generate_topic, get_keypair, is_leader, messages_per_client,
-	parse_messages_pattern, RoundStats,
-};
 use jsonrpsee::{
 	core::client::{ClientT, Subscription, SubscriptionClientT},
 	rpc_params,
@@ -44,6 +40,10 @@ use jsonrpsee::{
 use log::{debug, info, warn};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
+use statement_latency_bench::{
+	calc_stats, connect_to_endpoints, generate_topic, get_keypair, is_leader, messages_per_client,
+	parse_messages_pattern, RoundStats,
+};
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 

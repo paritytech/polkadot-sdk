@@ -23,11 +23,11 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use codec::Encode;
-use sp_core::Pair;
-use statement_latency_bench::{connect_to_endpoints, get_keypair, CustomConfig};
 use jsonrpsee::{core::client::ClientT, rpc_params, ws_client::WsClient};
 use log::info;
+use sp_core::Pair;
 use sp_statement_store::{statement_allowance_key, StatementAllowance};
+use statement_latency_bench::{connect_to_endpoints, get_keypair, CustomConfig};
 use std::str::FromStr;
 use subxt::{
 	config::DefaultExtrinsicParamsBuilder,
