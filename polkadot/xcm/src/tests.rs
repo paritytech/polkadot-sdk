@@ -22,7 +22,25 @@ use codec::MemTrackingInput;
 enum TestCall {
 	Empty,
 	Allocate { arg: Vec<u8> },
-	Xcm { xcm: Box<v5::Xcm<TestCall>> },
+	Xcm { xcm: Box<VersionedXcm<TestCall>> },
+}
+
+impl TestCall {
+	fn new_xcm(xcm: VersionedXcm<Self>) -> Self {
+		TestCall::Xcm { xcm: Box::new(xcm) }
+	}
+
+	fn new_xcm_from_instrs(instrs: Vec<latest::Instruction<Self>>) -> Self {
+		Self::new_xcm(VersionedXcm::V5(latest::Xcm::<TestCall>(instrs)))
+	}
+}
+
+fn new_transact(call: TestCall) -> latest::Instruction<TestCall> {
+	latest::Instruction::Transact {
+		origin_kind: latest::OriginKind::Native,
+		fallback_max_weight: None,
+		call: call.encode().into(),
+	}
 }
 
 #[test]
@@ -275,42 +293,51 @@ fn ensure_type_info_is_correct() {
 }
 
 #[test]
-fn ensure_decode_tracks_nested_transacts() {
-	let xcm = VersionedXcm::V5(v5::Xcm::<TestCall>(vec![
-		v5::Instruction::ClearOrigin,
-		v5::Instruction::Transact {
-			origin_kind: v5::OriginKind::Native,
-			fallback_max_weight: None,
-			call: TestCall::Xcm {
-				xcm: Box::new(v5::Xcm::<TestCall>(vec![
-					v5::Instruction::Transact {
-						origin_kind: v5::OriginKind::Native,
-						fallback_max_weight: None,
-						call: TestCall::Allocate { arg: vec![0; 1000] }.encode().into(),
-					},
-					v5::Instruction::Transact {
-						origin_kind: v5::OriginKind::Native,
-						fallback_max_weight: None,
-						call: TestCall::Xcm {
-							xcm: Box::new(v5::Xcm::<TestCall>(vec![v5::Instruction::Transact {
-								origin_kind: v5::OriginKind::Native,
-								fallback_max_weight: None,
-								call: TestCall::Allocate { arg: vec![0; 1000] }.encode().into(),
-							}])),
-						}
-						.encode()
-						.into(),
-					},
-				])),
-			}
-			.encode()
-			.into(),
-		},
-	]));
-	let encoded_xcm = xcm.encode();
+fn ensure_decode_tracks_nested_transacts_mem() {
+	use crate::latest::*;
 
+	let xcm = VersionedXcm::V5(Xcm(vec![
+		Instruction::ClearOrigin,
+		new_transact(TestCall::new_xcm_from_instrs(vec![
+			new_transact(TestCall::Allocate { arg: vec![0; 1000] }),
+			new_transact(TestCall::new_xcm_from_instrs(vec![new_transact(TestCall::Allocate {
+				arg: vec![0; 1000],
+			})])),
+		])),
+	]));
+
+	let encoded_xcm = xcm.encode();
 	let binding = &mut &encoded_xcm[..];
 	let mut input = MemTrackingInput::new(binding, usize::MAX);
-	assert_eq!(VersionedXcm::<TestCall>::decode(&mut input), Ok(xcm));
+	assert_eq!(VersionedXcm::decode(&mut input), Ok(xcm));
 	assert!(input.used_mem() > 7000);
+}
+
+#[test]
+fn ensure_decode_checks_recursion_limit() {
+	use crate::{double_encoded::DECODE_MAX_DEPTH_MSG, latest::*};
+
+	fn nest_xcm(xcm: VersionedXcm<TestCall>) -> VersionedXcm<TestCall> {
+		VersionedXcm::V5(Xcm(vec![
+			// Add some more transacts on the same level
+			new_transact(TestCall::Empty),
+			new_transact(TestCall::Empty),
+			new_transact(TestCall::Empty),
+			// Add one more nesting level
+			new_transact(TestCall::new_xcm(xcm)),
+		]))
+	}
+
+	let mut xcm = VersionedXcm::V5(Xcm(vec![new_transact(TestCall::Empty)]));
+	for _ in 1..RECURSION_LIMIT {
+		xcm = nest_xcm(xcm);
+		let encoded_xcm = xcm.encode();
+		assert_eq!(VersionedXcm::decode(&mut &encoded_xcm[..]), Ok(xcm.clone()));
+	}
+
+	xcm = nest_xcm(xcm);
+	let encoded_xcm = xcm.encode();
+	let res = VersionedXcm::<TestCall>::decode(&mut &encoded_xcm[..]);
+	assert!(res.is_err());
+	assert!(res.err().unwrap().to_string().contains(DECODE_MAX_DEPTH_MSG))
 }

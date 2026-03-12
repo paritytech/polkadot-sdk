@@ -31,7 +31,10 @@ use frame_support::{
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_weights::Weight;
-use xcm::latest::{prelude::*, AssetTransferFilter};
+use xcm::{
+	latest::{prelude::*, AssetTransferFilter},
+	RECURSION_LIMIT,
+};
 
 pub mod traits;
 use traits::{
@@ -63,14 +66,6 @@ pub struct FeesMode {
 	/// Defaults to false.
 	pub jit_withdraw: bool,
 }
-
-/// The maximum recursion depth allowed when executing nested XCM instructions.
-///
-/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
-/// `ProcessMessageError::StackLimitReached`.
-///
-/// Also used in the `DenyRecursively` barrier.
-pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 

@@ -25,7 +25,7 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
 
-use xcm::{latest::prelude::*, VersionedXcm, XcmRuntimeCall};
+use xcm::{latest::prelude::*, VersionedXcm};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -33,7 +33,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<RuntimeCall: XcmRuntimeCall> {
+	pub trait Config: frame_system::Config {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;

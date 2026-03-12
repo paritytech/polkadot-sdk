@@ -45,7 +45,7 @@ pub mod latest {
 }
 
 mod double_encoded;
-pub use double_encoded::{DoubleEncoded, XcmRuntimeCall};
+pub use double_encoded::DoubleEncoded;
 
 mod utils;
 
@@ -59,6 +59,13 @@ pub const XCM_SIZE_LIMIT: usize = 16 * 1024 * 1024;
 ///
 /// This is a deliberate limit - not a technical one.
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
+/// The maximum recursion depth allowed when executing nested XCM instructions.
+///
+/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
+/// `ProcessMessageError::StackLimitReached`.
+///
+/// Also used in the `DenyRecursively` barrier.
+pub const RECURSION_LIMIT: u8 = 10;
 
 /// A version of XCM.
 pub type Version = u32;
@@ -323,8 +330,8 @@ versioned_type! {
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
-#[codec(decode_bound(RuntimeCall: XcmRuntimeCall))]
-#[codec(decode_with_mem_tracking_bound(RuntimeCall: XcmRuntimeCall))]
+#[codec(decode_bound(RuntimeCall: 'static + Decode))]
+#[codec(decode_with_mem_tracking_bound(RuntimeCall: 'static + Decode))]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
@@ -357,7 +364,7 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 	}
 }
 
-impl<C: XcmRuntimeCall> VersionedXcm<C> {
+impl<C: 'static + Decode> VersionedXcm<C> {
 	pub fn decode_all_with_mem_and_depth_limit(
 		input: &mut &[u8],
 	) -> Result<VersionedXcm<C>, CodecError> {
@@ -541,7 +548,7 @@ pub mod prelude {
 		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
 		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
-		VersionedResponse, VersionedXcm, WrapVersion, XcmRuntimeCall,
+		VersionedResponse, VersionedXcm, WrapVersion,
 	};
 
 	/// The minimal supported XCM version

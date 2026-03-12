@@ -14,20 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{utils, MAX_XCM_DECODE_DEPTH};
+use crate::{utils, MAX_XCM_DECODE_DEPTH, RECURSION_LIMIT};
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use core::any::TypeId;
-use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_runtime::Saturating;
 
-const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
+pub(crate) const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
 
-environmental::environmental!(depth: u8);
-
-pub trait XcmRuntimeCall: 'static + Decode {}
-
-impl<T> XcmRuntimeCall for T where T: 'static + Decode {}
+environmental::environmental!(nesting_count: u8);
 
 struct NestedInput<'a> {
 	main_input: Box<&'a mut dyn codec::Input>,
@@ -48,28 +43,18 @@ impl<'a> codec::Input for NestedInput<'a> {
 	}
 
 	fn descend_ref(&mut self) -> Result<(), codec::Error> {
-		depth::using_once(&mut 0, || {
-			depth::with(|depth| {
-				depth.saturating_inc();
-				if *depth as u32 > MAX_EXTRINSIC_DEPTH {
-					return Err(DECODE_MAX_DEPTH_MSG.into());
-				}
-
-				Ok(())
-			})
-			.unwrap_or(Err(codec::Error::from("Error calling `instructions_count::with()`")))
-		})
+		// We don't want to keep track of the depth here.
+		// We check the `RECURSION_LIMIT` in the decoding function.
+		Ok(())
 	}
 
 	fn ascend_ref(&mut self) {
-		depth::using_once(&mut 0, || {
-			let _ = depth::with(|depth| {
-				depth.saturating_dec();
-			});
-		});
+		// We don't want to keep track of the depth here.
+		// We check the `RECURSION_LIMIT` in the decoding function.
 	}
 
 	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), codec::Error> {
+		// We forward the heap memory usage info to the main input.
 		self.main_input.on_before_alloc_mem(size)
 	}
 }
@@ -78,7 +63,7 @@ impl<'a> codec::Input for NestedInput<'a> {
 /// Caches the decoded value once computed.
 #[derive(Encode, DecodeWithMemTracking, scale_info::TypeInfo)]
 #[codec(encode_bound())]
-#[codec(decode_with_mem_tracking_bound(T: XcmRuntimeCall))]
+#[codec(decode_with_mem_tracking_bound(T: 'static + Decode))]
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
@@ -90,22 +75,39 @@ pub struct DoubleEncoded<T> {
 
 impl<T> Decode for DoubleEncoded<T>
 where
-	T: XcmRuntimeCall,
+	T: 'static + Decode,
 {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let mut obj = Self { encoded: Vec::<u8>::decode(input)?, decoded: None };
+
+		// We can't decode remote calls
 		if TypeId::of::<T>() == TypeId::of::<()>() {
 			return Ok(obj);
 		}
 
-		// We also decode the inner double encoded object if possible, in order to make sure that
-		// its heap memory and depth are accounted for.
-		let mut nested_input =
-			NestedInput { main_input: Box::new(input), opaque: &obj.encoded[..] };
-		obj.decoded = Some(T::decode(&mut nested_input)?);
-		utils::ensure_all_decoded(nested_input.opaque)?;
+		// If it's a local call, we also decode the inner double encoded object,
+		// in order to make sure that its heap memory and depth are accounted for.
+		nesting_count::using_once(&mut 0, || {
+			let nesting_limit_exceeded = nesting_count::with(|count| {
+				count.saturating_inc();
+				*count > RECURSION_LIMIT
+			})
+			.unwrap_or(true);
+			if nesting_limit_exceeded {
+				return Err(DECODE_MAX_DEPTH_MSG.into());
+			}
 
-		Ok(obj)
+			let mut nested_input =
+				NestedInput { main_input: Box::new(input), opaque: &obj.encoded[..] };
+			obj.decoded = Some(T::decode(&mut nested_input)?);
+			utils::ensure_all_decoded(nested_input.opaque)?;
+
+			let _ = nesting_count::with(|count| {
+				count.saturating_dec();
+			});
+
+			Ok(obj)
+		})
 	}
 }
 
