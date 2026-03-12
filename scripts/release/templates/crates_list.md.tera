@@ -1,10 +1,9 @@
 The following crates were updated to the corresponding versions:
 
 <details>
-<summary>Click to see crates list</summary>
+  <summary>Click to see crates list</summary>
 
-- sp-trie@41.1.1
-- frame-benchmarking@43.0.1
-- asset-hub-westend-runtime@0.36.3
+- sc-authority-discovery@0.53.1
+- cumulus-client-consensus-aura@0.26.3
 
 </details>
