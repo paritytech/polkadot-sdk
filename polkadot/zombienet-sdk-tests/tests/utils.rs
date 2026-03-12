@@ -87,13 +87,10 @@ pub async fn check_metrics(
 				validator.wait_metric_with_timeout(*metric, &predicate, *timeout).await
 			};
 
-			res.map_err(|e| {
-				anyhow!("node {} check failed ({metric}): {e}", validator.name())
-			})?;
+			res.map_err(|e| anyhow!("node {} check failed ({metric}): {e}", validator.name()))?;
 		}
 		log::info!("All nodes pass the metric {metric} predicate");
 	}
-
 
 	Ok(())
 }
