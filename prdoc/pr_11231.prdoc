@@ -21,14 +21,18 @@ crates:
   bump: minor
 - name: polkadot-runtime-parachains
   bump: major
+  validate: false
 - name: polkadot-node-subsystem-types
   bump: major
+  validate: false
 - name: polkadot-node-core-runtime-api
-  bump: minor
+  bump: patch
 - name: westend-runtime
   bump: major
+  validate: false
 - name: rococo-runtime
   bump: major
+  validate: false
 - name: polkadot-test-runtime
   bump: minor
 - name: polkadot-test-service
@@ -40,4 +44,4 @@ crates:
 - name: pallet-staking-async-rc-runtime
   bump: patch
 - name: penpal-runtime
-  bump: minor
+  bump: patch
