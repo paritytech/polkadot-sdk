@@ -141,6 +141,7 @@ impl GenericTransaction {
 				let maximized_base_fee = base_fee.saturating_mul(256.into());
 				maximized_tx.gas = Some(u64::MAX.into());
 				maximized_tx.gas_price = Some(maximized_base_fee);
+				maximized_tx.max_fee_per_gas = Some(maximized_base_fee);
 				maximized_tx.max_priority_fee_per_gas = Some(maximized_base_fee);
 
 				let unsigned_tx = maximized_tx.try_into_unsigned().map_err(|_| {

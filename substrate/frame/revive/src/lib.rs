@@ -50,8 +50,8 @@ pub mod weights;
 use crate::{
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		TYPE_EIP1559, TYPE_EIP7702, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
+		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	storage::{AccountType, DeletionQueueManager},
@@ -1823,7 +1823,11 @@ impl<T: Config> Pallet<T> {
 			tx.gas = Some(Self::evm_block_gas_limit());
 		}
 		if tx.r#type.is_none() {
-			tx.r#type = Some(TYPE_EIP1559.into());
+			tx.r#type = Some(if tx.authorization_list.is_empty() {
+				 TYPE_EIP1559
+			} else {
+				TYPE_EIP7702
+			}.into());
 		}
 
 		// Store values before moving the tx
