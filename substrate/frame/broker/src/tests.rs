@@ -2335,7 +2335,7 @@ fn auto_renewal_record_removed_when_max_retries_reached() {
 #[test]
 fn check_retry_ids_after_rotations() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_set_lease(1000, 8));
+		assert_ok!(Broker::do_set_lease(1000, 8)); // lease ends 8
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 
@@ -2351,7 +2351,7 @@ fn check_retry_ids_after_rotations() {
 		let max_retries: u8 = <Test as Config>::MaxAutoRenewalRetries::get();
 		AutoRenewalRetries::<Test>::insert((region.core, 1002), 1);
 
-		// first rotation
+		// first rotation, lease still active
 		advance_to(6);
 		assert_eq!(
 			AutoRenewals::<Test>::get().iter().find(|r| r.task == 1001).map(|r| r.core),
