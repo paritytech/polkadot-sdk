@@ -16,10 +16,13 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{disputes, initializer, paras};
+use crate::{configuration, disputes, initializer, paras, shared};
 use alloc::vec::Vec;
+use frame_system::pallet_prelude::BlockNumberFor;
 
-use polkadot_primitives::{slashing, CandidateHash, Id as ParaId, SessionIndex};
+use polkadot_primitives::{
+	slashing, vstaging::RelayParentInfo, CandidateHash, Id as ParaId, SessionIndex,
+};
 
 /// Implementation of `para_ids` runtime API
 pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
@@ -30,4 +33,16 @@ pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
 pub fn unapplied_slashes_v2<T: disputes::slashing::Config>(
 ) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
 	disputes::slashing::Pallet::<T>::unapplied_slashes()
+}
+/// Implementation of `max_relay_parent_session_age` runtime API.
+pub fn max_relay_parent_session_age<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_relay_parent_session_age
+}
+
+/// Implementation of `allowed_relay_parent_info` runtime API.
+pub fn allowed_relay_parent_info<T: shared::Config>(
+	session_index: SessionIndex,
+	relay_parent: T::Hash,
+) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {
+	shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent)
 }
