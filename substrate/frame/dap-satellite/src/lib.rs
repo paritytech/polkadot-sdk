@@ -178,7 +178,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		let numeric_amount = amount.peek();
 
 		// Resolve should never fail because:
-		// - can_deposit on destination succeeds since satellite is pre-funded with ED
+		// - can_deposit on destination succeeds assuming satellite is pre-funded with ED
 		// - amount is guaranteed non-zero by the trait method signature
 		// The only failure would be overflow on destination or unfunded satellite.
 		let _ = T::Currency::resolve(&satellite, amount).inspect_err(|_| {

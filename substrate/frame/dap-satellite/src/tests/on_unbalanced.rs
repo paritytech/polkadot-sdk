@@ -18,10 +18,13 @@
 //! OnUnbalanced tests for the DAP Satellite pallet.
 
 use crate::mock::*;
-use frame_support::traits::{
-	fungible::{Balanced, Inspect},
-	tokens::{Fortitude, Precision, Preservation},
-	OnUnbalanced,
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::{Balanced, Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+		OnUnbalanced,
+	},
 };
 
 type DapSatellitePallet = crate::Pallet<Test>;
@@ -151,5 +154,38 @@ fn on_unbalanced_creates_satellite_when_not_funded_and_deposit_at_least_ed() {
 
 		// Then: satellite is created and funded
 		assert_eq!(Balances::free_balance(satellite), ed);
+	});
+}
+
+#[test]
+fn on_unbalanced_multiple_dust_removals_accumulate_to_satellite() {
+	new_test_ext(true).execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+		let dust = ed / 2;
+
+		// Given: satellite has ED. Create 3 accounts with ED + dust each.
+		for acct in 10..=12u64 {
+			assert_ok!(<Balances as Mutate<_>>::mint_into(&acct, ed + dust));
+		}
+		let satellite_before = Balances::free_balance(satellite);
+		let issuance_before = <Balances as Inspect<_>>::total_issuance();
+
+		// When: each account transfers ED away, leaving dust < ED → reaped.
+		// DustRemoval = DapSatellite → dust goes to satellite.
+		for acct in 10..=12u64 {
+			assert_ok!(Balances::transfer_allow_death(
+				frame_system::RawOrigin::Signed(acct).into(),
+				1,
+				ed,
+			));
+			assert_eq!(Balances::free_balance(acct), 0);
+		}
+
+		// Then: satellite accumulated dust from all 3 reaps.
+		assert_eq!(Balances::free_balance(satellite), satellite_before + 3 * dust);
+
+		// And: total issuance unchanged (dust moved, not destroyed).
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance_before);
 	});
 }

@@ -43,6 +43,7 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type ExistentialDeposit = ExistentialDeposit;
+	type DustRemoval = DapSatellite;
 }
 
 parameter_types! {

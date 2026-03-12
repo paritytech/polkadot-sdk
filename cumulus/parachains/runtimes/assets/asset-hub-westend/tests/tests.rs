@@ -2522,6 +2522,7 @@ mod remote_test {
 
 mod dap {
 	use super::*;
+	use frame_support::traits::{fungible::Balanced, OnUnbalanced};
 
 	#[test]
 	fn tx_fees_go_to_dap_buffer() {
@@ -2577,7 +2578,6 @@ mod dap {
 			)])
 			.build()
 			.execute_with(|| {
-				// Fund accounts inside execute_with to avoid collator balance conflicts.
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&buffer, ed));
