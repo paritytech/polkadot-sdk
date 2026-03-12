@@ -414,6 +414,7 @@ impl crate::Config for Test {
 	type SurplusAuctionAmount = SurplusAuctionAmount;
 	type MinSurplusPurchaseAmount = MinSurplusPurchaseAmount;
 	type ManagerOrigin = EnsureRoot<u64>;
+	type AdminOrigin = EnsureRoot<u64>;
 	type MaxOnIdleItems = MaxOnIdleItems;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]

@@ -523,6 +523,9 @@ pub mod pallet {
 		/// Should be a multisig or technical committee for fast response.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// Origin allowed to update protocol parameters.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Threshold for starting surplus auctions.
 		/// Insurance Fund balance must exceed this percentage of total pUSD supply.
 		/// E.g., 5% means IF must have > 5% of total pUSD supply as surplus.
@@ -1090,7 +1093,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root`.
+		/// Must be `AdminOrigin`.
 		///
 		/// ## Details
 		///
@@ -1112,7 +1115,7 @@ pub mod pallet {
 			auction_type: AuctionType,
 			buffer: FixedU128,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			AuctionConfig::<T>::mutate(auction_type, |config| config.buffer = buffer);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
@@ -1125,7 +1128,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root`.
+		/// Must be `AdminOrigin`.
 		///
 		/// ## Details
 		///
@@ -1147,7 +1150,7 @@ pub mod pallet {
 			auction_type: AuctionType,
 			maximum_duration: BlockNumberFor<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			AuctionConfig::<T>::mutate(auction_type, |config| {
 				config.maximum_duration = maximum_duration;
 			});
@@ -1162,7 +1165,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root`.
+		/// Must be `AdminOrigin`.
 		///
 		/// ## Details
 		///
@@ -1185,7 +1188,7 @@ pub mod pallet {
 			auction_type: AuctionType,
 			minimum_price: FixedU128,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			AuctionConfig::<T>::mutate(auction_type, |config| config.minimum_price = minimum_price);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
@@ -1198,7 +1201,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root`.
+		/// Must be `AdminOrigin`.
 		///
 		/// ## Details
 		///
@@ -1221,7 +1224,7 @@ pub mod pallet {
 			auction_type: AuctionType,
 			chip: Permill,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			AuctionConfig::<T>::mutate(auction_type, |config| config.chip = chip);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
@@ -1234,7 +1237,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root`.
+		/// Must be `AdminOrigin`.
 		///
 		/// ## Details
 		///
@@ -1257,7 +1260,7 @@ pub mod pallet {
 			auction_type: AuctionType,
 			tip: BalanceOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			AuctionConfig::<T>::mutate(auction_type, |config| config.tip = tip);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
@@ -1270,7 +1273,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root`.
+		/// Must be `AdminOrigin`.
 		///
 		/// ## Details
 		///
@@ -1293,7 +1296,7 @@ pub mod pallet {
 			auction_type: AuctionType,
 			curve: PriceCurve,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			AuctionConfig::<T>::mutate(auction_type, |config| config.curve = curve);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
@@ -1341,7 +1344,7 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be `Root` (governance decision).
+		/// Must be `AdminOrigin` (governance decision).
 		///
 		/// ## Details
 		///
@@ -1355,7 +1358,7 @@ pub mod pallet {
 		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::set_surplus_mode())]
 		pub fn set_surplus_mode(origin: OriginFor<T>, mode: SurplusHandlingMode) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			SurplusMode::<T>::put(mode);
 			Self::deposit_event(Event::SurplusModeUpdated { mode });
 			Ok(())
