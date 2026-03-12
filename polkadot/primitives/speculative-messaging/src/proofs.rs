@@ -105,11 +105,20 @@ impl MmrExtensionProof {
 		}
 
 		// Verify that the old peaks are a prefix of the new structure using
-		// the connecting nodes. Each old peak must appear in the new MMR or
-		// be recoverable from it via the connecting nodes.
+		// the connecting nodes. Each old peak must map to exactly one new
+		// peak — either directly (unchanged) or via connecting nodes (merged).
+		// Track which new peaks have been claimed to prevent two old peaks
+		// from mapping to the same new peak.
 		let mut conn_idx = 0;
+		let mut claimed_new_peaks = alloc::collections::BTreeSet::new();
+
 		for old_peak in &self.old_peaks {
-			if self.new_peaks.contains(old_peak) {
+			// Check if this old peak is directly present as a new peak.
+			if let Some(pos) = self.new_peaks.iter().position(|p| p == old_peak) {
+				if !claimed_new_peaks.insert(pos) {
+					// This new peak was already claimed by a different old peak.
+					return Err(SpeculativeMessagingError::InvalidMmrExtensionProof);
+				}
 				continue;
 			}
 			// The old peak was merged in the new MMR. Walk through the
@@ -130,7 +139,10 @@ impl MmrExtensionProof {
 					combined[33..65].copy_from_slice(current.as_bytes());
 				}
 				current = H256::from(sp_core::hashing::blake2_256(&combined));
-				if self.new_peaks.contains(&current) {
+				if let Some(pos) = self.new_peaks.iter().position(|p| p == &current) {
+					if !claimed_new_peaks.insert(pos) {
+						return Err(SpeculativeMessagingError::InvalidMmrExtensionProof);
+					}
 					found = true;
 					break;
 				}
@@ -329,6 +341,26 @@ mod tests {
 		};
 		assert_eq!(proof.verify(wrong_root, root), Err(SpeculativeMessagingError::RootMismatch));
 		assert_eq!(proof.verify(root, wrong_root), Err(SpeculativeMessagingError::RootMismatch));
+	}
+
+	#[test]
+	fn mmr_extension_proof_rejects_duplicate_peak_claim() {
+		// Two old peaks with the same value both try to claim the same new peak.
+		let shared = make_hash(10);
+		let old_root = bag_peaks(&[shared, shared]);
+		let new_root = bag_peaks(&[shared]);
+
+		let proof = MmrExtensionProof {
+			old_peaks: vec![shared, shared],
+			new_peaks: vec![shared],
+			connecting_nodes: vec![],
+			merge_directions: vec![],
+		};
+
+		assert_eq!(
+			proof.verify(old_root, new_root),
+			Err(SpeculativeMessagingError::InvalidMmrExtensionProof)
+		);
 	}
 
 	// ---- LateBlockProof tests ----

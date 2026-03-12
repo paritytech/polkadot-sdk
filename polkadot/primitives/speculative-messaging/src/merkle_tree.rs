@@ -97,12 +97,17 @@ impl DestinationMerkleTree {
 			return Err(SpeculativeMessagingError::DuplicateDestination);
 		}
 
-		let leaf_index = sorted
+		let leaf_index: u32 = sorted
 			.iter()
 			.position(|(id, _)| *id == target)
-			.ok_or(SpeculativeMessagingError::DestinationNotFound)? as u32;
+			.ok_or(SpeculativeMessagingError::DestinationNotFound)?
+			.try_into()
+			.map_err(|_| SpeculativeMessagingError::TooManyDestinations)?;
 
-		let leaf_count = sorted.len() as u32;
+		let leaf_count: u32 = sorted
+			.len()
+			.try_into()
+			.map_err(|_| SpeculativeMessagingError::TooManyDestinations)?;
 
 		let mut level: Vec<H256> = sorted.iter().map(|(id, root)| hash_leaf(*id, *root)).collect();
 
@@ -329,12 +334,18 @@ impl StoredMerkleTree {
 		&self,
 		target: ParaId,
 	) -> Result<(H256, MerkleProof), SpeculativeMessagingError> {
-		let leaf_index = self
+		let leaf_index: u32 = self
 			.leaves
 			.binary_search_by_key(&target, |(id, _)| *id)
-			.map_err(|_| SpeculativeMessagingError::DestinationNotFound)? as u32;
+			.map_err(|_| SpeculativeMessagingError::DestinationNotFound)?
+			.try_into()
+			.map_err(|_| SpeculativeMessagingError::TooManyDestinations)?;
 
-		let leaf_count = self.leaves.len() as u32;
+		let leaf_count: u32 = self
+			.leaves
+			.len()
+			.try_into()
+			.map_err(|_| SpeculativeMessagingError::TooManyDestinations)?;
 		let mut siblings = Vec::new();
 		let mut idx = leaf_index as usize;
 
@@ -368,6 +379,34 @@ impl StoredMerkleTree {
 		&self.leaves
 	}
 
+	/// Validate internal invariants after decoding from untrusted data.
+	///
+	/// Checks that leaves are sorted by `ParaId` with no duplicates, and
+	/// that the stored levels match a fresh rebuild from the leaves.
+	/// Call this after `Decode` on data from untrusted sources.
+	pub fn validate(&self) -> Result<(), SpeculativeMessagingError> {
+		if self.leaves.is_empty() {
+			return if self.levels.is_empty() {
+				Ok(())
+			} else {
+				Err(SpeculativeMessagingError::RootMismatch)
+			};
+		}
+
+		// Leaves must be sorted by ParaId with no duplicates.
+		if self.leaves.windows(2).any(|w| w[0].0 >= w[1].0) {
+			return Err(SpeculativeMessagingError::DuplicateDestination);
+		}
+
+		// Stored levels must match a fresh build from the leaves.
+		let expected_levels = Self::build_levels(&self.leaves);
+		if self.levels != expected_levels {
+			return Err(SpeculativeMessagingError::RootMismatch);
+		}
+
+		Ok(())
+	}
+
 	/// Produce a [`ProvidesCommitment`] from the current root.
 	pub fn provides_commitment(&self) -> crate::commitments::ProvidesCommitment {
 		crate::commitments::ProvidesCommitment { root: self.root() }
@@ -389,7 +428,8 @@ impl StoredMerkleTree {
 		levels.push(leaf_hashes);
 
 		while levels.last().map_or(true, |l| l.len() > 1) {
-			let prev = levels.last().unwrap();
+			// levels is non-empty because we pushed leaf_hashes above; qed
+			let prev = levels.last().expect("levels is non-empty; qed");
 			let mut next = Vec::with_capacity(prev.len().div_ceil(2));
 			let mut i = 0;
 			while i < prev.len() {
@@ -1024,6 +1064,36 @@ mod tests {
 			);
 		}
 	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — validate tests
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn stored_tree_validate_valid() {
+		let dests: Vec<(ParaId, H256)> = (1..=5).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let tree = StoredMerkleTree::from_destinations(&dests);
+		assert!(tree.validate().is_ok());
+	}
+
+	#[test]
+	fn stored_tree_validate_empty() {
+		let tree = StoredMerkleTree::from_destinations(&[]);
+		assert!(tree.validate().is_ok());
+	}
+
+	#[test]
+	fn stored_tree_validate_decode_roundtrip() {
+		let dests: Vec<(ParaId, H256)> = (1..=10).map(|i| (para(i), dummy_root(i as u8))).collect();
+		let tree = StoredMerkleTree::from_destinations(&dests);
+		let encoded = tree.encode();
+		let decoded = StoredMerkleTree::decode(&mut &encoded[..]).expect("decoding should succeed");
+		assert!(decoded.validate().is_ok());
+	}
+
+	// ---------------------------------------------------------------
+	// StoredMerkleTree — encode/decode tests
+	// ---------------------------------------------------------------
 
 	#[test]
 	fn stored_tree_encode_decode_roundtrip() {

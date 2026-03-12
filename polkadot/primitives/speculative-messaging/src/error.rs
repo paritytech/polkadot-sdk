@@ -47,7 +47,12 @@ pub enum SpeculativeMessagingError {
 	UnconsumedProofData,
 	/// Source ParaId doesn't match expected source.
 	SourceMismatch,
+	/// Too many destinations to fit in a u32-indexed Merkle tree.
+	TooManyDestinations,
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for SpeculativeMessagingError {}
 
 impl fmt::Display for SpeculativeMessagingError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -71,6 +76,9 @@ impl fmt::Display for SpeculativeMessagingError {
 			Self::UnconsumedProofData => write!(f, "Proof contains unconsumed data"),
 			Self::SourceMismatch => {
 				write!(f, "Source ParaId doesn't match expected source")
+			},
+			Self::TooManyDestinations => {
+				write!(f, "Too many destinations to fit in a u32-indexed Merkle tree")
 			},
 		}
 	}
@@ -150,6 +158,7 @@ mod tests {
 			SpeculativeMessagingError::DuplicateDestination,
 			SpeculativeMessagingError::UnconsumedProofData,
 			SpeculativeMessagingError::SourceMismatch,
+			SpeculativeMessagingError::TooManyDestinations,
 		];
 
 		for variant in &variants {
@@ -175,6 +184,7 @@ mod tests {
 			SpeculativeMessagingError::DuplicateDestination,
 			SpeculativeMessagingError::UnconsumedProofData,
 			SpeculativeMessagingError::SourceMismatch,
+			SpeculativeMessagingError::TooManyDestinations,
 		];
 
 		for (i, variant) in variants.iter().enumerate() {

@@ -117,6 +117,10 @@ impl MessageBatch {
 
 	/// Returns `(first_position, last_position)` or `None` if the batch
 	/// is empty.
+	///
+	/// **Note:** This returns positions from the first and last messages
+	/// in array order. Call [`Self::verify_sequential`] first to ensure
+	/// the messages are properly ordered.
 	pub fn positions_range(&self) -> Option<(u64, u64)> {
 		let first = self.messages.first()?.position;
 		let last = self.messages.last()?.position;
