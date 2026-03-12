@@ -72,7 +72,7 @@ fn create_liquidation_auction<T: Config>(
 	AuctionsPallet::<T>::start_auction(
 		vault_owner,
 		collateral,
-		DebtComponents::new(principal, interest, penalty),
+		DebtComponents { principal, interest, penalty },
 		keeper,
 	)
 	.map_err(|_| BenchmarkError::Stop("Failed to create auction"))

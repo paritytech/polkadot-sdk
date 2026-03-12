@@ -51,7 +51,7 @@ fn start_test_auction(vault_owner: u64, collateral: u128, tab: u128) -> Result<u
 	crate::Pallet::<Test>::start_auction(
 		vault_owner,
 		collateral,
-		DebtComponents::new(tab, 0, 0),
+		DebtComponents { principal: tab, interest: 0, penalty: 0 },
 		KEEPER,
 	)
 }
@@ -127,7 +127,7 @@ fn start_auction_fails_without_oracle_price() {
 		let result = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			100 * DOT,
-			DebtComponents::new(1000 * PUSD_UNIT, 0, 0),
+			DebtComponents { principal: 1000 * PUSD_UNIT, interest: 0, penalty: 0 },
 			KEEPER,
 		);
 		assert_noop!(result, Error::<Test>::PriceNotAvailable);
@@ -501,7 +501,7 @@ fn auction_completion_records_shortfall() {
 		let auction_id = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			collateral,
-			DebtComponents::new(principal, interest, penalty),
+			DebtComponents { principal, interest, penalty },
 			KEEPER,
 		)
 		.unwrap();
@@ -633,7 +633,7 @@ fn restart_auction_pays_keeper_incentive() {
 		let auction_id = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			100 * DOT,
-			DebtComponents::new(principal, 0, penalty),
+			DebtComponents { principal, interest: 0, penalty },
 			KEEPER,
 		)
 		.unwrap();
@@ -1163,7 +1163,7 @@ fn restart_auction_pays_keeper_incentive_example_params() {
 		let auction_id = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			100 * DOT,
-			DebtComponents::new(principal, 0, penalty),
+			DebtComponents { principal, interest: 0, penalty },
 			KEEPER,
 		)
 		.unwrap();
@@ -1331,7 +1331,7 @@ fn full_model_integration() {
 		let auction_id = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			collateral,
-			DebtComponents::new(principal, 0, penalty),
+			DebtComponents { principal, interest: 0, penalty },
 			KEEPER,
 		)
 		.unwrap();
@@ -1793,7 +1793,7 @@ fn sample_auction() {
 		let auction_id = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			collateral,
-			DebtComponents::new(principal, accrued_interest, penalty),
+			DebtComponents { principal, interest: accrued_interest, penalty },
 			KEEPER,
 		)
 		.unwrap();
@@ -2104,7 +2104,7 @@ fn keeper_payment_capped_to_penalty_collected_on_shortfall() {
 		let auction_id = crate::Pallet::<Test>::start_auction(
 			VAULT_OWNER,
 			collateral,
-			DebtComponents::new(principal, accrued_interest, penalty),
+			DebtComponents { principal, interest: accrued_interest, penalty },
 			KEEPER,
 		)
 		.unwrap();
@@ -2428,7 +2428,7 @@ fn on_idle_processes_multiple_stale_auctions() {
 			crate::Pallet::<Test>::start_auction(
 				owner,
 				10 * DOT,
-				DebtComponents::new(100 * PUSD_UNIT, 0, 10 * PUSD_UNIT),
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 10 * PUSD_UNIT },
 				KEEPER,
 			)
 			.unwrap();
@@ -2459,7 +2459,7 @@ fn on_idle_cursor_pagination_across_blocks() {
 			crate::Pallet::<Test>::start_auction(
 				owner,
 				10 * DOT,
-				DebtComponents::new(100 * PUSD_UNIT, 0, 0),
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
 				KEEPER,
 			)
 			.unwrap();
@@ -2571,7 +2571,7 @@ fn on_idle_respects_weight_limit() {
 			crate::Pallet::<Test>::start_auction(
 				owner,
 				10 * DOT,
-				DebtComponents::new(100 * PUSD_UNIT, 0, 10 * PUSD_UNIT),
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 10 * PUSD_UNIT },
 				KEEPER,
 			)
 			.unwrap();

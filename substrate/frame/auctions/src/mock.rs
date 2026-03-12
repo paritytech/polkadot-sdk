@@ -32,7 +32,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, GenesisConfig};
 use pallet_balances::AccountData;
 use sp_io::TestExternalities as TestState;
-use sp_pusd::{CollateralManager, PaymentBreakdown};
+use sp_pusd::{CollateralManager, DebtComponents, PaymentBreakdown};
 use sp_runtime::{
 	traits::{CheckedDiv, Saturating, Zero},
 	BuildStorage, DispatchResult, FixedPointNumber, FixedU128, Permill,
@@ -232,7 +232,7 @@ impl CollateralManager<u64> for MockCollateralManager {
 	fn complete_auction(
 		vault_owner: &u64,
 		remaining_collateral: Self::Balance,
-		shortfall: Self::Balance,
+		remaining_debt: DebtComponents<Self::Balance>,
 		keeper: &u64,
 		keeper_incentive: Self::Balance,
 	) -> DispatchResult {
@@ -259,7 +259,8 @@ impl CollateralManager<u64> for MockCollateralManager {
 			)?;
 		}
 
-		// Track shortfall for test verification
+		// Track shortfall for test verification (principal + interest = bad debt)
+		let shortfall = remaining_debt.principal.saturating_add(remaining_debt.interest);
 		if !shortfall.is_zero() {
 			SHORTFALL_RECORDED.with(|s| {
 				*s.borrow_mut() += shortfall;

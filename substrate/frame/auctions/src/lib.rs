@@ -1613,12 +1613,14 @@ pub mod pallet {
 			// 9. Check if auction is complete
 			if remaining_collateral.is_zero() || remaining_tab.is_zero() {
 				// Complete auction via CollateralManager.
-				// Shortfall = remaining principal + remaining interest (both are bad debt).
-				// Principal: pUSD was minted against it; unpaid principal = peg risk.
-				// Interest: was already minted into IF on accrual; unpaid = excess pUSD in
-				// circulation.
-				// Penalty: NOT included — no pUSD was minted against it, so not bad debt.
-				let shortfall = auction.tab.principal.saturating_add(auction.tab.accrued_interest);
+				let remaining_debt = DebtComponents {
+					principal: auction.tab.principal,
+					interest: auction.tab.accrued_interest,
+					penalty: auction.tab.penalty,
+				};
+
+				// Shortfall for the event = principal + interest (both are bad debt).
+				let shortfall = remaining_debt.principal.saturating_add(remaining_debt.interest);
 
 				// Cap keeper incentive to actual penalty collected (avoid overpaying if shortfall)
 				let actual_keeper_incentive =
@@ -1627,7 +1629,7 @@ pub mod pallet {
 				T::CollateralManager::complete_auction(
 					&vault_owner,
 					remaining_collateral,
-					shortfall,
+					remaining_debt,
 					&auction.keeper,
 					actual_keeper_incentive,
 				)?;
