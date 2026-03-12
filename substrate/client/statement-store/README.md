@@ -30,7 +30,7 @@ guarantee message delivery or specific delivery times.**
     ```
 
 3. To set a quota using sudo, you can use the following
-  - 3.1. Identify the account you use, it should be an [account publick key][statement-allowance-code].
+  - 3.1. Identify the account you use, it should be an [account public key][statement-allowance-code].
   - 3.2. Obtain the storage key by running this Python code. You would need your account ID from the
     previous step.
     ```python
