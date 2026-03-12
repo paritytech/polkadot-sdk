@@ -74,7 +74,6 @@ pub trait WeightInfo {
 	fn migrate_foreign_asset_step() -> Weight;
 	fn nonces() -> Weight;
 	fn domain_separator() -> Weight;
-	fn permit() -> Weight;
 }
 
 /// Weights for `pallet_assets_precompiles` using the Substrate node and recommended hardware.
@@ -113,16 +112,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(5_500_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
-
-	fn permit() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `374`
-		//  Estimated: `6850`
-		// Minimum execution time: 70_000_000 picoseconds.
-		Weight::from_parts(70_000_000, 6850)
-			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -143,11 +132,5 @@ impl WeightInfo for () {
 	fn domain_separator() -> Weight {
 		Weight::from_parts(5_500_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
-	}
-
-	fn permit() -> Weight {
-		Weight::from_parts(70_000_000, 6850)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }
