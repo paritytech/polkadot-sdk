@@ -154,8 +154,9 @@ async fn statement_store_expiration() -> Result<(), anyhow::Error> {
 
 	// Wait for the statement to expire and be fully purged
 	// Enforcement is two-phase (ENFORCE_LIMITS_PERIOD=31s each) plus maintenance (29s)
-	// Total worst case from expiry: ~91s. From creation: expiry_offset + 91s
-	let total_wait = expiry_offset + 65 + 15;
+	// Total worst case from expiry: 31 + 31 + 29 = ~91s. From creation: expiry_offset + 91s
+	// We use 95 + 25 = 120s after expiry to give a 29s margin for CI variability
+	let total_wait = expiry_offset + 95 + 25;
 	let elapsed = current_unix_time().saturating_sub(now);
 	let remaining_wait = total_wait.saturating_sub(elapsed);
 	log::info!("Sleeping {}s for enforcement cycles and maintenance to complete", remaining_wait);
