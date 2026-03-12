@@ -140,6 +140,7 @@ pub mod v2 {
 					}));
 				} else {
 					// No more entries - migration complete
+					StorageVersion::new(2).put::<crate::Pallet<T>>();
 					log!(info, "Migration v1 to v2 complete");
 					return Ok(None);
 				}
