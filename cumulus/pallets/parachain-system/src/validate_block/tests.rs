@@ -886,49 +886,18 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 	channel.max_total_size = blocks_per_pov * max_per_candidate * 256;
 	channel.max_message_size = 256;
 
-	// Configure UMP limits for size enforcement testing
-	sproof_builder.host_config.max_upward_message_num_per_candidate = 10;
-	sproof_builder.host_config.max_upward_message_size = 1000;
-	sproof_builder.relay_dispatch_queue_remaining_capacity = Some((10, 2000));
-
 	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
 		&client,
 		parent_head.clone(),
 		sproof_builder,
 		blocks_per_pov,
 		|i| {
-			let mut extrinsics = vec![
-				// Send HRMP messages (original test)
-				generate_extrinsic_with_pair(
-					&client,
-					Charlie.into(),
-					TestPalletCall::queue_hrmp_messages { n: max_per_candidate, recipient },
-					Some(i * 2),
-				),
-			];
-
-			// Add UMP message of 500 bytes in each block
-			if i < 3 {
-				// Send 500 bytes in blocks 0, 1, 2 (total 1500 bytes)
-				extrinsics.push(generate_extrinsic_with_pair(
-					&client,
-					Charlie.into(),
-					TestPalletCall::send_upward_message_of_size { size: 500 },
-					Some(i * 2 + 1),
-				));
-			}
-			// Block 3: try to send 600 bytes, should be deferred due to size limit (2000 - 1500 =
-			// 500 remaining)
-			else {
-				extrinsics.push(generate_extrinsic_with_pair(
-					&client,
-					Charlie.into(),
-					TestPalletCall::send_upward_message_of_size { size: 600 },
-					Some(i * 2 + 1),
-				));
-			}
-
-			extrinsics
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::queue_hrmp_messages { n: max_per_candidate, recipient },
+				Some(i),
+			)]
 		},
 	);
 
@@ -945,19 +914,106 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
 	assert_eq!(header, res_header);
 
-	// Verify HRMP messages (original assertion)
 	assert_eq!(result.horizontal_messages.len(), max_per_candidate as usize);
+}
 
-	// Verify UMP size enforcement: only 3 messages should be sent (blocks 0, 1, 2)
-	// Block 3's 600 byte message should be deferred because only 500 bytes remain
-	assert_eq!(
-		result.upward_messages.len(),
-		3,
-		"Expected 3 UMP messages to be sent (block 3's message deferred due to size limit)"
+#[test]
+fn validate_block_with_ump_size_constraint_and_4_blocks_per_pov() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 4;
+	let msg_size = 500;
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.max_upward_message_num_per_candidate = 100;
+	sproof_builder.host_config.max_upward_message_size = 1000;
+	sproof_builder.host_config.max_upward_queue_count = 100;
+	sproof_builder.host_config.max_upward_queue_size = 100_000;
+	// Only 1500 bytes of remaining size: enough for 3 x 500-byte messages but not 4.
+	sproof_builder.relay_dispatch_queue_remaining_capacity = Some((100, 1500));
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::send_upward_message_of_size { size: msg_size },
+				Some(i),
+			)]
+		},
 	);
 
-	// Verify sizes of sent messages
-	for msg in result.upward_messages.iter() {
-		assert_eq!(msg.len(), 500, "Each sent message should be 500 bytes");
-	}
+	let header = block.blocks().last().unwrap().header().clone();
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
+	assert_eq!(header, res_header);
+
+	// Only 3 of 4 messages should be sent. The 4th is deferred because
+	// 3 x 500 = 1500 bytes exhausts the remaining size budget.
+	let ump_count = result.upward_messages.iter().take_while(|m| **m != UMP_SEPARATOR).count();
+	assert_eq!(ump_count, 3);
+}
+
+#[test]
+fn validate_block_with_ump_capacity_constraint_and_4_blocks_per_pov() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 4;
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.max_upward_message_num_per_candidate = 100;
+	sproof_builder.host_config.max_upward_message_size = 1000;
+	sproof_builder.host_config.max_upward_queue_count = 100;
+	sproof_builder.host_config.max_upward_queue_size = 100_000;
+	// Only 3 messages remaining in the relay dispatch queue.
+	sproof_builder.relay_dispatch_queue_remaining_capacity = Some((3, 100_000));
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::send_upward_message_of_size { size: 100 },
+				Some(i),
+			)]
+		},
+	);
+
+	let header = block.blocks().last().unwrap().header().clone();
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
+	assert_eq!(header, res_header);
+
+	// Only 3 of 4 messages should be sent. The 4th is deferred because
+	// the relay dispatch queue remaining count (3) is exhausted.
+	let ump_count = result.upward_messages.iter().take_while(|m| **m != UMP_SEPARATOR).count();
+	assert_eq!(ump_count, 3);
 }
