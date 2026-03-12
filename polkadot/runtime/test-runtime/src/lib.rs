@@ -1141,6 +1141,20 @@ sp_api::impl_runtime_apis! {
 		fn para_ids() -> Vec<ParaId> {
 			staging_runtime_impl::para_ids::<Runtime>()
 		}
+<<<<<<< HEAD
+=======
+
+		fn max_relay_parent_session_age() -> u32 {
+			staging_runtime_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn allowed_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			staging_runtime_impl::allowed_relay_parent_info::<Runtime>(session_index, relay_parent)
+		}
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 	}
 
 	#[api_version(6)]

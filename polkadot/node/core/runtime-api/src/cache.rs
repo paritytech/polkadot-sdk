@@ -21,12 +21,14 @@ use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
 	async_backing::{self, Constraints},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -79,6 +81,12 @@ pub(crate) struct RequestResultCache {
 	scheduling_lookahead: LruMap<SessionIndex, u32>,
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
 	para_ids: LruMap<SessionIndex, Vec<ParaId>>,
+<<<<<<< HEAD
+=======
+	max_relay_parent_session_age: LruMap<SessionIndex, u32>,
+	allowed_relay_parent_info:
+		LruMap<(Hash, SessionIndex, Hash), Option<RelayParentInfo<Hash, BlockNumber>>>,
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 }
 
 impl Default for RequestResultCache {
@@ -121,6 +129,11 @@ impl Default for RequestResultCache {
 			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+<<<<<<< HEAD
+=======
+			max_relay_parent_session_age: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			allowed_relay_parent_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 		}
 	}
 }
@@ -627,6 +640,47 @@ impl RequestResultCache {
 	pub(crate) fn cache_para_ids(&mut self, session_index: SessionIndex, value: Vec<ParaId>) {
 		self.para_ids.insert(session_index, value);
 	}
+<<<<<<< HEAD
+=======
+
+	pub(crate) fn max_relay_parent_session_age(
+		&mut self,
+		session_index: SessionIndex,
+	) -> Option<u32> {
+		self.max_relay_parent_session_age.get(&session_index).copied()
+	}
+
+	pub(crate) fn cache_max_relay_parent_session_age(
+		&mut self,
+		session_index: SessionIndex,
+		max_relay_parent_session_age: u32,
+	) {
+		self.max_relay_parent_session_age
+			.insert(session_index, max_relay_parent_session_age);
+	}
+
+	pub(crate) fn allowed_relay_parent_info(
+		&mut self,
+		relay_parent: Hash,
+		session_index: SessionIndex,
+		queried_relay_parent: Hash,
+	) -> Option<&Option<RelayParentInfo<Hash, BlockNumber>>> {
+		self.allowed_relay_parent_info
+			.get(&(relay_parent, session_index, queried_relay_parent))
+			.map(|v| &*v)
+	}
+
+	pub(crate) fn cache_allowed_relay_parent_info(
+		&mut self,
+		relay_parent: Hash,
+		session_index: SessionIndex,
+		queried_relay_parent: Hash,
+		value: Option<RelayParentInfo<Hash, BlockNumber>>,
+	) {
+		self.allowed_relay_parent_info
+			.insert((relay_parent, session_index, queried_relay_parent), value);
+	}
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 }
 
 pub(crate) enum RequestResult {
@@ -681,5 +735,10 @@ pub(crate) enum RequestResult {
 	SchedulingLookahead(SessionIndex, u32),
 	ValidationCodeBombLimit(SessionIndex, u32),
 	ParaIds(SessionIndex, Vec<ParaId>),
+<<<<<<< HEAD
+=======
+	MaxRelayParentSessionAge(SessionIndex, u32),
+	AllowedRelayParentInfo(Hash, SessionIndex, Hash, Option<RelayParentInfo<Hash, BlockNumber>>),
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 }

@@ -1762,10 +1762,15 @@ pub mod migrations {
 		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 
+<<<<<<< HEAD
+=======
+		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
+		parachains_shared::migration::MigrateToV2<Runtime>,
+
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
-		parachains_shared::migration::MigrateToV1<Runtime>,
     );
 }
 
@@ -2164,6 +2169,20 @@ sp_api::impl_runtime_apis! {
 		fn para_ids() -> Vec<ParaId> {
 			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
 		}
+<<<<<<< HEAD
+=======
+
+		fn max_relay_parent_session_age() -> u32 {
+			parachains_staging_runtime_api_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn allowed_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			parachains_staging_runtime_api_impl::allowed_relay_parent_info::<Runtime>(session_index, relay_parent)
+		}
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 	}
 
 	#[api_version(6)]

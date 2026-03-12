@@ -308,6 +308,7 @@ async fn handle_active_leaves_update<Context>(
 
 			let max_backable_chain_len =
 				claims_by_depth.values().flatten().collect::<BTreeSet<_>>().len();
+<<<<<<< HEAD
 			let scope = match FragmentChainScope::with_ancestors(
 				block_info.clone().into(),
 				constraints,
@@ -332,6 +333,13 @@ async fn handle_active_leaves_update<Context>(
 					continue;
 				},
 			};
+=======
+
+			let min_relay_parent_number = constraints.min_relay_parent_number;
+
+			let scope =
+				FragmentChainScope::new(constraints, compact_pending, max_backable_chain_len);
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 
 			gum::trace!(
 				target: LOG_TARGET,

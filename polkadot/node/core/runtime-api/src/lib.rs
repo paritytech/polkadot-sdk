@@ -218,6 +218,20 @@ where
 			ParaIds(session_index, para_ids) => {
 				self.requests_cache.cache_para_ids(session_index, para_ids);
 			},
+<<<<<<< HEAD
+=======
+			MaxRelayParentSessionAge(session_index, max_relay_parent_session_age) => self
+				.requests_cache
+				.cache_max_relay_parent_session_age(session_index, max_relay_parent_session_age),
+			AllowedRelayParentInfo(relay_parent, session_index, queried_relay_parent, info) => {
+				self.requests_cache.cache_allowed_relay_parent_info(
+					relay_parent,
+					session_index,
+					queried_relay_parent,
+					info,
+				)
+			},
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 		}
 	}
 
@@ -428,6 +442,35 @@ where
 					Some(Request::ParaIds(index, sender))
 				}
 			},
+<<<<<<< HEAD
+=======
+			Request::MaxRelayParentSessionAge(index, sender) => {
+				if let Some(value) = self.requests_cache.max_relay_parent_session_age(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::MaxRelayParentSessionAge(index, sender))
+				}
+			},
+			Request::AllowedRelayParentInfo(session_index, queried_relay_parent, sender) => {
+				if let Some(value) = self.requests_cache.allowed_relay_parent_info(
+					relay_parent,
+					session_index,
+					queried_relay_parent,
+				) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::AllowedRelayParentInfo(
+						session_index,
+						queried_relay_parent,
+						sender,
+					))
+				}
+			},
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 		}
 	}
 
@@ -769,6 +812,23 @@ where
 			sender,
 			result = (index)
 		),
+<<<<<<< HEAD
+=======
+		Request::MaxRelayParentSessionAge(index, sender) => query!(
+			MaxRelayParentSessionAge,
+			max_relay_parent_session_age(),
+			ver = Request::MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::AllowedRelayParentInfo(session_index, queried_relay_parent, sender) => query!(
+			AllowedRelayParentInfo,
+			allowed_relay_parent_info(session_index, queried_relay_parent),
+			ver = Request::ALLOWED_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+			sender,
+			result = (relay_parent, session_index, queried_relay_parent)
+		),
+>>>>>>> d21e552 (runtime: allow older relay parents (#11328))
 		Request::UnappliedSlashesV2(sender) => query!(
 			UnappliedSlashesV2,
 			unapplied_slashes_v2(),
