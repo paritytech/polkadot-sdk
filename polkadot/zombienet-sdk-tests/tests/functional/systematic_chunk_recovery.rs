@@ -7,11 +7,12 @@
 
 use crate::utils::{
 	check_log_lines, check_metrics, env_or_default, initialize_network,
-	APPROVAL_CHECKING_FINALITY_LAG, APPROVAL_NO_SHOWS_TOTAL,
-	AVAILABILITY_RECOVERY_RECOVERIES_FINISHED, BLOCK_HEIGHT_FINALIZED, COL_IMAGE_ENV,
+	APPROVAL_CHECKING_FINALITY_LAG_METRIC, APPROVAL_NO_SHOWS_TOTAL_METRIC,
+	AVAILABILITY_RECOVERY_RECOVERIES_FINISHED, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
 	DATA_RECOVERY_CHUNKS_NOT_POSSIBLE_PATTERN, DATA_RECOVERY_CHUNKS_PATTERN,
 	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN,
 	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_NOT_POSSIBLE_PATTERN, INTEGRATION_IMAGE_ENV,
+	NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -46,7 +47,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	for name in validators_names {
 		let validator = network.get_node(name)?;
 		validator
-			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)
+			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
 			.map_err(|e| anyhow!("Validator {name} role check failed: {e}"))?;
 	}
@@ -68,9 +69,9 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	}
 
 	let metric_checks: Vec<(&str, Box<dyn Fn(f64) -> bool>, u64)> = vec![
-		(BLOCK_HEIGHT_FINALIZED, Box::new(|v| v == 30.0), 400),
-		(APPROVAL_CHECKING_FINALITY_LAG, Box::new(|v| v < 3.0), 0),
-		(APPROVAL_NO_SHOWS_TOTAL, Box::new(|v| v < 3.0), 100),
+		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 30.0), 400),
+		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
+		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),
 	];
 
 	check_metrics(&validator_nodes, &metric_checks).await?;
@@ -125,9 +126,9 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	log::info!("Configuration::set_node_feature updated");
 
 	let metric_checks: Vec<(&str, Box<dyn Fn(f64) -> bool>, u64)> = vec![
-		(BLOCK_HEIGHT_FINALIZED, Box::new(|v| v == 60.0), 400),
-		(APPROVAL_CHECKING_FINALITY_LAG, Box::new(|v| v < 3.0), 0),
-		(APPROVAL_NO_SHOWS_TOTAL, Box::new(|v| v < 3.0), 100),
+		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 60.0), 400),
+		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
+		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),
 	];
 
 	check_metrics(&validator_nodes, &metric_checks).await?;

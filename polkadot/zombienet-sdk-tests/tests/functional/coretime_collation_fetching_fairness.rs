@@ -7,7 +7,8 @@
 
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, BLOCK_HEIGHT_FINALIZED, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -44,7 +45,7 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 	log::info!("Checking validator node roles");
 	for validator in &validator_nodes {
 		validator
-			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)
+			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} role check failed: {e}", validator.name()))?;
 	}
@@ -114,13 +115,13 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 	for (para_id, target, timeout) in check_setup {
 		let node = network.get_node(format!("collator-{para_id}"))?;
 		node.wait_metric_with_timeout(
-			BLOCK_HEIGHT_FINALIZED,
+			BLOCK_HEIGHT_FINALIZED_METRIC,
 			|v| v >= target as f64,
 			timeout as u64,
 		)
 		.await
 		.map_err(|e| {
-			anyhow!("node {} check failed ({BLOCK_HEIGHT_FINALIZED}): {e}", node.name())
+			anyhow!("node {} check failed ({BLOCK_HEIGHT_FINALIZED_METRIC}): {e}", node.name())
 		})?;
 	}
 

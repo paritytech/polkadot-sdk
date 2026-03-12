@@ -6,7 +6,7 @@
 
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, BLOCK_HEIGHT_FINALIZED, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
@@ -117,10 +117,10 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	let para_timeout = vec![(2000, 250), (2001, 30), (2002, 90), (2003, 30)];
 	for (para_id, timeout) in para_timeout {
 		let node = network.get_node(format!("collator-{para_id}"))?;
-		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED, |v| v >= 6.0, timeout as u64)
+		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED_METRIC, |v| v >= 6.0, timeout as u64)
 			.await
 			.map_err(|e| {
-				anyhow!("node {} check failed ({BLOCK_HEIGHT_FINALIZED}): {e}", node.name())
+				anyhow!("node {} check failed ({BLOCK_HEIGHT_FINALIZED_METRIC}): {e}", node.name())
 			})?;
 	}
 

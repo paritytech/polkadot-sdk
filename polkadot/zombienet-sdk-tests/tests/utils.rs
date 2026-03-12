@@ -15,10 +15,10 @@ pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 pub const CUMULUS_IMAGE_ENV: &str = "CUMULUS_IMAGE";
 pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
 pub const MALUS_IMAGE_ENV: &str = "MALUS_IMAGE";
-pub const BLOCK_HEIGHT_FINALIZED: &str = "substrate_block_height{status=\"finalized\"}";
-pub const APPROVAL_CHECKING_FINALITY_LAG: &str =
+pub const BLOCK_HEIGHT_FINALIZED_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
+pub const APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
 	"polkadot_parachain_approval_checking_finality_lag";
-pub const APPROVAL_NO_SHOWS_TOTAL: &str = "polkadot_parachain_approvals_no_shows_total";
+pub const APPROVAL_NO_SHOWS_TOTAL_METRIC: &str = "polkadot_parachain_approvals_no_shows_total";
 pub const DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN: &str =
 	"*Data recovery from systematic chunks complete*";
 pub const DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_NOT_POSSIBLE_PATTERN: &str =

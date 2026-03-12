@@ -7,13 +7,12 @@
 //! It sets up a network with 8 validators and 8 parachains,
 
 use crate::utils::{
-	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC,
-	BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	env_or_default, initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
-use serde_json::json;
 use std::{collections::HashMap, ops::Range};
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
@@ -36,7 +35,7 @@ async fn parachains_pvf_preparation_and_execution_test() -> Result<(), anyhow::E
 	for name in VALIDATORS {
 		let validator = network.get_node(name)?;
 		validator
-			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)
+			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} role check failed: {}", name, e))?;
 	}

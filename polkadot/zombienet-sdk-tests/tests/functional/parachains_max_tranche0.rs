@@ -9,8 +9,8 @@
 //! to ensure most approvals come from tranche0.
 
 use crate::utils::{
-	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV,
+	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -47,7 +47,7 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 	for i in 0..NUM_VALIDATORS {
 		let validator = network.get_node(format!("some-validator-{i}"))?;
 		validator
-			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)
+			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} role check failed: {}", i, e))?;
 	}
@@ -79,7 +79,7 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 	for i in 0..NUM_VALIDATORS {
 		let validator = network.get_node(format!("some-validator-{i}"))?;
 		validator
-			.wait_metric_with_timeout(APPROVAL_CHECKING_FINALITY_LAG, |v| v < 2.0, 30u64)
+			.wait_metric_with_timeout(APPROVAL_CHECKING_FINALITY_LAG_METRIC, |v| v < 2.0, 30u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} finality lag too high: {}", i, e))?;
 	}

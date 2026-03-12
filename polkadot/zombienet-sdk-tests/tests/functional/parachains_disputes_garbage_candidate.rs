@@ -8,6 +8,7 @@
 
 use crate::utils::{
 	env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -38,7 +39,7 @@ async fn parachains_disputes_garbage_candidate_test() -> Result<(), anyhow::Erro
 	for name in &all_validators {
 		let validator = network.get_node(*name)?;
 		validator
-			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)
+			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} role check failed: {}", name, e))?;
 	}

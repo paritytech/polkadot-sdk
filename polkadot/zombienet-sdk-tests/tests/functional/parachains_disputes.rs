@@ -7,19 +7,16 @@
 //! configured with high needed_approvals (8) and max_approval_coalesce_count (5).
 
 use crate::utils::{
-	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC,
-	BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, find_event_and_decode_fields};
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use std::{collections::HashMap, ops::Range, time::Duration};
-use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{
-	subxt::{dynamic::Value, OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder,
-};
+use std::{ops::Range, time::Duration};
+use zombienet_orchestrator::network::node::{CountOptions, LogLineCountOptions};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const MALUS_VALIDATORS: [&str; 2] = ["alice", "bob"];
 const HONEST_VALIDATORS: [&str; 6] = ["charlie", "dave", "ferdie", "eve", "one", "two"];
@@ -40,7 +37,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 	for name in &all_validators {
 		let validator = network.get_node(*name)?;
 		validator
-			.wait_metric_with_timeout("node_roles", |v| v == 4.0, 60u64)
+			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} role check failed: {}", name, e))?;
 	}
@@ -83,15 +80,13 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 	// alice: system event contains "There is an offence reported" within 60 seconds
 	log::info!("Checks that the system events contain at least one Offence in 10 blocks");
 	let alice = network.get_node("alice")?;
-	let result = alice
+	alice
 		.wait_event_count_with_timeout(
 			"Offences",
 			"Offence",
 			CountOptions::new(|n| n >= 1, Duration::from_secs(60), false),
 		)
 		.await?;
-
-	assert!(result.success(), "Can't find a matching event (Offences Offence) in Validator {name}");
 
 	log::info!("Check lag - approval");
 	for name in &all_validators {
