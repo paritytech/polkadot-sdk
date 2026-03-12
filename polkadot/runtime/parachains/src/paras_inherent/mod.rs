@@ -977,11 +977,7 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// Needed for all versions to access relay chain state.
 	let relay_parent = candidate.descriptor().relay_parent();
 
-	let session_index =
-		candidate
-			.descriptor()
-			.session_index()
-			.unwrap_or(current_session_index);
+	let session_index = candidate.descriptor().session_index().unwrap_or(current_session_index);
 
 	if shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent).is_none() {
 		log::debug!(
@@ -1086,14 +1082,14 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 /// **Phase 1: Sanitization** (`paras_inherent`, this module)
 /// - `check_descriptor_version_and_signals`: version gating, relay/scheduling parent validity,
 ///   session restrictions, UMP signals, core index from signals (V2/V3)
-/// - `filter_unchained_candidates`: dependency ordering, relay parent bounds, PVD hash,
-///   validation code hash, para head match (via `verify_backed_candidate`)
+/// - `filter_unchained_candidates`: dependency ordering, relay parent bounds, PVD hash, validation
+///   code hash, para head match (via `verify_backed_candidate`)
 /// - `map_candidates_to_cores`: core assignment mapping, core index from descriptor/injection
 /// - `filter_backed_statements_from_disabled_validators`: disabled validator filtering
 ///
 /// **Phase 2: Processing** (`inclusion::process_candidates`)
-/// - `verify_backed_candidate`: relay parent lookup (using session from descriptor),
-///   PVD hash, validation code hash, para head match
+/// - `verify_backed_candidate`: relay parent lookup (using session from descriptor), PVD hash,
+///   validation code hash, para head match
 /// - Scheduling parent lookup for group assignment
 /// - Backing vote count and signature verification
 /// - State updates (pending availability, head data, etc.)
@@ -1442,10 +1438,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 
 		let check_ctx = CandidateCheckContext::<T>::new(Some(*latest_relay_parent));
 
-		match check_ctx.verify_backed_candidate(
-			candidate.candidate(),
-			latest_head_data.clone(),
-		) {
+		match check_ctx.verify_backed_candidate(candidate.candidate(), latest_head_data.clone()) {
 			Ok(relay_parent_block_number) => {
 				para_latest_context.insert(
 					para_id,
@@ -1593,20 +1586,19 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 		return None;
 	};
 
-	let scheduling_parent_block_number = match allowed_scheduling_parents
-		.acquire_info(candidate.descriptor().scheduling_parent())
-	{
-		Some((_, block_num)) => block_num,
-		None => {
-			log::debug!(
-				target: LOG_TARGET,
-				"Scheduling parent {:?} for candidate {:?} is not in the allowed scheduling parents.",
-				candidate.descriptor().scheduling_parent(),
-				candidate.candidate().hash(),
-			);
-			return None;
-		},
-	};
+	let scheduling_parent_block_number =
+		match allowed_scheduling_parents.acquire_info(candidate.descriptor().scheduling_parent()) {
+			Some((_, block_num)) => block_num,
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Scheduling parent {:?} for candidate {:?} is not in the allowed scheduling parents.",
+					candidate.descriptor().scheduling_parent(),
+					candidate.candidate().hash(),
+				);
+				return None;
+			},
+		};
 
 	// Get the backing group of the candidate backed at `core_idx`.
 	let group_idx = match scheduler::Pallet::<T>::group_assigned_to_core(
