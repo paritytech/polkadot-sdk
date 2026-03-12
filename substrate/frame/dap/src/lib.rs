@@ -52,7 +52,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, Saturating, SaturatedConversion};
+use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
 use sp_staking::{BudgetKey, BudgetRecipientList, InflationCurve};
 
 pub use pallet::*;
@@ -440,8 +440,7 @@ impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
 impl<T: Config> sp_staking::UnclaimedRewardSink<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn deposit(source: &T::AccountId, amount: BalanceOf<T>) -> sp_runtime::DispatchResult {
 		let buffer = Self::buffer_account();
-		let transferred =
-			T::Currency::transfer(source, &buffer, amount, Preservation::Expendable)?;
+		let transferred = T::Currency::transfer(source, &buffer, amount, Preservation::Expendable)?;
 		Self::deactivate_buffer_funds(transferred);
 		Ok(())
 	}
