@@ -145,7 +145,10 @@ fn failing_migration_faulty_ignore_handler() {
 		// Crash handler was called 3 times:
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 3));
 		// Handler did not modify the cursor
-		assert!(matches!(Cursor::<T>::get(), Some(MigrationCursor::Active { .. })), "Must stuck the chain");
+		assert!(
+			matches!(Cursor::<T>::get(), Some(MigrationCursor::Active { .. })),
+			"Must stuck the chain"
+		);
 	});
 }
 
