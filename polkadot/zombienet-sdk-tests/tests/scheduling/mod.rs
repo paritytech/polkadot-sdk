@@ -79,15 +79,42 @@ pub async fn assert_candidates_version(
 			total += 1;
 			let version = receipt.descriptor.version(v3_enabled);
 			log::info!(
-				"Para {} candidate backed: version={:?}, relay_parent={:?}",
+				"Para {} candidate backed: version={:?}, \
+				 relay_parent={:?}, \
+				 session_index={:?}, \
+				 scheduling_parent={:?}",
 				para_id,
 				version,
 				receipt.descriptor.relay_parent(),
+				receipt.descriptor.session_index(v3_enabled),
+				receipt.descriptor.scheduling_parent(v3_enabled),
 			);
 
-			if version == expected_version {
-				matched += 1;
+			if version != expected_version {
+				return Err(anyhow!(
+					"Para {para_id} candidate has version {:?}, expected {:?}",
+					version,
+					expected_version,
+				));
 			}
+
+			if expected_version == CandidateDescriptorVersion::V2 {
+				if receipt.descriptor.session_index(v3_enabled).is_none() {
+					return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
+				}
+				if receipt.descriptor.relay_parent() !=
+					receipt.descriptor.scheduling_parent(v3_enabled)
+				{
+					return Err(anyhow!(
+						"Para {para_id} V2 candidate has scheduling_parent={:?} \
+						 != relay_parent={:?}",
+						receipt.descriptor.scheduling_parent(v3_enabled),
+						receipt.descriptor.relay_parent(),
+					));
+				}
+			}
+
+			matched += 1;
 		}
 
 		block_count += 1;
