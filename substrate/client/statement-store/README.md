@@ -38,7 +38,7 @@ guarantee message delivery or specific delivery times.**
       >>> statement_allowance_key("YOUR_ACCOUNT_BYTES_IN_HEX")
     ```
   - 3.3. Using `https://polkadot.js.org/apps/`
-    call `sudo->system->set_storage` with obtained account key and `StatementAllowance`, SCALE encoded.
+    call `Developer->sudo->system->set_storage` with obtained account key and `StatementAllowance`, SCALE encoded.
     For example, to allow an account to store 10 statements and a maximum size of 20 KiB you can use
     `0x0a00000000500000`.
     `0x0a00000000500000` is SCALE for:
