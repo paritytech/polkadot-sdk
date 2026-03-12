@@ -1738,10 +1738,14 @@ pub mod node_features {
 		CandidateReceiptV2 = 3,
 		/// Enables support for scheduling information in the Candidate Descriptor.
 		CandidateReceiptV3 = 4,
+		/// Enables elliptic curve cryptography (ECC) host functions in PVF execution.
+		///
+		/// Should be enabled by governance only after enough validators upgraded.
+		EccHostFunctions = 5,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 5,
+		FirstUnassigned = 6,
 	}
 
 	impl FeatureIndex {

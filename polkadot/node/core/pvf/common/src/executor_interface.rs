@@ -110,6 +110,7 @@ pub unsafe fn execute_artifact(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
 	params: &[u8],
+	ecc_hf_enabled: bool,
 ) -> Result<Vec<u8>, ExecuteError> {
 	let mut extensions = sp_externalities::Extensions::new();
 
@@ -118,7 +119,11 @@ pub unsafe fn execute_artifact(
 	let mut ext = ValidationExternalities(extensions);
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
-		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
+		let runtime = create_runtime_from_artifact_bytes(
+			compiled_artifact_blob,
+			executor_params,
+			ecc_hf_enabled,
+		)?;
 		runtime.new_instance()?.call("validate_block", params)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
@@ -138,14 +143,22 @@ pub unsafe fn execute_artifact(
 pub unsafe fn create_runtime_from_artifact_bytes(
 	compiled_artifact_blob: &[u8],
 	executor_params: &ExecutorParams,
+	ecc_hf_enabled: bool,
 ) -> Result<WasmtimeRuntime, WasmError> {
 	let mut config = DEFAULT_CONFIG.clone();
 	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
-	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
-		compiled_artifact_blob,
-		config,
-	)
+	if ecc_hf_enabled {
+		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctionsWithEcc>(
+			compiled_artifact_blob,
+			config,
+		)
+	} else {
+		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
+			compiled_artifact_blob,
+			config,
+		)
+	}
 }
 
 /// Takes the default config and overwrites any settings with existing executor parameters.
@@ -209,8 +222,11 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
-	sp_crypto_ec_utils::HostFunctions,
 );
+
+/// Host functions with ECC (elliptic curve cryptography) support.
+/// Only used when `NodeFeature::EccHostFunctions` is enabled.
+type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctions);
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
 /// have a notion of a persistent storage/trie.)
