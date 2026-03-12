@@ -1,0 +1,10 @@
+title: 'aura/import: Skip block execution when collators have no parent block state'
+doc:
+- audience: Node Dev
+  description: "Skip block execution in `SlotBasedBlockImport` when gap-sync marks
+    blocks with `StateAction::Skip`. This fixes an infinite retry loop where non-archive
+    collators failed to import gap-sync blocks because the parent state was already
+    pruned, causing repeated sync restarts and eventual peer bans."
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
