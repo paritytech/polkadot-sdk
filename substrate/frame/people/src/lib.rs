@@ -1082,8 +1082,9 @@ pub mod pallet {
 					People::<T>::insert(id, record);
 				},
 				// This call accepts migrations only for included keys.
-				RingPosition::Onboarding { .. } =>
-					return Err(Error::<T>::InvalidKeyMigration.into()),
+				RingPosition::Onboarding { .. } => {
+					return Err(Error::<T>::InvalidKeyMigration.into())
+				},
 				// Suspended people shouldn't be able to call this, but protect against this case
 				// anyway.
 				RingPosition::Suspended => return Err(Error::<T>::Suspended.into()),
@@ -1636,8 +1637,9 @@ pub mod pallet {
 				}
 
 				let op_res = with_storage_layer::<bool, DispatchError, _>(|| match drain.next() {
-					Some((id, new_key)) =>
-						Self::migrate_keys_single_included_key(id, new_key).map(|_| false),
+					Some((id, new_key)) => {
+						Self::migrate_keys_single_included_key(id, new_key).map(|_| false)
+					},
 					None => {
 						let rings_state = RingsState::<T>::get()
 							.end_key_migration()
@@ -2037,8 +2039,9 @@ pub mod pallet {
 
 		fn try_origin(o: OriginFor<T>, arg: &Context) -> Result<Self::Success, OriginFor<T>> {
 			match ensure_revised_personal_alias(o.clone().into_caller()) {
-				Ok(ca) if &ca.ca.context == arg =>
-					Ok(RevisedAlias { revision: ca.revision, ring: ca.ring, alias: ca.ca.alias }),
+				Ok(ca) if &ca.ca.context == arg => {
+					Ok(RevisedAlias { revision: ca.revision, ring: ca.ring, alias: ca.ca.alias })
+				},
 				_ => Err(o),
 			}
 		}

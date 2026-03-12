@@ -160,10 +160,11 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 
 	for p in par.iter() {
 		match p {
-			ExecutorParam::MaxMemoryPages(max_pages) =>
+			ExecutorParam::MaxMemoryPages(max_pages) => {
 				sem.heap_alloc_strategy = HeapAllocStrategy::Dynamic {
 					maximum_pages: Some((*max_pages).saturating_add(DEFAULT_HEAP_PAGES_ESTIMATE)),
-				},
+				}
+			},
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,

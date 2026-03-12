@@ -16,15 +16,16 @@
 // limitations under the License.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
-	tests::{builder, ExtBuilder, Test},
 	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
 	TransactionMeter, WeightToken,
+	storage::AccountInfo,
+	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
+	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	compile_module_with_type, CatchConstructorTest, DepositPrecompile, FixtureType,
+	CatchConstructorTest, DepositPrecompile, FixtureType, compile_module_with_type,
 };
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;
@@ -40,7 +41,7 @@ impl WeightToken<Test> for TestToken {
 
 enum Charge {
 	W(u64, u64),
-	D(i64),
+	D(i128),
 }
 
 #[test]
@@ -61,6 +62,15 @@ fn test_deposit_calculation() {
 		});
 }
 
+/// Test that max_storage_deposit correctly tracks the peak storage allocation.
+///
+/// This test verifies that:
+/// 1. `storage_deposit` reflects the net storage change after the call
+/// 2. `max_storage_deposit` tracks the maximum storage allocation that occurred at any point during
+///    execution (before any refunds)
+///
+/// The test contract sets two storage values (a=2, b=3) totaling 132 units of deposit,
+/// then clears one value, leaving 66 units as the net deposit.
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
@@ -74,24 +84,28 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &st
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
-			.data(DepositPrecompile::callSetAndClearCall {}.abi_encode())
+		// Test direct set and clear (no nested call)
+		let direct_result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 			.build();
 
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
+		// Net deposit: one storage slot remains (66 units)
+		// Max deposit: peak allocation was two storage slots (132 units)
+		assert_eq!(direct_result.storage_deposit, StorageDeposit::Charge(66));
+		assert_eq!(direct_result.max_storage_deposit, StorageDeposit::Charge(132));
 	});
 }
 
-#[ignore = "TODO: Does not work yet, see https://github.com/paritytech/contract-issues/issues/213"]
+/// Test that storage deposit refunds and persisted ContractInfo are correct when
+/// parent allocates storage and a nested call clears it.
+///
+/// Compares `setAndClear()` (direct) vs `setAndCallClear()` (reentrant). Both have
+/// the same net effect so deposits and persisted ContractInfo must be identical.
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
 #[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
-fn max_consumed_deposit_integration_refunds_subframes(
-	fixture_type: FixtureType,
-	fixture_name: &str,
-) {
+fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -100,23 +114,48 @@ fn max_consumed_deposit_integration_refunds_subframes(
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
+		// Direct: set a=2, b=3, clear b in the same frame
+		let direct_result = builder::bare_call(caller_addr)
 			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 			.build();
+		let direct_info = AccountInfo::<Test>::load_contract(&caller_addr).unwrap();
 
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
-
+		// Reset storage for a fair comparison
 		builder::bare_call(caller_addr)
 			.data(DepositPrecompile::clearAllCall {}.abi_encode())
 			.build();
 
-		let result = builder::bare_call(caller_addr)
+		// Reentrant: set a=2, b=3, then call this.clear() which clears b
+		let nested_result = builder::bare_call(caller_addr)
 			.data(DepositPrecompile::setAndCallClearCall {}.abi_encode())
 			.build();
+		let nested_info = AccountInfo::<Test>::load_contract(&caller_addr).unwrap();
 
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
+		assert_eq!(
+			direct_result.storage_deposit, nested_result.storage_deposit,
+			"Nested call should produce same net storage deposit as direct call"
+		);
+		assert_eq!(
+			direct_result.max_storage_deposit, nested_result.max_storage_deposit,
+			"Nested call should produce same max storage deposit as direct call"
+		);
+		assert_eq!(
+			direct_info.storage_items, nested_info.storage_items,
+			"storage_items: direct={}, nested={} (should be equal)",
+			direct_info.storage_items, nested_info.storage_items,
+		);
+		assert_eq!(
+			direct_info.storage_item_deposit, nested_info.storage_item_deposit,
+			"storage_item_deposit mismatch between direct and nested paths",
+		);
+		assert_eq!(
+			direct_info.storage_bytes, nested_info.storage_bytes,
+			"storage_bytes mismatch between direct and nested paths",
+		);
+		assert_eq!(
+			direct_info.storage_byte_deposit, nested_info.storage_byte_deposit,
+			"storage_byte_deposit mismatch between direct and nested paths",
+		);
 	});
 }
 
@@ -126,10 +165,10 @@ fn substrate_metering_initialization_works() {
 
 	let tests = vec![
 		(
-			5_000_000_000u64,
+			5_000_000_000u128,
 			1_000_000_000,
 			2_000,
-			Some((2999999500u64, 1499999750, 11107, 599999900)),
+			Some((2999999500u128, 1499999750, 11107, 599999900)),
 		),
 		(6_000_000_000, 1_000_000_000, 2_000, Some((3999999500, 1999999750, 13728, 799999900))),
 		(6_000_000_000, 1_000_000_000, 10_000, Some((2185302235, 1999999750, 5728, 437060447))),
@@ -151,7 +190,7 @@ fn substrate_metering_initialization_works() {
 				let transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
-						maybe_weight_limit: None,
+						weight_limit: Weight::MAX,
 						eth_tx_info,
 					});
 
@@ -189,10 +228,7 @@ fn substrate_metering_initialization_works() {
 				let transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 						eth_gas_limit: 5_000_000_000 / gas_scale,
-						maybe_weight_limit: Some(Weight::from_parts(
-							ref_time_limit,
-							proof_size_limit,
-						)),
+						weight_limit: Weight::from_parts(ref_time_limit, proof_size_limit),
 						eth_tx_info,
 					})
 					.unwrap();
@@ -212,10 +248,10 @@ fn substrate_metering_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000),
+			(5_000_000_000u128, 1_000_000_000, 2_000),
 			vec![(
 				W(1000, 100),
-				Some((2999997500u64, 1499998750, 11007, 599999500, 2000002500u64)),
+				Some((2999997500u128, 1499998750, 11007, 599999500, 2000002500u128)),
 			)],
 		),
 		(
@@ -284,7 +320,7 @@ fn substrate_metering_charges_works() {
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
-						maybe_weight_limit: None,
+						weight_limit: Weight::MAX,
 						eth_tx_info,
 					})
 					.unwrap();
@@ -297,9 +333,9 @@ fn substrate_metering_charges_works() {
 						D(deposit_charge) => transaction_meter
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -342,8 +378,8 @@ fn substrate_nesting_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-			Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
+			((5_000_000_000u128, 1_000_000_000, 2_000, 1000, 1000, 1000i128), NoLimits),
+			Some((2999992500u128, 1499996250, 10107, 599998500, 2000007500u128)),
 		),
 		(
 			((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
@@ -511,7 +547,7 @@ fn substrate_nesting_works() {
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
-						maybe_weight_limit: None,
+						weight_limit: Weight::MAX,
 						eth_tx_info: eth_tx_info.clone(),
 					})
 					.unwrap();
@@ -519,9 +555,9 @@ fn substrate_nesting_works() {
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund(-deposit_charge as u64)
+							StorageDeposit::Refund(-deposit_charge as u128)
 						}),
 					)
 					.unwrap();
@@ -531,8 +567,9 @@ fn substrate_nesting_works() {
 					.unwrap();
 
 				let scaled_call_resource = match call_resource {
-					Ethereum { gas, add_stipend } =>
-						Ethereum { gas: (gas as BalanceOf<Test>).div_ceil(gas_scale), add_stipend },
+					Ethereum { gas, add_stipend } => {
+						Ethereum { gas: (gas as BalanceOf<Test>).div_ceil(gas_scale), add_stipend }
+					},
 					_ => call_resource,
 				};
 				let nested = transaction_meter.new_nested(&scaled_call_resource);
@@ -567,9 +604,9 @@ fn substrate_nesting_charges_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
 	let tests = vec![
 		(
-			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
+			(5_000_000_000u128, 1_000_000_000, 2_000, 1000, 100, 1000i128, 1000u128),
 			vec![
-				(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
+				(W(100, 100), Some((800u128, 400, 3042, 160, 2000007700u128))),
 				(D(100), Some((300, 150, 3042, 60, 2000008200))),
 			],
 		),
@@ -614,7 +651,7 @@ fn substrate_nesting_charges_works() {
 				let mut transaction_meter =
 					TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
-						maybe_weight_limit: None,
+						weight_limit: Weight::MAX,
 						eth_tx_info,
 					})
 					.unwrap();
@@ -622,9 +659,9 @@ fn substrate_nesting_charges_works() {
 				transaction_meter
 					.charge_deposit(
 						&(if deposit_charge >= 0 {
-							StorageDeposit::Charge(deposit_charge as u64)
+							StorageDeposit::Charge(deposit_charge as u128)
 						} else {
-							StorageDeposit::Refund((-deposit_charge) as u64)
+							StorageDeposit::Refund((-deposit_charge) as u128)
 						}),
 					)
 					.unwrap();
@@ -648,9 +685,9 @@ fn substrate_nesting_charges_works() {
 						D(deposit_charge) => nested
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
-									StorageDeposit::Charge(deposit_charge as u64)
+									StorageDeposit::Charge(deposit_charge as u128)
 								} else {
-									StorageDeposit::Refund(-deposit_charge as u64)
+									StorageDeposit::Refund(-deposit_charge as u128)
 								}),
 							)
 							.is_ok(),
@@ -722,7 +759,7 @@ fn catch_constructor_test() {
 
 		assert_ok!(second_estimate);
 
-		let make_call = |eth_gas_limit: u64| {
+		let make_call = |eth_gas_limit: u128| {
 			builder::bare_call(test_address)
 				.data(
 					CatchConstructorTest::tryCatchNewContractCall { _owner: [0u8; 20].into() }
@@ -730,13 +767,13 @@ fn catch_constructor_test() {
 				)
 				.transaction_limits(crate::TransactionLimits::EthereumGas {
 					eth_gas_limit: eth_gas_limit.into(),
-					maybe_weight_limit: None,
+					weight_limit: Weight::MAX,
 					eth_tx_info: crate::EthTxInfo::new(0, Default::default()),
 				})
 				.build()
 		};
 
-		let results = make_call(u64::MAX);
+		let results = make_call(u128::MAX);
 
 		let mut tracer =
 			CallTracer::new(CallTracerConfig { with_logs: true, only_top_call: false });
@@ -752,4 +789,67 @@ fn catch_constructor_test() {
 		let gas_trace = tracer.collect_trace().unwrap();
 		assert_eq!("revert: invalid address", gas_trace.calls[0].revert_reason.as_ref().unwrap());
 	});
+}
+
+#[test]
+fn dry_run_bounded_execution_runs_out_of_gas() {
+	use crate::evm::*;
+	use pallet_revive_fixtures::Fibonacci;
+
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = crate::Pallet::<Test>::dry_run_eth_transact(
+			GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(addr),
+				input: Fibonacci::fibCall { n: 100u64 }.abi_encode().into(),
+				..Default::default()
+			},
+			Default::default(),
+		);
+
+		let err = result.expect_err("fib(100) should run out of gas");
+		assert!(
+			matches!(&err, crate::EthTransactError::Message(msg) if msg.contains("OutOfGas")),
+			"expected OutOfGas error, got: {err:?}"
+		);
+	});
+}
+
+/// Regression test for proxy contract delegatecall with large deposit limits.
+///
+/// When deposit_left is very large (u128::MAX in production), remaining_gas becomes huge,
+/// causing ratio = gas_limit / remaining_gas ≈ 0. This resulted in nested calls receiving
+/// almost no weight. The fix caps remaining_gas to u64::MAX since Ethereum gas is u64.
+#[test]
+fn substrate_nesting_with_large_deposit_and_max_gas_request() {
+	use super::math::substrate_execution;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
+			let deposit_limit: u128 = u64::MAX as _;
+
+			let mut root_meter =
+				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
+
+			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
+			root_meter.charge_deposit(&StorageDeposit::Charge(1000)).unwrap();
+
+			let weight_left_before = root_meter.weight_left().unwrap();
+			let nested = root_meter
+				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false })
+				.unwrap();
+
+			let nested_weight_left = nested.weight_left().unwrap();
+			assert!(nested_weight_left.eq(&weight_left_before));
+		});
 }

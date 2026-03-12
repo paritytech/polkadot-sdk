@@ -71,8 +71,15 @@ pub async fn assert_para_throughput(
 	let expected_candidate_ranges = expected_candidate_ranges.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
+	log::info!(
+		"Asserting parachain throughput for para_ids: {:?}. Wait for the first session change",
+		valid_para_ids
+	);
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut blocks_sub).await?;
+	log::info!(
+		"First session change detected. Counting {stop_after} finalized relay chain blocks."
+	);
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -116,7 +123,7 @@ pub async fn assert_para_throughput(
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
 		let actual = candidate_count
 			.get(&para_id)
-			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+			.ok_or_else(|| anyhow!("ParaId {} did not have any backed candidates", para_id))?;
 
 		if !expected_candidate_range.contains(actual) {
 			return Err(anyhow!(
@@ -240,8 +247,9 @@ fn identifier_matches_header(
 			let header_hash = BlakeTwo256::hash(&header.encode());
 			header_hash == *hash
 		},
-		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } =>
-			header.state_root == *storage_root,
+		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } => {
+			header.state_root == *storage_root
+		},
 	}
 }
 

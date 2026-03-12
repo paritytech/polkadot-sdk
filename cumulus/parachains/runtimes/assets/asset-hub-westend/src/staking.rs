@@ -327,7 +327,8 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
-	type Balance = Balance;
+	type Currency = Balances;
+	type KeyDeposit = ConstU128<{ 10 * UNITS }>;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
@@ -338,8 +339,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
 	// | Total               |         | 193 bytes  | 385 bytes |
 	// We add some buffer for SCALE encoding overhead and future expansions
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
 }
 
@@ -389,10 +388,12 @@ pub struct KeysMessageToXcm;
 impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
 		let encoded_call = match msg {
-			rc_client::KeysMessage::SetKeys { stash, keys } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }).encode(),
-			rc_client::KeysMessage::PurgeKeys { stash } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode(),
+			rc_client::KeysMessage::SetKeys { stash, keys } => {
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }).encode()
+			},
+			rc_client::KeysMessage::PurgeKeys { stash } => {
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode()
+			},
 		};
 		rc_client::build_transact_xcm(encoded_call)
 	}
@@ -512,7 +513,7 @@ impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = DelegatedStakingPalletId;
 	type Currency = Balances;
-	type OnSlash = ();
+	type OnSlash = Dap;
 	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;

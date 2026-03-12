@@ -414,11 +414,12 @@ fn parse_call_def(item_fn: &ItemFn) -> Result<(usize, BenchmarkCallDef)> {
 	Ok(match &call_defs[..] {
 		[(i, call_def)] => (*i, call_def.clone()), // = 1
 		[] => return missing_call(item_fn),
-		_ =>
+		_ => {
 			return Err(Error::new(
 				call_defs[1].1.attr_span(),
 				"Only one #[extrinsic_call] or #[block] attribute is allowed per benchmark.",
-			)),
+			))
+		},
 	})
 }
 
@@ -432,7 +433,9 @@ impl BenchmarkDef {
 		let (verify_stmts, last_stmt) = match item_fn.sig.output {
 			ReturnType::Default =>
 			// no return type, last_stmt should be None
-				(Vec::from(&item_fn.block.stmts[(i + 1)..item_fn.block.stmts.len()]), None),
+			{
+				(Vec::from(&item_fn.block.stmts[(i + 1)..item_fn.block.stmts.len()]), None)
+			},
 			ReturnType::Type(_, _) => {
 				// defined return type, last_stmt should be Result<(), BenchmarkError>
 				// compatible and should not be included in verify_stmts
@@ -481,12 +484,13 @@ pub fn benchmarks(
 	let module: ItemMod = syn::parse(tokens)?;
 	let mod_span = module.span();
 	let where_clause = match syn::parse::<Nothing>(attrs.clone()) {
-		Ok(_) =>
+		Ok(_) => {
 			if instance {
 				quote!(T: Config<I>, I: 'static)
 			} else {
 				quote!(T: Config)
-			},
+			}
+		},
 		Err(_) => {
 			let mut where_clause_predicates = syn::parse::<WhereClause>(attrs)?.predicates;
 
@@ -1026,8 +1030,9 @@ fn expand_benchmark(
 				},
 			)
 		},
-		BenchmarkCallDef::Block { block, attr_span: _ } =>
-			(quote!(), quote!(#block), quote!(#block)),
+		BenchmarkCallDef::Block { block, attr_span: _ } => {
+			(quote!(), quote!(#block), quote!(#block))
+		},
 	};
 
 	let vis = benchmark_def.fn_vis;

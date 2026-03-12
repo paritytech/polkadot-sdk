@@ -30,7 +30,7 @@ use asset_hub_westend_runtime::{
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
+	PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
@@ -81,7 +81,10 @@ use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter as NewNftAdapter, MatchInClassInstances, NoChecking,
 	NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter,
 };
-use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
+use xcm_executor::{
+	traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader},
+	AssetsInHolding,
+};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 use sp_runtime::traits::OpaqueKeys;
@@ -144,9 +147,6 @@ fn test_buy_and_refund_weight_in_native() {
 			assert_ok!(Balances::mint_into(&bob, initial_balance));
 			assert_ok!(Balances::mint_into(&staking_pot, initial_balance));
 
-			// keep initial total issuance to assert later.
-			let total_issuance = Balances::total_issuance();
-
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
@@ -154,16 +154,31 @@ fn test_buy_and_refund_weight_in_native() {
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (native_location.clone(), fee + extra_amount).into();
 
+			// Withdraw from bob to create proper AssetsInHolding with imbalances
+			let bob_location: Location =
+				Junction::AccountId32 { network: None, id: bob.into() }.into();
+			let payment_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&payment,
+					&bob_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw payment");
+
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let unused_asset =
-				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
+				trader.buy_weight(weight, payment_holding, &ctx).expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&native_location.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&native_location.clone().into())
+				.map_or(0, |a| a.amount());
 			assert_eq!(unused_amount, extra_amount);
-			assert_eq!(Balances::total_issuance(), total_issuance);
+
+			// Record total_issuance after withdraw for accurate final comparison
+			let total_issuance_after_withdraw = Balances::total_issuance();
 
 			// prepare input to refund weight.
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
@@ -171,7 +186,11 @@ fn test_buy_and_refund_weight_in_native() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (native_location, refund).into());
+			let actual_refund_amount = actual_refund
+				.fungible
+				.get(&native_location.clone().into())
+				.map_or(0, |a| a.amount());
+			assert_eq!(actual_refund_amount, refund);
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -179,7 +198,8 @@ fn test_buy_and_refund_weight_in_native() {
 			// account.
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
-			assert_eq!(Balances::total_issuance(), total_issuance + fee - refund);
+			// With imbalance accounting, total_issuance should match what it was after withdraw
+			assert_eq!(Balances::total_issuance(), total_issuance_after_withdraw);
 		})
 }
 
@@ -237,11 +257,10 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 				pool_liquidity,
 				1,
 				1,
-				bob,
+				bob.clone(),
 			));
 
 			// keep initial total issuance to assert later.
-			let asset_total_issuance = Assets::total_issuance(asset_1);
 			let native_total_issuance = Balances::total_issuance();
 
 			// prepare input to buy weight.
@@ -253,16 +272,31 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (asset_1_location.clone(), asset_fee + extra_amount).into();
 
+			// Withdraw from bob to create proper AssetsInHolding with imbalances
+			let bob_location: Location =
+				Junction::AccountId32 { network: None, id: bob.into() }.into();
+			let payment_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&payment,
+					&bob_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw payment");
+
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let unused_asset =
-				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
+				trader.buy_weight(weight, payment_holding, &ctx).expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&asset_1_location.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&asset_1_location.clone().into())
+				.map_or(0, |a| a.amount());
 			assert_eq!(unused_amount, extra_amount);
-			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance + asset_fee);
+
+			// Record total issuance after withdraw for accurate final comparison
+			let asset_total_issuance_after_withdraw = Assets::total_issuance(asset_1);
 
 			// prepare input to refund weight.
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
@@ -277,7 +311,11 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (asset_1_location, asset_refund).into());
+			let actual_refund_amount = actual_refund
+				.fungible
+				.get(&asset_1_location.clone().into())
+				.map_or(0, |a| a.amount());
+			assert_eq!(actual_refund_amount, asset_refund);
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -285,10 +323,8 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			// account.
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
-			assert_eq!(
-				Assets::total_issuance(asset_1),
-				asset_total_issuance + asset_fee - asset_refund
-			);
+			// With imbalance accounting, total_issuance should match what it was after withdraw
+			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance_after_withdraw);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
 		})
 }
@@ -348,11 +384,10 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				pool_liquidity,
 				1,
 				1,
-				bob,
+				bob.clone(),
 			));
 
 			// keep initial total issuance to assert later.
-			let asset_total_issuance = ForeignAssets::total_issuance(foreign_location.clone());
 			let native_total_issuance = Balances::total_issuance();
 
 			// prepare input to buy weight.
@@ -364,19 +399,32 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (foreign_location.clone(), asset_fee + extra_amount).into();
 
+			// Withdraw from bob to create proper AssetsInHolding with imbalances
+			let bob_location: Location =
+				Junction::AccountId32 { network: None, id: bob.into() }.into();
+			let payment_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&payment,
+					&bob_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw payment");
+
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let unused_asset =
-				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
+				trader.buy_weight(weight, payment_holding, &ctx).expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&foreign_location.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&foreign_location.clone().into())
+				.map_or(0, |a| a.amount());
 			assert_eq!(unused_amount, extra_amount);
-			assert_eq!(
-				ForeignAssets::total_issuance(foreign_location.clone()),
-				asset_total_issuance + asset_fee
-			);
+
+			// Record total issuance after withdraw for accurate final comparison
+			let asset_total_issuance_after_withdraw =
+				ForeignAssets::total_issuance(foreign_location.clone());
 
 			// prepare input to refund weight.
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
@@ -388,7 +436,11 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (foreign_location.clone(), asset_refund).into());
+			let actual_refund_amount = actual_refund
+				.fungible
+				.get(&foreign_location.clone().into())
+				.map_or(0, |a| a.amount());
+			assert_eq!(actual_refund_amount, asset_refund);
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -396,9 +448,10 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			// account.
 			drop(trader);
 			assert_eq!(Balances::balance(&staking_pot), initial_balance + fee - refund);
+			// With imbalance accounting, total_issuance should match what it was after withdraw
 			assert_eq!(
 				ForeignAssets::total_issuance(foreign_location),
-				asset_total_issuance + asset_fee - asset_refund
+				asset_total_issuance_after_withdraw
 			);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
 		})
@@ -444,10 +497,40 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 				"we are testing what happens when the amount does not exceed ED"
 			);
 
-			let asset: Asset = (asset_location, amount_bought).into();
+			let asset: Asset = (asset_location.clone(), amount_bought).into();
 
-			// Buy weight should return an error
-			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
+			// Mint the asset to alice so we can withdraw it
+			// Need to mint at least ED to satisfy minimum balance requirement
+			let mint_amount = amount_bought.max(ExistentialDeposit::get() + 1);
+			assert_ok!(Assets::mint(
+				RuntimeHelper::origin_of(AccountId::from(ALICE)),
+				1.into(),
+				AccountId::from(ALICE).into(),
+				mint_amount
+			));
+
+			// Withdraw to create proper AssetsInHolding
+			let alice_location: Location =
+				Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+			let asset_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&asset,
+					&alice_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw asset");
+
+			// Buy weight should return an error (asset is returned in error)
+			let result = trader.buy_weight(bought, asset_holding, &ctx);
+			assert!(result.is_err());
+			if let Err((returned_asset, xcm_error)) = result {
+				assert_eq!(xcm_error, XcmError::TooExpensive);
+				// The asset should be returned (we minted mint_amount, so expect that back)
+				assert_eq!(
+					returned_asset.fungible.get(&asset_location.into()).map_or(0, |a| a.amount()),
+					mint_amount
+				);
+			}
 
 			// not credited since the ED is higher than this value
 			assert_eq!(Assets::balance(1, AccountId::from(ALICE)), 0);
@@ -501,10 +584,38 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 
 			let asset_location = AssetIdForTrustBackedAssetsConvert::convert_back(&1).unwrap();
 
-			let asset: Asset = (asset_location, asset_amount_needed).into();
+			let asset: Asset = (asset_location.clone(), asset_amount_needed).into();
 
-			// Make sure again buy_weight does return an error
-			assert_noop!(trader.buy_weight(bought, asset.into(), &ctx), XcmError::TooExpensive);
+			// Mint additional asset to alice for this test
+			assert_ok!(Assets::mint(
+				RuntimeHelper::origin_of(AccountId::from(ALICE)),
+				1.into(),
+				AccountId::from(ALICE).into(),
+				asset_amount_needed
+			));
+
+			// Withdraw to create proper AssetsInHolding
+			let alice_location: Location =
+				Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+			let asset_holding =
+				<XcmConfig as xcm_executor::Config>::AssetTransactor::withdraw_asset(
+					&asset,
+					&alice_location,
+					Some(&ctx),
+				)
+				.expect("Failed to withdraw asset");
+
+			// Make sure buy_weight returns an error (asset is returned in error)
+			let result = trader.buy_weight(bought, asset_holding, &ctx);
+			assert!(result.is_err());
+			if let Err((returned_asset, xcm_error)) = result {
+				assert_eq!(xcm_error, XcmError::TooExpensive);
+				// The asset should be returned
+				assert_eq!(
+					returned_asset.fungible.get(&asset_location.into()).map_or(0, |a| a.amount()),
+					asset_amount_needed
+				);
+			}
 
 			// Drop trader
 			drop(trader);
@@ -565,16 +676,19 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 				.appended_with(GeneralIndex(collection_id.into()))
 				.unwrap();
 			let item_asset: Asset =
-				(collection_location, AssetInstance::Index(item_id.into())).into();
+				(collection_location.clone(), AssetInstance::Index(item_id.into())).into();
 
 			let alice_account_location: Location = alice.clone().into();
 			let bob_account_location: Location = bob.clone().into();
 
-			// Can't deposit the token that isn't withdrawn
-			assert_err!(
-				T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx),),
-				XcmError::FailedToTransactAsset("AlreadyExists")
+			// Can't deposit the token that isn't withdrawn - create AssetsInHolding for NFT
+			let item_holding = AssetsInHolding::new_from_non_fungible(
+				collection_location.clone().into(),
+				AssetInstance::Index(item_id.into()),
 			);
+			let deposit_result =
+				T::deposit_asset(item_holding, &alice_account_location, Some(&ctx));
+			assert!(matches!(deposit_result, Err((_, XcmError::FailedToTransactAsset(_)))));
 
 			// Alice isn't the owner, she can't withdraw the token
 			assert_noop!(
@@ -583,7 +697,9 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 			);
 
 			// Bob, the owner, can withdraw the token
-			assert_ok!(T::withdraw_asset(&item_asset, &bob_account_location, Some(&ctx),));
+			let withdrawn_holding =
+				T::withdraw_asset(&item_asset, &bob_account_location, Some(&ctx))
+					.expect("Withdraw should succeed");
 
 			// The token is withdrawn
 			assert_eq!(
@@ -606,8 +722,8 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 				XcmError::FailedToTransactAsset("UnknownCollection")
 			);
 
-			// Deposit the token to alice
-			assert_ok!(T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx),));
+			// Deposit the token to alice using the withdrawn holding
+			assert_ok!(T::deposit_asset(withdrawn_holding, &alice_account_location, Some(&ctx),));
 
 			// The token is deposited
 			assert_eq!(
@@ -624,11 +740,14 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 				Ok(attr_value.clone()),
 			);
 
-			// Can't deposit the token twice
-			assert_err!(
-				T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx),),
-				XcmError::FailedToTransactAsset("AlreadyExists")
+			// Can't deposit the token twice - create new AssetsInHolding for NFT
+			let item_holding_again = AssetsInHolding::new_from_non_fungible(
+				collection_location.clone().into(),
+				AssetInstance::Index(item_id.into()),
 			);
+			let deposit_twice_result =
+				T::deposit_asset(item_holding_again, &alice_account_location, Some(&ctx));
+			assert!(matches!(deposit_twice_result, Err((_, XcmError::FailedToTransactAsset(_)))));
 
 			// Transfer the token directly
 			assert_ok!(T::transfer_asset(
@@ -2089,4 +2208,284 @@ fn session_keys_are_compatible_between_ah_and_rc() {
 		westend_runtime::SessionKeys::key_ids(),
 		"Session key type IDs must match between AssetHub and Westend"
 	);
+}
+
+#[test]
+fn staking_proxy_can_manage_staking_operator() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	// GIVEN: Staking proxy type
+	let staking_proxy = ProxyType::Staking;
+
+	// WHEN: checking if Staking can add/remove StakingOperator proxies
+	let add_call = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+		delegate: AccountId::from(BOB).into(),
+		proxy_type: ProxyType::StakingOperator,
+		delay: 0,
+	});
+	let remove_call = RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
+		delegate: AccountId::from(BOB).into(),
+		proxy_type: ProxyType::StakingOperator,
+		delay: 0,
+	});
+
+	// THEN: Staking proxy can manage StakingOperator proxies and is its superset
+	assert!(staking_proxy.filter(&add_call));
+	assert!(staking_proxy.filter(&remove_call));
+	assert!(staking_proxy.is_superset(&ProxyType::StakingOperator));
+}
+
+/// Verifies StakingOperator filter allows validator operations and session key management,
+/// but forbids fund management.
+#[test]
+fn staking_operator_filter_allows_validator_ops_and_session_keys() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+	use pallet_staking_async::{Call as StakingCall, RewardDestination, ValidatorPrefs};
+	use pallet_staking_async_rc_client::Call as RcClientCall;
+
+	let operator = ProxyType::StakingOperator;
+
+	// StakingOperator can perform validator operations
+	assert!(operator
+		.filter(&RuntimeCall::Staking(StakingCall::validate { prefs: ValidatorPrefs::default() })));
+	assert!(operator.filter(&RuntimeCall::Staking(StakingCall::chill {})));
+	assert!(operator.filter(&RuntimeCall::Staking(StakingCall::kick { who: vec![] })));
+
+	// StakingOperator can manage session keys
+	assert!(operator.filter(&RuntimeCall::StakingRcClient(RcClientCall::set_keys {
+		keys: Default::default(),
+		proof: Default::default(),
+		max_delivery_and_remote_execution_fee: None,
+	})));
+	assert!(operator.filter(&RuntimeCall::StakingRcClient(RcClientCall::purge_keys {
+		max_delivery_and_remote_execution_fee: None,
+	})));
+
+	// StakingOperator can batch operations
+	assert!(operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })));
+	assert!(
+		operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch_all { calls: vec![] }))
+	);
+	assert!(
+		operator.filter(&RuntimeCall::Utility(pallet_utility::Call::force_batch { calls: vec![] }))
+	);
+
+	// StakingOperator cannot use non-batching utility calls
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::as_derivative {
+		index: 0,
+		call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+	})));
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::dispatch_as {
+		as_origin: Box::new(asset_hub_westend_runtime::OriginCaller::system(
+			frame_system::RawOrigin::Root,
+		)),
+		call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+	})));
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::with_weight {
+		call: Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+		weight: Default::default(),
+	})));
+
+	// StakingOperator cannot manage funds or nominations
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::bond {
+		value: 100,
+		payee: RewardDestination::Staked
+	})));
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::unbond { value: 100 })));
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::nominate { targets: vec![] })));
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::set_payee {
+		payee: RewardDestination::Staked
+	})));
+}
+
+/// Test that a pure proxy stash can delegate to a StakingOperator
+/// who can then call validate, chill, and manage session keys.
+#[test]
+fn pure_proxy_stash_can_delegate_to_staking_operator() {
+	use asset_hub_westend_runtime::ProxyType;
+
+	let controller: AccountId = ALICE.into();
+	let operator: AccountId = BOB.into();
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			// GIVEN: fund controller and operator
+			assert_ok!(Balances::mint_into(&controller, 100 * UNITS));
+			assert_ok!(Balances::mint_into(&operator, 100 * UNITS));
+
+			// WHEN: controller creates a pure proxy stash with Staking proxy type
+			assert_ok!(Proxy::create_pure(
+				RuntimeOrigin::signed(controller.clone()),
+				ProxyType::Staking,
+				0,
+				0
+			));
+			let pure_stash = Proxy::pure_account(&controller, &ProxyType::Staking, 0, None);
+
+			// Fund the pure proxy stash
+			assert_ok!(Balances::mint_into(&pure_stash, 100 * UNITS));
+
+			// WHEN: controller (via Staking proxy) adds StakingOperator proxy for the operator
+			let add_operator_call = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+				delegate: operator.clone().into(),
+				proxy_type: ProxyType::StakingOperator,
+				delay: 0,
+			});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(controller.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(add_operator_call),
+			));
+
+			// THEN: operator can call chill on behalf of pure proxy stash
+			let chill_call = RuntimeCall::Staking(pallet_staking_async::Call::chill {});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(chill_call),
+			));
+
+			// THEN: operator can call validate on behalf of pure proxy stash
+			let validate_call = RuntimeCall::Staking(pallet_staking_async::Call::validate {
+				prefs: Default::default(),
+			});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(validate_call),
+			));
+
+			// THEN: operator can call purge_keys (session key management on AssetHub)
+			let purge_keys_call =
+				RuntimeCall::StakingRcClient(pallet_staking_async_rc_client::Call::purge_keys {
+					max_delivery_and_remote_execution_fee: None,
+				});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(purge_keys_call),
+			));
+
+			// THEN: operator CANNOT call bond (fund management is forbidden)
+			// Note: Proxy::proxy returns Ok(()) even when the proxied call fails due to filter.
+			// The actual result is emitted as a ProxyExecuted event.
+			let bond_call = RuntimeCall::Staking(pallet_staking_async::Call::bond {
+				value: 10 * UNITS,
+				payee: pallet_staking_async::RewardDestination::Staked,
+			});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(bond_call),
+			));
+			// Check that the proxied call failed due to filter (CallFiltered error)
+			System::assert_last_event(
+				pallet_proxy::Event::ProxyExecuted {
+					result: Err(frame_system::Error::<Runtime>::CallFiltered.into()),
+				}
+				.into(),
+			);
+		});
+}
+
+mod remote_test {
+	use super::*;
+
+	/// Test claim_trapped_balance for all pool members using a state snapshot.
+	///
+	/// The test iterates through all pool members, computes trapped amounts, and calls
+	/// `do_claim_trapped_balance` for those with trapped funds. Only successful claims are printed.
+	///
+	/// Run with:
+	/// ```bash
+	/// SNAP=<PATH_TO_SNAP> cargo test -r -p asset-hub-westend-runtime np_claim_trapped_balance \
+	/// -- --ignored --nocapture
+	/// ```
+	///
+	/// Note: If you want to test this with PAH snapshot, ensure (locally, DO NOT COMMIT)
+	/// 1) WAH staking pallet indices align with PAH
+	/// 2) WAH ED is same as PAH (decrease it by 10x in `../../../constants/src/westend.rs`)
+	/// 3) Staking Bonding Duration is 28 eras.
+	#[tokio::test]
+	#[ignore]
+	async fn np_claim_trapped_balance() {
+		use pallet_nomination_pools::{Pallet as NominationPools, PoolMembers};
+		use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
+
+		let snap_path =
+			std::env::var("SNAP").expect("SNAP env var not set. Please provide snapshot path.");
+
+		println!("Loading snapshot from: {}", snap_path);
+
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path) }))
+			.build()
+			.await
+			.expect("Failed to load snapshot");
+
+		ext.execute_with(|| {
+			use pallet_nomination_pools::adapter::{Member, StakeStrategy};
+
+			const DOT_DECIMALS: u128 = 10_000_000_000; // 10 decimals for DOT
+
+			println!("\nChecking trapped balance for all pool members...\n");
+
+			let mut total_members = 0u32;
+			let mut success_count = 0u32;
+			let mut total_claimed = 0u128;
+
+			println!("member,pool_id,trapped_dot");
+
+			for (member_account, member_data) in PoolMembers::<Runtime>::iter() {
+				total_members += 1;
+
+				// Compute trapped amount before calling the helper
+				let expected = member_data.total_balance();
+				let actual = <Runtime as pallet_nomination_pools::Config>::StakeAdapter
+					::member_delegation_balance(Member::from(
+						member_account.clone(),
+					))
+					.unwrap_or_default();
+				let trapped = actual.saturating_sub(expected);
+
+				// Ignore dust amounts (< 1 DOT) — only claim meaningful trapped balances.
+				if trapped >= DOT_DECIMALS {
+					assert_ok!(NominationPools::<Runtime>::do_claim_trapped_balance(
+						&member_account
+					));
+
+					success_count += 1;
+					total_claimed += trapped;
+					let whole = trapped / DOT_DECIMALS;
+					let fraction = (trapped % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+					println!(
+						"{:?},{},{}.{:02}",
+						member_account, member_data.pool_id, whole, fraction
+					);
+				}
+			}
+
+			let total_whole = total_claimed / DOT_DECIMALS;
+			let total_fraction = (total_claimed % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+
+			println!("\n--- Summary ---");
+			println!("Total members: {}", total_members);
+			println!("Successful claims: {}", success_count);
+			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
+		});
+	}
 }

@@ -283,11 +283,12 @@ impl GridTracker {
 			//   * They are in the sending set for the group AND we have sent them a manifest AND
 			//     the received manifest is partial.
 			ManifestKind::Full => receiving_from,
-			ManifestKind::Acknowledgement =>
+			ManifestKind::Acknowledgement => {
 				sending_to &&
 					self.confirmed_backed
 						.get(&candidate_hash)
-						.map_or(false, |c| c.has_sent_manifest_to(sender)),
+						.map_or(false, |c| c.has_sent_manifest_to(sender))
+			},
 		};
 
 		if !manifest_allowed {

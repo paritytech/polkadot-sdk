@@ -97,9 +97,16 @@ where
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		// If the channel exists and it is required to execute the block, we will execute the block
 		// here. This is done to collect the storage proof and to prevent re-execution, we push
-		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either
-		// means that the node produced the block itself or the block was imported via state sync.
-		if !self.sender.is_closed() && !matches!(params.state_action, StateAction::ApplyChanges(_))
+		// downwards the state changes.
+		//
+		// The following states are ignored:
+		//  - `StateAction::ApplyChanges`: means that the node produced the block itself or the
+		//    block was imported via state sync.
+		//  - `StateAction::Skip`: means that the block should be skipped. This is evident in the
+		//    context of gap-sync with collators running in non-archive modes. The state of the
+		//    parent block has already been discarded and therefore any import would fail.
+		if !self.sender.is_closed() &&
+			!matches!(params.state_action, StateAction::ApplyChanges(_) | StateAction::Skip)
 		{
 			let mut runtime_api = self.client.runtime_api();
 
@@ -141,5 +148,138 @@ where
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::Encode;
+	use cumulus_test_client::{
+		runtime::Block, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+		TestClientBuilderExt,
+	};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+	use polkadot_primitives::HeadData;
+	use sc_consensus::{BlockImportParams, ImportResult, StateAction};
+	use sp_blockchain::HeaderBackend;
+	use sp_consensus::BlockOrigin;
+
+	fn sproof_with_best_parent(client: &cumulus_test_client::Client) -> RelayStateSproofBuilder {
+		let best_hash = client.info().best_hash;
+		let header = client.header(best_hash).ok().flatten().expect("No header for best block");
+		let mut builder = RelayStateSproofBuilder::default();
+		builder.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
+		builder.included_para_head = Some(HeadData(header.encode()));
+		builder
+	}
+
+	/// Mock inner block import that always succeeds.
+	#[derive(Clone)]
+	struct MockBlockImport;
+
+	#[async_trait::async_trait]
+	impl BlockImport<Block> for MockBlockImport {
+		type Error = sp_consensus::Error;
+
+		async fn check_block(
+			&self,
+			_block: sc_consensus::BlockCheckParams<Block>,
+		) -> Result<ImportResult, Self::Error> {
+			Ok(ImportResult::imported(false))
+		}
+
+		async fn import_block(
+			&self,
+			_block: BlockImportParams<Block>,
+		) -> Result<ImportResult, Self::Error> {
+			Ok(ImportResult::imported(true))
+		}
+	}
+
+	/// Regression test for the gap-sync infinite loop issue.
+	///
+	/// When a non-archive collator has a block gap of size 1, gap-sync downloads
+	/// the block and marks it with `skip_execution: true` (which translates to
+	/// `StateAction::Skip`). Before the fix, `SlotBasedBlockImport` would attempt
+	/// to execute such blocks, fail with a consensus error ("State already
+	/// discarded for parent"), and trigger a chain-sync restart that re-creates
+	/// the same gap — leading to an infinite retry loop.
+	///
+	/// This test verifies that `StateAction::Skip` blocks are forwarded to the
+	/// inner block import without attempting runtime execution.
+	#[tokio::test]
+	async fn gap_sync_block_with_skip_execution_does_not_attempt_runtime_call() {
+		sp_tracing::try_init_simple();
+
+		let client = Arc::new(TestClientBuilder::new().build());
+
+		// Build a valid block so we have realistic headers/bodies.
+		let sproof = sproof_with_best_parent(&client);
+		let block_builder_data = client.init_block_builder(None, sproof);
+		let block = block_builder_data.block_builder.build().unwrap().block;
+
+		let (slot_based_import, mut handle) =
+			SlotBasedBlockImport::new(MockBlockImport, client.clone());
+
+		// Simulate the gap-sync scenario: a block arrives with StateAction::Skip
+		// because the parent state has been pruned.
+		let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, block.header);
+		params.body = Some(block.extrinsics);
+		params.state_action = StateAction::Skip;
+		params.import_existing = true;
+
+		// Before the fix, this would fail with a consensus error because
+		// SlotBasedBlockImport would try to call `runtime_api.execute_block()`
+		// on the parent hash whose state is no longer available.
+		//
+		// After the fix, StateAction::Skip is recognized and the block is
+		// forwarded directly to the inner import without execution.
+		let result = slot_based_import.import_block(params).await;
+		assert!(result.is_ok(), "Gap-sync block with StateAction::Skip must not fail: {result:?}");
+
+		// The channel must be empty — execution should have been skipped entirely,
+		// so no (block, proof) was sent. This is the key assertion: without the
+		// StateAction::Skip guard, execute_block() would run and send a message.
+		//
+		// Drop the sender side so the channel closes, then verify no message was queued.
+		drop(slot_based_import);
+		assert!(
+			handle.receiver.next().await.is_none(),
+			"No block+proof should be sent through the channel for StateAction::Skip"
+		);
+	}
+
+	/// Verify that `StateAction::Execute` still triggers runtime execution.
+	///
+	/// This complements the gap-sync regression test by ensuring we did not
+	/// accidentally disable execution for normal blocks.
+	#[tokio::test]
+	async fn normal_block_with_execute_action_triggers_runtime_execution() {
+		sp_tracing::try_init_simple();
+
+		let client = Arc::new(TestClientBuilder::new().build());
+
+		let sproof = sproof_with_best_parent(&client);
+		let block_builder_data = client.init_block_builder(None, sproof);
+		let block = block_builder_data.block_builder.build().unwrap().block;
+
+		let (slot_based_import, mut handle) =
+			SlotBasedBlockImport::new(MockBlockImport, client.clone());
+
+		// Normal import with StateAction::Execute should trigger execution
+		// and send the block + proof through the channel.
+		let mut params =
+			BlockImportParams::new(BlockOrigin::NetworkInitialSync, block.header.clone());
+		params.body = Some(block.extrinsics.clone());
+		params.state_action = StateAction::Execute;
+
+		let result = slot_based_import.import_block(params).await;
+		assert!(result.is_ok(), "Normal block import should succeed: {result:?}");
+
+		// The block and proof should have been sent through the channel,
+		// confirming that execution actually happened.
+		let (received_block, _proof) = handle.next().await;
+		assert_eq!(*received_block.header(), block.header);
 	}
 }

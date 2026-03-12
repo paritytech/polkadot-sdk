@@ -291,8 +291,9 @@ where
 		}
 
 		let earliest = match (forced, standard) {
-			(Some(forced), Some(standard)) =>
-				Some(if forced.1 < standard.1 { forced } else { standard }),
+			(Some(forced), Some(standard)) => {
+				Some(if forced.1 < standard.1 { forced } else { standard })
+			},
 			(Some(forced), None) => Some(forced),
 			(None, Some(standard)) => Some(standard),
 			(None, None) => None,

@@ -724,8 +724,9 @@ pub fn validate_commitments(
 	if commitments.new_validation_code.is_some() {
 		match constraints.upgrade_restriction {
 			None => {},
-			Some(UpgradeRestriction::Present) =>
-				return Err(FragmentValidityError::CodeUpgradeRestricted),
+			Some(UpgradeRestriction::Present) => {
+				return Err(FragmentValidityError::CodeUpgradeRestricted)
+			},
 		}
 	}
 
@@ -810,6 +811,13 @@ pub trait HypotheticalOrConcreteCandidate {
 	fn relay_parent(&self) -> Hash;
 	/// Return the candidate hash.
 	fn candidate_hash(&self) -> CandidateHash;
+	/// Return the scheduling parent hash.
+	///
+	/// For V3 candidates, this may differ from relay_parent.
+	/// For V1/V2 candidates and hypothetical candidates, this defaults to relay_parent.
+	fn scheduling_parent(&self) -> Hash {
+		self.relay_parent()
+	}
 }
 
 impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {

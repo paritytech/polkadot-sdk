@@ -39,7 +39,16 @@ pub type ChunksOf<T> = BoundedVec<
 /// The overarching state of all people rings regarding the actions that are currently allowed to be
 /// performed on them.
 #[derive(
-	Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	Default,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
 )]
 pub enum RingMembersState {
 	/// The rings can accept new people sequentially if the maximum capacity has not been reached
@@ -47,6 +56,7 @@ pub enum RingMembersState {
 	/// previously computed roots. In case a ring suffered mutations that invalidated a previous
 	/// ring root through the removal of an included member, the existing ring root will be removed
 	/// and ring building will start from scratch.
+	#[default]
 	AppendOnly,
 	/// A semaphore counting the number of entities making changes to the ring members list which
 	/// require the entire ring to be rebuilt. Whenever a DIM would want to suspend
@@ -57,12 +67,6 @@ pub enum RingMembersState {
 	/// After mutations to the member set, any pending key migrations are enacted before the new
 	/// ring roots will be built in order to reflect the latest changes in state.
 	KeyMigration,
-}
-
-impl Default for RingMembersState {
-	fn default() -> Self {
-		Self::AppendOnly
-	}
 }
 
 impl RingMembersState {

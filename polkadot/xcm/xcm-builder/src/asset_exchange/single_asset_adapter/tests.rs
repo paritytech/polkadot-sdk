@@ -17,6 +17,7 @@
 //! Tests for the [`SingleAssetExchangeAdapter`] type.
 
 use super::mock::*;
+use crate::tests::mock::assets_to_holding;
 use xcm::prelude::*;
 use xcm_executor::{traits::AssetExchange, AssetsInHolding};
 
@@ -30,7 +31,7 @@ fn maximal_exchange() {
 	new_test_ext().execute_with(|| {
 		let assets = PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()].into(),
+			assets_to_holding(vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()]),
 			&vec![(Here, 2_000_000).into()].into(),
 			true, // Maximal
 		)
@@ -45,7 +46,7 @@ fn minimal_exchange() {
 	new_test_ext().execute_with(|| {
 		let assets = PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()].into(),
+			assets_to_holding(vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()]),
 			&vec![(Here, 2_000_000).into()].into(),
 			false, // Minimal
 		)
@@ -65,7 +66,7 @@ fn maximal_quote() {
 			true,
 		)
 		.unwrap();
-		let amount = get_amount_from_first_fungible(&assets.into());
+		let amount = get_amount_from_first_fungible(&assets_to_holding(assets.into_inner()));
 		// The amount of the native token resulting from swapping all `10_000_000` of the custom
 		// token.
 		assert_eq!(amount, 4_533_054);
@@ -81,7 +82,7 @@ fn minimal_quote() {
 			false,
 		)
 		.unwrap();
-		let amount = get_amount_from_first_fungible(&assets.into());
+		let amount = get_amount_from_first_fungible(&assets_to_holding(assets.into_inner()));
 		// The amount of the custom token needed to get `2_000_000` of the native token.
 		assert_eq!(amount, 4_179_205);
 	});
@@ -94,7 +95,7 @@ fn no_asset_in_give() {
 	new_test_ext().execute_with(|| {
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![].into(),
+			assets_to_holding(vec![]),
 			&vec![(Here, 2_000_000).into()].into(),
 			true
 		)
@@ -107,7 +108,10 @@ fn more_than_one_asset_in_give() {
 	new_test_ext().execute_with(|| {
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(1)], 1).into(), (Here, 2).into()].into(),
+			assets_to_holding(vec![
+				([PalletInstance(2), GeneralIndex(1)], 1).into(),
+				(Here, 2).into()
+			]),
 			&vec![(Here, 2_000_000).into()].into(),
 			true
 		)
@@ -120,7 +124,7 @@ fn no_asset_in_want() {
 	new_test_ext().execute_with(|| {
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()].into(),
+			assets_to_holding(vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()]),
 			&vec![].into(),
 			true
 		)
@@ -133,7 +137,7 @@ fn more_than_one_asset_in_want() {
 	new_test_ext().execute_with(|| {
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()].into(),
+			assets_to_holding(vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()]),
 			&vec![(Here, 2_000_000).into(), ([PalletInstance(2), GeneralIndex(1)], 1).into()]
 				.into(),
 			true
@@ -148,8 +152,11 @@ fn give_asset_does_not_match() {
 		let nonexistent_asset_id = 1000;
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(nonexistent_asset_id)], 10_000_000).into()]
-				.into(),
+			assets_to_holding(vec![(
+				[PalletInstance(2), GeneralIndex(nonexistent_asset_id)],
+				10_000_000
+			)
+				.into()]),
 			&vec![(Here, 2_000_000).into()].into(),
 			true
 		)
@@ -163,7 +170,7 @@ fn want_asset_does_not_match() {
 		let nonexistent_asset_id = 1000;
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![(Here, 2_000_000).into()].into(),
+			assets_to_holding(vec![(Here, 2_000_000).into()]),
 			&vec![([PalletInstance(2), GeneralIndex(nonexistent_asset_id)], 10_000_000).into()]
 				.into(),
 			true
@@ -177,7 +184,7 @@ fn exchange_fails() {
 	new_test_ext().execute_with(|| {
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
-			vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()].into(),
+			assets_to_holding(vec![([PalletInstance(2), GeneralIndex(1)], 10_000_000).into()]),
 			// We're asking for too much of the native token...
 			&vec![(Here, 200_000_000).into()].into(),
 			false, // Minimal
@@ -192,7 +199,7 @@ fn non_fungible_asset_in_give() {
 		assert!(PoolAssetsExchanger::exchange_asset(
 			None,
 			// Using `u64` here will give us a non-fungible instead of a fungible.
-			vec![([PalletInstance(2), GeneralIndex(2)], 10_000_000u64).into()].into(),
+			assets_to_holding(vec![([PalletInstance(2), GeneralIndex(2)], 10_000_000u64).into()]),
 			&vec![(Here, 10_000_000).into()].into(),
 			false, // Minimal
 		)

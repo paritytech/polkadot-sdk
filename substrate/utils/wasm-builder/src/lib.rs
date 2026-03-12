@@ -432,15 +432,16 @@ impl RuntimeTarget {
 	/// Figures out the target parameter value for rustc.
 	fn rustc_target(self, cargo_command: &CargoCommand) -> String {
 		match self {
-			RuntimeTarget::Wasm =>
+			RuntimeTarget::Wasm => {
 				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
-				},
+				}
+			},
 			RuntimeTarget::Riscv => {
 				let mut args = polkavm_linker::TargetJsonArgs::default();
-				args.is_64_bit = false;
+				args.is_64_bit = true;
 				let path = polkavm_linker::target_json_path(args).expect("riscv not found");
 				path.into_os_string().into_string().unwrap()
 			},
@@ -450,13 +451,14 @@ impl RuntimeTarget {
 	/// Figures out the target directory name used by cargo.
 	fn rustc_target_dir(self, cargo_command: &CargoCommand) -> &'static str {
 		match self {
-			RuntimeTarget::Wasm =>
+			RuntimeTarget::Wasm => {
 				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
-				},
-			RuntimeTarget::Riscv => "riscv32emac-unknown-none-polkavm",
+				}
+			},
+			RuntimeTarget::Riscv => "riscv64emac-unknown-none-polkavm",
 		}
 	}
 
