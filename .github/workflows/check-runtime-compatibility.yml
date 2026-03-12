@@ -1,13 +1,8 @@
 name: check-runtime-compatibility
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  merge_group:
-  workflow_dispatch:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,60 +11,34 @@ concurrency:
 permissions: {}
 
 jobs:
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   check-runtime-compatibility:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ github.event.pull_request.draft == true }}
     timeout-minutes: 30
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      NETWORK: westend
+      PACKAGE: westend-runtime
+      WASM: westend_runtime.compact.compressed.wasm
+      URI: "wss://try-runtime-westend.polkadot.io:443"
     strategy:
       fail-fast: false
       matrix:
-        network:
-          [
-            westend,
-            asset-hub-westend,
-            bridge-hub-westend,
-            collectives-westend,
-            coretime-westend,
-          ]
-        include:
-          - network: westend
-            package: westend-runtime
-            wasm: westend_runtime.compact.compressed.wasm
-            uri: "wss://try-runtime-westend.polkadot.io:443"
-          - network: asset-hub-westend
-            package: asset-hub-westend-runtime
-            wasm: asset_hub_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
-          - network: bridge-hub-westend
-            package: bridge-hub-westend-runtime
-            wasm: bridge_hub_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
-          - network: collectives-westend
-            package: collectives-westend-runtime
-            wasm: collectives_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-collectives-rpc.polkadot.io:443"
-          - network: coretime-westend
-            package: coretime-westend-runtime
-            wasm: coretime_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-coretime-rpc.polkadot.io:443"
+        run_index: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Build Runtime
         id: build-runtime
         run: |
-          echo "---------- Building ${{ matrix.package }} runtime with on-chain-release-build ----------"
-          forklift cargo build --release --locked -p ${{ matrix.package }} --features on-chain-release-build -q
+          echo "---------- Building ${{ env.PACKAGE }} runtime with on-chain-release-build ----------"
+          forklift cargo build --release --locked -p ${{ env.PACKAGE }} --features on-chain-release-build -q
 
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
@@ -80,8 +49,17 @@ jobs:
       - name: Check Runtime Compatibility
         id: check-compatibility
         run: |
-          echo "---------- Checking runtime compatibility for ${{ matrix.network }} ----------"
-          npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
+          echo "---------- Checking runtime compatibility for ${{ env.NETWORK }} (run ${{ matrix.run_index }}) ----------"
+          set +e
+          # check-runtime hangs indefinitely if the RPC node is unreachable.
+          timeout 120 npx @polkadot-api/check-runtime@latest problems ${{ env.URI }} --wasm ./target/release/wbuild/${{ env.PACKAGE }}/${{ env.WASM }}
+          EXIT_CODE=$?
+          set -e
+          # When the time limit is reached, timeout returns exit code 124
+          if [ $EXIT_CODE -eq 124 ]; then
+            echo "::error::Timed out connecting to ${{ env.URI }} for ${{ env.NETWORK }}"
+          fi
+          exit $EXIT_CODE
 
       - name: Stop all workflows if failed
         if: ${{ failure() && (steps.build-runtime.conclusion == 'failure' || steps.check-compatibility.conclusion == 'failure') }}
