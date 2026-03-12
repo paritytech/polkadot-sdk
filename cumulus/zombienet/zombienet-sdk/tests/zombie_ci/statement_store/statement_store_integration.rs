@@ -8,10 +8,10 @@ use sp_statement_store::{Channel, RejectionReason, StatementAllowance, SubmitRes
 use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 
 use super::common::{
-	assert_no_more_statements, create_allowance_items, create_channel_statement,
-	create_multi_topic_statement, create_test_statement, create_uniform_allowance_items,
-	expect_statement, expect_statements_unordered, get_keypair, spawn_network_sudo,
-	submit_statement, subscribe_all, subscribe_topic, subscribe_topic_match_any,
+	assert_no_more_statements, create_allowance_items, create_test_statement,
+	create_uniform_allowance_items, expect_one_statement, expect_statements_unordered, get_keypair,
+	spawn_network_sudo, submit_statement, subscribe_all, subscribe_topic,
+	subscribe_topic_match_any,
 };
 
 /// Tests concurrent multi-account submission to verify no statements are lost
@@ -45,7 +45,7 @@ async fn statement_store_concurrent_multi_account_submission() -> Result<(), any
 		handles.push(tokio::spawn(async move {
 			let keypair = get_keypair(idx);
 			let statement =
-				create_test_statement(&keypair, topic, vec![idx as u8], u32::MAX, idx * 100);
+				create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, idx * 100);
 			let result = submit_statement(&alice_rpc, &statement).await?;
 			assert_eq!(result, SubmitResult::New, "Participant {} should be accepted", idx);
 			Ok::<_, anyhow::Error>(())
@@ -91,14 +91,14 @@ async fn statement_store_priority_eviction_ordering() -> Result<(), anyhow::Erro
 
 	// Fill 3 slots with seq=100, 200, 300
 	for seq in [100u32, 200, 300] {
-		let stmt = create_test_statement(&keypair, topic, vec![seq as u8], u32::MAX, seq);
+		let stmt = create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq);
 		let result = submit_statement(&alice_rpc, &stmt).await?;
 		assert_eq!(result, SubmitResult::New, "seq={} should be New", seq);
 	}
 	info!("Filled 3 slots (seq=100, 200, 300)");
 
 	// Lower priority (seq=50) should be rejected with AccountFull
-	let low = create_test_statement(&keypair, topic, vec![0], u32::MAX, 50);
+	let low = create_test_statement(&keypair, &[topic], None, vec![0], u32::MAX, 50);
 	let result = submit_statement(&alice_rpc, &low).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::AccountFull { .. }) => {
@@ -108,19 +108,19 @@ async fn statement_store_priority_eviction_ordering() -> Result<(), anyhow::Erro
 	}
 
 	// Higher priority (seq=150) should evict seq=100 (the lowest)
-	let mid = create_test_statement(&keypair, topic, vec![15], u32::MAX, 150);
+	let mid = create_test_statement(&keypair, &[topic], None, vec![15], u32::MAX, 150);
 	let result = submit_statement(&alice_rpc, &mid).await?;
 	assert_eq!(result, SubmitResult::New, "seq=150 should evict seq=100");
 	info!("seq=150 accepted, evicted seq=100");
 
 	// Even higher (seq=250) should evict seq=150 (now the lowest)
-	let high = create_test_statement(&keypair, topic, vec![25], u32::MAX, 250);
+	let high = create_test_statement(&keypair, &[topic], None, vec![25], u32::MAX, 250);
 	let result = submit_statement(&alice_rpc, &high).await?;
 	assert_eq!(result, SubmitResult::New, "seq=250 should evict seq=150");
 	info!("seq=250 accepted, evicted seq=150");
 
 	// Now slots hold seq=200, 250, 300. A seq=190 should be rejected
-	let too_low = create_test_statement(&keypair, topic, vec![19], u32::MAX, 190);
+	let too_low = create_test_statement(&keypair, &[topic], None, vec![19], u32::MAX, 190);
 	let result = submit_statement(&alice_rpc, &too_low).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::AccountFull { .. }) => {
@@ -185,14 +185,14 @@ async fn statement_store_multi_topic_and_subscriptions() -> Result<(), anyhow::E
 	let keypair_3 = get_keypair(3);
 
 	// stmt_a: only topic_a
-	let stmt_a = create_test_statement(&keypair_0, topic_a, vec![1], u32::MAX, 100);
+	let stmt_a = create_test_statement(&keypair_0, &[topic_a], None, vec![1], u32::MAX, 100);
 	// stmt_b: only topic_b
-	let stmt_b = create_test_statement(&keypair_1, topic_b, vec![2], u32::MAX, 100);
+	let stmt_b = create_test_statement(&keypair_1, &[topic_b], None, vec![2], u32::MAX, 100);
 	// stmt_ab: topic_a + topic_b
 	let stmt_ab =
-		create_multi_topic_statement(&keypair_2, &[topic_a, topic_b], vec![3], u32::MAX, 100);
+		create_test_statement(&keypair_2, &[topic_a, topic_b], None, vec![3], u32::MAX, 100);
 	// stmt_c: only topic_c (should not match topic_a or topic_b filters)
-	let stmt_c = create_test_statement(&keypair_3, topic_c, vec![4], u32::MAX, 100);
+	let stmt_c = create_test_statement(&keypair_3, &[topic_c], None, vec![4], u32::MAX, 100);
 
 	for (label, stmt) in [("A", &stmt_a), ("B", &stmt_b), ("AB", &stmt_ab), ("C", &stmt_c)] {
 		let result = submit_statement(&alice_rpc, stmt).await?;
@@ -255,13 +255,13 @@ async fn statement_store_channel_replacement() -> Result<(), anyhow::Error> {
 	let keypair = get_keypair(0);
 
 	// Submit initial channel message with seq=100
-	let stmt_100 = create_channel_statement(&keypair, topic, channel_1, vec![100], u32::MAX, 100);
+	let stmt_100 = create_test_statement(&keypair, &[topic], Some(channel_1), vec![100], u32::MAX, 100);
 	let result = submit_statement(&alice_rpc, &stmt_100).await?;
 	assert_eq!(result, SubmitResult::New, "Channel 1 seq=100 should be New");
 	info!("Channel 1: seq=100 accepted");
 
 	// Try lower seq=50 on same channel -> ChannelPriorityTooLow
-	let stmt_50 = create_channel_statement(&keypair, topic, channel_1, vec![50], u32::MAX, 50);
+	let stmt_50 = create_test_statement(&keypair, &[topic], Some(channel_1), vec![50], u32::MAX, 50);
 	let result = submit_statement(&alice_rpc, &stmt_50).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. }) => {
@@ -272,7 +272,7 @@ async fn statement_store_channel_replacement() -> Result<(), anyhow::Error> {
 
 	// Try equal seq=100 on same channel -> ChannelPriorityTooLow
 	let stmt_100_dup =
-		create_channel_statement(&keypair, topic, channel_1, vec![101], u32::MAX, 100);
+		create_test_statement(&keypair, &[topic], Some(channel_1), vec![101], u32::MAX, 100);
 	let result = submit_statement(&alice_rpc, &stmt_100_dup).await?;
 	match result {
 		SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. }) => {
@@ -282,13 +282,13 @@ async fn statement_store_channel_replacement() -> Result<(), anyhow::Error> {
 	}
 
 	// Higher seq=200 on same channel -> replaces
-	let stmt_200 = create_channel_statement(&keypair, topic, channel_1, vec![200], u32::MAX, 200);
+	let stmt_200 = create_test_statement(&keypair, &[topic], Some(channel_1), vec![200], u32::MAX, 200);
 	let result = submit_statement(&alice_rpc, &stmt_200).await?;
 	assert_eq!(result, SubmitResult::New, "Channel 1 seq=200 should replace seq=100");
 	info!("Channel 1: seq=200 accepted (replaced seq=100)");
 
 	// Different channel is independent. seq=50 on channel_2 should succeed
-	let stmt_ch2 = create_channel_statement(&keypair, topic, channel_2, vec![50], u32::MAX, 50);
+	let stmt_ch2 = create_test_statement(&keypair, &[topic], Some(channel_2), vec![50], u32::MAX, 50);
 	let result = submit_statement(&alice_rpc, &stmt_ch2).await?;
 	assert_eq!(result, SubmitResult::New, "Channel 2 seq=50 should be independent");
 	info!("Channel 2: seq=50 accepted (independent from channel 1)");
@@ -333,27 +333,27 @@ async fn statement_store_subscriber_isolation() -> Result<(), anyhow::Error> {
 	let keypair_1 = get_keypair(1);
 
 	// Submit topic_a statement via alice
-	let stmt_a = create_test_statement(&keypair_0, topic_a, vec![0xA1], u32::MAX, 100);
+	let stmt_a = create_test_statement(&keypair_0, &[topic_a], None, vec![0xA1], u32::MAX, 100);
 	let result = submit_statement(&alice_rpc, &stmt_a).await?;
 	assert_eq!(result, SubmitResult::New);
 	info!("Submitted topic_a statement");
 
 	// Submit topic_b statement via bob
-	let stmt_b = create_test_statement(&keypair_1, topic_b, vec![0xB2], u32::MAX, 100);
+	let stmt_b = create_test_statement(&keypair_1, &[topic_b], None, vec![0xB2], u32::MAX, 100);
 	let result = submit_statement(&bob_rpc, &stmt_b).await?;
 	assert_eq!(result, SubmitResult::New);
 	info!("Submitted topic_b statement");
 
 	// Alice (topic_a subscriber) should get topic_a propagated from network
-	let _received_a = expect_statement(&mut alice_sub, 30).await?;
+	let _received_a = expect_one_statement(&mut alice_sub, 30).await?;
 	info!("Alice received topic_a statement");
 
 	// Charlie (topic_a subscriber) should get topic_a
-	let _received_c = expect_statement(&mut charlie_sub, 30).await?;
+	let _received_c = expect_one_statement(&mut charlie_sub, 30).await?;
 	info!("Charlie received topic_a statement");
 
 	// Bob (topic_b subscriber) should get topic_b
-	let _received_b = expect_statement(&mut bob_sub, 30).await?;
+	let _received_b = expect_one_statement(&mut bob_sub, 30).await?;
 	info!("Bob received topic_b statement");
 
 	// Alice should NOT get topic_b (wrong filter)
@@ -408,7 +408,8 @@ async fn statement_store_high_throughput_propagation() -> Result<(), anyhow::Err
 				let seq = idx * 1000 + msg * 100;
 				let stmt = create_test_statement(
 					&keypair,
-					topic,
+					&[topic],
+					None,
 					vec![idx as u8, msg as u8],
 					u32::MAX,
 					seq,
@@ -467,7 +468,7 @@ async fn statement_store_deduplication() -> Result<(), anyhow::Error> {
 	let mut bob_sub = subscribe_topic(&bob_rpc, topic).await?;
 
 	let keypair = get_keypair(0);
-	let statement = create_test_statement(&keypair, topic, vec![1, 2, 3], u32::MAX, 100);
+	let statement = create_test_statement(&keypair, &[topic], None, vec![1, 2, 3], u32::MAX, 100);
 	let expected_bytes: Bytes = statement.encode().into();
 
 	// First submission
@@ -476,7 +477,7 @@ async fn statement_store_deduplication() -> Result<(), anyhow::Error> {
 	info!("First submission accepted");
 
 	// Confirm propagation to bob
-	let received = expect_statement(&mut bob_sub, 30).await?;
+	let received = expect_one_statement(&mut bob_sub, 30).await?;
 	assert_eq!(received, expected_bytes);
 	info!("Statement propagated to bob");
 

@@ -28,7 +28,7 @@ use zombienet_sdk::{
 			Config, DefaultExtrinsicParamsBuilder, ExtrinsicParams, ExtrinsicParamsEncoder,
 		},
 		dynamic::Value,
-		ext::{scale_value::value, subxt_rpcs::rpc_params},
+		ext::{scale_value::value, subxt_rpcs::{client::RpcSubscription, rpc_params}},
 		tx::{signer::Signer, DynamicPayload, TxStatus},
 		utils::{Static, H256},
 		OnlineClient, PolkadotConfig,
@@ -39,18 +39,24 @@ use zombienet_sdk::{
 pub(super) const RPC_POOL_SIZE: usize = 10000;
 
 pub(super) fn get_keypair(idx: u32) -> sr25519::Pair {
-	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
+	sr25519::Pair::from_string(&format!("//StatementStoreClient//{idx}"), None).expect("Valid seed")
 }
 
 pub(super) fn create_test_statement(
 	keypair: &sr25519::Pair,
-	topic: Topic,
+	topics: &[Topic],
+	channel: Option<Channel>,
 	data: Vec<u8>,
 	expiry_ts: u32,
 	seq: u32,
 ) -> sp_statement_store::Statement {
 	let mut statement = sp_statement_store::Statement::new();
-	statement.set_topic(0, topic);
+	for (i, topic) in topics.iter().enumerate() {
+		statement.set_topic(i, *topic);
+	}
+	if let Some(ch) = channel {
+		statement.set_channel(ch);
+	}
 	statement.set_plain_data(data);
 	statement.set_expiry_from_parts(expiry_ts, seq);
 	statement.sign_sr25519_private(keypair);
@@ -66,10 +72,8 @@ pub(super) async fn submit_statement(
 	Ok(result)
 }
 
-pub(super) async fn expect_statement(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		StatementEvent,
-	>,
+pub(super) async fn expect_one_statement(
+	subscription: &mut RpcSubscription<StatementEvent>,
 	timeout_secs: u64,
 ) -> Result<Bytes, anyhow::Error> {
 	loop {
@@ -92,9 +96,7 @@ pub(super) async fn expect_statement(
 }
 
 pub(super) async fn assert_no_more_statements(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		StatementEvent,
-	>,
+	subscription: &mut RpcSubscription<StatementEvent>,
 	timeout_secs: u64,
 ) -> Result<(), anyhow::Error> {
 	let result = tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next()).await;
@@ -106,10 +108,7 @@ pub(super) async fn assert_no_more_statements(
 pub(super) async fn subscribe_topic(
 	rpc: &RpcClient,
 	topic: Topic,
-) -> Result<
-	zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
-	anyhow::Error,
-> {
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
 	let subscription = rpc
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
@@ -120,50 +119,11 @@ pub(super) async fn subscribe_topic(
 	Ok(subscription)
 }
 
-/// Creates a statement with multiple topics set
-pub(super) fn create_multi_topic_statement(
-	keypair: &sr25519::Pair,
-	topics: &[Topic],
-	data: Vec<u8>,
-	expiry_ts: u32,
-	seq: u32,
-) -> sp_statement_store::Statement {
-	let mut statement = sp_statement_store::Statement::new();
-	for (i, topic) in topics.iter().enumerate() {
-		statement.set_topic(i, *topic);
-	}
-	statement.set_plain_data(data);
-	statement.set_expiry_from_parts(expiry_ts, seq);
-	statement.sign_sr25519_private(keypair);
-	statement
-}
-
-/// Creates a statement with a channel set
-pub(super) fn create_channel_statement(
-	keypair: &sr25519::Pair,
-	topic: Topic,
-	channel: Channel,
-	data: Vec<u8>,
-	expiry_ts: u32,
-	seq: u32,
-) -> sp_statement_store::Statement {
-	let mut statement = sp_statement_store::Statement::new();
-	statement.set_topic(0, topic);
-	statement.set_channel(channel);
-	statement.set_plain_data(data);
-	statement.set_expiry_from_parts(expiry_ts, seq);
-	statement.sign_sr25519_private(keypair);
-	statement
-}
-
 /// Subscribes to statements matching any of the given topics
 pub(super) async fn subscribe_topic_match_any(
 	rpc: &RpcClient,
 	topics: Vec<Topic>,
-) -> Result<
-	zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
-	anyhow::Error,
-> {
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
 	let subscription = rpc
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
@@ -177,10 +137,7 @@ pub(super) async fn subscribe_topic_match_any(
 /// Subscribes to all statements regardless of topic
 pub(super) async fn subscribe_all(
 	rpc: &RpcClient,
-) -> Result<
-	zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<StatementEvent>,
-	anyhow::Error,
-> {
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
 	let subscription = rpc
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
@@ -196,9 +153,7 @@ pub(super) async fn subscribe_all(
 /// Handles multi-item `NewStatements` batches by collecting all items from each batch
 /// Returns the collected statements once the target count is reached
 pub(super) async fn expect_statements_unordered(
-	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
-		StatementEvent,
-	>,
+	subscription: &mut RpcSubscription<StatementEvent>,
 	count: usize,
 	timeout_secs: u64,
 ) -> Result<Vec<Bytes>, anyhow::Error> {
@@ -514,21 +469,21 @@ pub(super) fn create_set_storage_call(items: Vec<(Vec<u8>, Vec<u8>)>) -> Dynamic
 }
 
 /// Submits an extrinsic with an explicit nonce and waits for it to be included in a block
-pub(super) async fn submit_sudo_extrinsic<S: Signer<BenchConfig>>(
-	client: &OnlineClient<BenchConfig>,
+pub(super) async fn submit_sudo_extrinsic<S: Signer<CustomConfig>>(
+	client: &OnlineClient<CustomConfig>,
 	call: &DynamicPayload,
 	signer: &S,
 	nonce: u64,
 ) -> Result<
-	zombienet_sdk::subxt::tx::TxProgress<BenchConfig, OnlineClient<BenchConfig>>,
+	zombienet_sdk::subxt::tx::TxProgress<CustomConfig, OnlineClient<CustomConfig>>,
 	anyhow::Error,
 > {
-	let dp = DefaultExtrinsicParamsBuilder::<BenchConfig>::new()
+	let dp = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
 		.immortal()
 		.nonce(nonce)
 		.build();
 	let extensions =
-		(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), (), ());
+		(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), ());
 
 	let mut tx = client
 		.tx()
@@ -567,7 +522,7 @@ pub(super) async fn wait_for_tx_finalization<Tx>(
 where
 	Tx: futures::Stream<
 			Item = Result<
-				TxStatus<BenchConfig, OnlineClient<BenchConfig>>,
+				TxStatus<CustomConfig, OnlineClient<CustomConfig>>,
 				zombienet_sdk::subxt::Error,
 			>,
 		> + Unpin,
@@ -597,8 +552,8 @@ where
 
 /// Gets the current nonce for an account
 pub(super) async fn get_account_nonce(
-	client: &OnlineClient<BenchConfig>,
-	account_id: &<BenchConfig as Config>::AccountId,
+	client: &OnlineClient<CustomConfig>,
+	account_id: &<CustomConfig as Config>::AccountId,
 ) -> Result<u64, anyhow::Error> {
 	let nonce = client.tx().account_nonce(account_id).await?;
 	Ok(nonce)
@@ -606,14 +561,14 @@ pub(super) async fn get_account_nonce(
 
 /// Sets statement allowances via sudo -> frame_system::set_storage extrinsic
 pub(super) async fn set_allowances_via_sudo(
-	para_client: &OnlineClient<BenchConfig>,
+	para_client: &OnlineClient<CustomConfig>,
 	items: Vec<(Vec<u8>, Vec<u8>)>,
 ) -> Result<(), anyhow::Error> {
 	info!("Setting {} statement allowances via sudo...", items.len());
 
 	let alice = zombienet_sdk::subxt_signer::sr25519::dev::alice();
 	let alice_account_id =
-		<zombienet_sdk::subxt_signer::sr25519::Keypair as Signer<BenchConfig>>::account_id(&alice);
+		<zombienet_sdk::subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
 
 	let current_nonce = get_account_nonce(para_client, &alice_account_id).await?;
 	let set_storage_call = create_set_storage_call(items);
@@ -698,7 +653,7 @@ pub(super) async fn spawn_network_sudo(
 		.await?;
 	info!("Parachain is producing blocks");
 
-	let para_client = node.wait_client::<BenchConfig>().await?;
+	let para_client = node.wait_client::<CustomConfig>().await?;
 	set_allowances_via_sudo(&para_client, allowance_items).await?;
 
 	Ok(network)
@@ -743,25 +698,14 @@ impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
 	}
 }
 
-/// Check whether a type requires 0 bytes to encode
+/// Macro to define named skip handlers for custom non-empty transaction extensions
 ///
-/// Empty types are automatically skipped by `AnyOf`, so catch-all handlers must not claim them
-fn is_type_empty(type_id: u32, types: &::scale_info::PortableRegistry) -> bool {
-	use scale_info::TypeDef;
-	let Some(ty) = types.resolve(type_id) else {
-		return false;
-	};
-	match &ty.type_def {
-		TypeDef::Composite(c) => c.fields.iter().all(|f| is_type_empty(f.ty.id, types)),
-		TypeDef::Array(a) => a.len == 0 || is_type_empty(a.type_param.id, types),
-		TypeDef::Tuple(t) => t.fields.iter().all(|f| is_type_empty(f.id, types)),
-		_ => false,
-	}
-}
-
+/// Each generated struct matches by its identifier name via `stringify!($name)` and encodes as
+/// `0x00` (first-variant enum / `None`). Invoke with actual extension names when targeting
+/// runtimes with custom non-empty extensions
 macro_rules! define_skip_unknown_extensions {
 	($($name:ident),+ $(,)?) => { $(
-		pub(super) struct $name;
+		pub struct $name;
 
 		impl<T: Config> ExtrinsicParams<T> for $name {
 			type Params = ();
@@ -784,28 +728,29 @@ macro_rules! define_skip_unknown_extensions {
 			type Decoded = Static<u8>;
 
 			fn matches(
-				_identifier: &str,
-				type_id: u32,
-				types: &::scale_info::PortableRegistry,
+				identifier: &str,
+				_type_id: u32,
+				_types: &::scale_info::PortableRegistry,
 			) -> bool {
-				!is_type_empty(type_id, types)
+				identifier == stringify!($name)
 			}
 		}
 	)+ };
 }
 
+// Skip handlers for custom non-empty extensions in the people-westend runtime
+// Zero-sized extensions (e.g. ProvideForVoucherClaimer) are auto-skipped by AnyOf
 define_skip_unknown_extensions!(
-	SkipUnknown1,
-	SkipUnknown2,
-	SkipUnknown3,
-	SkipUnknown4,
-	SkipUnknown5,
-	SkipUnknown6,
-	SkipUnknown7,
-	SkipUnknown8,
+	AsPerson,
+	AsProofOfInkParticipant,
+	ScoreAsParticipant,
+	GameAsInvited,
+	PeopleLiteAuth,
+	AsCoinage,
+	RestrictOrigins, // encodes as a bool false (0x00) disables it
 );
 
-pub(super) type BenchExtrinsicParams<T> = AnyOf<
+pub(super) type CustomExtrinsicParams<T> = AnyOf<
 	T,
 	(
 		VerifyMultiSignature<T>,
@@ -817,27 +762,26 @@ pub(super) type BenchExtrinsicParams<T> = AnyOf<
 		ChargeAssetTxPayment<T>,
 		ChargeTransactionPayment,
 		CheckMetadataHash,
-		SkipUnknown1,
-		SkipUnknown2,
-		SkipUnknown3,
-		SkipUnknown4,
-		SkipUnknown5,
-		SkipUnknown6,
-		SkipUnknown7,
-		SkipUnknown8,
+		AsPerson,
+		AsProofOfInkParticipant,
+		ScoreAsParticipant,
+		GameAsInvited,
+		PeopleLiteAuth,
+		AsCoinage,
+		RestrictOrigins,
 	),
 >;
 
-/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`BenchExtrinsicParams`]
+/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`CustomExtrinsicParams`]
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub(super) enum BenchConfig {}
+pub(super) enum CustomConfig {}
 
-impl Config for BenchConfig {
+impl Config for CustomConfig {
 	type AccountId = <PolkadotConfig as Config>::AccountId;
 	type Address = <PolkadotConfig as Config>::Address;
 	type Signature = <PolkadotConfig as Config>::Signature;
 	type Hasher = <PolkadotConfig as Config>::Hasher;
 	type Header = <PolkadotConfig as Config>::Header;
-	type ExtrinsicParams = BenchExtrinsicParams<Self>;
+	type ExtrinsicParams = CustomExtrinsicParams<Self>;
 	type AssetId = <PolkadotConfig as Config>::AssetId;
 }
