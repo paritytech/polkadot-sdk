@@ -82,7 +82,7 @@ pub(crate) const SYNC_CHECKPOINT_INTERVAL: u32 = 128;
 type SyncHookFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
 /// Concrete type used to pass `None` for optional sync hooks without verbose turbofish.
-type NoopSyncHook = fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'static>;
+type AnySyncHook = fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'static>;
 
 impl Client {
 	/// Verify that the stored genesis hash matches the connected chain.
@@ -107,10 +107,6 @@ impl Client {
 		let num = checkpoint.block_number;
 		let hash = checkpoint.block_hash;
 		match (num, hash) {
-			(0, None) => {
-				log::trace!(target: LOG_TARGET, "Boundary #0: sync-complete sentinel, OK");
-				Ok(())
-			},
 			(_, None) => {
 				log::error!(target: LOG_TARGET,
 					"Boundary #{num}: non-genesis block has no stored hash");
@@ -185,11 +181,6 @@ impl Client {
 			.await?;
 
 		let head = self.receipt_provider().get_sync_label(SyncLabel::Head).await?;
-		if let Some(ref cp) = head {
-			log::info!(target: LOG_TARGET,
-				"🗄️ Resuming from Head #{}", cp.block_number);
-		}
-
 		let tail = self.receipt_provider().get_sync_label(SyncLabel::Tail).await?;
 
 		match (tail, head) {
@@ -227,8 +218,7 @@ impl Client {
 			Some(self.sync_label_hook(SyncLabel::Head)),
 			Some(self.sync_label_hook(SyncLabel::Tail)),
 		)
-		.await?;
-		Ok(())
+		.await
 	}
 
 	/// Resume sync by filling the top gap (new blocks) and bottom gap (backfill).
@@ -247,8 +237,8 @@ impl Client {
 			self.sync_backward(
 				latest_finalized.block_number,
 				head.block_number.saturating_add(1),
-				None::<NoopSyncHook>,
-				None::<NoopSyncHook>,
+				None::<AnySyncHook>,
+				None::<AnySyncHook>,
 			)
 			.await?;
 
@@ -264,7 +254,7 @@ impl Client {
 			self.sync_backward(
 				tail.block_number.saturating_sub(1),
 				first_evm,
-				None::<NoopSyncHook>,
+				None::<AnySyncHook>,
 				Some(self.sync_label_hook(SyncLabel::Tail)),
 			)
 			.await?;
@@ -287,14 +277,12 @@ impl Client {
 		on_first_block: Option<impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a>>,
 		on_progress: Option<impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'b>>,
 	) -> Result<(), ClientError> {
-		log::info!(target: LOG_TARGET,
-			"⬇️ Backward sync: #{from} down to #{to}");
-
 		if from < to {
-			log::debug!(target: LOG_TARGET,
-				"⬇️ Backward sync: nothing to sync");
+			log::debug!(target: LOG_TARGET,	"⬇️ Backward sync: nothing to sync (#{from}..#{to})");
 			return Ok(());
 		}
+
+		log::info!(target: LOG_TARGET, "⬇️ Backward sync: #{from} down to #{to}");
 
 		let mut block = self
 			.block_provider()
@@ -318,8 +306,7 @@ impl Client {
 			{
 				Ok(h) => h,
 				Err(err) => {
-					log::error!(target: LOG_TARGET,
-						"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
+					log::error!(target: LOG_TARGET,	"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
 					break Err(err.into());
 				},
 			};
@@ -345,9 +332,7 @@ impl Client {
 
 					if at_checkpoint(blocks_synced) {
 						log::debug!(target: LOG_TARGET,
-							"⬇️ Backward sync progress: #{block_number} \
-								({blocks_synced} blocks synced)");
-
+							"⬇️ Backward sync progress: #{block_number} ({blocks_synced} blocks synced)");
 						if let Some(ref f) = on_progress {
 							f(block_number, block_hash).await;
 						}
@@ -360,8 +345,7 @@ impl Client {
 					if let Err(err) =
 						self.receipt_provider().set_first_evm_block(first_evm_block).await
 					{
-						log::warn!(target: LOG_TARGET,
-							"Failed to persist first-evm-block: {err:?}");
+						log::warn!(target: LOG_TARGET, "Failed to persist first-evm-block: {err:?}");
 					}
 
 					break Ok(());

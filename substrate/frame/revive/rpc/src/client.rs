@@ -182,13 +182,13 @@ pub enum ClientError {
 	/// Chain identity mismatch between stored genesis and connected node.
 	#[error("Genesis hash mismatch")]
 	ChainMismatch,
-	/// Stored sync boundary no longer matches the chain
+	/// Stored sync boundary does not match the connected node.
 	#[error("Sync boundary mismatch")]
 	SyncBoundaryMismatch,
 }
 
 impl ClientError {
-	/// Errors that indicate data corruption requiring manual intervention (delete DB and restart).
+	/// Errors that indicate a mismatch between the stored sync state and the connected node.
 	pub(crate) fn is_chain_validation_error(&self) -> bool {
 		matches!(self, Self::ChainMismatch | Self::SyncBoundaryMismatch)
 	}
@@ -334,7 +334,7 @@ impl Client {
 		Ok(client)
 	}
 
-	/// Signal that historic backfill is complete.
+	/// Mark historic backfill as complete.
 	pub(crate) fn mark_backfill_complete(&self) {
 		self.backfill_complete.store(true, Ordering::Release);
 	}
@@ -440,7 +440,7 @@ impl Client {
 
 			match (subscription_type, &self.block_notifier) {
 				(SubscriptionType::FinalizedBlocks, _) if self.should_advance_head() => {
-					// Track finalized block in sync_state (monotonic advance).
+					// Track finalized block in sync_state
 					if let Err(err) = self
 						.receipt_provider
 						.advance_sync_label(

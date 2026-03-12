@@ -128,7 +128,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(provider)
 	}
 
-	/// Check if the block is before the `first_evm_block` protocol boundary.
+	/// Returns `true` if the block is before the auto-discovered `first_evm_block`.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
