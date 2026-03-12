@@ -1,0 +1,15 @@
+title: 'Snowbridge: Reject DescendOrigin-prefixed XCM at AH Ethereum exporter'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR achieves the following:
+    - Add a `RejectDescendOriginExporter` `SendXcm` wrapper that rejects XCM messages whose first instruction is `DescendOrigin`, preventing `pallet_xcm::send` with signed origins from forwarding arbitrary XCM to Bridge Hub over XCMP.
+    - Wrap the Ethereum `UnpaidRemoteExporter` in Asset Hub’s XCM router with this filter, so only executor-produced bridge messages (which do not start with `DescendOrigin`) are forwarded.
+crates:
+- name: snowbridge-outbound-queue-primitives
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: none
+
