@@ -415,11 +415,8 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
 	type FindAuthor = Test;
-	type Precompiles = (
-		precompiles::WithInfo<Self>,
-		precompiles::NoInfo<Self>,
-		crate::precompiles::Vesting<Self>,
-	);
+	type Precompiles =
+		(precompiles::WithInfo<Self>, precompiles::NoInfo<Self>, crate::precompiles::Vesting<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = DebugFlag;
 }

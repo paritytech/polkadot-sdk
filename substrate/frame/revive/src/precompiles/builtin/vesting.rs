@@ -23,7 +23,10 @@ use crate::{
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use frame_support::{dispatch::GetDispatchInfo, traits::{Get, VestingSchedule}};
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	traits::{Get, VestingSchedule},
+};
 use pallet_revive_uapi::precompiles::vesting::IVesting;
 
 pub struct Vesting<T>(PhantomData<T>);
@@ -58,35 +61,40 @@ where
 			},
 			IVestingCalls::vest(IVesting::vestCall {}) => {
 				// Derive the beneficiary from the immediate caller (not the tx origin).
-				let account_id = env.caller().account_id().map_err(|e| {
-					Error::Revert(
-						alloc::format!("vest: caller has no account id: {:?}", e).into(),
-					)
-				})?.clone();
+				let account_id = env
+					.caller()
+					.account_id()
+					.map_err(|e| {
+						Error::Revert(
+							alloc::format!("vest: caller has no account id: {:?}", e).into(),
+						)
+					})?
+					.clone();
 
 				// Determine and charge the dispatch weight before calling.
-				let dispatch_weight = pallet_vesting::Call::<T>::vest {}
-					.get_dispatch_info()
-					.call_weight;
+				let dispatch_weight =
+					pallet_vesting::Call::<T>::vest {}.get_dispatch_info().call_weight;
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
 
 				// Construct a signed RuntimeOrigin and dispatch vest().
 				let origin = frame_system::RawOrigin::Signed(account_id).into();
-				pallet_vesting::Pallet::<T>::vest(origin).map_err(|e| {
-					Error::Revert(
-						alloc::format!("vest failed: {:?}", e).into(),
-					)
-				})?;
+				pallet_vesting::Pallet::<T>::vest(origin)
+					.map_err(|e| Error::Revert(alloc::format!("vest failed: {:?}", e).into()))?;
 				Ok(Vec::new())
 			},
 			// View function to query the currently locked (unvested) balance for the caller.
 			IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}) => {
-				let account_id = env.caller().account_id().map_err(|e| {
-					Error::Revert(
-						alloc::format!("vestingBalance: caller has no account id: {:?}", e).into(),
-					)
-				})?.clone();
+				let account_id = env
+					.caller()
+					.account_id()
+					.map_err(|e| {
+						Error::Revert(
+							alloc::format!("vestingBalance: caller has no account id: {:?}", e)
+								.into(),
+						)
+					})?
+					.clone();
 
 				// Charge one DB read for the vesting storage lookup.
 				let read_weight = <T as frame_system::Config>::DbWeight::get().reads(1);
@@ -133,13 +141,14 @@ mod tests {
 				total_balance,
 			);
 
-			let vesting_info =
-				pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
+			let vesting_info = pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
 			assert!(vesting_info.is_valid());
 
 			// Write vesting schedule directly to storage.
-			let schedules: frame_support::BoundedVec<_, pallet_vesting::MaxVestingSchedulesGet<Test>> =
-				alloc::vec![vesting_info].try_into().expect("single schedule; qed");
+			let schedules: frame_support::BoundedVec<
+				_,
+				pallet_vesting::MaxVestingSchedulesGet<Test>,
+			> = alloc::vec![vesting_info].try_into().expect("single schedule; qed");
 			pallet_vesting::Vesting::<Test>::insert(&alice_account, schedules);
 
 			// Apply the vesting lock.
@@ -210,8 +219,10 @@ mod tests {
 			);
 
 			let vesting_info = pallet_vesting::VestingInfo::new(locked, per_block, 0u64);
-			let schedules: frame_support::BoundedVec<_, pallet_vesting::MaxVestingSchedulesGet<Test>> =
-				alloc::vec![vesting_info].try_into().expect("single schedule; qed");
+			let schedules: frame_support::BoundedVec<
+				_,
+				pallet_vesting::MaxVestingSchedulesGet<Test>,
+			> = alloc::vec![vesting_info].try_into().expect("single schedule; qed");
 			pallet_vesting::Vesting::<Test>::insert(&BOB, schedules);
 
 			let reasons = WithdrawReasons::except(
@@ -247,10 +258,7 @@ mod tests {
 						revert.reason
 					);
 				},
-				other => panic!(
-					"expected Error::Revert for no vesting schedule, got: {:?}",
-					other
-				),
+				other => panic!("expected Error::Revert for no vesting schedule, got: {:?}", other),
 			}
 
 			// Confirm BOB's vesting is unchanged.
@@ -280,10 +288,11 @@ mod tests {
 				total_balance,
 			);
 
-			let vesting_info =
-				pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
-			let schedules: frame_support::BoundedVec<_, pallet_vesting::MaxVestingSchedulesGet<Test>> =
-				alloc::vec![vesting_info].try_into().expect("single schedule; qed");
+			let vesting_info = pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
+			let schedules: frame_support::BoundedVec<
+				_,
+				pallet_vesting::MaxVestingSchedulesGet<Test>,
+			> = alloc::vec![vesting_info].try_into().expect("single schedule; qed");
 			pallet_vesting::Vesting::<Test>::insert(&alice_account, schedules);
 
 			let reasons = WithdrawReasons::except(
@@ -302,14 +311,12 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let input =
-				IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+			let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
 			let result =
 				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
 			assert!(result.is_ok(), "vestingBalance should succeed: {:?}", result.err());
 
-			let bytes = <[u8; 32]>::abi_decode(&result.unwrap())
-				.expect("should decode as bytes32");
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap()).expect("should decode as bytes32");
 			let returned = crate::U256::from_big_endian(&bytes);
 			assert_eq!(
 				returned,
@@ -361,8 +368,7 @@ mod tests {
 				callee: H160::from_low_u64_be(0x902),
 			});
 
-			let input =
-				IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+			let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
 			let result =
 				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
 			match result {
@@ -387,14 +393,12 @@ mod tests {
 			let mut call_setup = CallSetup::<Test>::default();
 			let (mut ext, _) = call_setup.ext();
 
-			let input =
-				IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+			let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
 			let result =
 				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
 			assert!(result.is_ok(), "vestingBalance should succeed: {:?}", result.err());
 
-			let bytes = <[u8; 32]>::abi_decode(&result.unwrap())
-				.expect("should decode as bytes32");
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap()).expect("should decode as bytes32");
 			let returned = crate::U256::from_big_endian(&bytes);
 			assert_eq!(
 				returned,
