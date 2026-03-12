@@ -737,14 +737,17 @@ pub struct EraRewardAllocation<Balance> {
 
 /// Trait for receiving unclaimed staking rewards.
 ///
-/// This specifies where the unclaimed rewards should be transferred when era pot accounts are
-/// cleaned up after the history depth expires.
-pub trait UnclaimedRewardSink<AccountId> {
-	/// Get the account where unclaimed rewards should be sent.
-	///
-	/// This is called by staking when cleaning up old era pot accounts to determine
-	/// where to transfer any remaining unclaimed rewards.
-	fn unclaimed_reward_sink() -> AccountId;
+/// When era pot accounts are cleaned up, any remaining balance is deposited into the sink.
+/// The implementor handles both the transfer and any bookkeeping (e.g. deactivation).
+pub trait UnclaimedRewardSink<AccountId, Balance> {
+	/// Transfer unclaimed rewards from `source` to the sink.
+	fn deposit(source: &AccountId, amount: Balance) -> DispatchResult;
+}
+
+impl<AccountId, Balance> UnclaimedRewardSink<AccountId, Balance> for () {
+	fn deposit(_source: &AccountId, _amount: Balance) -> DispatchResult {
+		Ok(())
+	}
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
