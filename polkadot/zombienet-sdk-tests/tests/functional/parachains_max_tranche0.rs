@@ -9,7 +9,7 @@
 //! to ensure most approvals come from tranche0.
 
 use crate::utils::{
-	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV,
+	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG, COL_IMAGE_ENV,
 	INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
@@ -79,7 +79,7 @@ async fn parachains_max_tranche0_test() -> Result<(), anyhow::Error> {
 	for i in 0..NUM_VALIDATORS {
 		let validator = network.get_node(format!("some-validator-{i}"))?;
 		validator
-			.wait_metric_with_timeout(APPROVAL_CHECKING_FINALITY_LAG_METRIC, |v| v < 2.0, 30u64)
+			.wait_metric_with_timeout(APPROVAL_CHECKING_FINALITY_LAG, |v| v < 2.0, 30u64)
 			.await
 			.map_err(|e| anyhow!("Validator {} finality lag too high: {}", i, e))?;
 	}

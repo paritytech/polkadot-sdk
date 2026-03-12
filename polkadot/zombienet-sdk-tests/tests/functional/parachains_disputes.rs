@@ -93,7 +93,6 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 
 	assert!(result.success(), "Can't find a matching event (Offences Offence) in Validator {name}");
 
-
 	log::info!("Check lag - approval");
 	for name in &all_validators {
 		let validator = network.get_node(*name)?;

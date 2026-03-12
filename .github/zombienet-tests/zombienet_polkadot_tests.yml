@@ -64,7 +64,7 @@
 
 - job-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
   test-filter: "functional::coretime_shared_core::coretime_shared_core_test"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
