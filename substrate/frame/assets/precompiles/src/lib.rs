@@ -466,7 +466,11 @@ where
 		call: &IERC20::permitCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as permit::Config>::WeightInfo::permit())?;
+		// Reserve worst-case gas upfront, then refund the unused portion.
+		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
+		let charged = env.charge(worst_case)?;
 
 		let owner_h160: H160 = call.owner.into_array().into();
 		let spender_h160: H160 = call.spender.into_array().into();
@@ -523,15 +527,38 @@ where
 				);
 
 				use sp_runtime::traits::Zero;
-				if !current.is_zero() {
-					pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
-						&asset_id,
-						&owner_account,
-						&spender_account,
-					)?;
-				}
-
-				if !new_amount.is_zero() {
+				let actual_weight;
+				if new_amount.is_zero() {
+					if !current.is_zero() {
+						pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+							&asset_id,
+							&owner_account,
+							&spender_account,
+						)?;
+						actual_weight =
+							<Runtime as Config<Instance>>::WeightInfo::allowance()
+								.saturating_add(
+									<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
+								);
+					} else {
+						actual_weight =
+							<Runtime as Config<Instance>>::WeightInfo::allowance();
+					}
+				} else {
+					if !current.is_zero() {
+						pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
+							&asset_id,
+							&owner_account,
+							&spender_account,
+						)?;
+						actual_weight = worst_case;
+					} else {
+						actual_weight =
+							<Runtime as Config<Instance>>::WeightInfo::allowance()
+								.saturating_add(
+									<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
+								);
+					}
 					pallet_assets::Pallet::<Runtime, Instance>::do_approve_transfer(
 						asset_id,
 						&owner_account,
@@ -549,10 +576,12 @@ where
 						value: call.value,
 					}),
 				)?;
-				Ok::<_, Error>(())
+				Ok::<_, Error>(actual_weight)
 			})();
 			match result {
-				Ok(_) => frame_support::storage::TransactionOutcome::Commit(Ok(())),
+				Ok(actual_weight) => {
+					frame_support::storage::TransactionOutcome::Commit(Ok(actual_weight))
+				},
 				Err(e) => {
 					log::trace!(target: frame_support::LOG_TARGET, "Call to permit failed: {e:?}");
 					frame_support::storage::TransactionOutcome::Rollback(Err(e))
@@ -562,7 +591,10 @@ where
 
 		// permit returns void
 		match transaction_outcome {
-			Ok(()) => Ok(Vec::new()),
+			Ok(actual_weight) => {
+				env.adjust_gas(charged, actual_weight);
+				Ok(Vec::new())
+			},
 			Err(e) => Err(e),
 		}
 	}
