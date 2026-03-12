@@ -102,7 +102,7 @@ where
 		// The following states are ignored:
 		//  - `StateAction::ApplyChanges`: means that the node produced the block itself or the
 		//    block was imported via state sync.
-		//  - `StateAction::Skip`: means that the block should be skipped. The is evident in the
+		//  - `StateAction::Skip`: means that the block should be skipped. This is evident in the
 		//    context of gap-sync with collators running in non-archive modes. The state of the
 		//    parent block has already been discarded and therefore any import would fail.
 		if !self.sender.is_closed() &&
