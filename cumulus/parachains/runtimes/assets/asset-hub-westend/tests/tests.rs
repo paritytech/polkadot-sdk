@@ -2522,7 +2522,6 @@ mod remote_test {
 
 mod dap {
 	use super::*;
-	use frame_support::traits::{fungible::Balanced, OnUnbalanced};
 
 	#[test]
 	fn tx_fees_go_to_dap_buffer() {
