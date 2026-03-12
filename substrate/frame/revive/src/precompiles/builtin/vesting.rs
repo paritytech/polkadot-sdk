@@ -16,18 +16,24 @@
 // limitations under the License.
 
 use crate::{
-	Config,
+	Config, U256,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
 };
 use alloc::vec::Vec;
+use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use frame_support::dispatch::GetDispatchInfo;
+use frame_support::{dispatch::GetDispatchInfo, traits::{Get, VestingSchedule}};
 use pallet_revive_uapi::precompiles::vesting::IVesting;
 
 pub struct Vesting<T>(PhantomData<T>);
 
-impl<T: Config + pallet_vesting::Config> BuiltinPrecompile for Vesting<T> {
+impl<T: Config + pallet_vesting::Config> BuiltinPrecompile for Vesting<T>
+where
+	<<T as pallet_vesting::Config>::Currency as frame_support::traits::Currency<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance: Into<U256>,
+{
 	type T = T;
 	type Interface = IVesting::IVestingCalls;
 	const MATCHER: BuiltinAddressMatcher =
@@ -73,6 +79,27 @@ impl<T: Config + pallet_vesting::Config> BuiltinPrecompile for Vesting<T> {
 					)
 				})?;
 				Ok(Vec::new())
+			},
+			// View function to query the currently locked (unvested) balance for the caller.
+			IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}) => {
+				let account_id = env.caller().account_id().map_err(|e| {
+					Error::Revert(
+						alloc::format!("vestingBalance: caller has no account id: {:?}", e).into(),
+					)
+				})?.clone();
+
+				// Charge one DB read for the vesting storage lookup.
+				let read_weight = <T as frame_system::Config>::DbWeight::get().reads(1);
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(read_weight))?;
+
+				let locked =
+					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
+						&account_id,
+					)
+					.unwrap_or_default();
+
+				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
 			},
 		}
 	}
@@ -230,6 +257,90 @@ mod tests {
 			assert!(
 				pallet_vesting::Vesting::<Test>::get(&BOB).is_some(),
 				"BOB's vesting schedule should be untouched"
+			);
+		})
+	}
+
+	#[test]
+	fn vesting_balance_returns_locked_amount() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::test_utils::ALICE;
+			use alloy_core::sol_types::SolValue;
+			use frame_support::traits::{Currency, WithdrawReasons};
+
+			let alice_account = ALICE;
+
+			let total_balance = 1_000_000u128;
+			let locked = 500_000u128;
+			let per_block = 100u128;
+			let starting_block = 0u64;
+
+			<pallet_balances::Pallet<Test> as Currency<_>>::make_free_balance_be(
+				&alice_account,
+				total_balance,
+			);
+
+			let vesting_info =
+				pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
+			let schedules: frame_support::BoundedVec<_, pallet_vesting::MaxVestingSchedulesGet<Test>> =
+				alloc::vec![vesting_info].try_into().expect("single schedule; qed");
+			pallet_vesting::Vesting::<Test>::insert(&alice_account, schedules);
+
+			let reasons = WithdrawReasons::except(
+				<Test as pallet_vesting::Config>::UnvestedFundsAllowedWithdrawReasons::get(),
+			);
+			<pallet_balances::Pallet<Test> as frame_support::traits::LockableCurrency<_>>::set_lock(
+				*b"vesting ",
+				&alice_account,
+				locked,
+				reasons,
+			);
+
+			// At block 1000: 1000 * 100 = 100_000 vested, so 400_000 still locked.
+			frame_system::Pallet::<Test>::set_block_number(1000);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input =
+				IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert!(result.is_ok(), "vestingBalance should succeed: {:?}", result.err());
+
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap())
+				.expect("should decode as bytes32");
+			let returned = crate::U256::from_big_endian(&bytes);
+			assert_eq!(
+				returned,
+				crate::U256::from(400_000u128),
+				"at block 1000, 100_000 should have vested leaving 400_000 locked"
+			);
+		})
+	}
+
+	#[test]
+	fn vesting_balance_returns_zero_for_no_schedule() {
+		ExtBuilder::default().build().execute_with(|| {
+			use alloy_core::sol_types::SolValue;
+
+			// ALICE has no vesting schedule by default.
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input =
+				IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert!(result.is_ok(), "vestingBalance should succeed: {:?}", result.err());
+
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap())
+				.expect("should decode as bytes32");
+			let returned = crate::U256::from_big_endian(&bytes);
+			assert_eq!(
+				returned,
+				crate::U256::from(0u128),
+				"account with no vesting schedule should return 0"
 			);
 		})
 	}

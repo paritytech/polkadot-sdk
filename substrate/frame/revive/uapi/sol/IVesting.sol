@@ -11,4 +11,10 @@ interface IVesting {
 	///
 	/// Reverts if the caller has no vesting schedule or if the origin is not signed.
 	function vest() external;
+
+	/// Returns the amount of funds still locked (to be vested) for the caller.
+	///
+	/// The returned value is in native (Substrate) denomination.
+	/// Returns 0 if the caller has no vesting schedule.
+	function vestingBalance() external view returns (uint256);
 }
