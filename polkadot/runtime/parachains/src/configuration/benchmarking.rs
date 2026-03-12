@@ -71,7 +71,7 @@ mod benchmarks {
 					ExecutorParam::StackLogicalMax(65536),
 					ExecutorParam::StackNativeMax(256 * 1024 * 1024),
 					ExecutorParam::WasmExtBulkMemory,
-					ExecutorParam::WasmExtEccHostFunctions,
+					ExecutorParam::EccHostFn,
 					ExecutorParam::PrecheckingMaxMemory(2 * 1024 * 1024 * 1024),
 					ExecutorParam::PvfPrepTimeout(PvfPrepKind::Precheck, 60_000),
 					ExecutorParam::PvfPrepTimeout(PvfPrepKind::Prepare, 360_000),

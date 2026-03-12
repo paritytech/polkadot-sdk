@@ -122,7 +122,7 @@ pub enum ExecutorParam {
 	WasmExtBulkMemory,
 	/// Enables elliptic curve cryptography (ECC) host functions.
 	#[codec(index = 8)]
-	WasmExtEccHostFunctions,
+	EccHostFn,
 }
 
 /// Possible inconsistencies of executor params.
@@ -245,7 +245,7 @@ impl ExecutorParams {
 				PvfPrepTimeout(..) => None,
 				PvfExecTimeout(..) => None,
 				WasmExtBulkMemory => Some(param),
-				WasmExtEccHostFunctions => Some(param),
+				EccHostFn => Some(param),
 			})
 			.for_each(|p| enc.extend(p.encode()));
 
@@ -329,7 +329,7 @@ impl ExecutorParams {
 					PvfExecKind::Approval => "PvfExecKind::Approval",
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
-				WasmExtEccHostFunctions => "WasmExtEccHostFunctions",
+				EccHostFn => "EccHostFn",
 			};
 
 			match *param {
@@ -365,7 +365,7 @@ impl ExecutorParams {
 					check!(param_ident, 1);
 				},
 
-				WasmExtEccHostFunctions => {
+				EccHostFn => {
 					check!(param_ident, 1);
 				},
 			}
@@ -438,7 +438,7 @@ fn ensure_prep_hash_changes() {
 			PvfExecTimeout(PvfExecKind::Backing, 0),
 			PvfExecTimeout(PvfExecKind::Approval, 0),
 			WasmExtBulkMemory,
-			WasmExtEccHostFunctions,
+			EccHostFn,
 		][..],
 	);
 
@@ -459,8 +459,8 @@ fn ensure_prep_hash_changes() {
 			WasmExtBulkMemory => {
 				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..]))
 			},
-			WasmExtEccHostFunctions => {
-				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtEccHostFunctions][..]))
+			EccHostFn => {
+				(ExecutorParams::default(), ExecutorParams::from(&[EccHostFn][..]))
 			},
 		};
 

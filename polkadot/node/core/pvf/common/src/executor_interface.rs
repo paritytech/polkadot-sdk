@@ -144,7 +144,7 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 
 	let ecc_hf_enabled = executor_params
 		.iter()
-		.any(|p| matches!(p, ExecutorParam::WasmExtEccHostFunctions));
+		.any(|p| matches!(p, ExecutorParam::EccHostFn));
 
 	if ecc_hf_enabled {
 		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctionsWithEcc>(
@@ -182,7 +182,7 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 			ExecutorParam::PrecheckingMaxMemory(_) |
 			ExecutorParam::PvfPrepTimeout(_, _) |
 			ExecutorParam::PvfExecTimeout(_, _) |
-			ExecutorParam::WasmExtEccHostFunctions => (), // Not used here
+			ExecutorParam::EccHostFn => (), // Not used here
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit.clone());
@@ -224,7 +224,7 @@ type HostFunctions = (
 );
 
 /// Host functions with ECC (elliptic curve cryptography) support.
-/// Only used when `ExecutorParam::WasmExtEccHostFunctions` is present.
+/// Only used when `ExecutorParam::EccHostFn` is present.
 type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctions);
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
@@ -415,7 +415,7 @@ mod tests {
 			PvfPrepTimeout(_, _) => true,
 			PvfExecTimeout(_, _) => true,
 			WasmExtBulkMemory => true,
-			WasmExtEccHostFunctions => true,
+			EccHostFn => true,
 		};
 
 		// A minimal module with memory and an exported `validate_block` function.
@@ -496,9 +496,9 @@ mod tests {
 				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
 			),
 			(
-				"WasmExtEccHostFunctions",
+				"EccHostFn",
 				base.clone(),
-				ExecutorParams::from(&[ExecutorParam::WasmExtEccHostFunctions][..]),
+				ExecutorParams::from(&[ExecutorParam::EccHostFn][..]),
 			),
 		];
 
