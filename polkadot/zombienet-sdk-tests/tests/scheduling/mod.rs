@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod v3_dynamic_enablement;
-mod v3_elastic_scaling;
 mod v3_rolling_upgrade;
 
 use anyhow::anyhow;
@@ -10,7 +9,7 @@ use codec::Decode;
 use cumulus_zombienet_sdk_helpers::wait_for_first_session_change;
 use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
 use zombienet_sdk::{
-	subxt::{ext::scale_value::value, tx::dynamic, utils::H256, OnlineClient, PolkadotConfig},
+	subxt::{utils::H256, OnlineClient, PolkadotConfig},
 	NetworkNode,
 };
 
@@ -52,7 +51,7 @@ fn find_candidate_backed_events(
 /// Waits for the first session change (so that genesis configuration like `node_features` is
 /// active), then checks that at least `min_candidates` candidates matching `expected_version`
 /// are backed within `max_blocks` relay chain blocks.
-async fn assert_candidates_version(
+pub async fn assert_candidates_version(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	para_id: ParaId,
 	expected_version: CandidateDescriptorVersion,
@@ -110,34 +109,4 @@ async fn assert_candidates_version(
 		"Only found {matched} {:?} candidates (needed {min_candidates}) out of {total} total for para {para_id} in {block_count} blocks",
 		expected_version,
 	))
-}
-
-/// Enables `CandidateReceiptV3` (bit 4) in `node_features` at runtime via a sudo extrinsic.
-///
-/// Bit 3 (`CandidateReceiptV2`) is already set via genesis; this sets bit 4.
-/// The change takes effect after the next session change.
-pub(super) async fn enable_v3_node_features(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<(), anyhow::Error> {
-	// set_node_feature(index, value) sets a single bit in node_features.
-	// Bit 4 = CandidateReceiptV3.
-	let call = dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Configuration(set_node_feature { index: 4u8, value: true })
-		}],
-	);
-
-	client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&call,
-			&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	Ok(())
 }

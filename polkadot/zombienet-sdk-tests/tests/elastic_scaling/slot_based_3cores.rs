@@ -7,7 +7,7 @@
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
-use polkadot_primitives::Id as ParaId;
+use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
@@ -97,6 +97,18 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	// correct nonce.
 	assign_cores(&relay_client, 2100, vec![0, 1]).await?;
 	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
+
+	crate::utils::enable_v3_node_features(&relay_client).await?;
+
+	crate::scheduling::assert_candidates_version(
+		&relay_client,
+		ParaId::from(2200),
+		CandidateDescriptorVersion::V2,
+		true,
+		15,
+		20,
+	)
+	.await?;
 
 	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
 	// (2.6 candidates per para per relay chain block).

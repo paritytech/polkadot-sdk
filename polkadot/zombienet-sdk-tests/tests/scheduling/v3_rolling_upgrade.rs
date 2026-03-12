@@ -14,6 +14,7 @@
 //! - Parachain throughput is sustained.
 
 use super::{assert_candidates_version, assert_validator_backed_candidates};
+use crate::utils::enable_v3_node_features;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
@@ -35,9 +36,6 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 		.expect("OLD_POLKADOT_IMAGE must be set for rolling upgrade test");
 	let old_command = std::env::var("OLD_POLKADOT_COMMAND").unwrap_or("polkadot".into());
 
-	// Enable both CandidateReceiptV2 (bit 3) and CandidateReceiptV3 (bit 4).
-	let node_features_with_v3 = json!({"bits": 8, "data": [0b00011000]});
-
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
@@ -51,8 +49,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 							"scheduler_params": {
 								"max_validators_per_core": 3,
 								"group_rotation_frequency": 4
-							},
-							"node_features": node_features_with_v3,
+							}
 						}
 					}
 				}))
@@ -89,6 +86,9 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-3000")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
+	// enabling v3 here does not overwrite all node_features
+	enable_v3_node_features(&relay_client).await?;
 
 	assert_candidates_version(
 		&relay_client,

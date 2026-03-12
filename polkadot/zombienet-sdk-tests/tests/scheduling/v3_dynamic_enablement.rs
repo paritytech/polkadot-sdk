@@ -9,18 +9,9 @@
 //! relay chain continues to accept V2 candidates from the collator.
 //!
 //! The validator set contains both standard and experimental-collator-protocol validators.
-//!
-//! Verifies that:
-//! - V2 candidates are backed with V3 disabled (Phase 1).
-//! - V3 can be enabled dynamically without disrupting block production.
-//! - V2 candidates continue to be backed after V3 is enabled (Phase 2).
-//! - Parachain throughput is sustained (≥ 40 blocks in 50 relay blocks) after V3 is active.
-//! - Validators from both groups (standard and experimental) sign backing statements.
-//! - Parachain finality progresses with acceptable lag.
 
-use super::{
-	assert_candidates_version, assert_validator_backed_candidates, enable_v3_node_features,
-};
+use super::{assert_candidates_version, assert_validator_backed_candidates};
+use crate::utils::enable_v3_node_features;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
@@ -31,10 +22,6 @@ use zombienet_sdk::{
 };
 
 /// Test: V3 descriptor enabled dynamically while the network is running.
-///
-/// Starts with only `CandidateReceiptV2` (bit 3) in node_features. Verifies V2 candidates are
-/// backed, then enables `CandidateReceiptV3` (bit 4) via sudo. After the next session change,
-/// verifies V2 candidates are still backed under the V3-aware version check.
 #[tokio::test(flavor = "multi_thread")]
 async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -42,10 +29,6 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	);
 
 	let images = zombienet_sdk::environment::get_images_from_env();
-
-	// Start with only CandidateReceiptV2 (bit 3); V3 (bit 4) NOT set.
-	// bitvec Lsb0 u8: bit 3 set => 0b00001000 = 8
-	let node_features_v2_only = json!({"bits": 8, "data": [0b00001000]});
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -57,11 +40,9 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								// 2 validators per backing group.
 								"max_validators_per_core": 2,
 								"group_rotation_frequency": 4
-							},
-							"node_features": node_features_v2_only,
+							}
 						}
 					}
 				}))
@@ -91,6 +72,17 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
 				.with_collator(|n| n.with_name("collator-2900"))
 		})
+		.with_parachain(|p| {
+			p.with_id(2901)
+				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_chain("elastic-scaling")
+				.with_default_args(vec![
+					("--authoring=slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
+				.with_collator(|n| n.with_name("collator-2901"))
+		})
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -102,17 +94,28 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-2900")?;
+	let para_node_slot = network.get_node("collator-2901")?;
 	let experimental_validator_2 = network.get_node("validator-2")?;
 	let experimental_validator_3 = network.get_node("validator-3")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	log::info!("cheking V2 candidates with V3 disabled");
+	log::info!("checking V2 candidates with V3 disabled");
 	assert_candidates_version(
 		&relay_client,
 		ParaId::from(2900),
 		CandidateDescriptorVersion::V2,
 		false, // v3 not enabled
+		10,
+		20,
+	)
+	.await?;
+
+	assert_candidates_version(
+		&relay_client,
+		ParaId::from(2901),
+		CandidateDescriptorVersion::V2,
+		false,
 		10,
 		20,
 	)
@@ -132,13 +135,29 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	assert_para_throughput(&relay_client, 50, [(ParaId::from(2900), 40..51)]).await?;
+	assert_candidates_version(
+		&relay_client,
+		ParaId::from(2901),
+		CandidateDescriptorVersion::V2,
+		true,
+		10,
+		20,
+	)
+	.await?;
+
+	assert_para_throughput(
+		&relay_client,
+		50,
+		[(ParaId::from(2900), 40..51), (ParaId::from(2901), 40..51)],
+	)
+	.await?;
 
 	assert_validator_backed_candidates(relay_node, 30).await?;
 	assert_validator_backed_candidates(experimental_validator_2, 30).await?;
 	assert_validator_backed_candidates(experimental_validator_3, 30).await?;
 
 	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_node_slot.wait_client().await?, 5).await?;
 
 	log::info!("V3 dynamic enablement test finished successfully");
 
