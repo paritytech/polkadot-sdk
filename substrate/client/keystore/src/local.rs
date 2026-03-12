@@ -38,7 +38,7 @@ use sp_core::bandersnatch;
 }
 
 use sp_core::{
-	bls381, ecdsa_bls381, proof_of_possession::ProofOfPossessionGenerator, KeccakHasher,
+	bls381, ecdsa_bls381, key_proofs::KeyProofGenerator, KeccakHasher,
 };
 
 use crate::{Error, Result};
@@ -142,18 +142,18 @@ impl LocalKeystore {
 		Ok(pre_output)
 	}
 
-	fn generate_proof_of_possession<T: CorePair + ProofOfPossessionGenerator>(
+	fn generate_key_proofs<T: CorePair + KeyProofGenerator>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		owner: &[u8],
-	) -> std::result::Result<Option<T::ProofOfPossession>, TraitError> {
-		let proof_of_possession = self
+	) -> std::result::Result<Option<T::KeyProofs>, TraitError> {
+		let key_proofs = self
 			.0
 			.read()
 			.key_pair_by_type::<T>(public, key_type)?
-			.map(|mut pair| pair.generate_proof_of_possession(owner));
-		Ok(proof_of_possession)
+			.map(|mut pair| pair.generate_key_proofs(owner));
+		Ok(key_proofs)
 	}
 }
 
@@ -375,9 +375,13 @@ impl Keystore for LocalKeystore {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-		owner: &[u8],
-	) -> std::result::Result<Option<bls381::ProofOfPossession>, TraitError> {
-		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
+	) -> std::result::Result<Option<bls381::Signature>, TraitError> {
+		let proof_of_possession = self
+			.0
+			.read()
+			.key_pair_by_type::<bls381::Pair>(public, key_type)?
+			.map(|mut pair| pair.generate_proof_of_possession());
+		Ok(proof_of_possession)
 	}
 
 	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {

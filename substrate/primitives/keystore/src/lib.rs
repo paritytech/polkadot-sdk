@@ -328,8 +328,7 @@ pub trait Keystore: Send + Sync {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-		owner: &[u8],
-	) -> Result<Option<bls381::ProofOfPossession>, Error>;
+	) -> Result<Option<bls381::Signature>, Error>;
 
 	/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
@@ -624,9 +623,8 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-		owner: &[u8],
-	) -> Result<Option<bls381::ProofOfPossession>, Error> {
-		(**self).bls381_generate_proof_of_possession(key_type, public, owner)
+	) -> Result<Option<bls381::Signature>, Error> {
+		(**self).bls381_generate_proof_of_possession(key_type, public)
 	}
 
 	fn ecdsa_bls381_sign(

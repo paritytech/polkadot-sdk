@@ -25,7 +25,7 @@ use sp_core::{
 	bls381,
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ecdsa_bls381, ed25519,
-	proof_of_possession::ProofOfPossessionGenerator,
+	key_proofs::KeyProofGenerator,
 	sr25519, KeccakHasher,
 };
 
@@ -127,16 +127,16 @@ impl MemoryKeystore {
 		Ok(pre_output)
 	}
 
-	fn generate_proof_of_possession<T: Pair + ProofOfPossessionGenerator>(
+	fn generate_key_proofs<T: Pair + KeyProofGenerator>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		owner: &[u8],
-	) -> Result<Option<T::ProofOfPossession>, Error> {
-		let proof_of_possession = self
+	) -> Result<Option<T::KeyProofs>, Error> {
+		let key_proofs = self
 			.pair::<T>(key_type, public)
-			.map(|mut pair| pair.generate_proof_of_possession(owner));
-		Ok(proof_of_possession)
+			.map(|mut pair| pair.generate_key_proofs(owner));
+		Ok(key_proofs)
 	}
 }
 
@@ -315,9 +315,10 @@ impl Keystore for MemoryKeystore {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-		owner: &[u8],
-	) -> Result<Option<bls381::ProofOfPossession>, Error> {
-		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
+	) -> Result<Option<bls381::Signature>, Error> {
+		Ok(self
+			.pair::<bls381::Pair>(key_type, public)
+			.map(|mut pair| bls381::Pair::generate_proof_of_possession(&mut pair)))
 	}
 
 	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {

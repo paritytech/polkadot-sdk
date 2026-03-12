@@ -22,20 +22,20 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::ecdsa::*;
-use sp_core::proof_of_possession::NonAggregatable;
+use sp_core::key_proofs::NonAggregatable;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::ECDSA);
 }
 
 pub use app::{
-	Pair as AppPair, ProofOfPossession as AppProofOfPossession, Public as AppPublic,
+	Pair as AppPair, KeyProofs as AppKeyProofs, Public as AppPublic,
 	Signature as AppSignature,
 };
 
 impl RuntimePublic for Public {
 	type Signature = Signature;
-	type ProofOfPossession = Signature;
+	type KeyProofs = Signature;
 
 	fn all(key_type: KeyTypeId) -> crate::Vec<Self> {
 		sp_io::crypto::ecdsa_public_keys(key_type)
@@ -53,22 +53,22 @@ impl RuntimePublic for Public {
 		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), self)
 	}
 
-	fn generate_proof_of_possession(
+	fn generate_key_proofs(
 		&mut self,
 		key_type: KeyTypeId,
 		owner: &[u8],
 	) -> Option<Self::Signature> {
-		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
-		sp_io::crypto::ecdsa_sign(key_type, self, &proof_of_possession_statement)
+		let ownership_proof_statement = Pair::ownership_proof_statement(owner);
+		sp_io::crypto::ecdsa_sign(key_type, self, &ownership_proof_statement)
 	}
 
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		&self,
 		owner: &[u8],
-		proof_of_possession: &Self::Signature,
+		key_proofs: &Self::Signature,
 	) -> bool {
-		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
-		sp_io::crypto::ecdsa_verify(&proof_of_possession, &proof_of_possession_statement, &self)
+		let ownership_proof_statement = Pair::ownership_proof_statement(owner);
+		sp_io::crypto::ecdsa_verify(&key_proofs, &ownership_proof_statement, &self)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

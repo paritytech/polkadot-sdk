@@ -690,7 +690,7 @@ mod dummy {
 		type Public = Dummy;
 		type Seed = Dummy;
 		type Signature = Dummy;
-		type ProofOfPossession = Dummy;
+		type KeyProofs = Dummy;
 
 		#[cfg(feature = "std")]
 		fn generate_with_phrase(_: Option<&str>) -> (Self, String, Self::Seed) {
@@ -841,7 +841,7 @@ pub trait Pair: CryptoType + Sized {
 	/// The type used to represent proof of possession and ownership of private key is usually
 	/// one or a set of signatures. Can be created from a key pair and message (owner id) and
 	/// and verified with the owner id and public key.
-	type ProofOfPossession: Signature;
+	type KeyProofs: Signature;
 
 	/// Generate new secure (random) key pair.
 	///
@@ -1253,7 +1253,7 @@ mod tests {
 		type Public = TestPublic;
 		type Seed = [u8; 8];
 		type Signature = TestSignature;
-		type ProofOfPossession = TestSignature;
+		type KeyProofs = TestSignature;
 
 		fn generate() -> (Self, <Self as Pair>::Seed) {
 			(TestPair::Generated, [0u8; 8])

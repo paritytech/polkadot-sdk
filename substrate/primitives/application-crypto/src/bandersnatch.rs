@@ -23,7 +23,7 @@ pub use sp_core::bandersnatch::*;
 
 use sp_core::{
 	crypto::CryptoType,
-	proof_of_possession::{NonAggregatable, ProofOfPossessionVerifier},
+	key_proofs::{NonAggregatable, KeyProofVerifier},
 	Pair as TraitPair,
 };
 
@@ -34,12 +34,12 @@ mod app {
 #[cfg(feature = "full_crypto")]
 pub use app::Pair as AppPair;
 pub use app::{
-	ProofOfPossession as AppProofOfPossession, Public as AppPublic, Signature as AppSignature,
+	KeyProofs as AppKeyProofs, Public as AppPublic, Signature as AppSignature,
 };
 
 impl RuntimePublic for Public {
 	type Signature = Signature;
-	type ProofOfPossession = Signature;
+	type KeyProofs = Signature;
 
 	/// Dummy implementation. Returns an empty vector.
 	fn all(_key_type: KeyTypeId) -> Vec<Self> {
@@ -60,24 +60,24 @@ impl RuntimePublic for Public {
 		<AppPublic as CryptoType>::Pair::verify(&sig, msg.as_ref(), &pub_key)
 	}
 
-	fn generate_proof_of_possession(
+	fn generate_key_proofs(
 		&mut self,
 		key_type: KeyTypeId,
 		owner: &[u8],
-	) -> Option<Self::ProofOfPossession> {
-		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
-		sp_io::crypto::bandersnatch_sign(key_type, self, &proof_of_possession_statement)
+	) -> Option<Self::KeyProofs> {
+		let ownership_proof_statement = Pair::ownership_proof_statement(owner);
+		sp_io::crypto::bandersnatch_sign(key_type, self, &ownership_proof_statement)
 	}
 
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		&self,
 		owner: &[u8],
-		proof_of_possession: &Self::Signature,
+		key_proofs: &Self::Signature,
 	) -> bool {
 		let pub_key = AppPublic::from(*self);
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
+		<AppPublic as CryptoType>::Pair::verify_key_proofs(
 			owner,
-			&proof_of_possession,
+			&key_proofs,
 			&pub_key,
 		)
 	}

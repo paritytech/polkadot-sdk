@@ -44,7 +44,7 @@ pub trait AppCrypto: 'static + Sized + CryptoType {
 	type Signature: AppSignature;
 
 	/// The corresponding proof of possession type in this application scheme.
-	type ProofOfPossession: AppSignature;
+	type KeyProofs: AppSignature;
 
 	/// The corresponding key pair type in this application scheme.
 	type Pair: AppPair;
@@ -82,7 +82,7 @@ pub trait RuntimePublic: Sized {
 	type Signature: Debug + Eq + PartialEq + Clone;
 
 	/// The Proof Of Possession the corresponding private key.
-	type ProofOfPossession: Debug + Eq + PartialEq + Clone;
+	type KeyProofs: Debug + Eq + PartialEq + Clone;
 
 	/// Returns all public keys for the given key type in the keystore.
 	fn all(key_type: KeyTypeId) -> crate::Vec<Self>;
@@ -121,11 +121,11 @@ pub trait RuntimePublic: Sized {
 	///
 	/// Returns the proof of possession or `None` if it failed or is not able to do
 	/// so.
-	fn generate_proof_of_possession(
+	fn generate_key_proofs(
 		&mut self,
 		key_type: KeyTypeId,
 		owner: &[u8],
-	) -> Option<Self::ProofOfPossession>;
+	) -> Option<Self::KeyProofs>;
 
 	/// Verifies that the given proof is valid for the corresponding public key.
 	/// The proof is usually a signature or list of signatures, for the corresponding
@@ -137,7 +137,7 @@ pub trait RuntimePublic: Sized {
 	/// the key which has been signed by the private key in process of generating the proof.
 	///
 	/// Returns `true` if the proof is deemed correct by the cryto type.
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool;
+	fn verify_key_proofs(&self, owner: &[u8], pop: &Self::KeyProofs) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -152,7 +152,7 @@ pub trait RuntimeAppPublic: Sized {
 	type Signature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec;
 
 	/// The Proof Of Possession the corresponding private key.
-	type ProofOfPossession: Debug + Eq + PartialEq + TypeInfo + Clone;
+	type KeyProofs: Debug + Eq + PartialEq + TypeInfo + Clone;
 
 	/// Returns all public keys for this application in the keystore.
 	fn all() -> crate::Vec<Self>;
@@ -180,10 +180,10 @@ pub trait RuntimeAppPublic: Sized {
 	///
 	/// Returns the proof of possession, usually a signature or a list of signature,  or `None` if
 	/// it failed or is not able to do so.
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::ProofOfPossession>;
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Option<Self::KeyProofs>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool;
+	fn verify_key_proofs(&self, owner: &[u8], pop: &Self::KeyProofs) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -197,15 +197,15 @@ where
 		+ Codec
 		+ From<<<T as AppPublic>::Generic as RuntimePublic>::Signature>
 		+ AsRef<<<T as AppPublic>::Generic as RuntimePublic>::Signature>,
-	<T as AppCrypto>::ProofOfPossession: TypeInfo
+	<T as AppCrypto>::KeyProofs: TypeInfo
 		+ Codec
-		+ From<<<T as AppPublic>::Generic as RuntimePublic>::ProofOfPossession>
-		+ AsRef<<<T as AppPublic>::Generic as RuntimePublic>::ProofOfPossession>,
+		+ From<<<T as AppPublic>::Generic as RuntimePublic>::KeyProofs>
+		+ AsRef<<<T as AppPublic>::Generic as RuntimePublic>::KeyProofs>,
 {
 	const ID: KeyTypeId = <T as AppCrypto>::ID;
 
 	type Signature = <T as AppCrypto>::Signature;
-	type ProofOfPossession = <T as AppCrypto>::ProofOfPossession;
+	type KeyProofs = <T as AppCrypto>::KeyProofs;
 
 	fn all() -> crate::Vec<Self> {
 		<<T as AppPublic>::Generic as RuntimePublic>::all(Self::ID)
@@ -227,8 +227,8 @@ where
 		<<T as AppPublic>::Generic as RuntimePublic>::verify(self.as_ref(), msg, signature.as_ref())
 	}
 
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::ProofOfPossession> {
-		<<T as AppPublic>::Generic as RuntimePublic>::generate_proof_of_possession(
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Option<Self::KeyProofs> {
+		<<T as AppPublic>::Generic as RuntimePublic>::generate_key_proofs(
 			self.as_mut(),
 			Self::ID,
 			owner,
@@ -236,8 +236,8 @@ where
 		.map(|s| s.into())
 	}
 
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool {
-		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(
+	fn verify_key_proofs(&self, owner: &[u8], pop: &Self::KeyProofs) -> bool {
+		<<T as AppPublic>::Generic as RuntimePublic>::verify_key_proofs(
 			self.as_ref(),
 			owner,
 			pop.as_ref(),

@@ -23,7 +23,7 @@ use sp_std::vec::Vec;
 pub trait KeyProofGenerator: Pair
 where
 	Self::Public: CryptoType,
-	Self::ProofOfPossession: Signature, 
+	Self::KeyProofs: Signature,
 {
 	/// Generate proof of possession.
 	///
@@ -43,7 +43,7 @@ where
 	/// regular signature signing the owner identity and the second one with unique context
 	/// which signs the correspoding public key (and nothing else).
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession;
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Self::KeyProofs;
 }
 
 /// Pair which is able to verify proof of possession.
@@ -54,16 +54,16 @@ where
 pub trait KeyProofVerifier: Pair
 where
 	Self::Public: CryptoType,
-	Self::ProofOfPossession: Signature,
+	Self::KeyProofs: Signature,
 {
 	/// Verify proof of possession.
 	///
 	/// The proof of possession verifier is supposed to to verify a signature with unique hash
 	/// context that is produced solely for this reason. This proves that that the secret key is
 	/// known to the prover.
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		owner: &[u8],
-		proof_of_possession: &Self::ProofOfPossession,
+		key_proofs: &Self::KeyProofs,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool;
 }
@@ -85,38 +85,38 @@ pub fn statement_of_ownership(owner: &[u8]) -> Vec<u8> {
 ///
 /// We would like to prevent aggregatable scheme from unknowingly generating signatures which
 /// aggregate to false albeit valid proof of possession aka rogue key attack.  We ensure that by
-/// separating signing and generating proof_of_possession at the API level.
+/// separating signing and generating proof of possession at the API level.
 ///
 /// Rogue key attack however is not immediately applicable to non-aggregatable scheme when even if
-/// an honest signing oracle is tricked to sign a rogue proof_of_possession, it is not possible to
+/// an honest signing oracle is tricked to sign a rogue proof of possession, it is not possible to
 /// aggregate it to generate a valid proof for a key the attack does not possess. Therefore we do
-/// not require non-aggregatable schemes to prevent proof_of_possession confirming signatures at API
+/// not require non-aggregatable schemes to prevent proof of possession confirming signatures at API
 /// level
 pub trait NonAggregatable: Pair {
-	/// Default proof_of_possession statement.
-	fn proof_of_possession_statement(owner: &[u8]) -> Vec<u8> {
+	/// Default ownership statement.
+	fn ownership_proof_statement(owner: &[u8]) -> Vec<u8> {
 		statement_of_ownership(owner)
 	}
 }
 
 impl<T> KeyProofVerifier for T
 where
-	T: NonAggregatable<ProofOfPossession = Self::Signature>,
+	T: NonAggregatable<KeyProofs = Self::Signature>,
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
 	/// While we enforce hash context separation at the library level in aggregatable schemes,
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		owner: &[u8],
-		proof_of_possession: &Self::ProofOfPossession,
+		key_proofs: &Self::KeyProofs,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
-		let proof_of_possession_statement = statement_of_ownership(owner);
+		let ownership_statement = statement_of_ownership(owner);
 		Self::verify(
-			&proof_of_possession,
-			proof_of_possession_statement,
+			&key_proofs,
+			ownership_statement,
 			allegedly_possessesd_pubkey,
 		)
 	}
@@ -124,7 +124,7 @@ where
 
 impl<T> KeyProofGenerator for T
 where
-	T: NonAggregatable<ProofOfPossession = Self::Signature>,
+	T: NonAggregatable<KeyProofs = Self::Signature>,
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
@@ -132,8 +132,8 @@ where
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
-		let proof_of_possession_statement = statement_of_ownership(owner);
-		self.sign(proof_of_possession_statement.as_slice())
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Self::KeyProofs {
+		let ownership_statement = statement_of_ownership(owner);
+		self.sign(ownership_statement.as_slice())
 	}
 }
