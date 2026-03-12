@@ -55,6 +55,9 @@ pub struct AuthorizationResult<Balance: Default> {
 /// For new accounts the ED is charged from `origin` via [`Pallet::charge_deposit`].
 /// The pre-dispatch weight assumes all authorizations create new accounts (worst case).
 /// The returned `weight_refund` accounts for authorizations that hit existing accounts.
+///
+/// Note: We process authorizations OUTSIDE the transaction context so delegation changes persist
+/// even if the call fails.
 pub fn process_authorizations<T: Config>(
 	authorization_list: &[AuthorizationListEntry],
 	origin: &T::AccountId,

@@ -1371,8 +1371,6 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			// Process authorizations OUTSIDE the transaction context
-			// so delegation changes persist even if the call fails.
 			let exec_config =
 				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
 			let auth_result = evm::eip7702::process_authorizations::<T>(
@@ -1823,11 +1821,9 @@ impl<T: Config> Pallet<T> {
 			tx.gas = Some(Self::evm_block_gas_limit());
 		}
 		if tx.r#type.is_none() {
-			tx.r#type = Some(if tx.authorization_list.is_empty() {
-				 TYPE_EIP1559
-			} else {
-				TYPE_EIP7702
-			}.into());
+			tx.r#type = Some(
+				if tx.authorization_list.is_empty() { TYPE_EIP1559 } else { TYPE_EIP7702 }.into(),
+			);
 		}
 
 		// Store values before moving the tx
@@ -1873,7 +1869,6 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		// Process authorizations and adjust base_weight before creating limits.
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
 		let auth_result = if !authorization_list.is_empty() {
