@@ -5,6 +5,6 @@ doc:
     Update litep2p to latest 0.13.3 version
 crates:
 - name: sc-network-types
-  bump: patch
+  bump: minor
 - name: sc-network
-  bump: patch
+  bump: minor
