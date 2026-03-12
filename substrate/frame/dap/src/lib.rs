@@ -47,6 +47,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		tokens::Preservation,
 		Imbalance, OnUnbalanced, Time,
 	},
 	PalletId,
@@ -144,6 +145,20 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
+		/// Funds withdrawn from DAP buffer (reactivated for governance voting).
+		BufferWithdrawn {
+			/// Destination account.
+			dest: T::AccountId,
+			/// Amount withdrawn.
+			amount: BalanceOf<T>,
+		},
+		/// Funds deposited into DAP buffer (deactivated from governance voting).
+		BufferDeposited {
+			/// Source account.
+			source: T::AccountId,
+			/// Amount deposited.
+			amount: BalanceOf<T>,
+		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
@@ -234,6 +249,51 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Withdraw funds from DAP buffer to `dest`, reactivating the withdrawn amount
+		/// so it participates in governance voting again.
+		///
+		/// Intended for governance (via referendum) to move accumulated buffer funds
+		/// to treasury or other accounts. Uses `Preservation::Preserve` to keep the
+		/// buffer account alive.
+		#[pallet::call_index(1)]
+		// TODO(ank4n): Benchmark
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn withdraw_buffer(
+			origin: OriginFor<T>,
+			dest: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let buffer = Self::buffer_account();
+			let transferred =
+				T::Currency::transfer(&buffer, &dest, amount, Preservation::Preserve)?;
+			Self::reactivate_buffer_funds(transferred);
+			Self::deposit_event(Event::BufferWithdrawn { dest, amount: transferred });
+			Ok(())
+		}
+
+		/// Deposit funds from `source` into DAP buffer, deactivating the deposited amount
+		/// so it does not participate in governance voting.
+		///
+		/// Intended for governance to move excess funds (e.g. from treasury) back into
+		/// the buffer. Uses `Preservation::Preserve` to keep the source account alive.
+		#[pallet::call_index(2)]
+		// TODO(ank4n): Benchmark
+		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		pub fn deposit_buffer(
+			origin: OriginFor<T>,
+			source: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let buffer = Self::buffer_account();
+			let transferred =
+				T::Currency::transfer(&source, &buffer, amount, Preservation::Preserve)?;
+			Self::deactivate_buffer_funds(transferred);
+			Self::deposit_event(Event::BufferDeposited { source, amount: transferred });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -242,6 +302,16 @@ pub mod pallet {
 		/// Collects: slashed funds, unclaimed rewards, and its explicit budget allocation share.
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Deactivate funds on buffer inflow.
+		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
+			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+		}
+
+		/// Reactivate funds on buffer outflow.
+		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
+			<T::Currency as Unbalanced<T::AccountId>>::reactivate(amount);
 		}
 
 		/// Core inflation drip logic, called from `on_initialize`.
@@ -299,10 +369,8 @@ pub mod pallet {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 					} else {
 						total_minted = total_minted.saturating_add(amount);
-						// Deactivate funds minted to the buffer so they don't
-						// participate in governance voting (buffer is unspendable).
 						if *account == buffer {
-							<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+							Self::deactivate_buffer_funds(amount);
 						}
 					}
 				}
@@ -347,9 +415,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
 			})
 			.inspect(|_| {
-				// Mark funds as inactive so they don't participate in governance voting.
-				// Only deactivate on success; if resolve failed, tokens were burned.
-				<T::Currency as Unbalanced<T::AccountId>>::deactivate(numeric_amount);
+				// Deactivate on success; if resolve failed, tokens were burned.
+				Self::deactivate_buffer_funds(numeric_amount);
 				log::debug!(
 					target: LOG_TARGET,
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
@@ -370,8 +437,12 @@ impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_staking::UnclaimedRewardSink<T::AccountId> for Pallet<T> {
-	fn unclaimed_reward_sink() -> T::AccountId {
-		Self::buffer_account()
+impl<T: Config> sp_staking::UnclaimedRewardSink<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	fn deposit(source: &T::AccountId, amount: BalanceOf<T>) -> sp_runtime::DispatchResult {
+		let buffer = Self::buffer_account();
+		let transferred =
+			T::Currency::transfer(source, &buffer, amount, Preservation::Expendable)?;
+		Self::deactivate_buffer_funds(transferred);
+		Ok(())
 	}
 }
