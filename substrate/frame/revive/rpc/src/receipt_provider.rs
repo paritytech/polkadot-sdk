@@ -77,6 +77,9 @@ impl BlockInfo for SubstrateBlock {
 	}
 }
 
+/// Maximum number of entries kept in the block to hash map.
+const MAX_CACHED_BLOCKS: usize = 256;
+
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
@@ -284,6 +287,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				if let Some((_, block_map)) = block_number_to_hash.pop_first() {
 					to_remove.push(block_map);
 				}
+			}
+		} else {
+			// Evict oldest entries to prevent unbounded growth.
+			// Forks deeper than MAX_CACHED_BLOCKS(256) are unlikely.
+			while block_number_to_hash.len() > MAX_CACHED_BLOCKS {
+				block_number_to_hash.pop_first();
 			}
 		}
 
@@ -1134,6 +1143,55 @@ mod tests {
 		// Remove one
 		provider.remove(&[block_map1]).await?;
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn persistent_mode_caps_in_memory_map(pool: SqlitePool) -> anyhow::Result<()> {
+		// Persistent DB mode: keep_latest_n_blocks = None
+		let provider = ReceiptProvider {
+			pool,
+			block_provider: MockBlockInfoProvider {},
+			receipt_extractor: ReceiptExtractor::new_mock(),
+			keep_latest_n_blocks: None,
+			block_number_to_hashes: Default::default(),
+		};
+
+		// Insert more than MAX_CACHED_BLOCKS blocks.
+		let start_block: u64 = 1;
+		let n = MAX_CACHED_BLOCKS + 1;
+		let end_block = start_block + n as u64;
+		for i in start_block..end_block {
+			let block = MockBlockInfo { hash: H256::from_low_u64_be(i), number: i as _ };
+			let receipts = vec![(
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash: H256::from_low_u64_be(i),
+					logs: vec![Log {
+						block_hash: block.hash,
+						transaction_hash: H256::from_low_u64_be(i),
+						..Default::default()
+					}],
+					..Default::default()
+				},
+			)];
+			let ethereum_hash = H256::from_low_u64_be(i + 1);
+			provider.insert(&block, &receipts, &ethereum_hash).await?;
+		}
+
+		// The map is capped at MAX_CACHED_BLOCKS.
+		let map = provider.block_number_to_hashes.lock().await;
+		assert_eq!(map.len(), MAX_CACHED_BLOCKS);
+
+		// The oldest block (1) should have been evicted, keeping blocks 2..=MAX+1.
+		assert!(!map.contains_key(&1));
+		assert!(map.contains_key(&2));
+		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u32 + 1)));
+		drop(map);
+
+		// All blocks are still in the DB.
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
 
 		Ok(())
 	}

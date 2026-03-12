@@ -31,7 +31,7 @@ use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
 
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -608,7 +608,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = CoretimeAssignmentProvider;
+	type AssignCoretime = Scheduler;
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
 	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<AccountId>;
@@ -661,11 +661,7 @@ impl parachains_on_demand::Config for Runtime {
 	type PalletId = OnDemandPalletId;
 }
 
-impl parachains_assigner_coretime::Config for Runtime {}
-
-impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = CoretimeAssignmentProvider;
-}
+impl parachains_scheduler::Config for Runtime {}
 
 pub struct DummyXcmSender;
 impl SendXcm for DummyXcmSender {
@@ -836,8 +832,7 @@ construct_runtime! {
 		Xcm: pallet_xcm,
 		ParasDisputes: parachains_disputes,
 		ParasSlashing: parachains_slashing,
-		OnDemandAssignmentProvider: parachains_on_demand,
-		CoretimeAssignmentProvider: parachains_assigner_coretime,
+		OnDemand: parachains_on_demand,
 		Coretime: coretime,
 
 		Sudo: pallet_sudo,
@@ -962,7 +957,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(15)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1145,6 +1140,17 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			staging_runtime_impl::para_ids::<Runtime>()
+		}
+
+		fn max_relay_parent_session_age() -> u32 {
+			staging_runtime_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn allowed_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			staging_runtime_impl::allowed_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 	}
 

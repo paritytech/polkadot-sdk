@@ -10,7 +10,23 @@ validator-0: js-script ./force-register-paras.js with "2002,2003" return is 0 wi
 # assign core 0 to be shared by all paras.
 validator-0: js-script ./assign-core.js with "0,2000,14400,2001,14400,2002,14400,2003,14400" return is 0 within 600 seconds
 
-collator-2000: reports block height is at least 6 within 200 seconds
-collator-2001: reports block height is at least 6 within 50 seconds
-collator-2002: reports block height is at least 6 within 50 seconds
-collator-2003: reports block height is at least 6 within 50 seconds
+# Timeout derivation (zombienet checks run sequentially; each timeout starts after the
+# previous check passes, with actual elapsed time anywhere from 0s to the full budget):
+#
+# Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
+# time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
+#
+# Paras registered in 2 batches (weight limit). force-register-paras.js waits for
+# finalization (~3 blocks) between batches. This causes batch 2 to land in the next
+# session, and with SESSION_DELAY=2, batch 2 paras activate 1 full session (60s) later.
+#
+# collator-2000 (250s): from test start. Registration (~54s) + onboarding (2 sessions
+#   = 120s) + block production (3 slots × 24s = 72s) ≈ 246s, rounded to 250s.
+# collator-2001 (30s): same batch as 2000, max 1 slot-cycle lag (24s) + margin.
+# collator-2002 (90s): different batch, 60s session stagger + 24s slot-cycle = 84s after
+#   2000 reaches #6. Sized assuming best case (0s) for preceding checks. 90s with margin.
+# collator-2003 (30s): same batch as 2002, max 1 slot-cycle lag (24s) + margin.
+collator-2000: reports block height is at least 6 within 250 seconds
+collator-2001: reports block height is at least 6 within 30 seconds
+collator-2002: reports block height is at least 6 within 90 seconds
+collator-2003: reports block height is at least 6 within 30 seconds
