@@ -29,7 +29,7 @@ guarantee message delivery or specific delivery times.**
     RUST_LOG=info,statement-store=trace ./target/x86_64-unknown-linux-gnu/debug/substrate-node
     ```
 
-3. Set quota using sudo, you can use this
+3. To set a quota using sudo, you can use the following
   - 3.1. Identify the account you use, it should be an [account publick key][statement-allowance-code].
   - 3.2. Obtain the storage key by running this Python code. You would need your account ID from the
     previous step.
