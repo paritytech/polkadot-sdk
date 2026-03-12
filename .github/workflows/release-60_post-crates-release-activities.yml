@@ -28,6 +28,10 @@ permissions:
 
 jobs:
   set-image:
+<<<<<<< HEAD
+=======
+    if: ${{ github.event.inputs.version != '' && contains(fromJSON('["nprt", "ArshamTeymouri", "EgorPopelyaev", "alvicsam", "AndWeHaveAPlan", "eduardspa", "BDevParity"]'), github.actor) }}
+>>>>>>> d5c5fbe6 (Post crates PR creation fix (#11352))
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
