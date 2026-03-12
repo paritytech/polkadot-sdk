@@ -1,6 +1,6 @@
 [package]
 name = "pallet-fast-unstake"
-version = "44.0.0"
+version = "44.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -33,7 +33,7 @@ pallet-balances = { default-features = true, workspace = true }
 pallet-staking = { default-features = true, workspace = true }
 pallet-staking-reward-curve = { default-features = true, workspace = true }
 pallet-timestamp = { default-features = true, workspace = true }
-sp-core = { workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 
 [features]

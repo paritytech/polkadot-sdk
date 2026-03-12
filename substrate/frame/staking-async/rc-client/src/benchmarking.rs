@@ -44,12 +44,12 @@ pub trait Config: crate::Config {
 	/// Convert an AccountId to an XCM Location for fee charging.
 	fn account_to_location(account: Self::AccountId) -> Location;
 
-	/// Generate relay chain session keys for benchmarking.
+	/// Generate relay chain session keys and ownership proof for benchmarking.
 	///
-	/// Returns the SCALE-encoded session keys.
+	/// Returns a tuple of (SCALE-encoded session keys, ownership proof).
 	///
-	/// Note: Proof generation requires PR #1739 which is not backported to stable2512.
-	fn generate_session_keys() -> Vec<u8>;
+	/// Note: Proof validation is a no-op until we backport PR #1739.
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Vec<u8>, Vec<u8>);
 
 	/// Setup a validator account for benchmarking.
 	///
@@ -67,7 +67,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
 		let stash = T::setup_validator();
-		let keys = T::generate_session_keys();
+		let (keys, proof) = T::generate_session_keys_and_proof(stash.clone());
 
 		// Ensure XCM delivery will succeed by setting up required fees/accounts.
 		let stash_location = T::account_to_location(stash.clone());
@@ -79,7 +79,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		crate::Pallet::<T>::set_keys(RawOrigin::Signed(stash), keys, None);
+		crate::Pallet::<T>::set_keys(RawOrigin::Signed(stash), keys, proof, None);
 
 		Ok(())
 	}
@@ -87,7 +87,7 @@ mod benchmarks {
 	#[benchmark]
 	fn purge_keys() -> Result<(), BenchmarkError> {
 		let caller = T::setup_validator();
-		let keys = T::generate_session_keys();
+		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
 		// Set keys first so purge_keys hits the worst-case path (deposit release).
 		let caller_location = T::account_to_location(caller.clone());
@@ -97,7 +97,7 @@ mod benchmarks {
 			&dest,
 			FeeReason::ChargeFees,
 		);
-		crate::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, None)?;
+		crate::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof, None)?;
 
 		// Ensure XCM delivery will succeed for purge_keys too.
 		T::DeliveryHelper::ensure_successful_delivery(

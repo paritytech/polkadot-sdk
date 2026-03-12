@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.42.1"
+version = "0.42.3"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
@@ -137,7 +137,9 @@ alloy-core = { workspace = true, features = ["sol-types"] }
 asset-test-utils = { default-features = true, workspace = true }
 pallet-revive-fixtures = { default-features = true, workspace = true }
 parachains-runtimes-test-utils = { default-features = true, workspace = true }
+remote-externalities = { default-features = true, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
+tokio = { workspace = true, features = ["macros"] }
 westend-runtime = { default-features = true, workspace = true }
 
 [build-dependencies]

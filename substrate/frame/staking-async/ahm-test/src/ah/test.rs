@@ -1091,11 +1091,11 @@ mod session_keys {
 
 	type Keys = Vec<u8>;
 
-	/// Helper to create properly encoded session keys.
+	/// Helper to create properly encoded session keys and ownership proof.
 	///
-	/// Note: Ownership proof validation requires PR #1739 which is not backported to stable2512.
-	fn make_session_keys() -> Keys {
-		RCSessionKeys::generate(None).try_into().unwrap()
+	/// Note: Proof validation is a no-op until we backport PR #1739.
+	fn make_session_keys_and_proof() -> (Keys, Vec<u8>) {
+		(RCSessionKeys::generate(None).try_into().unwrap(), vec![])
 	}
 
 	/// Returns the key-deposit hold for `who`.
@@ -1111,7 +1111,7 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			let keys_raw: Vec<u8> = keys.clone();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
@@ -1125,6 +1125,7 @@ mod session_keys {
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
+				proof,
 				None,
 			));
 
@@ -1155,12 +1156,17 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 100 is a nominator, not a validator
 			let nominator: AccountId = 100;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 
 			// WHEN: Nominator tries to set keys
 			// THEN: NotValidator error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(nominator), keys, None,),
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(nominator),
+					keys,
+					proof,
+					None,
+				),
 				rc_client::Error::<T>::NotValidator
 			);
 		});
@@ -1171,14 +1177,19 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Validator with sufficient balance and XCM delivery set to fail
 			let validator: AccountId = 1;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			XcmDeliveryFee::set(100);
 			NextRelayDeliveryFails::set(true);
 
 			// WHEN: set_keys fails due to delivery failure
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					proof,
+					None,
+				),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1198,6 +1209,7 @@ mod session_keys {
 				rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					invalid_keys,
+					vec![],
 					None,
 				),
 				rc_client::Error::<T>::InvalidKeys
@@ -1211,7 +1223,7 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator (stash), account 99 is the proxy
 			let stash: AccountId = 1;
 			let proxy: AccountId = 99;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 
 			// Fund the proxy account so it can pay for proxy deposit
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
@@ -1227,6 +1239,7 @@ mod session_keys {
 			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
 			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys {
 				keys: keys.clone(),
+				proof,
 				max_delivery_and_remote_execution_fee: None,
 			});
 
@@ -1258,13 +1271,18 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Validator with insufficient balance to pay total fees
 			let validator: AccountId = 1;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			XcmDeliveryFee::set(Balances::free_balance(validator) + 1);
 
 			// WHEN: Validator tries to set keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					proof,
+					None,
+				),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1274,7 +1292,7 @@ mod session_keys {
 	fn set_keys_max_fee_scenarios() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			let validator: AccountId = 1;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
@@ -1287,6 +1305,7 @@ mod session_keys {
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
+					proof.clone(),
 					Some(total_fee + 100),
 				));
 				assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
@@ -1297,6 +1316,7 @@ mod session_keys {
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
+					proof.clone(),
 					Some(total_fee),
 				));
 				assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
@@ -1308,6 +1328,7 @@ mod session_keys {
 					rc_client::Pallet::<T>::set_keys(
 						RuntimeOrigin::signed(validator),
 						keys.clone(),
+						proof.clone(),
 						Some(total_fee - 1),
 					),
 					rc_client::Error::<T>::FeesExceededMax
@@ -1321,6 +1342,7 @@ mod session_keys {
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
+					proof.clone(),
 					Some(0),
 				));
 				// Only deposit is held, no XCM fees
@@ -1334,10 +1356,11 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 3 is a validator that has set keys (deposit held)
 			let validator: AccountId = 3;
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
+				proof,
 				None,
 			));
 			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
@@ -1494,11 +1517,12 @@ mod session_keys {
 			let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
 
 			// First set_keys: deposit held
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			let balance_before = Balances::free_balance(validator);
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
+				proof,
 				None,
 			));
 			assert_eq!(key_deposit_hold(validator), deposit);
@@ -1506,10 +1530,11 @@ mod session_keys {
 
 			// Second set_keys: no additional deposit
 			let balance_after_first = Balances::free_balance(validator);
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
+				proof,
 				None,
 			));
 			assert_eq!(Balances::free_balance(validator), balance_after_first - set_fees);
@@ -1550,6 +1575,7 @@ mod session_keys {
 					rc_client::Pallet::<T>::set_keys(
 						RuntimeOrigin::signed(validator),
 						vec![0xff, 0xfe, 0xfd],
+						vec![],
 						None,
 					),
 					rc_client::Error::<T>::InvalidKeys
@@ -1560,10 +1586,15 @@ mod session_keys {
 
 			// Insufficient balance for deposit
 			hypothetically!({
-				let keys = make_session_keys();
+				let (keys, proof) = make_session_keys_and_proof();
 				KeyDeposit::set(Balances::free_balance(validator) + 1);
 				assert_noop!(
-					rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						keys,
+						proof,
+						None,
+					),
 					DispatchError::Token(frame::runtime::prelude::TokenError::FundsUnavailable)
 				);
 			});
@@ -1571,12 +1602,13 @@ mod session_keys {
 			// Zero deposit: set + purge lifecycle works, no hold placed
 			hypothetically!({
 				KeyDeposit::set(0);
-				let keys = make_session_keys();
+				let (keys, proof) = make_session_keys_and_proof();
 				let balance_before = Balances::free_balance(validator);
 
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys,
+					proof,
 					None,
 				));
 				assert_eq!(key_deposit_hold(validator), 0);
@@ -1612,10 +1644,11 @@ mod session_keys {
 
 		// GIVEN: Validator sets keys on AH (deposit is held).
 		shared::in_ah(|| {
-			let keys = make_session_keys();
+			let (keys, proof) = make_session_keys_and_proof();
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
+				proof,
 				None,
 			));
 			assert_eq!(key_deposit_hold(validator), deposit);
@@ -1646,13 +1679,14 @@ mod session_keys {
 		let validator: AccountId = 1;
 
 		// Generate valid keys for AH validation (must match AHSessionKeys structure)
-		let encoded_keys = make_session_keys();
+		let (encoded_keys, proof) = make_session_keys_and_proof();
 
 		// WHEN: Validator sets keys on AH
 		shared::in_ah(|| {
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				encoded_keys.clone(),
+				proof.clone(),
 				None,
 			));
 		});

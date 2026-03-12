@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nomination-pools-benchmarking"
-version = "43.0.0"
+version = "43.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -32,7 +32,7 @@ sp-runtime-interface.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = false }
+pallet-balances = { default-features = false, workspace = true }
 pallet-staking-reward-curve = { default-features = true, workspace = true }
 pallet-timestamp = { default-features = true, workspace = true }
 sp-core = { default-features = true, workspace = true }

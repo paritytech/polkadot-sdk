@@ -1094,6 +1094,8 @@ pub mod pallet {
 		NotValidator,
 		/// The session keys could not be decoded as the expected RelayChainSessionKeys type.
 		InvalidKeys,
+		/// The ownership proof for the session keys is invalid.
+		InvalidProof,
 		/// Delivery fees exceeded the specified maximum.
 		FeesExceededMax,
 	}
@@ -1308,6 +1310,7 @@ pub mod pallet {
 		pub fn set_keys(
 			origin: OriginFor<T>,
 			keys: Vec<u8>,
+			proof: Vec<u8>,
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
@@ -1326,8 +1329,11 @@ pub mod pallet {
 			}
 
 			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
-			let _ = T::RelayChainSessionKeys::decode(&mut &keys[..])
+			let session_keys = T::RelayChainSessionKeys::decode(&mut &keys[..])
 				.map_err(|_| Error::<T>::InvalidKeys)?;
+
+			// No-op until we backport PR #1739.
+			ensure!(session_keys.ownership_proof_is_valid(&proof), Error::<T>::InvalidProof);
 
 			// Forward validated keys to RC
 			let fees = T::SendToRelayChain::set_keys(
