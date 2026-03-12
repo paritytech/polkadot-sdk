@@ -1469,6 +1469,11 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 	type AssetsInstance = Instance1;
 }
 
+impl pallet_assets_precompiles::PermitConfig for Runtime {
+	type ChainId = ConstU64<420_420_420>;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_tips::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DataDepositPerByte = DataDepositPerByte;
@@ -2883,6 +2888,9 @@ mod runtime {
 
 	#[runtime::pallet_index(91)]
 	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(92)]
+	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.

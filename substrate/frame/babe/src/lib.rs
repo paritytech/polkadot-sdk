@@ -337,6 +337,11 @@ pub mod pallet {
 			Weight::zero()
 		}
 
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		/// Block finalization
 		fn on_finalize(_now: BlockNumberFor<T>) {
 			// at the end of the block, we can safely include the new VRF output
@@ -924,6 +929,64 @@ impl<T: Config> Pallet<T> {
 		key_owner_proof: T::KeyOwnerProof,
 	) -> Option<()> {
 		T::EquivocationReportSystem::publish_evidence((equivocation_proof, key_owner_proof)).ok()
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// # Invariants
+	///
+	/// * `Authorities` length must not exceed `MaxAuthorities`.
+	/// * `NextAuthorities` length must not exceed `MaxAuthorities`.
+	/// * `EpochConfig` must always be `Some` (initialized in genesis, never killed).
+	/// * `CurrentSlot` must be greater than or equal to `GenesisSlot` (after genesis
+	///   initialization).
+	/// * `SkippedEpochs` must be sorted by epoch index in ascending order.
+	/// * Each `SkippedEpochs` entry must have `epoch_index >= session_index`.
+	/// * `EpochStart` previous epoch start block must be less than or equal to the current epoch
+	///   start block.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
+
+		ensure!(
+			Authorities::<T>::decode_len().unwrap_or(0) as u32 <= T::MaxAuthorities::get(),
+			"Authorities length exceeds MaxAuthorities"
+		);
+
+		ensure!(
+			NextAuthorities::<T>::decode_len().unwrap_or(0) as u32 <= T::MaxAuthorities::get(),
+			"NextAuthorities length exceeds MaxAuthorities"
+		);
+
+		ensure!(
+			EpochConfig::<T>::get().is_some(),
+			"EpochConfig must be initialized and never be None"
+		);
+
+		let genesis_slot = *GenesisSlot::<T>::get();
+		ensure!(*CurrentSlot::<T>::get() >= genesis_slot, "CurrentSlot must be >= GenesisSlot");
+
+		let skipped_epochs = SkippedEpochs::<T>::get();
+		ensure!(
+			skipped_epochs.windows(2).all(|w| w[0].0 < w[1].0),
+			"SkippedEpochs must be sorted in ascending order by epoch index"
+		);
+		ensure!(
+			skipped_epochs
+				.iter()
+				.all(|(epoch_index, session_index)| *epoch_index >= *session_index as u64),
+			"SkippedEpochs entry has epoch_index < session_index"
+		);
+
+		let (previous_epoch_start, current_epoch_start) = EpochStart::<T>::get();
+		ensure!(
+			previous_epoch_start <= current_epoch_start,
+			"EpochStart previous epoch start must be <= current epoch start"
+		);
+
+		Ok(())
 	}
 }
 
