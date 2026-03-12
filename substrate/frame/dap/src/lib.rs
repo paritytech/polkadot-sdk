@@ -25,7 +25,7 @@
 //!   based on an [`InflationCurve`].
 //! - **Budget Distribution**: Distributes minted inflation across registered
 //!   [`sp_staking::BudgetRecipient`]s according to a governance-updatable
-//!   `BoundedBTreeMap<BudgetKey, Perbill>`. Buffer (DAP's own account) absorbs the remainder.
+//!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
 //! - **Slash Collection**: Implements `OnUnbalanced` to collect slashed funds into the buffer
 //!   account. Incoming funds are deactivated to exclude them from governance voting.
 
@@ -51,7 +51,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion};
+use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, Saturating, SaturatedConversion};
 use sp_staking::{BudgetKey, BudgetRecipientList, InflationCurve};
 
 pub use pallet::*;
@@ -165,7 +165,7 @@ pub mod pallet {
 	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
 	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
-	/// <= `Perbill::one()`. The remainder goes to the buffer account.
+	/// exactly `Perbill::one()` (100%). All recipients must be explicitly allocated.
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
@@ -188,6 +188,14 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			Self::drip_inflation()
+		}
+
+		fn integrity_test() {
+			assert!(
+				T::MaxElapsedPerDrip::get() > T::InflationCadence::get(),
+				"MaxElapsedPerDrip must be greater than InflationCadence, \
+				 otherwise every drip would be clamped below the cadence threshold."
+			);
 		}
 	}
 
@@ -231,7 +239,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// The DAP buffer account.
 		///
-		/// Collects: slashed funds, unclaimed rewards, and the remainder of each inflation drip.
+		/// Collects: slashed funds, unclaimed rewards, and its explicit budget allocation share.
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
@@ -281,6 +289,7 @@ pub mod pallet {
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
 
+			let buffer = Self::buffer_account();
 			for (key, account) in &recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(inflation);
@@ -289,7 +298,12 @@ pub mod pallet {
 						defensive!("Inflation mint should not fail");
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 					} else {
-						total_minted += amount;
+						total_minted = total_minted.saturating_add(amount);
+						// Deactivate funds minted to the buffer so they don't
+						// participate in governance voting (buffer is unspendable).
+						if *account == buffer {
+							<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+						}
 					}
 				}
 			}
