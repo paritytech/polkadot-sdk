@@ -218,7 +218,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_pusd::{AuctionsHandler, CollateralManager, DebtComponents, PaymentBreakdown};
 	use sp_runtime::{
-		traits::{One, SaturatedConversion, Saturating, Zero},
+		traits::{BlockNumberProvider, One, SaturatedConversion, Saturating, Zero},
 		FixedPointNumber, FixedU128, Permill,
 	};
 
@@ -504,6 +504,12 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Provider for block numbers used in auction timing (price decay, staleness).
+		///
+		/// Can be configured to use local block numbers (`frame_system::Pallet`) or
+		/// relay chain block numbers for parachains.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+
 		/// Collateral manager providing all asset operations.
 		/// Abstracts oracle, holds, stablecoin, and insurance fund interactions.
 		/// The Balance type is derived from this trait.
@@ -769,7 +775,7 @@ pub mod pallet {
 		///
 		/// Uses cursor-based pagination to continue across blocks, ensuring all
 		/// auctions are eventually processed.
-		fn on_idle(now: BlockNumberFor<T>, limit: Weight) -> Weight {
+		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 
 			// Early exit if not enough weight for minimum work.
@@ -798,6 +804,8 @@ pub mod pallet {
 			let max_items = T::MaxOnIdleItems::get();
 			let mut items_processed: u32 = 0;
 			let mut last_processed: Option<u32> = None;
+
+			let now = T::BlockNumberProvider::current_block_number();
 
 			for (id, auction) in iter {
 				if items_processed >= max_items {
@@ -1438,7 +1446,7 @@ pub mod pallet {
 				*n = n.saturating_add(1);
 				id
 			});
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			let auction = Auction {
 				auction_type: AuctionType::Liquidation,
@@ -1489,7 +1497,7 @@ pub mod pallet {
 		/// Get current auction price using configured price curve.
 		pub fn current_price(auction: &Auction<T>) -> FixedU128 {
 			let config = AuctionConfig::<T>::get(auction.auction_type);
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let elapsed: u64 = now.saturating_sub(auction.starting_block).saturated_into();
 			config.curve.calculate_price(auction.starting_price, config.buffer, elapsed)
 		}
@@ -1497,7 +1505,7 @@ pub mod pallet {
 		/// Check if auction needs restart (stale).
 		pub(crate) fn needs_restart(auction: &Auction<T>) -> bool {
 			let config = AuctionConfig::<T>::get(auction.auction_type);
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let elapsed = now.saturating_sub(auction.starting_block);
 
 			// Too much time elapsed
@@ -1778,7 +1786,7 @@ pub mod pallet {
 			let base_tab = auction.tab.total();
 
 			// 8. Update auction state (keeper incentive remains fixed from auction start)
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			auction.starting_block = now;
 			auction.starting_price = new_starting_price;
 			// Note: keeper_incentive is NOT updated - it's fixed at auction start
@@ -1876,7 +1884,7 @@ pub mod pallet {
 				*n = n.saturating_add(1);
 				id
 			});
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			let auction = Auction {
 				auction_type: AuctionType::Surplus,

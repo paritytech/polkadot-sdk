@@ -413,6 +413,7 @@ impl crate::Config for Test {
 	type SurplusAuctionThreshold = SurplusAuctionThreshold;
 	type SurplusAuctionAmount = SurplusAuctionAmount;
 	type MinSurplusPurchaseAmount = MinSurplusPurchaseAmount;
+	type BlockNumberProvider = System;
 	type ManagerOrigin = EnsureRoot<u64>;
 	type AdminOrigin = EnsureRoot<u64>;
 	type MaxOnIdleItems = MaxOnIdleItems;
