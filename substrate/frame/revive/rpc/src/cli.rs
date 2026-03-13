@@ -30,7 +30,7 @@ use sc_service::{
 	config::{BasePath, PrometheusConfig, RpcConfiguration},
 	start_rpc_servers,
 };
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use std::path::PathBuf;
 
 /// Specifies the eth-rpc pruning mode.
@@ -203,7 +203,12 @@ fn resolve_db_options(
 		})?;
 		let db_path = db_dir.join(DEFAULT_DATABASE_NAME);
 		log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
-		Ok(SqliteConnectOptions::new().filename(&db_path).create_if_missing(true))
+		// WAL mode allows concurrent writes from the live subscription
+		// and the backward sync without SQLITE_BUSY errors.
+		Ok(SqliteConnectOptions::new()
+			.filename(&db_path)
+			.create_if_missing(true)
+			.journal_mode(SqliteJournalMode::Wal))
 	} else {
 		Ok(SqliteConnectOptions::new().in_memory(true))
 	}

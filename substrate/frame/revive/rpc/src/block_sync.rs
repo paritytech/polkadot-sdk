@@ -230,35 +230,43 @@ impl Client {
 			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}",
 			tail.block_number, head.block_number, latest_finalized.block_number);
 
-		// Top gap: sync from latest_finalized down to head + 1.
-		if head.block_number < latest_finalized.block_number {
-			self.sync_backward_range(BackwardSyncRange {
-				from: latest_finalized.block_number,
-				to: head.block_number.saturating_add(1),
-				set_head: false,
-				checkpoint_tail: false,
-			})
-			.await?;
-
-			// Mark top gap complete so a restart during the bottom gap won't redo it.
-			self.receipt_provider()
-				.advance_sync_label(SyncLabel::Head, latest_finalized)
+		let top_gap = async {
+			// Top gap: sync from latest_finalized down to head + 1.
+			if head.block_number < latest_finalized.block_number {
+				self.sync_backward_range(BackwardSyncRange {
+					from: latest_finalized.block_number,
+					to: head.block_number.saturating_add(1),
+					set_head: false,
+					checkpoint_tail: false,
+				})
 				.await?;
-		}
 
-		// Bottom gap: sync from tail - 1 down to the first EVM block.
-		let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
-		if tail.block_number > first_evm {
-			self.sync_backward_range(BackwardSyncRange {
-				from: tail.block_number.saturating_sub(1),
-				to: first_evm,
-				set_head: false,
-				checkpoint_tail: true,
-			})
-			.await?;
-		} else {
-			log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
-		}
+				// Mark top gap complete so a restart won't redo it.
+				self.receipt_provider()
+					.advance_sync_label(SyncLabel::Head, latest_finalized)
+					.await?;
+			}
+			Ok::<_, ClientError>(())
+		};
+
+		let bottom_gap = async {
+			// Bottom gap: sync from tail - 1 down to the first EVM block.
+			let first_evm = self.receipt_provider().first_evm_block().unwrap_or(0);
+			if tail.block_number > first_evm {
+				self.sync_backward_range(BackwardSyncRange {
+					from: tail.block_number.saturating_sub(1),
+					to: first_evm,
+					set_head: false,
+					checkpoint_tail: true,
+				})
+				.await?;
+			} else {
+				log::debug!(target: LOG_TARGET, "🗄️ No backward gap to fill");
+			}
+			Ok::<_, ClientError>(())
+		};
+
+		tokio::try_join!(top_gap, bottom_gap)?;
 
 		Ok(())
 	}
