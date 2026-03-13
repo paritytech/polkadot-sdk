@@ -183,23 +183,20 @@ mod benchmarks {
 			&deadline,
 		);
 
-		// Sign with Hardhat account #0 private key.
-		// Private key for 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Hardhat #0).
-		// This is a well-known public test key, safe to embed in benchmark code.
-		let hardhat_sk: [u8; 32] = [
-			0xac, 0x09, 0x74, 0xbe, 0xc3, 0x9a, 0x17, 0xe3, 0x6b, 0xa4, 0xa6, 0xb4, 0xd2, 0x38,
-			0xff, 0x94, 0x4b, 0xac, 0xb4, 0x78, 0xcb, 0xed, 0x5e, 0xfc, 0xae, 0x78, 0x4d, 0x7b,
-			0xf4, 0xf2, 0xff, 0x80,
-		];
-		let signing_key = k256::ecdsa::SigningKey::from_slice(&hardhat_sk)
-			.expect("valid 32-byte Hardhat test key");
-		let (sig, recovery_id) = signing_key
-			.sign_prehash_recoverable(&digest)
-			.expect("signing with 32-byte digest cannot fail");
-		let sig_bytes = sig.to_bytes();
+		// Sign with Hardhat account #0 private key via sp_io host function.
+		// This works in both native and WASM benchmark environments, unlike
+		// using k256 directly which may not work in the WASM sandbox.
+		let key_type = sp_core::crypto::KeyTypeId(*b"prmt");
+		let pub_key = sp_io::crypto::ecdsa_generate(
+			key_type,
+			Some(b"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".to_vec()),
+		);
+		let sig = sp_io::crypto::ecdsa_sign_prehashed(key_type, &pub_key, &digest)
+			.expect("signing with Hardhat #0 key must succeed; qed");
+		let sig_bytes: &[u8; 65] = sig.as_ref();
 		let r: [u8; 32] = sig_bytes[0..32].try_into().expect("r is 32 bytes");
 		let s: [u8; 32] = sig_bytes[32..64].try_into().expect("s is 32 bytes");
-		let v: u8 = recovery_id.to_byte() + 27;
+		let v: u8 = sig_bytes[64] + 27;
 
 		#[block]
 		{
