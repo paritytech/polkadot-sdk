@@ -255,6 +255,8 @@ impl TestCandidateBuilder {
 				new_validation_code: None,
 				processed_downward_messages: 0,
 				hrmp_watermark: 0_u32,
+				provides: None,
+				requires: Vec::new(),
 			},
 		}
 	}
@@ -329,6 +331,8 @@ async fn assert_validate_from_exhaustive(
 					new_validation_code: None,
 					processed_downward_messages: 0,
 					hrmp_watermark: 0,
+					provides: None,
+					requires: Vec::new(),
 				},
 				result_validation_data,
 			)))
@@ -682,6 +686,8 @@ async fn assert_validate_seconded_candidate(
 					new_validation_code: None,
 					processed_downward_messages: 0,
 					hrmp_watermark: 0,
+					provides: None,
+					requires: Vec::new(),
 				},
 				assert_pvd.clone(),
 			)))
@@ -3881,6 +3887,8 @@ fn concurrent_dependent_candidates() {
 								new_validation_code: None,
 								processed_downward_messages: 0,
 								hrmp_watermark: 0,
+								provides: None,
+								requires: Vec::new(),
 							},
 							pvd.clone(),
 						)))

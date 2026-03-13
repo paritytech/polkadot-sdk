@@ -341,7 +341,22 @@ pub mod pallet {
 		/// The `para_head` hash in the candidate descriptor doesn't match the hash of the actual
 		/// para head in the commitments.
 		ParaHeadMismatch,
+		/// A speculative messaging `requires` commitment references a provides root that does
+		/// not match any currently included provides commitment for the source parachain.
+		SpeculativeMessagingMismatch,
 	}
+
+	/// Most recently included speculative messaging provides root per parachain.
+	///
+	/// Updated when a candidate with a `provides` commitment is enacted. Used to verify that
+	/// `requires` commitments from receiving parachains reference a valid provides root.
+	#[pallet::storage]
+	pub(crate) type IncludedProvidesRoots<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		polkadot_primitives_speculative_messaging::ProvidesCommitment,
+	>;
 
 	/// Candidates pending availability by `ParaId`. They form a chain starting from the latest
 	/// included head of the para.
@@ -379,6 +394,9 @@ enum AcceptanceCheckErr {
 	HrmpWatermark,
 	/// The candidate violated this outbound HRMP acceptance criteria.
 	OutboundHrmp,
+	/// A speculative messaging requires commitment references an unknown or mismatched provides
+	/// root.
+	SpeculativeMessagingMismatch,
 }
 
 impl From<dmp::ProcessedDownwardMessagesAcceptanceErr> for AcceptanceCheckErr {
@@ -822,6 +840,7 @@ impl<T: Config> Pallet<T> {
 			&validation_outputs.upward_messages,
 			BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
 			&validation_outputs.horizontal_messages,
+			&validation_outputs.requires,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
@@ -892,6 +911,11 @@ impl<T: Config> Pallet<T> {
 			receipt.descriptor.para_id(),
 			commitments.horizontal_messages,
 		);
+
+		// Enact speculative messaging commitments.
+		if let Some(provides) = &commitments.provides {
+			IncludedProvidesRoots::<T>::insert(receipt.descriptor.para_id(), provides);
+		}
 
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,
@@ -1173,6 +1197,7 @@ impl AcceptanceCheckErr {
 			UpwardMessages => Error::<T>::InvalidUpwardMessages,
 			HrmpWatermark => Error::<T>::HrmpWatermarkMishandling,
 			OutboundHrmp => Error::<T>::InvalidOutboundHrmp,
+			SpeculativeMessagingMismatch => Error::<T>::SpeculativeMessagingMismatch,
 		}
 	}
 }
@@ -1271,6 +1296,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			&backed_candidate_receipt.commitments.upward_messages,
 			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
 			&backed_candidate_receipt.commitments.horizontal_messages,
+			&backed_candidate_receipt.commitments.requires,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
@@ -1310,6 +1336,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		upward_messages: &[polkadot_primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
+		requires: &[polkadot_primitives::RequiresCommitment],
 	) -> Result<(), AcceptanceCheckErr> {
 		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
 		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
@@ -1380,6 +1407,28 @@ impl<T: Config> CandidateCheckContext<T> {
 				);
 				e
 			})?;
+
+		// Verify speculative messaging requires commitments.
+		// Each `requires` entry must reference a provides root that matches what the
+		// source parachain has actually published (stored in `IncludedProvidesRoots`).
+		for req in requires {
+			let source_provides = IncludedProvidesRoots::<T>::get(req.source);
+			match source_provides {
+				Some(provides) if req.matches_provides(req.source, &provides) => {},
+				_ => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Speculative messaging mismatch for parachain `{}`: \
+						 requires from source `{}` with root {:?}, but source provides {:?}",
+						u32::from(para_id),
+						u32::from(req.source),
+						req.expected_root,
+						source_provides.map(|p| p.root),
+					);
+					return Err(AcceptanceCheckErr::SpeculativeMessagingMismatch);
+				},
+			}
+		}
 
 		Ok(())
 	}

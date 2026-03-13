@@ -43,5 +43,7 @@ pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 			.expect("empty vec fits within bounds"),
 		processed_downward_messages: 0,
 		hrmp_watermark: params.relay_parent_number,
+		provides_spec_msg_root: None,
+		requires_spec_msg: alloc::vec::Vec::new(),
 	})
 }

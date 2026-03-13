@@ -36,6 +36,7 @@ sp-std = { workspace = true, optional = true }
 
 polkadot-core-primitives = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
+polkadot-primitives-speculative-messaging = { workspace = true }
 
 [features]
 default = ["std"]
@@ -46,6 +47,7 @@ std = [
 	"log/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives-speculative-messaging/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",

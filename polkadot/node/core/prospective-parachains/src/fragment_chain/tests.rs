@@ -153,6 +153,8 @@ impl CandidateBuilder {
 				head_data: self.para_head,
 				processed_downward_messages: 1,
 				hrmp_watermark: self.hrmp_watermark,
+				provides: None,
+				requires: Vec::new(),
 			},
 		};
 
@@ -172,6 +174,51 @@ fn populate_chain_from_previous_storage(
 
 	chain.populate_from_previous(relay_chain_scope, &prev_chain);
 	chain
+}
+
+/// Find a `para_head` byte such that the resulting candidate hash is greater than `lower_hash`.
+/// This is used to construct candidates with deterministic fork selection ordering.
+fn find_para_head_with_higher_hash(
+	para_id: ParaId,
+	relay_parent: Hash,
+	relay_parent_number: u32,
+	parent_head: HeadData,
+	lower_hash: &CandidateHash,
+) -> u8 {
+	for byte in 0u8..=255 {
+		let (_, candidate) = CandidateBuilder::new(para_id, relay_parent)
+			.relay_parent_number(relay_parent_number)
+			.parent_head(parent_head.clone())
+			.para_head(vec![byte].into())
+			.hrmp_watermark(relay_parent_number)
+			.build();
+		if &candidate.hash() > lower_hash {
+			return byte;
+		}
+	}
+	panic!("Could not find a para_head byte that produces a higher hash");
+}
+
+/// Find a `para_head` byte such that the resulting candidate hash is lower than `upper_hash`.
+fn find_para_head_with_lower_hash(
+	para_id: ParaId,
+	relay_parent: Hash,
+	relay_parent_number: u32,
+	parent_head: HeadData,
+	upper_hash: &CandidateHash,
+) -> u8 {
+	for byte in 0u8..=255 {
+		let (_, candidate) = CandidateBuilder::new(para_id, relay_parent)
+			.relay_parent_number(relay_parent_number)
+			.parent_head(parent_head.clone())
+			.para_head(vec![byte].into())
+			.hrmp_watermark(relay_parent_number)
+			.build();
+		if &candidate.hash() < upper_hash {
+			return byte;
+		}
+	}
+	panic!("Could not find a para_head byte that produces a lower hash");
 }
 
 #[test]
@@ -1103,11 +1150,18 @@ fn test_populate_and_check_potential() {
 		.is_ok());
 	storage.add_candidate_entry(candidate_f_entry.clone()).unwrap();
 
-	// Candidate A1
+	// Candidate A1 — must have a higher hash than candidate A for fork selection.
+	let a1_para_head_byte = find_para_head_with_higher_hash(
+		para_id,
+		relay_parent_x_info.hash,
+		relay_parent_x_info.number,
+		vec![0x0a].into(),
+		&candidate_a_hash,
+	);
 	let (pvd_a1, candidate_a1) = CandidateBuilder::new(para_id, relay_parent_x_info.hash)
 		.relay_parent_number(relay_parent_x_info.number)
 		.parent_head(vec![0x0a].into())
-		.para_head(vec![0xb1].into())
+		.para_head(vec![a1_para_head_byte].into())
 		.hrmp_watermark(relay_parent_x_info.number)
 		.build();
 	let candidate_a1_hash = candidate_a1.hash();
@@ -1125,10 +1179,10 @@ fn test_populate_and_check_potential() {
 
 	storage.add_candidate_entry(candidate_a1_entry.clone()).unwrap();
 
-	// Candidate B1.
+	// Candidate B1 (parent_head must match A1's para_head).
 	let (pvd_b1, candidate_b1) = CandidateBuilder::new(para_id, relay_parent_x_info.hash)
 		.relay_parent_number(relay_parent_x_info.number)
-		.parent_head(vec![0xb1].into())
+		.parent_head(vec![a1_para_head_byte].into())
 		.para_head(vec![0xc1].into())
 		.hrmp_watermark(relay_parent_x_info.number)
 		.build();
@@ -1185,11 +1239,18 @@ fn test_populate_and_check_potential() {
 		.is_ok());
 	storage.add_candidate_entry(candidate_c2_entry).unwrap();
 
-	// Candidate A2.
+	// Candidate A2 — must have a lower hash than candidate A for fork selection.
+	let a2_para_head_byte = find_para_head_with_lower_hash(
+		para_id,
+		relay_parent_x_info.hash,
+		relay_parent_x_info.number,
+		vec![0x0a].into(),
+		&candidate_a_hash,
+	);
 	let (pvd_a2, candidate_a2) = CandidateBuilder::new(para_id, relay_parent_x_info.hash)
 		.relay_parent_number(relay_parent_x_info.number)
 		.parent_head(vec![0x0a].into())
-		.para_head(vec![0xb3].into())
+		.para_head(vec![a2_para_head_byte].into())
 		.hrmp_watermark(relay_parent_x_info.number)
 		.build();
 	let candidate_a2_hash = candidate_a2.hash();
@@ -1201,7 +1262,6 @@ fn test_populate_and_check_potential() {
 		false,
 	)
 	.unwrap();
-	// Candidate A2 is created so that its hash is greater than the candidate A hash.
 	assert_eq!(fork_selection_rule(&candidate_a2_hash, &candidate_a_hash), Ordering::Less);
 
 	assert!(populate_chain_from_previous_storage(&relay_chain_scope, &scope, &storage)
@@ -1210,10 +1270,10 @@ fn test_populate_and_check_potential() {
 
 	storage.add_candidate_entry(candidate_a2_entry).unwrap();
 
-	// Candidate B2.
+	// Candidate B2 (parent_head must match A2's para_head).
 	let (pvd_b2, candidate_b2) = CandidateBuilder::new(para_id, relay_parent_y_info.hash)
 		.relay_parent_number(relay_parent_y_info.number)
-		.parent_head(vec![0xb3].into())
+		.parent_head(vec![a2_para_head_byte].into())
 		.para_head(vec![0xb4].into())
 		.hrmp_watermark(relay_parent_y_info.number)
 		.build();
@@ -1293,15 +1353,21 @@ fn test_populate_and_check_potential() {
 		)
 		.unwrap();
 
-		// Candidate C4.
+		// Candidate C4 — must have a lower hash than C3 for fork selection.
+		let c4_para_head_byte = find_para_head_with_lower_hash(
+			para_id,
+			relay_parent_y_info.hash,
+			relay_parent_y_info.number,
+			vec![0xb4].into(),
+			&candidate_c3_hash,
+		);
 		let (pvd_c4, candidate_c4) = CandidateBuilder::new(para_id, relay_parent_y_info.hash)
 			.relay_parent_number(relay_parent_y_info.number)
 			.parent_head(vec![0xb4].into())
-			.para_head(vec![0xc3].into())
+			.para_head(vec![c4_para_head_byte].into())
 			.hrmp_watermark(relay_parent_y_info.number)
 			.build();
 		let candidate_c4_hash = candidate_c4.hash();
-		// C4 should have a lower candidate hash than C3.
 		assert_eq!(fork_selection_rule(&candidate_c4_hash, &candidate_c3_hash), Ordering::Less);
 		let candidate_c4_entry = CandidateEntry::new(
 			candidate_c4_hash,

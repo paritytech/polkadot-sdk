@@ -52,6 +52,7 @@ pallet-timestamp = { workspace = true }
 frame-election-provider-support = { workspace = true, optional = true }
 
 polkadot-primitives = { workspace = true }
+polkadot-primitives-speculative-messaging = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
@@ -102,6 +103,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
+	"polkadot-primitives-speculative-messaging/std",
 	"polkadot-runtime-metrics/std",
 	"rand/std",
 	"rand_chacha/std",

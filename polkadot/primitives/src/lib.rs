@@ -35,6 +35,9 @@ pub mod runtime_api;
 
 extern crate alloc;
 
+/// Re-export speculative messaging primitive types.
+pub use polkadot_primitives_speculative_messaging::{ProvidesCommitment, RequiresCommitment};
+
 // Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
 pub use v9::{

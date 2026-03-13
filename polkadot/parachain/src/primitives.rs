@@ -539,6 +539,13 @@ pub struct ValidationResult {
 	/// The mark which specifies the block number up to which all inbound HRMP messages are
 	/// processed.
 	pub hrmp_watermark: RelayChainBlockNumber,
+	/// Speculative messaging provides root. If `Some`, contains the top-level Merkle root
+	/// over all per-destination MMR roots for this parachain's outgoing speculative messages.
+	pub provides_spec_msg_root: Option<sp_core::H256>,
+	/// Speculative messaging requires commitments. Each entry is a `(source_para_id,
+	/// expected_provides_root)` pair indicating that this parachain consumed messages
+	/// from `source_para_id` against the given provides root.
+	pub requires_spec_msg: Vec<(Id, sp_core::H256)>,
 }
 
 #[cfg(test)]

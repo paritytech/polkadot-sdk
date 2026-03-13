@@ -1080,6 +1080,19 @@ async fn validate_candidate_exhaustive(
 						new_validation_code: res.new_validation_code,
 						processed_downward_messages: res.processed_downward_messages,
 						hrmp_watermark: res.hrmp_watermark,
+						provides: res.provides_spec_msg_root.map(|root| {
+							polkadot_primitives::ProvidesCommitment { root }
+						}),
+						requires: res
+							.requires_spec_msg
+							.into_iter()
+							.map(|(source, expected_root)| {
+								polkadot_primitives::RequiresCommitment {
+									source,
+									expected_root,
+								}
+							})
+							.collect(),
 					},
 				};
 

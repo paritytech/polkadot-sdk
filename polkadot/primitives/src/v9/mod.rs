@@ -559,6 +559,17 @@ pub struct CandidateCommitments<N = BlockNumber> {
 	/// The mark which specifies the block number up to which all inbound HRMP messages are
 	/// processed.
 	pub hrmp_watermark: N,
+	/// Speculative messaging provides commitment.
+	///
+	/// If `Some`, contains the top-level Merkle root over all per-destination MMR roots
+	/// for this parachain's outgoing speculative messages.
+	pub provides: Option<polkadot_primitives_speculative_messaging::ProvidesCommitment>,
+	/// Speculative messaging requires commitments.
+	///
+	/// Each entry indicates that this parachain consumed messages from a source parachain
+	/// against the given provides root. The relay chain verifies that each referenced
+	/// provides root matches what the source actually published.
+	pub requires: Vec<polkadot_primitives_speculative_messaging::RequiresCommitment>,
 }
 
 impl CandidateCommitments {

@@ -378,6 +378,8 @@ where
 		processed_downward_messages,
 		horizontal_messages,
 		hrmp_watermark,
+		provides_spec_msg_root: None,
+		requires_spec_msg: Vec::new(),
 	}
 }
 
