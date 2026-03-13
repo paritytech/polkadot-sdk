@@ -142,9 +142,7 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	let mut config = DEFAULT_CONFIG.clone();
 	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
-	let ecc_hf_enabled = executor_params
-		.iter()
-		.any(|p| matches!(p, ExecutorParam::EccHostFn));
+	let ecc_hf_enabled = executor_params.iter().any(|p| matches!(p, ExecutorParam::EccHostFn));
 
 	if ecc_hf_enabled {
 		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctionsWithEcc>(
@@ -495,11 +493,7 @@ mod tests {
 				base.clone(),
 				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
 			),
-			(
-				"EccHostFn",
-				base.clone(),
-				ExecutorParams::from(&[ExecutorParam::EccHostFn][..]),
-			),
+			("EccHostFn", base.clone(), ExecutorParams::from(&[ExecutorParam::EccHostFn][..])),
 		];
 
 		for (name, a, b) in cases.into_iter() {

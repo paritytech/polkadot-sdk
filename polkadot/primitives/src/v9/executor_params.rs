@@ -459,9 +459,7 @@ fn ensure_prep_hash_changes() {
 			WasmExtBulkMemory => {
 				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..]))
 			},
-			EccHostFn => {
-				(ExecutorParams::default(), ExecutorParams::from(&[EccHostFn][..]))
-			},
+			EccHostFn => (ExecutorParams::default(), ExecutorParams::from(&[EccHostFn][..])),
 		};
 
 		assert_ne!(ep1.prep_hash(), ep2.prep_hash());
