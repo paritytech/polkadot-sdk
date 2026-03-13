@@ -609,8 +609,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	/// Create Bitswap server.
 	fn bitswap_server(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		prometheus_registry: Option<&Registry>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapServer::new(client)
+		BitswapServer::new(client, prometheus_registry)
 	}
 
 	/// Create notification protocol configuration for `protocol`.
