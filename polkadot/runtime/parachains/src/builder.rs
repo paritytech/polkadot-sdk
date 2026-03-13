@@ -410,7 +410,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			processed_downward_messages: 0,
 			hrmp_watermark: 0u32.into(),
 			provides: None,
-			requires: Vec::new(),
+			requires: Default::default(),
 		};
 		let candidate_availability = Self::candidate_availability_mock(
 			para_id,
@@ -732,7 +732,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								processed_downward_messages: 0,
 								hrmp_watermark: self.relay_parent_number(),
 								provides: None,
-								requires: Vec::new(),
+								requires: Default::default(),
 							},
 						};
 

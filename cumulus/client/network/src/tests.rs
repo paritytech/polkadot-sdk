@@ -83,7 +83,7 @@ fn dummy_candidate() -> CommittedCandidateReceiptV2 {
 			processed_downward_messages: 0,
 			hrmp_watermark: 0,
 			provides: None,
-			requires: Vec::new(),
+			requires: Default::default(),
 		},
 	}
 }

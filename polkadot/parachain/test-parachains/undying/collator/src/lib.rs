@@ -607,7 +607,7 @@ impl Collator {
 						processed_downward_messages: collation.processed_downward_messages,
 						hrmp_watermark: collation.hrmp_watermark,
 						provides: None,
-						requires: Vec::new(),
+						requires: Default::default(),
 					};
 
 					// Submit the same collation to all assigned cores.

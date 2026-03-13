@@ -64,7 +64,7 @@ pub use polkadot_core_primitives::v2::{
 // Export some polkadot-parachain primitives
 pub use polkadot_parachain_primitives::primitives::{
 	HeadData, HorizontalMessages, HrmpChannelId, Id, Id as ParaId, UpwardMessage, UpwardMessages,
-	ValidationCode, ValidationCodeHash, LOWEST_PUBLIC_ID,
+	ValidationCode, ValidationCodeHash, LOWEST_PUBLIC_ID, MAX_REQUIRES_COMMITMENT_NUM,
 };
 
 /// Signed data.
@@ -569,7 +569,8 @@ pub struct CandidateCommitments<N = BlockNumber> {
 	/// Each entry indicates that this parachain consumed messages from a source parachain
 	/// against the given provides root. The relay chain verifies that each referenced
 	/// provides root matches what the source actually published.
-	pub requires: Vec<polkadot_primitives_speculative_messaging::RequiresCommitment>,
+	pub requires:
+		BoundedVec<polkadot_primitives_speculative_messaging::RequiresCommitment, ConstU32<MAX_REQUIRES_COMMITMENT_NUM>>,
 }
 
 impl CandidateCommitments {

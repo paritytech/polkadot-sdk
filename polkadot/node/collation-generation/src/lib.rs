@@ -632,7 +632,7 @@ async fn construct_and_distribute_receipt(
 		processed_downward_messages: collation.processed_downward_messages,
 		hrmp_watermark: collation.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let receipt = {

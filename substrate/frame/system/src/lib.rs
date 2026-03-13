@@ -1141,7 +1141,7 @@ pub mod pallet {
 					if Self::can_set_code(&code, false).is_ok() {
 						return Ok(ValidTransaction {
 							priority: u64::max_value(),
-							requires: Vec::new(),
+							requires: Default::default(),
 							provides: vec![res.code_hash.encode()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: true,
@@ -1163,7 +1163,7 @@ pub mod pallet {
 					if task.is_valid() {
 						return Ok(ValidTransaction {
 							priority: u64::max_value(),
-							requires: Vec::new(),
+							requires: Default::default(),
 							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: false,

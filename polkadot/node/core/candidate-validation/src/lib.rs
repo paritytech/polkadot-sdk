@@ -1092,7 +1092,11 @@ async fn validate_candidate_exhaustive(
 									expected_root,
 								}
 							})
-							.collect(),
+							.collect::<Vec<_>>()
+							.try_into()
+							.expect(
+								"requires_spec_msg is bounded by the same limit; qed",
+							),
 					},
 				};
 

@@ -190,7 +190,7 @@ pub fn create_fake_candidate_commitments(
 		processed_downward_messages: 0,
 		hrmp_watermark: persisted_validation_data.relay_parent_number,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	}
 }
 

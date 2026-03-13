@@ -81,7 +81,7 @@ fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 		processed_downward_messages: 0,
 		hrmp_watermark: 10,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	}
 }
 

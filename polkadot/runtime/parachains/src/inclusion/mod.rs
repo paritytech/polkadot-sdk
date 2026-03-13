@@ -344,6 +344,8 @@ pub mod pallet {
 		/// A speculative messaging `requires` commitment references a provides root that does
 		/// not match any currently included provides commitment for the source parachain.
 		SpeculativeMessagingMismatch,
+		/// Too many speculative messaging `requires` entries in the candidate.
+		TooManyRequiresCommitments,
 	}
 
 	/// Most recently included speculative messaging provides root per parachain.
@@ -397,6 +399,8 @@ enum AcceptanceCheckErr {
 	/// A speculative messaging requires commitment references an unknown or mismatched provides
 	/// root.
 	SpeculativeMessagingMismatch,
+	/// Too many speculative messaging `requires` entries in the candidate.
+	TooManyRequiresCommitments,
 }
 
 impl From<dmp::ProcessedDownwardMessagesAcceptanceErr> for AcceptanceCheckErr {
@@ -489,6 +493,16 @@ impl<T: Config> Pallet<T> {
 		for _ in PendingAvailability::<T>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
+		Self::cleanup_outgoing_provides_roots(outgoing_paras);
+	}
+
+	/// Remove `IncludedProvidesRoots` entries for parachains that are offboarding.
+	/// This prevents stale provides roots from persisting after a para deregisters
+	/// and avoids incorrect matches if the `ParaId` is later reused.
+	pub(crate) fn cleanup_outgoing_provides_roots(outgoing: &[ParaId]) {
+		for outgoing_para in outgoing {
+			IncludedProvidesRoots::<T>::remove(outgoing_para);
+		}
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queues(outgoing: &[ParaId]) {
@@ -1198,6 +1212,7 @@ impl AcceptanceCheckErr {
 			HrmpWatermark => Error::<T>::HrmpWatermarkMishandling,
 			OutboundHrmp => Error::<T>::InvalidOutboundHrmp,
 			SpeculativeMessagingMismatch => Error::<T>::SpeculativeMessagingMismatch,
+			TooManyRequiresCommitments => Error::<T>::TooManyRequiresCommitments,
 		}
 	}
 }
@@ -1409,6 +1424,13 @@ impl<T: Config> CandidateCheckContext<T> {
 			})?;
 
 		// Verify speculative messaging requires commitments.
+		// Limit the number of requires entries to prevent unbounded storage reads.
+		ensure!(
+			requires.len() <=
+				polkadot_primitives::MAX_REQUIRES_COMMITMENT_NUM as usize,
+			AcceptanceCheckErr::TooManyRequiresCommitments,
+		);
+
 		// Each `requires` entry must reference a provides root that matches what the
 		// source parachain has actually published (stored in `IncludedProvidesRoots`).
 		for req in requires {

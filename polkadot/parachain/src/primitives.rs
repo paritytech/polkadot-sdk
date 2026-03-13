@@ -519,6 +519,13 @@ pub type UpwardMessages = BoundedVec<UpwardMessage, ConstU32<MAX_UPWARD_MESSAGE_
 pub type HorizontalMessages =
 	BoundedVec<OutboundHrmpMessage<Id>, ConstU32<MAX_HORIZONTAL_MESSAGE_NUM>>;
 
+/// Maximum number of speculative messaging `requires` commitments allowed per candidate.
+///
+/// This limits the number of storage reads performed during the acceptance check, preventing
+/// a malicious parachain from inflating relay-chain block processing via an unbounded
+/// `requires` vector.
+pub const MAX_REQUIRES_COMMITMENT_NUM: u32 = 1024;
+
 /// The result of parachain validation.
 // TODO: balance uploads (https://github.com/paritytech/polkadot/issues/220)
 #[derive(PartialEq, Eq, Clone, Encode)]
@@ -545,7 +552,7 @@ pub struct ValidationResult {
 	/// Speculative messaging requires commitments. Each entry is a `(source_para_id,
 	/// expected_provides_root)` pair indicating that this parachain consumed messages
 	/// from `source_para_id` against the given provides root.
-	pub requires_spec_msg: Vec<(Id, sp_core::H256)>,
+	pub requires_spec_msg: BoundedVec<(Id, sp_core::H256), ConstU32<MAX_REQUIRES_COMMITMENT_NUM>>,
 }
 
 #[cfg(test)]

@@ -366,7 +366,7 @@ pub fn dummy_candidate_commitments(head_data: impl Into<Option<HeadData>>) -> Ca
 		processed_downward_messages: 0,
 		hrmp_watermark: 0_u32,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	}
 }
 
@@ -497,7 +497,7 @@ pub fn make_candidate(
 		processed_downward_messages: 0,
 		hrmp_watermark: relay_parent_number,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let mut candidate =
@@ -530,7 +530,7 @@ pub fn make_candidate_v2(
 		processed_downward_messages: 0,
 		hrmp_watermark: relay_parent_number,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let mut descriptor = dummy_candidate_descriptor_v2(relay_parent_hash);

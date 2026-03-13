@@ -560,7 +560,7 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 				processed_downward_messages: 0,
 				hrmp_watermark: 0_u32,
 				provides: None,
-				requires: Vec::new(),
+				requires: Default::default(),
 			},
 		});
 	}

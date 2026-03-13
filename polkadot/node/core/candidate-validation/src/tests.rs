@@ -518,7 +518,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 
 	if v2_descriptor {
@@ -539,7 +539,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		processed_downward_messages: validation_result.processed_downward_messages,
 		hrmp_watermark: validation_result.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
@@ -615,7 +615,7 @@ fn invalid_session_or_ump_signals() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 
 	validation_result.upward_messages.force_push(UMP_SEPARATOR);
@@ -631,7 +631,7 @@ fn invalid_session_or_ump_signals() {
 		processed_downward_messages: validation_result.processed_downward_messages,
 		hrmp_watermark: validation_result.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let mut candidate_receipt =
@@ -945,7 +945,7 @@ fn v3_descriptor_validation() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 	validation_result_with_signals.upward_messages.force_push(UMP_SEPARATOR);
 	validation_result_with_signals
@@ -960,7 +960,7 @@ fn v3_descriptor_validation() {
 		processed_downward_messages: validation_result_with_signals.processed_downward_messages,
 		hrmp_watermark: validation_result_with_signals.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	// Validation result WITHOUT UMP signals
@@ -972,7 +972,7 @@ fn v3_descriptor_validation() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 
 	let commitments_no_signals = CandidateCommitments {
@@ -983,7 +983,7 @@ fn v3_descriptor_validation() {
 		processed_downward_messages: validation_result_no_signals.processed_downward_messages,
 		hrmp_watermark: validation_result_no_signals.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	// Setup claim queue with para assigned to core 0
@@ -1292,7 +1292,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 
 	let commitments = CandidateCommitments {
@@ -1303,7 +1303,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		processed_downward_messages: validation_result.processed_downward_messages,
 		hrmp_watermark: validation_result.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
@@ -1572,7 +1572,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 12345,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 
 	let result = executor::block_on(validate_candidate_exhaustive(
@@ -1680,7 +1680,7 @@ fn compressed_code_works() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 		provides_spec_msg_root: None,
-		requires_spec_msg: Vec::new(),
+		requires_spec_msg: Default::default(),
 	};
 
 	let commitments = CandidateCommitments {
@@ -1691,7 +1691,7 @@ fn compressed_code_works() {
 		processed_downward_messages: validation_result.processed_downward_messages,
 		hrmp_watermark: validation_result.hrmp_watermark,
 		provides: None,
-		requires: Vec::new(),
+		requires: Default::default(),
 	};
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
