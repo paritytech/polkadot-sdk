@@ -20,72 +20,82 @@
 use super::*;
 use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-/// Trait to provide the initial value for [`LastInflationTimestamp`].
+/// Provides the initial `LastInflationTimestamp` for the v1 → v2 migration.
 ///
-/// On existing chains, this should return the active era's start timestamp from staking.
-/// This ensures the first drip after upgrade uses a reasonable elapsed time rather than
-/// treating the entire time since genesis as elapsed.
+/// On existing chains, this should return the active era's start timestamp from staking
+/// so the first drip uses a reasonable elapsed time.
 pub trait LastInflationTimestampProvider {
-	/// Returns the timestamp (ms since UNIX epoch) to seed `LastInflationTimestamp` with.
-	///
-	/// Typically implemented by reading `ActiveEra.start` from pallet-staking-async.
 	fn last_inflation_timestamp() -> u64;
 }
 
-/// Wrap with [`VersionedMigration`] to get version checks and storage version bumps.
+/// V1 to V2 migration: initializes `LastInflationTimestamp` and seeds `BudgetAllocation`.
 ///
-/// [`VersionedMigration`]: frame_support::migrations::VersionedMigration
-pub type MigrateV1ToV2<T, P> = frame_support::migrations::VersionedMigration<
+/// - `T`: DAP pallet config
+/// - `P`: Provides initial timestamp
+/// - `B`: Initial budget allocation map
+pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
-	InitLastInflationTimestamp<T, P>,
+	InnerMigrateV1ToV2<T, P, B>,
 	pallet::Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
 
-/// Inner migration logic: initializes `LastInflationTimestamp` from an external source.
-/// Use [`MigrateV1ToV2`] instead of this type directly.
-///
-/// # Type Parameters
-/// - `T`: DAP pallet config
-/// - `P`: Provider of the initial timestamp (e.g., reads `ActiveEra.start` from staking)
-pub struct InitLastInflationTimestamp<T, P>(core::marker::PhantomData<(T, P)>);
+/// Inner (unversioned) migration logic. Use [`MigrateV1ToV2`] instead.
+pub struct InnerMigrateV1ToV2<T, P, B>(core::marker::PhantomData<(T, P, B)>);
 
-impl<T: Config, P: LastInflationTimestampProvider> UncheckedOnRuntimeUpgrade
-	for InitLastInflationTimestamp<T, P>
+impl<T: Config, P: LastInflationTimestampProvider, B: Get<BudgetAllocationMap>>
+	UncheckedOnRuntimeUpgrade for InnerMigrateV1ToV2<T, P, B>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		let current = crate::pallet::LastInflationTimestamp::<T>::get();
-		// Idempotent: if already set, nothing to do.
-		if current != 0 {
-			log::info!(
-				target: LOG_TARGET,
-				"LastInflationTimestamp already set to {current}, skipping"
-			);
-			return T::DbWeight::get().reads(1);
+		let mut weight = T::DbWeight::get().reads(2);
+
+		// Seed LastInflationTimestamp (idempotent).
+		let current_ts = LastInflationTimestamp::<T>::get();
+		if current_ts == 0 {
+			let ts = P::last_inflation_timestamp();
+			LastInflationTimestamp::<T>::put(ts);
+			weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			log::info!(target: LOG_TARGET, "Initialized LastInflationTimestamp to {ts}");
 		}
 
-		let timestamp = P::last_inflation_timestamp();
-		crate::pallet::LastInflationTimestamp::<T>::put(timestamp);
-		log::info!(
-			target: LOG_TARGET,
-			"Initialized LastInflationTimestamp to {timestamp}"
-		);
-		T::DbWeight::get().reads_writes(2, 1)
+		// Seed BudgetAllocation (idempotent).
+		let current_budget = BudgetAllocation::<T>::get();
+		if current_budget.is_empty() {
+			BudgetAllocation::<T>::put(B::get());
+			weight = weight.saturating_add(T::DbWeight::get().writes(1));
+			log::info!(target: LOG_TARGET, "Initialized BudgetAllocation with default budget");
+		}
+
+		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		frame_support::ensure!(
+			LastInflationTimestamp::<T>::get() == 0 ||
+				BudgetAllocation::<T>::get().is_empty(),
+			"Migration not needed: both LastInflationTimestamp and BudgetAllocation already set"
+		);
 		Ok(alloc::vec::Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let ts = crate::pallet::LastInflationTimestamp::<T>::get();
 		frame_support::ensure!(
-			ts != 0,
+			LastInflationTimestamp::<T>::get() != 0,
 			"LastInflationTimestamp should be non-zero after migration"
 		);
+
+		let budget = BudgetAllocation::<T>::get();
+		frame_support::ensure!(!budget.is_empty(), "BudgetAllocation should be non-empty");
+
+		let total: u32 = budget.values().map(|p| p.deconstruct()).sum();
+		frame_support::ensure!(
+			total == Perbill::one().deconstruct(),
+			"BudgetAllocation must sum to 100%"
+		);
+
 		Ok(())
 	}
 }

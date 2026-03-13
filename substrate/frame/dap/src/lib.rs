@@ -187,7 +187,7 @@ pub mod pallet {
 	/// Timestamp (ms) of the last inflation drip.
 	///
 	/// On existing chains, this must be seeded via
-	/// [`migrations::InitLastInflationTimestamp`] to prevent incorrect minting on the first drip.
+	/// [`migrations::MigrateV1ToV2`] to prevent incorrect minting on the first drip.
 	#[pallet::storage]
 	pub type LastInflationTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
@@ -329,7 +329,7 @@ pub mod pallet {
 			}
 
 			// First block after genesis: initialize timestamp, don't drip.
-			// For existing chains, use `migrations::InitLastInflationTimestamp` to seed this
+			// For existing chains, use `migrations::MigrateV1ToV2` to seed this
 			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
 				LastInflationTimestamp::<T>::put(now);

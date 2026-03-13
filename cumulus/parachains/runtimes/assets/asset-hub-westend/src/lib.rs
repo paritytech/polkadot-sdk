@@ -1547,14 +1547,34 @@ parameter_types! {
 	);
 }
 
-/// Provides the initial `LastInflationTimestamp` for DAP migration by reading staking's active era
-/// start.
-pub struct DapLastInflationTimestampProvider;
-impl pallet_dap::migrations::LastInflationTimestampProvider for DapLastInflationTimestampProvider {
+/// Provides the initial `LastInflationTimestamp` for DAP migration.
+pub struct DapLastInflationTimestamp;
+impl pallet_dap::migrations::LastInflationTimestampProvider for DapLastInflationTimestamp {
 	fn last_inflation_timestamp() -> u64 {
 		pallet_staking_async::ActiveEra::<Runtime>::get()
 			.and_then(|era| era.start)
 			.unwrap_or(0)
+	}
+}
+
+/// Default budget: 85% staker rewards, 15% buffer, 0% validator incentive.
+///
+/// Keys are read from `BudgetRecipients` registered in the runtime config.
+pub struct DefaultDapBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		use sp_runtime::Perbill;
+		use sp_staking::BudgetRecipientList;
+
+		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
+		// [dap, StakerRewardRecipient, ValidatorIncentiveRecipient]
+		let percentages = [Perbill::from_percent(15), Perbill::from_percent(85), Perbill::zero()];
+
+		let mut map = pallet_dap::BudgetAllocationMap::new();
+		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
+			let _ = map.try_insert(key, perbill);
+		}
+		map
 	}
 }
 
@@ -1598,7 +1618,7 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
-	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastInflationTimestampProvider>,
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastInflationTimestamp, DefaultDapBudget>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
