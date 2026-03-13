@@ -729,12 +729,15 @@ fn take_rejects_dusty_remainder() {
 			Error::<Test>::DustyAuction
 		);
 
-		// Full take should still work (clears the auction)
+		// Full take should still work (clears the auction).
+		// When owe > tab, rounding pushes effective price slightly above spot,
+		// so add 1% slippage.
+		let max_with_slippage = price.saturating_mul(FixedU128::from_rational(101, 100));
 		assert_ok!(crate::Pallet::<Test>::take_liquidation(
 			RuntimeOrigin::signed(BOB),
 			auction_id,
 			collateral, // Take all
-			price,
+			max_with_slippage,
 			BOB,
 		));
 	});
@@ -825,12 +828,15 @@ fn excess_collateral_returned_to_owner() {
 			.unwrap()
 			.saturating_mul_int(1u128);
 
-		// Request all collateral - system should only take what's needed for tab
+		// Request all collateral - system should only take what's needed for tab.
+		// When owe > tab, rounding pushes effective price slightly above spot,
+		// so add 1%.
+		let max_with_slippage = price.saturating_mul(FixedU128::from_rational(101, 100));
 		assert_ok!(crate::Pallet::<Test>::take_liquidation(
 			RuntimeOrigin::signed(BOB),
 			auction_id,
 			collateral, // Request all
-			price,
+			max_with_slippage,
 			BOB,
 		));
 
@@ -2527,12 +2533,15 @@ fn take_caps_owe_when_collateral_exceeds_debt() {
 
 		let bob_pusd_before = Assets::balance(STABLECOIN_ASSET_ID, BOB);
 
-		// Request all collateral, but owe should cap at tab
+		// Request all collateral, but owe should cap at tab.
+		// When owe > tab, rounding pushes effective price slightly above spot,
+		// so add 1% slippage.
+		let max_with_slippage = price.saturating_mul(FixedU128::from_rational(101, 100));
 		assert_ok!(crate::Pallet::<Test>::take_liquidation(
 			RuntimeOrigin::signed(BOB),
 			auction_id,
 			collateral,
-			price,
+			max_with_slippage,
 			BOB
 		));
 

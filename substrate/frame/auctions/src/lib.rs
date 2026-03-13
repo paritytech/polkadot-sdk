@@ -790,6 +790,8 @@ pub mod pallet {
 		SurplusAuctionsDisabled,
 		/// Direct transfer is disabled in Auction mode.
 		DirectTransferDisabled,
+		/// Current auction price is zero (auction expired or misconfigured).
+		InvalidPrice,
 	}
 
 	#[pallet::hooks]
@@ -1641,8 +1643,9 @@ pub mod pallet {
 			max: FixedU128,
 			recipient: T::AccountId,
 		) -> DispatchResult {
-			// 1. Get current price (pUSD per DOT) and validate against max
+			// 1. Get current price (pUSD per DOT) and validate
 			let price = Self::current_price(&auction);
+			ensure!(!price.is_zero(), Error::<T>::InvalidPrice);
 			ensure!(max >= price, Error::<T>::PriceTooHigh);
 
 			// Get current tab total (principal + accrued interest + penalty)
@@ -1663,13 +1666,17 @@ pub mod pallet {
 			if owe > tab_total {
 				owe = tab_total;
 				// slice = tab / price (round DOWN - buyer pays exact tab, gets slightly less
-				// collateral)
-				if !price.is_zero() {
-					let tab_fixed = FixedU128::saturating_from_integer(tab_total);
-					if let Some(slice_fixed) = tab_fixed.checked_div(&price) {
-						slice = slice_fixed.saturating_mul_int(One::one());
-					}
+				// collateral). Price is guaranteed non-zero by the check above.
+				let tab_fixed = FixedU128::saturating_from_integer(tab_total);
+				if let Some(slice_fixed) = tab_fixed.checked_div(&price) {
+					slice = slice_fixed.saturating_mul_int(One::one());
 				}
+
+				// Reject if slice rounded to zero (buyer would pay tab and receive nothing).
+				ensure!(!slice.is_zero(), Error::<T>::InvalidPrice);
+				// After rounding, effective price (owe/slice) may exceed max.
+				let effective_price = FixedU128::saturating_from_rational(owe, slice);
+				ensure!(max >= effective_price, Error::<T>::PriceTooHigh);
 			}
 
 			// 4. Minimum purchase check on final slice.
@@ -1781,8 +1788,9 @@ pub mod pallet {
 			max: FixedU128,
 			recipient: T::AccountId,
 		) -> DispatchResult {
-			// 1. Get current price (DOT per pUSD) and validate against max
+			// 1. Get current price (DOT per pUSD) and validate
 			let price = Self::current_price(&auction);
+			ensure!(!price.is_zero(), Error::<T>::InvalidPrice);
 			ensure!(max >= price, Error::<T>::PriceTooHigh);
 
 			// For surplus auctions, tab.principal tracks the remaining pUSD to sell
@@ -1798,6 +1806,11 @@ pub mod pallet {
 				.saturating_mul(FixedU128::saturating_from_integer(pusd_amount))
 				.ceil()
 				.saturating_mul_int(One::one());
+
+			// After ceil rounding, effective price (dot_amount/pusd_amount) may exceed max.
+			ensure!(!pusd_amount.is_zero(), Error::<T>::InvalidPrice);
+			let effective_price = FixedU128::saturating_from_rational(dot_amount, pusd_amount);
+			ensure!(max >= effective_price, Error::<T>::PriceTooHigh);
 
 			// 3. Minimum purchase check
 			let min_purchase = MinSurplusPurchaseAmount::<T>::get();
