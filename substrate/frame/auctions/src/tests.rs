@@ -2545,6 +2545,7 @@ fn take_caps_owe_when_collateral_exceeds_debt() {
 #[test]
 fn needs_restart_true_for_zero_starting_price() {
 	new_test_ext().execute_with(|| {
+		let config = AuctionConfig::<Test>::get(AuctionType::Liquidation);
 		let auction = Auction::<Test> {
 			auction_type: AuctionType::Liquidation,
 			tab: Tab::new(100 * PUSD_UNIT, 0, 0),
@@ -2555,6 +2556,10 @@ fn needs_restart_true_for_zero_starting_price() {
 			keeper: KEEPER,
 			keeper_incentive: 0,
 			penalty_collected: 0,
+			buffer: config.buffer,
+			maximum_duration: config.maximum_duration,
+			minimum_price: config.minimum_price,
+			curve: config.curve,
 		};
 
 		assert!(crate::Pallet::<Test>::needs_restart(&auction));

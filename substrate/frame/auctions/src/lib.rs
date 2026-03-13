@@ -345,6 +345,16 @@ pub mod pallet {
 		pub keeper_incentive: BalanceOf<T>,
 		/// Penalty actually collected during takes.
 		pub penalty_collected: BalanceOf<T>,
+		/// Price buffer from config at auction creation (re-fetched on restart).
+		pub buffer: FixedU128,
+		/// Maximum duration from config at auction creation (re-fetched on
+		/// restart).
+		pub maximum_duration: BlockNumberFor<T>,
+		/// Minimum price ratio from config at auction creation (re-fetched on
+		/// restart).
+		pub minimum_price: FixedU128,
+		/// Price curve from config at auction creation (re-fetched on restart).
+		pub curve: PriceCurve,
 	}
 
 	/// Configuration parameters for an auction type.
@@ -827,22 +837,19 @@ pub mod pallet {
 
 				items_processed = items_processed.saturating_add(1);
 
-				// Get config for this auction type
-				let config = AuctionConfig::<T>::get(auction.auction_type);
-
-				// Determine staleness using auction-type-specific config.
+				// Determine staleness using auction's config.
 				let elapsed = now.saturating_sub(auction.starting_block);
-				let mut is_stale = elapsed >= config.maximum_duration;
+				let mut is_stale = elapsed >= auction.maximum_duration;
 
 				if !is_stale {
 					let elapsed_u64: u64 = elapsed.saturated_into();
-					let current = config.curve.calculate_price(
+					let current = auction.curve.calculate_price(
 						auction.starting_price,
-						config.buffer,
+						auction.buffer,
 						elapsed_u64,
 					);
 					if let Some(ratio) = current.checked_div(&auction.starting_price) {
-						is_stale = ratio <= config.minimum_price;
+						is_stale = ratio <= auction.minimum_price;
 					} else {
 						// starting_price is zero => stale.
 						is_stale = true;
@@ -1553,6 +1560,10 @@ pub mod pallet {
 				keeper: keeper.clone(),
 				keeper_incentive,
 				penalty_collected: Zero::zero(),
+				buffer: config.buffer,
+				maximum_duration: config.maximum_duration,
+				minimum_price: config.minimum_price,
+				curve: config.curve,
 			};
 
 			// 7. Store auction
@@ -1583,35 +1594,32 @@ pub mod pallet {
 		/// Includes:
 		/// - Reading the cursor
 		/// - Reading Stopped
-		/// - Reading `AuctionConfig`
 		/// - Writing cursor update
 		pub(crate) fn on_idle_weight() -> Weight {
-			T::DbWeight::get().reads_writes(3, 1)
+			T::DbWeight::get().reads_writes(2, 1)
 		}
 
-		/// Get current auction price using configured price curve.
+		/// Get current auction price using the snapshotted price curve.
 		pub fn current_price(auction: &Auction<T>) -> FixedU128 {
-			let config = AuctionConfig::<T>::get(auction.auction_type);
 			let now = T::BlockNumberProvider::current_block_number();
 			let elapsed: u64 = now.saturating_sub(auction.starting_block).saturated_into();
-			config.curve.calculate_price(auction.starting_price, config.buffer, elapsed)
+			auction.curve.calculate_price(auction.starting_price, auction.buffer, elapsed)
 		}
 
-		/// Check if auction needs restart (stale).
+		/// Check if auction needs restart (stale) using snapshotted config.
 		pub(crate) fn needs_restart(auction: &Auction<T>) -> bool {
-			let config = AuctionConfig::<T>::get(auction.auction_type);
 			let now = T::BlockNumberProvider::current_block_number();
 			let elapsed = now.saturating_sub(auction.starting_block);
 
 			// Too much time elapsed
-			if elapsed >= config.maximum_duration {
+			if elapsed >= auction.maximum_duration {
 				return true;
 			}
 
 			// Price fallen too low relative to initial
 			let current = Self::current_price(auction);
 			if let Some(ratio) = current.checked_div(&auction.starting_price) {
-				return ratio <= config.minimum_price;
+				return ratio <= auction.minimum_price;
 			}
 
 			// If division fails (starting_price is zero), definitely needs restart
@@ -1886,6 +1894,11 @@ pub mod pallet {
 			auction.starting_price = new_starting_price;
 			// Note: keeper_incentive is NOT updated - it's fixed at auction start
 			auction.keeper = keeper.clone();
+			// Re-fetch config on restart so updates take effect
+			auction.buffer = config.buffer;
+			auction.maximum_duration = config.maximum_duration;
+			auction.minimum_price = config.minimum_price;
+			auction.curve = config.curve;
 
 			Self::deposit_event(Event::AuctionRestarted {
 				auction_type: AuctionType::Liquidation,
@@ -1991,6 +2004,10 @@ pub mod pallet {
 				keeper: keeper.clone(),
 				keeper_incentive,
 				penalty_collected: Zero::zero(),
+				buffer: config.buffer,
+				maximum_duration: config.maximum_duration,
+				minimum_price: config.minimum_price,
+				curve: config.curve,
 			};
 
 			// 10. Store auction and mark as active surplus auction
