@@ -327,10 +327,12 @@ pub mod pallet {
 		/// For liquidation: debt to repay. For surplus: pUSD amount being sold.
 		pub tab: Tab<T>,
 		/// Amount of DOT collateral available for purchase.
-		/// For liquidation: seized DOT. For surplus: unused (Zero).
+		/// For liquidation: seized DOT. For surplus: `Zero` (no collateral involved;
+		/// arithmetic treats zero as a no-op so no special-casing is needed).
 		pub auctionable_collateral: BalanceOf<T>,
 		/// Original vault owner (receives excess collateral).
-		/// For liquidation: vault owner. For surplus: None (protocol-owned).
+		/// For liquidation: vault owner. For surplus: `None`. TThe concept is
+		/// semantically absent since surplus auctions are protocol-owned.
 		pub vault_owner: Option<T::AccountId>,
 		/// Auction start block (for price calculation).
 		pub starting_block: BlockNumberFor<T>,
@@ -342,8 +344,10 @@ pub mod pallet {
 		pub keeper: T::AccountId,
 		/// Keeper incentive amount (tip + chip × tab, capped to penalty).
 		/// Fixed at auction start, paid from IF at completion (capped to `penalty_collected`).
+		/// For surplus: defaults to `Zero` but configurable via `tip` in `AuctionConfig`.
 		pub keeper_incentive: BalanceOf<T>,
 		/// Penalty actually collected during takes.
+		/// For surplus: always `Zero`, surplus takes never collect penalty.
 		pub penalty_collected: BalanceOf<T>,
 		/// Price buffer from config at auction creation (re-fetched on restart).
 		pub buffer: FixedU128,
