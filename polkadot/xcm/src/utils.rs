@@ -35,7 +35,7 @@ pub fn decode_xcm_instructions<I: codec::Input, T: Decode>(
 		instructions_count::with(|count| {
 			*count = count.saturating_add(vec_len as u8);
 			if *count > MAX_INSTRUCTIONS_TO_DECODE {
-				return Err(codec::Error::from("Max instructions exceeded"))
+				return Err(codec::Error::from("Max instructions exceeded"));
 			}
 			Ok(())
 		})

@@ -1,0 +1,7 @@
+title: 'revive: fix revive post_upgrade assert'
+doc:
+- audience: Runtime Dev
+  description: Fix post_upgrade assertion logic in revive v2 migration
+crates:
+- name: pallet-revive
+  bump: patch

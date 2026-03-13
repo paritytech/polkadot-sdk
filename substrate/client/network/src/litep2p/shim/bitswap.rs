@@ -78,8 +78,9 @@ impl<Block: BlockT> BitswapServer<Block> {
 									log::trace!(target: LOG_TARGET, "found cid {cid:?}, hash {hash:?}");
 
 									match want_type {
-										WantType::Block =>
-											ResponseType::Block { cid, block: transaction },
+										WantType::Block => {
+											ResponseType::Block { cid, block: transaction }
+										},
 										_ => ResponseType::Presence {
 											cid,
 											presence: BlockPresenceType::Have,
@@ -99,6 +100,14 @@ impl<Block: BlockT> BitswapServer<Block> {
 						.collect();
 
 					self.handle.send_response(peer, response).await;
+				},
+				BitswapEvent::Response { peer, responses } => {
+					// We're a server, not a client - ignore incoming responses
+					log::trace!(
+						target: LOG_TARGET,
+						"ignoring bitswap response from {peer:?} with {} entries",
+						responses.len()
+					);
 				},
 			}
 		}

@@ -44,6 +44,7 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
+use polkadot_primitives::node_features::FeatureIndex;
 
 use crate::{
 	metrics::{FAILED, SUCCEEDED},
@@ -184,7 +185,7 @@ where
 						error = ?fatal,
 						"Shutting down"
 					);
-					return
+					return;
 				},
 			}
 		}
@@ -237,7 +238,7 @@ where
 		poll_fn(|ctx| {
 			// In case of Ready(None), we want to wait for pending requests:
 			if let Poll::Ready(Some(v)) = self.pending_imports.poll_next_unpin(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)))
+				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)));
 			}
 
 			let rate_limited = self.peer_queues.pop_reqs();
@@ -245,13 +246,13 @@ where
 			// We poll rate_limit before batches, so we don't unnecessarily delay importing to
 			// batches.
 			if let Poll::Ready(reqs) = rate_limited.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)))
+				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)));
 			}
 
 			let ready_batches = self.batches.check_batches();
 			pin_mut!(ready_batches);
 			if let Poll::Ready(ready_batches) = ready_batches.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)))
+				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)));
 			}
 
 			let next_req = self.receiver.recv(|| vec![COST_INVALID_REQUEST]);
@@ -260,7 +261,7 @@ where
 				return match r {
 					Err(e) => Poll::Ready(Err(incoming::Error::from(e).into())),
 					Ok(v) => Poll::Ready(Ok(MuxedMessage::NewRequest(v))),
-				}
+				};
 			}
 			Poll::Pending
 		})
@@ -290,7 +291,7 @@ where
 					sent_feedback: None,
 				})
 				.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-				return Err(JfyiError::NotAValidator(peer).into())
+				return Err(JfyiError::NotAValidator(peer).into());
 			},
 			Some(auth_id) => auth_id,
 		};
@@ -309,7 +310,7 @@ where
 				sent_feedback: None,
 			})
 			.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-			return Err(JfyiError::AuthorityFlooding(authority_id))
+			return Err(JfyiError::AuthorityFlooding(authority_id));
 		}
 		Ok(())
 	}
@@ -324,13 +325,24 @@ where
 	) -> Result<()> {
 		let IncomingRequest { peer, payload, pending_response } = incoming;
 
+		// For disputes, we need session info from the scheduling context
+		// First get a reference relay parent to fetch node features
+		let relay_parent = payload.0.candidate_receipt.descriptor.relay_parent();
+
+		let session_info_for_features = self
+			.runtime
+			.get_session_info_by_index(&mut self.sender, relay_parent, payload.0.session_index)
+			.await?;
+		let v3_enabled =
+			FeatureIndex::CandidateReceiptV3.is_set(&session_info_for_features.node_features);
+
+		// Use scheduling_parent to fetch the session info for dispute validators
+		let scheduling_parent =
+			payload.0.candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+
 		let info = self
 			.runtime
-			.get_session_info_by_index(
-				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent(),
-				payload.0.session_index,
-			)
+			.get_session_info_by_index(&mut self.sender, scheduling_parent, payload.0.session_index)
 			.await?;
 
 		let votes_result = payload.0.try_into_signed_votes(&info.session_info);
@@ -346,7 +358,7 @@ where
 					})
 					.map_err(|_| JfyiError::SetPeerReputation(peer))?;
 
-				return Err(From::from(JfyiError::InvalidSignature(peer)))
+				return Err(From::from(JfyiError::InvalidSignature(peer)));
 			},
 			Ok(votes) => votes,
 		};
@@ -398,7 +410,7 @@ where
 							sent_feedback: None,
 						})
 						.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-					return Err(From::from(JfyiError::RedundantMessage(peer)))
+					return Err(From::from(JfyiError::RedundantMessage(peer)));
 				}
 			},
 		}
@@ -423,7 +435,7 @@ where
 					candidate_hash = ?candidate_receipt.hash(),
 					"Not importing empty batch"
 				);
-				return
+				return;
 			},
 			Some(vote) => (vote.0.session_index(), *vote.0.candidate_hash()),
 		};

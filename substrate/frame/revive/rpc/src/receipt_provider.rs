@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	client::{SubstrateBlock, SubstrateBlockNumber},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
 	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
+	client::{SubstrateBlock, SubstrateBlockNumber},
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
-use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
+use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
 use std::{
 	collections::{BTreeMap, HashMap},
 	sync::Arc,
@@ -76,6 +76,9 @@ impl BlockInfo for SubstrateBlock {
 		SubstrateBlock::number(self)
 	}
 }
+
+/// Maximum number of entries kept in the block to hash map.
+const MAX_CACHED_BLOCKS: usize = 256;
 
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
@@ -225,8 +228,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
-			BlockNumberOrTag::U256(block_number) =>
-				self.receipt_extractor.is_before_earliest_block(block_number.as_u32()),
+			BlockNumberOrTag::U256(block_number) => {
+				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
+			},
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
 	}
@@ -284,6 +288,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					to_remove.push(block_map);
 				}
 			}
+		} else {
+			// Evict oldest entries to prevent unbounded growth.
+			// Forks deeper than MAX_CACHED_BLOCKS(256) are unlikely.
+			while block_number_to_hash.len() > MAX_CACHED_BLOCKS {
+				block_number_to_hash.pop_first();
+			}
 		}
 
 		// Release the lock.
@@ -334,7 +344,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 				query!(
 					r#"
-					INSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
 					VALUES ($1, $2, $3)
 					"#,
 					transaction_hash,
@@ -617,15 +627,17 @@ mod tests {
 
 	async fn count(pool: &SqlitePool, table: &str, block_hash: Option<H256>) -> usize {
 		let count: i64 = match block_hash {
-			None =>
+			None => {
 				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
 					.fetch_one(pool)
-					.await,
-			Some(hash) =>
+					.await
+			},
+			Some(hash) => {
 				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table} WHERE block_hash = ?"))
 					.bind(hash.as_ref())
 					.fetch_one(pool)
-					.await,
+					.await
+			},
 		}
 		.unwrap();
 
@@ -763,6 +775,56 @@ mod tests {
 		);
 
 		return Ok(());
+	}
+
+	#[sqlx::test]
+	async fn test_reorg_same_transaction_hash(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Build two blocks at the same height with the same transaction hash
+		let tx_hash = H256::from([42u8; 32]);
+
+		// Block A at height 1
+		let block_a = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
+		let ethereum_hash_a = H256::from([2u8; 32]);
+		let receipts_a = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: tx_hash,
+				transaction_index: U256::from(0),
+				..Default::default()
+			},
+		)];
+
+		provider.insert(&block_a, &receipts_a, &ethereum_hash_a).await?;
+
+		// Verify transaction points to block A
+		let (found_hash, _) = provider.find_transaction(&tx_hash).await.unwrap();
+		assert_eq!(found_hash, block_a.hash);
+
+		// Clear the in-memory map to simulate server restart
+		provider.block_number_to_hashes.lock().await.clear();
+
+		// Block B at same height 1 (re-org) with SAME transaction
+		let block_b = MockBlockInfo { hash: H256::from([3u8; 32]), number: 1 };
+		let ethereum_hash_b = H256::from([4u8; 32]);
+		let receipts_b = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: tx_hash, // Same tx hash!
+				transaction_index: U256::from(0),
+				..Default::default()
+			},
+		)];
+
+		// This should NOT fail with UNIQUE constraint violation
+		provider.insert(&block_b, &receipts_b, &ethereum_hash_b).await?;
+
+		// Transaction should now point to block B
+		let (found_hash, _) = provider.find_transaction(&tx_hash).await.unwrap();
+		assert_eq!(found_hash, block_b.hash);
+
+		Ok(())
 	}
 
 	#[sqlx::test]
@@ -1081,6 +1143,55 @@ mod tests {
 		// Remove one
 		provider.remove(&[block_map1]).await?;
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn persistent_mode_caps_in_memory_map(pool: SqlitePool) -> anyhow::Result<()> {
+		// Persistent DB mode: keep_latest_n_blocks = None
+		let provider = ReceiptProvider {
+			pool,
+			block_provider: MockBlockInfoProvider {},
+			receipt_extractor: ReceiptExtractor::new_mock(),
+			keep_latest_n_blocks: None,
+			block_number_to_hashes: Default::default(),
+		};
+
+		// Insert more than MAX_CACHED_BLOCKS blocks.
+		let start_block: u64 = 1;
+		let n = MAX_CACHED_BLOCKS + 1;
+		let end_block = start_block + n as u64;
+		for i in start_block..end_block {
+			let block = MockBlockInfo { hash: H256::from_low_u64_be(i), number: i as _ };
+			let receipts = vec![(
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash: H256::from_low_u64_be(i),
+					logs: vec![Log {
+						block_hash: block.hash,
+						transaction_hash: H256::from_low_u64_be(i),
+						..Default::default()
+					}],
+					..Default::default()
+				},
+			)];
+			let ethereum_hash = H256::from_low_u64_be(i + 1);
+			provider.insert(&block, &receipts, &ethereum_hash).await?;
+		}
+
+		// The map is capped at MAX_CACHED_BLOCKS.
+		let map = provider.block_number_to_hashes.lock().await;
+		assert_eq!(map.len(), MAX_CACHED_BLOCKS);
+
+		// The oldest block (1) should have been evicted, keeping blocks 2..=MAX+1.
+		assert!(!map.contains_key(&1));
+		assert!(map.contains_key(&2));
+		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u32 + 1)));
+		drop(map);
+
+		// All blocks are still in the DB.
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
 
 		Ok(())
 	}

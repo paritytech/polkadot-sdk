@@ -18,15 +18,15 @@
 //! Transfer with dust functionality for pallet-revive.
 
 use crate::{
-	address::AddressMapper, exec::AccountIdOf, primitives::BalanceWithDust, storage::AccountInfo,
-	AccountInfoOf, BalanceOf, Config, Error, LOG_TARGET,
+	AccountInfoOf, BalanceOf, Config, Error, LOG_TARGET, address::AddressMapper, exec::AccountIdOf,
+	primitives::BalanceWithDust, storage::AccountInfo,
 };
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
+		Get,
 		fungible::Mutate,
 		tokens::{Fortitude, Precision, Preservation},
-		Get,
 	},
 };
 
@@ -67,7 +67,7 @@ fn ensure_sufficient_dust<T: Config>(
 	required_dust: u32,
 ) -> DispatchResult {
 	if from_info.dust >= required_dust {
-		return Ok(())
+		return Ok(());
 	}
 
 	let plank = T::NativeToEthRatio::get();
@@ -101,14 +101,14 @@ pub(crate) fn transfer_with_dust<T: Config>(
 
 	if from_info.balance(from, preservation) < value {
 		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} to {to:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, preservation));
-		return Err(Error::<T>::TransferFailed.into())
+		return Err(Error::<T>::TransferFailed.into());
 	} else if from == to || value.is_zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let (value, dust) = value.deconstruct();
 	if dust == 0 {
-		return transfer_balance::<T>(from, to, value, preservation)
+		return transfer_balance::<T>(from, to, value, preservation);
 	}
 
 	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
@@ -140,9 +140,9 @@ pub(crate) fn burn_with_dust<T: Config>(
 
 	if from_info.balance(from, Preservation::Preserve) < value {
 		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, Preservation::Preserve));
-		return Err(Error::<T>::TransferFailed.into())
+		return Err(Error::<T>::TransferFailed.into());
 	} else if value.is_zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let (value, dust) = value.deconstruct();
@@ -159,7 +159,7 @@ pub(crate) fn burn_with_dust<T: Config>(
 			log::debug!(target: LOG_TARGET, "Burning {value:?} from {from:?} failed. Err: {err:?}");
 			Error::<T>::TransferFailed
 		})?;
-		return Ok(())
+		return Ok(());
 	}
 
 	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
@@ -184,12 +184,12 @@ pub(crate) fn burn_with_dust<T: Config>(
 mod tests {
 	use super::*;
 	use crate::{
+		Config, Error, H160, Pallet,
 		test_utils::{ALICE_ADDR, BOB_ADDR},
-		tests::{builder, test_utils::set_balance_with_dust, ExtBuilder, Test},
-		Config, Error, Pallet, H160,
+		tests::{ExtBuilder, Test, builder, test_utils::set_balance_with_dust},
 	};
 	use frame_support::{assert_err, traits::Get};
-	use sp_runtime::{traits::Zero, DispatchError};
+	use sp_runtime::{DispatchError, traits::Zero};
 
 	#[test]
 	fn transfer_with_dust_works() {
@@ -197,12 +197,12 @@ mod tests {
 			description: &'static str,
 			from: H160,
 			to: H160,
-			from_balance: BalanceWithDust<u64>,
-			to_balance: BalanceWithDust<u64>,
-			amount: BalanceWithDust<u64>,
-			expected_from_balance: BalanceWithDust<u64>,
-			expected_to_balance: BalanceWithDust<u64>,
-			total_issuance_diff: i64,
+			from_balance: BalanceWithDust<u128>,
+			to_balance: BalanceWithDust<u128>,
+			amount: BalanceWithDust<u128>,
+			expected_from_balance: BalanceWithDust<u128>,
+			expected_to_balance: BalanceWithDust<u128>,
+			total_issuance_diff: i128,
 			expected_error: Option<DispatchError>,
 		}
 
@@ -380,8 +380,8 @@ mod tests {
 				);
 
 				assert_eq!(
-					total_issuance as i64 - total_issuance_diff,
-					<Test as Config>::Currency::total_issuance() as i64,
+					total_issuance as i128 - total_issuance_diff,
+					<Test as Config>::Currency::total_issuance() as i128,
 					"{description}: total issuance should match"
 				);
 			});

@@ -156,7 +156,7 @@ fn fatp_finalized_still_works_after_finality_stall() {
 
 		prev_header = header;
 		if block_n == 3 + FINALITY_TIMEOUT_THRESHOLD {
-			//finality timeout triggered
+			// finality timeout triggered
 			assert_eq!(pool.active_views_count(), 1);
 			assert_eq!(pool.inactive_views_count(), FINALITY_TIMEOUT_THRESHOLD);
 		} else {
@@ -245,7 +245,7 @@ fn fatp_finality_timeout_works_for_txs_included_before_finalized() {
 		prev_header = header;
 		assert_eq!(pool.active_views_count(), 1);
 		if block_n == 4 + FINALITY_TIMEOUT_THRESHOLD {
-			//finality timeout triggered
+			// finality timeout triggered
 			assert_eq!(pool.inactive_views_count(), FINALITY_TIMEOUT_THRESHOLD);
 		}
 	}

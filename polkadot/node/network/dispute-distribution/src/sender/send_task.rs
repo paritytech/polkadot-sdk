@@ -29,7 +29,8 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer};
 use polkadot_node_subsystem_util::{metrics, nesting_sender::NestingSender, runtime::RuntimeInfo};
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex, ValidatorIndex,
+	node_features::FeatureIndex, AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex,
+	ValidatorIndex,
 };
 
 use super::error::{FatalError, Result};
@@ -214,7 +215,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 							?result,
 							"Received `FromSendingTask::Finished` for non existing task."
 						);
-						return
+						return;
 					},
 					Some(status) => status,
 				};
@@ -234,11 +235,29 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		runtime: &mut RuntimeInfo,
 		active_sessions: &HashMap<SessionIndex, Hash>,
 	) -> Result<HashSet<AuthorityDiscoveryId>> {
-		let ref_head = self.request.0.candidate_receipt.descriptor.relay_parent();
+		// For disputes, we need session info from the scheduling context
+		// First get a reference relay parent to fetch node features
+		let relay_parent = self.request.0.candidate_receipt.descriptor.relay_parent();
+
+		// Get node features to determine v3_enabled
+		let session_info_for_features = runtime
+			.get_session_info_by_index(ctx.sender(), relay_parent, self.request.0.session_index)
+			.await?;
+		let v3_enabled =
+			FeatureIndex::CandidateReceiptV3.is_set(&session_info_for_features.node_features);
+
+		// Use scheduling_parent to fetch the session info for dispute validators
+		let scheduling_parent =
+			self.request.0.candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+
 		// Retrieve all authorities which participated in the parachain consensus of the session
-		// in which the candidate was backed.
+		// in which the candidate was backed (scheduling session).
 		let info = runtime
-			.get_session_info_by_index(ctx.sender(), ref_head, self.request.0.session_index)
+			.get_session_info_by_index(
+				ctx.sender(),
+				scheduling_parent,
+				self.request.0.session_index,
+			)
 			.await?;
 		let session_info = &info.session_info;
 		let validator_count = session_info.validators.len();
@@ -317,8 +336,9 @@ async fn wait_response_task<M: 'static + Send + Sync>(
 	let result = pending_response.await;
 	let msg = match result {
 		Err(err) => TaskFinish { candidate_hash, receiver, result: TaskResult::Failed(err) },
-		Ok(DisputeResponse::Confirmed) =>
-			TaskFinish { candidate_hash, receiver, result: TaskResult::Succeeded },
+		Ok(DisputeResponse::Confirmed) => {
+			TaskFinish { candidate_hash, receiver, result: TaskResult::Succeeded }
+		},
 	};
 	if let Err(err) = tx.send_message(msg).await {
 		gum::debug!(

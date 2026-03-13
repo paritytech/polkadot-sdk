@@ -100,7 +100,7 @@
   "transactionStorage": {
     "byteFee": 10,
     "entryFee": 1000,
-    "storagePeriod": 100800
+    "retentionPeriod": 100800
   },
   "allianceMotion": {
     "members": []

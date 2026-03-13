@@ -119,6 +119,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] addition. Computes `self + rhs`, saturating at the numeric bounds of
 	/// all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_add(self, rhs: Self) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_add(rhs.ref_time),
@@ -128,6 +129,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] subtraction. Computes `self - rhs`, saturating at the numeric bounds
 	/// of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_sub(self, rhs: Self) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_sub(rhs.ref_time),
@@ -137,6 +139,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] scalar multiplication. Computes `self.field * scalar` for all fields,
 	/// saturating at the numeric bounds of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_mul(self, scalar: u64) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_mul(scalar),
@@ -146,6 +149,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] scalar division. Computes `self.field / scalar` for all fields,
 	/// saturating at the numeric bounds of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_div(self, scalar: u64) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_div(scalar),
@@ -155,6 +159,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] scalar exponentiation. Computes `self.field.pow(exp)` for all fields,
 	/// saturating at the numeric bounds of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_pow(self, exp: u32) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_pow(exp),
@@ -173,6 +178,7 @@ impl Weight {
 	}
 
 	/// Checked [`Weight`] addition. Computes `self + rhs`, returning `None` if overflow occurred.
+	#[must_use]
 	pub const fn checked_add(&self, rhs: &Self) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_add(rhs.ref_time) {
 			Some(t) => t,
@@ -187,6 +193,7 @@ impl Weight {
 
 	/// Checked [`Weight`] subtraction. Computes `self - rhs`, returning `None` if overflow
 	/// occurred.
+	#[must_use]
 	pub const fn checked_sub(&self, rhs: &Self) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_sub(rhs.ref_time) {
 			Some(t) => t,
@@ -201,6 +208,7 @@ impl Weight {
 
 	/// Checked [`Weight`] scalar multiplication. Computes `self.field * scalar` for each field,
 	/// returning `None` if overflow occurred.
+	#[must_use]
 	pub const fn checked_mul(self, scalar: u64) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_mul(scalar) {
 			Some(t) => t,
@@ -215,6 +223,7 @@ impl Weight {
 
 	/// Checked [`Weight`] scalar division. Computes `self.field / scalar` for each field, returning
 	/// `None` if overflow occurred.
+	#[must_use]
 	pub const fn checked_div(self, scalar: u64) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_div(scalar) {
 			Some(t) => t,
@@ -236,6 +245,7 @@ impl Weight {
 	/// one non-zero component in `other`. The division for this particular component will then
 	/// yield the maximum value (e.g u64::MAX). This is because we assume not every operation and
 	/// hence each `Weight` will necessarily use each resource.
+	#[must_use]
 	pub const fn checked_div_per_component(self, other: &Self) -> Option<u64> {
 		let mut all_zero = true;
 		let ref_time = match self.ref_time.checked_div(other.ref_time) {
@@ -277,6 +287,7 @@ impl Weight {
 	/// Constant version of Add for `ref_time` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn add_ref_time(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time + scalar, proof_size: self.proof_size }
 	}
@@ -284,6 +295,7 @@ impl Weight {
 	/// Constant version of Add for `proof_size` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn add_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size + scalar }
 	}
@@ -291,6 +303,7 @@ impl Weight {
 	/// Constant version of Sub for `ref_time` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn sub_ref_time(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time - scalar, proof_size: self.proof_size }
 	}
@@ -298,26 +311,31 @@ impl Weight {
 	/// Constant version of Sub for `proof_size` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn sub_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size - scalar }
 	}
 
 	/// Saturating version of Add for `ref_time` component with u64.
+	#[must_use]
 	pub const fn saturating_add_ref_time(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time.saturating_add(scalar), proof_size: self.proof_size }
 	}
 
 	/// Saturating version of Add for `proof_size` component with u64.
+	#[must_use]
 	pub const fn saturating_add_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_add(scalar) }
 	}
 
 	/// Saturating version of Sub for `ref_time` component with u64.
+	#[must_use]
 	pub const fn saturating_sub_ref_time(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time.saturating_sub(scalar), proof_size: self.proof_size }
 	}
 
 	/// Saturating version of Sub for `proof_size` component with u64.
+	#[must_use]
 	pub const fn saturating_sub_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_sub(scalar) }
 	}
@@ -325,6 +343,7 @@ impl Weight {
 	/// Constant version of Div with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn div(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time / scalar, proof_size: self.proof_size / scalar }
 	}
@@ -332,6 +351,7 @@ impl Weight {
 	/// Constant version of Mul with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn mul(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time * scalar, proof_size: self.proof_size * scalar }
 	}

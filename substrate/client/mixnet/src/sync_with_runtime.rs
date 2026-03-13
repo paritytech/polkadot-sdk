@@ -70,7 +70,7 @@ fn parse_external_addresses(external_addresses: Vec<Vec<u8>>) -> Vec<Multiaddr> 
 						"Mixnode external address {:x?} is not valid UTF-8",
 						addr.into_bytes(),
 					);
-					return None
+					return None;
 				},
 			};
 			match addr.parse() {
@@ -186,7 +186,7 @@ where
 		Ok(session_status) => session_status,
 		Err(err) => {
 			debug!(target: LOG_TARGET, "Error getting session status from runtime: {err}");
-			return
+			return;
 		},
 	};
 	mixnet.set_session_status(to_core_session_status(session_status));
