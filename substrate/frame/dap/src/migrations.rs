@@ -73,8 +73,7 @@ impl<T: Config, P: LastInflationTimestampProvider, B: Get<BudgetAllocationMap>>
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		frame_support::ensure!(
-			LastInflationTimestamp::<T>::get() == 0 ||
-				BudgetAllocation::<T>::get().is_empty(),
+			LastInflationTimestamp::<T>::get() == 0 || BudgetAllocation::<T>::get().is_empty(),
 			"Migration not needed: both LastInflationTimestamp and BudgetAllocation already set"
 		);
 		Ok(alloc::vec::Vec::new())
