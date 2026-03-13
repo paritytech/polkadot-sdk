@@ -6,7 +6,5 @@ doc:
 crates:
 - name: snowbridge-pallet-inbound-queue-v2
   bump: patch
-- name: snowbridge-pallet-inbound-queue-v2-runtime-api
-  bump: patch
 - name: bridge-hub-westend-runtime
   bump: patch
