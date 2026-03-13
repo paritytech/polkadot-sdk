@@ -55,6 +55,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"xcm/std",
+	"sp-keystore/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
