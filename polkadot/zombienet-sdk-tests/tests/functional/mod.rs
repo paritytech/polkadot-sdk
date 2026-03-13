@@ -10,6 +10,7 @@ mod collators_reputation_persistence;
 mod coretime_collation_fetching_fairness;
 mod coretime_partitioning;
 mod coretime_shared_core;
+mod dispute_freshly_finalized;
 mod dispute_old_finalized;
 mod duplicate_collations;
 mod parachains_disputes;
