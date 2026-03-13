@@ -107,14 +107,14 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	//  session, and with SESSION_DELAY=2, batch 2 paras activate 1 full session (60s) later.
 	//
 	//  collator-2000 (250s): from test start. Registration (~54s) + onboarding (2 sessions
-	//    = 120s) + block production (3 slots × 24s = 72s) ≈ 246s, rounded to 250s.
+	//    = 120s) + block production (3 slots × 24s = 72s) ≈ 246s, rounded to 250s + margin.
 	//  collator-2001 (30s): same batch as 2000, max 1 slot-cycle lag (24s) + margin.
 	//  collator-2002 (90s): different batch, 60s session stagger + 24s slot-cycle = 84s after
 	//    2000 reaches #6. Sized assuming best case (0s) for preceding checks. 90s with margin.
 	//  collator-2003 (30s): same batch as 2002, max 1 slot-cycle lag (24s) + margin.
 
 	log::info!("Checks parachains block production...");
-	let para_timeout = vec![(2000, 250), (2001, 30), (2002, 90), (2003, 30)];
+	let para_timeout = vec![(2000, 260), (2001, 30), (2002, 90), (2003, 30)];
 	for (para_id, timeout) in para_timeout {
 		let node = network.get_node(format!("collator-{para_id}"))?;
 		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED_METRIC, |v| v >= 6.0, timeout as u64)

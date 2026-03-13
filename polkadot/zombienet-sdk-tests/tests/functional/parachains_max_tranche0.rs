@@ -19,7 +19,7 @@ use serde_json::json;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const NUM_VALIDATORS: u32 = 8;
-
+const PARAS: [u32; 5] = [2000, 2001, 2002, 2003, 2004];
 /// Test that parachains make progress with most approvals being tranche0.
 ///
 /// This test configures the network with:
@@ -133,89 +133,25 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 	});
 
-	// Para 2000: pov_size=10000, complexity=1
-	builder = builder.with_parachain(|p| {
-		p.with_id(2000u32)
+	builder = PARAS.into_iter().fold(builder, |acc, para_id| {
+		acc.with_parachain(|p| {
+			let pov_size = 10000*(para_id-1999);
+			let pvf_complexity = para_id - 1999;
+
+			p.with_id(para_id)
 			.cumulus_based(false)
 			.with_default_image(col_image.as_str())
 			.with_default_command("undying-collator")
 			.with_default_args(vec![
 				"-lruntime=debug,parachain=trace".into(),
-				"--pov-size=10000".into(),
+				format!("--pov-size={pov_size}").as_str().into(),
 				"--pvf-complexity=1".into(),
 			])
 			.with_genesis_state_generator(
-				"undying-collator export-genesis-state --pov-size=10000 --pvf-complexity=1",
+				format!("undying-collator export-genesis-state --pov-size={pov_size} --pvf-complexity={pvf_complexity}").as_str(),
 			)
-			.with_collator(|n| n.with_name("collator"))
-	});
-
-	// Para 2001: pov_size=20000, complexity=2
-	builder = builder.with_parachain(|p| {
-		p.with_id(2001u32)
-			.cumulus_based(false)
-			.with_default_image(col_image.as_str())
-			.with_default_command("undying-collator")
-			.with_default_args(vec![
-				"-lruntime=debug,parachain=trace".into(),
-				"--pov-size=20000".into(),
-				"--pvf-complexity=2".into(),
-			])
-			.with_genesis_state_generator(
-				"undying-collator export-genesis-state --pov-size=20000 --pvf-complexity=2",
-			)
-			.with_collator(|n| n.with_name("collator"))
-	});
-
-	// Para 2002: pov_size=30000, complexity=3
-	builder = builder.with_parachain(|p| {
-		p.with_id(2002u32)
-			.cumulus_based(false)
-			.with_default_image(col_image.as_str())
-			.with_default_command("undying-collator")
-			.with_default_args(vec![
-				"-lruntime=debug,parachain=trace".into(),
-				"--pov-size=30000".into(),
-				"--pvf-complexity=3".into(),
-			])
-			.with_genesis_state_generator(
-				"undying-collator export-genesis-state --pov-size=30000 --pvf-complexity=3",
-			)
-			.with_collator(|n| n.with_name("collator"))
-	});
-
-	// Para 2003: pov_size=40000, complexity=4
-	builder = builder.with_parachain(|p| {
-		p.with_id(2003u32)
-			.cumulus_based(false)
-			.with_default_image(col_image.as_str())
-			.with_default_command("undying-collator")
-			.with_default_args(vec![
-				"-lruntime=debug,parachain=trace".into(),
-				"--pov-size=40000".into(),
-				"--pvf-complexity=4".into(),
-			])
-			.with_genesis_state_generator(
-				"undying-collator export-genesis-state --pov-size=40000 --pvf-complexity=4",
-			)
-			.with_collator(|n| n.with_name("collator"))
-	});
-
-	// Para 2004: pov_size=50000, complexity=5
-	builder = builder.with_parachain(|p| {
-		p.with_id(2004u32)
-			.cumulus_based(false)
-			.with_default_image(col_image.as_str())
-			.with_default_command("undying-collator")
-			.with_default_args(vec![
-				"-lruntime=debug,parachain=trace".into(),
-				"--pov-size=50000".into(),
-				"--pvf-complexity=5".into(),
-			])
-			.with_genesis_state_generator(
-				"undying-collator export-genesis-state --pov-size=50000 --pvf-complexity=5",
-			)
-			.with_collator(|n| n.with_name("collator"))
+			.with_collator(|n| n.with_name(&format!("collator-{para_id}")))
+		})
 	});
 
 	builder = builder.with_global_settings(|global_settings| {
