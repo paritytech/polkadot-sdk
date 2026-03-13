@@ -322,6 +322,17 @@ pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy + Default>(
 	}
 }
 
+/// Creates a v3 committed candidate receipt with filler data.
+pub fn dummy_committed_candidate_receipt_v3<H: AsRef<[u8]> + Copy + Default>(
+	relay_parent: H,
+	scheduling_parent: H,
+) -> CommittedCandidateReceiptV2<H> {
+	CommittedCandidateReceiptV2 {
+		descriptor: dummy_candidate_descriptor_v3::<H>(relay_parent, scheduling_parent),
+		commitments: dummy_candidate_commitments(dummy_head_data()),
+	}
+}
+
 /// Create a candidate receipt with a bogus signature and filler data. Optionally set the commitment
 /// hash with the `commitments` arg.
 pub fn dummy_candidate_receipt_bad_sig(
@@ -426,6 +437,27 @@ pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy + Default>(
 		invalid,
 		invalid,
 		invalid,
+	);
+	descriptor
+}
+
+/// Create a v3 candidate descriptor with filler data.
+pub fn dummy_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
+	relay_parent: H,
+	scheduling_parent: H,
+) -> CandidateDescriptorV2<H> {
+	let invalid = Hash::zero();
+	let descriptor = make_valid_candidate_descriptor_v3(
+		1.into(),
+		relay_parent,
+		CoreIndex(1),
+		1,
+		invalid,
+		invalid,
+		invalid,
+		invalid,
+		invalid,
+		scheduling_parent,
 	);
 	descriptor
 }
