@@ -792,6 +792,8 @@ pub mod pallet {
 		DirectTransferDisabled,
 		/// Current auction price is zero (auction expired or misconfigured).
 		InvalidPrice,
+		/// Internal state inconsistency (e.g. liquidation auction missing vault_owner).
+		InconsistentState,
 	}
 
 	#[pallet::hooks]
@@ -1712,10 +1714,7 @@ pub mod pallet {
 			// 7. Execute purchase via CollateralManager
 			// This burns principal+interest pUSD, transfers penalty to IF,
 			// and transfers collateral to recipient. Keeper is paid at completion.
-			let vault_owner = auction
-				.vault_owner
-				.clone()
-				.expect("liquidation auctions always have vault_owner");
+			let vault_owner = auction.vault_owner.clone().ok_or(Error::<T>::InconsistentState)?;
 
 			T::CollateralManager::execute_purchase(
 				buyer,
