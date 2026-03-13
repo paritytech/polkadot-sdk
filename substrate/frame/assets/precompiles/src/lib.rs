@@ -468,8 +468,7 @@ where
 		// Reserve worst-case gas upfront, then refund the unused portion.
 		// The total cost is: use_permit (signature verification + nonce) +
 		// worst-case asset approval operations (allowance read + cancel + approve).
-		let use_permit_weight =
-			<Runtime as permit::Config>::WeightInfo::use_permit();
+		let use_permit_weight = <Runtime as permit::Config>::WeightInfo::use_permit();
 		let worst_case = use_permit_weight
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
@@ -534,24 +533,22 @@ where
 				let actual_weight;
 				if new_amount.is_zero() {
 					if !current.is_zero() {
-						// clear approval if it exists, to match ERC-20 semantics of setting allowance to 0
+						// clear approval if it exists, to match ERC-20 semantics of setting
+						// allowance to 0
 						pallet_assets::Pallet::<Runtime, Instance>::do_cancel_approval(
 							&asset_id,
 							&owner_account,
 							&spender_account,
 						)?;
 						actual_weight = use_permit_weight
-							.saturating_add(
-								<Runtime as Config<Instance>>::WeightInfo::allowance(),
-							)
+							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 							.saturating_add(
 								<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
 							);
 					} else {
 						// noop: set allowance to zerowhen it is already zero
-						actual_weight = use_permit_weight.saturating_add(
-							<Runtime as Config<Instance>>::WeightInfo::allowance(),
-						);
+						actual_weight = use_permit_weight
+							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance());
 					}
 				} else {
 					if !current.is_zero() {
@@ -565,9 +562,7 @@ where
 					} else {
 						// set new approval
 						actual_weight = use_permit_weight
-							.saturating_add(
-								<Runtime as Config<Instance>>::WeightInfo::allowance(),
-							)
+							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 							.saturating_add(
 								<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
 							);

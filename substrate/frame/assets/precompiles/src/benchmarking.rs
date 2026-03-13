@@ -167,7 +167,9 @@ mod benchmarks {
 		};
 
 		// Set timestamp so deadline check passes.
-		pallet_timestamp::Pallet::<T>::set_timestamp(1_704_067_200_000u64.try_into().unwrap_or_default());
+		pallet_timestamp::Pallet::<T>::set_timestamp(
+			1_704_067_200_000u64.try_into().unwrap_or_default(),
+		);
 
 		// Compute EIP-712 digest using runtime's chain_id.
 		let nonce = U256::zero();
