@@ -218,6 +218,9 @@ where
 			ParaIds(session_index, para_ids) => {
 				self.requests_cache.cache_para_ids(session_index, para_ids);
 			},
+			MaxRelayParentSessionAge(session_index, max_relay_parent_session_age) => self
+				.requests_cache
+				.cache_max_relay_parent_session_age(session_index, max_relay_parent_session_age),
 		}
 	}
 
@@ -426,6 +429,15 @@ where
 					None
 				} else {
 					Some(Request::ParaIds(index, sender))
+				}
+			},
+			Request::MaxRelayParentSessionAge(index, sender) => {
+				if let Some(value) = self.requests_cache.max_relay_parent_session_age(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::MaxRelayParentSessionAge(index, sender))
 				}
 			},
 		}
@@ -766,6 +778,13 @@ where
 			ParaIds,
 			para_ids(),
 			ver = Request::PARAIDS_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::MaxRelayParentSessionAge(index, sender) => query!(
+			MaxRelayParentSessionAge,
+			max_relay_parent_session_age(),
+			ver = Request::MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
 		),

@@ -1,0 +1,47 @@
+title: 'relay_chain: add max_relay_parent_session_age runtime API and HostConfiguration field'
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |
+    Adds a new `max_relay_parent_session_age` field to `HostConfiguration` and runtime API,
+    representing the maximum age of the session that a parachain block can build upon,
+    in terms of relay parent of the candidate.
+
+    Includes a storage migration (v12 -> v13) that initialises the new field to zero.
+
+migrations:
+  runtime:
+  - reference: polkadot-runtime-parachains
+    description: |
+      v12 -> v13 configuration migration. Adds the `max_relay_parent_session_age` field to
+      `HostConfiguration`, initialising it to zero. Also removes the deprecated `ttl` and
+      `max_availability_timeouts` fields from `SchedulerParams`.
+
+crates:
+- name: polkadot-primitives
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: major
+  validate: false
+- name: polkadot-node-subsystem-types
+  bump: major
+  validate: false
+- name: polkadot-node-core-runtime-api
+  bump: patch
+- name: westend-runtime
+  bump: major
+  validate: false
+- name: rococo-runtime
+  bump: major
+  validate: false
+- name: polkadot-test-runtime
+  bump: minor
+- name: polkadot-test-service
+  bump: patch
+- name: cumulus-relay-chain-rpc-interface
+  bump: minor
+- name: cumulus-relay-chain-minimal-node
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
