@@ -828,7 +828,7 @@ pub mod pallet {
 
 			let max_items = T::MaxOnIdleItems::get();
 			let mut items_processed: u32 = 0;
-			let mut last_processed: Option<u32> = None;
+			let mut last_surviving: Option<u32> = None;
 
 			let now = T::BlockNumberProvider::current_block_number();
 
@@ -872,6 +872,7 @@ pub mod pallet {
 							// Restart using the existing keeper so on_idle does not change who is
 							// paid.
 							let _ = Self::do_restart_auction(id, auction.keeper.clone());
+							last_surviving = Some(id);
 						},
 						AuctionType::Surplus => {
 							// Surplus auctions simply end when stale - unsold pUSD stays in IF
@@ -885,12 +886,12 @@ pub mod pallet {
 							ActiveSurplusAuctionId::<T>::kill();
 						},
 					}
+				} else {
+					last_surviving = Some(id);
 				}
-
-				last_processed = Some(id);
 			}
 
-			match last_processed {
+			match last_surviving {
 				Some(last) => {
 					if Auctions::<T>::iter_from(Auctions::<T>::hashed_key_for(last))
 						.nth(1)
