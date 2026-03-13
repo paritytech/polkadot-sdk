@@ -79,6 +79,7 @@ pub(crate) struct RequestResultCache {
 	scheduling_lookahead: LruMap<SessionIndex, u32>,
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
 	para_ids: LruMap<SessionIndex, Vec<ParaId>>,
+	max_relay_parent_session_age: LruMap<SessionIndex, u32>,
 }
 
 impl Default for RequestResultCache {
@@ -121,6 +122,7 @@ impl Default for RequestResultCache {
 			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			max_relay_parent_session_age: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -627,6 +629,22 @@ impl RequestResultCache {
 	pub(crate) fn cache_para_ids(&mut self, session_index: SessionIndex, value: Vec<ParaId>) {
 		self.para_ids.insert(session_index, value);
 	}
+
+	pub(crate) fn max_relay_parent_session_age(
+		&mut self,
+		session_index: SessionIndex,
+	) -> Option<u32> {
+		self.max_relay_parent_session_age.get(&session_index).copied()
+	}
+
+	pub(crate) fn cache_max_relay_parent_session_age(
+		&mut self,
+		session_index: SessionIndex,
+		max_relay_parent_session_age: u32,
+	) {
+		self.max_relay_parent_session_age
+			.insert(session_index, max_relay_parent_session_age);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -681,5 +699,6 @@ pub(crate) enum RequestResult {
 	SchedulingLookahead(SessionIndex, u32),
 	ValidationCodeBombLimit(SessionIndex, u32),
 	ParaIds(SessionIndex, Vec<ParaId>),
+	MaxRelayParentSessionAge(SessionIndex, u32),
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 }

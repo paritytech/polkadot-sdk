@@ -321,5 +321,10 @@ sp_api::decl_runtime_apis! {
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
 		#[api_version(15)]
 		fn unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
+
+		/***** Added in v16 *****/
+		/// Retrieve the maximum relay parent session age allowed for parachain blocks.
+		#[api_version(16)]
+		fn max_relay_parent_session_age() -> u32;
 	}
 }
