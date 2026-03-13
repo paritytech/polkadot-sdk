@@ -1724,18 +1724,7 @@ pub mod pallet {
 				&vault_owner,
 			)?;
 
-			// 8. Emit take event
-			Self::deposit_event(Event::Take {
-				auction_type: AuctionType::Liquidation,
-				id,
-				max,
-				price,
-				payment: owe,
-				received: slice,
-				recipient,
-			});
-
-			// 9. Check if auction is complete
+			// 8. Check if auction is complete
 			if remaining_collateral.is_zero() || remaining_tab.is_zero() {
 				// Complete auction via CollateralManager.
 				let remaining_debt = DebtComponents {
@@ -1759,19 +1748,39 @@ pub mod pallet {
 					actual_keeper_incentive,
 				)?;
 
+				// Remove auction from storage
+				Auctions::<T>::remove(id);
+
+				// Emit events after all fallible ops
+				Self::deposit_event(Event::Take {
+					auction_type: AuctionType::Liquidation,
+					id,
+					max,
+					price,
+					payment: owe,
+					received: slice,
+					recipient,
+				});
 				Self::deposit_event(Event::AuctionCompleted {
 					auction_type: AuctionType::Liquidation,
 					id,
 					remaining: remaining_collateral,
 					shortfall,
 				});
-
-				// Remove auction from storage
-				Auctions::<T>::remove(id);
 			} else {
 				// Update auction with reduced tab/auctionable_collateral
 				auction.auctionable_collateral = remaining_collateral;
 				Auctions::<T>::insert(id, auction);
+
+				Self::deposit_event(Event::Take {
+					auction_type: AuctionType::Liquidation,
+					id,
+					max,
+					price,
+					payment: owe,
+					received: slice,
+					recipient,
+				});
 			}
 
 			Ok(())
@@ -1842,31 +1851,40 @@ pub mod pallet {
 				dot_amount,
 			)?;
 
-			Self::deposit_event(Event::Take {
-				auction_type: AuctionType::Surplus,
-				id,
-				max,
-				price,
-				payment: dot_amount,
-				received: pusd_amount,
-				recipient,
-			});
-
 			// 7. Check if auction is complete (all pUSD sold)
 			if remaining_after.is_zero() {
+				// Remove auction from storage and clear active surplus auction tracking
+				Auctions::<T>::remove(id);
+				ActiveSurplusAuctionId::<T>::kill();
+
+				Self::deposit_event(Event::Take {
+					auction_type: AuctionType::Surplus,
+					id,
+					max,
+					price,
+					payment: dot_amount,
+					received: pusd_amount,
+					recipient,
+				});
 				Self::deposit_event(Event::AuctionCompleted {
 					auction_type: AuctionType::Surplus,
 					id,
 					remaining: remaining_after,
 					shortfall: Zero::zero(),
 				});
-
-				// Remove auction from storage and clear active surplus auction tracking
-				Auctions::<T>::remove(id);
-				ActiveSurplusAuctionId::<T>::kill();
 			} else {
 				// Update auction with reduced pUSD amount
 				Auctions::<T>::insert(id, auction);
+
+				Self::deposit_event(Event::Take {
+					auction_type: AuctionType::Surplus,
+					id,
+					max,
+					price,
+					payment: dot_amount,
+					received: pusd_amount,
+					recipient,
+				});
 			}
 
 			Ok(())
