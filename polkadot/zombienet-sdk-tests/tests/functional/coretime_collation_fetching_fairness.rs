@@ -7,12 +7,12 @@
 
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
-	NODE_ROLES_METRIC,
+	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+	wait_for_nth_session_change,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -110,28 +110,21 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Core 0 assignment shared 3:1 (2000,2001).");
 
-	log::info!("Checks parachains block production...");
-	let check_setup = vec![(2000, 9, 200), (2001, 3, 12)];
-	for (para_id, target, timeout) in check_setup {
-		let node = network.get_node(format!("collator-{para_id}"))?;
-		node.wait_metric_with_timeout(
-			BLOCK_HEIGHT_FINALIZED_METRIC,
-			|v| v >= target as f64,
-			timeout as u64,
-		)
-		.await
-		.map_err(|e| {
-			anyhow!("node {} check failed ({BLOCK_HEIGHT_FINALIZED_METRIC}): {e}", node.name())
-		})?;
-	}
+	// Wait 2 sessions for registration/core assignment
+	log::info!("Waiting for 2 session boundaries");
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
+	log::info!("Session boundaries passed");
 
 	// This check assumes that para 2000 runs slot based collator which respects its claim queue
 	// and para 2001 runs lookahead which generates blocks for each relay parent.
-	log::info!("Check block production for each para in 12 RC blocks");
+	log::info!(
+		"Check block production for each para in 12 RC blocks, in 3:1 proportion (2000:2001)"
+	);
 	assert_para_throughput(
 		&relay_client,
 		12,
-		[(ParaId::from(2000), 6..13), (ParaId::from(2001), 2..5)],
+		[(ParaId::from(2000), 6..10), (ParaId::from(2001), 2..5)],
 	)
 	.await?;
 
