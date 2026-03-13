@@ -41,6 +41,9 @@ pub trait WeightInfo {
     fn set_curve() -> Weight;
     fn set_stopped() -> Weight;
     fn set_surplus_mode() -> Weight;
+    fn set_surplus_auction_threshold() -> Weight;
+    fn set_surplus_auction_amount() -> Weight;
+    fn set_min_surplus_purchase_amount() -> Weight;
     fn transfer_surplus() -> Weight;
     fn on_idle_one_auction() -> Weight;
 }
@@ -144,6 +147,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(1_u64))
     }
 
+    fn set_surplus_auction_threshold() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+
+    fn set_surplus_auction_amount() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+
+    fn set_min_surplus_purchase_amount() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
+
     /// Weight for `transfer_surplus` extrinsic.
     /// Storage reads: `SurplusMode`, `Stopped`, IF balance (via `CollateralManager`)
     /// Storage writes: Asset transfer
@@ -231,6 +249,21 @@ impl WeightInfo for () {
     }
 
     fn set_surplus_mode() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+
+    fn set_surplus_auction_threshold() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+
+    fn set_surplus_auction_amount() -> Weight {
+        Weight::from_parts(10_000_000, 0)
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
+
+    fn set_min_surplus_purchase_amount() -> Weight {
         Weight::from_parts(10_000_000, 0)
             .saturating_add(RocksDbWeight::get().writes(1_u64))
     }

@@ -64,8 +64,8 @@
 //!   is pUSD per DOT, decreasing over time.
 //!
 //! * **Surplus Auction** ([`AuctionType::Surplus`]): Sells excess pUSD from the Insurance Fund for
-//!   DOT when IF balance exceeds [`Config::SurplusAuctionThreshold`] × total pUSD supply. Price is
-//!   DOT per pUSD, decreasing over time. DOT proceeds go to Treasury.
+//!   DOT when IF balance exceeds [`SurplusAuctionThreshold`] × total pUSD supply. Price is DOT per
+//!   pUSD, decreasing over time. DOT proceeds go to Treasury.
 //!
 //! ### Auction Lifecycle
 //!
@@ -406,6 +406,9 @@ pub mod pallet {
 		Chip,
 		Tip,
 		Curve,
+		SurplusAuctionThreshold,
+		SurplusAuctionAmount,
+		MinSurplusPurchaseAmount,
 	}
 
 	/// Circuit breaker levels for gradual shutdown.
@@ -532,22 +535,6 @@ pub mod pallet {
 		/// Origin allowed to update protocol parameters.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Threshold for starting surplus auctions.
-		/// Insurance Fund balance must exceed this percentage of total pUSD supply.
-		/// E.g., 5% means IF must have > 5% of total pUSD supply as surplus.
-		#[pallet::constant]
-		type SurplusAuctionThreshold: Get<Permill>;
-
-		/// Amount of pUSD to auction per surplus auction.
-		/// E.g., 100,000 pUSD per auction.
-		#[pallet::constant]
-		type SurplusAuctionAmount: Get<BalanceOf<Self>>;
-
-		/// Minimum pUSD amount per surplus auction purchase.
-		/// Prevents micro-purchases in surplus auctions.
-		#[pallet::constant]
-		type MinSurplusPurchaseAmount: Get<BalanceOf<Self>>;
-
 		/// Weight info.
 		type WeightInfo: WeightInfo;
 
@@ -621,6 +608,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SurplusMode<T: Config> = StorageValue<_, SurplusHandlingMode, ValueQuery>;
 
+	/// Threshold for starting surplus auctions.
+	/// Insurance Fund balance must exceed this percentage of total pUSD supply.
+	#[pallet::storage]
+	pub type SurplusAuctionThreshold<T: Config> = StorageValue<_, Permill, ValueQuery>;
+
+	/// Amount of pUSD to auction (or transfer) per surplus operation.
+	#[pallet::storage]
+	pub type SurplusAuctionAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Minimum pUSD amount per surplus auction purchase.
+	#[pallet::storage]
+	pub type MinSurplusPurchaseAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
 	/// Genesis configuration for the auctions pallet.
 	///
 	/// Initializes auction config with sensible defaults. For custom configuration,
@@ -628,6 +628,12 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
+		/// Insurance Fund balance must exceed this % of total pUSD supply for surplus ops.
+		pub surplus_auction_threshold: Permill,
+		/// pUSD amount per surplus auction or direct transfer. Must be configured at genesis.
+		pub surplus_auction_amount: BalanceOf<T>,
+		/// Minimum pUSD per surplus auction purchase. Must be configured at genesis.
+		pub min_surplus_purchase_amount: BalanceOf<T>,
 		#[serde(skip)]
 		_marker: core::marker::PhantomData<T>,
 	}
@@ -643,6 +649,9 @@ pub mod pallet {
 				AuctionType::Surplus,
 				AuctionConfigRecord::<T>::default_surplus(),
 			);
+			SurplusAuctionThreshold::<T>::put(self.surplus_auction_threshold);
+			SurplusAuctionAmount::<T>::put(self.surplus_auction_amount);
+			MinSurplusPurchaseAmount::<T>::put(self.min_surplus_purchase_amount);
 		}
 	}
 
@@ -1372,6 +1381,92 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Update the surplus auction threshold.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be `AdminOrigin`.
+		///
+		/// ## Details
+		///
+		/// Sets the minimum Insurance Fund balance (as a percentage of total pUSD
+		/// supply) required to start surplus auctions or transfers.
+		///
+		/// ## Events
+		///
+		/// - [`Event::ConfigUpdated`]: Emitted with `SurplusAuctionThreshold` parameter
+		#[pallet::call_index(19)]
+		#[pallet::weight(T::WeightInfo::set_surplus_auction_threshold())]
+		pub fn set_surplus_auction_threshold(
+			origin: OriginFor<T>,
+			threshold: Permill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			SurplusAuctionThreshold::<T>::put(threshold);
+			Self::deposit_event(Event::ConfigUpdated {
+				auction_type: AuctionType::Surplus,
+				parameter: ConfigParameter::SurplusAuctionThreshold,
+			});
+			Ok(())
+		}
+
+		/// Update the surplus auction amount.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be `AdminOrigin`.
+		///
+		/// ## Details
+		///
+		/// Sets the amount of pUSD to auction (or transfer) per surplus operation.
+		///
+		/// ## Events
+		///
+		/// - [`Event::ConfigUpdated`]: Emitted with `SurplusAuctionAmount` parameter
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::set_surplus_auction_amount())]
+		pub fn set_surplus_auction_amount(
+			origin: OriginFor<T>,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			SurplusAuctionAmount::<T>::put(amount);
+			Self::deposit_event(Event::ConfigUpdated {
+				auction_type: AuctionType::Surplus,
+				parameter: ConfigParameter::SurplusAuctionAmount,
+			});
+			Ok(())
+		}
+
+		/// Update the minimum surplus purchase amount.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be `AdminOrigin`.
+		///
+		/// ## Details
+		///
+		/// Sets the minimum pUSD amount per surplus auction purchase.
+		/// Prevents micro-purchases in surplus auctions.
+		///
+		/// ## Events
+		///
+		/// - [`Event::ConfigUpdated`]: Emitted with `MinSurplusPurchaseAmount` parameter
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::set_min_surplus_purchase_amount())]
+		pub fn set_min_surplus_purchase_amount(
+			origin: OriginFor<T>,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			MinSurplusPurchaseAmount::<T>::put(amount);
+			Self::deposit_event(Event::ConfigUpdated {
+				auction_type: AuctionType::Surplus,
+				parameter: ConfigParameter::MinSurplusPurchaseAmount,
+			});
+			Ok(())
+		}
+
 		/// Transfer surplus pUSD directly to treasury.
 		///
 		/// ## Dispatch Origin
@@ -1693,7 +1788,7 @@ pub mod pallet {
 				.saturating_mul_int(One::one());
 
 			// 3. Minimum purchase check
-			let min_purchase = T::MinSurplusPurchaseAmount::get();
+			let min_purchase = MinSurplusPurchaseAmount::<T>::get();
 			if pusd_amount < min_purchase && pusd_amount < remaining_pusd {
 				return Err(Error::<T>::PurchaseTooSmall.into());
 			}
@@ -1839,8 +1934,8 @@ pub mod pallet {
 			// 4. Check IF balance exceeds surplus threshold after removing auction amount
 			let if_balance = T::CollateralManager::get_insurance_fund_balance();
 			let total_supply = T::CollateralManager::get_total_pusd_supply();
-			let threshold = T::SurplusAuctionThreshold::get();
-			let auction_amount = T::SurplusAuctionAmount::get();
+			let threshold = SurplusAuctionThreshold::<T>::get();
+			let auction_amount = SurplusAuctionAmount::<T>::get();
 
 			// After removing auction_amount, IF must still have at least threshold × total_supply
 			let required_surplus = threshold.mul_floor(total_supply);
@@ -1866,7 +1961,7 @@ pub mod pallet {
 			let starting_price = inverse_price.saturating_mul(config.buffer);
 
 			// 6. Determine auction amount
-			let pusd_amount = T::SurplusAuctionAmount::get();
+			let pusd_amount = SurplusAuctionAmount::<T>::get();
 
 			// 7. Create Tab for surplus auction
 			// - principal: pUSD amount being sold (not burned, just tracked)
@@ -1937,8 +2032,8 @@ pub mod pallet {
 			// 3. Check IF balance exceeds surplus threshold after transfer
 			let if_balance = T::CollateralManager::get_insurance_fund_balance();
 			let total_supply = T::CollateralManager::get_total_pusd_supply();
-			let threshold = T::SurplusAuctionThreshold::get();
-			let transfer_amount = T::SurplusAuctionAmount::get();
+			let threshold = SurplusAuctionThreshold::<T>::get();
+			let transfer_amount = SurplusAuctionAmount::<T>::get();
 
 			// After removing transfer_amount, IF must still have at least threshold × total_supply
 			let required_surplus = threshold.mul_floor(total_supply);

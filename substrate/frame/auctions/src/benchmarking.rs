@@ -152,7 +152,7 @@ mod benchmarks {
 
 		// Calculate a reasonable purchase amount that the buyer can afford
 		// DOT payment = price * pusd_amount, so we need to fund buyer accordingly
-		let pusd_amount = T::SurplusAuctionAmount::get();
+		let pusd_amount = SurplusAuctionAmount::<T>::get();
 		let dot_needed = price
 			.saturating_mul(FixedU128::saturating_from_integer(pusd_amount))
 			.saturating_mul_int(1u128);
@@ -319,6 +319,42 @@ mod benchmarks {
 		_(RawOrigin::Root, SurplusHandlingMode::Auction);
 
 		assert_eq!(SurplusMode::<T>::get(), SurplusHandlingMode::Auction);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_surplus_auction_threshold() -> Result<(), BenchmarkError> {
+		let threshold = Permill::from_percent(10);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, threshold);
+
+		assert_eq!(SurplusAuctionThreshold::<T>::get(), threshold);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_surplus_auction_amount() -> Result<(), BenchmarkError> {
+		let amount: BalanceOf<T> = (50_000 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, amount);
+
+		assert_eq!(SurplusAuctionAmount::<T>::get(), amount);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_min_surplus_purchase_amount() -> Result<(), BenchmarkError> {
+		let amount: BalanceOf<T> = (200 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, amount);
+
+		assert_eq!(MinSurplusPurchaseAmount::<T>::get(), amount);
 
 		Ok(())
 	}

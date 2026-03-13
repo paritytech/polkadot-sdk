@@ -400,9 +400,6 @@ impl pallet_assets::Config for Test {
 parameter_types! {
 	pub const MinAuctionTab: u128 = 10 * PUSD_UNIT; // 10 pUSD minimum
 	pub const MinPurchaseAmount: u128 = DOT_UNIT; // 1 DOT minimum purchase
-	pub const SurplusAuctionThreshold: Permill = Permill::from_percent(5); // 5% of pUSD supply
-	pub const SurplusAuctionAmount: u128 = 10_000 * PUSD_UNIT; // 10,000 pUSD per auction
-	pub const MinSurplusPurchaseAmount: u128 = 100 * PUSD_UNIT; // 100 pUSD minimum surplus purchase
 	pub const MaxOnIdleItems: u32 = 128;
 }
 
@@ -410,9 +407,6 @@ impl crate::Config for Test {
 	type CollateralManager = MockCollateralManager;
 	type MinAuctionTab = MinAuctionTab;
 	type MinPurchaseAmount = MinPurchaseAmount;
-	type SurplusAuctionThreshold = SurplusAuctionThreshold;
-	type SurplusAuctionAmount = SurplusAuctionAmount;
-	type MinSurplusPurchaseAmount = MinSurplusPurchaseAmount;
 	type BlockNumberProvider = System;
 	type ManagerOrigin = EnsureRoot<u64>;
 	type AdminOrigin = EnsureRoot<u64>;
@@ -505,10 +499,13 @@ pub fn new_test_ext() -> TestState {
 	.assimilate_storage(&mut storage)
 	.unwrap();
 
-	// Configure auctions pallet with defaults (will be overridden below)
-	crate::GenesisConfig::<Test>::default()
-		.assimilate_storage(&mut storage)
-		.unwrap();
+	{
+		let mut genesis = crate::GenesisConfig::<Test>::default();
+		genesis.surplus_auction_threshold = Permill::from_percent(5);
+		genesis.surplus_auction_amount = 10_000 * PUSD_UNIT;
+		genesis.min_surplus_purchase_amount = 100 * PUSD_UNIT;
+		genesis.assimilate_storage(&mut storage).unwrap();
+	}
 
 	let mut ext: TestState = storage.into();
 

@@ -43,11 +43,23 @@
 //!     fn surplus_config() -> pallet_auctions::AuctionConfigRecord<Runtime> {
 //!         pallet_auctions::AuctionConfigRecord::default_surplus()
 //!     }
+//!     fn surplus_auction_threshold() -> sp_runtime::Permill {
+//!         sp_runtime::Permill::from_percent(5)
+//!     }
+//!     fn surplus_auction_amount() -> Balance {
+//!         10_000 * UNIT
+//!     }
+//!     fn min_surplus_purchase_amount() -> Balance {
+//!         100 * UNIT
+//!     }
 //! }
 //! ```
 
 use crate::{
-	pallet::{AuctionConfig, AuctionConfigRecord, AuctionType},
+	pallet::{
+		AuctionConfig, AuctionConfigRecord, AuctionType, BalanceOf, MinSurplusPurchaseAmount,
+		SurplusAuctionAmount, SurplusAuctionThreshold,
+	},
 	Config, Pallet,
 };
 use frame_support::{
@@ -70,6 +82,15 @@ pub trait InitialAuctionsConfig<T: Config> {
 
 	/// Configuration for surplus auctions.
 	fn surplus_config() -> AuctionConfigRecord<T>;
+
+	/// Surplus auction threshold (% of total pUSD supply).
+	fn surplus_auction_threshold() -> sp_runtime::Permill;
+
+	/// Amount of pUSD per surplus auction or direct transfer.
+	fn surplus_auction_amount() -> BalanceOf<T>;
+
+	/// Minimum pUSD per surplus auction purchase.
+	fn min_surplus_purchase_amount() -> BalanceOf<T>;
 }
 
 /// Migration to initialize auctions pallet parameters (V0 -> V1).
@@ -99,6 +120,9 @@ impl<T: Config, I: InitialAuctionsConfig<T>> UncheckedOnRuntimeUpgrade for Migra
 
 		AuctionConfig::<T>::insert(AuctionType::Liquidation, I::liquidation_config());
 		AuctionConfig::<T>::insert(AuctionType::Surplus, I::surplus_config());
+		SurplusAuctionThreshold::<T>::put(I::surplus_auction_threshold());
+		SurplusAuctionAmount::<T>::put(I::surplus_auction_amount());
+		MinSurplusPurchaseAmount::<T>::put(I::min_surplus_purchase_amount());
 
 		// Update storage version
 		StorageVersion::new(1).put::<Pallet<T>>();
@@ -108,8 +132,8 @@ impl<T: Config, I: InitialAuctionsConfig<T>> UncheckedOnRuntimeUpgrade for Migra
 			"MigrateToV1 complete"
 		);
 
-		// 1 read (version check) + 3 writes (2 configs + version)
-		T::DbWeight::get().reads_writes(1, 3)
+		// 1 read (version check) + 6 writes (2 configs + 3 surplus params + version)
+		T::DbWeight::get().reads_writes(1, 6)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -156,7 +180,7 @@ impl<T: Config, I: InitialAuctionsConfig<T>> UncheckedOnRuntimeUpgrade for Migra
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Test};
+	use crate::mock::{new_test_ext, Test, PUSD_UNIT};
 
 	/// Test implementation of InitialAuctionsConfig
 	pub struct TestAuctionsConfig;
@@ -167,6 +191,15 @@ mod tests {
 		fn surplus_config() -> AuctionConfigRecord<Test> {
 			AuctionConfigRecord::default_surplus()
 		}
+		fn surplus_auction_threshold() -> sp_runtime::Permill {
+			sp_runtime::Permill::from_percent(5)
+		}
+		fn surplus_auction_amount() -> u128 {
+			10_000 * PUSD_UNIT
+		}
+		fn min_surplus_purchase_amount() -> u128 {
+			100 * PUSD_UNIT
+		}
 	}
 
 	#[test]
@@ -176,6 +209,9 @@ mod tests {
 			StorageVersion::new(0).put::<Pallet<Test>>();
 			AuctionConfig::<Test>::remove(AuctionType::Liquidation);
 			AuctionConfig::<Test>::remove(AuctionType::Surplus);
+			SurplusAuctionThreshold::<Test>::kill();
+			SurplusAuctionAmount::<Test>::kill();
+			MinSurplusPurchaseAmount::<Test>::kill();
 
 			// Run migration
 			let _weight = MigrateToV1::<Test, TestAuctionsConfig>::on_runtime_upgrade();
@@ -196,6 +232,14 @@ mod tests {
 			// Surplus has different chip/tip defaults (zero for no keeper incentive)
 			assert!(surplus.chip.is_zero());
 			assert!(surplus.tip.is_zero());
+
+			// Verify surplus params
+			assert_eq!(
+				SurplusAuctionThreshold::<Test>::get(),
+				sp_runtime::Permill::from_percent(5)
+			);
+			assert_eq!(SurplusAuctionAmount::<Test>::get(), 10_000 * PUSD_UNIT);
+			assert_eq!(MinSurplusPurchaseAmount::<Test>::get(), 100 * PUSD_UNIT);
 
 			// Verify storage version updated
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 1);

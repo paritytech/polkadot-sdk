@@ -3203,12 +3203,6 @@ parameter_types! {
 	pub const AuctionsMinAuctionTab: Balance = 100_000_000; // 100 * 10^6
 	/// Minimum purchase amount per liquidation take (0.1 DOT).
 	pub const AuctionsMinPurchaseAmount: Balance = 10_000_000_000; // 1 * 10^10
-	/// Surplus auction threshold: 5% of total pUSD supply.
-	pub const AuctionsSurplusThreshold: Permill = Permill::from_percent(5);
-	/// Amount of pUSD per surplus auction (100,000 pUSD).
-	pub const AuctionsSurplusAmount: Balance = 100_000_000_000; // 100_000 * 10^6
-	/// Minimum purchase amount per surplus take (100 pUSD).
-	pub const AuctionsMinSurplusPurchaseAmount: Balance = 100_000_000; // 100 * 10^6
 	/// Maximum auctions to process per on_idle call.
 	pub const AuctionsMaxOnIdleItems: u32 = 16;
 }
@@ -3266,13 +3260,12 @@ impl pallet_auctions::BenchmarkHelper<AccountId, Balance> for AuctionsBenchmarkH
 
 /// Configure the Auctions pallet.
 impl pallet_auctions::Config for Runtime {
+	type BlockNumberProvider = System;
 	type CollateralManager = Vaults;
 	type MinAuctionTab = AuctionsMinAuctionTab;
 	type MinPurchaseAmount = AuctionsMinPurchaseAmount;
 	type ManagerOrigin = EnsureRoot<AccountId>;
-	type SurplusAuctionThreshold = AuctionsSurplusThreshold;
-	type SurplusAuctionAmount = AuctionsSurplusAmount;
-	type MinSurplusPurchaseAmount = AuctionsMinSurplusPurchaseAmount;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = pallet_auctions::weights::SubstrateWeight<Runtime>;
 	type MaxOnIdleItems = AuctionsMaxOnIdleItems;
 	#[cfg(feature = "runtime-benchmarks")]
