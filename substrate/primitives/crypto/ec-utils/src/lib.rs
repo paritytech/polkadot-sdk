@@ -54,7 +54,7 @@ pub mod ed_on_bls12_381_bandersnatch;
 ))]
 mod utils;
 
-/// Host for to speed up Elliptic Curve math.
+/// Host functions to speed up Elliptic Curve math.
 ///
 /// Provides: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377, Ed-on-BLS12-381-Bandersnatch.
 #[cfg(all(
