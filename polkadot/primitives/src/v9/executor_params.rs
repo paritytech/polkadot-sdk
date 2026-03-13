@@ -245,7 +245,7 @@ impl ExecutorParams {
 				PvfPrepTimeout(..) => None,
 				PvfExecTimeout(..) => None,
 				WasmExtBulkMemory => Some(param),
-				EccHostFn => Some(param),
+				EccHostFn => None,
 			})
 			.for_each(|p| enc.extend(p.encode()));
 
