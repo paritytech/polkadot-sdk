@@ -105,53 +105,6 @@ async fn dispute_freshly_finalized_test() -> Result<(), anyhow::Error> {
 	check_metrics(&honest_validators, &metric_checks).await?;
 	log::info!("Check approval / dispute finality lag concluded ok");
 
-	// // Check if disputes are initiated and concluded
-	// log::info!("Checking disputes are initiated");
-	// honest
-	// 	.wait_metric_with_timeout(
-	// 		"polkadot_parachain_candidate_disputes_total",
-	// 		|v| v >= 2.0,
-	// 		100u64,
-	// 	)
-	// 	.await
-	// 	.map_err(|e| anyhow!("Disputes not initiated: {}", e))?;
-	// log::info!("Disputes initiated");
-
-	// log::info!("Checking disputes concluded as valid");
-	// honest
-	// 	.wait_metric_with_timeout(
-	// 		"polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}",
-	// 		|v| v >= 2.0,
-	// 		100u64,
-	// 	)
-	// 	.await
-	// 	.map_err(|e| anyhow!("Valid disputes not concluded: {}", e))?;
-
-	// // Ensure no disputes concluded as invalid
-	// honest
-	// 	.wait_metric_with_timeout(
-	// 		"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}",
-	// 		|v| v == 0.0,
-	// 		10u64,
-	// 	)
-	// 	.await
-	// 	.map_err(|e| anyhow!("Unexpected invalid disputes: {}", e))?;
-	// log::info!("All disputes concluded as valid");
-
-	// // Check approval finality lag
-	// log::info!("Checking approval finality lag");
-	// honest
-	// 	.wait_metric_with_timeout(APPROVAL_CHECKING_FINALITY_LAG_METRIC, |v| v < 2.0, 30u64)
-	// 	.await
-	// 	.map_err(|e| anyhow!("Approval finality lag too high: {}", e))?;
-
-	// // Check dispute finality lag
-	// log::info!("Checking dispute finality lag");
-	// honest
-	// 	.wait_metric_with_timeout("polkadot_parachain_disputes_finality_lag", |v| v < 2.0, 30u64)
-	// 	.await
-	// 	.map_err(|e| anyhow!("Dispute finality lag too high: {}", e))?;
-
 	log::info!("Test finished successfully");
 	Ok(())
 }

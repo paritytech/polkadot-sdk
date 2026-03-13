@@ -54,7 +54,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 	log::info!("All parachains producing blocks");
 
 	// Check if disputes are initiated and concluded.
-	// TODO: check if disputes are concluded faster than initiated.
+	// TODO (from original setup): check if disputes are concluded faster than initiated.
 	log::info!("Check if disputes are initiated and concluded");
 	let eve = network.get_node("eve")?;
 	eve.wait_metric_with_timeout(
