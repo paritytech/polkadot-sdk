@@ -69,7 +69,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	}
 
 	let metric_checks: Vec<MetricCheckSetup> = vec![
-		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 30.0), 400),
+		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v >= 30.0), 400),
 		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
 		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),
 	];
@@ -126,7 +126,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	log::info!("Configuration::set_node_feature updated");
 
 	let metric_checks: Vec<MetricCheckSetup> = vec![
-		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v == 60.0), 400),
+		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v >= 60.0), 400),
 		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 3.0), 0),
 		(APPROVAL_NO_SHOWS_TOTAL_METRIC, Box::new(|v| v < 3.0), 100),
 	];

@@ -11,7 +11,7 @@
 
 - job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
   test-filter: "functional::beefy_and_mmr::beefy_and_mmr_test"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
