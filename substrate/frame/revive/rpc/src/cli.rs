@@ -303,7 +303,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let db_options = resolve_db_options(eth_pruning, base_path)?;
 
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
-		.rpc_addr(is_dev, false, 8545)?
+		.rpc_addr(is_dev, false, DEFAULT_RPC_PORT)?
 		.map(|addrs| addrs.into_iter().map(Into::into).collect());
 
 	let rpc_config = RpcConfiguration {
@@ -368,7 +368,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			];
 
 			if eth_pruning.is_archive() {
-				futures.push(Box::pin(client.sync_past_blocks()));
+				futures.push(Box::pin(client.sync_backward()));
 			}
 
 			if let Err(err) = futures::future::try_join_all(futures).await {

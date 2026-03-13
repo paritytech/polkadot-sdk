@@ -451,7 +451,7 @@ impl Client {
 					{
 						log::warn!(target: LOG_TARGET,
 							"Failed to update sync_label[{}]: {err:?}",
-							SyncLabel::Head);
+						SyncLabel::Head);
 					}
 				},
 				// Only broadcast for best blocks to avoid duplicate notifications.

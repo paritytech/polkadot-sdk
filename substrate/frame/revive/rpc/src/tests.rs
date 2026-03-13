@@ -1036,7 +1036,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.number();
 
 	// Run the full backward sync.
-	client.sync_past_blocks().await?;
+	client.sync_backward().await?;
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -1090,7 +1090,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	);
 
 	// Re-syncing should complete without errors (exercises the resume path).
-	client.sync_past_blocks().await?;
+	client.sync_backward().await?;
 	let sync_head_after = client
 		.receipt_provider()
 		.get_sync_label(SyncLabel::Head)
@@ -1115,7 +1115,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so the DB has all blocks and labels.
-	client.sync_past_blocks().await?;
+	client.sync_backward().await?;
 
 	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
 	let chain_len = client.latest_finalized_block().await.number();
@@ -1151,7 +1151,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	let finalized_before_resume = client.latest_finalized_block().await.number();
 
 	// Resume sync — fills top gap and bottom gap.
-	client.sync_past_blocks().await?;
+	client.sync_backward().await?;
 
 	// After resume, Head should be at the finalized block that was current at resume start.
 	let new_head = client
@@ -1201,7 +1201,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	let client = create_sync_test_client().await?;
 
 	// Complete a fresh sync so all labels are stored.
-	client.sync_past_blocks().await?;
+	client.sync_backward().await?;
 
 	// --- ChainMismatch: overwrite Genesis with a fake hash ---
 	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
@@ -1210,7 +1210,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
 		.await?;
 
-	let err = client.sync_past_blocks().await.unwrap_err();
+	let err = client.sync_backward().await.unwrap_err();
 	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
 
 	// Restore the real genesis so we can test the next corruption.
@@ -1228,7 +1228,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.set_sync_label(SyncLabel::Head, corrupted_upper)
 		.await?;
 
-	let err = client.sync_past_blocks().await.unwrap_err();
+	let err = client.sync_backward().await.unwrap_err();
 	assert!(
 		matches!(err, ClientError::SyncBoundaryMismatch),
 		"Expected SyncBoundaryMismatch, got: {err:?}"
@@ -1244,7 +1244,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client1 = create_sync_test_client().await?;
 	let finalized1 = client1.latest_finalized_block().await.number();
 
-	client1.sync_past_blocks().await?;
+	client1.sync_backward().await?;
 
 	// Submit a transaction to produce at least one new block.
 	submit_evm_transfers(1).await?;
@@ -1253,7 +1253,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	let client2 = create_sync_test_client().await?;
 	let finalized2 = client2.latest_finalized_block().await;
 
-	client2.sync_past_blocks().await?;
+	client2.sync_backward().await?;
 	assert!(
 		finalized2.number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",
