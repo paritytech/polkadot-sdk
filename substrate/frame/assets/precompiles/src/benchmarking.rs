@@ -167,9 +167,12 @@ mod benchmarks {
 		};
 
 		// Set timestamp so deadline check passes.
-		pallet_timestamp::Pallet::<T>::set_timestamp(
-			1_704_067_200_000u64.try_into().unwrap_or_default(),
-		);
+		// Write directly to storage instead of calling `set_timestamp()`, which
+		// triggers `OnTimestampSet` callbacks (e.g. pallet_babe slot validation)
+		// that require additional setup not relevant to this benchmark.
+		let timestamp: <T as pallet_timestamp::Config>::Moment =
+			1_704_067_200_000u64.try_into().unwrap_or_default();
+		pallet_timestamp::Now::<T>::put(timestamp);
 
 		// Compute EIP-712 digest using runtime's chain_id.
 		let nonce = U256::zero();
