@@ -65,7 +65,7 @@
 //!
 //! * **Surplus Auction** ([`AuctionType::Surplus`]): Sells excess pUSD from the Insurance Fund for
 //!   DOT when IF balance exceeds [`SurplusAuctionThreshold`] × total pUSD supply. Price is DOT per
-//!   pUSD, decreasing over time. DOT proceeds go to Treasury.
+//!   pUSD, decreasing over time. DOT proceeds are handled by `CollateralManager`.
 //!
 //! ### Auction Lifecycle
 //!
@@ -125,8 +125,9 @@
 //!
 //! The pallet supports two modes for handling Insurance Fund surplus via [`SurplusHandlingMode`]:
 //!
-//! * **Auction**: Surplus pUSD is auctioned for DOT (sent to Treasury)
-//! * **`DirectTransfer`**: Surplus pUSD is transferred directly to Treasury (no auction)
+//! * **Auction**: Surplus pUSD is auctioned for DOT (handled by `CollateralManager`)
+//! * **`DirectTransfer`**: Surplus pUSD is transferred directly via `CollateralManager` (no
+//!   auction)
 //!
 //! ### On-Idle Housekeeping
 //!
@@ -478,7 +479,7 @@ pub mod pallet {
 		Default,
 	)]
 	pub enum SurplusHandlingMode {
-		/// Surplus pUSD is auctioned for DOT (sent to Treasury).
+		/// Surplus pUSD is auctioned for DOT (handled by `CollateralManager`).
 		/// Allows price discovery and potentially better rates.
 		Auction,
 		/// Surplus pUSD is transferred directly to the configured handler (DAP).
@@ -491,7 +492,8 @@ pub mod pallet {
 	///
 	/// The auction system supports two types of auctions:
 	/// - **Liquidation**: Sells DOT collateral for pUSD to repay vault debt
-	/// - **Surplus**: Sells excess pUSD from the Insurance Fund for DOT (sent to Treasury)
+	/// - **Surplus**: Sells excess pUSD from the Insurance Fund for DOT (handled by
+	///   `CollateralManager`)
 	#[derive(
 		Encode,
 		Decode,
@@ -515,7 +517,7 @@ pub mod pallet {
 		/// Surplus auction: sells excess pUSD from Insurance Fund for DOT.
 		/// - Price is in DOT per pUSD (decreases over time, meaning less DOT per pUSD)
 		/// - pUSD is transferred from Insurance Fund to buyer
-		/// - DOT received from buyer is sent to Treasury
+		/// - DOT received from buyer is handled by `CollateralManager`
 		Surplus,
 	}
 
@@ -579,13 +581,7 @@ pub mod pallet {
 
 	/// The next auction ID to be assigned.
 	#[pallet::storage]
-	pub type NextAuctionId<T: Config> = StorageValue<_, u32, ValueQuery, NextAuctionIdDefault>;
-
-	/// Default value for `NextAuctionId` (starts at 1).
-	#[pallet::type_value]
-	pub fn NextAuctionIdDefault() -> u32 {
-		1
-	}
+	pub type NextAuctionId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Map of auction ID -> Auction data.
 	#[pallet::storage]
@@ -996,7 +992,7 @@ pub mod pallet {
 		/// desired rate.
 		///
 		/// The buyer specifies a maximum amount of pUSD to purchase and a maximum
-		/// price (DOT per pUSD). The DOT paid is sent to the Treasury.
+		/// price (DOT per pUSD). The DOT paid is handled by `CollateralManager`.
 		///
 		/// ## Arguments
 		///
@@ -1847,7 +1843,7 @@ pub mod pallet {
 			auction.tab.principal = remaining_after;
 
 			// 6. Execute surplus purchase via CollateralManager
-			// This transfers pUSD from IF to recipient, and DOT from buyer to Treasury
+			// This transfers pUSD from IF to recipient, and collects DOT from buyer
 			T::CollateralManager::execute_surplus_purchase(
 				buyer,
 				&recipient,

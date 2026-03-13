@@ -65,11 +65,11 @@ fn start_auction_works() {
 		let auction_id = start_test_auction(VAULT_OWNER, collateral, tab).unwrap();
 
 		// Verify auction was created
-		assert_eq!(auction_id, 1);
-		assert_eq!(NextAuctionId::<Test>::get(), 2);
+		assert_eq!(auction_id, 0);
+		assert_eq!(NextAuctionId::<Test>::get(), 1);
 
 		// Verify auction data
-		let auction = Auctions::<Test>::get(1).unwrap();
+		let auction = Auctions::<Test>::get(0).unwrap();
 		assert_eq!(auction.tab.total(), tab);
 		assert_eq!(auction.auctionable_collateral, collateral);
 		assert_eq!(auction.vault_owner, Some(VAULT_OWNER));
@@ -88,7 +88,7 @@ fn start_auction_works() {
 		System::assert_has_event(
 			Event::AuctionStarted {
 				auction_type: AuctionType::Liquidation,
-				id: 1,
+				id: 0,
 				tab,
 				lot: collateral,
 				owner: Some(VAULT_OWNER),
@@ -1689,7 +1689,7 @@ fn circuit_breaker_allenabled_allows_all() {
 
 		// New auction works
 		let new_id = start_test_auction(ALICE, 50 * DOT, 500 * PUSD_UNIT).unwrap();
-		assert_eq!(new_id, 2);
+		assert_eq!(new_id, 1);
 	});
 }
 
@@ -1981,11 +1981,11 @@ fn start_surplus_auction_works() {
 		));
 
 		// Verify auction was created
-		let auction = Auctions::<Test>::get(1).unwrap();
+		let auction = Auctions::<Test>::get(0).unwrap();
 		assert_eq!(auction.auction_type, AuctionType::Surplus);
 
 		// Verify ActiveSurplusAuctionId is set
-		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(1));
+		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(0));
 	});
 }
 
@@ -2001,7 +2001,7 @@ fn only_one_surplus_auction_allowed() {
 		));
 
 		// Verify ActiveSurplusAuctionId is set
-		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(1));
+		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(0));
 
 		// Attempt to start second surplus auction should fail
 		assert_noop!(
@@ -2010,8 +2010,8 @@ fn only_one_surplus_auction_allowed() {
 		);
 
 		// Original auction should still be active
-		assert!(Auctions::<Test>::get(1).is_some());
-		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(1));
+		assert!(Auctions::<Test>::get(0).is_some());
+		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(0));
 	});
 }
 
@@ -2030,7 +2030,7 @@ fn surplus_auction_completion_allows_new_auction() {
 			RuntimeOrigin::signed(ALICE),
 			KEEPER
 		));
-		let first_auction_id = 1;
+		let first_auction_id = 0;
 
 		// Verify active surplus auction is set
 		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(first_auction_id));
@@ -2062,7 +2062,7 @@ fn surplus_auction_completion_allows_new_auction() {
 		));
 
 		// New auction should be created with next ID
-		let second_auction_id = 2;
+		let second_auction_id = 1;
 		assert!(Auctions::<Test>::get(second_auction_id).is_some());
 		assert_eq!(crate::pallet::ActiveSurplusAuctionId::<Test>::get(), Some(second_auction_id));
 	});
@@ -2366,13 +2366,13 @@ fn take_liquidation_fails_on_surplus_auction() {
 			KEEPER
 		));
 
-		let auction = Auctions::<Test>::get(1).unwrap();
+		let auction = Auctions::<Test>::get(0).unwrap();
 		let price = crate::Pallet::<Test>::current_price(&auction);
 
 		assert_noop!(
 			crate::Pallet::<Test>::take_liquidation(
 				RuntimeOrigin::signed(BOB),
-				1,
+				0,
 				10 * DOT,
 				price,
 				BOB
@@ -2417,7 +2417,7 @@ fn restart_auction_fails_on_surplus_auction() {
 		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
 
 		assert_noop!(
-			crate::Pallet::<Test>::restart_auction(RuntimeOrigin::signed(KEEPER), 1, KEEPER),
+			crate::Pallet::<Test>::restart_auction(RuntimeOrigin::signed(KEEPER), 0, KEEPER),
 			Error::<Test>::InvalidAuctionType
 		);
 	});
@@ -2448,7 +2448,7 @@ fn on_idle_processes_multiple_stale_auctions() {
 		crate::Pallet::<Test>::on_idle(21602, Weight::from_parts(u64::MAX, u64::MAX));
 
 		// All should be restarted
-		for id in 1..=5u32 {
+		for id in 0..5u32 {
 			assert_eq!(Auctions::<Test>::get(id).unwrap().starting_block, 21602);
 		}
 	});
@@ -2495,7 +2495,7 @@ fn on_idle_completes_stale_surplus_auction() {
 			KEEPER
 		));
 
-		let auction = Auctions::<Test>::get(1).unwrap();
+		let auction = Auctions::<Test>::get(0).unwrap();
 		let initial_tab = auction.tab.principal;
 
 		Stopped::<Test>::put(CircuitBreakerLevel::NoNewAuctionsOrRestarts);
@@ -2505,13 +2505,13 @@ fn on_idle_completes_stale_surplus_auction() {
 		crate::Pallet::<Test>::on_idle(21602, Weight::from_parts(u64::MAX, u64::MAX));
 
 		// Surplus auction should be COMPLETED (removed), not restarted
-		assert!(Auctions::<Test>::get(1).is_none());
+		assert!(Auctions::<Test>::get(0).is_none());
 		assert!(ActiveSurplusAuctionId::<Test>::get().is_none());
 
 		System::assert_has_event(
 			Event::AuctionCompleted {
 				auction_type: AuctionType::Surplus,
-				id: 1,
+				id: 0,
 				remaining: initial_tab,
 				shortfall: 0,
 			}
@@ -2601,7 +2601,7 @@ fn on_idle_respects_weight_limit() {
 
 		// Should have set cursor (couldn't process all)
 		// Or processed none if weight insufficient
-		let restarted = (1..=10u32)
+		let restarted = (0..10u32)
 			.filter(|id| Auctions::<Test>::get(*id).is_some_and(|a| a.starting_block == 21602))
 			.count();
 
