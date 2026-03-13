@@ -2758,7 +2758,7 @@ mod tests {
 		// Send ExplicitTopicAffinity message.
 		let topic: [u8; 32] = [0xAA; 32];
 		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom.insert(&topic);
+		bloom.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic));
 		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
@@ -2777,7 +2777,7 @@ mod tests {
 		);
 		// The filter should match the topic we inserted.
 		assert!(
-			peer_data.topic_affinity.as_ref().unwrap().bloom.contains(&topic),
+			peer_data.topic_affinity.as_ref().unwrap().contains_topic(&topic),
 			"Stored affinity filter should match the topic"
 		);
 	}
@@ -2803,7 +2803,7 @@ mod tests {
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
 		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom.insert(&topic_aa);
+		bloom.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic_aa));
 		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
@@ -2982,7 +2982,7 @@ mod tests {
 
 		// Set topic affinity to topic_aa — this triggers the first initial sync.
 		let mut bloom_aa = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_aa.insert(&topic_aa);
+		bloom_aa.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic_aa));
 		let filter = AffinityFilter { bloom: bloom_aa, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
@@ -3023,7 +3023,7 @@ mod tests {
 
 		// Now change affinity to topic_bb — triggers re-sync.
 		let mut bloom_bb = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_bb.insert(&topic_bb);
+		bloom_bb.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic_bb));
 		let filter = AffinityFilter { bloom: bloom_bb, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
@@ -3114,7 +3114,7 @@ mod tests {
 
 		// Immediately set affinity to topic_aa BEFORE any initial sync runs.
 		let mut bloom_aa = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_aa.insert(&topic_aa);
+		bloom_aa.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic_aa));
 		let filter = AffinityFilter { bloom: bloom_aa, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
@@ -3162,8 +3162,8 @@ mod tests {
 		// Now change affinity to include topic_bb.
 		let mut bloom_both =
 			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_both.insert(&topic_aa);
-		bloom_both.insert(&topic_bb);
+		bloom_both.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic_aa));
+		bloom_both.insert_hash(crate::affinity::topic_source_hash(&BLOOM_SEED, &topic_bb));
 		let filter = AffinityFilter { bloom: bloom_both, seed: BLOOM_SEED };
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();

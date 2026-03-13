@@ -18,17 +18,20 @@
 
 use crate::config::MAX_STATEMENT_NOTIFICATION_SIZE;
 use codec::{Decode, Encode};
-use fastbloom::BloomFilter;
+use fastbloom::{BloomFilter, DefaultHasher as BloomDefaultHasher};
 use sp_statement_store::Statement;
+use std::hash::{BuildHasher, Hasher};
 
 /// Maximum number of bits allowed in a bloom filter received from the network.
 /// Derived from [`MAX_STATEMENT_NOTIFICATION_SIZE`] so the affinity filter can never exceed the
 /// protocol's notification budget. 1 MiB = 8_388_608 bits.
 const MAX_BLOOM_BITS: usize = MAX_STATEMENT_NOTIFICATION_SIZE as usize * 8;
 
-/// Maximum number of hash functions allowed. Typical bloom filters use 7-10;
-/// 32 is generous but prevents CPU abuse from peers setting `u32::MAX`.
-const MAX_NUM_HASHES: u32 = 32;
+/// Maximum number of hash functions allowed.
+/// Optimal hash count is `(bits / items) * ln(2)`. With the minimum allocation of 64 bits
+/// and 1 expected item this yields ≈ 44, so the limit must be at least that high. 64 covers all
+/// practical configurations while preventing CPU abuse from peers.
+const MAX_NUM_HASHES: u32 = 64;
 
 /// Wire representation of a bloom filter.
 #[derive(Encode, Decode)]
@@ -64,6 +67,20 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 	}
 }
 
+/// Platform-independent "source" hash for statement topics.
+///
+/// `fastbloom` hashes items via Rust's [`Hash`] which, for arrays, includes a length prefix
+/// encoded with `write_usize`. The width of that encoding differs between `wasm32` (4 bytes)
+/// and 64-bit platforms (8 bytes), resulting in different bloom bits across platforms. We
+/// avoid that by hashing a fixed-width length prefix (`u64`) followed by the raw topic bytes.
+pub(crate) fn topic_source_hash(seed: &u128, topic: &[u8; 32]) -> u64 {
+	let mut hasher = BloomDefaultHasher::seeded(&seed.to_be_bytes()).build_hasher();
+	hasher.write(&(topic.len() as u64).to_le_bytes());
+	hasher.write(topic);
+	hasher.finish()
+}
+
+#[derive(Debug)]
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	pub(crate) bloom: BloomFilter,
@@ -71,13 +88,11 @@ pub struct AffinityFilter {
 	pub(crate) seed: u128,
 }
 
-impl std::fmt::Debug for AffinityFilter {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("AffinityFilter").finish_non_exhaustive()
-	}
-}
-
 impl AffinityFilter {
+	pub(crate) fn contains_topic(&self, topic: &[u8; 32]) -> bool {
+		self.bloom.contains_hash(topic_source_hash(&self.seed, topic))
+	}
+
 	/// Check if a statement matches this affinity filter.
 	///
 	/// A statement matches if any of its topics is present in the bloom filter.
@@ -87,7 +102,7 @@ impl AffinityFilter {
 		if topics.is_empty() {
 			return true;
 		}
-		topics.iter().any(|topic| self.bloom.contains(topic))
+		topics.iter().any(|topic| self.contains_topic(&topic))
 	}
 }
 
@@ -138,11 +153,14 @@ mod tests {
 
 		// Insert first 10% of items.
 		for item in &items[..SET_COUNT] {
-			bloom.insert(item);
+			bloom.insert_hash(topic_source_hash(&BLOOM_SEED, item));
 		}
 
 		// Record expected check result for every item before serialization.
-		let expected: Vec<bool> = items.iter().map(|item| bloom.contains(item)).collect();
+		let expected: Vec<bool> = items
+			.iter()
+			.map(|item| bloom.contains_hash(topic_source_hash(&BLOOM_SEED, item)))
+			.collect();
 
 		// Inserted items must always be present.
 		for i in 0..SET_COUNT {
@@ -156,7 +174,11 @@ mod tests {
 
 		// Every item must give the same answer as before serialization.
 		for (i, item) in items.iter().enumerate() {
-			assert_eq!(decoded.bloom.contains(item), expected[i], "mismatch for item {i}");
+			assert_eq!(
+				decoded.bloom.contains_hash(topic_source_hash(&BLOOM_SEED, item)),
+				expected[i],
+				"mismatch for item {i}"
+			);
 		}
 
 		// Re-encoding must produce identical bytes.
@@ -183,7 +205,7 @@ mod tests {
 		let mut bloom =
 			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(ITEM_COUNT);
 		for item in &items {
-			bloom.insert(item);
+			bloom.insert_hash(topic_source_hash(&BLOOM_SEED, item));
 		}
 
 		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
@@ -203,12 +225,18 @@ mod tests {
 		let decoded =
 			AffinityFilter::decode(&mut encoded.as_slice()).expect("snapshot must decode");
 		for (i, item) in items.iter().enumerate() {
-			assert!(decoded.bloom.contains(item), "item {i} must be present after decoding");
+			assert!(
+				decoded.bloom.contains_hash(topic_source_hash(&BLOOM_SEED, item)),
+				"item {i} must be present after decoding"
+			);
 		}
 
 		// A non-inserted item should not match.
 		let absent: [u8; 32] = [0xFF; 32];
-		assert!(!decoded.bloom.contains(&absent), "absent item must not match");
+		assert!(
+			!decoded.bloom.contains_hash(topic_source_hash(&BLOOM_SEED, &absent)),
+			"absent item must not match"
+		);
 	}
 
 	#[test]
@@ -227,7 +255,7 @@ mod tests {
 	fn matches_statement_single_matching_topic() {
 		let topic: [u8; 32] = [0xAA; 32];
 		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		bloom.insert(&topic);
+		bloom.insert_hash(topic_source_hash(&BLOOM_SEED, &topic));
 		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 
 		let mut stmt = Statement::new();
@@ -241,7 +269,7 @@ mod tests {
 		let topic_in_filter: [u8; 32] = [0xAA; 32];
 		let topic_on_stmt: [u8; 32] = [0xBB; 32];
 		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		bloom.insert(&topic_in_filter);
+		bloom.insert_hash(topic_source_hash(&BLOOM_SEED, &topic_in_filter));
 		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 
 		let mut stmt = Statement::new();
@@ -258,7 +286,7 @@ mod tests {
 
 		// Filter only contains topic_bb.
 		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		bloom.insert(&topic_bb);
+		bloom.insert_hash(topic_source_hash(&BLOOM_SEED, &topic_bb));
 		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 
 		// Statement has topics [topic_aa, topic_bb] — should match because topic_bb is in filter.
