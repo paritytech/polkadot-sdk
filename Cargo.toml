@@ -53,7 +53,6 @@ members = [
 	"bridges/snowbridge/pallets/system/runtime-api",
 	"bridges/snowbridge/primitives/beacon",
 	"bridges/snowbridge/primitives/core",
-	"bridges/snowbridge/primitives/ethereum",
 	"bridges/snowbridge/primitives/inbound-queue",
 	"bridges/snowbridge/primitives/merkle-tree",
 	"bridges/snowbridge/primitives/outbound-queue",
@@ -1307,7 +1306,6 @@ slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
 snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false }
 snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false }
-snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false }
 snowbridge-inbound-queue-primitives = { path = "bridges/snowbridge/primitives/inbound-queue", default-features = false }
 snowbridge-merkle-tree = { path = "bridges/snowbridge/primitives/merkle-tree", default-features = false }
 snowbridge-outbound-queue-primitives = { path = "bridges/snowbridge/primitives/outbound-queue", default-features = false }
