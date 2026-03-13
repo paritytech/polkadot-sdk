@@ -82,13 +82,56 @@ jobs:
           node-version: "24.x"
           registry-url: "https://npm.pkg.github.com"
 
+      - name: Probe RPC endpoint connectivity
+        run: |
+          URI="${{ matrix.uri }}"
+          HOST=$(echo "$URI" | sed 's|wss://||' | sed 's|:443||')
+          echo "---------- Probing $HOST ----------"
+
+          echo "--- DNS resolution ---"
+          getent hosts "$HOST" || echo "WARNING: DNS resolution failed for $HOST"
+
+          echo "--- TCP+TLS + HTTP status (curl) ---"
+          curl -sS --max-time 10 --http1.1 \
+            -o /dev/null -w "HTTP status: %{http_code}  connect: %{time_connect}s  total: %{time_total}s\n" \
+            "https://$HOST/" || echo "WARNING: HTTPS probe failed (exit $?)"
+
+          echo "--- WebSocket upgrade handshake ---"
+          WS_STATUS=$(curl -sS --max-time 3 --http1.1 \
+            -H "Upgrade: websocket" \
+            -H "Connection: Upgrade" \
+            -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+            -H "Sec-WebSocket-Version: 13" \
+            -o /dev/null -w "%{http_code}" \
+            "https://$HOST/" 2>/dev/null || true)
+          echo "WebSocket upgrade HTTP status: $WS_STATUS"
+          [ "$WS_STATUS" = "101" ] || echo "WARNING: expected 101, got $WS_STATUS"
+
+          echo "--- JSON-RPC system_health via WebSocket ---"
+          node -e "
+            const ws = new WebSocket('$URI');
+            const t = setTimeout(() => { console.error('ERROR: timed out after 10s'); ws.terminate(); process.exit(1); }, 10000);
+            ws.onerror = (e) => { clearTimeout(t); console.error('ERROR:', e.message); process.exit(1); };
+            ws.onopen  = () => { console.log('connected'); ws.send(JSON.stringify({id:1,jsonrpc:'2.0',method:'system_health',params:[]})); };
+            ws.onmessage = (e) => { clearTimeout(t); console.log('system_health:', e.data); ws.close(); };
+            ws.onclose = () => process.exit(0);
+          "
+
       - name: Check Runtime Compatibility
         id: check-compatibility
         run: |
           echo "---------- Checking runtime compatibility for ${{ matrix.network }} ----------"
+
+          # Install to a local directory so we know the exact path to cli.mjs.
+          # check-runtime hardcodes LOG_LEVEL=fatal, preventing any Chopsticks debug output.
+          # We patch cli.mjs so our LOG_LEVEL env var takes effect instead.
+          npm install --save-exact --prefix ./check-runtime-tool @polkadot-api/check-runtime@latest 2>/dev/null
+          CLI_MJS=./check-runtime-tool/node_modules/@polkadot-api/check-runtime/bin/cli.mjs
+          sed -i 's/process\.env\.LOG_LEVEL = "fatal"/process.env.LOG_LEVEL = process.env.LOG_LEVEL || "fatal"/' "$CLI_MJS"
+
           set +e
           # check-runtime hangs indefinitely if the RPC node is unreachable.
-          timeout 600 npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
+          LOG_LEVEL=debug timeout 600 node "$CLI_MJS" problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
           EXIT_CODE=$?
           set -e
           # When the time limit is reached, timeout returns exit code 124
