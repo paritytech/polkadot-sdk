@@ -1534,6 +1534,7 @@ async fn second_unblocked_collations<Context>(
 ///
 /// Returns Ok if there's a free slot on at least one path, Err otherwise.
 fn is_slot_available(
+	scheduling_parent: &Hash,
 	para_id: ParaId,
 	state: &State,
 ) -> std::result::Result<(), AdvertisementError> {
@@ -1545,10 +1546,6 @@ fn is_slot_available(
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 	let current_core = per_scheduling_parent.current_core;
 
-	let per_scheduling_parent = state
-		.per_scheduling_parent
-		.get(relay_parent)
-		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 	let current_core = per_scheduling_parent.current_core;
 
 	gum::trace!(
@@ -2759,8 +2756,6 @@ async fn kick_off_seconding<Context>(
 					pov,
 					maybe_parent_head_data: None,
 				};
-				let scheduling_parent =
-					blocked_collation.candidate_receipt.descriptor().scheduling_parent(v3_enabled);
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?blocked_collation.candidate_receipt.hash(),

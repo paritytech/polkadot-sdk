@@ -663,6 +663,7 @@ pub fn make_valid_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
 		erasure_root,
 		para_head,
 		validation_code_hash,
+		scheduling_parent,
 	)
 }
 

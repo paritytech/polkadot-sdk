@@ -363,7 +363,7 @@ async fn assert_collation_seconded(
 				}
 			);
 		},
-		CollationVersion::V2 | CollationVersion::V3 => {
+		CollationVersion::V2 => {
 			assert_matches!(
 				overseer_recv(virtual_overseer).await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(

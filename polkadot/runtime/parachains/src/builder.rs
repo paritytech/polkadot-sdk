@@ -696,6 +696,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 									Default::default(),
 									head_data.hash(),
 									validation_code_hash,
+									relay_parent, // scheduling_parent
 								)
 							},
 							CandidateDescriptorVersionConfig::V1 |

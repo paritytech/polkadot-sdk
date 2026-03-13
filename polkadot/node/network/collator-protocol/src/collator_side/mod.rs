@@ -662,7 +662,6 @@ async fn distribute_collation<Context>(
 			&state.peer_ids,
 			&mut state.advertisement_timeouts,
 			&state.metrics,
-			is_active_leaf,
 		)
 		.await;
 	}
@@ -906,7 +905,6 @@ async fn advertise_collation<Context>(
 	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	advertisement_timeouts: &mut FuturesUnordered<ResetInterestTimeout>,
 	metrics: &Metrics,
-	is_active_leaf: bool,
 ) {
 	for (candidate_hash, collation_and_core) in per_scheduling_parent.collations.iter_mut() {
 		let core_index = *collation_and_core.core_index();
@@ -1432,7 +1430,6 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
-					active_leaves.contains(block_hash),
 				)
 				.await;
 			}
@@ -1792,7 +1789,6 @@ async fn handle_our_view_change<Context>(
 					&state.peer_ids,
 					&mut state.advertisement_timeouts,
 					&state.metrics,
-					is_active_leaf,
 				)
 				.await;
 			}

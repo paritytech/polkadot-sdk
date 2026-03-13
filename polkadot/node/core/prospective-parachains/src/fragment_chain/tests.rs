@@ -160,55 +160,6 @@ impl CandidateBuilder {
 	}
 }
 
-// Helper to create a V3 committed candidate with a specific scheduling_parent
-fn make_committed_candidate_v3(
-	para_id: ParaId,
-	relay_parent: Hash,
-	relay_parent_number: BlockNumber,
-	scheduling_parent: Hash,
-	parent_head: HeadData,
-	para_head: HeadData,
-	hrmp_watermark: BlockNumber,
-) -> (PersistedValidationData, CommittedCandidateReceipt) {
-	let persisted_validation_data = PersistedValidationData {
-		parent_head,
-		relay_parent_number,
-		relay_parent_storage_root: Hash::zero(),
-		max_pov_size: 1_000_000,
-	};
-
-	let mut descriptor: CandidateDescriptorV2<Hash> = CandidateDescriptor {
-		para_id,
-		relay_parent,
-		collator: test_helpers::dummy_collator(),
-		persisted_validation_data_hash: persisted_validation_data.hash(),
-		pov_hash: Hash::repeat_byte(1),
-		erasure_root: Hash::repeat_byte(1),
-		signature: test_helpers::zero_collator_signature(),
-		para_head: para_head.hash(),
-		validation_code_hash: Hash::repeat_byte(42).into(),
-	}
-	.into();
-
-	// Set V3 version (1) and the scheduling_parent
-	descriptor.set_version(1);
-	descriptor.set_scheduling_parent(scheduling_parent);
-
-	let candidate = CommittedCandidateReceipt {
-		descriptor,
-		commitments: CandidateCommitments {
-			upward_messages: Default::default(),
-			horizontal_messages: Default::default(),
-			new_validation_code: None,
-			head_data: para_head,
-			processed_downward_messages: 1,
-			hrmp_watermark,
-		},
-	};
-
-	(persisted_validation_data, candidate)
-}
-
 fn populate_chain_from_previous_storage(
 	relay_chain_scope: &RelayChainScope,
 	scope: &Scope,

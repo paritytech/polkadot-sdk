@@ -17,7 +17,6 @@
 use super::*;
 
 use crate::{
-	builder::CandidateDescriptorVersionConfig,
 	configuration::{self, HostConfiguration},
 	mock::{MockGenesisConfig, Scheduler},
 };
