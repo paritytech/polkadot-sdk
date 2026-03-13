@@ -83,13 +83,6 @@ impl AffinityFilter {
 		AffinityFilter { bloom, seed }
 	}
 
-	fn topic_hash(&self, topic: &[u8; 32]) -> u64 {
-		let mut hasher = BloomDefaultHasher::seeded(&self.seed.to_be_bytes()).build_hasher();
-		hasher.write(&(topic.len() as u64).to_le_bytes());
-		hasher.write(topic);
-		hasher.finish()
-	}
-
 	/// Insert a topic into the bloom filter.
 	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert_hash(self.topic_hash(topic));
@@ -110,6 +103,15 @@ impl AffinityFilter {
 			return true;
 		}
 		topics.iter().any(|topic| self.contains(&topic))
+	}
+
+	/// Platform-independent hash for a topic, using a fixed-width length prefix
+	/// to ensure consistent bloom bits across `wasm32` and 64-bit targets.
+	fn topic_hash(&self, topic: &[u8; 32]) -> u64 {
+		let mut hasher = BloomDefaultHasher::seeded(&self.seed.to_be_bytes()).build_hasher();
+		hasher.write(&(topic.len() as u64).to_le_bytes());
+		hasher.write(topic);
+		hasher.finish()
 	}
 }
 
