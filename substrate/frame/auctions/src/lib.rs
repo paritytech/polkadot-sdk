@@ -796,6 +796,8 @@ pub mod pallet {
 		InconsistentState,
 		/// Auction ID counter exhausted.
 		AuctionIdExhausted,
+		/// Parameter value is invalid (e.g. zero buffer or minimum_price).
+		InvalidParameter,
 	}
 
 	#[pallet::hooks]
@@ -1151,6 +1153,7 @@ pub mod pallet {
 			buffer: FixedU128,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(!buffer.is_zero(), Error::<T>::InvalidParameter);
 			AuctionConfig::<T>::mutate(auction_type, |config| config.buffer = buffer);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
@@ -1224,6 +1227,7 @@ pub mod pallet {
 			minimum_price: FixedU128,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(!minimum_price.is_zero(), Error::<T>::InvalidParameter);
 			AuctionConfig::<T>::mutate(auction_type, |config| config.minimum_price = minimum_price);
 			Self::deposit_event(Event::ConfigUpdated {
 				auction_type,
