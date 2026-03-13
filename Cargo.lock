@@ -2790,7 +2790,6 @@ dependencies = [
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-inbound-queue-v2",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
- "snowbridge-pallet-inbound-queue-v2-runtime-api",
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
@@ -22727,6 +22726,7 @@ dependencies = [
  "snowbridge-inbound-queue-primitives",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
+ "sp-api 26.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -22747,17 +22747,6 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "sp-core 28.0.0",
- "sp-std 14.0.0",
-]
-
-[[package]]
-name = "snowbridge-pallet-inbound-queue-v2-runtime-api"
-version = "0.2.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "scale-info",
- "sp-api 26.0.0",
  "sp-std 14.0.0",
 ]
 

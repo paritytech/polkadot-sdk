@@ -99,7 +99,7 @@ use parachains_common::{
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use snowbridge_core::{AgentId, PricingParameters};
+use snowbridge_core::{sparse_bitmap::SparseBitmap, AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm::{Version as XcmVersion, VersionedLocation};
@@ -977,9 +977,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_pallet_inbound_queue_v2_runtime_api::InboundQueueV2Api<Block> for Runtime {
+	impl snowbridge_pallet_inbound_queue_v2::InboundQueueV2Api<Block> for Runtime {
 		fn is_message_relayed(nonce: u64) -> bool {
-			snowbridge_pallet_inbound_queue_v2::api::is_message_relayed::<Runtime>(nonce)
+			snowbridge_pallet_inbound_queue_v2::Nonce::<Runtime>::get(nonce)
 		}
 	}
 

@@ -25,7 +25,6 @@
 
 extern crate alloc;
 
-pub mod api;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
@@ -258,4 +257,12 @@ pub mod pallet {
 			return Ok(());
 		}
 	}
+}
+
+sp_api::decl_runtime_apis! {
+  pub trait InboundQueueV2Api
+  {
+	/// Check if a message with the given nonce has been relayed.
+	fn is_message_relayed(nonce: u64) -> bool;
+  }
 }
