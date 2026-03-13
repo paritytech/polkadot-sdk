@@ -38,7 +38,10 @@ use connected::ConnectedPeers;
 pub use db::Db;
 pub use persistence::PersistenceError;
 pub use persistent_db::PersistentDb;
-use polkadot_node_network_protocol::{PeerId, peer_set::{CollationVersion, PeerSet}};
+use polkadot_node_network_protocol::{
+	peer_set::{CollationVersion, PeerSet},
+	PeerId,
+};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
 	CollatorProtocolSenderTrait, RuntimeApiError,

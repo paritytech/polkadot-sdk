@@ -18,7 +18,7 @@ use crate::validator_side_experimental::{
 	common::{PeerInfo, PeerState, Score},
 	peer_manager::{DeclarationOutcome, ReputationUpdate, ReputationUpdateKind, TryAcceptOutcome},
 };
-use polkadot_node_network_protocol::{PeerId, peer_set::CollationVersion};
+use polkadot_node_network_protocol::{peer_set::CollationVersion, PeerId};
 use polkadot_primitives::Id as ParaId;
 use std::{
 	cmp::Ordering,
