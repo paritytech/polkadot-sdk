@@ -8,8 +8,9 @@
 //! candidates and verifies that disputes are properly concluded.
 
 use crate::utils::{
-	env_or_default, initialize_network, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV, NODE_ROLES_METRIC, MetricCheckSetup, check_metrics
+	check_metrics, env_or_default, initialize_network, MetricCheckSetup,
+	APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	NODE_ROLES_METRIC,
 };
 
 use anyhow::anyhow;
@@ -37,7 +38,7 @@ async fn dispute_freshly_finalized_test() -> Result<(), anyhow::Error> {
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
 
-    let validator_nodes = network.relaychain().nodes();
+	let validator_nodes = network.relaychain().nodes();
 	let malus = network.get_node("malus")?;
 	let honest = network.get_node("honest-0")?;
 	let relay_client = honest.wait_client().await?;
@@ -74,27 +75,35 @@ async fn dispute_freshly_finalized_test() -> Result<(), anyhow::Error> {
 	assert!(result.success(), "Malus not disputing candidates");
 	log::info!("Malus is disputing candidates");
 
-    let honest_validators: Vec<&NetworkNode> = validator_nodes.into_iter().filter(|n| n.name() != "malus").collect();
+	let honest_validators: Vec<&NetworkNode> =
+		validator_nodes.into_iter().filter(|n| n.name() != "malus").collect();
 
 	log::info!("Check if disputes are initiated and concluded (valid/invalid).");
 	let metric_checks: Vec<MetricCheckSetup> = vec![
 		("polkadot_parachain_candidate_disputes_total", Box::new(|v| v >= 2.0), 100),
-		("polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}", Box::new(|v| v >= 2.0), 100),
-		("polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}", Box::new(|v| v == 0.0), 10),
+		(
+			"polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}",
+			Box::new(|v| v >= 2.0),
+			100,
+		),
+		(
+			"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}",
+			Box::new(|v| v == 0.0),
+			10,
+		),
 	];
 
 	check_metrics(&honest_validators, &metric_checks).await?;
-    log::info!("Check disputes concluded ok.");
+	log::info!("Check disputes concluded ok.");
 
-    log::info!("Checking approval / dispute finality lag");
+	log::info!("Checking approval / dispute finality lag");
 	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(APPROVAL_CHECKING_FINALITY_LAG_METRIC, Box::new(|v| v < 2.0), 30),
 		("polkadot_parachain_disputes_finality_lag", Box::new(|v| v < 2.0), 30),
 	];
 
 	check_metrics(&honest_validators, &metric_checks).await?;
-    log::info!("Check approval / dispute finality lag concluded ok");
-
+	log::info!("Check approval / dispute finality lag concluded ok");
 
 	// // Check if disputes are initiated and concluded
 	// log::info!("Checking disputes are initiated");
