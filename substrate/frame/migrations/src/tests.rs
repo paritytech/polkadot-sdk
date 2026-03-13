@@ -88,7 +88,7 @@ fn simple_multiple_works() {
 
 #[test]
 #[cfg_attr(feature = "try-runtime", should_panic)]
-fn failing_migration_sets_cursor_to_stuck() {
+fn failing_migration_keep_stuck_works() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::KeepStuck);
 		MockedMigrations::set(vec![(FailAfter, 2)]);
@@ -109,11 +109,46 @@ fn failing_migration_sets_cursor_to_stuck() {
 		]);
 
 		// Check that the handler was called correctly.
-		assert_eq!(UpgradesStarted::take(), 1);
-		assert_eq!(UpgradesCompleted::take(), 0);
-		assert_eq!(UpgradesFailed::take(), vec![Some(0)]);
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
 
 		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck), "Must stuck the chain");
+	});
+}
+
+#[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
+fn failing_migration_faulty_ignore_handler() {
+	test_closure(|| {
+		FailedUpgradeResponse::set(FailedMigrationHandling::Ignore);
+		MockedMigrations::set(vec![(FailAfter, 2)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(6);
+
+		// Failed migrations are not recorded in `Historical`.
+		assert!(historic().is_empty());
+		// Check that we got all events.
+		assert_events(vec![
+			Event::UpgradeStarted { migrations: 1 },
+			Event::MigrationAdvanced { index: 0, took: 1 },
+			Event::MigrationAdvanced { index: 0, took: 2 },
+			Event::MigrationFailed { index: 0, took: 3 },
+			Event::UpgradeFailed,
+			// A handler returning `Ignore` and not setting the cursor will cause it to loop:
+			Event::MigrationFailed { index: 0, took: 4 },
+			Event::UpgradeFailed,
+			Event::MigrationFailed { index: 0, took: 5 },
+			Event::UpgradeFailed,
+		]);
+
+		// Crash handler was called 3 times:
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 3));
+		// Handler did not modify the cursor
+		assert!(
+			matches!(Cursor::<T>::get(), Some(MigrationCursor::Active { .. })),
+			"Must stuck the chain"
+		);
 	});
 }
 
@@ -140,9 +175,7 @@ fn failing_migration_force_unstuck_works() {
 		]);
 
 		// Check that the handler was called correctly.
-		assert_eq!(UpgradesStarted::take(), 1);
-		assert_eq!(UpgradesCompleted::take(), 0);
-		assert_eq!(UpgradesFailed::take(), vec![Some(0)]);
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
 
 		assert!(Cursor::<T>::get().is_none(), "Must unstuck the chain");
 	});

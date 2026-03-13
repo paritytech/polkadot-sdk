@@ -21,12 +21,14 @@ use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
 	async_backing::{self, Constraints},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -80,6 +82,8 @@ pub(crate) struct RequestResultCache {
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
 	para_ids: LruMap<SessionIndex, Vec<ParaId>>,
 	max_relay_parent_session_age: LruMap<SessionIndex, u32>,
+	allowed_relay_parent_info:
+		LruMap<(Hash, SessionIndex, Hash), Option<RelayParentInfo<Hash, BlockNumber>>>,
 }
 
 impl Default for RequestResultCache {
@@ -123,6 +127,7 @@ impl Default for RequestResultCache {
 			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			max_relay_parent_session_age: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			allowed_relay_parent_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -650,6 +655,28 @@ impl RequestResultCache {
 		self.max_relay_parent_session_age
 			.insert(session_index, max_relay_parent_session_age);
 	}
+
+	pub(crate) fn allowed_relay_parent_info(
+		&mut self,
+		relay_parent: Hash,
+		session_index: SessionIndex,
+		queried_relay_parent: Hash,
+	) -> Option<&Option<RelayParentInfo<Hash, BlockNumber>>> {
+		self.allowed_relay_parent_info
+			.get(&(relay_parent, session_index, queried_relay_parent))
+			.map(|v| &*v)
+	}
+
+	pub(crate) fn cache_allowed_relay_parent_info(
+		&mut self,
+		relay_parent: Hash,
+		session_index: SessionIndex,
+		queried_relay_parent: Hash,
+		value: Option<RelayParentInfo<Hash, BlockNumber>>,
+	) {
+		self.allowed_relay_parent_info
+			.insert((relay_parent, session_index, queried_relay_parent), value);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -705,6 +732,7 @@ pub(crate) enum RequestResult {
 	ValidationCodeBombLimit(SessionIndex, u32),
 	ParaIds(SessionIndex, Vec<ParaId>),
 	MaxRelayParentSessionAge(SessionIndex, u32),
+	AllowedRelayParentInfo(Hash, SessionIndex, Hash, Option<RelayParentInfo<Hash, BlockNumber>>),
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 }
 
