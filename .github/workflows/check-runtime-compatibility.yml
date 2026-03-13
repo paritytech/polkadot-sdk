@@ -88,7 +88,7 @@ jobs:
           echo "---------- Checking runtime compatibility for ${{ matrix.network }} ----------"
           set +e
           # check-runtime hangs indefinitely if the RPC node is unreachable.
-          timeout 120 npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
+          timeout 600 npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
           EXIT_CODE=$?
           set -e
           # When the time limit is reached, timeout returns exit code 124
