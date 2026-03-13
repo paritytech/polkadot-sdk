@@ -794,6 +794,8 @@ pub mod pallet {
 		InvalidPrice,
 		/// Internal state inconsistency (e.g. liquidation auction missing vault_owner).
 		InconsistentState,
+		/// Auction ID counter exhausted.
+		AuctionIdExhausted,
 	}
 
 	#[pallet::hooks]
@@ -1552,11 +1554,9 @@ pub mod pallet {
 			let tab = Tab::new(debt.principal, debt.interest, debt.penalty);
 
 			// 6. Create auction record
-			let id = NextAuctionId::<T>::mutate(|n| {
-				let id = *n;
-				*n = n.saturating_add(1);
-				id
-			});
+			let id = NextAuctionId::<T>::get();
+			let next_id = id.checked_add(1).ok_or(Error::<T>::AuctionIdExhausted)?;
+			NextAuctionId::<T>::put(next_id);
 			let now = T::BlockNumberProvider::current_block_number();
 
 			let auction = Auction {
@@ -2004,11 +2004,9 @@ pub mod pallet {
 			let keeper_incentive = config.tip;
 
 			// 9. Create auction record
-			let id = NextAuctionId::<T>::mutate(|n| {
-				let id = *n;
-				*n = n.saturating_add(1);
-				id
-			});
+			let id = NextAuctionId::<T>::get();
+			let next_id = id.checked_add(1).ok_or(Error::<T>::AuctionIdExhausted)?;
+			NextAuctionId::<T>::put(next_id);
 			let now = T::BlockNumberProvider::current_block_number();
 
 			let auction = Auction {
