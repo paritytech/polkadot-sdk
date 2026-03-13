@@ -111,7 +111,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 		"Sudo",
 		"sudo",
 		vec![value! {
-			Configuration(set_node_feature { index: (2 as u8), value: true })
+			Configuration(set_node_feature { index: (2_u8), value: true })
 		}],
 	);
 
@@ -210,7 +210,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 	builder = PARAS.into_iter().fold(builder, |acc, para_id| {
 		acc.with_parachain(|p| {
-			p.with_id(para_id as u32)
+			p.with_id(para_id)
 				.with_chain(format!("glutton-westend-local-{para_id}").as_str())
 				.with_genesis_overrides(json!({
 					"patch": {

@@ -88,7 +88,7 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 		("substrate_beefy_validator_set_id", Box::new(|v| v >= 2.0), 60u64),
 		("substrate_beefy_best_block", Box::new(|v| v >= 21.0), 120u64),
 	];
-	check_metrics(&vec![unstable_node], &metric_checks).await?;
+	check_metrics(&[unstable_node], &metric_checks).await?;
 
 	log::info!("Test finished successfully");
 	Ok(())
@@ -197,8 +197,8 @@ async fn beefy_finalized_heads(nodes: &[&NetworkNode], target: u64) -> Result<()
 	// verify that height(finalized_head) is at least as high as the substrate_beefy_best_block test
 	// already verified
 	let res = finalized_heads.iter().all(|(_i, finalized_head)| {
-		return finalized_head.height >= target &&
-			finalized_head.hash == block_hashes[finalized_head.height as usize];
+		finalized_head.height >= target &&
+			finalized_head.hash == block_hashes[finalized_head.height as usize]
 	});
 
 	assert!(res, "finalized_heads verification fails");

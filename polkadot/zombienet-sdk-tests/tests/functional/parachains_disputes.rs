@@ -30,7 +30,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
-	let all_validators = vec![&MALUS_VALIDATORS[..], &HONEST_VALIDATORS[..]].concat();
+	let all_validators = [&MALUS_VALIDATORS[..], &HONEST_VALIDATORS[..]].concat();
 
 	// Check authority status
 	log::info!("Checking validator node roles");
@@ -39,7 +39,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 		validator
 			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
 			.await
-			.map_err(|e| anyhow!("Validator {} role check failed: {}", name, e))?;
+			.map_err(|e| anyhow!("Validator {name} role check failed: {e}"))?;
 	}
 	log::info!("All validators confirmed as authorities");
 
@@ -209,7 +209,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let pov_size = 10000*(para_id-1999);
 			let pvf_complexity = para_id - 1999;
 
-			p.with_id(para_id as u32)
+			p.with_id(para_id)
 			.cumulus_based(false)
 			.with_default_image(col_image.as_str())
 			.with_default_command("undying-collator")

@@ -169,7 +169,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 	builder = PARAS.into_iter().fold(builder, |acc, para_id| {
 		acc.with_parachain(|p| {
-			p.with_id(para_id as u32)
+			p.with_id(para_id)
 				.with_registration_strategy(RegistrationStrategy::Manual)
 				.with_chain(format!("glutton-westend-local-{para_id}").as_str())
 				.with_genesis_overrides(json!({

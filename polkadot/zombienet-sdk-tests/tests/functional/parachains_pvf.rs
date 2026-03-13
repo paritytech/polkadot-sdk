@@ -112,7 +112,7 @@ fn assert_buckets_count(
 	cmp_fn: impl Fn(u64) -> bool,
 ) -> Result<(), anyhow::Error> {
 	let mut count = 0;
-	for target in targets.into_iter() {
+	for target in targets.iter() {
 		count += buckets.get(*target).ok_or(anyhow!("Bucket {} not found in metrics", target))?;
 		if cmp_fn(count) {
 			return Ok(());
@@ -149,7 +149,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		let r = r.with_validator(|node| node.with_name(VALIDATORS[0]));
 
 		VALIDATORS[1..]
-			.into_iter()
+			.iter()
 			.fold(r, |acc, name| acc.with_validator(|node| node.with_name(*name)))
 	});
 
@@ -158,7 +158,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let pov_size = 10000*(para_id-1999);
 			let pvf_complexity = para_id - 1999;
 
-			p.with_id(para_id as u32)
+			p.with_id(para_id)
 			.cumulus_based(false)
 			.with_default_image(col_image.as_str())
 			.with_default_command("undying-collator")
