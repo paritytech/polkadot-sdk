@@ -34,8 +34,9 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	extract_relay_parent, relay_chain::BlockId, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+	extract_relay_parent, relay_chain::BlockId, rpsr_digest, ClaimQueueOffset, CoreInfo,
+	CoreSelector, CumulusDigestItem, KeyToIncludeInRelayProof, PersistedValidationData,
+	RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -131,8 +132,11 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block> + KeyToIncludeInRelayProof<Block> + SchedulingV3EnabledApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ RelayParentOffsetApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>
+		+ SchedulingV3EnabledApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -652,11 +656,6 @@ where
 		return Ok(Some(RelayParentData::new(relay_header)));
 	}
 
-	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
-		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "Relay parent is in previous session.");
-		return Ok(None);
-	}
-
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
 	while required_ancestors.len() < relay_parent_offset as usize {
@@ -665,10 +664,6 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
-		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
-			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), ancestor_block_number = next_header.number(), "Ancestor of best block is in previous session.");
-			return Ok(None);
-		}
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}
