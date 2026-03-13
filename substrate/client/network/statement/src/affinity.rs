@@ -67,30 +67,37 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 	}
 }
 
-/// Platform-independent "source" hash for statement topics.
-///
-/// `fastbloom` hashes items via Rust's [`Hash`] which, for arrays, includes a length prefix
-/// encoded with `write_usize`. The width of that encoding differs between `wasm32` (4 bytes)
-/// and 64-bit platforms (8 bytes), resulting in different bloom bits across platforms. We
-/// avoid that by hashing a fixed-width length prefix (`u64`) followed by the raw topic bytes.
-pub(crate) fn topic_source_hash(seed: &u128, topic: &[u8; 32]) -> u64 {
-	let mut hasher = BloomDefaultHasher::seeded(&seed.to_be_bytes()).build_hasher();
-	hasher.write(&(topic.len() as u64).to_le_bytes());
-	hasher.write(topic);
-	hasher.finish()
-}
-
 #[derive(Debug)]
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
-	pub(crate) bloom: BloomFilter,
+	bloom: BloomFilter,
 	/// Seed used for hashing items in the bloom filter.
-	pub(crate) seed: u128,
+	seed: u128,
 }
 
 impl AffinityFilter {
-	pub(crate) fn contains_topic(&self, topic: &[u8; 32]) -> bool {
-		self.bloom.contains_hash(topic_source_hash(&self.seed, topic))
+	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
+		let bloom = BloomFilter::with_false_pos(false_pos)
+			.seed(&seed)
+			.expected_items(expected_items);
+		AffinityFilter { bloom, seed }
+	}
+
+	fn topic_hash(&self, topic: &[u8; 32]) -> u64 {
+		let mut hasher = BloomDefaultHasher::seeded(&self.seed.to_be_bytes()).build_hasher();
+		hasher.write(&(topic.len() as u64).to_le_bytes());
+		hasher.write(topic);
+		hasher.finish()
+	}
+
+	/// Insert a topic into the bloom filter.
+	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
+		self.bloom.insert_hash(self.topic_hash(topic));
+	}
+
+	/// Check if a topic is likely present in the bloom filter.
+	pub(crate) fn contains(&self, topic: &[u8; 32]) -> bool {
+		self.bloom.contains_hash(self.topic_hash(topic))
 	}
 
 	/// Check if a statement matches this affinity filter.
@@ -102,7 +109,7 @@ impl AffinityFilter {
 		if topics.is_empty() {
 			return true;
 		}
-		topics.iter().any(|topic| self.contains_topic(&topic))
+		topics.iter().any(|topic| self.contains(&topic))
 	}
 }
 
@@ -148,37 +155,28 @@ mod tests {
 			})
 			.collect();
 
-		let mut bloom =
-			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(SET_COUNT);
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, SET_COUNT);
 
 		// Insert first 10% of items.
 		for item in &items[..SET_COUNT] {
-			bloom.insert_hash(topic_source_hash(&BLOOM_SEED, item));
+			filter.insert(item);
 		}
 
 		// Record expected check result for every item before serialization.
-		let expected: Vec<bool> = items
-			.iter()
-			.map(|item| bloom.contains_hash(topic_source_hash(&BLOOM_SEED, item)))
-			.collect();
+		let expected: Vec<bool> = items.iter().map(|item| filter.contains(item)).collect();
 
 		// Inserted items must always be present.
 		for i in 0..SET_COUNT {
 			assert!(expected[i], "inserted item {i} must be present");
 		}
 
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let encoded = filter.encode();
 		let decoded =
 			AffinityFilter::decode(&mut encoded.as_slice()).expect("decoding should succeed");
 
 		// Every item must give the same answer as before serialization.
 		for (i, item) in items.iter().enumerate() {
-			assert_eq!(
-				decoded.bloom.contains_hash(topic_source_hash(&BLOOM_SEED, item)),
-				expected[i],
-				"mismatch for item {i}"
-			);
+			assert_eq!(decoded.contains(item), expected[i], "mismatch for item {i}");
 		}
 
 		// Re-encoding must produce identical bytes.
@@ -202,13 +200,11 @@ mod tests {
 			})
 			.collect();
 
-		let mut bloom =
-			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(ITEM_COUNT);
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, ITEM_COUNT);
 		for item in &items {
-			bloom.insert_hash(topic_source_hash(&BLOOM_SEED, item));
+			filter.insert(item);
 		}
 
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
 		let encoded = filter.encode();
 
 		// Fixed snapshot — if this changes the wire format has been modified.
@@ -225,38 +221,28 @@ mod tests {
 		let decoded =
 			AffinityFilter::decode(&mut encoded.as_slice()).expect("snapshot must decode");
 		for (i, item) in items.iter().enumerate() {
-			assert!(
-				decoded.bloom.contains_hash(topic_source_hash(&BLOOM_SEED, item)),
-				"item {i} must be present after decoding"
-			);
+			assert!(decoded.contains(item), "item {i} must be present after decoding");
 		}
 
 		// A non-inserted item should not match.
 		let absent: [u8; 32] = [0xFF; 32];
-		assert!(
-			!decoded.bloom.contains_hash(topic_source_hash(&BLOOM_SEED, &absent)),
-			"absent item must not match"
-		);
+		assert!(!decoded.contains(&absent), "absent item must not match");
 	}
 
 	#[test]
 	fn matches_statement_no_topics_always_matches() {
-		let bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		// Empty bloom — nothing inserted.
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
 
 		let mut stmt = Statement::new();
 		stmt.set_plain_data(b"broadcast".to_vec());
-		// No topics set → should always match (broadcast).
 		assert!(filter.matches_statement(&stmt));
 	}
 
 	#[test]
 	fn matches_statement_single_matching_topic() {
 		let topic: [u8; 32] = [0xAA; 32];
-		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		bloom.insert_hash(topic_source_hash(&BLOOM_SEED, &topic));
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
+		filter.insert(&topic);
 
 		let mut stmt = Statement::new();
 		stmt.set_plain_data(b"matching".to_vec());
@@ -268,9 +254,8 @@ mod tests {
 	fn matches_statement_single_non_matching_topic() {
 		let topic_in_filter: [u8; 32] = [0xAA; 32];
 		let topic_on_stmt: [u8; 32] = [0xBB; 32];
-		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		bloom.insert_hash(topic_source_hash(&BLOOM_SEED, &topic_in_filter));
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
+		filter.insert(&topic_in_filter);
 
 		let mut stmt = Statement::new();
 		stmt.set_plain_data(b"not matching".to_vec());
@@ -284,19 +269,15 @@ mod tests {
 		let topic_bb: [u8; 32] = [0xBB; 32];
 		let topic_cc: [u8; 32] = [0xCC; 32];
 
-		// Filter only contains topic_bb.
-		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-		bloom.insert_hash(topic_source_hash(&BLOOM_SEED, &topic_bb));
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
+		filter.insert(&topic_bb);
 
-		// Statement has topics [topic_aa, topic_bb] — should match because topic_bb is in filter.
 		let mut stmt = Statement::new();
 		stmt.set_plain_data(b"multi topic".to_vec());
 		stmt.set_topic(0, topic_aa.into());
 		stmt.set_topic(1, topic_bb.into());
 		assert!(filter.matches_statement(&stmt), "should match when ANY topic is in the filter");
 
-		// Statement has topics [topic_aa, topic_cc] — neither in filter.
 		let mut stmt2 = Statement::new();
 		stmt2.set_plain_data(b"no match multi".to_vec());
 		stmt2.set_topic(0, topic_aa.into());
