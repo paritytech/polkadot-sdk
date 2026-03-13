@@ -647,12 +647,6 @@ async fn distribute_collation<Context>(
 		})
 		.map(|(id, _)| id);
 
-	// Make sure already connected peers get collations:
-	let is_active_leaf = state
-		.implicit_view
-		.as_ref()
-		.map_or(false, |iv| iv.leaves().any(|l| *l == scheduling_parent));
-
 	for peer_id in interested {
 		// Get the peer's protocol version. The peer should exist in peer_data
 		// since we iterated over it to build `interested`.
@@ -914,19 +908,6 @@ async fn advertise_collation<Context>(
 	metrics: &Metrics,
 	is_active_leaf: bool,
 ) {
-	// Skip advertising to V3 peers if the scheduling parent is not an active
-	// leaf and v3 is enabled — V3 validators will reject (and penalize) such
-	// advertisements.
-	if peer_version == CollationVersion::V3 && per_scheduling_parent.v3_enabled && !is_active_leaf {
-		gum::debug!(
-			target: LOG_TARGET,
-			?scheduling_parent,
-			peer_id = %peer,
-			"Skipping V3 advertisement: scheduling parent is not an active leaf",
-		);
-		return;
-	}
-
 	for (candidate_hash, collation_and_core) in per_scheduling_parent.collations.iter_mut() {
 		let core_index = *collation_and_core.core_index();
 		let collation = collation_and_core.collation_mut();
@@ -1327,8 +1308,8 @@ async fn handle_incoming_request<Context>(
 					None => {
 						gum::debug!(
 							target: LOG_TARGET,
-							relay_parent = %scheduling_parent,
-							"received a `RequestCollation` for a relay parent out of our view",
+							%scheduling_parent,
+							"received a `RequestCollation` for a scheduling parent out of our view",
 						);
 
 						return Ok(());
@@ -1424,12 +1405,6 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 		Some(peer) => peer.version,
 		None => return unknown_scheduling_parents,
 	};
-
-	let active_leaves: HashSet<Hash> = state
-		.implicit_view
-		.as_ref()
-		.map(|iv| iv.leaves().copied().collect())
-		.unwrap_or_default();
 
 	for scheduling_parent in scheduling_parents {
 		let block_hashes = match state.per_scheduling_parent.contains_key(&scheduling_parent) {
@@ -1808,7 +1783,6 @@ async fn handle_our_view_change<Context>(
 					continue;
 				};
 
-				let is_active_leaf = implicit_view.leaves().any(|l| l == block_hash);
 				advertise_collation(
 					ctx,
 					*block_hash,

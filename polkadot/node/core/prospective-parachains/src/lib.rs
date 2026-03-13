@@ -343,13 +343,7 @@ async fn handle_active_leaves_update<Context>(
 			let max_backable_chain_len =
 				claims_by_depth.values().flatten().collect::<BTreeSet<_>>().len();
 
-			// The runtime's min_relay_parent_number should match: now - ancestry_len
 			let min_relay_parent_number = constraints.min_relay_parent_number;
-			debug_assert_eq!(
-				block_info.number.saturating_sub(ancestors.len() as u32),
-				min_relay_parent_number,
-				"Fetched ancestry length should match runtime's min_relay_parent calculation"
-			);
 
 			let scope =
 				FragmentChainScope::new(constraints, compact_pending, max_backable_chain_len);
@@ -370,13 +364,13 @@ async fn handle_active_leaves_update<Context>(
 			let mut chain =
 				FragmentChain::init(&relay_chain_scope, scope, pending_availability_storage);
 
-			if chain.best_chain_len() < number_of_pending_candidates {
+			if chain.len() < number_of_pending_candidates {
 				gum::warn!(
 					target: LOG_TARGET,
 					relay_parent = ?hash,
 					para_id = ?para,
 					"Not all pending availability candidates could be introduced. Actual vs expected count: {}, {}",
-					chain.best_chain_len(),
+					chain.len(),
 					number_of_pending_candidates
 				)
 			}
@@ -394,8 +388,8 @@ async fn handle_active_leaves_update<Context>(
 				relay_parent = ?hash,
 				para_id = ?para,
 				"Populated fragment chain with {} candidates: {:?}",
-				chain.best_chain_len(),
-				chain.best_chain_vec()
+				chain.len(),
+				chain.candidate_hashes()
 			);
 
 			gum::trace!(
@@ -444,12 +438,12 @@ async fn handle_active_leaves_update<Context>(
 		for (hash, RelayBlockViewData { fragment_chains, .. }) in view.per_relay_parent.iter() {
 			if view.active_leaves.contains(hash) {
 				for chain in fragment_chains.values() {
-					active_connected += chain.best_chain_len();
+					active_connected += chain.len();
 					active_unconnected += chain.unconnected_len();
 				}
 			} else {
 				for chain in fragment_chains.values() {
-					candidates_in_implicit_view += chain.best_chain_len();
+					candidates_in_implicit_view += chain.len();
 					candidates_in_implicit_view += chain.unconnected_len();
 				}
 			}
@@ -695,7 +689,7 @@ async fn handle_candidate_backed(
 				?is_active_leaf,
 				?candidate_hash,
 				"Candidate backed. Candidate chain for para: {:?}",
-				chain.best_chain_vec()
+				chain.candidate_hashes()
 			);
 
 			gum::trace!(
@@ -780,7 +774,7 @@ fn answer_get_backable_candidates(
 		?leaf,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
-		chain.best_chain_vec()
+		chain.candidate_hashes()
 	);
 
 	gum::trace!(

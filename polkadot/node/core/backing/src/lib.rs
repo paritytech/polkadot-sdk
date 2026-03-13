@@ -82,7 +82,7 @@ use schnellru::{ByLength, LruMap};
 use error::{Error, FatalResult};
 use polkadot_node_primitives::{
 	AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD, StatementWithPVD,
-	ValidationResult,
+	ValidationResult, DISPUTE_WINDOW,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -267,8 +267,11 @@ struct PerSessionCache {
 
 impl Default for PerSessionCache {
 	/// Creates a new `PerSessionCache` with a default capacity.
+	// TODO: Use the actual session window for allowed relay parents once
+	// https://github.com/paritytech/polkadot-sdk/issues/11207 is available,
+	// instead of DISPUTE_WINDOW.
 	fn default() -> Self {
-		Self::new(2)
+		Self::new(DISPUTE_WINDOW.get())
 	}
 }
 
@@ -1364,6 +1367,13 @@ async fn handle_can_second_request<Context>(
 ///
 /// For V2/V3, session_index is in the descriptor. For V1, scheduling_parent ==
 /// relay_parent, so `sp_state.session_index` is the relay_parent's session.
+///
+/// Note: We use the scheduling parent (`sp_state.parent`) rather than the relay parent for
+/// the runtime API fetch. While the relay parent is the relevant parent for the execution
+/// environment, we only need the session index here (which is already determined). Using
+/// the relay parent would fail for old relay parents whose state may have been pruned. The
+/// scheduling parent is guaranteed to never be older than the relay parent and is always a
+/// recent relay chain block, making it safe for fetching session-indexed data.
 async fn get_executor_params(
 	per_session_cache: &mut PerSessionCache,
 	descriptor: &CandidateDescriptorV2,
@@ -1373,7 +1383,7 @@ async fn get_executor_params(
 	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
 	let session = descriptor.session_index(v3_enabled).unwrap_or(sp_state.session_index);
 	per_session_cache
-		.executor_params(session, descriptor.relay_parent(), sender)
+		.executor_params(session, sp_state.parent, sender)
 		.await
 		.map_err(|e| Error::UtilError(UtilError::RuntimeApi(e)))
 }

@@ -19,9 +19,9 @@ use super::*;
 use crate::{
 	builder::CandidateDescriptorVersionConfig,
 	configuration::{self, HostConfiguration},
-	mock::MockGenesisConfig,
+	mock::{MockGenesisConfig, Scheduler},
 };
-use polkadot_primitives::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 fn default_config() -> MockGenesisConfig {
 	MockGenesisConfig {
@@ -46,11 +46,11 @@ fn default_config() -> MockGenesisConfig {
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use crate::{
-		builder::{Bench, BenchBuilder, CandidateModifier},
+		builder::{Bench, BenchBuilder, CandidateDescriptorVersionConfig, CandidateModifier},
 		disputes::clear_dispute_storage,
 		initializer::BufferedSessionChange,
-		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
-		scheduler::common::{Assignment, AssignmentProvider},
+		mock::{new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
+		scheduler::{CoreAssignment, PartsOf57600},
 		session_info,
 	};
 	use alloc::collections::btree_map::BTreeMap;
@@ -59,9 +59,9 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, CandidateDescriptorVersion,
-		ClaimQueueOffset, CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreSelector,
-		MutateDescriptorV2, UMPSignal, UncheckedSigned,
+		vstaging::RelayParentInfo, ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2,
+		CandidateDescriptorVersion, ClaimQueueOffset, CollatorId, CollatorSignature,
+		CommittedCandidateReceiptV2, CoreSelector, MutateDescriptorV2, UMPSignal, UncheckedSigned,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use pretty_assertions::assert_eq;
@@ -128,14 +128,18 @@ mod enter {
 		}
 
 		// Setup some assignments as needed:
+		let mut next_core_idx = 0u32;
 		(0..(builder.max_cores() as usize - extra_cores)).for_each(|para_id| {
-			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(
-				|_para_local_core_idx| {
-					mock_assigner::Pallet::<Test>::add_test_assignment(Assignment::Bulk(
-						para_id.into(),
-					));
-				},
-			);
+			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(|_| {
+				Scheduler::assign_core(
+					CoreIndex(next_core_idx),
+					0,
+					vec![(CoreAssignment::Task(para_id as _), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
+				next_core_idx += 1;
+			});
 		});
 
 		if let Some(code_size) = code_upgrade {
@@ -203,7 +207,7 @@ mod enter {
 			inherent_data
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -291,7 +295,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
 			// Nothing is filtered out (including the backed candidates.)
@@ -398,7 +402,7 @@ mod enter {
 			let mut inherent_data = InherentData::new();
 			inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &scenario.data).unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			// The right candidates have been filtered out (the ones for cores 0,4,5)
 			assert_eq!(
@@ -543,7 +547,7 @@ mod enter {
 				candidate_modifier: None,
 			});
 
-			let prev_claim_queue = scheduler::ClaimQueue::<Test>::get();
+			let prev_claim_queue = Scheduler::claim_queue();
 
 			assert_eq!(inclusion::PendingAvailability::<Test>::iter().count(), 2);
 			assert_eq!(
@@ -571,7 +575,7 @@ mod enter {
 			inherent_data
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			// Simulate a session change scheduled to happen at the end of the block.
 			initializer::BufferedSessionChanges::<Test>::put(vec![BufferedSessionChange {
@@ -608,7 +612,7 @@ mod enter {
 				.is_empty());
 
 			// The claim queue should not have been advanced.
-			assert_eq!(prev_claim_queue, scheduler::ClaimQueue::<Test>::get());
+			assert_eq!(prev_claim_queue, Scheduler::claim_queue());
 		});
 	}
 
@@ -740,7 +744,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			let multi_dispute_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -815,7 +819,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -890,7 +894,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -980,7 +984,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!Scheduler::claim_queue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -1131,21 +1135,6 @@ mod enter {
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
 			assert!(limit_inherent_data == expected_para_inherent_data);
 
-			// Cores were scheduled. We should put the assignments back, before calling enter().
-			let cores = (0..num_candidates)
-				.into_iter()
-				.map(|i| {
-					// Load an assignment into provider so that one is present to pop
-					let assignment =
-						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-							CoreIndex(i),
-							ParaId::from(i),
-						);
-					(CoreIndex(i), [assignment].into())
-				})
-				.collect();
-			scheduler::ClaimQueue::<Test>::set(cores);
-
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
 				limit_inherent_data,
@@ -1266,22 +1255,6 @@ mod enter {
 				OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
-
-			// One core was scheduled. We should put the assignment back, before calling enter().
-			let used_cores = 5;
-			let cores = (0..used_cores)
-				.into_iter()
-				.map(|i| {
-					// Load an assignment into provider so that one is present to pop
-					let assignment =
-						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-							CoreIndex(i),
-							ParaId::from(i),
-						);
-					(CoreIndex(i), [assignment].into())
-				})
-				.collect();
-			scheduler::ClaimQueue::<Test>::set(cores);
 
 			clear_dispute_storage::<Test>();
 
@@ -1759,6 +1732,192 @@ mod enter {
 		});
 	}
 
+	/// Test that V3 candidates with relay parents from a previous session pass through the full
+	/// `enter` flow when `max_relay_parent_session_age` allows cross-session relay parents.
+	#[test]
+	fn v3_cross_session_candidate_accepted_through_enter() {
+		let config = MockGenesisConfig {
+			configuration: configuration::GenesisConfig {
+				config: HostConfiguration { max_relay_parent_session_age: 2, ..Default::default() },
+			},
+			..Default::default()
+		};
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let old_relay_parent = sp_core::H256::repeat_byte(0xCC);
+			let old_session: SessionIndex = 1;
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: Some(|mut candidate| {
+					if candidate.descriptor.para_id() == ParaId::from(0) {
+						candidate.descriptor.set_relay_parent(sp_core::H256::repeat_byte(0xCC));
+						candidate.descriptor.set_session_index(1);
+						// scheduling_session = session_index + offset = 1 + 1 = 2 = current_session
+						candidate.descriptor.set_scheduling_session_offset(1);
+					}
+					candidate
+				}),
+			});
+
+			let para_inherent_data = scenario.data.clone();
+			assert_eq!(para_inherent_data.backed_candidates.len(), 2);
+
+			// Verify first candidate is V3 with cross-session relay parent.
+			assert_eq!(
+				para_inherent_data.backed_candidates[0].descriptor().version(true),
+				CandidateDescriptorVersion::V3,
+			);
+			assert_eq!(
+				para_inherent_data.backed_candidates[0].descriptor().relay_parent(),
+				old_relay_parent,
+			);
+
+			// Insert old relay parent in the DoubleMap with same number and state_root
+			// as the current relay parent, so the PVD hash matches.
+			let current_relay_parent_number: u32 =
+				(frame_system::Pallet::<Test>::block_number() - 1).try_into().unwrap_or(0);
+			shared::AllowedRelayParents::<Test>::insert(
+				old_session,
+				old_relay_parent,
+				RelayParentInfo {
+					number: current_relay_parent_number,
+					state_root: Default::default(),
+				},
+			);
+
+			// Verify we're in the expected session.
+			assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 2);
+
+			// Both candidates should pass through create_inherent_inner.
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(
+				filtered.backed_candidates.len(),
+				2,
+				"Both candidates (including cross-session) should pass sanitization"
+			);
+
+			// Full enter should succeed.
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), para_inherent_data)
+				.unwrap();
+
+			// Both candidates should now be pending availability.
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(0)]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(1)]
+			);
+		});
+	}
+
+	/// Test that V3 candidates with relay parents from a pruned (too old) session are rejected
+	/// through the full `enter` flow.
+	#[test]
+	fn v3_cross_session_candidate_rejected_when_session_pruned() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			// max_relay_parent_session_age defaults to 0, so session 1 is "pruned" relative
+			// to current session 2.
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: Some(|mut candidate| {
+					if candidate.descriptor.para_id() == ParaId::from(0) {
+						candidate.descriptor.set_relay_parent(sp_core::H256::repeat_byte(0xCC));
+						candidate.descriptor.set_session_index(1);
+						// scheduling_session = session_index + offset = 1 + 1 = 2 = current_session
+						candidate.descriptor.set_scheduling_session_offset(1);
+					}
+					candidate
+				}),
+			});
+
+			let para_inherent_data = scenario.data.clone();
+			assert_eq!(para_inherent_data.backed_candidates.len(), 2);
+
+			// Verify we're in the expected session.
+			assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 2);
+
+			// Do NOT insert the old relay parent into the DoubleMap.
+			// This simulates a pruned session — the relay parent entry doesn't exist.
+
+			// create_inherent_inner should filter out the cross-session candidate.
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(
+				filtered.backed_candidates.len(),
+				1,
+				"Cross-session candidate with pruned relay parent should be filtered out"
+			);
+
+			// enter with unfiltered data should fail.
+			let dispatch_error =
+				Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), para_inherent_data)
+					.unwrap_err()
+					.error;
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
 	// Test that V3 descriptors are accepted when CandidateReceiptV3 feature is enabled
 	// and UMP signals are present (V3 requires UMP signals).
 	#[test]
@@ -1936,6 +2095,114 @@ mod enter {
 					.error;
 
 			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
+	// Test that V2 candidates with cross-session relay parents are rejected even when V3 is
+	// enabled. Only V3 descriptors support cross-session relay parents by embedding a
+	// session_index. V2 candidates always use the current session for relay parent lookup,
+	// so a relay parent from an older session won't be found.
+	#[test]
+	fn v2_cross_session_candidate_rejected() {
+		let config = MockGenesisConfig {
+			configuration: configuration::GenesisConfig {
+				config: HostConfiguration { max_relay_parent_session_age: 2, ..Default::default() },
+			},
+			..Default::default()
+		};
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let old_relay_parent = sp_core::H256::repeat_byte(0xCC);
+			let old_session: SessionIndex = 1;
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				// Point para 0's relay parent to an old session's relay parent.
+				candidate_modifier: Some(|mut candidate| {
+					if candidate.descriptor.para_id() == ParaId::from(0) {
+						candidate.descriptor.set_relay_parent(sp_core::H256::repeat_byte(0xCC));
+						candidate.descriptor.set_session_index(1);
+					}
+					candidate
+				}),
+			});
+
+			let para_inherent_data = scenario.data.clone();
+			assert_eq!(para_inherent_data.backed_candidates.len(), 2);
+
+			// Verify the first candidate is V2.
+			assert_eq!(
+				para_inherent_data.backed_candidates[0].descriptor().version(true),
+				CandidateDescriptorVersion::V2,
+			);
+
+			// Insert the old relay parent in the old session so that it would be found
+			// if the code incorrectly read session_index from the V2 descriptor.
+			let current_relay_parent_number: u32 =
+				(frame_system::Pallet::<Test>::block_number() - 1).try_into().unwrap_or(0);
+			shared::AllowedRelayParents::<Test>::insert(
+				old_session,
+				old_relay_parent,
+				RelayParentInfo {
+					number: current_relay_parent_number,
+					state_root: Default::default(),
+				},
+			);
+
+			assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 2);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			// The V2 candidate with old relay parent should be filtered out because V2
+			// uses current_session_index for relay parent lookup (not the descriptor's
+			// session_index), and the old relay parent doesn't exist in the current session.
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(
+				filtered.backed_candidates.len(),
+				1,
+				"V2 cross-session candidate should be rejected: relay parent lookup \
+				 uses current session, not descriptor session_index"
+			);
+			// The surviving candidate should be para 1 (the unmodified one).
+			assert_eq!(filtered.backed_candidates[0].descriptor().para_id(), ParaId::from(1));
+
+			// Enter with the filtered data should succeed.
+			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), filtered).unwrap();
+
+			// Only para 1 should be pending availability.
+			assert!(inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+				.unwrap_or_default()
+				.is_empty());
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(1)]
+			);
 		});
 	}
 
@@ -2190,12 +2457,6 @@ mod enter {
 			// Make last 2 candidates v1
 			for index in candidate_count - 2..candidate_count {
 				let encoded = inherent_data.backed_candidates[index].descriptor().encode();
-
-				let mut decoded: CandidateDescriptor =
-					Decode::decode(&mut encoded.as_slice()).unwrap();
-				decoded.collator = junk_collator();
-				decoded.signature = junk_collator_signature();
-
 				*inherent_data.backed_candidates[index].descriptor_mut() =
 					Decode::decode(&mut encoded.as_slice()).unwrap();
 			}
@@ -2706,10 +2967,12 @@ mod sanitizers {
 	mod candidates {
 		use crate::{
 			mock::{set_disabled_validators, RuntimeOrigin},
-			scheduler::common::Assignment,
+			on_demand,
+			scheduler::PartsOf57600,
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use alloc::collections::vec_deque::VecDeque;
+		use pallet_broker::CoreAssignment;
 		use polkadot_primitives::ValidationCode;
 
 		use super::*;
@@ -2727,11 +2990,10 @@ mod sanitizers {
 		fn get_test_data_one_core_per_para(backing_kind: BackingKind) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
-			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
-			// votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_relay_parent(
+			// Add the scheduling parent to `shared` pallet. Otherwise some code (e.g. filtering
+			// backing votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
 				default_header().hash(),
-				Default::default(),
 				Default::default(),
 				RELAY_PARENT_NUM,
 				1,
@@ -2782,28 +3044,28 @@ mod sanitizers {
 				.collect::<BTreeMap<_, _>>();
 
 			// Set the validator groups in `scheduler`
-			scheduler::Pallet::<Test>::set_validator_groups(vec![
+			Scheduler::set_validator_groups(vec![
 				vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2), ValidatorIndex(3)],
 				vec![ValidatorIndex(4), ValidatorIndex(5), ValidatorIndex(6), ValidatorIndex(7)],
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-				(
-					CoreIndex::from(0),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(0),
-					}]),
-				),
-				(
-					CoreIndex::from(1),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(1),
-					}]),
-				),
-			]));
+			Scheduler::assign_core(
+				CoreIndex(0),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
+			on_demand::Pallet::<Test>::push_back_order(1.into());
+			Scheduler::assign_core(
+				CoreIndex(1),
+				0,
+				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
+			on_demand::Pallet::<Test>::push_back_order(2.into());
 
 			// Set the on-chain included head data for paras.
 			paras::Pallet::<Test>::set_current_head(ParaId::from(1), HeadData(vec![1]));
@@ -2883,10 +3145,6 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
-				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
-			);
-			assert_eq!(
 				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
@@ -2965,7 +3223,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
 			// Set the validator groups in `scheduler`
-			scheduler::Pallet::<Test>::set_validator_groups(vec![
+			Scheduler::set_validator_groups(vec![
 				vec![ValidatorIndex(0)],
 				vec![ValidatorIndex(1)],
 				vec![ValidatorIndex(2)],
@@ -2977,90 +3235,23 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-				(
-					CoreIndex::from(0),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(0),
-					}]),
-				),
-				(
-					CoreIndex::from(1),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(1),
-					}]),
-				),
-				(
-					CoreIndex::from(2),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(2),
-					}]),
-				),
-				(
-					CoreIndex::from(3),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(3),
-					}]),
-				),
-				(
-					CoreIndex::from(4),
-					VecDeque::from([Assignment::Pool {
-						para_id: 3.into(),
-						core_index: CoreIndex(4),
-					}]),
-				),
-				(
-					CoreIndex::from(5),
-					VecDeque::from([Assignment::Pool {
-						para_id: 4.into(),
-						core_index: CoreIndex(5),
-					}]),
-				),
-				(
-					CoreIndex::from(6),
-					VecDeque::from([Assignment::Pool {
-						para_id: 5.into(),
-						core_index: CoreIndex(6),
-					}]),
-				),
-				(
-					CoreIndex::from(7),
-					VecDeque::from([Assignment::Pool {
-						para_id: 7.into(),
-						core_index: CoreIndex(7),
-					}]),
-				),
-				(
-					CoreIndex::from(8),
-					VecDeque::from([Assignment::Pool {
-						para_id: 7.into(),
-						core_index: CoreIndex(8),
-					}]),
-				),
-				(
-					CoreIndex::from(9),
-					VecDeque::from([Assignment::Pool {
-						para_id: 8.into(),
-						core_index: CoreIndex(9),
-					}]),
-				),
-			]));
+			for (core_num, para_id) in
+				[(0, 1), (1, 1), (2, 2), (3, 2), (4, 3), (5, 4), (6, 5), (7, 7), (8, 7), (9, 8)]
+			{
+				Scheduler::assign_core(
+					CoreIndex::from(core_num),
+					0,
+					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
+			}
 
-			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
-			// votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_relay_parent(
+			// Add the scheduling parent to `shared` pallet. Otherwise some code (e.g. filtering
+			// backing votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
 				relay_parent,
-				Default::default(),
-				scheduler::ClaimQueue::<Test>::get()
-					.into_iter()
-					.map(|(core_index, paras)| {
-						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
-					})
-					.collect(),
+				Scheduler::claim_queue(),
 				RELAY_PARENT_NUM,
 				1,
 			);
@@ -3412,25 +3603,9 @@ mod sanitizers {
 				backed_candidates.push(backed.clone());
 			}
 
-			// State sanity checks
-			assert_eq!(
-				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
-				vec![
-					(CoreIndex(0), ParaId::from(1)),
-					(CoreIndex(1), ParaId::from(1)),
-					(CoreIndex(2), ParaId::from(2)),
-					(CoreIndex(3), ParaId::from(2)),
-					(CoreIndex(4), ParaId::from(3)),
-					(CoreIndex(5), ParaId::from(4)),
-					(CoreIndex(6), ParaId::from(5)),
-					(CoreIndex(7), ParaId::from(7)),
-					(CoreIndex(8), ParaId::from(7)),
-					(CoreIndex(9), ParaId::from(8)),
-				]
-			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
-				scheduled.entry(para_id).or_default().insert(core_idx);
+			for (core_idx, para_ids) in Scheduler::claim_queue() {
+				scheduled.entry(*para_ids.front().unwrap()).or_default().insert(core_idx);
 			}
 
 			assert_eq!(
@@ -3497,7 +3672,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
 			// Set the validator groups in `scheduler`
-			scheduler::Pallet::<Test>::set_validator_groups(vec![
+			Scheduler::set_validator_groups(vec![
 				vec![ValidatorIndex(0)],
 				vec![ValidatorIndex(1)],
 				vec![ValidatorIndex(2)],
@@ -3510,81 +3685,21 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-				(
-					CoreIndex::from(0),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(0),
-					}]),
-				),
-				(
-					CoreIndex::from(1),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(1),
-					}]),
-				),
-				(
-					CoreIndex::from(2),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(2),
-					}]),
-				),
-				(
-					CoreIndex::from(3),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(3),
-					}]),
-				),
-				(
-					CoreIndex::from(4),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(4),
-					}]),
-				),
-				(
-					CoreIndex::from(5),
-					VecDeque::from([Assignment::Pool {
-						para_id: 3.into(),
-						core_index: CoreIndex(5),
-					}]),
-				),
-				(
-					CoreIndex::from(6),
-					VecDeque::from([Assignment::Pool {
-						para_id: 3.into(),
-						core_index: CoreIndex(6),
-					}]),
-				),
-				(
-					CoreIndex::from(7),
-					VecDeque::from([Assignment::Pool {
-						para_id: 4.into(),
-						core_index: CoreIndex(7),
-					}]),
-				),
-				(
-					CoreIndex::from(8),
-					VecDeque::from([Assignment::Pool {
-						para_id: 4.into(),
-						core_index: CoreIndex(8),
-					}]),
-				),
-			]));
+			for (core_num, para_id) in
+				[(0, 1), (1, 1), (2, 2), (3, 2), (4, 2), (5, 3), (6, 3), (7, 4), (8, 4)]
+			{
+				Scheduler::assign_core(
+					CoreIndex::from(core_num),
+					0,
+					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
+			}
 
-			shared::Pallet::<Test>::add_allowed_relay_parent(
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
 				relay_parent,
-				Default::default(),
-				scheduler::ClaimQueue::<Test>::get()
-					.into_iter()
-					.map(|(core_index, paras)| {
-						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
-					})
-					.collect(),
+				Scheduler::claim_queue(),
 				RELAY_PARENT_NUM,
 				1,
 			);
@@ -3892,24 +4007,9 @@ mod sanitizers {
 				backed_candidates.push(backed.clone());
 			}
 
-			// State sanity checks
-			assert_eq!(
-				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
-				vec![
-					(CoreIndex(0), ParaId::from(1)),
-					(CoreIndex(1), ParaId::from(1)),
-					(CoreIndex(2), ParaId::from(2)),
-					(CoreIndex(3), ParaId::from(2)),
-					(CoreIndex(4), ParaId::from(2)),
-					(CoreIndex(5), ParaId::from(3)),
-					(CoreIndex(6), ParaId::from(3)),
-					(CoreIndex(7), ParaId::from(4)),
-					(CoreIndex(8), ParaId::from(4)),
-				]
-			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
-				scheduled.entry(para_id).or_default().insert(core_idx);
+			for (core_idx, para_ids) in Scheduler::claim_queue() {
+				scheduled.entry(*para_ids.front().unwrap()).or_default().insert(core_idx);
 			}
 
 			assert_eq!(
@@ -3961,27 +4061,24 @@ mod sanitizers {
 			}
 			.hash();
 
-			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
-			// votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_relay_parent(
+			// Add the scheduling parent to `shared` pallet. Otherwise some code (e.g. filtering
+			// backing votes) won't behave correctly
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
 				prev_relay_parent,
-				Default::default(),
 				Default::default(),
 				RELAY_PARENT_NUM - 1,
 				2,
 			);
 
-			shared::Pallet::<Test>::add_allowed_relay_parent(
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
 				relay_parent,
-				Default::default(),
 				Default::default(),
 				RELAY_PARENT_NUM,
 				2,
 			);
 
-			shared::Pallet::<Test>::add_allowed_relay_parent(
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
 				next_relay_parent,
-				Default::default(),
 				Default::default(),
 				RELAY_PARENT_NUM + 1,
 				2,
@@ -4016,7 +4113,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::set_active_validators_ascending(validator_ids);
 
 			// Set the validator groups in `scheduler`
-			scheduler::Pallet::<Test>::set_validator_groups(vec![
+			Scheduler::set_validator_groups(vec![
 				vec![ValidatorIndex(0)],
 				vec![ValidatorIndex(1)],
 				vec![ValidatorIndex(2)],
@@ -4026,50 +4123,15 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
-				(
-					CoreIndex::from(0),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(0),
-					}]),
-				),
-				(
-					CoreIndex::from(1),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(1),
-					}]),
-				),
-				(
-					CoreIndex::from(2),
-					VecDeque::from([Assignment::Pool {
-						para_id: 1.into(),
-						core_index: CoreIndex(2),
-					}]),
-				),
-				(
-					CoreIndex::from(3),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(3),
-					}]),
-				),
-				(
-					CoreIndex::from(4),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(4),
-					}]),
-				),
-				(
-					CoreIndex::from(5),
-					VecDeque::from([Assignment::Pool {
-						para_id: 2.into(),
-						core_index: CoreIndex(5),
-					}]),
-				),
-			]));
+			for (core_num, para_id) in [(0, 1), (1, 1), (2, 1), (3, 2), (4, 2), (5, 2)] {
+				Scheduler::assign_core(
+					CoreIndex::from(core_num),
+					0,
+					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
+			}
 
 			// Set the on-chain included head data and current code hash.
 			for id in 1..=2u32 {
@@ -4304,22 +4366,9 @@ mod sanitizers {
 					.or_insert(vec![])
 					.push((backed, CoreIndex(5)));
 			}
-
-			// State sanity checks
-			assert_eq!(
-				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
-				vec![
-					(CoreIndex(0), ParaId::from(1)),
-					(CoreIndex(1), ParaId::from(1)),
-					(CoreIndex(2), ParaId::from(1)),
-					(CoreIndex(3), ParaId::from(2)),
-					(CoreIndex(4), ParaId::from(2)),
-					(CoreIndex(5), ParaId::from(2)),
-				]
-			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
-				scheduled.entry(para_id).or_default().insert(core_idx);
+			for (core_idx, para_ids) in Scheduler::claim_queue() {
+				scheduled.entry(*para_ids.front().unwrap()).or_default().insert(core_idx);
 			}
 
 			assert_eq!(
@@ -4353,7 +4402,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&shared::AllowedRelayParents::<Test>::get(),
+						&shared::AllowedSchedulingParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						false,
@@ -4377,7 +4426,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&shared::AllowedRelayParents::<Test>::get(),
+						&shared::AllowedSchedulingParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						v2_descriptor,
@@ -4399,7 +4448,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&shared::AllowedRelayParents::<Test>::get(),
+						&shared::AllowedSchedulingParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						false,
@@ -4429,7 +4478,7 @@ mod sanitizers {
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
 						backed_candidates.clone(),
-						&shared::AllowedRelayParents::<Test>::get(),
+						&shared::AllowedSchedulingParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
 						false,
@@ -4469,7 +4518,7 @@ mod sanitizers {
 
 				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
 					false,
@@ -4535,7 +4584,7 @@ mod sanitizers {
 
 				let res = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
 					false,
@@ -4566,7 +4615,7 @@ mod sanitizers {
 
 				let sanitized_backed_candidates = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
 					v2_descriptor,
@@ -4598,7 +4647,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
 					set,
 					scheduled,
 					false,
@@ -4637,7 +4686,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
 					invalid_set,
 					scheduled,
 					v2_descriptor,
@@ -4673,7 +4722,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
 					invalid_set,
 					scheduled,
 					v2_descriptor,
@@ -4705,7 +4754,8 @@ mod sanitizers {
 				// be filtered
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
+					false,
 				);
 				assert_eq!(expected_backed_candidates_with_core, before);
 			});
@@ -4765,7 +4815,8 @@ mod sanitizers {
 				let before = expected_backed_candidates_with_core.clone();
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
+					false,
 				);
 				assert_eq!(before.len(), expected_backed_candidates_with_core.len());
 
@@ -4845,7 +4896,8 @@ mod sanitizers {
 
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
+					false,
 				);
 
 				assert_eq!(expected_backed_candidates_with_core.len(), 1);
@@ -4876,7 +4928,8 @@ mod sanitizers {
 
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
+					false,
 				);
 
 				untouched.get_mut(&ParaId::from(1)).unwrap().remove(1);
@@ -4897,7 +4950,8 @@ mod sanitizers {
 
 					filter_backed_statements_from_disabled_validators::<Test>(
 						&mut expected_backed_candidates_with_core,
-						&shared::AllowedRelayParents::<Test>::get(),
+						&shared::AllowedSchedulingParents::<Test>::get(),
+						false,
 					);
 
 					untouched.remove(&ParaId::from(1)).unwrap();
@@ -4939,7 +4993,8 @@ mod sanitizers {
 
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
+					false,
 				);
 
 				untouched.remove(&ParaId::from(1)).unwrap();
@@ -4979,14 +5034,16 @@ mod sanitizers {
 
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
-					&shared::AllowedRelayParents::<Test>::get(),
+					&shared::AllowedSchedulingParents::<Test>::get(),
+					false,
 				);
 
 				let candidate_receipt_with_backing_validator_indices =
 					inclusion::Pallet::<Test>::process_candidates(
-						&shared::AllowedRelayParents::<Test>::get(),
+						&shared::AllowedSchedulingParents::<Test>::get(),
 						&expected_backed_candidates_with_core,
 						scheduler::Pallet::<Test>::group_validators,
+						false,
 					)
 					.unwrap();
 

@@ -146,6 +146,8 @@ pub enum HoldOffError {
 	InvalidStateNotStarted,
 	#[error("`on_hold_off_complete` called in `Done`")]
 	InvalidStateDone,
-	#[error("`on_hold_off_complete` called in the right state but there are no advertisements in the queue")]
+	#[error(
+		"`on_hold_off_complete` called in the right state but there are no advertisements in the queue"
+	)]
 	QueueEmpty,
 }

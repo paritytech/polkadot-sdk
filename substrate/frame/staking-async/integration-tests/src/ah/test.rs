@@ -18,7 +18,7 @@
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::{assert_ok, hypothetically};
+use frame_support::{assert_ok, hypothetically, traits::fungible::hold::Inspect as HoldInspect};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
@@ -1415,20 +1415,28 @@ mod poll_operations {
 mod session_keys {
 	use super::*;
 	use crate::ah::mock::{
-		Balances, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
+		Balances, KeyDeposit, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
 		SetKeysExecutionCost,
 	};
 	use codec::Encode;
-	use frame_support::{assert_noop, BoundedVec};
+	use frame_support::{assert_noop, pallet_prelude::DispatchError};
 	use rc_client::AHStakingInterface;
 
-	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
-	type Proof = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysProofLength>;
+	type Keys = Vec<u8>;
+	type Proof = Vec<u8>;
 
 	/// Helper to create properly encoded session keys and ownership proof.
 	fn make_session_keys_and_proof(owner: AccountId) -> (Keys, Proof) {
 		let generated = RCSessionKeys::generate(&owner.encode(), None);
 		(generated.keys.encode().try_into().unwrap(), generated.proof.encode().try_into().unwrap())
+	}
+
+	/// Returns the key-deposit hold for `who`.
+	fn key_deposit_hold(who: AccountId) -> Balance {
+		<Balances as HoldInspect<AccountId>>::balance_on_hold(
+			&rc_client::HoldReason::Keys.into(),
+			&who,
+		)
 	}
 
 	#[test]
@@ -1437,11 +1445,12 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			let keys_raw: Vec<u8> = keys.clone().into_inner();
+			let keys_raw: Vec<u8> = keys.clone();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
 			let total_fee = delivery_fee + execution_cost;
+			let deposit = KeyDeposit::get();
 			let balance_before = Balances::free_balance(validator);
 			let queue_len_before = LocalQueue::get().unwrap().len();
 
@@ -1458,8 +1467,11 @@ mod session_keys {
 				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Validator's balance is reduced by the total fee amount
-			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+			// AND: Validator's balance is reduced by fees + deposit held
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
+
+			// AND: Key deposit is held
+			assert_eq!(key_deposit_hold(validator), deposit);
 
 			// AND: SetKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1685,9 +1697,10 @@ mod session_keys {
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
 			let total_fee = delivery_fee + execution_cost;
+			let deposit = KeyDeposit::get();
 			let balance_before = Balances::free_balance(validator);
 
-			// max_fee > total: succeeds, charges total fee
+			// max_fee > total: succeeds, charges total fee + deposit
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
@@ -1695,10 +1708,10 @@ mod session_keys {
 					proof.clone(),
 					Some(total_fee + 100),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
 			});
 
-			// max_fee == total: succeeds
+			// max_fee == total: succeeds (max_fee only caps XCM fees, not the deposit)
 			hypothetically!({
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
@@ -1706,7 +1719,7 @@ mod session_keys {
 					proof.clone(),
 					Some(total_fee),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee - deposit);
 			});
 
 			// max_fee < total: fails with FeesExceededMax
@@ -1732,7 +1745,8 @@ mod session_keys {
 					proof.clone(),
 					Some(0),
 				));
-				assert_eq!(Balances::free_balance(validator), balance_before);
+				// Only deposit is held, no XCM fees
+				assert_eq!(Balances::free_balance(validator), balance_before - deposit);
 			});
 		});
 	}
@@ -1740,8 +1754,17 @@ mod session_keys {
 	#[test]
 	fn purge_keys_success() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 3 is a validator with delivery fees configured
+			// GIVEN: Account 3 is a validator that has set keys (deposit held)
 			let validator: AccountId = 3;
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
+
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = PurgeKeysExecutionCost::get();
@@ -1757,8 +1780,12 @@ mod session_keys {
 				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Validator's balance is reduced by the total fee amount
-			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+			// AND: Deposit is released, balance only reduced by purge fee
+			let deposit = KeyDeposit::get();
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee + deposit);
+
+			// AND: Key deposit is released
+			assert_eq!(key_deposit_hold(validator), 0);
 
 			// AND: PurgeKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1878,6 +1905,167 @@ mod session_keys {
 					rc_client::Error::<T>::FeesExceededMax
 				);
 			});
+		});
+	}
+
+	#[test]
+	fn set_keys_deposit_lifecycle() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let deposit = KeyDeposit::get();
+			let set_fees = XcmDeliveryFee::get() + SetKeysExecutionCost::get();
+			let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
+
+			// First set_keys: deposit held
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			let balance_before = Balances::free_balance(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+			assert_eq!(Balances::free_balance(validator), balance_before - set_fees - deposit);
+
+			// Second set_keys: no additional deposit
+			let balance_after_first = Balances::free_balance(validator);
+			let (keys2, proof2) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys2,
+				proof2,
+				None,
+			));
+			assert_eq!(Balances::free_balance(validator), balance_after_first - set_fees);
+
+			// Purge with XCM failure: deposit NOT released (transactional rollback)
+			let balance_before_failed_purge = Balances::free_balance(validator);
+			hypothetically!({
+				NextRelayDeliveryFails::set(true);
+				assert_noop!(
+					rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
+					rc_client::Error::<T>::XcmSendFailed
+				);
+				assert_eq!(key_deposit_hold(validator), deposit);
+				assert_eq!(Balances::free_balance(validator), balance_before_failed_purge);
+			});
+
+			// Successful purge: deposit released
+			let balance_before_purge = Balances::free_balance(validator);
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None));
+			assert_eq!(key_deposit_hold(validator), 0);
+			assert_eq!(
+				Balances::free_balance(validator),
+				balance_before_purge - purge_fees + deposit
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_deposit_edge_cases() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let set_fees = XcmDeliveryFee::get() + SetKeysExecutionCost::get();
+
+			// Invalid keys: deposit not charged
+			hypothetically!({
+				let balance_before = Balances::free_balance(validator);
+				assert_noop!(
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						vec![0xff, 0xfe, 0xfd],
+						vec![],
+						None,
+					),
+					rc_client::Error::<T>::InvalidKeys
+				);
+				assert_eq!(key_deposit_hold(validator), 0);
+				assert_eq!(Balances::free_balance(validator), balance_before);
+			});
+
+			// Insufficient balance for deposit
+			hypothetically!({
+				let (keys, proof) = make_session_keys_and_proof(validator);
+				KeyDeposit::set(Balances::free_balance(validator) + 1);
+				assert_noop!(
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						keys,
+						proof,
+						None,
+					),
+					DispatchError::Token(frame::runtime::prelude::TokenError::FundsUnavailable)
+				);
+			});
+
+			// Zero deposit: set + purge lifecycle works, no hold placed
+			hypothetically!({
+				KeyDeposit::set(0);
+				let (keys, proof) = make_session_keys_and_proof(validator);
+				let balance_before = Balances::free_balance(validator);
+
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys,
+					proof,
+					None,
+				));
+				assert_eq!(key_deposit_hold(validator), 0);
+				assert_eq!(Balances::free_balance(validator), balance_before - set_fees);
+
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(
+					RuntimeOrigin::signed(validator),
+					None,
+				));
+				assert_eq!(key_deposit_hold(validator), 0);
+			});
+
+			// Purge without prior set_keys: no deposit to release, only XCM fees
+			hypothetically!({
+				let other: AccountId = 3;
+				assert_eq!(key_deposit_hold(other), 0);
+				let balance_before = Balances::free_balance(other);
+				let purge_fees = XcmDeliveryFee::get() + PurgeKeysExecutionCost::get();
+
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(other), None,));
+				assert_eq!(Balances::free_balance(other), balance_before - purge_fees);
+			});
+		});
+	}
+
+	#[test]
+	fn purge_keys_on_rc_does_not_release_ah_deposit() {
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
+
+		let validator: AccountId = 1;
+		let deposit = KeyDeposit::get();
+
+		// GIVEN: Validator sets keys on AH (deposit is held).
+		shared::in_ah(|| {
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+		});
+
+		// WHEN: Keys are purged directly on RC (bypassing AH).
+		shared::in_rc(|| {
+			assert_ok!(pallet_session::Pallet::<rc::Runtime>::purge_keys(
+				rc::RuntimeOrigin::signed(validator),
+			));
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+
+		// THEN: The AH deposit is still held — only AH's purge_keys releases it.
+		shared::in_ah(|| {
+			assert_eq!(key_deposit_hold(validator), deposit);
 		});
 	}
 

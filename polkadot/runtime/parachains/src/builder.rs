@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use core::iter::repeat;
+
 use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{
-		self,
-		common::{Assignment, AssignmentProvider},
-	},
+	scheduler::{self, CoreAssignment, PartsOf57600},
 	session_info, shared,
 };
 use alloc::{
@@ -93,9 +92,15 @@ fn byte32_slice_from(n: u32) -> [u8; 32] {
 pub(crate) enum CandidateDescriptorVersionConfig {
 	/// V1 descriptor (legacy format, no UMP signals).
 	V1,
-	/// V2 descriptor (includes UMP signals with SelectCore and optional ApprovedPeer).
+	/// V2 descriptor (versioned format, zeroed collator fields; commitments may include UMP
+	/// signals).
+	// TODO: benchmarks should exercise V2/V3 for accurate worst-case weights:
+	// https://github.com/paritytech/polkadot-sdk/issues/11275
+	#[allow(dead_code)]
 	V2,
-	/// V3 descriptor (includes UMP signals and explicit scheduling_parent field).
+	/// V3 descriptor (adds explicit scheduling_parent field; commitments must include UMP
+	/// signals).
+	#[allow(dead_code)]
 	V3,
 }
 
@@ -684,7 +689,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								CandidateDescriptorV2::new_v3(
 									para_id,
 									relay_parent,
-									relay_parent, // scheduling_parent
 									core_idx,
 									self.target_session,
 									persisted_validation_data_hash,
@@ -925,14 +929,15 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.map(|idx| (idx, 0))
 			.collect::<BTreeMap<_, _>>();
 
-		let mut all_cores = builder.backed_and_concluding_paras.clone();
-		all_cores.append(&mut disputed_cores);
+		let mut all_paras = builder.backed_and_concluding_paras.clone();
+		all_paras.append(&mut disputed_cores);
 
 		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores - extra_cores);
 
 		// Sanity check that the occupied cores reported by the inclusion module are what we expect
 		// to be.
 		let mut core_idx = 0u32;
+		let now = frame_system::Pallet::<T>::block_number();
 		let elastic_paras = &builder.elastic_paras;
 
 		let mut occupied_cores = inclusion::Pallet::<T>::get_occupied_cores()
@@ -940,7 +945,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.collect::<Vec<_>>();
 		occupied_cores.sort_by(|(core_a, _), (core_b, _)| core_a.0.cmp(&core_b.0));
 
-		let mut expected_cores = all_cores
+		let mut expected_cores = all_paras
 			.iter()
 			.flat_map(|(para_id, _)| {
 				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
@@ -958,29 +963,23 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		assert_eq!(expected_cores, occupied_cores);
 
 		// We need entries in the claim queue for those:
-		all_cores.append(&mut builder.backed_in_inherent_paras.clone());
+		all_paras.append(&mut builder.backed_in_inherent_paras.clone());
 
-		let mut core_idx = 0u32;
-		let cores = all_cores
-			.keys()
-			.flat_map(|para_id| {
-				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
-					.map(|_para_local_core_idx| {
-						// Load an assignment into provider so that one is present to pop
-						let assignment =
-							<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-								CoreIndex(core_idx),
-								ParaId::from(*para_id),
-							);
+		let core_paras = all_paras.keys().flat_map(|para_id| {
+			repeat(ParaId::from(*para_id))
+				.take(elastic_paras.get(&para_id).cloned().unwrap_or(1).into())
+		});
+		let cores = (0..).map(CoreIndex).zip(core_paras).collect::<BTreeMap<CoreIndex, ParaId>>();
 
-						core_idx += 1;
-						(CoreIndex(core_idx - 1), [assignment].into())
-					})
-					.collect::<Vec<(CoreIndex, VecDeque<Assignment>)>>()
-			})
-			.collect::<BTreeMap<CoreIndex, VecDeque<Assignment>>>();
-
-		scheduler::ClaimQueue::<T>::set(cores);
+		for (core_idx, para) in cores {
+			scheduler::Pallet::<T>::assign_core(
+				core_idx,
+				now,
+				vec![(CoreAssignment::Task(para.into()), PartsOf57600::FULL)],
+				None,
+			)
+			.unwrap();
+		}
 
 		Bench::<T> {
 			data: ParachainsInherentData {

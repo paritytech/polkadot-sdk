@@ -427,6 +427,10 @@ pub mod well_known_keys {
 	}
 }
 
+/// Relay chain slot duration in milliseconds, which is the same
+/// value across all networks (e.g. Polkadot, Kusama, Westend, Rococo).
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
 /// Unique identifier for the Parachains Inherent
 pub const PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = *b"parachn0";
 
@@ -471,10 +475,8 @@ pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
 
 /// Maximum for maximum queue size.
 ///
-/// Setting `on_demand_queue_max_size` to a value higher than this is unsound. This is more a
-/// theoretical limit, just below enough what the target type supports, so comparisons are possible
-/// even with indices that are overflowing the underyling type.
-pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
+/// We use this value for benchmarking.
+pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 10_000;
 
 /// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.
@@ -1833,15 +1835,6 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 	}
 }
 
-/// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy)]
-pub struct InternalVersion(pub u8);
-
-/// Internal version byte for V2 candidate descriptors.
-pub const CANDIDATE_DESCRIPTOR_VERSION_V2: u8 = 0;
-/// Internal version byte for V3 candidate descriptors.
-pub const CANDIDATE_DESCRIPTOR_VERSION_V3: u8 = 1;
-
 /// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum CandidateDescriptorVersion {
@@ -1879,15 +1872,11 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	pub(super) core_index: u16,
 	/// The session index of the candidate relay parent.
 	session_index: SessionIndex,
-	/// Session index for determining secondary checkers.
+	/// Offset from `session_index` to derive the scheduling session (introduced in v3).
 	///
-	/// The session index is provided as an offset to the provided session_index
-	/// of the relay parent to save space:
-	///
-	/// ```rust
-	///   let scheduling_session = session_index + scheduling_session_offset;
-	/// ```
-	scheduling_session_offset: u8, // Introduced in v3
+	/// Stored as a `u8` offset rather than a full `SessionIndex` to fit within the
+	/// descriptor layout: `scheduling_session = session_index + scheduling_session_offset`.
+	scheduling_session_offset: u8,
 	/// Reserved bytes.
 	reserved1: [u8; 24],
 	/// The blake2-256 hash of the persisted validation data. This is extra data derived from
@@ -1985,7 +1974,7 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 
 		match self.version {
-			CANDIDATE_DESCRIPTOR_VERSION_V2 => CandidateDescriptorVersion::V2,
+			0 => CandidateDescriptorVersion::V2,
 			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
@@ -2007,8 +1996,8 @@ impl<H> CandidateDescriptorV2<H> {
 			return CandidateDescriptorVersion::V1;
 		}
 		match self.version {
-			CANDIDATE_DESCRIPTOR_VERSION_V2 => CandidateDescriptorVersion::V2,
-			CANDIDATE_DESCRIPTOR_VERSION_V3 => CandidateDescriptorVersion::V3,
+			0 => CandidateDescriptorVersion::V2,
+			1 => CandidateDescriptorVersion::V3,
 			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
@@ -2196,7 +2185,7 @@ where
 }
 
 impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
-	/// Constructor
+	/// Constructor for V2 candidate descriptor (scheduling_parent = zero).
 	pub fn new(
 		para_id: Id,
 		relay_parent: H,
@@ -2214,7 +2203,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		Self {
 			para_id,
 			relay_parent,
-			version: CANDIDATE_DESCRIPTOR_VERSION_V2,
+			version: 0,
 			core_index: core_index.0 as u16,
 			session_index,
 			scheduling_session_offset: 0,
@@ -2229,14 +2218,14 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Constructor for V3 candidate descriptors with scheduling_parent.
+	/// Constructor for V3 candidate descriptor with explicit scheduling_parent.
 	///
-	/// V3 candidates separate the relay_parent (execution context) from
-	/// the scheduling_parent (scheduling context/recent relay chain tip).
+	/// V3 descriptors are identified by `version == 1` and have a non-zero scheduling_parent
+	/// field, which indicates the relay chain block that was used for scheduling (may differ
+	/// from relay_parent). V3 descriptors require UMP signals to be present.
 	pub fn new_v3(
 		para_id: Id,
 		relay_parent: H,
-		scheduling_parent: H,
 		core_index: CoreIndex,
 		session_index: SessionIndex,
 		persisted_validation_data_hash: Hash,
@@ -2244,11 +2233,12 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		erasure_root: Hash,
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
+		scheduling_parent: H,
 	) -> Self {
 		Self {
 			para_id,
 			relay_parent,
-			version: CANDIDATE_DESCRIPTOR_VERSION_V3,
+			version: 1,
 			core_index: core_index.0 as u16,
 			session_index,
 			scheduling_session_offset: 0,

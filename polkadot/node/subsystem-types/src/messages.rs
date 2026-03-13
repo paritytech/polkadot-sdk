@@ -44,9 +44,10 @@ use polkadot_node_primitives::{
 use polkadot_primitives::{
 	self,
 	async_backing::{self, Constraints},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceiptV2 as CandidateReceipt,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
@@ -129,6 +130,8 @@ pub enum CandidateBackingMessage {
 	/// of the given scheduling parent (ref. by hash). This candidate must be validated.
 	Second {
 		/// The scheduling parent hash (determines validator group assignment).
+		/// TODO: Once node feature is assumed to be enabled, remove this redundant field and use
+		/// scheduling_parent of the descriptor directly: <https://github.com/paritytech/polkadot-sdk/issues/10883#issue-3844123650>
 		scheduling_parent: Hash,
 		/// The candidate to second.
 		candidate: CandidateReceipt,
@@ -832,6 +835,16 @@ pub enum RuntimeApiRequest {
 	UnappliedSlashesV2(
 		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	),
+	/// Get the maximum relay parent session age allowed for parachain blocks.
+	/// `V16`
+	MaxRelayParentSessionAge(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the relay parent info (block number and state root) for a given session and relay
+	/// parent hash. `V16`
+	AllowedRelayParentInfo(
+		SessionIndex,
+		Hash,
+		RuntimeApiSender<Option<RelayParentInfo<Hash, BlockNumber>>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -887,6 +900,12 @@ impl RuntimeApiRequest {
 
 	/// `UnappliedSlashesV2`
 	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
+
+	/// `MaxRelayParentSessionAge`
+	pub const MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT: u32 = 16;
+
+	/// `AllowedRelayParentInfo`
+	pub const ALLOWED_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
 }
 
 /// A message to the Runtime API subsystem.
