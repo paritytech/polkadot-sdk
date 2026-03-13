@@ -143,5 +143,81 @@ mod benchmarks {
 		assert_ne!(result, sp_core::H256::zero());
 	}
 
+	/// Benchmark for `use_permit` — the EIP-2612 signature verification and nonce
+	/// increment that is called inside the `permit` precompile.
+	///
+	/// Measures: domain separator computation, struct hash, ECDSA recovery, nonce
+	/// read + write. This is the weight charged for the cryptographic portion of
+	/// a permit call (the asset approval weights are tracked separately).
+	#[benchmark]
+	fn use_permit() {
+		let owner = test_owner();
+		let spender = H160::from_low_u64_be(0x9876_5432);
+		let verifying_contract = test_verifying_contract();
+		let value: [u8; 32] = {
+			let mut buf = [0u8; 32];
+			buf[31] = 100; // value = 100
+			buf
+		};
+		let deadline: [u8; 32] = {
+			let mut buf = [0u8; 32];
+			// Set deadline far in the future (max u64)
+			buf[24..32].copy_from_slice(&u64::MAX.to_be_bytes());
+			buf
+		};
+
+		// Set timestamp so deadline check passes.
+		pallet_timestamp::Pallet::<T>::set_timestamp(1_704_067_200_000u64.try_into().unwrap_or_default());
+
+		// Compute EIP-712 digest using runtime's chain_id.
+		let nonce = U256::zero();
+		let digest = crate::permit::Pallet::<T>::permit_digest(
+			&verifying_contract,
+			TEST_TOKEN_NAME,
+			&owner,
+			&spender,
+			&value,
+			&nonce,
+			&deadline,
+		);
+
+		// Sign with Hardhat account #0 private key.
+		// Private key for 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Hardhat #0).
+		// This is a well-known public test key, safe to embed in benchmark code.
+		let hardhat_sk: [u8; 32] = [
+			0xac, 0x09, 0x74, 0xbe, 0xc3, 0x9a, 0x17, 0xe3, 0x6b, 0xa4, 0xa6, 0xb4, 0xd2, 0x38,
+			0xff, 0x94, 0x4b, 0xac, 0xb4, 0x78, 0xcb, 0xed, 0x5e, 0xfc, 0xae, 0x78, 0x4d, 0x7b,
+			0xf4, 0xf2, 0xff, 0x80,
+		];
+		let signing_key = k256::ecdsa::SigningKey::from_slice(&hardhat_sk)
+			.expect("valid 32-byte Hardhat test key");
+		let (sig, recovery_id) = signing_key
+			.sign_prehash_recoverable(&digest)
+			.expect("signing with 32-byte digest cannot fail");
+		let sig_bytes = sig.to_bytes();
+		let r: [u8; 32] = sig_bytes[0..32].try_into().expect("r is 32 bytes");
+		let s: [u8; 32] = sig_bytes[32..64].try_into().expect("s is 32 bytes");
+		let v: u8 = recovery_id.to_byte() + 27;
+
+		#[block]
+		{
+			crate::permit::Pallet::<T>::use_permit(
+				&verifying_contract,
+				TEST_TOKEN_NAME,
+				&owner,
+				&spender,
+				&value,
+				&deadline,
+				v,
+				&r,
+				&s,
+			)
+			.expect("use_permit should succeed");
+		}
+
+		// Verify nonce was incremented, confirming the full flow ran.
+		assert_eq!(crate::permit::Pallet::<T>::nonce(&verifying_contract, &owner), U256::one());
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

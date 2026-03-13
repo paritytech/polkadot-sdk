@@ -466,7 +466,12 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		// Reserve worst-case gas upfront, then refund the unused portion.
-		let worst_case = <Runtime as Config<Instance>>::WeightInfo::allowance()
+		// The total cost is: use_permit (signature verification + nonce) +
+		// worst-case asset approval operations (allowance read + cancel + approve).
+		let use_permit_weight =
+			<Runtime as permit::Config>::WeightInfo::use_permit();
+		let worst_case = use_permit_weight
+			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval())
 			.saturating_add(<Runtime as Config<Instance>>::WeightInfo::approve_transfer());
 		let charged = env.charge(worst_case)?;
@@ -534,12 +539,17 @@ where
 							&owner_account,
 							&spender_account,
 						)?;
-						actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+						actual_weight = use_permit_weight
+							.saturating_add(
+								<Runtime as Config<Instance>>::WeightInfo::allowance(),
+							)
 							.saturating_add(
 								<Runtime as Config<Instance>>::WeightInfo::cancel_approval(),
 							);
 					} else {
-						actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance();
+						actual_weight = use_permit_weight.saturating_add(
+							<Runtime as Config<Instance>>::WeightInfo::allowance(),
+						);
 					}
 				} else {
 					if !current.is_zero() {
@@ -550,7 +560,10 @@ where
 						)?;
 						actual_weight = worst_case;
 					} else {
-						actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
+						actual_weight = use_permit_weight
+							.saturating_add(
+								<Runtime as Config<Instance>>::WeightInfo::allowance(),
+							)
 							.saturating_add(
 								<Runtime as Config<Instance>>::WeightInfo::approve_transfer(),
 							);
