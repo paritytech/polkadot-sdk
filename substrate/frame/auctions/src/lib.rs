@@ -1604,8 +1604,9 @@ pub mod pallet {
 		/// - Reading the cursor
 		/// - Reading Stopped
 		/// - Writing cursor update
+		/// - Reading next entry to check if more auctions remain
 		pub(crate) fn on_idle_weight() -> Weight {
-			T::DbWeight::get().reads_writes(2, 1)
+			T::DbWeight::get().reads_writes(3, 1)
 		}
 
 		/// Get current auction price using the snapshotted price curve.
