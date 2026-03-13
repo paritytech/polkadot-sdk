@@ -1960,6 +1960,109 @@ fn v3_descriptor(#[case] v3_feature_enabled: bool, #[case] crafted_unknown: bool
 	});
 }
 
+/// Test that a V3-capable validator (V3 node feature enabled) correctly identifies a V1 descriptor
+#[test]
+fn v1_descriptor_version_detection_with_v3_enabled() {
+	let mut test_state = TestState::default();
+
+	// Enable both V2 and V3 features — this is a "V3-capable" validator.
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 0;
+
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_b, head_b_num)]).await;
+
+		let peer_a = PeerId::random();
+
+		// Collator connects using the legacy V1 wire protocol.
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		advertise_collation(&mut virtual_overseer, peer_a, head_b, None).await;
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			None,
+		)
+		.await;
+
+		// Build a V1 descriptor: `dummy_candidate_receipt_bad_sig` populates `collator` with
+		// `dummy_collator()` (non-zero) and `signature` with `dummy_collator_signature()`
+		// (non-zero). In the V2 layout these bytes occupy `reserved2`, triggering V1 detection.
+		let mut candidate = dummy_candidate_receipt_bad_sig(head_b, Some(Default::default()));
+		candidate.descriptor.para_id = test_state.chain_ids[0];
+		candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+
+		let commitments = CandidateCommitments {
+			head_data: HeadData(vec![1u8]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+		candidate.commitments_hash = commitments.hash();
+
+		// Convert to CandidateReceiptV2 and assert version detection.
+		let candidate: CandidateReceipt = candidate.into();
+		assert_eq!(
+			candidate.descriptor.version(true),
+			CandidateDescriptorVersion::V1,
+			"non-zero reserved2 bytes must be detected as V1 even when v3_enabled=true"
+		);
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// The subsystem must take the legacy path: RuntimeApi::PersistedValidationData,
+		// NOT ProspectiveParachains::GetProspectiveValidationData.
+		// assert_candidate_backing_second with CollationVersion::V1 asserts exactly that.
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V1,
+		)
+		.await;
+
+		let committed =
+			CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed).await;
+
+		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V1)
+			.await;
+
+		virtual_overseer
+	});
+}
+
 #[test]
 fn invalid_v2_descriptor() {
 	let mut test_state = TestState::default();
