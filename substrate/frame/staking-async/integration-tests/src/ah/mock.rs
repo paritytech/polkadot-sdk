@@ -1019,6 +1019,87 @@ pub(crate) fn fill_vesting_slots(who: AccountId) {
 	}
 }
 
+/// Advance eras by sending session reports until `target_era` is reached.
+///
+/// Unlike `roll_until_next_active`, this does not assert the validator set composition,
+/// so it works even when the active set changes (e.g. after unbonding a validator).
+pub(crate) fn advance_eras_until(target_era: sp_staking::EraIndex) {
+	use pallet_staking_async::session_rotation::Rotator;
+
+	let mut iterations = 0;
+	while Rotator::<Runtime>::active_era() < target_era {
+		iterations += 1;
+		assert!(iterations < 200, "advance_eras_until: stuck after 200 iterations");
+
+		let planning = CurrentEra::<T>::get().unwrap();
+		let active = Rotator::<Runtime>::active_era();
+
+		if planning > active {
+			// Election started. Roll blocks until it completes.
+			if !OutgoingValidatorSet::<T>::exists() {
+				roll_next();
+				continue;
+			}
+
+			// Election done, outgoing set ready. Send session to export it.
+			let end_index =
+				pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
+					.unwrap_or_default() +
+					1;
+			assert_ok!(
+				pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+					RuntimeOrigin::root(),
+					SessionReport {
+						end_index,
+						activation_timestamp: None,
+						leftover: false,
+						validator_points: vec![],
+					},
+				)
+			);
+			roll_next();
+
+			// Outgoing set should be exported now. Send activation.
+			if !OutgoingValidatorSet::<T>::exists() {
+				let end_index =
+					pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
+						.unwrap_or_default() +
+						1;
+				assert_ok!(
+					pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+						RuntimeOrigin::root(),
+						SessionReport {
+							end_index,
+							activation_timestamp: Some((planning as u64 * 1000, planning as u32,)),
+							leftover: false,
+							validator_points: vec![],
+						},
+					)
+				);
+				roll_next();
+			}
+		} else {
+			// No election in progress. Send a session report to trigger one.
+			let end_index =
+				pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
+					.unwrap_or_default() +
+					1;
+			assert_ok!(
+				pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+					RuntimeOrigin::root(),
+					SessionReport {
+						end_index,
+						activation_timestamp: None,
+						leftover: false,
+						validator_points: vec![],
+					},
+				)
+			);
+			roll_next();
+		}
+	}
+}
+
 pub(crate) enum AssertSessionType {
 	/// A new election is planned in the starting session and result is exported immediately
 	ElectionWithImmediateExport,
