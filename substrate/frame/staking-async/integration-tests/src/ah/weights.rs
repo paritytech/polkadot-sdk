@@ -115,7 +115,7 @@ impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockEle
 pub struct StakingAsyncWeightInfo;
 impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn bond() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn bond_extra() -> Weight {
 		unreachable!()
@@ -130,7 +130,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		Default::default()
 	}
 	fn validate() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn kick(_: u32) -> Weight {
 		unreachable!()

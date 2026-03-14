@@ -2292,6 +2292,52 @@ fn setup_held_incentive() -> (AccountId, Balance) {
 	(validator, held)
 }
 
+/// Tests voluntary exit (unbond + withdraw) settles incentive hold via real pallet-vesting,
+/// and blocks withdrawal when vesting slots are full.
+#[test]
+fn withdraw_unbonded_settles_incentive_hold_via_vesting() {
+	use frame_support::assert_noop;
+
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let (validator, held) = setup_held_incentive();
+
+		// Unbond everything.
+		let active = Staking::ledger(sp_staking::StakingAccount::Stash(validator)).unwrap().active;
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(validator), active));
+
+		// Advance past bonding duration without asserting validator set composition
+		// (unbonding changes the elected set).
+		let target_era = Rotator::<Runtime>::active_era() + BondingDuration::get() + 1;
+		advance_eras_until(target_era);
+
+		// -- Scenario 1: withdraw succeeds and creates a real vesting schedule.
+		hypothetically!({
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(validator), 0));
+
+			assert!(
+				Staking::ledger(sp_staking::StakingAccount::Stash(validator)).is_err(),
+				"Ledger should be gone"
+			);
+			assert_eq!(incentive_held(validator), 0, "Hold should be settled");
+
+			let schedules = Vesting::vesting(validator);
+			// CLAUDE: good to assert total balance here.
+			assert!(
+				schedules.is_some() && !schedules.as_ref().unwrap().is_empty(),
+				"Vesting schedule should be created on voluntary exit"
+			);
+		});
+
+		// -- Scenario 2: withdraw blocked when vesting slots are full.
+		fill_vesting_slots(validator);
+
+		assert_noop!(
+			Staking::withdraw_unbonded(RuntimeOrigin::signed(validator), 0),
+			staking_async::Error::<Runtime>::IncentiveVestingPending
+		);
+		assert_eq!(incentive_held(validator), held, "Hold should persist");
+	});
+}
 
 /// Tests payee change with active incentive hold and force exit scenarios.
 ///

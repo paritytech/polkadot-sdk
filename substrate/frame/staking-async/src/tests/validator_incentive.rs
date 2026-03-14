@@ -1217,10 +1217,7 @@ fn payee_change_migrates_incentive_hold() {
 
 		// WHEN/THEN: Account(other) → Stash migrates hold to stash (which has a staking hold too).
 		hypothetically!({
-			assert_ok!(Staking::set_payee(
-				RuntimeOrigin::signed(alice),
-				RewardDestination::Stash
-			));
+			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::Stash));
 			assert_eq!(asset::incentive_held::<Test>(&other), 0);
 			assert_eq!(asset::incentive_held::<Test>(&alice), held);
 		});
@@ -1259,4 +1256,3 @@ fn force_unstake_settles_incentive_hold() {
 		assert!(asset::total_balance::<Test>(&alice) >= balance_before);
 	});
 }
-
