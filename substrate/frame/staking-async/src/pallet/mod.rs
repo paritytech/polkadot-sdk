@@ -1553,6 +1553,10 @@ pub mod pallet {
 		OptimumGreaterThanCap,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
+		/// Cannot exit staking while incentive hold is pending conversion to a vesting schedule.
+		///
+		/// Free a vesting slot, claim pending rewards, then retry.
+		IncentiveVestingPending,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -2173,6 +2177,9 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
+			// Move any incentive hold from old payout account to the new one.
+			Self::migrate_incentive_hold_on_payee_change(&ledger.stash, &payee)?;
+
 			let _ = ledger
 				.set_payee(payee)
 				.defensive_proof("ledger was retrieved from storage, thus it's bonded; qed.")?;
@@ -2315,7 +2322,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash)?;
+			// Force: releases incentive hold as liquid if vesting conversion fails.
+			Self::force_kill_stash(&stash)?;
 
 			Ok(())
 		}

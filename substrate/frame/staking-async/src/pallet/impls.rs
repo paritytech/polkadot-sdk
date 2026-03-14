@@ -623,6 +623,14 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Look up the current payee for `stash` and resolve it to a concrete account.
+	///
+	/// Returns `None` if payee is missing, is `None`, or resolves to no account.
+	fn resolve_payout_account(stash: &T::AccountId) -> Option<T::AccountId> {
+		Self::payee(Stash(stash.clone()))
+			.and_then(|dest| Self::payout_account_for_dest(stash, &dest))
+	}
+
 	/// Make a payment to a staker from an era reward pot.
 	///
 	/// Transfers rewards from the era-specific pot to the appropriate destination.
@@ -648,11 +656,8 @@ impl<T: Config> Pallet<T> {
 
 		let payout_account = Self::payout_account_for_dest(stash, &dest)?;
 
-		// Transfer from staker rewards pot to destination.
-		// This pot holds rewards for both nominators and the validator's staked amount.
 		let staker_rewards_pot =
 			T::EraPotAccountProvider::era_pot_account(era, crate::EraPotType::StakerRewards);
-		use frame_support::traits::{fungible::Mutate, tokens::Preservation};
 		if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,
@@ -781,6 +786,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If [`Config::VestingDuration`] is zero, the incentive is paid as liquid immediately
 	/// (no hold, no vesting).
+	/// Note: Unlike staker rewards, incentives are never auto-staked for
+	/// `RewardDestination::Staked` — they are held and then vested.
 	///
 	/// Returns the amount transferred if successful, 0 otherwise.
 	fn transfer_validator_incentive(
@@ -788,21 +795,21 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> BalanceOf<T> {
-		let dest = match Self::payee(Stash(stash.clone())) {
-			Some(d) if !matches!(d, RewardDestination::None) => d,
+		let (dest, payout_account) = match Self::payee(Stash(stash.clone())) {
+			Some(d) if !matches!(d, RewardDestination::None) => {
+				match Self::payout_account_for_dest(stash, &d) {
+					Some(account) => (d, account),
+					None => {
+						defensive!("Unable to determine payout account for destination");
+						return Zero::zero();
+					},
+				}
+			},
 			_ => {
 				defensive!("Validator missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::ValidatorMissingPayee { era },
 				));
-				return Zero::zero();
-			},
-		};
-
-		let payout_account = match Self::payout_account_for_dest(stash, &dest) {
-			Some(account) => account,
-			None => {
-				defensive!("Unable to determine payout account for destination");
 				return Zero::zero();
 			},
 		};
@@ -858,11 +865,17 @@ impl<T: Config> Pallet<T> {
 		// Hold the transferred amount. The hold accumulates across eras and is
 		// batch-converted to a vesting schedule when era % BondingDuration == 0.
 		if let Err(e) = asset::hold_incentive::<T>(&payout_account, amount) {
-			log!(warn, "Failed to hold incentive for {:?}: {:?}", payout_account, e);
+			// This should not fail since we just transferred the amount in. If it does,
+			// transfer back to the era pot rather than silently paying liquid.
+			log!(error, "Failed to hold incentive for {:?}: {:?}", payout_account, e);
 			defensive!("Incentive hold failed after transfer");
-			// Funds are in the account but unheld — not ideal but not lost.
-			// Still return the transferred amount since the transfer itself succeeded.
-			return amount;
+			let _ = T::Currency::transfer(
+				&payout_account,
+				&validator_incentive_pot_account,
+				amount,
+				Preservation::Expendable,
+			);
+			return Zero::zero();
 		}
 
 		Self::deposit_event(Event::<T>::ValidatorIncentiveHeld {
@@ -877,33 +890,26 @@ impl<T: Config> Pallet<T> {
 
 	/// Attempt to convert accumulated incentive hold into a vesting schedule.
 	///
-	/// Called when `era % BondingDuration == 0` and all pages for the validator have been
-	/// claimed. Derives `vesting_eras = VestingDuration / BlocksPerEra`, then computes
-	/// the retroactive unlock fraction (`BondingDuration / vesting_eras`) and creates a
-	/// vesting schedule for the remainder via a self-transfer.
+	/// Called at batch boundaries (`era % BondingDuration == 0`) and on staking exit.
+	/// Derives `vesting_eras = VestingDuration / BlocksPerEra`, computes the retroactive
+	/// unlock fraction (`BondingDuration / vesting_eras`), and creates a vesting schedule
+	/// for the remainder via a self-transfer.
 	///
-	/// If vesting schedule creation fails (e.g., slots full, amount below `MinVestedTransfer`),
-	/// the hold is re-applied and conversion deferred to the next batch interval.
-	fn maybe_convert_incentive_to_vesting(stash: &T::AccountId) {
-		let payout_account = match Self::payee(Stash(stash.clone())) {
-			Some(d) if !matches!(d, RewardDestination::None) => {
-				match Self::payout_account_for_dest(stash, &d) {
-					Some(account) => account,
-					None => {
-						defensive!("Unable to determine payout account for vesting conversion");
-						return;
-					},
-				}
-			},
-			_ => {
-				defensive!("Validator missing payee during vesting conversion");
-				return;
+	/// If vesting schedule creation fails (e.g., slots full), the hold is re-applied.
+	///
+	/// Returns `true` if the hold was fully cleared, `false` if it persists (re-held).
+	fn maybe_convert_incentive_to_vesting(stash: &T::AccountId) -> bool {
+		let payout_account = match Self::resolve_payout_account(stash) {
+			Some(account) => account,
+			None => {
+				defensive!("Unable to determine payout account for vesting conversion");
+				return false;
 			},
 		};
 
 		let held = asset::incentive_held::<T>(&payout_account);
 		if held.is_zero() {
-			return;
+			return true;
 		}
 
 		let bonding_duration = T::BondingDuration::get();
@@ -926,7 +932,7 @@ impl<T: Config> Pallet<T> {
 				liquid: released,
 				vested: Zero::zero(),
 			});
-			return;
+			return true;
 		}
 
 		// Retroactive unlock: the incentive was earned over BondingDuration eras but held,
@@ -949,7 +955,7 @@ impl<T: Config> Pallet<T> {
 				liquid: held,
 				vested: Zero::zero(),
 			});
-			return;
+			return true;
 		}
 
 		// Self-transfer: the funds are already in payout_account. `vested_transfer` does
@@ -966,6 +972,7 @@ impl<T: Config> Pallet<T> {
 					liquid: already_unlocked,
 					vested: remaining,
 				});
+				true
 			},
 			Err(e) => {
 				// Vesting slots full or amount below MinVestedTransfer.
@@ -977,10 +984,10 @@ impl<T: Config> Pallet<T> {
 					e
 				);
 				if let Err(hold_err) = asset::hold_incentive::<T>(&payout_account, held) {
-					// This should not happen since we just released the same amount.
 					log!(error, "Failed to re-hold incentive: {:?}", hold_err);
 					defensive!("Re-hold after failed vesting conversion should succeed");
 				}
+				false
 			},
 		}
 	}
@@ -1011,8 +1018,26 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This is called:
 	/// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
-	/// - through `reap_stash()` if the balance has fallen to zero (through slashing).
+	///
+	/// If there is a pending incentive hold that cannot be converted to a vesting schedule
+	/// (e.g. vesting slots full), returns [`Error::IncentiveVestingPending`]. The user must
+	/// free a vesting slot and retry.
 	pub(crate) fn kill_stash(stash: &T::AccountId) -> DispatchResult {
+		Self::settle_incentive_hold_on_exit(stash, false)?;
+		Self::do_kill_stash(stash)
+	}
+
+	/// Force-remove all staking data for a stash, releasing any incentive hold as liquid
+	/// if vesting conversion fails.
+	///
+	/// Used by `force_unstake` (Root) and `reap_stash` (slashed dust cleanup) where the
+	/// exit must not be blocked by full vesting slots.
+	pub(crate) fn force_kill_stash(stash: &T::AccountId) -> DispatchResult {
+		Self::settle_incentive_hold_on_exit(stash, true)?;
+		Self::do_kill_stash(stash)
+	}
+
+	fn do_kill_stash(stash: &T::AccountId) -> DispatchResult {
 		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
 		// setting of the stash in `Payee`.
 		StakingLedger::<T>::kill(&stash)?;
@@ -1022,6 +1047,80 @@ impl<T: Config> Pallet<T> {
 
 		// Clean up validator history tracking.
 		LastValidatorEra::<T>::remove(&stash);
+
+		Ok(())
+	}
+
+	/// Settle any outstanding incentive hold when a validator exits staking.
+	///
+	/// Attempts to convert the held incentive to a vesting schedule. If `force` is true,
+	/// releases as liquid when vesting conversion fails (used for forced exits like
+	/// `reap_stash` and `force_unstake`). If `force` is false, returns
+	/// [`Error::IncentiveVestingPending`] on failure.
+	fn settle_incentive_hold_on_exit(stash: &T::AccountId, force: bool) -> DispatchResult {
+		let payout_account = match Self::resolve_payout_account(stash) {
+			Some(account) => account,
+			None => return Ok(()),
+		};
+
+		let held = asset::incentive_held::<T>(&payout_account);
+		if held.is_zero() {
+			return Ok(());
+		}
+
+		let ed = asset::existential_deposit::<T>();
+
+		// Below ED -> just release as liquid.
+		if held < ed {
+			asset::release_incentive_hold::<T>(&payout_account);
+			return Ok(());
+		}
+
+		if !Self::maybe_convert_incentive_to_vesting(stash) {
+			if force {
+				// Forced exit: release as liquid rather than blocking the operation.
+				asset::release_incentive_hold::<T>(&payout_account);
+			} else {
+				return Err(Error::<T>::IncentiveVestingPending.into());
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Move any accumulated incentive hold from the old payout account to the new one
+	/// when the payee changes.
+	///
+	/// Releases the hold on the old account and re-holds on the new account. If the new
+	/// payee resolves to the same account (or there's nothing held), this is a no-op.
+	pub(super) fn migrate_incentive_hold_on_payee_change(
+		stash: &T::AccountId,
+		new_payee: &RewardDestination<T::AccountId>,
+	) -> DispatchResult {
+		let old_account = Self::resolve_payout_account(stash);
+		let new_account = Self::payout_account_for_dest(stash, new_payee);
+
+		// Same account or no old account — nothing to migrate.
+		if old_account == new_account || old_account.is_none() {
+			return Ok(());
+		}
+
+		let old_account = old_account.expect("checked above; qed");
+		let held = asset::incentive_held::<T>(&old_account);
+		if held.is_zero() {
+			return Ok(());
+		}
+
+		let new_account = match new_account {
+			Some(acc) => acc,
+			// Cannot change to None while incentive hold exists — would bypass vesting.
+			None => return Err(Error::<T>::IncentiveVestingPending.into()),
+		};
+
+		// Release from old, transfer to new, re-hold on new.
+		asset::release_incentive_hold::<T>(&old_account);
+		T::Currency::transfer(&old_account, &new_account, held, Preservation::Preserve)?;
+		asset::hold_incentive::<T>(&new_account, held)?;
 
 		Ok(())
 	}
