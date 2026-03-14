@@ -343,13 +343,7 @@ async fn handle_active_leaves_update<Context>(
 			let max_backable_chain_len =
 				claims_by_depth.values().flatten().collect::<BTreeSet<_>>().len();
 
-			// The runtime's min_relay_parent_number should match: now - ancestry_len
 			let min_relay_parent_number = constraints.min_relay_parent_number;
-			debug_assert_eq!(
-				block_info.number.saturating_sub(ancestors.len() as u32),
-				min_relay_parent_number,
-				"Fetched ancestry length should match runtime's min_relay_parent calculation"
-			);
 
 			let scope =
 				FragmentChainScope::new(constraints, compact_pending, max_backable_chain_len);

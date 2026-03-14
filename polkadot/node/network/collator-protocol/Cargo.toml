@@ -19,9 +19,12 @@ futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
 
 codec.workspace = true
 fatality = { workspace = true }
