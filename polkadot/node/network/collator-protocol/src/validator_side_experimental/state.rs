@@ -330,7 +330,7 @@ impl<B: Backend> State<B> {
 			);
 		}
 
-		let collation_version = self.peer_manager.get_version(&advertisement.peer_id);
+		let collation_version = self.peer_manager.get_peer_protocol_version(&advertisement.peer_id);
 		let can_second = self.collation_manager.note_fetched(sender, res, collation_version).await;
 
 		// To be consistent with the old implementation, if the fetch is successful we count the

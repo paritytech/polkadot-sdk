@@ -417,7 +417,7 @@ impl<B: Backend> PeerManager<B> {
 			.await;
 	}
 
-	pub fn get_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
+	pub fn get_peer_protocol_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
 		self.connected.get_version(peer_id)
 	}
 }

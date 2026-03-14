@@ -3395,7 +3395,7 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
 	let (ccr, adv) = dummy_candidate_v3(
-		get_hash(9),
+		get_hash(10),
 		get_hash(10),
 		100.into(),
 		peer_id,

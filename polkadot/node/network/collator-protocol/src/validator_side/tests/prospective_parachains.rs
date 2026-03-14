@@ -22,7 +22,7 @@ use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptorVersion,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Header, MutateDescriptorV2,
-	SigningContext, ValidatorId,
+	SigningContext, ValidatorId, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3,
@@ -2152,7 +2152,6 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		// grandparent (block 0) serves as relay_parent.
 		let head_b_num: u32 = 2;
 		let head_b_parent = get_parent_hash(head_b);
-		let head_b_grandparent = get_parent_hash(head_b_parent);
 
 		// Use the current slot so leaf.slot == current_slot (slot in progress).
 		let current_slot = Slot::from_timestamp(
@@ -2181,7 +2180,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 
 		// relay_parent is the grandparent, scheduling_parent is the leaf's parent.
 		let mut committed_candidate =
-			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
+			dummy_committed_candidate_receipt_v3(head_b_parent, head_b_parent);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
@@ -2283,7 +2282,6 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		// Use block 1 so the parent (block 0) can serve as relay_parent while
 		// the leaf itself (block 1) is the scheduling_parent.
 		let head_b_num: u32 = 1;
-		let head_b_parent = get_parent_hash(head_b);
 
 		// Use current_slot - 1 so leaf.slot == current_slot - 1 (just finished).
 		let finished_slot = Slot::from_timestamp(
@@ -2313,7 +2311,7 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		.await;
 
 		// relay_parent is the parent, scheduling_parent is the leaf (slot just finished).
-		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
+		let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b, head_b);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
