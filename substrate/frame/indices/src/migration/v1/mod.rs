@@ -163,7 +163,7 @@ where
 
 		loop {
 			// Check that we would have enough weight to perform this step
-			if !meter.can_consume(min_required) {
+			if meter.try_consume(min_required).is_err() {
 				break;
 			}
 
