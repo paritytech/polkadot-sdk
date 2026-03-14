@@ -178,7 +178,6 @@ where
 			if let Some((index, (account, old_deposit, frozen))) = iter.next() {
 				Self::migrate_account_step(account, index, frozen, old_deposit);
 				cursor = Some(Some(index));
-				meter.consume(min_required);
 			} else {
 				// Migration complete - update storage version
 				StorageVersion::new(Self::id().version_to as u16).put::<crate::pallet::Pallet<T>>();
