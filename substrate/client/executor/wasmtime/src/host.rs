@@ -22,12 +22,12 @@
 use crate::{instance_wrapper::MemoryWrapper, runtime::StoreData, util};
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
 use sp_virtualization::{
-	DestroyError as VirtDestroyError, ExecError as VirtExecError, Memory as VirtMemory, MemoryT,
-	SharedState as VirtSharedState, Virt, VirtT,
+	DestroyError as VirtDestroyError, ExecAction, ExecError as VirtExecError, ExecOutcome,
+	Memory as VirtMemory, MemoryT, Virt, VirtT,
 };
 use sp_wasm_interface::{Pointer, WordSize};
-use std::{collections::HashMap, mem};
-use wasmtime::{AsContext, Caller, TypedFunc};
+use std::collections::HashMap;
+use wasmtime::Caller;
 
 /// The state required to construct a HostContext context. The context only lasts for one host
 /// call, whereas the state is maintained for the duration of a Wasm runtime call, which may make
@@ -46,7 +46,7 @@ pub struct HostState {
 	/// We assign non recycled ids to them so the runtime can reference them. Please note that the
 	/// ids are per runtime call so there is no potential for non determinism as long as we assign
 	/// them deterministically.
-	virt_instances: HashMap<u64, VirtOrMem>,
+	virt_instances: HashMap<u64, VirtInstance>,
 	/// A incrementing counter used to generate new ids for [`Self::virt_instances`].
 	virt_counter: u64,
 }
@@ -164,85 +164,25 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 		};
 
 		host.virt_instances
-			.insert(instance_id, VirtOrMem::Instance { memory: virt.memory(), virt });
+			.insert(instance_id, VirtInstance { memory: virt.memory(), virt });
 
 		Ok(Ok(instance_id))
 	}
 
-	fn execute(
+	fn run(
 		&mut self,
 		instance_id: u64,
-		function: &str,
-		syscall_handler: u32,
-		state_ptr: u32,
-		destroy: bool,
-	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let (mut virt, memory) = match self.host_state_mut().virt_instances.remove(&instance_id) {
-			Some(VirtOrMem::Instance { virt, memory }) => (virt, memory),
-			Some(VirtOrMem::Memory(_)) => {
-				Err("it is illegal to call execute the same instance while already executing")?
-			},
+		gas_left: i64,
+		action: ExecAction<'_>,
+	) -> sp_wasm_interface::Result<Result<ExecOutcome, u8>> {
+		let mut instance = match self.host_state_mut().virt_instances.remove(&instance_id) {
+			Some(instance) => instance,
 			None => return Ok(Err(VirtExecError::InvalidInstance.into())),
 		};
 
-		// Extract a syscall handler from the instance's table by the specified index.
-		let syscall_handler = {
-			let table = self
-				.caller
-				.data()
-				.table
-				.ok_or("Runtime doesn't have a table; sandbox is unavailable")?;
-			let table_item = table.get(&mut self.caller, syscall_handler as u64);
-
-			match table_item.ok_or("dispatch_thunk_id is out of bounds")? {
-				wasmtime::Ref::Func(Some(func)) => func
-					.typed(&mut self.caller)
-					.map_err(|_| "dispatch_thunk_idx has the wrong type")?,
-				wasmtime::Ref::Func(None) => Err("dispatch_thunk_idx should point to actual func")?,
-				_ => Err("dispatch_thunk_idx should be a funcref")?,
-			}
-		};
-
-		self.host_state_mut()
-			.virt_instances
-			.insert(instance_id, VirtOrMem::Memory(virt.memory()));
-
-		let mut state = VirtSharedState {
-			gas_left: 0,
-			exit: false,
-			user: VirtContext { host: self, syscall_handler, state_ptr },
-		};
-
-		// read values from runtime memory before execution
-		{
-			// SAFETY: no other reference is created from `state_ptr` while borrowing via
-			// `runtime_state()`.
-			let runtime_state =
-				unsafe { state.user.runtime_state().ok_or("state_ptr is out of bounds")? };
-			state.gas_left = runtime_state.gas_left;
-			state.exit = runtime_state.exit;
-		}
-
-		let outcome = virt.execute(function, virt_syscall_handler, &mut state);
-
-		// exit is never synced back runtime memory as it is an input only field
-		{
-			// SAFETY: no other reference is created from `state_ptr` while borrowing via
-			// `runtime_state()`.
-			let runtime_state =
-				unsafe { state.user.runtime_state().expect("pointer was verified above; qed") };
-			runtime_state.gas_left = state.gas_left;
-		}
-
-		if destroy {
-			self.host_state_mut().virt_instances.remove(&instance_id);
-		} else {
-			self.host_state_mut()
-				.virt_instances
-				.insert(instance_id, VirtOrMem::Instance { virt, memory });
-		}
-
-		Ok(outcome.map_err(Into::into))
+		let result = instance.virt.run(gas_left, action);
+		self.host_state_mut().virt_instances.insert(instance_id, instance);
+		Ok(result.map_err(|err| err.into()))
 	}
 
 	fn destroy(&mut self, instance_id: u64) -> sp_wasm_interface::Result<Result<(), u8>> {
@@ -259,15 +199,10 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 		offset: u32,
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(memory) = self
-			.host_state_mut()
-			.virt_instances
-			.get(&instance_id)
-			.map(|instance| instance.memory())
-		else {
+		let Some(instance) = self.host_state_mut().virt_instances.get(&instance_id) else {
 			return Ok(Err(VirtDestroyError::InvalidInstance.into()));
 		};
-		if let Err(err) = memory.read(offset, dest) {
+		if let Err(err) = instance.memory.read(offset, dest) {
 			return Ok(Err(err.into()));
 		}
 		Ok(Ok(()))
@@ -279,126 +214,18 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 		offset: u32,
 		src: &[u8],
 	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(memory) = self
-			.host_state_mut()
-			.virt_instances
-			.get_mut(&instance_id)
-			.map(|instance| instance.memory_mut())
-		else {
+		let Some(instance) = self.host_state_mut().virt_instances.get_mut(&instance_id) else {
 			return Ok(Err(VirtDestroyError::InvalidInstance.into()));
 		};
-		if let Err(err) = memory.write(offset, src) {
+		if let Err(err) = instance.memory.write(offset, src) {
 			return Ok(Err(err.into()));
 		}
 		Ok(Ok(()))
 	}
 }
 
-/// Either contains the instance itself or its associated memory.
-///
-/// While executing we don't need to keep the instance itself in the `HashMap` because no recursive
-/// calls into the same instance are valid. However, we still need to provide access to memory.
-/// This is why we replace the instance itself with its memory object while executing.
-enum VirtOrMem {
-	/// The instance itself used for executing code.
-	///
-	/// This variant is used whenever the instance is spawned but not currently executing.
-	Instance { virt: Virt, memory: VirtMemory },
-	/// The instances memory object.
-	///
-	/// This variant is used whenever the instance is executing.
-	Memory(VirtMemory),
-}
-
-impl VirtOrMem {
-	fn memory(&self) -> &VirtMemory {
-		match self {
-			Self::Instance { memory, .. } => memory,
-			Self::Memory(memory) => memory,
-		}
-	}
-
-	fn memory_mut(&mut self) -> &mut VirtMemory {
-		match self {
-			Self::Instance { memory, .. } => memory,
-			Self::Memory(memory) => memory,
-		}
-	}
-}
-
-/// Data structure that is passed into our registered callback.
-struct VirtContext<'a, 'b> {
-	/// Needed to get a handle to the runtime executor so we can call our `syscall_hander`.
-	host: &'a mut HostContext<'b>,
-	/// Runtime function we call to handle our syscall.
-	syscall_handler: TypedFunc<(u32, u32, u32, u32, u32, u32, u32, u32), u64>,
-	/// First argument to the `syscall_handler` used to share state with the runtime.
-	state_ptr: u32,
-}
-
-impl<'a, 'b> VirtContext<'a, 'b> {
-	/// Return a mutable reference to the state shared with the syscall handler.
-	///
-	/// Returns `None` if the `state_ptr` is out of bounds.
-	///
-	/// # SAFETY
-	///
-	/// The caller must make sure that no other reference to [`Self::state_ptr`] exists
-	/// while holding the reference returned from this function.
-	unsafe fn runtime_state(&mut self) -> Option<&mut VirtSharedState<()>> {
-		let offset = self.state_ptr as usize;
-		let buf = self.host.caller.as_context().data().memory().data_mut(&mut self.host.caller);
-		let scoped =
-			buf.get_mut(offset..offset.saturating_add(mem::size_of::<VirtSharedState<()>>()))?;
-		Some(&mut *(scoped.as_mut_ptr() as *mut _))
-	}
-}
-
-extern "C" fn virt_syscall_handler(
-	state: &mut VirtSharedState<VirtContext<'_, '_>>,
-	syscall_no: u32,
-	a0: u32,
-	a1: u32,
-	a2: u32,
-	a3: u32,
-	a4: u32,
-	a5: u32,
-) -> u64 {
-	let syscall_handler = state.user.syscall_handler.clone();
-	let state_ptr = state.user.state_ptr;
-
-	// sync current gas counter to runtime memory. exit is not synced as it is input only.
-	{
-		// SAFETY: no other reference is created from `state_ptr` while borrowing via
-		// `runtime_state()`.
-		let runtime_state = unsafe {
-			state.user.runtime_state().expect("was checked before execution started; qed")
-		};
-		runtime_state.gas_left = state.gas_left;
-	}
-
-	let result = syscall_handler
-		.call(&mut state.user.host.caller, (state_ptr, syscall_no, a0, a1, a2, a3, a4, a5));
-	match result {
-		Ok(outcome) => {
-			// SAFETY: no other reference is created from `state_ptr` while borrowing via
-			// `runtime_state()`.
-			let runtime_state =
-				unsafe { state.user.runtime_state().expect("was checked above; qed") };
-			// those fields could have been changed by handler: copy back from runtime memory.
-			state.gas_left = runtime_state.gas_left;
-			state.exit = runtime_state.exit;
-			outcome
-		},
-		Err(err) => {
-			log::error!(
-				target: sp_virtualization::LOG_TARGET,
-				"virtualization syscall handler failed: {}",
-				err
-			);
-			// we trap the execution. return value is not used in this case.
-			state.exit = true;
-			u64::MAX
-		},
-	}
+/// A virtualization instance held in `HostState`.
+struct VirtInstance {
+	virt: Virt,
+	memory: VirtMemory,
 }

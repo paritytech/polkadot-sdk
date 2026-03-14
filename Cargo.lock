@@ -24476,6 +24476,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-virtualization-test-fixture",
+ "sp-wasm-interface 20.0.0",
  "strum 0.26.3",
 ]
 

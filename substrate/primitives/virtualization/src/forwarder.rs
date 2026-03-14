@@ -16,15 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	host_fn, ExecError, InstantiateError, MemoryError, MemoryT, SharedState, SyscallHandler, VirtT,
+	host_fn, ExecAction, ExecBuffer, ExecError, ExecOutcome, ExecStatus, InstantiateError,
+	MemoryError, MemoryT, VirtT,
 };
 
 /// The forwarder implementation of [`VirtT`].
 pub struct Virt {
 	/// The is passed to the host function to identify the instance to operate on.
 	instance_id: u64,
-	/// Is checked in `Drop` so that we don't destruct twice when using `execute_and_destroy`.
-	destroyed: bool,
 }
 
 /// The forwarder implementation of [`MemoryT`].
@@ -37,40 +36,22 @@ impl VirtT for Virt {
 
 	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError> {
 		let instance_id = host_fn::instantiate(program)?.into();
-		let virt = Self { instance_id, destroyed: false };
+		let virt = Self { instance_id };
 		Ok(virt)
 	}
 
-	fn execute<T>(
-		&mut self,
-		function: &str,
-		syscall_handler: SyscallHandler<T>,
-		state: &mut SharedState<T>,
-	) -> Result<(), ExecError> {
-		host_fn::execute(
-			self.instance_id,
-			function,
-			syscall_handler as u32,
-			state as *mut _ as usize as u32,
-			false,
-		)
-	}
-
-	fn execute_and_destroy<T>(
-		mut self,
-		function: &str,
-		syscall_handler: SyscallHandler<T>,
-		state: &mut SharedState<T>,
-	) -> Result<(), ExecError> {
-		let result = host_fn::execute(
-			self.instance_id,
-			function,
-			syscall_handler as u32,
-			state as *mut _ as usize as u32,
-			true,
-		);
-		self.destroyed = true;
-		result
+	fn run(&mut self, gas_left: i64, action: ExecAction<'_>) -> Result<ExecOutcome, ExecError> {
+		let mut buf = ExecBuffer::default();
+		let status_byte = match action {
+			ExecAction::Execute(function) => {
+				host_fn::execute(self.instance_id, function, gas_left, &mut buf)?
+			},
+			ExecAction::Resume(return_value) => {
+				host_fn::resume(self.instance_id, gas_left, return_value, &mut buf)?
+			},
+		};
+		let status = status_byte.try_into().expect("invalid status from host; qed");
+		Ok(buf.into_outcome(status))
 	}
 
 	fn memory(&self) -> Self::Memory {
@@ -80,9 +61,7 @@ impl VirtT for Virt {
 
 impl Drop for Virt {
 	fn drop(&mut self) {
-		if !self.destroyed {
-			host_fn::destroy(self.instance_id).ok();
-		}
+		host_fn::destroy(self.instance_id).ok();
 	}
 }
 

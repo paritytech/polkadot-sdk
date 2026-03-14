@@ -15,9 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{DestroyError, ExecError, InstantiateError, MemoryError};
+use crate::{
+	DestroyError, ExecBuffer, ExecError, ExecStatus, InstantiateError, MemoryError,
+	EXEC_BUFFER_SIZE,
+};
 use sp_runtime_interface::{
-	pass_by::{ConvertAndReturnAs, PassFatPointerAndRead, PassFatPointerAndWrite},
+	pass_by::{
+		ConvertAndReturnAs, PassFatPointerAndRead, PassFatPointerAndWrite, PassPointerAndWrite,
+	},
 	runtime_interface,
 };
 use strum::EnumCount;
@@ -361,27 +366,47 @@ pub trait Virtualization {
 			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 
-	/// See `sp_virtualization::Virt::instantiate`.
+	/// Start execution of a function on the given instance.
 	///
-	/// # Arguments
-	///
-	/// * `instance_id`: The id returned from [`Self::instantiate`].
-	/// * `function`: Same as in `sp_virtualization::Virt::execute`.
-	/// * `syscall_handler`: Pointer to a [`VirtSyscallHandler<T>`].
-	/// * `state_ptr`: Pointer to a [`VirtSharedState<T>`].
-	/// * `destroy`: True if the instance should be destroyed after execution. Useful if no further
-	///   calls or memory reads are necessary.
+	/// Returns [`ExecStatus::Finished`] or [`ExecStatus::Syscall`] as `u8`.
+	/// When a syscall occurs, the syscall arguments are written into the
+	/// `exec_buffer` via [`PassPointerAndWrite`].
 	fn execute(
 		&mut self,
 		instance_id: u64,
 		function: PassFatPointerAndRead<&str>,
-		syscall_handler: u32,
-		state_ptr: u32,
-		destroy: bool,
-	) -> ConvertAndReturnAs<Result<(), ExecError>, RIIntResult<VoidResult, RIExecError>, i64> {
+		gas_left: i64,
+		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { EXEC_BUFFER_SIZE }>,
+	) -> ConvertAndReturnAs<Result<u8, ExecError>, RIIntResult<u8, RIExecError>, i64> {
 		self.virtualization()
-			.execute(instance_id, function, syscall_handler, state_ptr, destroy)
+			.run(instance_id, gas_left, sp_wasm_interface::ExecAction::Execute(function))
 			.expect("execution failed")
+			.map(|outcome| {
+				*exec_buffer = ExecBuffer::from_outcome(&outcome);
+				ExecStatus::from_outcome(&outcome).into()
+			})
+			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
+	}
+
+	/// Resume execution after a syscall.
+	///
+	/// Returns [`ExecStatus::Finished`] or [`ExecStatus::Syscall`] as `u8`.
+	/// When a syscall occurs, the syscall arguments are written into the
+	/// `exec_buffer` via [`PassPointerAndWrite`].
+	fn resume(
+		&mut self,
+		instance_id: u64,
+		gas_left: i64,
+		return_value: u64,
+		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { EXEC_BUFFER_SIZE }>,
+	) -> ConvertAndReturnAs<Result<u8, ExecError>, RIIntResult<u8, RIExecError>, i64> {
+		self.virtualization()
+			.run(instance_id, gas_left, sp_wasm_interface::ExecAction::Resume(return_value))
+			.expect("resume failed")
+			.map(|outcome| {
+				*exec_buffer = ExecBuffer::from_outcome(&outcome);
+				ExecStatus::from_outcome(&outcome).into()
+			})
 			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 

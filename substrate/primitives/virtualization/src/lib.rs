@@ -52,6 +52,7 @@ pub use crate::tests::run as run_tests;
 pub use crate::host_functions::virtualization as host_fn;
 
 use codec::{Decode, Encode};
+use core::mem;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// The concrete memory type used to access the memory of [`Virt`].
@@ -59,6 +60,98 @@ pub type Memory = <Virt as VirtT>::Memory;
 
 /// The target we use for all logging.
 pub const LOG_TARGET: &str = "virtualization";
+
+// Re-export from sp_wasm_interface so that both the executor and the runtime code
+// use the same type.
+pub use sp_wasm_interface::{ExecAction, ExecOutcome};
+
+/// Buffer shared between runtime and executor for passing syscall data across the
+/// host function boundary.
+///
+/// The runtime allocates this on its stack and passes it via
+/// [`PassPointerAndWrite`]. The host fills it in when returning from
+/// [`VirtT::run`].
+#[derive(Debug, Default)]
+#[repr(C)]
+pub struct ExecBuffer {
+	/// Gas remaining after the execution step.
+	pub gas_left: i64,
+	/// The syscall number (only meaningful when the status is [`ExecStatus::Syscall`]).
+	pub syscall_no: u32,
+	/// Syscall register arguments a0-a5 (only meaningful for [`ExecStatus::Syscall`]).
+	pub a0: u32,
+	pub a1: u32,
+	pub a2: u32,
+	pub a3: u32,
+	pub a4: u32,
+	pub a5: u32,
+}
+
+/// The size of [`ExecBuffer`] in bytes.
+pub const EXEC_BUFFER_SIZE: usize = mem::size_of::<ExecBuffer>();
+
+impl AsRef<[u8]> for ExecBuffer {
+	fn as_ref(&self) -> &[u8] {
+		// SAFETY: `ExecBuffer` is `#[repr(C)]` with a well-defined layout of primitive fields.
+		unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, EXEC_BUFFER_SIZE) }
+	}
+}
+
+impl AsMut<[u8]> for ExecBuffer {
+	fn as_mut(&mut self) -> &mut [u8] {
+		// SAFETY: `ExecBuffer` is `#[repr(C)]` with a well-defined layout of primitive fields.
+		unsafe { core::slice::from_raw_parts_mut(self as *mut Self as *mut u8, EXEC_BUFFER_SIZE) }
+	}
+}
+
+impl ExecBuffer {
+	/// Populate this buffer from an [`ExecOutcome`].
+	pub fn from_outcome(outcome: &ExecOutcome) -> Self {
+		match *outcome {
+			ExecOutcome::Finished { gas_left } => Self { gas_left, ..Default::default() },
+			ExecOutcome::Syscall { gas_left, syscall_no, a0, a1, a2, a3, a4, a5 } => {
+				Self { gas_left, syscall_no, a0, a1, a2, a3, a4, a5 }
+			},
+		}
+	}
+
+	/// Decode a status byte and this buffer into an [`ExecOutcome`].
+	pub fn into_outcome(self, status: ExecStatus) -> ExecOutcome {
+		match status {
+			ExecStatus::Finished => ExecOutcome::Finished { gas_left: self.gas_left },
+			ExecStatus::Syscall => ExecOutcome::Syscall {
+				gas_left: self.gas_left,
+				syscall_no: self.syscall_no,
+				a0: self.a0,
+				a1: self.a1,
+				a2: self.a2,
+				a3: self.a3,
+				a4: self.a4,
+				a5: self.a5,
+			},
+		}
+	}
+}
+
+/// Status returned by the `execute` / `resume` host functions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum ExecStatus {
+	/// Execution finished normally.
+	Finished = 0,
+	/// A syscall was encountered — check the [`ExecBuffer`] for details.
+	Syscall = 1,
+}
+
+impl ExecStatus {
+	/// Derive the status from an [`ExecOutcome`].
+	pub fn from_outcome(outcome: &ExecOutcome) -> Self {
+		match outcome {
+			ExecOutcome::Finished { .. } => Self::Finished,
+			ExecOutcome::Syscall { .. } => Self::Syscall,
+		}
+	}
+}
 
 /// A virtualization instance that can be called into multiple times.
 ///
@@ -77,40 +170,73 @@ pub trait VirtT: Sized {
 	/// The passed program has to be a valid PolkaVM program.
 	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError>;
 
-	/// Execute the exported `function`.
+	/// Execute or resume a virtualization instance.
 	///
-	/// The exported function must not take any arguments nor return any results.
+	/// When `action` is [`ExecAction::Execute`], starts executing the named exported
+	/// function. The function must not take any arguments nor return any results.
+	/// When `action` is [`ExecAction::Resume`], resumes after a syscall with the given
+	/// return value (low 32 bits go into `a0`, high 32 bits into `a1`).
 	///
-	/// * `function`: The identifier of the PolkaVM export.
-	/// * `syscall_handler`: Will be called to handle imported functions.
-	/// * `state`: This reference will be passed as first argument to the `syscall_handler`. Use to
-	///   hold state.
-	fn execute<T>(
-		&mut self,
-		function: &str,
-		syscall_handler: SyscallHandler<T>,
-		state: &mut SharedState<T>,
-	) -> Result<(), ExecError>;
-
-	/// Same as [`Self::execute`] but destroys the instance right away.
+	/// Returns [`ExecOutcome::Finished`] when execution completes or
+	/// [`ExecOutcome::Syscall`] when a host function is called. In the latter case,
+	/// the caller should handle the syscall and call this method again with
+	/// [`ExecAction::Resume`] to continue.
 	///
-	/// This is an optimization to allow the `forwarder` implementation to
-	/// execute an destroy in a single host function call. Otherwise it would
-	/// need to issue another host function call on drop.
-	fn execute_and_destroy<T>(
-		self,
-		function: &str,
-		syscall_handler: SyscallHandler<T>,
-		state: &mut SharedState<T>,
-	) -> Result<(), ExecError>;
+	/// * `gas_left`: How much gas the execution is allowed to consume.
+	/// * `action`: Whether to start a new execution or resume an existing one.
+	fn run(&mut self, gas_left: i64, action: ExecAction<'_>) -> Result<ExecOutcome, ExecError>;
 
 	/// Get a reference to the instances memory.
 	///
-	/// You want to make this part of the [`SharedState`] in order to be able to access
-	/// the memory from your syscall handler.
-	///
 	/// Memory access will fail with an error when this instance was destroyed.
 	fn memory(&self) -> Self::Memory;
+}
+
+/// Convenience function that runs the execute/resume loop with a callback.
+///
+/// This provides the same semantics as the old callback-based `execute` API.
+pub fn execute_with_handler<V: VirtT, T>(
+	virt: &mut V,
+	function: &str,
+	syscall_handler: SyscallHandler<T>,
+	state: &mut SharedState<T>,
+) -> Result<(), ExecError> {
+	if state.exit {
+		return Ok(());
+	}
+
+	let mut action = ExecAction::Execute(function);
+	loop {
+		let outcome = match virt.run(state.gas_left, action) {
+			Ok(outcome) => outcome,
+			Err(err) => {
+				sync_gas_on_error(state, &err);
+				return Err(err);
+			},
+		};
+		match outcome {
+			ExecOutcome::Finished { gas_left } => {
+				state.gas_left = gas_left;
+				return Ok(());
+			},
+			ExecOutcome::Syscall { gas_left, syscall_no, a0, a1, a2, a3, a4, a5 } => {
+				state.gas_left = gas_left;
+				let result = syscall_handler(state, syscall_no, a0, a1, a2, a3, a4, a5);
+				if state.exit {
+					return Err(ExecError::Trap);
+				}
+				// The handler might have consumed gas by reducing state.gas_left.
+				action = ExecAction::Resume(result);
+			},
+		}
+	}
+}
+
+/// On `OutOfGas`, the remaining gas is definitionally 0.
+fn sync_gas_on_error<T>(state: &mut SharedState<T>, err: &ExecError) {
+	if *err == ExecError::OutOfGas {
+		state.gas_left = 0;
+	}
 }
 
 /// Allows to access the memory of a [`VirtT`].
@@ -147,8 +273,7 @@ pub enum ExecError {
 	InvalidGasValue = 4,
 	/// The execution trapped before it could finish.
 	///
-	/// This can either be caused by executing an `unimp` instruction or when a host function
-	/// set [`SharedState::exit`] to true.
+	/// This can be caused by executing an `unimp` instruction.
 	Trap = 5,
 }
 

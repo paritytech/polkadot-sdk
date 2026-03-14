@@ -18,6 +18,7 @@ polkavm = { workspace = true, optional = true }
 
 sp-runtime-interface = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
+sp-wasm-interface = { workspace = true, default-features = false }
 strum = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
@@ -36,5 +37,6 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-std/std",
 	"sp-tracing/std",
+	"sp-wasm-interface/std",
 	"strum/std",
 ]

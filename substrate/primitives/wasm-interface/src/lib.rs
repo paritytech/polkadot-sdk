@@ -336,18 +336,63 @@ pub trait FunctionContext {
 	fn virtualization(&mut self) -> &mut dyn Virtualization;
 }
 
+/// Specifies what action to take when running a virtualization instance.
+///
+/// Used by [`Virtualization::run`] to distinguish between starting a new execution
+/// and resuming after a syscall.
+pub enum ExecAction<'a> {
+	/// Start executing the named exported function.
+	Execute(&'a str),
+	/// Resume execution after a syscall, passing back the return value.
+	///
+	/// The low 32 bits go into register `a0`, the high 32 bits into `a1`.
+	Resume(u64),
+}
+
+/// The outcome of a single virtualization execution step.
+///
+/// Returned by [`Virtualization::run`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExecOutcome {
+	/// Execution finished normally.
+	Finished {
+		/// How much gas is remaining after the execution.
+		gas_left: i64,
+	},
+	/// A syscall was encountered. The caller should handle the syscall and then
+	/// call [`Virtualization::resume`] to continue execution.
+	Syscall {
+		/// How much gas is remaining at the point of the syscall.
+		gas_left: i64,
+		/// The 4 byte identifier of the syscall.
+		syscall_no: u32,
+		/// Register arguments a0-a5.
+		a0: u32,
+		a1: u32,
+		a2: u32,
+		a3: u32,
+		a4: u32,
+		a5: u32,
+	},
+}
+
 /// See `sp_virtualization::Virtualization`.
 pub trait Virtualization {
 	fn instantiate(&mut self, program: &[u8]) -> Result<result::Result<u64, u8>>;
 
-	fn execute(
+	/// Execute or resume a virtualization instance.
+	///
+	/// When `action` is [`ExecAction::Execute`], starts executing the named function.
+	/// When `action` is [`ExecAction::Resume`], resumes after a syscall with the given
+	/// return value.
+	///
+	/// Returns the execution outcome: either finished or a syscall was encountered.
+	fn run(
 		&mut self,
 		instance_id: u64,
-		function: &str,
-		syscall_handler: u32,
-		state_ptr: u32,
-		destroy: bool,
-	) -> Result<result::Result<(), u8>>;
+		gas_left: i64,
+		action: ExecAction<'_>,
+	) -> Result<result::Result<ExecOutcome, u8>>;
 
 	fn destroy(&mut self, instance_id: u64) -> Result<result::Result<(), u8>>;
 
