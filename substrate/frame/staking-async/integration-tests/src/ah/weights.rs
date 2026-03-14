@@ -121,13 +121,13 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn unbond() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn withdraw_unbonded_update() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn withdraw_unbonded_kill() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn validate() -> Weight {
 		unreachable!()
@@ -139,10 +139,10 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn chill() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn set_payee() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn update_payee() -> Weight {
 		unreachable!()
