@@ -23,6 +23,7 @@ use polkavm::{
 	RawInstance, Reg,
 };
 use std::{
+	cell::RefCell,
 	rc::{Rc, Weak},
 	sync::OnceLock,
 };
@@ -43,19 +44,15 @@ fn engine() -> &'static Engine {
 
 /// Native implementation of [`VirtT`].
 pub struct Virt {
-	/// The PolkaVM raw instance we are managing.
+	/// The PolkaVM raw instance behind shared ownership.
 	///
-	/// Boxed so that its heap address is stable across moves of `Virt`. This allows
-	/// [`Memory`] to hold a raw pointer to the inner [`RawInstance`] that remains valid
-	/// for the lifetime of this struct.
-	instance: Box<RawInstance>,
+	/// [`Memory`] handles hold [`Weak`] references to the same [`RefCell`].
+	/// Once [`Virt`] is dropped the [`Rc`] is the last owner and all [`Weak`]
+	/// references become invalid, causing memory operations to return
+	/// [`MemoryError::InvalidInstance`].
+	instance: Rc<RefCell<RawInstance>>,
 	/// The compiled module, kept around so we can resolve import indices to symbols.
 	module: Module,
-	/// Shared memory handle handed out via [`VirtT::memory`].
-	///
-	/// Users hold [`Weak`] references; once [`Virt`] is dropped the [`Rc`] is the last
-	/// owner and all [`Weak`] references become invalid.
-	memory: Rc<Memory>,
 	/// Whether the instance is in the middle of an execution (awaiting resume).
 	executing: bool,
 }
@@ -63,33 +60,28 @@ pub struct Virt {
 /// The native [`MemoryT`] implementation.
 ///
 /// Provides access to the guest memory of a [`RawInstance`] owned by [`Virt`].
-///
-/// # Safety
-///
-/// The inner `*mut RawInstance` is derived from `Box<RawInstance>` which is heap-allocated
-/// and never moves. The pointer is valid for the lifetime of [`Virt`] which owns both the
-/// [`Box`] and the [`Rc<Memory>`]. Users only hold [`Weak`] references that become invalid
-/// once [`Virt`] is dropped.
-pub struct Memory(*mut RawInstance);
+/// Holds a [`Weak`] reference so that memory access fails gracefully once the
+/// owning [`Virt`] is dropped.
+pub struct Memory(Weak<RefCell<RawInstance>>);
 
-impl Memory {
+impl MemoryT for Memory {
 	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
-		// SAFETY: See `Memory` doc comment. The pointer is valid for the lifetime of `Virt`.
-		unsafe { (*self.0).read_memory_into(offset, dest) }
-			.map(|_| ())
-			.map_err(|_| MemoryError::OutOfBounds)
+		let instance = self.0.upgrade().ok_or(MemoryError::InvalidInstance)?;
+		let guard = instance.borrow();
+		guard.read_memory_into(offset, dest).map(|_| ()).map_err(|_| MemoryError::OutOfBounds)
 	}
 
-	fn write(&self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
-		// SAFETY: See `Memory` doc comment. The pointer is valid for the lifetime of `Virt`.
-		unsafe { (*self.0).write_memory(offset, src) }.map_err(|_| MemoryError::OutOfBounds)
+	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
+		let instance = self.0.upgrade().ok_or(MemoryError::InvalidInstance)?;
+		let mut guard = instance.borrow_mut();
+		guard.write_memory(offset, src).map_err(|_| MemoryError::OutOfBounds)
 	}
 }
 
 impl VirtT for Virt {
 	// We use a weak reference in order to be compatible to the forwarder implementation
 	// where the memory is no longer accessible once the `Virt` is destroyed.
-	type Memory = Weak<Memory>;
+	type Memory = Memory;
 
 	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError> {
 		let engine = engine();
@@ -101,54 +93,39 @@ impl VirtT for Virt {
 			InstantiateError::InvalidImage
 		})?;
 
-		let mut instance = Box::new(module.instantiate().map_err(|err| {
+		let instance = Rc::new(RefCell::new(module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
-		})?);
-		// SAFETY: `instance` is `Box`-allocated so `&mut *instance` (the `RawInstance`)
-		// has a stable heap address. The pointer remains valid for the lifetime of `Virt`
-		// which owns both the `Box` and the `Rc<Memory>`.
-		let ptr = &mut *instance as *mut RawInstance;
-		let memory = Rc::new(Memory(ptr));
-		let virt = Self { memory, instance, module, executing: false };
-		Ok(virt)
+		})?));
+		Ok(Self { instance, module, executing: false })
 	}
 
 	fn run(&mut self, gas_left: i64, action: ExecAction<'_>) -> Result<ExecOutcome, ExecError> {
-		match action {
-			ExecAction::Execute(function) => {
-				if self.executing {
-					return Err(ExecError::InvalidInstance);
-				}
-				let pc = self.find_export(function)?;
-				self.instance.prepare_call_typed(pc, ());
-			},
-			ExecAction::Resume(return_value) => {
-				if !self.executing {
-					return Err(ExecError::InvalidInstance);
-				}
-				self.instance.set_reg(Reg::A0, (return_value as u32).into());
-				self.instance.set_reg(Reg::A1, ((return_value >> 32) as u32).into());
-			},
+		{
+			let mut instance = self.instance.borrow_mut();
+			match action {
+				ExecAction::Execute(function) => {
+					if self.executing {
+						return Err(ExecError::InvalidInstance);
+					}
+					let pc = self.find_export(function)?;
+					instance.prepare_call_typed(pc, ());
+				},
+				ExecAction::Resume(return_value) => {
+					if !self.executing {
+						return Err(ExecError::InvalidInstance);
+					}
+					instance.set_reg(Reg::A0, (return_value as u32).into());
+					instance.set_reg(Reg::A1, ((return_value >> 32) as u32).into());
+				},
+			}
+			instance.set_gas(gas_left);
 		}
-		self.instance.set_gas(gas_left);
 		self.step()
 	}
 
 	fn memory(&self) -> Self::Memory {
-		Rc::downgrade(&self.memory)
-	}
-}
-
-impl MemoryT for Weak<Memory> {
-	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
-		let memory = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		memory.read(offset, dest)
-	}
-
-	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
-		let memory = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		memory.write(offset, src)
+		Memory(Rc::downgrade(&self.instance))
 	}
 }
 
@@ -169,7 +146,8 @@ impl Virt {
 
 	/// Run the instance until the next interrupt and return the outcome.
 	fn step(&mut self) -> Result<ExecOutcome, ExecError> {
-		let interrupt = self.instance.run().map_err(|err| {
+		let mut instance = self.instance.borrow_mut();
+		let interrupt = instance.run().map_err(|err| {
 			self.executing = false;
 			log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
 			ExecError::InvalidImage
@@ -178,7 +156,7 @@ impl Virt {
 		match interrupt {
 			InterruptKind::Finished => {
 				self.executing = false;
-				Ok(ExecOutcome::Finished { gas_left: self.instance.gas() })
+				Ok(ExecOutcome::Finished { gas_left: instance.gas() })
 			},
 			InterruptKind::Trap => {
 				self.executing = false;
@@ -210,14 +188,14 @@ impl Virt {
 				);
 
 				Ok(ExecOutcome::Syscall {
-					gas_left: self.instance.gas(),
+					gas_left: instance.gas(),
 					syscall_no: syscall_id,
-					a0: self.instance.reg(Reg::A0) as u32,
-					a1: self.instance.reg(Reg::A1) as u32,
-					a2: self.instance.reg(Reg::A2) as u32,
-					a3: self.instance.reg(Reg::A3) as u32,
-					a4: self.instance.reg(Reg::A4) as u32,
-					a5: self.instance.reg(Reg::A5) as u32,
+					a0: instance.reg(Reg::A0) as u32,
+					a1: instance.reg(Reg::A1) as u32,
+					a2: instance.reg(Reg::A2) as u32,
+					a3: instance.reg(Reg::A3) as u32,
+					a4: instance.reg(Reg::A4) as u32,
+					a5: instance.reg(Reg::A5) as u32,
 				})
 			},
 		}
