@@ -157,10 +157,6 @@ where
 		// We need at least enough weight to migrate one account to make progress
 		let min_required = T::WeightInfo::migrate_account_step();
 
-		if meter.remaining().any_lt(min_required) {
-			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
-		}
-
 		loop {
 			// Check that we would have enough weight to perform this step
 			if meter.try_consume(min_required).is_err() {
