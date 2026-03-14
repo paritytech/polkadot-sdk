@@ -1084,6 +1084,59 @@ fn multiple_batch_cycles() {
 }
 
 #[test]
+fn withdraw_unbonded_settles_incentive_hold() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with incentive held after payout.
+		let alice = 11; // validator
+		let reward_account = 999;
+		setup_vesting_params(150, 5);
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		make_all_reward_payment(2);
+
+		let held = asset::incentive_held::<Test>(&alice);
+		assert!(held > 0, "incentive should be held after payout");
+
+		// Helper: unbond and withdraw alice.
+		let unbond_and_withdraw = || {
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+			let bonded = Staking::ledger(11.into()).unwrap().active;
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), bonded));
+			Session::roll_until_active_era(3 + BondingDuration::get() + 1);
+			let _ = staking_events_since_last_call();
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+			staking_events_since_last_call()
+		};
+
+		// WHEN/THEN: Payee = Stash — hold on stash is settled via vesting conversion.
+		hypothetically!({
+			let events = unbond_and_withdraw();
+			assert!(Staking::ledger(11.into()).is_err());
+			assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+			assert!(vesting_converted_for(alice, &events).is_some());
+		});
+
+		// WHEN/THEN: Payee = Account(other) — hold on reward_account is settled.
+		let ed = asset::existential_deposit::<Test>();
+		<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&reward_account, ed)
+			.unwrap();
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(reward_account)
+		));
+		// Hold migrated to reward_account by set_payee.
+		assert_eq!(asset::incentive_held::<Test>(&reward_account), held);
+
+		let _events = unbond_and_withdraw();
+		assert!(Staking::ledger(11.into()).is_err());
+		assert_eq!(asset::incentive_held::<Test>(&reward_account), 0);
+	});
+}
+
+#[test]
 fn vesting_duration_in_eras_equals_bonding_releases_all_liquid() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: vesting_eras == BondingDuration → 100% unlocked at conversion
@@ -1124,3 +1177,86 @@ fn vesting_duration_in_eras_equals_bonding_releases_all_liquid() {
 		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
 	});
 }
+
+#[test]
+fn payee_change_migrates_incentive_hold() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with incentive held on Account(other).
+		let alice = 11; // validator
+		let other = 888;
+		let another = 999;
+		setup_vesting_params(150, 5);
+		setup_incentive_with_budget(45, 5);
+
+		let ed = asset::existential_deposit::<Test>();
+		<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&other, ed).unwrap();
+		<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&another, ed).unwrap();
+
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(other)
+		));
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		make_all_reward_payment(2);
+
+		let held = asset::incentive_held::<Test>(&other);
+		assert!(held > 0);
+
+		// WHEN/THEN: Account(other) → Account(another) migrates the hold.
+		hypothetically!({
+			assert_ok!(Staking::set_payee(
+				RuntimeOrigin::signed(alice),
+				RewardDestination::Account(another)
+			));
+			assert_eq!(asset::incentive_held::<Test>(&other), 0);
+			assert_eq!(asset::incentive_held::<Test>(&another), held);
+		});
+
+		// WHEN/THEN: Account(other) → Stash migrates hold to stash (which has a staking hold too).
+		hypothetically!({
+			assert_ok!(Staking::set_payee(
+				RuntimeOrigin::signed(alice),
+				RewardDestination::Stash
+			));
+			assert_eq!(asset::incentive_held::<Test>(&other), 0);
+			assert_eq!(asset::incentive_held::<Test>(&alice), held);
+		});
+
+		// WHEN/THEN: Account(other) → None blocked while hold exists.
+		assert_noop!(
+			Staking::set_payee(RuntimeOrigin::signed(alice), RewardDestination::None),
+			Error::<Test>::IncentiveVestingPending
+		);
+	});
+}
+
+#[test]
+fn force_unstake_settles_incentive_hold() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Validator with held incentive.
+		let alice = 11;
+		setup_vesting_params(150, 5);
+		setup_incentive_with_budget(45, 5);
+
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		make_all_reward_payment(2);
+
+		let held = asset::incentive_held::<Test>(&alice);
+		assert!(held > 0);
+		let balance_before = asset::total_balance::<Test>(&alice);
+
+		// WHEN: Root force-unstakes.
+		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), alice, 0));
+
+		// THEN: Hold cleared, stash killed, balance preserved.
+		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
+		assert!(Staking::ledger(11.into()).is_err());
+		assert!(asset::total_balance::<Test>(&alice) >= balance_before);
+	});
+}
+
