@@ -1053,10 +1053,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Settle any outstanding incentive hold when a validator exits staking.
 	///
-	/// Attempts to convert the held incentive to a vesting schedule. If `force` is true,
-	/// releases as liquid when vesting conversion fails (used for forced exits like
-	/// `reap_stash` and `force_unstake`). If `force` is false, returns
-	/// [`Error::IncentiveVestingPending`] on failure.
+	/// Unlike batch conversion (which applies a retroactive unlock fraction), exit settlement
+	/// vests the full held amount — we don't know how long the hold has been accumulating.
+	///
+	/// If `force` is true, releases as liquid when vesting fails (for `force_unstake` and
+	/// `reap_stash`). If `force` is false, returns [`Error::IncentiveVestingPending`] on
+	/// failure (for voluntary `withdraw_unbonded`).
 	fn settle_incentive_hold_on_exit(stash: &T::AccountId, force: bool) -> DispatchResult {
 		let payout_account = match Self::resolve_payout_account(stash) {
 			Some(account) => account,
@@ -1076,16 +1078,49 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		}
 
-		if !Self::maybe_convert_incentive_to_vesting(stash) {
-			if force {
-				// Forced exit: release as liquid rather than blocking the operation.
-				asset::release_incentive_hold::<T>(&payout_account);
-			} else {
-				return Err(Error::<T>::IncentiveVestingPending.into());
-			}
+		let vesting_duration = T::VestingDuration::get();
+
+		// No vesting configured — release as liquid.
+		if vesting_duration.is_zero() {
+			asset::release_incentive_hold::<T>(&payout_account);
+			return Ok(());
 		}
 
-		Ok(())
+		// Release hold and vest the full amount.
+		asset::release_incentive_hold::<T>(&payout_account);
+
+		match T::ValidatorIncentivePayout::payout(
+			&payout_account,
+			&payout_account,
+			held,
+			vesting_duration,
+		) {
+			Ok(_) => {
+				Self::deposit_event(Event::<T>::IncentiveVestingConverted {
+					validator_stash: stash.clone(),
+					liquid: Zero::zero(),
+					vested: held,
+				});
+				Ok(())
+			},
+			Err(e) => {
+				log!(warn, "Failed to vest incentive on exit for {:?}: {:?}", payout_account, e);
+				if force {
+					// Forced exit: already released, leave as liquid.
+					Self::deposit_event(Event::<T>::IncentiveVestingConverted {
+						validator_stash: stash.clone(),
+						liquid: held,
+						vested: Zero::zero(),
+					});
+					Ok(())
+				} else {
+					// Non-force path is only called from user extrinsics — returning Err
+					// reverts the entire transaction including the hold release above.
+					// TODO(ank4n): Benchmark worst-case path (vesting payout failure + revert).
+					Err(Error::<T>::IncentiveVestingPending.into())
+				}
+			},
+		}
 	}
 
 	/// Move any accumulated incentive hold from the old payout account to the new one

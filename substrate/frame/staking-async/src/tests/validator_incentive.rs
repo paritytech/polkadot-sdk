@@ -1111,12 +1111,15 @@ fn withdraw_unbonded_settles_incentive_hold() {
 			staking_events_since_last_call()
 		};
 
-		// WHEN/THEN: Payee = Stash — hold on stash is settled via vesting conversion.
+		// WHEN/THEN: Payee = Stash — full held amount vested on exit (no retroactive unlock).
 		hypothetically!({
 			let events = unbond_and_withdraw();
 			assert!(Staking::ledger(11.into()).is_err());
 			assert_eq!(asset::incentive_held::<Test>(&alice), 0);
-			assert!(vesting_converted_for(alice, &events).is_some());
+			let (liquid, vested) =
+				vesting_converted_for(alice, &events).expect("should emit conversion event");
+			assert_eq!(liquid, 0, "no retroactive unlock on exit");
+			assert_eq!(vested, held, "full amount vested on exit");
 		});
 
 		// WHEN/THEN: Payee = Account(other) — hold on reward_account is settled.

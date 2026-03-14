@@ -2310,11 +2310,8 @@ fn withdraw_unbonded_settles_incentive_hold_via_vesting() {
 		let target_era = Rotator::<Runtime>::active_era() + BondingDuration::get() + 1;
 		advance_eras_until(target_era);
 
-		let vesting_before: Balance = Vesting::vesting(validator)
-			.unwrap_or_default()
-			.iter()
-			.map(|s| s.locked())
-			.sum();
+		let vesting_before: Balance =
+			Vesting::vesting(validator).unwrap_or_default().iter().map(|s| s.locked()).sum();
 
 		// -- Scenario 1: withdraw succeeds and creates a real vesting schedule.
 		hypothetically!({
@@ -2326,17 +2323,11 @@ fn withdraw_unbonded_settles_incentive_hold_via_vesting() {
 			);
 			assert_eq!(incentive_held(validator), 0, "Hold should be settled");
 
-			// Held incentive converted to vesting lock (minus retroactive unlock).
-			// Retroactive unlock = BondingDuration / vesting_eras = 3/10 = 30%.
-			// So 70% of the held amount should appear as new vesting locked balance.
-			let vesting_after: Balance = Vesting::vesting(validator)
-				.unwrap_or_default()
-				.iter()
-				.map(|s| s.locked())
-				.sum();
+			// On exit, the full held amount is vested
+			let vesting_after: Balance =
+				Vesting::vesting(validator).unwrap_or_default().iter().map(|s| s.locked()).sum();
 			let new_vesting = vesting_after - vesting_before;
-			let expected_vested = held - Perbill::from_rational(3u32, 10u32).mul_floor(held);
-			assert_eq!(new_vesting, expected_vested, "70% of held should be vested");
+			assert_eq!(new_vesting, held, "Full held amount should be vested on exit");
 		});
 
 		// -- Scenario 2: withdraw blocked when vesting slots are full.

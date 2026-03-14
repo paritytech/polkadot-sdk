@@ -1046,17 +1046,15 @@ pub(crate) fn advance_eras_until(target_era: sp_staking::EraIndex) {
 				pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
 					.unwrap_or_default() +
 					1;
-			assert_ok!(
-				pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
-					RuntimeOrigin::root(),
-					SessionReport {
-						end_index,
-						activation_timestamp: None,
-						leftover: false,
-						validator_points: vec![],
-					},
-				)
-			);
+			assert_ok!(pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+				RuntimeOrigin::root(),
+				SessionReport {
+					end_index,
+					activation_timestamp: None,
+					leftover: false,
+					validator_points: vec![],
+				},
+			));
 			roll_next();
 
 			// Outgoing set should be exported now. Send activation.
@@ -1084,17 +1082,15 @@ pub(crate) fn advance_eras_until(target_era: sp_staking::EraIndex) {
 				pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
 					.unwrap_or_default() +
 					1;
-			assert_ok!(
-				pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
-					RuntimeOrigin::root(),
-					SessionReport {
-						end_index,
-						activation_timestamp: None,
-						leftover: false,
-						validator_points: vec![],
-					},
-				)
-			);
+			assert_ok!(pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+				RuntimeOrigin::root(),
+				SessionReport {
+					end_index,
+					activation_timestamp: None,
+					leftover: false,
+					validator_points: vec![],
+				},
+			));
 			roll_next();
 		}
 	}
