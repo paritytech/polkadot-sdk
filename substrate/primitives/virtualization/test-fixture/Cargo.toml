@@ -7,6 +7,9 @@ edition.workspace = true
 repository.workspace = true
 description = "A PolkaVM program that is used by the `sp-virtualization` tests"
 
+[lints]
+workspace = true
+
 [target.'cfg(not(substrate_runtime))'.build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder" }
 
