@@ -362,7 +362,7 @@ pub trait Virtualization {
 		self.virtualization()
 			.instantiate(program)
 			.expect("instantiation failed")
-			.map(|instance_id| instance_id as u32)
+			.map(|id| id.0)
 			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 
@@ -373,11 +373,12 @@ pub trait Virtualization {
 	/// `exec_buffer` via [`PassPointerAndWrite`].
 	fn execute(
 		&mut self,
-		instance_id: u64,
+		instance_id: u32,
 		function: PassFatPointerAndRead<&str>,
 		gas_left: i64,
 		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { EXEC_BUFFER_SIZE }>,
 	) -> ConvertAndReturnAs<Result<u8, ExecError>, RIIntResult<u8, RIExecError>, i64> {
+		let instance_id = sp_wasm_interface::InstanceId(instance_id);
 		self.virtualization()
 			.run(instance_id, gas_left, sp_wasm_interface::ExecAction::Execute(function))
 			.expect("execution failed")
@@ -395,11 +396,12 @@ pub trait Virtualization {
 	/// `exec_buffer` via [`PassPointerAndWrite`].
 	fn resume(
 		&mut self,
-		instance_id: u64,
+		instance_id: u32,
 		gas_left: i64,
 		return_value: u64,
 		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { EXEC_BUFFER_SIZE }>,
 	) -> ConvertAndReturnAs<Result<u8, ExecError>, RIIntResult<u8, RIExecError>, i64> {
+		let instance_id = sp_wasm_interface::InstanceId(instance_id);
 		self.virtualization()
 			.run(instance_id, gas_left, sp_wasm_interface::ExecAction::Resume(return_value))
 			.expect("resume failed")
@@ -415,9 +417,10 @@ pub trait Virtualization {
 	/// Any attempt accessing an instance after destruction will yield the `InvalidInstance` error.
 	fn destroy(
 		&mut self,
-		instance_id: u64,
+		instance_id: u32,
 	) -> ConvertAndReturnAs<Result<(), DestroyError>, RIIntResult<VoidResult, RIDestroyError>, i64>
 	{
+		let instance_id = sp_wasm_interface::InstanceId(instance_id);
 		self.virtualization()
 			.destroy(instance_id)
 			.expect("memory access error")
@@ -427,10 +430,11 @@ pub trait Virtualization {
 	/// See `sp_virtualization::Memory::read`.
 	fn read_memory(
 		&mut self,
-		instance_id: u64,
+		instance_id: u32,
 		offset: u32,
 		dest: PassFatPointerAndWrite<&mut [u8]>,
 	) -> ConvertAndReturnAs<Result<(), MemoryError>, RIIntResult<VoidResult, RIMemoryError>, i64> {
+		let instance_id = sp_wasm_interface::InstanceId(instance_id);
 		self.virtualization()
 			.read_memory(instance_id, offset, dest)
 			.expect("memory access error")
@@ -440,10 +444,11 @@ pub trait Virtualization {
 	/// See `sp_virtualization::Memory::write`.
 	fn write_memory(
 		&mut self,
-		instance_id: u64,
+		instance_id: u32,
 		offset: u32,
 		src: PassFatPointerAndRead<&[u8]>,
 	) -> ConvertAndReturnAs<Result<(), MemoryError>, RIIntResult<VoidResult, RIMemoryError>, i64> {
+		let instance_id = sp_wasm_interface::InstanceId(instance_id);
 		self.virtualization()
 			.write_memory(instance_id, offset, src)
 			.expect("memory access error")

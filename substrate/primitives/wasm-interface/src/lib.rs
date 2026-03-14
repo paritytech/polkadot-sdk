@@ -376,9 +376,14 @@ pub enum ExecOutcome {
 	},
 }
 
+/// Opaque handle to a virtualization instance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct InstanceId(pub u32);
+
 /// See `sp_virtualization::Virtualization`.
 pub trait Virtualization {
-	fn instantiate(&mut self, program: &[u8]) -> Result<result::Result<u64, u8>>;
+	fn instantiate(&mut self, program: &[u8]) -> Result<result::Result<InstanceId, u8>>;
 
 	/// Execute or resume a virtualization instance.
 	///
@@ -389,23 +394,23 @@ pub trait Virtualization {
 	/// Returns the execution outcome: either finished or a syscall was encountered.
 	fn run(
 		&mut self,
-		instance_id: u64,
+		instance_id: InstanceId,
 		gas_left: i64,
 		action: ExecAction<'_>,
 	) -> Result<result::Result<ExecOutcome, u8>>;
 
-	fn destroy(&mut self, instance_id: u64) -> Result<result::Result<(), u8>>;
+	fn destroy(&mut self, instance_id: InstanceId) -> Result<result::Result<(), u8>>;
 
 	fn read_memory(
 		&mut self,
-		instance_id: u64,
+		instance_id: InstanceId,
 		offset: u32,
 		dest: &mut [u8],
 	) -> Result<result::Result<(), u8>>;
 
 	fn write_memory(
 		&mut self,
-		instance_id: u64,
+		instance_id: InstanceId,
 		offset: u32,
 		src: &[u8],
 	) -> Result<result::Result<(), u8>>;

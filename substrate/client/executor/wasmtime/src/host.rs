@@ -25,7 +25,7 @@ use sp_virtualization::{
 	DestroyError as VirtDestroyError, ExecAction, ExecError as VirtExecError, ExecOutcome,
 	Memory as VirtMemory, MemoryT, Virt, VirtT,
 };
-use sp_wasm_interface::{Pointer, WordSize};
+use sp_wasm_interface::{InstanceId, Pointer, WordSize};
 use std::collections::HashMap;
 use wasmtime::Caller;
 
@@ -46,9 +46,9 @@ pub struct HostState {
 	/// We assign non recycled ids to them so the runtime can reference them. Please note that the
 	/// ids are per runtime call so there is no potential for non determinism as long as we assign
 	/// them deterministically.
-	virt_instances: HashMap<u64, VirtInstance>,
+	virt_instances: HashMap<InstanceId, VirtInstance>,
 	/// A incrementing counter used to generate new ids for [`Self::virt_instances`].
-	virt_counter: u64,
+	virt_counter: u32,
 }
 
 impl HostState {
@@ -149,7 +149,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 }
 
 impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
-	fn instantiate(&mut self, program: &[u8]) -> sp_wasm_interface::Result<Result<u64, u8>> {
+	fn instantiate(&mut self, program: &[u8]) -> sp_wasm_interface::Result<Result<InstanceId, u8>> {
 		let virt = match Virt::instantiate(program) {
 			Ok(virt) => virt,
 			Err(err) => return Ok(Err(err.into())),
@@ -157,11 +157,11 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 
 		let host = self.host_state_mut();
 
-		let instance_id = {
+		let instance_id = InstanceId({
 			let old = host.virt_counter;
 			host.virt_counter = old + 1;
 			old
-		};
+		});
 
 		host.virt_instances
 			.insert(instance_id, VirtInstance { memory: virt.memory(), virt });
@@ -171,7 +171,7 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 
 	fn run(
 		&mut self,
-		instance_id: u64,
+		instance_id: InstanceId,
 		gas_left: i64,
 		action: ExecAction<'_>,
 	) -> sp_wasm_interface::Result<Result<ExecOutcome, u8>> {
@@ -185,7 +185,7 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 		Ok(result.map_err(|err| err.into()))
 	}
 
-	fn destroy(&mut self, instance_id: u64) -> sp_wasm_interface::Result<Result<(), u8>> {
+	fn destroy(&mut self, instance_id: InstanceId) -> sp_wasm_interface::Result<Result<(), u8>> {
 		if self.host_state_mut().virt_instances.remove(&instance_id).is_some() {
 			Ok(Ok(()))
 		} else {
@@ -195,7 +195,7 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 
 	fn read_memory(
 		&mut self,
-		instance_id: u64,
+		instance_id: InstanceId,
 		offset: u32,
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<Result<(), u8>> {
@@ -210,7 +210,7 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 
 	fn write_memory(
 		&mut self,
-		instance_id: u64,
+		instance_id: InstanceId,
 		offset: u32,
 		src: &[u8],
 	) -> sp_wasm_interface::Result<Result<(), u8>> {

@@ -19,23 +19,24 @@ use crate::{
 	host_fn, ExecAction, ExecBuffer, ExecError, ExecOutcome, ExecStatus, InstantiateError,
 	MemoryError, MemoryT, VirtT,
 };
+use sp_wasm_interface::InstanceId;
 
 /// The forwarder implementation of [`VirtT`].
 pub struct Virt {
 	/// The is passed to the host function to identify the instance to operate on.
-	instance_id: u64,
+	instance_id: InstanceId,
 }
 
 /// The forwarder implementation of [`MemoryT`].
 pub struct Memory {
-	instance_id: u64,
+	instance_id: InstanceId,
 }
 
 impl VirtT for Virt {
 	type Memory = Memory;
 
 	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError> {
-		let instance_id = host_fn::instantiate(program)?.into();
+		let instance_id = InstanceId(host_fn::instantiate(program)?);
 		let virt = Self { instance_id };
 		Ok(virt)
 	}
@@ -44,10 +45,10 @@ impl VirtT for Virt {
 		let mut buf = ExecBuffer::default();
 		let status_byte = match action {
 			ExecAction::Execute(function) => {
-				host_fn::execute(self.instance_id, function, gas_left, &mut buf)?
+				host_fn::execute(self.instance_id.0, function, gas_left, &mut buf)?
 			},
 			ExecAction::Resume(return_value) => {
-				host_fn::resume(self.instance_id, gas_left, return_value, &mut buf)?
+				host_fn::resume(self.instance_id.0, gas_left, return_value, &mut buf)?
 			},
 		};
 		let status = status_byte.try_into().expect("invalid status from host; qed");
@@ -61,16 +62,16 @@ impl VirtT for Virt {
 
 impl Drop for Virt {
 	fn drop(&mut self) {
-		host_fn::destroy(self.instance_id).ok();
+		host_fn::destroy(self.instance_id.0).ok();
 	}
 }
 
 impl MemoryT for Memory {
 	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
-		host_fn::read_memory(self.instance_id, offset, dest)
+		host_fn::read_memory(self.instance_id.0, offset, dest)
 	}
 
 	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
-		host_fn::write_memory(self.instance_id, offset, src)
+		host_fn::write_memory(self.instance_id.0, offset, src)
 	}
 }
