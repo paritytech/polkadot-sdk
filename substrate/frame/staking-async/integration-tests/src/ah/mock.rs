@@ -988,6 +988,37 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	all.into_iter().skip(seen).collect()
 }
 
+/// Read the incentive hold balance for an account.
+pub(crate) fn incentive_held(who: AccountId) -> Balance {
+	use frame_support::traits::fungible::hold::Inspect as HoldInspect;
+	<Balances as HoldInspect<AccountId>>::balance_on_hold(
+		&pallet_staking_async::HoldReason::IncentiveVesting.into(),
+		&who,
+	)
+}
+
+/// Fill all vesting schedule slots for an account with dummy schedules.
+pub(crate) fn fill_vesting_slots(who: AccountId) {
+	use frame_support::traits::fungible::Mutate;
+	use pallet_vesting::VestingInfo;
+
+	let funder: AccountId = 9999;
+	Balances::mint_into(&funder, 1_000_000).unwrap();
+
+	let max_schedules = <Runtime as pallet_vesting::Config>::MAX_VESTING_SCHEDULES;
+	let existing = Vesting::vesting(who).map_or(0, |v| v.len() as u32);
+
+	for i in existing..max_schedules {
+		let schedule = VestingInfo::new(100, 1, System::block_number() + 1000 + i as u64);
+		frame_support::assert_ok!(Vesting::force_vested_transfer(
+			RuntimeOrigin::root(),
+			funder,
+			who,
+			schedule,
+		));
+	}
+}
+
 pub(crate) enum AssertSessionType {
 	/// A new election is planned in the starting session and result is exported immediately
 	ElectionWithImmediateExport,
