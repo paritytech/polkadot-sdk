@@ -140,8 +140,7 @@ impl PipelineMetadataBuilder {
 			log::warn!("Duplicate definition for transaction extension version: {}", ext_version);
 			debug_assert!(
 				false,
-				"Duplicate definition for transaction extension version: {}",
-				ext_version
+				"Duplicate definition for transaction extension version: {ext_version}",
 			);
 			return
 		}
