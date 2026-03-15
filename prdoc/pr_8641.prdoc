@@ -7,14 +7,18 @@ crates:
 - name: sp-io
   bump: major
 - name: sp-runtime-interface
-  bump: major
+  bump: minor
 - name: sp-externalities
-  bump: major
+  bump: minor
 - name: polkadot-node-core-pvf-common
-  bump: major
+  bump: patch
 - name: sc-executor-polkavm
-  bump: major
+  bump: patch
 - name: sc-executor-wasmtime
   bump: major
 - name: sp-wasm-interface
   bump: major
+- name: sp-core
+  bump: minor
+- name: sp-state-machine
+  bump: patch
