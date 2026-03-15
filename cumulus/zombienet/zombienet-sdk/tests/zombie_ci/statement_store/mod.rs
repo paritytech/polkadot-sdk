@@ -5,3 +5,4 @@ mod common;
 mod statement_store_basic;
 mod statement_store_bench;
 mod statement_store_integration;
+mod sudo_helpers;
