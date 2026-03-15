@@ -10,13 +10,7 @@ use log::{debug, info};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, Bytes, Pair};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
-use std::{
-	cell::Cell,
-	collections::HashMap,
-	path::PathBuf,
-	sync::Arc,
-	time::Duration,
-};
+use std::{cell::Cell, collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
