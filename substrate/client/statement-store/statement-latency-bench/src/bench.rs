@@ -308,44 +308,6 @@ async fn wait_for_sync_time() {
 	info!("Sync time reached, starting benchmark");
 }
 
-fn log_configuration(args: &BenchArgs, messages_pattern: &[(usize, usize)]) {
-	let endpoints = args.rpc_endpoints.join(", ");
-	let pattern_str = messages_pattern
-		.iter()
-		.map(|(count, size)| format!("{count}x{size}B"))
-		.collect::<Vec<_>>()
-		.join(", ");
-	info!("Starting Statement Store Latency Benchmark: endpoints=[{endpoints}] clients={} rounds={} interval={}ms pattern=[{pattern_str}]", args.num_clients, args.num_rounds, args.interval_ms);
-}
-
-async fn collect_results(
-	handles: Vec<tokio::task::JoinHandle<Result<Vec<RoundStats>, anyhow::Error>>>,
-) -> Result<Vec<RoundStats>, anyhow::Error> {
-	let mut all_stats = Vec::new();
-
-	for (i, handle) in handles.into_iter().enumerate() {
-		match handle.await {
-			Ok(Ok(client_stats)) => all_stats.extend(client_stats),
-			Ok(Err(e)) => return Err(e.context(format!("Client {i} failed"))),
-			Err(e) => return Err(anyhow!("Client {i} task panicked: {e}")),
-		}
-	}
-
-	Ok(all_stats)
-}
-
-fn print_statistics(stats: &[RoundStats]) {
-	let send_stats = calc_stats(stats.iter().map(|s| s.send_duration_secs));
-	let receive_stats = calc_stats(stats.iter().map(|s| s.receive_duration_secs));
-	let latency_stats = calc_stats(stats.iter().map(|s| s.full_latency_secs));
-
-	info!("Benchmark Results: send_min={:.3}s send_avg={:.3}s send_max={:.3}s receive_min={:.3}s receive_avg={:.3}s receive_max={:.3}s latency_min={:.3}s latency_avg={:.3}s latency_max={:.3}s",
-		send_stats.min, send_stats.avg, send_stats.max,
-		receive_stats.min, receive_stats.avg, receive_stats.max,
-		latency_stats.min, latency_stats.avg, latency_stats.max
-	);
-}
-
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -403,4 +365,42 @@ async fn main() -> Result<(), anyhow::Error> {
 	print_statistics(&all_round_stats);
 
 	Ok(())
+}
+
+fn log_configuration(args: &BenchArgs, messages_pattern: &[(usize, usize)]) {
+	let endpoints = args.rpc_endpoints.join(", ");
+	let pattern_str = messages_pattern
+		.iter()
+		.map(|(count, size)| format!("{count}x{size}B"))
+		.collect::<Vec<_>>()
+		.join(", ");
+	info!("Starting Statement Store Latency Benchmark: endpoints=[{endpoints}] clients={} rounds={} interval={}ms pattern=[{pattern_str}]", args.num_clients, args.num_rounds, args.interval_ms);
+}
+
+async fn collect_results(
+	handles: Vec<tokio::task::JoinHandle<Result<Vec<RoundStats>, anyhow::Error>>>,
+) -> Result<Vec<RoundStats>, anyhow::Error> {
+	let mut all_stats = Vec::new();
+
+	for (i, handle) in handles.into_iter().enumerate() {
+		match handle.await {
+			Ok(Ok(client_stats)) => all_stats.extend(client_stats),
+			Ok(Err(e)) => return Err(e.context(format!("Client {i} failed"))),
+			Err(e) => return Err(anyhow!("Client {i} task panicked: {e}")),
+		}
+	}
+
+	Ok(all_stats)
+}
+
+fn print_statistics(stats: &[RoundStats]) {
+	let send_stats = calc_stats(stats.iter().map(|s| s.send_duration_secs));
+	let receive_stats = calc_stats(stats.iter().map(|s| s.receive_duration_secs));
+	let latency_stats = calc_stats(stats.iter().map(|s| s.full_latency_secs));
+
+	info!("Benchmark Results: send_min={:.3}s send_avg={:.3}s send_max={:.3}s receive_min={:.3}s receive_avg={:.3}s receive_max={:.3}s latency_min={:.3}s latency_avg={:.3}s latency_max={:.3}s",
+		send_stats.min, send_stats.avg, send_stats.max,
+		receive_stats.min, receive_stats.avg, receive_stats.max,
+		latency_stats.min, latency_stats.avg, latency_stats.max
+	);
 }
