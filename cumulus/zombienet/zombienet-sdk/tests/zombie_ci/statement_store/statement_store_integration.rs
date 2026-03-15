@@ -10,8 +10,8 @@ use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 use super::{
 	common::{
 		assert_no_more_statements, create_test_statement, expect_one_statement,
-		expect_statements_unordered, get_keypair, submit_statement, subscribe_all,
-		subscribe_topic, subscribe_topic_match_any,
+		expect_statements_unordered, get_keypair, submit_statement, subscribe_all, subscribe_topic,
+		subscribe_topic_match_any,
 	},
 	sudo_helpers::{create_allowance_items, create_uniform_allowance_items, spawn_network_sudo},
 };
