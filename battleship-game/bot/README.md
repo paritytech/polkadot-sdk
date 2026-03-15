@@ -32,7 +32,7 @@ Start the bot with:
 npm start
 ```
 
-The bot uses the Charlie dev account by default (`//Charlie` derivation path).
+The bot generates a random account on each startup and requests funds from the on-chain faucet.
 
 ## How It Works
 
@@ -77,7 +77,7 @@ Chain specifications are embedded in `chainSpecs.ts`.
 
 ## Files
 
-- `src/accounts.ts` - Bot account setup (Charlie dev account)
+- `src/accounts.ts` - Random account generation and faucet funding
 - `src/client.ts` - Smoldot light client initialization
 - `src/chainSpecs.ts` - Relay chain and parachain specifications
 - `src/battleship.ts` - Wrapper for battleship pallet calls

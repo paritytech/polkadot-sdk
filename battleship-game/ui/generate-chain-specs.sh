@@ -124,26 +124,42 @@ if not para_state_root:
     sys.exit(1)
 print(f"Parachain genesis state root: {para_state_root}")
 
-# Read chain spec JSON files and replace raw genesis with stateRootHash + lightSyncState
+# Read chain spec JSON files and add lightSyncState + bootNodes
+# Keep the raw genesis so smoldot can extract the runtime locally
+# (the light client storage query protocol often fails on local testnets)
 with open(f"{CHAIN_SPECS_DIR}/relay.json") as f:
     relay_spec = json.load(f)
 with open(f"{CHAIN_SPECS_DIR}/parachain.json") as f:
     para_spec = json.load(f)
 
-relay_spec["genesis"] = {"stateRootHash": relay_state_root}
 relay_spec["lightSyncState"] = relay_sync_spec.get("lightSyncState")
 relay_spec["bootNodes"] = relay_bootnodes
 
-para_spec["genesis"] = {"stateRootHash": para_state_root}
 para_spec["bootNodes"] = para_bootnodes
 
-relay_json = json.dumps(relay_spec, indent=2)
-para_json = json.dumps(para_spec, indent=2)
+relay_json = json.dumps(relay_spec, separators=(',', ':'))
+para_json = json.dumps(para_spec, separators=(',', ':'))
 
 ts = f'export const relayChainSpec = `\n{relay_json}`;\n\nexport const parachainSpec = `\n{para_json}`;\n'
 
 with open(OUTPUT_FILE, "w") as f:
     f.write(ts)
 
-print(f"Generated {OUTPUT_FILE} ({len(ts)} bytes, optimized with stateRootHash + lightSyncState)")
+print(f"Generated {OUTPUT_FILE} ({len(ts)} bytes, with raw genesis + lightSyncState)")
+
+# Also update bot chain spec files
+BOT_DIR = os.path.join("..", "bot", "src")
+bot_relay = os.path.join(BOT_DIR, "relay-chain-spec.json")
+bot_para = os.path.join(BOT_DIR, "parachain-spec.json")
+
+if os.path.isdir(BOT_DIR):
+    with open(bot_relay, "w") as f:
+        json.dump(relay_spec, f, indent=2)
+        f.write("\n")
+    with open(bot_para, "w") as f:
+        json.dump(para_spec, f, indent=2)
+        f.write("\n")
+    print(f"Updated bot chain specs in {BOT_DIR}")
+else:
+    print(f"Warning: Bot directory {BOT_DIR} not found, skipping bot chain specs")
 PYEOF

@@ -5,23 +5,12 @@ import { relayChainSpec, parachainSpec } from "./chainSpecs.js";
 let smoldotInstance = null;
 let relayChainInstance = null;
 let clientInstance = null;
+let statementChainInstance = null;
 export async function getClient() {
     if (!clientInstance) {
-        console.error("[DEBUG] getClient called");
-        console.error(`[DEBUG] relayChainSpec type: ${typeof relayChainSpec}`);
-        try {
-            const parsed = JSON.parse(relayChainSpec);
-            console.error(`[DEBUG] Parsed relay spec, bootNodes: ${parsed.bootNodes ? parsed.bootNodes.length : 'undefined'}`);
-            if (parsed.bootNodes && parsed.bootNodes.length > 0) {
-                console.error(`[DEBUG] First bootNode: ${parsed.bootNodes[0]}`);
-            }
-        }
-        catch (e) {
-            console.error(`[DEBUG] Failed to parse: ${e}`);
-        }
         console.log("[client] Starting smoldot light client...");
         smoldotInstance = start({
-            maxLogLevel: 4,
+            maxLogLevel: 3,
             logCallback: (level, target, message) => {
                 const levelNames = ["", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"];
                 if (level <= 3) {
@@ -44,6 +33,17 @@ export async function getClient() {
         console.log(`[client] Connected! NextGameId=${nextGameId}`);
     }
     return clientInstance;
+}
+export async function getStatementChain() {
+    if (statementChainInstance)
+        return statementChainInstance;
+    if (!smoldotInstance || !relayChainInstance)
+        return null;
+    statementChainInstance = await smoldotInstance.addChain({
+        chainSpec: parachainSpec,
+        potentialRelayChains: [relayChainInstance],
+    });
+    return statementChainInstance;
 }
 export async function createNewClient(label) {
     const tag = label || "new";
@@ -94,5 +94,6 @@ export function disconnectClient() {
         smoldotInstance.terminate();
         smoldotInstance = null;
         relayChainInstance = null;
+        statementChainInstance = null;
     }
 }

@@ -8,9 +8,10 @@ import { getPolkadotSigner, type PolkadotSigner } from "polkadot-api/signer";
 import { AccountId } from "polkadot-api";
 
 export interface PlayerAccount {
-  signer: PolkadotSigner;
-  address: string;
-  publicKey?: Uint8Array;
+	signer: PolkadotSigner;
+	address: string;
+	publicKey?: Uint8Array;
+	rawSign?: (input: Uint8Array) => Uint8Array;
 }
 
 const STORAGE_KEY = "battleship-wallet-mnemonic";
@@ -26,8 +27,8 @@ export function getOrCreateWallet(): PlayerAccount {
   const derive = sr25519CreateDerive(miniSecret);
   const keyPair = derive("");
 
-  const signer = getPolkadotSigner(keyPair.publicKey, "Sr25519", keyPair.sign);
-  const address = AccountId().dec(keyPair.publicKey);
+	const signer = getPolkadotSigner(keyPair.publicKey, "Sr25519", keyPair.sign);
+	const address = AccountId().dec(keyPair.publicKey);
 
-  return { signer, address, publicKey: keyPair.publicKey };
+	return { signer, address, publicKey: keyPair.publicKey, rawSign: keyPair.sign };
 }

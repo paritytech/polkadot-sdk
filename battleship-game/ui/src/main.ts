@@ -5,6 +5,8 @@ import { getOrCreateWallet, type PlayerAccount } from "./chain/accounts.ts";
 import { getWalletManager, WalletManager } from "./chain/wallet.ts";
 import { getChainClient } from "./chain/client.ts";
 import { BattleshipClient, resetLocalNonce } from "./chain/battleship.ts";
+import { getStatementChain } from "./chain/client.ts";
+import { getStatementStore, type StatementStoreClient, type GameAnnouncement, type GameCreatedNotification } from "./chain/statementStore.ts";
 import type { Position } from "./types/index.ts";
 
 type Screen = "loading" | "game-lobby" | "game";
@@ -28,6 +30,7 @@ class BattleshipApp {
   private currentBalance: bigint = 0n;
   private selectedPotAmount: bigint = 0n;
   private lobbyRefreshInterval: number | null = null;
+  private statementStore: StatementStoreClient | null = null;
   private buttonAbortController: AbortController | null = null;
   constructor() {
     this.walletManager = getWalletManager();
@@ -77,6 +80,19 @@ class BattleshipApp {
         if (this.currentBalance > 0n) break;
         await new Promise((r) => setTimeout(r, 2000));
       }
+    }
+
+    // Initialize statement store for game discovery
+    try {
+      const stmtChain = await getStatementChain();
+      if (stmtChain) {
+        this.statementStore = getStatementStore(stmtChain);
+        console.log("[init] Statement store initialized");
+      } else {
+        console.warn("[init] Statement store not available (proxy mode?)");
+      }
+    } catch (e) {
+      console.warn("[init] Failed to initialize statement store:", e);
     }
 
     this.onAccountReady();
@@ -234,18 +250,33 @@ class BattleshipApp {
     if (!gamesList) return;
 
     try {
-      const client = await getChainClient();
-      const battleshipClient = await BattleshipClient.create(client);
-      const waitingGameIds = await battleshipClient.findWaitingGames();
+      const filteredGames: { creator: string; potAmount: bigint; timestamp: number }[] = [];
 
-      const filteredGames: { gameId: bigint; creator: string; potAmount: bigint }[] = [];
-      for (const gameId of waitingGameIds) {
-        const { game } = await battleshipClient.getGame(gameId);
-        if (game && game.player1?.toString() !== this.currentAccount?.address) {
+      if (this.statementStore && this.currentAccount) {
+        // Statement-based discovery with ping/pong liveness
+        const announcements = this.statementStore.getAnnouncements();
+
+        for (const ann of announcements) {
+          // Skip our own games
+          if (ann.creator === this.currentAccount.address) continue;
+
+          // Send a ping if we haven't already
+          if (!this.statementStore.hasPong(ann.creator, ann.timestamp, this.currentAccount.address)) {
+            await this.statementStore.sendLivenessPing(
+              ann.creator,
+              ann.timestamp,
+              this.currentAccount.address,
+              this.currentAccount.publicKey!,
+              this.currentAccount.rawSign!,
+            );
+            continue; // Wait for pong on next refresh cycle
+          }
+
+          // We have a pong — creator is online, show the game
           filteredGames.push({
-            gameId,
-            creator: game.player1?.toString() || "unknown",
-            potAmount: game.pot_amount ?? 0n,
+            creator: ann.creator,
+            potAmount: BigInt(ann.potAmount),
+            timestamp: ann.timestamp,
           });
         }
       }
@@ -268,7 +299,7 @@ class BattleshipApp {
     }
   }
 
-  private createGameCard(game: { gameId: bigint; creator: string; potAmount: bigint }): HTMLElement {
+  private createGameCard(game: { creator: string; potAmount: bigint; timestamp: number }): HTMLElement {
     const card = document.createElement("div");
     card.className = "game-card";
 
@@ -276,14 +307,14 @@ class BattleshipApp {
     const prizeFormatted = WalletManager.formatBalance(game.potAmount * 2n);
 
     card.innerHTML = `
-      <div class="game-id">Game #${game.gameId} by ${this.truncateAddress(game.creator)}</div>
+      <div class="game-id">Game by ${this.truncateAddress(game.creator)}</div>
       <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
       <div class="game-prize">Winner receives: ${prizeFormatted} UNIT</div>
       <button class="btn btn-success">Join Game</button>
     `;
 
     const joinBtn = card.querySelector("button");
-    joinBtn?.addEventListener("click", () => this.handleJoinGame(game.gameId));
+    joinBtn?.addEventListener("click", () => this.handleJoinGame(game.creator, game.timestamp));
 
     return card;
   }
@@ -378,43 +409,93 @@ class BattleshipApp {
   private async createGameWithStake(): Promise<void> {
     console.log("createGameWithStake called, selectedPotAmount:", this.selectedPotAmount);
     if (!this.currentAccount || this.selectedPotAmount <= 0n) return;
+    if (!this.statementStore) {
+      alert("Statement store not available. Cannot announce game.");
+      return;
+    }
 
     const potAmount = this.selectedPotAmount;
+    const timestamp = Date.now();
     this.closeFundModal();
 
     try {
-      const client = await getChainClient();
-      const battleshipClient = await BattleshipClient.create(client);
-      const { ok, gameId: returnedGameId } = await battleshipClient.createGame(this.currentAccount.signer, potAmount);
+      // Announce game intent via statement store (NO on-chain game yet)
+      const announcement: GameAnnouncement = {
+        creator: this.currentAccount.address,
+        potAmount: potAmount.toString(),
+        timestamp,
+      };
+      await this.statementStore.announceGame(announcement, this.currentAccount.publicKey!, this.currentAccount.rawSign!);
+      console.log("[createGame] Game announced via statement store");
 
-      let gameId = returnedGameId;
-      if (ok && gameId === undefined) {
-        // Fallback: query PlayerGame to find the game ID
-        console.log("GameId not returned, querying PlayerGame...");
-        const queriedId = await battleshipClient.getPlayerGame(this.currentAccount.address);
-        if (queriedId !== null && queriedId !== undefined) {
-          gameId = queriedId;
-          console.log("Found gameId from PlayerGame query:", gameId);
+      // Auto-respond to liveness pings while waiting
+      this.statementStore.onPing(async (ping) => {
+        if (
+          ping.creator === this.currentAccount!.address &&
+          this.statementStore &&
+          this._waitingTimestamp !== null
+        ) {
+          console.log(`[createGame] Received ping from ${ping.pinger.slice(0, 8)}..., sending pong`);
+          await this.statementStore.sendLivenessPong(ping, this.currentAccount!.publicKey!, this.currentAccount!.rawSign!);
         }
-      }
+      });
 
-      if (ok && gameId !== undefined) {
-        console.log("Game created on-chain with ID:", gameId);
-        this.showWaitingForOpponent(gameId, potAmount);
-      } else {
-        alert("Failed to create game. Please try again.");
-      }
+      // Listen for join requests — create on-chain when someone wants to join
+      this.statementStore.onJoinRequest(async (req) => {
+        if (req.creator !== this.currentAccount!.address) return;
+        if (req.gameTimestamp !== timestamp) return;
+        if (this._pendingGameId !== null) return; // Already processing a join
+
+        console.log(`[createGame] Received join request from ${req.joiner.slice(0, 8)}...`);
+        const statusEl = document.querySelector("#waiting-card .game-status");
+        if (statusEl) statusEl.textContent = "Opponent found! Creating game on-chain...";
+
+        // NOW create game on-chain
+        const client = await getChainClient();
+        const battleshipClient = await BattleshipClient.create(client);
+        const { ok, gameId: returnedGameId } = await battleshipClient.createGame(this.currentAccount!.signer, potAmount);
+
+        let gameId = returnedGameId;
+        if (ok && gameId === undefined) {
+          const queriedId = await battleshipClient.getPlayerGame(this.currentAccount!.address);
+          if (queriedId !== null && queriedId !== undefined) gameId = queriedId;
+        }
+
+        if (ok && gameId !== undefined) {
+          this._pendingGameId = gameId;
+          console.log(`[createGame] Game ${gameId} created on-chain`);
+
+          // Notify joiner with the on-chain game ID
+          await this.statementStore!.sendGameCreated(
+            this.currentAccount!.address,
+            timestamp,
+            req.joiner,
+            gameId.toString(),
+            this.currentAccount!.publicKey!,
+            this.currentAccount!.rawSign!,
+          );
+          console.log(`[createGame] Notified ${req.joiner.slice(0, 8)}... of game ${gameId}`);
+
+          // Start polling for opponent to actually join on-chain
+          this.waitingCheckInterval = window.setInterval(() => this.checkForOpponentJoined(), 3000);
+        } else {
+          if (statusEl) statusEl.textContent = "Failed to create game on-chain. Try again.";
+        }
+      });
+
+      this.showWaitingForOpponent(potAmount, timestamp);
     } catch (e) {
-      console.error("Failed to create game:", e);
-      alert("Failed to create game. Please try again.");
+      console.error("Failed to announce game:", e);
+      alert("Failed to announce game. Please try again.");
     }
   }
 
   private _pendingGameId: bigint | null = null;
+  private _waitingTimestamp: number | null = null;
   private waitingCheckInterval: number | null = null;
 
-  private showWaitingForOpponent(gameId: bigint, potAmount: bigint): void {
-    this._pendingGameId = gameId;
+  private showWaitingForOpponent(potAmount: bigint, timestamp: number): void {
+    this._waitingTimestamp = timestamp;
     this.stopLobbyRefresh();
 
     const gamesList = document.getElementById("games-list");
@@ -429,7 +510,7 @@ class BattleshipApp {
     waitingCard.id = "waiting-card";
     const stakeFormatted = WalletManager.formatBalance(potAmount);
     waitingCard.innerHTML = `
-      <div class="game-id">Your Game #${gameId}</div>
+      <div class="game-id">Your Game</div>
       <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
       <div class="game-status">Waiting for opponent to join...</div>
       <button class="btn btn-danger" id="cancel-game-btn">Cancel</button>
@@ -441,8 +522,6 @@ class BattleshipApp {
     });
 
     document.getElementById("create-game-btn")?.setAttribute("disabled", "true");
-
-    this.waitingCheckInterval = window.setInterval(() => this.checkForOpponentJoined(), 3000);
   }
 
   private async checkForOpponentJoined(): Promise<void> {
@@ -482,6 +561,7 @@ class BattleshipApp {
 
     if (success) {
       this._pendingGameId = null;
+      this._waitingTimestamp = null;
       this.startGame();
     } else {
       alert("Failed to start game.");
@@ -497,6 +577,7 @@ class BattleshipApp {
   }
 
   private async cancelWaiting(): Promise<void> {
+    // Cancel on-chain game if one was created
     if (this._pendingGameId !== null && this.currentAccount) {
       try {
         const client = await getChainClient();
@@ -507,6 +588,7 @@ class BattleshipApp {
       }
     }
     this._pendingGameId = null;
+    this._waitingTimestamp = null;
     this.stopWaitingCheck();
     document.getElementById("waiting-card")?.remove();
     document.getElementById("create-game-btn")?.removeAttribute("disabled");
@@ -514,29 +596,58 @@ class BattleshipApp {
     this.refreshGamesList();
   }
 
-  private async handleJoinGame(gameId: bigint): Promise<void> {
-    if (!this.currentAccount) return;
+  private async handleJoinGame(creator: string, gameTimestamp: number): Promise<void> {
+    if (!this.currentAccount || !this.statementStore) return;
 
     this.stopLobbyRefresh();
 
     try {
-    this.game = new OnchainGame("player", this.currentAccount);
+      // Send join request via statement store
+      console.log(`[handleJoinGame] Sending join request to ${creator.slice(0, 8)}...`);
+      await this.statementStore.sendJoinRequest(
+        creator,
+        gameTimestamp,
+        this.currentAccount.address,
+        this.currentAccount.publicKey!,
+        this.currentAccount.rawSign!,
+      );
+
+      // Show waiting UI
+      this.setStatus("Waiting for game creator to set up the game on-chain...");
+
+      // Wait for game_created notification (with timeout)
+      const gameId = await new Promise<bigint>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Timeout waiting for game creation")), 120_000);
+        this.statementStore!.onGameCreated((notification: GameCreatedNotification) => {
+          if (
+            notification.creator === creator &&
+            notification.gameTimestamp === gameTimestamp &&
+            notification.joiner === this.currentAccount!.address
+          ) {
+            clearTimeout(timeout);
+            resolve(BigInt(notification.onChainGameId));
+          }
+        });
+      });
+
+      console.log(`[handleJoinGame] Received game ID: ${gameId}, joining on-chain...`);
+
+      // Now join on-chain
+      this.game = new OnchainGame("player", this.currentAccount);
       await this.game.initialize();
 
       this.game.onStateChange(() => this.updateUI());
       this.game.onMessageChange((msg) => this.setStatus(msg));
       this.game.onGameEnd((winner, reason) => this.handleGameEnd(winner, reason));
 
-      console.log(`[handleJoinGame] calling joinExistingGame(${gameId})...`);
       const success = await this.game.joinExistingGame(gameId);
       console.log(`[handleJoinGame] joinExistingGame result: ${success}`);
 
       if (success) {
-        console.log(`[handleJoinGame] calling startGame()`);
         this.startGame();
       } else {
         console.log(`[handleJoinGame] join failed, returning to lobby`);
-        alert("Failed to join game. It may have been cancelled or already joined.");
+        alert("Failed to join game on-chain.");
         this.game = null;
         this.startLobbyRefresh();
         this.refreshGamesList();
@@ -779,6 +890,10 @@ class BattleshipApp {
   }
 
   private disconnect(): void {
+    if (this.statementStore) {
+      this.statementStore.destroy();
+      this.statementStore = null;
+    }
     this.stopLobbyRefresh();
     this.walletManager.disconnect();
     this.currentAccount = null;

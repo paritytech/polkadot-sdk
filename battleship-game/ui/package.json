@@ -15,7 +15,7 @@
     "@polkadot-labs/hdkd-helpers": "^0.0.26",
     "playwright": "^1.57.0",
     "polkadot-api": "^2.0.0-canary.f7f4b6e",
-    "smoldot": "^2.0.40"
+    "smoldot": "file:../../../smoldot/wasm-node/javascript"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

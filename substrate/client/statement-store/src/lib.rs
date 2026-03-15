@@ -1319,9 +1319,21 @@ impl StatementStore for Store {
 			SignatureVerificationResult::Invalid => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Statement validation failed: BadProof, {:?}",
+					"Statement validation failed: BadProof, hash={:?}, encoded={}",
 					HexDisplay::from(&hash),
+					HexDisplay::from(&statement.encode()),
 				);
+				if let Some(proof) = statement.proof() {
+					log::debug!(
+						target: LOG_TARGET,
+						"BadProof details: proof={:?}, expiry={}, channel={:?}, topics={:?}, data_len={}",
+						proof,
+						statement.expiry(),
+						statement.channel(),
+						statement.topics(),
+						statement.data_len(),
+					);
+				}
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
 				return SubmitResult::Invalid(InvalidReason::BadProof);
 			},

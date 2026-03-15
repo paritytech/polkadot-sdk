@@ -7,6 +7,7 @@ import { relayChainSpec, parachainSpec } from "./chainSpecs.ts";
 let smoldotInstance: SmoldotClient | null = null;
 let relayChainInstance: Chain | null = null;
 let clientInstance: PolkadotClient | null = null;
+let statementChainInstance: Chain | null = null;
 let clientReadyPromise: Promise<PolkadotClient> | null = null;
 let proxyWs: WebSocket | null = null;
 
@@ -139,6 +140,17 @@ export async function getChainClient(): Promise<PolkadotClient> {
 	return clientReadyPromise;
 }
 
+export async function getStatementChain(): Promise<Chain | null> {
+	if (statementChainInstance) return statementChainInstance;
+	const smoldot = smoldotInstance;
+	if (!smoldot || !relayChainInstance) return null;
+	statementChainInstance = await smoldot.addChain({
+		chainSpec: parachainSpec,
+		potentialRelayChains: [relayChainInstance],
+	});
+	return statementChainInstance;
+}
+
 export function disconnectClient(): void {
 	if (clientInstance) {
 		clientInstance.destroy();
@@ -153,5 +165,6 @@ export function disconnectClient(): void {
 		smoldotInstance.terminate();
 		smoldotInstance = null;
 		relayChainInstance = null;
+		statementChainInstance = null;
 	}
 }

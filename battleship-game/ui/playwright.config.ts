@@ -12,11 +12,11 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "firefox",
+      name: "chromium",
       use: {
-        ...devices["Desktop Firefox"],
+        ...devices["Desktop Chrome"],
         launchOptions: {
-          executablePath: "/etc/profiles/per-user/bastian/bin/firefox",
+          executablePath: process.env.PLAYWRIGHT_LAUNCH_OPTIONS_EXECUTABLE_PATH,
         },
       },
     },

@@ -24,18 +24,18 @@ name = "charlie"
 validator = true
 image = "parity/polkadot-parachain:latest"
 command = "polkadot-omni-node"
-args = ["--network-backend=libp2p", "--ipfs-server", "--force-authoring", "--enable-statement-store", "--authoring=slot-based", "-lparachain=trace,sub-libp2p=trace,sync=trace", "--rpc-max-response-size=50", "--state-pruning=archive"]
+args = ["--network-backend=libp2p", "--ipfs-server", "--force-authoring", "--enable-statement-store", "--authoring=slot-based", "-lparachain=trace,sub-libp2p=trace,sync=trace,statement-gossip=trace,statement-store=trace", "--rpc-max-response-size=50", "--state-pruning=archive"]
 
 [[parachains.collators]]
 name = "dave"
 validator = true
 image = "parity/polkadot-parachain:latest"
 command = "polkadot-omni-node"
-args = ["--network-backend=libp2p", "--ipfs-server", "-lparachain=trace,sub-libp2p=trace,sync=trace", "--authoring=slot-based", "--state-pruning=archive"]
+args = ["--network-backend=libp2p", "--ipfs-server", "--enable-statement-store", "-lparachain=trace,sub-libp2p=trace,sync=trace", "--authoring=slot-based", "--state-pruning=archive"]
 
 [[parachains.collators]]
 name = "eve"
 validator = true
 image = "parity/polkadot-parachain:latest"
 command = "polkadot-omni-node"
-args = ["--network-backend=libp2p", "--ipfs-server", "-lparachain=trace,sub-libp2p=trace,sync=trace", "--authoring=slot-based", "--state-pruning=archive"]
+args = ["--network-backend=libp2p", "--ipfs-server", "--enable-statement-store", "-lparachain=trace,sub-libp2p=trace,sync=trace", "--authoring=slot-based", "--state-pruning=archive"]

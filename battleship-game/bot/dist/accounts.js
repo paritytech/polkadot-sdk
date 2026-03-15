@@ -14,5 +14,6 @@ export function createAccountFromMnemonic(mnemonic) {
         signer: getPolkadotSigner(keyPair.publicKey, "Sr25519", keyPair.sign),
         address: AccountId().dec(keyPair.publicKey),
         publicKey: keyPair.publicKey,
+        rawSign: keyPair.sign,
     };
 }

@@ -1084,4 +1084,69 @@ mod test {
 			empty_encoded.len()
 		);
 	}
+
+	fn hex_to_bytes(hex: &str) -> Vec<u8> {
+		(0..hex.len())
+			.step_by(2)
+			.map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+			.collect()
+	}
+
+	#[test]
+	fn cross_verify_js_sr25519_signature() {
+		// This test verifies that signatures produced by @polkadot-labs/schnorrkel-wasm
+		// (schnorrkel 0.11.4 compiled to WASM) can be verified by sp-core's sr25519.
+		//
+		// The JS side used sr25519_keypair_from_seed with an all-zeros seed,
+		// then signed the message b"hello".
+		let pair = sr25519::Pair::from_seed(&[0u8; 32]);
+		let public = pair.public();
+
+		// JS-produced pubkey
+		let js_pubkey_bytes = hex_to_bytes("def12e42f3e487e9b14095aa8d5cc16a33491f1b50dadcf8811d1480f3fa8627");
+		let js_pubkey = sr25519::Public::from_raw(js_pubkey_bytes.as_slice().try_into().unwrap());
+		assert_eq!(public, js_pubkey, "Public keys don't match between Rust and JS!");
+
+		// JS-produced signature of b"hello"
+		let js_sig_bytes = hex_to_bytes("72bf2972dffcaf10f685d74b666348ff97a6164855a473f1f413bdb86f9c182969c05e0dab72e15438782fb38aebceaf48bdc227e5927a464db2d151dd9b478b");
+		let js_sig = sr25519::Signature::from_raw(js_sig_bytes.as_slice().try_into().unwrap());
+
+		let message = b"hello";
+		let verified = sr25519::Pair::verify(&js_sig, &message[..], &public);
+		assert!(verified, "JS sr25519 signature should verify in Rust!");
+	}
+
+	#[test]
+	fn cross_verify_js_statement() {
+		let pair = sr25519::Pair::from_seed(&[0u8; 32]);
+
+		let mut statement = Statement::new();
+		statement.set_expiry(4294967296042u64);
+		statement.set_channel([0xCC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+		statement.set_topic(0, [0xAA, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].into());
+		statement.set_plain_data(b"test data".to_vec());
+
+		// Compare signing material
+		let rust_signing_material = statement.signature_material();
+		let js_signing_payload = hex_to_bytes("022a000000e803000003cc0000000000000000000000000000000000000000000000000000000000000004aa000000000000000000000000000000000000000000000000000000000000000824746573742064617461");
+		assert_eq!(
+			rust_signing_material, js_signing_payload,
+			"Signing payloads don't match!"
+		);
+
+		// Verify the JS-produced signature against Rust signing material
+		let js_sig_bytes = hex_to_bytes("b448ebf4ecdffd8bb32bd4bd180e31ea6b13bc1874b24e316638b3bb89587b14af0c0a499cb5500e819df6f3c4dc3601c057c07b698eaedc191de91355d0398c");
+		let js_sig = sr25519::Signature::from_raw(js_sig_bytes.as_slice().try_into().unwrap());
+		let verified = sr25519::Pair::verify(&js_sig, &rust_signing_material[..], &pair.public());
+		assert!(verified, "JS statement signature should verify in Rust!");
+
+		// Decode the full statement and verify via Statement::verify_signature()
+		let full_statement_bytes = hex_to_bytes("140000b448ebf4ecdffd8bb32bd4bd180e31ea6b13bc1874b24e316638b3bb89587b14af0c0a499cb5500e819df6f3c4dc3601c057c07b698eaedc191de91355d0398cdef12e42f3e487e9b14095aa8d5cc16a33491f1b50dadcf8811d1480f3fa8627022a000000e803000003cc0000000000000000000000000000000000000000000000000000000000000004aa000000000000000000000000000000000000000000000000000000000000000824746573742064617461");
+		let decoded = Statement::decode(&mut &full_statement_bytes[..]).unwrap();
+		let result = decoded.verify_signature();
+		assert!(
+			matches!(result, SignatureVerificationResult::Valid(_)),
+			"Full statement should verify! Got: {:?}", result
+		);
+	}
 }

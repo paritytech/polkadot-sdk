@@ -4,7 +4,8 @@ import { BattleshipBot } from '../src/bot.js';
 import { createRandomAccount } from '../src/accounts.js';
 import { placeShipsRandomly } from '../src/game.js';
 import { buildMerkleTree } from '../src/merkle.js';
-import { getClient, disconnectClient } from '../src/client.js';
+import { getClient, getStatementChain, disconnectClient } from '../src/client.js';
+import { getStatementStore, resetStatementStore, type StatementStoreClient } from '../src/statementStore.js';
 
 /**
  * Test playing against the bot
@@ -34,9 +35,21 @@ describe('Bot Game Test', () => {
     await new Promise(r => setTimeout(r, 6000));
     console.log('[Test] Faucet requests submitted, proceeding...');
 
+    // Initialize statement store for the bot
+    let statementStore: StatementStoreClient | undefined = undefined;
+    try {
+      const stmtChain = await getStatementChain();
+      if (stmtChain) {
+        statementStore = getStatementStore(stmtChain);
+        console.log('[Test] Statement store initialized for bot');
+      }
+    } catch (e) {
+      console.warn('[Test] Statement store not available:', e);
+    }
+
     // Start the bot in the background
     console.log('[Test] Starting bot...');
-    const bot = new BattleshipBot(battleshipClient, botAccount);
+    const bot = new BattleshipBot(battleshipClient, botAccount, statementStore);
     botRunning = true;
     bot.run().catch(e => {
       console.error('[Test] Bot error:', e);
@@ -60,6 +73,7 @@ describe('Bot Game Test', () => {
   }, 120000);
 
   afterAll(() => {
+    resetStatementStore();
     disconnectClient();
   });
 

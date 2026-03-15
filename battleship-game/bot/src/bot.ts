@@ -4,6 +4,7 @@ import { placeShipsRandomly, selectAttackTarget } from "./game.js";
 import { buildMerkleTree } from "./merkle.js";
 import { GRID_SIZE } from "./types.js";
 import type { Position } from "./types.js";
+import type { StatementStoreClient, GameAnnouncement, JoinRequest } from "./statementStore.js";
 
 interface GameState {
   gameId: bigint;
@@ -17,6 +18,7 @@ interface GameState {
   committed: boolean;
   lastAttackRound: number;
   lastRevealCoord: string;
+  lastRevealTime: number;
   amIPlayer1: boolean;
   notFoundCount: number;
 }
@@ -25,10 +27,65 @@ export class BattleshipBot {
   private client: BattleshipClient;
   private account: BotAccount;
   private games: Map<bigint, GameState> = new Map();
+  private statementStore: StatementStoreClient | null = null;
+  private announcementTimestamp: number | null = null;
+  private waitingForJoin = false;
+  private processingJoinRequest = false;
 
-  constructor(client: BattleshipClient, account: BotAccount) {
+  constructor(client: BattleshipClient, account: BotAccount, statementStore?: StatementStoreClient) {
     this.client = client;
     this.account = account;
+    this.statementStore = statementStore ?? null;
+    this.setupStatementHandlers();
+  }
+
+  private setupStatementHandlers(): void {
+    if (!this.statementStore) return;
+
+    // Respond to liveness pings while we have an announced game
+    this.statementStore.onPing(async (ping) => {
+      if (ping.creator !== this.account.address) return;
+      if (!this.statementStore || !this.waitingForJoin) return;
+      console.log(`[Bot] Received ping from ${ping.pinger.slice(0, 8)}..., sending pong`);
+      await this.statementStore.sendLivenessPong(ping, this.account.publicKey, this.account.rawSign);
+    });
+
+    // Handle join requests: create game on-chain and notify joiner
+    this.statementStore.onJoinRequest(async (req: JoinRequest) => {
+      if (req.creator !== this.account.address) return;
+      if (req.gameTimestamp !== this.announcementTimestamp) return;
+      if (!this.waitingForJoin || this.processingJoinRequest) return;
+      if (this.games.size > 0) return;
+
+      this.processingJoinRequest = true;
+      try {
+        console.log(`[Bot] Received join request from ${req.joiner.slice(0, 8)}...`);
+
+        // NOW create the game on-chain
+        console.log("[Bot] Creating game on-chain...");
+        const gameId = await this.client.createGame(this.account.signer, 1000000000000n);
+        if (gameId === null) {
+          console.error("[Bot] Failed to create game on-chain");
+          return;
+        }
+
+        // Notify the joiner with the on-chain game ID
+        await this.statementStore!.sendGameCreated(
+          this.account.address,
+          this.announcementTimestamp!,
+          req.joiner,
+          gameId.toString(),
+          this.account.publicKey,
+          this.account.rawSign,
+        );
+        console.log(`[Bot] Game ${gameId} created on-chain, notified ${req.joiner.slice(0, 8)}...`);
+
+        await this.initializeGame(gameId);
+        this.waitingForJoin = false;
+      } finally {
+        this.processingJoinRequest = false;
+      }
+    });
   }
 
   async run(): Promise<void> {
@@ -54,25 +111,22 @@ export class BattleshipBot {
   }
 
   private async findOrCreateGame(): Promise<void> {
-    // Check if we're already in a game on-chain
+    // Check if we're already in a game on-chain (resume after restart)
     const existingGameId = await this.client.getPlayerGame(this.account.address);
     if (existingGameId !== null) {
       const game = await this.client.getGame(existingGameId);
       if (game) {
         const phase = game.phase?.type;
         if (phase === "Finished") {
-          // Game is finished but PlayerGame not cleaned up yet - surrender to clear
           console.log(`[Bot] Found finished game ${existingGameId}, surrendering to clean up...`);
           await this.client.surrender(this.account.signer, existingGameId);
           await new Promise(r => setTimeout(r, 6000));
           return;
         }
-        // Resume the existing game
         console.log(`[Bot] Found existing on-chain game ${existingGameId} (phase=${phase}), resuming...`);
         await this.initializeGame(existingGameId);
         return;
       } else {
-        // Game storage gone but PlayerGame still set - surrender to clean up
         console.log(`[Bot] PlayerGame points to missing game ${existingGameId}, surrendering to clean up...`);
         await this.client.surrender(this.account.signer, existingGameId);
         await new Promise(r => setTimeout(r, 6000));
@@ -80,33 +134,20 @@ export class BattleshipBot {
       }
     }
 
-    // Look for games to join (that aren't ours)
-    const waitingGames = await this.client.findWaitingGames();
-    
-    for (const gameId of waitingGames) {
-      const game = await this.client.getGame(gameId);
-      if (!game) continue;
-      
-      const player1 = game.player1?.toString();
-      // Skip games we created
-      if (player1 === this.account.address) continue;
-      
-      // Try to join this game
-      console.log(`[Bot] Joining game ${gameId}...`);
-      const success = await this.client.joinGame(this.account.signer, gameId);
-      
-      if (success) {
-        await this.initializeGame(gameId);
-        return;
-      }
-    }
-    
-    // No games to join, create one
-    console.log("[Bot] Creating new game...");
-    const gameId = await this.client.createGame(this.account.signer, 1000000000000n);
-    
-    if (gameId !== null) {
-      await this.initializeGame(gameId);
+    // Already announced and waiting for a join request
+    if (this.waitingForJoin) return;
+
+    // Announce game intent via statement store (NO on-chain game yet)
+    if (this.statementStore) {
+      this.announcementTimestamp = Date.now();
+      const announcement: GameAnnouncement = {
+        creator: this.account.address,
+        potAmount: "1000000000000",
+        timestamp: this.announcementTimestamp,
+      };
+      await this.statementStore.announceGame(announcement, this.account.publicKey, this.account.rawSign);
+      this.waitingForJoin = true;
+      console.log("[Bot] Game announced via statement store, waiting for opponent...");
     }
   }
 
@@ -148,6 +189,7 @@ export class BattleshipBot {
       committed: false,
       lastAttackRound: -1,
       lastRevealCoord: "",
+      lastRevealTime: 0,
       amIPlayer1,
       notFoundCount: 0,
     };
@@ -187,6 +229,30 @@ export class BattleshipBot {
     if (phase === "Finished") {
       console.log(`[Bot] Game ${gameId} finished`);
       this.games.delete(gameId);
+      return;
+    }
+
+    // Handle PendingWinnerReveal — we need to reveal our full grid
+    if (phase === "PendingWinnerReveal") {
+      const winnerRole = game.phase?.value?.winner?.type;
+      const weAreWinner = (winnerRole === "Player1" && state.amIPlayer1) ||
+                          (winnerRole === "Player2" && !state.amIPlayer1);
+      if (weAreWinner) {
+        console.log(`[Bot] We won game ${gameId}! Revealing full grid...`);
+        resetLocalNonce(state.myAddress);
+        const success = await this.client.revealWinnerGrid(
+          this.account.signer,
+          gameId,
+          state.myGrid,
+        );
+        if (success) {
+          console.log(`[Bot] Winner grid revealed for game ${gameId}`);
+        } else {
+          console.log(`[Bot] Failed to reveal winner grid, will retry`);
+        }
+      } else {
+        console.log(`[Bot] Opponent won game ${gameId}, waiting for their grid reveal...`);
+      }
       return;
     }
 
@@ -246,20 +312,28 @@ export class BattleshipBot {
       const { x, y } = pendingAttack;
       const coordKey = `${x},${y}`;
       
-      // Skip if we just revealed this exact coordinate (prevent duplicate reveals)
+      // Skip if we recently revealed this exact coordinate (prevent rapid duplicate reveals)
+      // But retry after 15s in case the tx went stale
       if (state.lastRevealCoord === coordKey) {
-        return;
+        const elapsed = Date.now() - state.lastRevealTime;
+        if (elapsed < 15_000) {
+          return;
+        }
+        console.log(`[Bot] Retrying stale reveal for (${x}, ${y}) after ${(elapsed / 1000).toFixed(0)}s`);
+        resetLocalNonce(state.myAddress);
       }
-      
+
       console.log(`[Bot] Need to reveal (${x}, ${y}) in game ${gameId}, round ${currentRound}`);
       await this.revealAttackedCell(gameId, state, { x, y }, currentRound);
       state.lastRevealCoord = coordKey;
+      state.lastRevealTime = Date.now();
       return;
     }
 
     // Clear last reveal coord if no pending attack
     if (!pendingAttack) {
       state.lastRevealCoord = "";
+      state.lastRevealTime = 0;
     }
 
     // If no pending attack and it's my turn, I should attack

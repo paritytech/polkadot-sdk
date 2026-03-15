@@ -6,6 +6,7 @@ function bytesToHex(bytes) {
 const BATTLESHIP_PALLET_INDEX = 0x32;
 const COMMIT_GRID_CALL_INDEX = 0x02;
 const REVEAL_CELL_CALL_INDEX = 0x04;
+const REVEAL_WINNER_GRID_CALL_INDEX = 0x05;
 const ScaleCell = Struct({ salt: Bytes(32), is_occupied: bool });
 const ScaleCoordinate = Struct({ x: u8, y: u8 });
 const ScaleCellReveal = Struct({
@@ -21,6 +22,10 @@ const ScaleRevealCellArgs = Struct({
 const ScaleCommitGridArgs = Struct({
     game_id: u64,
     grid_root: Bytes(32),
+});
+const ScaleRevealWinnerGridArgs = Struct({
+    game_id: u64,
+    full_grid: Vector(ScaleCell),
 });
 function encodeCommitGridCall(gameId, gridRoot) {
     const argsEncoded = ScaleCommitGridArgs.enc({
@@ -46,6 +51,20 @@ function encodeRevealCellCall(gameId, cell, proof, coord, expectedRound) {
     const callData = new Uint8Array(2 + argsEncoded.length);
     callData[0] = BATTLESHIP_PALLET_INDEX;
     callData[1] = REVEAL_CELL_CALL_INDEX;
+    callData.set(argsEncoded, 2);
+    return callData;
+}
+function encodeRevealWinnerGridCall(gameId, cells) {
+    const argsEncoded = ScaleRevealWinnerGridArgs.enc({
+        game_id: gameId,
+        full_grid: cells.map((c) => ({
+            salt: c.salt,
+            is_occupied: c.isOccupied,
+        })),
+    });
+    const callData = new Uint8Array(2 + argsEncoded.length);
+    callData[0] = BATTLESHIP_PALLET_INDEX;
+    callData[1] = REVEAL_WINNER_GRID_CALL_INDEX;
     callData.set(argsEncoded, 2);
     return callData;
 }
@@ -227,6 +246,19 @@ export class BattleshipClient {
             return false;
         }
     }
+    async revealWinnerGrid(signer, gameId, cells) {
+        try {
+            const rawCallData = encodeRevealWinnerGridCall(gameId, cells);
+            const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
+            const dummyTx = this.api.tx.Battleship.surrender({ game_id: gameId });
+            await submitTx(dummyTx, wrappedSigner, this.client, "reveal_winner_grid", this.api);
+            return true;
+        }
+        catch (e) {
+            console.error("[reveal_winner_grid] Error:", e);
+            return false;
+        }
+    }
     async surrender(signer, gameId) {
         try {
             const tx = this.api.tx.Battleship.surrender({ game_id: gameId });
@@ -325,5 +357,21 @@ export class BattleshipClient {
             console.error("[request_funds] Error:", e);
             return false;
         }
+    }
+    async waitForFunds(address, timeoutMs) {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            try {
+                const acct = await this.api.query.System.Account.getValue(address, { at: "finalized" });
+                const free = acct?.data?.free ?? 0n;
+                if (free > 0n) {
+                    console.log(`[waitForFunds] Account funded (free=${free}) at finalized block`);
+                    return true;
+                }
+            }
+            catch { }
+            await new Promise(r => setTimeout(r, 2000));
+        }
+        return false;
     }
 }

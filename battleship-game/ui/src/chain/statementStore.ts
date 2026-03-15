@@ -1,6 +1,6 @@
 import { blake2b } from "@noble/hashes/blake2b";
 import { compact } from "scale-ts";
-import type { PolkadotSigner } from "polkadot-api/signer";
+type RawSign = (input: Uint8Array) => Uint8Array | Promise<Uint8Array>;
 
 type SmoldotChain = {
   sendJsonRpc(rpc: string): void;
@@ -14,9 +14,36 @@ export interface GameAnnouncement {
   onChainGameId?: string;
 }
 
-export interface JoinResponse {
+export interface JoinRequest {
+  type: "join_request";
+  creator: string;
+  gameTimestamp: number;
   joiner: string;
-  timestamp: number;
+  joinTimestamp: number;
+}
+
+export interface LivenessPing {
+  type: "ping";
+  creator: string;
+  gameTimestamp: number;
+  pinger: string;
+  pingTimestamp: number;
+}
+
+export interface LivenessPong {
+  type: "pong";
+  creator: string;
+  gameTimestamp: number;
+  pinger: string;
+  pongTimestamp: number;
+}
+
+export interface GameCreatedNotification {
+  type: "game_created";
+  creator: string;
+  gameTimestamp: number;
+  joiner: string;
+  onChainGameId: string;
 }
 
 const GAME_LOBBY_TOPIC = blake2b("battleship:lobby:v1", { dkLen: 32 });
@@ -25,12 +52,21 @@ function creatorChannel(creator: string, timestamp: number): Uint8Array {
   return blake2b(new TextEncoder().encode(`battleship:creator:${creator}:${timestamp}`), { dkLen: 32 });
 }
 
-function joinResponseTopic(creator: string, joiner: string, timestamp: number): Uint8Array {
-  return blake2b(new TextEncoder().encode(`battleship:join:${creator}:${joiner}:${timestamp}`), { dkLen: 32 });
-}
 
 function joinResponseChannel(creator: string, joiner: string, timestamp: number): Uint8Array {
   return blake2b(new TextEncoder().encode(`battleship:join-channel:${creator}:${joiner}:${timestamp}`), { dkLen: 32 });
+}
+
+function pingChannel(creator: string, pinger: string, gameTimestamp: number): Uint8Array {
+  return blake2b(new TextEncoder().encode(`battleship:ping:${creator}:${pinger}:${gameTimestamp}`), { dkLen: 32 });
+}
+
+function pongChannel(creator: string, pinger: string, gameTimestamp: number): Uint8Array {
+  return blake2b(new TextEncoder().encode(`battleship:pong:${creator}:${pinger}:${gameTimestamp}`), { dkLen: 32 });
+}
+
+function gameCreatedChannel(creator: string, joiner: string, gameTimestamp: number): Uint8Array {
+  return blake2b(new TextEncoder().encode(`battleship:game-created:${creator}:${joiner}:${gameTimestamp}`), { dkLen: 32 });
 }
 
 function toHex(bytes: Uint8Array): string {
@@ -47,6 +83,7 @@ function fromHex(hex: string): Uint8Array {
 }
 
 function encodeStatementForSigning(
+  expirySeconds: number,
   priority: number,
   channel: Uint8Array,
   topics: Uint8Array[],
@@ -54,10 +91,13 @@ function encodeStatementForSigning(
 ): Uint8Array {
   const parts: Uint8Array[] = [];
 
-  const priorityData = new Uint8Array(5);
-  priorityData[0] = 2;
-  new DataView(priorityData.buffer).setUint32(1, priority, true);
-  parts.push(priorityData);
+  // Expiry field: discriminant(1) + u64 LE(8) = 9 bytes
+  // u64 format: (expiration_timestamp_secs << 32) | sequence_number
+  const expiryData = new Uint8Array(9);
+  expiryData[0] = 2; // Field::Expiry discriminant
+  new DataView(expiryData.buffer).setUint32(1, priority, true);
+  new DataView(expiryData.buffer).setUint32(5, expirySeconds, true);
+  parts.push(expiryData);
 
   const channelData = new Uint8Array(33);
   channelData[0] = 3;
@@ -91,6 +131,7 @@ function encodeStatementForSigning(
 function encodeStatementWithProof(
   signature: Uint8Array,
   signer: Uint8Array,
+  expirySeconds: number,
   priority: number,
   channel: Uint8Array,
   topics: Uint8Array[],
@@ -106,10 +147,13 @@ function encodeStatementWithProof(
   proofData.set(signer, 66);
   parts.push(proofData);
 
-  const priorityData = new Uint8Array(5);
-  priorityData[0] = 2;
-  new DataView(priorityData.buffer).setUint32(1, priority, true);
-  parts.push(priorityData);
+  // Expiry field: discriminant(1) + u64 LE(8) = 9 bytes
+  // u64 format: (expiration_timestamp_secs << 32) | sequence_number
+  const expiryData = new Uint8Array(9);
+  expiryData[0] = 2; // Field::Expiry discriminant
+  new DataView(expiryData.buffer).setUint32(1, priority, true);
+  new DataView(expiryData.buffer).setUint32(5, expirySeconds, true);
+  parts.push(expiryData);
 
   const channelData = new Uint8Array(33);
   channelData[0] = 3;
@@ -171,6 +215,12 @@ export class StatementStoreClient {
   private receivedStatements: Map<string, string> = new Map();
   private listening = false;
   private pendingRequests: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }> = new Map();
+  private receivedAnnouncements: Map<string, GameAnnouncement> = new Map();
+  private receivedPongs: Map<string, LivenessPong> = new Map();
+  private sentPings: Set<string> = new Set();
+  private pingCallbacks: ((ping: LivenessPing) => void)[] = [];
+  private joinRequestCallbacks: ((req: JoinRequest) => void)[] = [];
+  private gameCreatedCallbacks: ((notification: GameCreatedNotification) => void)[] = [];
 
   constructor(chain: SmoldotChain) {
     this.chain = chain;
@@ -216,10 +266,11 @@ export class StatementStoreClient {
           continue;
         }
 
-        if (parsed.params?.result) {
-          const statementHex = parsed.params.result;
+        if (parsed.params?.statement) {
+          const statementHex = parsed.params.statement;
           console.log("Statement notification received:", statementHex.substring(0, 40) + "...");
           this.receivedStatements.set(statementHex, statementHex);
+          this.processStatement(statementHex);
         }
       } catch {
         continue;
@@ -237,19 +288,23 @@ export class StatementStoreClient {
 
   async announceGame(
     announcement: GameAnnouncement,
-    signer: PolkadotSigner,
+    publicKey: Uint8Array,
+    rawSign: RawSign,
     priority: number = 100
   ): Promise<boolean> {
     try {
-      const data = new TextEncoder().encode(JSON.stringify(announcement));
+      const annotated = { ...announcement, type: "announce" as const };
+      const data = new TextEncoder().encode(JSON.stringify(annotated));
       const channel = creatorChannel(announcement.creator, announcement.timestamp);
 
-      const signingPayload = encodeStatementForSigning(priority, channel, [GAME_LOBBY_TOPIC], data);
-      const signature = await signer.signBytes(signingPayload);
+      const expirySeconds = Math.floor(Date.now() / 1000) + 300;
+      const signingPayload = encodeStatementForSigning(expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const signature = await rawSign(signingPayload);
 
       const statement = encodeStatementWithProof(
         signature,
-        signer.publicKey,
+        publicKey,
+        expirySeconds,
         priority,
         channel,
         [GAME_LOBBY_TOPIC],
@@ -294,69 +349,213 @@ export class StatementStoreClient {
     return games.sort((a, b) => b.timestamp - a.timestamp);
   }
 
-  async sendJoinResponse(
+  async sendJoinRequest(
     creator: string,
     creatorTimestamp: number,
     joiner: string,
-    signer: PolkadotSigner
+    publicKey: Uint8Array,
+    rawSign: RawSign
   ): Promise<boolean> {
     try {
-      const response: JoinResponse = { joiner, timestamp: Date.now() };
-      const data = new TextEncoder().encode(JSON.stringify(response));
-      const topic = joinResponseTopic(creator, joiner, creatorTimestamp);
+      const request: JoinRequest = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinTimestamp: Date.now() };
+      const data = new TextEncoder().encode(JSON.stringify(request));
       const channel = joinResponseChannel(creator, joiner, creatorTimestamp);
       const priority = 100;
 
-      const signingPayload = encodeStatementForSigning(priority, channel, [topic], data);
-      const signature = await signer.signBytes(signingPayload);
+      const expirySeconds = Math.floor(Date.now() / 1000) + 300;
+      const signingPayload = encodeStatementForSigning(expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const signature = await rawSign(signingPayload);
 
       const statement = encodeStatementWithProof(
         signature,
-        signer.publicKey,
+        publicKey,
+        expirySeconds,
         priority,
         channel,
-        [topic],
+        [GAME_LOBBY_TOPIC],
         data
       );
 
       const hex = toHex(statement);
       const result = await this.sendRequest("statement_submit", [hex]) as { status: string };
-      console.log("Join response submit result:", result);
+      console.log("Join request submit result:", result);
 
       this.receivedStatements.set(hex, hex);
 
       return true;
     } catch (e) {
-      console.error("Failed to send join response:", e);
+      console.error("Failed to send join request:", e);
       return false;
     }
   }
 
-  async getJoinResponses(creator: string, creatorTimestamp: number): Promise<JoinResponse[]> {
-    const responses: JoinResponse[] = [];
-    const now = Date.now();
-    const maxAge = 5 * 60 * 1000;
+  async sendGameCreated(
+    creator: string,
+    gameTimestamp: number,
+    joiner: string,
+    onChainGameId: string,
+    publicKey: Uint8Array,
+    rawSign: RawSign,
+  ): Promise<boolean> {
+    try {
+      const notification: GameCreatedNotification = { type: "game_created", creator, gameTimestamp, joiner, onChainGameId };
+      const data = new TextEncoder().encode(JSON.stringify(notification));
+      const channel = gameCreatedChannel(creator, joiner, gameTimestamp);
+      const priority = 100;
 
-    for (const [, statementHex] of this.receivedStatements) {
-      try {
-        const statementBytes = fromHex(statementHex);
-        const dataBytes = extractDataFromStatement(statementBytes);
-        if (!dataBytes) continue;
+      const expirySeconds = Math.floor(Date.now() / 1000) + 300;
+      const signingPayload = encodeStatementForSigning(expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const signature = await rawSign(signingPayload);
 
-        const parsed = JSON.parse(new TextDecoder().decode(dataBytes));
-        if (parsed.joiner && parsed.timestamp && now - parsed.timestamp < maxAge) {
-          const checkTopic = joinResponseTopic(creator, parsed.joiner, creatorTimestamp);
-          const checkHex = toHex(checkTopic);
-          if (statementHex.includes(checkHex.slice(2))) {
-            responses.push(parsed as JoinResponse);
+      const statement = encodeStatementWithProof(
+        signature,
+        publicKey,
+        expirySeconds,
+        priority,
+        channel,
+        [GAME_LOBBY_TOPIC],
+        data
+      );
+
+      const hex = toHex(statement);
+      await this.sendRequest("statement_submit", [hex]);
+      console.log("Game created notification sent");
+      return true;
+    } catch (e) {
+      console.error("Failed to send game created notification:", e);
+      return false;
+    }
+  }
+
+
+  private processStatement(statementHex: string): void {
+    try {
+      const statementBytes = fromHex(statementHex);
+      const dataBytes = extractDataFromStatement(statementBytes);
+      if (!dataBytes) return;
+
+      const parsed = JSON.parse(new TextDecoder().decode(dataBytes));
+
+      if (parsed.type === "ping") {
+        for (const cb of this.pingCallbacks) cb(parsed as LivenessPing);
+      } else if (parsed.type === "pong") {
+        const pong = parsed as LivenessPong;
+        const key = `${pong.creator}:${pong.gameTimestamp}:${pong.pinger}`;
+        this.receivedPongs.set(key, pong);
+      } else if (parsed.type === "join_request") {
+        const req = parsed as JoinRequest;
+        console.log(`[StatementStore] Join request from ${req.joiner.slice(0, 8)}... for game by ${req.creator.slice(0, 8)}...`);
+        for (const cb of this.joinRequestCallbacks) cb(req);
+      } else if (parsed.type === "game_created") {
+        const notification = parsed as GameCreatedNotification;
+        console.log(`[StatementStore] Game created: ${notification.onChainGameId} for ${notification.joiner.slice(0, 8)}...`);
+        for (const cb of this.gameCreatedCallbacks) cb(notification);
+      } else if (parsed.type === "announce" || (parsed.creator && parsed.timestamp && !parsed.type)) {
+        const ann = parsed as GameAnnouncement;
+        if (ann.creator && ann.timestamp) {
+          const now = Date.now();
+          const maxAge = 5 * 60 * 1000;
+          if (now - ann.timestamp < maxAge) {
+            const key = `${ann.creator}:${ann.timestamp}`;
+            this.receivedAnnouncements.set(key, ann);
           }
         }
-      } catch {
-        continue;
+      }
+    } catch {
+      // silently continue on errors
+    }
+  }
+
+  onPing(callback: (ping: LivenessPing) => void): void {
+    this.pingCallbacks.push(callback);
+  }
+
+  onJoinRequest(callback: (req: JoinRequest) => void): void {
+    this.joinRequestCallbacks.push(callback);
+  }
+
+  onGameCreated(callback: (notification: GameCreatedNotification) => void): void {
+    this.gameCreatedCallbacks.push(callback);
+  }
+
+  async sendLivenessPing(
+    creator: string,
+    gameTimestamp: number,
+    pinger: string,
+    publicKey: Uint8Array,
+    rawSign: RawSign,
+  ): Promise<boolean> {
+    const key = `${creator}:${gameTimestamp}`;
+    if (this.sentPings.has(key)) return true;
+    try {
+      const ping: LivenessPing = { type: "ping", creator, gameTimestamp, pinger, pingTimestamp: Date.now() };
+      const data = new TextEncoder().encode(JSON.stringify(ping));
+      const channel = pingChannel(creator, pinger, gameTimestamp);
+      const priority = 100;
+      const expirySeconds = Math.floor(Date.now() / 1000) + 300;
+      const signingPayload = encodeStatementForSigning(expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const signature = await rawSign(signingPayload);
+      const statement = encodeStatementWithProof(signature, publicKey, expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const hex = toHex(statement);
+      await this.sendRequest("statement_submit", [hex]);
+      this.sentPings.add(key);
+      return true;
+    } catch (e) {
+      console.error("Failed to send liveness ping:", e);
+      return false;
+    }
+  }
+
+  async sendLivenessPong(
+    ping: LivenessPing,
+    publicKey: Uint8Array,
+    rawSign: RawSign,
+  ): Promise<boolean> {
+    try {
+      const pong: LivenessPong = { type: "pong", creator: ping.creator, gameTimestamp: ping.gameTimestamp, pinger: ping.pinger, pongTimestamp: Date.now() };
+      const data = new TextEncoder().encode(JSON.stringify(pong));
+      const channel = pongChannel(ping.creator, ping.pinger, ping.gameTimestamp);
+      const priority = 100;
+      const expirySeconds = Math.floor(Date.now() / 1000) + 300;
+      const signingPayload = encodeStatementForSigning(expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const signature = await rawSign(signingPayload);
+      const statement = encodeStatementWithProof(signature, publicKey, expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
+      const hex = toHex(statement);
+      await this.sendRequest("statement_submit", [hex]);
+      return true;
+    } catch (e) {
+      console.error("Failed to send liveness pong:", e);
+      return false;
+    }
+  }
+
+  hasPong(creator: string, gameTimestamp: number, myAddress: string): boolean {
+    const key = `${creator}:${gameTimestamp}:${myAddress}`;
+    return this.receivedPongs.has(key);
+  }
+
+  getAnnouncements(): GameAnnouncement[] {
+    const now = Date.now();
+    const maxAge = 5 * 60 * 1000;
+    const result: GameAnnouncement[] = [];
+    for (const [key, ann] of this.receivedAnnouncements) {
+      if (now - ann.timestamp < maxAge) {
+        result.push(ann);
+      } else {
+        this.receivedAnnouncements.delete(key);
       }
     }
+    return result.sort((a, b) => b.timestamp - a.timestamp);
+  }
 
-    return responses.sort((a, b) => a.timestamp - b.timestamp);
+  clearPingState(creator: string, gameTimestamp: number): void {
+    const pingKey = `${creator}:${gameTimestamp}`;
+    this.sentPings.delete(pingKey);
+    for (const key of this.receivedPongs.keys()) {
+      if (key.startsWith(pingKey + ":")) {
+        this.receivedPongs.delete(key);
+      }
+    }
   }
 
   destroy(): void {
