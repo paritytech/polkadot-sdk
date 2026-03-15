@@ -379,17 +379,17 @@ impl AsMut<[u8]> for NetworkPeerId {
 	}
 }
 
-trait LessThan64BitPositiveInteger: Into<i64> {
+trait IntoI64: Into<i64> {
 	const MAX: i64;
 }
 
-impl LessThan64BitPositiveInteger for u8 {
+impl IntoI64 for u8 {
 	const MAX: i64 = u8::MAX as i64;
 }
-impl LessThan64BitPositiveInteger for u16 {
+impl IntoI64 for u16 {
 	const MAX: i64 = u16::MAX as i64;
 }
-impl LessThan64BitPositiveInteger for u32 {
+impl IntoI64 for u32 {
 	const MAX: i64 = u32::MAX as i64;
 }
 
@@ -401,19 +401,19 @@ impl LessThan64BitPositiveInteger for u32 {
 #[repr(transparent)]
 pub struct RIIntOption<T>(Option<T>);
 
-impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for Option<T> {
+impl<T: IntoI64> From<RIIntOption<T>> for Option<T> {
 	fn from(r: RIIntOption<T>) -> Self {
 		r.0
 	}
 }
 
-impl<T: LessThan64BitPositiveInteger> From<Option<T>> for RIIntOption<T> {
+impl<T: IntoI64> From<Option<T>> for RIIntOption<T> {
 	fn from(r: Option<T>) -> Self {
 		Self(r)
 	}
 }
 
-impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for i64 {
+impl<T: IntoI64> From<RIIntOption<T>> for i64 {
 	fn from(r: RIIntOption<T>) -> Self {
 		match r.0 {
 			Some(value) => value.into(),
@@ -422,7 +422,7 @@ impl<T: LessThan64BitPositiveInteger> From<RIIntOption<T>> for i64 {
 	}
 }
 
-impl<T: TryFrom<i64> + LessThan64BitPositiveInteger> TryFrom<i64> for RIIntOption<T> {
+impl<T: TryFrom<i64> + IntoI64> TryFrom<i64> for RIIntOption<T> {
 	type Error = ();
 
 	fn try_from(value: i64) -> Result<Self, Self::Error> {
@@ -477,7 +477,7 @@ where
 /// Represents a void successful result (always 0 in FFI)
 pub struct VoidResult;
 
-impl LessThan64BitPositiveInteger for VoidResult {
+impl IntoI64 for VoidResult {
 	const MAX: i64 = 0;
 }
 
@@ -560,9 +560,7 @@ impl TryFrom<i64> for VoidError {
 	}
 }
 
-impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCount>
-	From<RIIntResult<R, E>> for i64
-{
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> From<RIIntResult<R, E>> for i64 {
 	fn from(result: RIIntResult<R, E>) -> Self {
 		match result {
 			RIIntResult::Ok(value) => value.into(),
@@ -578,8 +576,8 @@ impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCoun
 	}
 }
 
-impl<R: TryFrom<i64> + LessThan64BitPositiveInteger, E: TryFrom<i64> + strum::EnumCount>
-	TryFrom<i64> for RIIntResult<R, E>
+impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i64>
+	for RIIntResult<R, E>
 {
 	type Error = ();
 
