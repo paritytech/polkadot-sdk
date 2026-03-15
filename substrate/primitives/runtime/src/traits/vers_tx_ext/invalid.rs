@@ -20,8 +20,7 @@
 use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
-		Dispatchable, Pipeline, PipelineMetadataBuilder, PipelineVersion, PipelineWeight,
-		PostDispatchInfoOf,
+		Dispatchable, Pipeline, PipelineMetadataBuilder, PipelineVersion, PostDispatchInfoOf,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -74,17 +73,14 @@ impl<Call: Dispatchable> Pipeline<Call> for InvalidVersion {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}
-}
-
-impl PipelineVersion for InvalidVersion {
-	fn version(&self) -> u8 {
+	fn weight(&self, _call: &Call) -> Weight {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}
 }
 
-impl<Call: Dispatchable> PipelineWeight<Call> for InvalidVersion {
-	fn weight(&self, _call: &Call) -> Weight {
+impl PipelineVersion for InvalidVersion {
+	fn version(&self) -> u8 {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}

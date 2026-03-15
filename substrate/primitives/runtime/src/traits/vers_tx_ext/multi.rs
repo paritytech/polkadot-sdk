@@ -21,7 +21,7 @@ use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
 		Dispatchable, InvalidVersion, Pipeline, PipelineAtVers, PipelineMetadataBuilder,
-		PipelineVersion, PipelineWeight, PostDispatchInfoOf,
+		PipelineVersion, PostDispatchInfoOf,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -166,18 +166,6 @@ macro_rules! declare_multi_version_enum {
 			DecodeWithVersionWithMemTracking for MultiVersion<$( $variant, )*>
 		{}
 
-		impl<$( $variant: PipelineWeight<Call> + MultiVersionItem, )* Call: Dispatchable>
-			PipelineWeight<Call> for MultiVersion<$( $variant, )*>
-		{
-			fn weight(&self, call: &Call) -> Weight {
-				match self {
-					$(
-						MultiVersion::$variant(v) => v.weight(call),
-					)*
-				}
-			}
-		}
-
 		impl<$( $variant: Pipeline<Call> + MultiVersionItem, )* Call: Dispatchable>
 			Pipeline<Call> for MultiVersion<$( $variant, )*>
 		{
@@ -213,6 +201,13 @@ macro_rules! declare_multi_version_enum {
 					)*
 				}
 			}
+			fn weight(&self, call: &Call) -> Weight {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.weight(call),
+					)*
+				}
+			}
 		}
 	};
 }
@@ -227,8 +222,8 @@ mod tests {
 	use crate::{
 		traits::{
 			AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, Dispatchable,
-			Implication, Pipeline, PipelineVersion, PipelineWeight, TransactionExtension,
-			TransactionSource, ValidateResult,
+			Implication, Pipeline, PipelineVersion, TransactionExtension, TransactionSource,
+			ValidateResult,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,

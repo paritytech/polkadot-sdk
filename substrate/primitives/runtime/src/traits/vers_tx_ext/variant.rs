@@ -23,8 +23,7 @@ use crate::{
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
 		DispatchInfoOf, DispatchTransaction, Dispatchable, Pipeline, PipelineAtVers,
-		PipelineMetadataBuilder, PipelineVersion, PipelineWeight, PostDispatchInfoOf,
-		TransactionExtension,
+		PipelineMetadataBuilder, PipelineVersion, PostDispatchInfoOf, TransactionExtension,
 	},
 	transaction_validity::TransactionSource,
 };
@@ -161,14 +160,6 @@ where
 			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
 		}
 	}
-}
-
-impl<
-		Call: Dispatchable,
-		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: PipelineWeight<Call>,
-	> PipelineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
-{
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
 			ExtensionVariant::V0(ext) => ext.weight(call),

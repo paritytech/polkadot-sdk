@@ -20,10 +20,10 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, DecodeWithVersion, DecodeWithVersionWithMemTracking, Dispatchable,
-		ExtensionVariant, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
-		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, PipelineVersion, PipelineWeight,
-		SignaturePayload, TransactionExtension,
+		self, AsTransactionAuthorizedOrigin, Checkable, DecodeWithVersion,
+		DecodeWithVersionWithMemTracking, Dispatchable, ExtensionVariant, ExtrinsicCall,
+		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, InvalidVersion, LazyExtrinsic,
+		MaybeDisplay, Member, Pipeline, PipelineVersion, SignaturePayload, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -709,9 +709,10 @@ impl<
 impl<Address, Call, Signature, ExtensionV0, const MAX_CALL_SIZE: usize, ExtensionOtherVersions>
 	UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, MAX_CALL_SIZE>
 where
-	Call: Dispatchable,
+	Call: Dispatchable + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: PipelineWeight<Call>,
+	ExtensionOtherVersions: Pipeline<Call>,
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

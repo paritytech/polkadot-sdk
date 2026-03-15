@@ -21,8 +21,7 @@ use crate::{
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
 		DispatchInfoOf, DispatchOriginOf, DispatchTransaction, Dispatchable, Pipeline,
-		PipelineMetadataBuilder, PipelineVersion, PipelineWeight, PostDispatchInfoOf,
-		TransactionExtension,
+		PipelineMetadataBuilder, PipelineVersion, PostDispatchInfoOf, TransactionExtension,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -100,11 +99,6 @@ where
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
 		self.extension.dispatch_transaction(origin, call, info, len, VERSION)
 	}
-}
-
-impl<const VERSION: u8, Call: Dispatchable, Extension: TransactionExtension<Call>>
-	PipelineWeight<Call> for PipelineAtVers<VERSION, Extension>
-{
 	fn weight(&self, call: &Call) -> Weight {
 		self.extension.weight(call)
 	}
