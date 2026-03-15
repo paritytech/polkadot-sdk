@@ -78,13 +78,15 @@ pub struct ExecBuffer {
 	pub gas_left: i64,
 	/// The syscall number (only meaningful when the status is [`ExecStatus::Syscall`]).
 	pub syscall_no: u32,
+	/// Padding to maintain alignment after syscall_no.
+	pub _pad: u32,
 	/// Syscall register arguments a0-a5 (only meaningful for [`ExecStatus::Syscall`]).
-	pub a0: u32,
-	pub a1: u32,
-	pub a2: u32,
-	pub a3: u32,
-	pub a4: u32,
-	pub a5: u32,
+	pub a0: u64,
+	pub a1: u64,
+	pub a2: u64,
+	pub a3: u64,
+	pub a4: u64,
+	pub a5: u64,
 }
 
 /// The size of [`ExecBuffer`] in bytes.
@@ -110,7 +112,7 @@ impl ExecBuffer {
 		match *outcome {
 			ExecOutcome::Finished { gas_left } => Self { gas_left, ..Default::default() },
 			ExecOutcome::Syscall { gas_left, syscall_no, a0, a1, a2, a3, a4, a5 } => {
-				Self { gas_left, syscall_no, a0, a1, a2, a3, a4, a5 }
+				Self { gas_left, syscall_no, _pad: 0, a0, a1, a2, a3, a4, a5 }
 			},
 		}
 	}
@@ -175,7 +177,7 @@ pub trait VirtT: Sized {
 	/// When `action` is [`ExecAction::Execute`], starts executing the named exported
 	/// function. The function must not take any arguments nor return any results.
 	/// When `action` is [`ExecAction::Resume`], resumes after a syscall with the given
-	/// return value (low 32 bits go into `a0`, high 32 bits into `a1`).
+	/// return value (written into register `a0`).
 	///
 	/// Returns [`ExecOutcome::Finished`] when execution completes or
 	/// [`ExecOutcome::Syscall`] when a host function is called. In the latter case,
@@ -336,16 +338,14 @@ pub struct SharedState<T> {
 ///
 /// # Return
 ///
-/// The returned u64 will be written into register `a0` and `a1` upon leaving the function. The
-/// least significant bits will be written in `a0` and the most significant bits will be written
-/// into `a1`.
+/// The returned u64 will be written into register `a0` upon leaving the function.
 pub type SyscallHandler<T> = extern "C" fn(
 	state: &mut SharedState<T>,
 	syscall_no: u32,
-	a0: u32,
-	a1: u32,
-	a2: u32,
-	a3: u32,
-	a4: u32,
-	a5: u32,
+	a0: u64,
+	a1: u64,
+	a2: u64,
+	a3: u64,
+	a4: u64,
+	a5: u64,
 ) -> u64;

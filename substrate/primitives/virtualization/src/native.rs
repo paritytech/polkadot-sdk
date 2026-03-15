@@ -115,8 +115,7 @@ impl VirtT for Virt {
 					if !self.executing {
 						return Err(ExecError::InvalidInstance);
 					}
-					instance.set_reg(Reg::A0, (return_value as u32).into());
-					instance.set_reg(Reg::A1, ((return_value >> 32) as u32).into());
+					instance.set_reg(Reg::A0, return_value);
 				},
 			}
 			instance.set_gas(gas_left);
@@ -190,12 +189,12 @@ impl Virt {
 				Ok(ExecOutcome::Syscall {
 					gas_left: instance.gas(),
 					syscall_no: syscall_id,
-					a0: instance.reg(Reg::A0) as u32,
-					a1: instance.reg(Reg::A1) as u32,
-					a2: instance.reg(Reg::A2) as u32,
-					a3: instance.reg(Reg::A3) as u32,
-					a4: instance.reg(Reg::A4) as u32,
-					a5: instance.reg(Reg::A5) as u32,
+					a0: instance.reg(Reg::A0),
+					a1: instance.reg(Reg::A1),
+					a2: instance.reg(Reg::A2),
+					a3: instance.reg(Reg::A3),
+					a4: instance.reg(Reg::A4),
+					a5: instance.reg(Reg::A5),
 				})
 			},
 		}

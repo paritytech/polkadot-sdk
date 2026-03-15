@@ -345,7 +345,7 @@ pub enum ExecAction<'a> {
 	Execute(&'a str),
 	/// Resume execution after a syscall, passing back the return value.
 	///
-	/// The low 32 bits go into register `a0`, the high 32 bits into `a1`.
+	/// The value is written into register `a0`.
 	Resume(u64),
 }
 
@@ -367,12 +367,12 @@ pub enum ExecOutcome {
 		/// The 4 byte identifier of the syscall.
 		syscall_no: u32,
 		/// Register arguments a0-a5.
-		a0: u32,
-		a1: u32,
-		a2: u32,
-		a3: u32,
-		a4: u32,
-		a5: u32,
+		a0: u64,
+		a1: u64,
+		a2: u64,
+		a3: u64,
+		a4: u64,
+		a5: u64,
 	},
 }
 

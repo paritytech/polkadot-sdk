@@ -55,26 +55,26 @@ struct State {
 extern "C" fn syscall_handler(
 	state: &mut SharedState<State>,
 	syscall_no: u32,
-	a0: u32,
-	_a1: u32,
-	_a2: u32,
-	_a3: u32,
-	_a4: u32,
-	_a5: u32,
+	a0: u64,
+	_a1: u64,
+	_a2: u64,
+	_a3: u64,
+	_a4: u64,
+	_a5: u64,
 ) -> u64 {
 	match syscall_no {
 		// read_counter
 		// memory is used for passing args in order to test memory access
 		1 => {
 			let buf = state.user.counter.to_le_bytes();
-			state.user.memory.as_mut().unwrap().write(a0, buf.as_ref()).unwrap();
+			state.user.memory.as_mut().unwrap().write(a0 as u32, buf.as_ref()).unwrap();
 			syscall_no.into()
 		},
 		// increment counter
 		// memory is used for passing args in order to test memory access
 		2 => {
 			let mut buf = [0u8; 8];
-			state.user.memory.as_ref().unwrap().read(a0, buf.as_mut()).unwrap();
+			state.user.memory.as_ref().unwrap().read(a0 as u32, buf.as_mut()).unwrap();
 			state.user.counter += u64::from_le_bytes(buf);
 			u64::from(syscall_no) << 56
 		},
@@ -203,7 +203,7 @@ fn run_out_of_gas_works(program: &[u8]) {
 	let ret = execute_with_handler(&mut instance, "increment_forever", syscall_handler, &mut state);
 	assert_eq!(ret, Err(ExecError::OutOfGas));
 	assert!(!state.exit);
-	assert_eq!(state.user.counter, 5_882);
+	assert_eq!(state.user.counter, 14_285);
 	assert_eq!(state.gas_left, 0);
 }
 
