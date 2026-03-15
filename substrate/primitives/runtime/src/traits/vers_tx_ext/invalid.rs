@@ -33,7 +33,8 @@ use sp_weights::Weight;
 /// An implementation of [`Pipeline`] that consider any version invalid.
 ///
 /// This is mostly used by [`crate::traits::MultiVersion`].
-// This type cannot be instantiated.
+///
+/// This type cannot be instantiated.
 #[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 pub enum InvalidVersion {}
 

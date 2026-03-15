@@ -39,8 +39,9 @@ const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 /// A versioned transaction extension pipeline defined with 2 variants: one for the version 0 and
 /// one for other versions.
 ///
-/// The generic `ExtensionOtherVersions` must not re-define a transaction extension pipeline for the
-/// version 0, it will be ignored and overwritten by `ExtensionV0`.
+/// The generic `ExtensionOtherVersions` should not re-define a transaction extension pipeline for
+/// the version 0, it will be ignored. The transaction extension pipeline for the version 0 is
+/// defined by the generic `ExtensionV0`.
 #[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
 	/// A transaction extension pipeline for the version 0.
