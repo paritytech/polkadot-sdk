@@ -130,7 +130,10 @@ of statements in the database.
 - **Metric:** `rate(substrate_sub_statement_store_rejections_total[$__rate_interval])` with label `reason`
 - **Type:** CounterVec (displayed as stacked rate)
 - **Labels:** `reason` = `data_too_large` | `channel_priority_too_low` | `account_full` | `store_full` | `no_allowance`
-- **What it measures:** Statements that passed validation but were rejected by the store.
+- **What it measures:** Statements that passed validation (signature, format, and expiry checks)
+  but were rejected by the store due to capacity or allowance constraints.
+  Note: invalid submissions (bad signature, expired, oversized) are tracked separately
+  in the "Invalid Submissions" metric above.
 - **Why it matters:** Each rejection reason points to a different problem:
   - **`store_full`** (red): The global store is at capacity. All new submissions are rejected.
     Action: increase capacity or reduce statement lifetimes.
@@ -191,7 +194,7 @@ of statements in the database.
 
 #### Submit Duration (Percentiles)
 - **Metric:** `substrate_sub_statement_store_submit_duration_seconds` (histogram)
-- **Buckets:** 0.1ms, 0.5ms, 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s
+- **Buckets:** 1us, 10us, 100us, 1ms, 10ms, 100ms, 1s
 - **What it measures:** Time to submit a statement, including signature verification,
   runtime validation, and database write.
 - **Why it matters:** This is the single most important latency metric — it affects
@@ -210,7 +213,7 @@ of statements in the database.
 
 #### Expiration Check Duration (Percentiles)
 - **Metric:** `substrate_sub_statement_store_check_expiration_duration_seconds` (histogram)
-- **Buckets:** 0.1ms, 0.5ms, 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s
+- **Buckets:** 1us, 10us, 100us, 1ms, 10ms, 100ms, 1s
 - **What it measures:** Time spent in each expiration check cycle. Expiration periodically
   scans accounts and marks statements as expired.
 - **Why it matters:** Expiration checks run on the main store thread. If they take too long,

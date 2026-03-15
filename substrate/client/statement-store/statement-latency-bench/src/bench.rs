@@ -51,36 +51,36 @@ use tokio::{sync::Barrier, time::timeout};
 #[command(name = "statement-latency-bench")]
 #[command(about = "Distributed statement store latency benchmark", long_about = None)]
 struct BenchArgs {
-	/// Comma-separated list of RPC WebSocket endpoints (e.g., ws://node1:9944,ws://node2:9944).
+	/// Comma-separated list of RPC WebSocket endpoints (e.g., ws://node1:9944,ws://node2:9944)
 	#[arg(long, value_delimiter = ',', required = true)]
 	rpc_endpoints: Vec<String>,
 
-	/// Number of clients to spawn in this Job instance.
+	/// Number of clients to spawn in this Job instance
 	#[arg(long, default_value = "100")]
 	num_clients: u32,
 
-	/// Message pattern: comma-separated "count:size" pairs (e.g., "5:512" or "5:512,3:1024").
-	/// This specifies how many messages of each size to send.
+	/// Message pattern: comma-separated "count:size" pairs (e.g., "5:512" or "5:512,3:1024")
+	/// This specifies how many messages of each size to send
 	#[arg(long, default_value = "5:512")]
 	messages_pattern: String,
 
-	/// Timeout for receiving messages in a batch (milliseconds).
+	/// Timeout for receiving messages in a batch (milliseconds)
 	#[arg(long, default_value = "5000")]
 	receive_timeout_ms: u64,
 
-	/// Number of benchmark rounds.
+	/// Number of benchmark rounds
 	#[arg(long, default_value = "1")]
 	num_rounds: usize,
 
-	/// Interval between rounds in milliseconds.
+	/// Interval between rounds in milliseconds
 	#[arg(long, default_value = "10000")]
 	interval_ms: u64,
 
-	/// Skip time synchronization (for local testing).
+	/// Skip time synchronization (for local testing)
 	#[arg(long, default_value = "false")]
 	skip_sync: bool,
 
-	/// Statement expiry time in milliseconds (default: 10 minutes).
+	/// Statement expiry time in milliseconds (default: 10 minutes)
 	#[arg(long, default_value_t = 600_000)]
 	statement_expiry_ms: u64,
 }
@@ -275,26 +275,26 @@ async fn run_client(
 /// 2-minute window will synchronize to the same boundary.
 ///
 /// Example:
-/// - Job starts at 10:00 -> 10 min until 10:10 (>= 2) -> wait until 10:10
-/// - Job starts at 10:07 -> 3 min until 10:10 (>= 2) -> wait until 10:10
-/// - Job starts at 10:08 -> 2 min until 10:10 (>= 2) -> wait until 10:10
-/// - Job starts at 10:09 -> 1 min until 10:10 (< 2) -> wait until 10:20
-/// - Job starts at 10:10 -> 10 min until 10:20 (>= 2) -> wait until 10:20
+/// - Job starts at 10:00 → 10 min until 10:10 (>= 2) → wait until 10:10
+/// - Job starts at 10:07 → 3 min until 10:10 (>= 2) → wait until 10:10
+/// - Job starts at 10:08 → 2 min until 10:10 (>= 2) → wait until 10:10
+/// - Job starts at 10:09 → 1 min until 10:10 (< 2) → wait until 10:20
+/// - Job starts at 10:10 → 10 min until 10:20 (>= 2) → wait until 10:20
 async fn wait_for_sync_time() {
 	let now_secs = std::time::SystemTime::now()
 		.duration_since(std::time::UNIX_EPOCH)
 		.expect("System time is before UNIX epoch")
 		.as_secs();
 
-	// Sync interval in seconds (10 minutes).
+	// Sync interval in seconds (10 minutes)
 	const SYNC_INTERVAL_SECS: u64 = 10 * 60;
-	// Minimum wait time: if less than this remains, skip to next boundary (2 minutes).
+	// Minimum wait time: if less than this remains, skip to next boundary (2 minutes)
 	const MIN_WAIT_SECS: u64 = 2 * 60;
 
 	let secs_in_current_interval = now_secs % SYNC_INTERVAL_SECS;
 	let secs_until_next_boundary = SYNC_INTERVAL_SECS - secs_in_current_interval;
 
-	// If less than MIN_WAIT_SECS until next boundary, wait for the one after.
+	// If less than MIN_WAIT_SECS until next boundary, wait for the one after
 	let wait_secs = if secs_until_next_boundary < MIN_WAIT_SECS {
 		secs_until_next_boundary + SYNC_INTERVAL_SECS
 	} else {
