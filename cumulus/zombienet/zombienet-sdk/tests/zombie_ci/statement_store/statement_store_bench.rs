@@ -8,15 +8,12 @@ use codec::Encode;
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
-use sp_core::{blake2_256, hexdisplay::HexDisplay, sr25519, Bytes, Pair};
-use sp_statement_store::{
-	statement_allowance_key, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
-	TopicFilter,
-};
+use sp_core::{blake2_256, Bytes, Pair};
+use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
 	cell::Cell,
 	collections::HashMap,
-	path::{Path, PathBuf},
+	path::PathBuf,
 	sync::Arc,
 	time::Duration,
 };
@@ -25,6 +22,8 @@ use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
+
+use super::common::{create_chain_spec_with_allowances, get_keypair};
 
 const RPC_POOL_SIZE: usize = 10000;
 
@@ -211,52 +210,6 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Creates a custom chain spec with injected statement allowances.
-///
-/// Returns the path to the temporary chain spec file.
-///
-/// The chain spec template generates by:
-/// `polkadot-parachain build-spec --chain people-westend-local --raw`
-fn create_chain_spec_with_allowances(
-	participant_count: u32,
-	base_dir: &Path,
-) -> Result<PathBuf, anyhow::Error> {
-	let chain_spec_template = include_str!("../people-westend-local-spec.json");
-	let mut chain_spec: serde_json::Value = serde_json::from_str(chain_spec_template)
-		.map_err(|e| anyhow!("Failed to parse chain spec JSON: {}", e))?;
-	let genesis = chain_spec
-		.get_mut("genesis")
-		.and_then(|g| g.get_mut("raw"))
-		.and_then(|r| r.get_mut("top"))
-		.and_then(|t| t.as_object_mut())
-		.ok_or_else(|| anyhow!("Failed to access genesis.raw.top in chain spec"))?;
-
-	// Use static maximum values for benchmarks
-	let allowance = StatementAllowance { max_count: 100_000, max_size: 1_000_000 };
-	let allowance_hex = format!("0x{}", HexDisplay::from(&allowance.encode()));
-	info!("Injecting statement allowance: {:}", allowance_hex);
-	for idx in 0..participant_count {
-		let keypair = get_keypair(idx);
-		let account_id = keypair.public();
-
-		let storage_key = statement_allowance_key(account_id.0);
-		let storage_key_hex = format!("0x{}", HexDisplay::from(&storage_key));
-
-		genesis.insert(storage_key_hex, serde_json::Value::String(allowance_hex.clone()));
-	}
-
-	let chain_spec_path = base_dir.join("people-westend-custom.json");
-	let chain_spec_json = serde_json::to_string_pretty(&chain_spec)
-		.map_err(|e| anyhow!("Failed to serialize chain spec: {}", e))?;
-
-	std::fs::write(&chain_spec_path, chain_spec_json)
-		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
-
-	info!("Created custom chain spec at: {}", chain_spec_path.display());
-
-	Ok(chain_spec_path)
-}
-
 /// Spawns a network using a custom chain spec with injected statement allowances.
 pub async fn spawn_network(
 	collators: &[&str],
@@ -323,10 +276,6 @@ pub async fn spawn_network(
 	assert!(network.wait_until_is_up(60).await.is_ok());
 
 	Ok(network)
-}
-
-pub fn get_keypair(idx: u32) -> sr25519::Pair {
-	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
 }
 
 struct LatencyBenchConfig {

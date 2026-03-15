@@ -205,7 +205,7 @@ pub(super) async fn expect_statements_unordered(
 ///
 /// The chain spec template generates by:
 /// `polkadot-parachain build-spec --chain people-westend-local --raw`
-fn create_chain_spec_with_allowances(
+pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
 	base_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
