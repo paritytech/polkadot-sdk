@@ -21,10 +21,9 @@
 use crate::{
 	generic::ExtensionVersion,
 	traits::{
-		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
-		DispatchInfoOf, DispatchTransaction, Dispatchable, Pipeline, PipelineAtVers,
-		PipelineMetadataBuilder, PipelineVersion, PipelineWeight, PostDispatchInfoOf,
-		TransactionExtension,
+		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchTransaction,
+		Dispatchable, Pipeline, PipelineAtVers, PipelineMetadataBuilder, PipelineVersion,
+		PostDispatchInfoOf, TransactionExtension,
 	},
 	transaction_validity::TransactionSource,
 };
@@ -118,13 +117,24 @@ impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersionWithMemTracki
 {
 }
 
-impl<
-		Call: Dispatchable + Encode,
-		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: Pipeline<Call>,
-	> Pipeline<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+impl<Call: Dispatchable, ExtensionV0, ExtensionOtherVersions> Pipeline<Call>
+	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 where
-	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+	ExtensionV0: TransactionExtension<Call>
+		+ DispatchTransaction<
+			Call,
+			Origin = super::DispatchOriginOf<Call>,
+			Info = DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>,
+		>,
+	ExtensionOtherVersions: Pipeline<Call>
+		+ TransactionExtension<Call>
+		+ DispatchTransaction<
+			Call,
+			Origin = super::DispatchOriginOf<Call>,
+			Info = DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>,
+		>,
 {
 	fn build_metadata(builder: &mut PipelineMetadataBuilder) {
 		PipelineAtVers::<EXTENSION_V0_VERSION, ExtensionV0>::build_metadata(builder);
@@ -145,7 +155,8 @@ where
 			ExtensionVariant::V0(ext) => ext
 				.validate_only(origin, call, info, len, source, EXTENSION_V0_VERSION)
 				.map(|x| x.0),
-			ExtensionVariant::Other(ext) => ext.validate_only(origin, call, info, len, source),
+			ExtensionVariant::Other(ext) =>
+				Pipeline::validate_only(ext, origin, call, info, len, source),
 		}
 	}
 	fn dispatch_transaction(
@@ -158,21 +169,14 @@ where
 		match self {
 			ExtensionVariant::V0(ext) =>
 				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
-			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
+			ExtensionVariant::Other(ext) =>
+				Pipeline::dispatch_transaction(ext, origin, call, info, len),
 		}
 	}
-}
-
-impl<
-		Call: Dispatchable,
-		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: PipelineWeight<Call>,
-	> PipelineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
-{
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
 			ExtensionVariant::V0(ext) => ext.weight(call),
-			ExtensionVariant::Other(ext) => ext.weight(call),
+			ExtensionVariant::Other(ext) => Pipeline::weight(ext, call),
 		}
 	}
 }

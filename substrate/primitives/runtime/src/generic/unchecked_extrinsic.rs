@@ -22,7 +22,7 @@ use crate::{
 	traits::{
 		self, Checkable, DecodeWithVersion, DecodeWithVersionWithMemTracking, Dispatchable,
 		ExtensionVariant, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
-		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, PipelineVersion, PipelineWeight,
+		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, Pipeline, PipelineVersion,
 		SignaturePayload, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -710,8 +710,21 @@ impl<Address, Call, Signature, ExtensionV0, const MAX_CALL_SIZE: usize, Extensio
 	UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, MAX_CALL_SIZE>
 where
 	Call: Dispatchable,
-	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: PipelineWeight<Call>,
+	ExtensionV0: TransactionExtension<Call>
+		+ traits::DispatchTransaction<
+			Call,
+			Origin = <Call as Dispatchable>::RuntimeOrigin,
+			Info = traits::DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<traits::PostDispatchInfoOf<Call>>,
+		>,
+	ExtensionOtherVersions: Pipeline<Call>
+		+ TransactionExtension<Call>
+		+ traits::DispatchTransaction<
+			Call,
+			Origin = <Call as Dispatchable>::RuntimeOrigin,
+			Info = traits::DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<traits::PostDispatchInfoOf<Call>>,
+		>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

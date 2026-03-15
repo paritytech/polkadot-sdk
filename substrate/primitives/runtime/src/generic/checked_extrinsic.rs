@@ -21,13 +21,11 @@
 use super::unchecked_extrinsic::ExtensionVersion;
 use crate::{
 	traits::{
-		self, AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
-		ExtensionVariant, InvalidVersion, MaybeDisplay, Member, Pipeline, PipelineWeight,
-		PostDispatchInfoOf, TransactionExtension, ValidateUnsigned,
+		self, DispatchInfoOf, DispatchTransaction, Dispatchable, ExtensionVariant, InvalidVersion,
+		MaybeDisplay, Member, Pipeline, PostDispatchInfoOf, TransactionExtension, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
-use codec::Encode;
 use sp_weights::Weight;
 
 /// Version 0 of the transaction extension version.
@@ -83,10 +81,23 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions, RuntimeOrigin> traits
 	for CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	AccountId: Member + MaybeDisplay,
-	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
-	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: Pipeline<Call>,
-	RuntimeOrigin: From<Option<AccountId>> + AsTransactionAuthorizedOrigin,
+	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin>,
+	ExtensionV0: TransactionExtension<Call>
+		+ DispatchTransaction<
+			Call,
+			Origin = RuntimeOrigin,
+			Info = DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>,
+		>,
+	ExtensionOtherVersions: Pipeline<Call>
+		+ TransactionExtension<Call>
+		+ DispatchTransaction<
+			Call,
+			Origin = RuntimeOrigin,
+			Info = DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>,
+		>,
+	RuntimeOrigin: From<Option<AccountId>>,
 {
 	type Call = Call;
 
@@ -149,8 +160,21 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 	CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
-	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: PipelineWeight<Call>,
+	ExtensionV0: TransactionExtension<Call>
+		+ DispatchTransaction<
+			Call,
+			Origin = <Call as Dispatchable>::RuntimeOrigin,
+			Info = DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>,
+		>,
+	ExtensionOtherVersions: Pipeline<Call>
+		+ TransactionExtension<Call>
+		+ DispatchTransaction<
+			Call,
+			Origin = <Call as Dispatchable>::RuntimeOrigin,
+			Info = DispatchInfoOf<Call>,
+			Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>,
+		>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

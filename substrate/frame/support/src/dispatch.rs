@@ -410,9 +410,10 @@ where
 impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 where
-	Call: GetDispatchInfo + Dispatchable,
+	Call: GetDispatchInfo + Dispatchable + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: sp_runtime::traits::PipelineWeight<Call>,
+	ExtensionOtherVersions: sp_runtime::traits::Pipeline<Call>,
+	<Call as Dispatchable>::RuntimeOrigin: sp_runtime::traits::AsTransactionAuthorizedOrigin,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -425,9 +426,10 @@ where
 impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions> GetDispatchInfo
 	for CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
-	Call: GetDispatchInfo + Dispatchable,
+	Call: GetDispatchInfo + Dispatchable + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: sp_runtime::traits::PipelineWeight<Call>,
+	ExtensionOtherVersions: sp_runtime::traits::Pipeline<Call>,
+	<Call as Dispatchable>::RuntimeOrigin: sp_runtime::traits::AsTransactionAuthorizedOrigin,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
