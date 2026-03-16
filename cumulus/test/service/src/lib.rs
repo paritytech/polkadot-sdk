@@ -55,10 +55,19 @@ use cumulus_client_service::{
 	CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
 	StartRelayChainTasksParams,
 };
+use codec::Decode;
+use cumulus_client_speculative_messaging::protocol::{
+	ForwardMessageRequest, ForwardMessageResponse, PROTOCOL_NAME as SPEC_MSG_PROTOCOL_NAME,
+};
+use cumulus_pallet_speculative_messaging::inherent::SpecMsgInherentDataProvider;
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
+use parking_lot::Mutex;
+use polkadot_primitives_speculative_messaging::{
+	MessageBatch, OutgoingMessage, StoredMerkleTree,
+};
 
 use cumulus_test_runtime::{Hash, NodeBlock as Block, RuntimeApi};
 
@@ -69,10 +78,11 @@ use polkadot_primitives::{CandidateHash, CollatorPair};
 use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
-	config::{FullNetworkConfiguration, TransportConfig},
+	config::{FullNetworkConfiguration, NetworkBackendType, TransportConfig},
 	multiaddr,
-	service::traits::NetworkService,
-	NetworkBackend, NetworkBlock, NetworkStateInfo,
+	request_responses::{IncomingRequest, OutgoingResponse},
+	service::traits::{NetworkBackend, NetworkService},
+	NetworkBlock, NetworkStateInfo, ProtocolName,
 };
 use sc_service::{
 	config::{
@@ -87,6 +97,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
+use sp_core::H256;
 use sp_runtime::{codec::Encode, generic, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
@@ -251,48 +262,157 @@ pub fn new_partial(
 	Ok(params)
 }
 
+/// Create a spec-msg request-response protocol configuration.
+fn spec_msg_request_response_config<
+	B: sp_runtime::traits::Block,
+	N: NetworkBackend<B, <B as sp_runtime::traits::Block>::Hash>,
+>() -> (N::RequestResponseProtocolConfig, async_channel::Receiver<IncomingRequest>) {
+	let (tx, rx) = async_channel::bounded(100);
+	let config = N::request_response_config(
+		ProtocolName::from(SPEC_MSG_PROTOCOL_NAME),
+		Vec::new(),
+		16 * 1024 * 1024, // MAX_REQUEST_SIZE
+		1024,             // MAX_RESPONSE_SIZE
+		Duration::from_secs(20),
+		Some(tx),
+	);
+	(config, rx)
+}
+
+/// Build a relay chain full node using `PolkadotServiceBuilder`, injecting
+/// the spec-msg request-response protocol.
+fn build_relay_with_spec_msg_protocol<Network>(
+	config: Configuration,
+	collator_key: Option<CollatorPair>,
+) -> Result<
+	(polkadot_service::NewFull, async_channel::Receiver<IncomingRequest>),
+	polkadot_service::Error,
+>
+where
+	Network: NetworkBackend<
+		polkadot_primitives::Block,
+		<polkadot_primitives::Block as sp_runtime::traits::Block>::Hash,
+	>,
+{
+	use polkadot_service::builder::PolkadotServiceBuilder;
+
+	let is_parachain_node = if let Some(ref key) = collator_key {
+		polkadot_service::IsParachainNode::Collator(key.clone())
+	} else {
+		polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
+	};
+
+	let mut workers_path = std::env::current_exe()
+		.expect("current_exe should be available in test context; qed");
+	workers_path.pop();
+	workers_path.pop();
+
+	let params = polkadot_service::NewFullParams {
+		is_parachain_node,
+		enable_beefy: true,
+		force_authoring_backoff: false,
+		telemetry_worker_handle: None,
+		node_version: None,
+		secure_validator_mode: false,
+		workers_path: Some(workers_path),
+		workers_names: None,
+		overseer_gen: polkadot_service::CollatorOverseerGen,
+		overseer_message_channel_capacity_override: None,
+		malus_finality_delay: None,
+		hwbench: None,
+		execute_workers_max_num: None,
+		prepare_workers_hard_max_num: None,
+		prepare_workers_soft_max_num: None,
+		keep_finalized_for: None,
+		invulnerable_ah_collators: HashSet::new(),
+		collator_protocol_hold_off: None,
+		experimental_collator_protocol: false,
+		collator_reputation_persist_interval: None,
+	};
+
+	let mut builder = PolkadotServiceBuilder::<_, Network>::new(config, params)?;
+
+	// Inject spec-msg request-response protocol
+	let (spec_msg_config, spec_msg_rx) =
+		spec_msg_request_response_config::<polkadot_primitives::Block, Network>();
+	builder.add_extra_request_response_protocol(spec_msg_config);
+
+	Ok((builder.build()?, spec_msg_rx))
+}
+
+/// Result of building the relay chain interface with spec-msg support.
+struct RelayChainBuildResult {
+	relay_chain_interface: Arc<dyn RelayChainInterface + 'static>,
+	/// Relay chain network service (for outbound requests + reading PeerId).
+	/// `None` in external RPC mode.
+	relay_network: Option<Arc<dyn NetworkService>>,
+	/// Inbound spec-msg requests from remote relay peers.
+	/// `None` in external RPC mode.
+	spec_msg_rx: Option<async_channel::Receiver<IncomingRequest>>,
+}
+
 async fn build_relay_chain_interface(
 	relay_chain_config: Configuration,
 	parachain_prometheus_registry: Option<&Registry>,
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
-) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
-	let relay_chain_node = match collator_options.relay_chain_mode {
-		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
-			relay_chain_config,
-			if let Some(ref key) = collator_key {
-				polkadot_service::IsParachainNode::Collator(key.clone())
-			} else {
-				polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
-			},
-			None,
-			polkadot_service::CollatorOverseerGen,
-			Some("Relaychain"),
-		)
-		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
+) -> RelayChainResult<RelayChainBuildResult> {
+	match collator_options.relay_chain_mode {
+		cumulus_client_cli::RelayChainMode::Embedded => {
+			let (relay_chain_full_node, spec_msg_rx) =
+				match relay_chain_config.network.network_backend {
+					NetworkBackendType::Libp2p =>
+						build_relay_with_spec_msg_protocol::<sc_network::NetworkWorker<_, _>>(
+							relay_chain_config,
+							collator_key,
+						),
+					NetworkBackendType::Litep2p =>
+						build_relay_with_spec_msg_protocol::<sc_network::Litep2pNetworkBackend>(
+							relay_chain_config,
+							collator_key,
+						),
+				}
+				.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+
+			let relay_network = relay_chain_full_node.network.clone();
+
+			let relay_chain_interface = Arc::new(RelayChainInProcessInterface::new(
+				relay_chain_full_node.client.clone(),
+				relay_chain_full_node.backend.clone(),
+				relay_chain_full_node.sync_service.clone(),
+				relay_chain_full_node.overseer_handle.ok_or(
+					RelayChainError::GenericError(
+						"Overseer should be running in full node.".to_string(),
+					),
+				)?,
+			));
+
+			task_manager.add_child(relay_chain_full_node.task_manager);
+			tracing::info!("Using inprocess node with spec-msg protocol.");
+
+			Ok(RelayChainBuildResult {
+				relay_chain_interface,
+				relay_network: Some(relay_network),
+				spec_msg_rx: Some(spec_msg_rx),
+			})
+		},
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
-			return build_minimal_relay_chain_node_with_rpc(
+			let (relay_chain_interface, _, _, _) = build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				parachain_prometheus_registry,
 				task_manager,
 				rpc_target_urls,
 			)
-			.await
-			.map(|r| r.0)
-		},
-	};
+			.await?;
 
-	task_manager.add_child(relay_chain_node.task_manager);
-	tracing::info!("Using inprocess node.");
-	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_node.client.clone(),
-		relay_chain_node.backend.clone(),
-		relay_chain_node.sync_service.clone(),
-		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
-			"Overseer should be running in full node.".to_string(),
-		))?,
-	)))
+			Ok(RelayChainBuildResult {
+				relay_chain_interface,
+				relay_network: None,
+				spec_msg_rx: None,
+			})
+		},
+	}
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
@@ -332,7 +452,7 @@ where
 
 	let block_import = params.other.0;
 	let slot_based_handle = params.other.1;
-	let relay_chain_interface = build_relay_chain_interface(
+	let relay_build = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
 		collator_key.clone(),
@@ -341,6 +461,10 @@ where
 	)
 	.await
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+
+	let relay_chain_interface = relay_build.relay_chain_interface;
+	let relay_network = relay_build.relay_network;
+	let spec_msg_rx = relay_build.spec_msg_rx;
 
 	let import_queue_service = params.import_queue.service();
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
@@ -434,6 +558,276 @@ where
 		prometheus_registry: None,
 	})?;
 
+	// =========================================================================
+	// Speculative messaging workers
+	// =========================================================================
+
+	// Shared incoming message metadata queue: Vec<(source, count, provides_root)>
+	let incoming_queue: Arc<Mutex<Vec<(ParaId, u64, H256)>>> =
+		Arc::new(Mutex::new(Vec::new()));
+
+	// Spawn INBOUND handler: receives ForwardMessageRequest from relay peers,
+	// validates, and queues metadata for the inherent data provider.
+	if let Some(spec_msg_rx) = spec_msg_rx {
+		let queue_for_handler = incoming_queue.clone();
+		task_manager.spawn_handle().spawn("spec-msg-inbound", None, async move {
+			while let Ok(req) = spec_msg_rx.recv().await {
+				let IncomingRequest { payload, pending_response, peer } = req;
+
+				match ForwardMessageRequest::decode(&mut &payload[..]) {
+					Ok(fwd_req) => {
+						let batch = &fwd_req.batch;
+						let source = fwd_req.source_para;
+						let count = batch.messages.len() as u64;
+						let provides_root = batch.provides_root;
+
+						tracing::debug!(
+							target: LOG_TARGET,
+							?source,
+							count,
+							?provides_root,
+							?peer,
+							"Received spec-msg batch",
+						);
+
+						// Queue metadata for the inherent data provider
+						queue_for_handler.lock().push((source, count, provides_root));
+
+						// Send acceptance response
+						let response_bytes =
+							ForwardMessageResponse::Accepted.encode();
+						let _ = pending_response.send(OutgoingResponse {
+							result: Ok(response_bytes),
+							reputation_changes: Vec::new(),
+							sent_feedback: None,
+						});
+					},
+					Err(e) => {
+						tracing::warn!(
+							target: LOG_TARGET,
+							?peer,
+							error = ?e,
+							"Failed to decode spec-msg request",
+						);
+						let response_bytes =
+							ForwardMessageResponse::rejected("decode error").encode();
+						let _ = pending_response.send(OutgoingResponse {
+							result: Ok(response_bytes),
+							reputation_changes: Vec::new(),
+							sent_feedback: None,
+						});
+					},
+				}
+			}
+			tracing::info!(target: LOG_TARGET, "spec-msg-inbound worker exiting");
+		});
+	}
+
+	// Spawn OUTBOUND distributor: watches finalized parachain blocks,
+	// reads PendingOutgoing from runtime storage, builds MessageBatch,
+	// and sends to destination relay peers.
+	if let Some(ref relay_net) = relay_network {
+		let outbound_client = client.clone();
+		let outbound_relay_net = relay_net.clone();
+		let outbound_para_id = para_id;
+
+		task_manager.spawn_handle().spawn("spec-msg-outbound", None, async move {
+			use sc_client_api::{BlockchainEvents, StorageProvider};
+			use sp_core::storage::StorageKey;
+
+			// Subscribe to finalized blocks
+			let mut finality_stream = outbound_client.finality_notification_stream();
+
+			while let Some(notification) = {
+				use futures::StreamExt;
+				finality_stream.next().await
+			} {
+				let block_hash = notification.hash;
+
+				// Read PendingOutgoing storage for all destinations.
+				// Storage prefix: twox_128("SpeculativeMessaging") ++ twox_128("PendingOutgoing")
+				let pallet_prefix = sp_io::hashing::twox_128(b"SpeculativeMessaging");
+				let storage_prefix = sp_io::hashing::twox_128(b"PendingOutgoing");
+				let mut prefix_key = Vec::with_capacity(32);
+				prefix_key.extend_from_slice(&pallet_prefix);
+				prefix_key.extend_from_slice(&storage_prefix);
+
+				let keys = match outbound_client.storage_keys(
+					block_hash,
+					Some(&StorageKey(prefix_key.clone())),
+					None,
+				) {
+					Ok(keys) => keys.collect::<Vec<_>>(),
+					Err(e) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?e,
+							"Failed to read PendingOutgoing keys",
+						);
+						continue;
+					},
+				};
+
+				if keys.is_empty() {
+					continue;
+				}
+
+				// Read TopLevelTree for proof generation
+				let tree_key = {
+					let mut k = Vec::with_capacity(32);
+					k.extend_from_slice(&pallet_prefix);
+					k.extend_from_slice(&sp_io::hashing::twox_128(b"TopLevelTree"));
+					k
+				};
+				let top_level_tree: Option<StoredMerkleTree> = outbound_client
+					.storage(block_hash, &StorageKey(tree_key))
+					.ok()
+					.flatten()
+					.and_then(|data| Decode::decode(&mut &data.0[..]).ok());
+
+				let top_level_tree = match top_level_tree {
+					Some(tree) => tree,
+					None => continue,
+				};
+
+				let provides_root = top_level_tree.provides_commitment().root;
+
+				// Read RelayPeers storage prefix
+				let relay_peers_prefix = {
+					let mut k = Vec::with_capacity(32);
+					k.extend_from_slice(&pallet_prefix);
+					k.extend_from_slice(&sp_io::hashing::twox_128(b"RelayPeers"));
+					k
+				};
+
+				// For each destination with pending messages
+				for storage_key in &keys {
+					// Decode destination ParaId from the storage key
+					// Key format: pallet_prefix(16) + storage_prefix(16) + Twox64Concat(dest)
+					// Twox64Concat = twox_64(encoded) ++ encoded
+					let key_bytes = &storage_key.0;
+					if key_bytes.len() <= 32 + 8 {
+						continue;
+					}
+					let dest_encoded = &key_bytes[32 + 8..]; // skip prefix + twox64 hash
+					let destination: ParaId = match Decode::decode(&mut &dest_encoded[..]) {
+						Ok(id) => id,
+						Err(_) => continue,
+					};
+
+					// Read the messages
+					let messages: Vec<OutgoingMessage> = match outbound_client
+						.storage(block_hash, storage_key)
+					{
+						Ok(Some(data)) => match Decode::decode(&mut &data.0[..]) {
+							Ok(msgs) => msgs,
+							Err(_) => continue,
+						},
+						_ => continue,
+					};
+
+					if messages.is_empty() {
+						continue;
+					}
+
+					// Generate subtree proof for destination
+					let (subtree_root, subtree_proof) =
+						match top_level_tree.generate_proof(destination) {
+							Ok(proof) => proof,
+							Err(e) => {
+								tracing::warn!(
+									target: LOG_TARGET,
+									?destination,
+									?e,
+									"Failed to generate subtree proof",
+								);
+								continue;
+							},
+						};
+
+					let batch = MessageBatch {
+						source: outbound_para_id,
+						source_block: block_hash,
+						provides_root,
+						subtree_root,
+						subtree_inclusion_proof: subtree_proof,
+						messages,
+					};
+
+					let fwd_request = ForwardMessageRequest {
+						source_para: outbound_para_id,
+						destination_para: destination,
+						batch,
+					};
+
+					// Look up relay peer for destination
+					let peer_key = {
+						let dest_encoded = destination.encode();
+						let twox64 = sp_io::hashing::twox_64(&dest_encoded);
+						let mut k = relay_peers_prefix.clone();
+						k.extend_from_slice(&twox64);
+						k.extend_from_slice(&dest_encoded);
+						k
+					};
+
+					let peer_id_bytes: Option<Vec<u8>> = outbound_client
+						.storage(block_hash, &StorageKey(peer_key))
+						.ok()
+						.flatten()
+						.and_then(|data| Decode::decode(&mut &data.0[..]).ok());
+
+					let peer_id_bytes = match peer_id_bytes {
+						Some(bytes) => bytes,
+						None => {
+							tracing::debug!(
+								target: LOG_TARGET,
+								?destination,
+								"No relay peer registered for destination",
+							);
+							continue;
+						},
+					};
+
+					// Convert to PeerId and send via relay network
+					let peer_id =
+						match sc_network::PeerId::from_bytes(&peer_id_bytes) {
+							Ok(id) => id,
+							Err(e) => {
+								tracing::warn!(
+									target: LOG_TARGET,
+									?destination,
+									?e,
+									"Invalid relay peer ID",
+								);
+								continue;
+							},
+						};
+
+					let request_payload = fwd_request.encode();
+					let msg_count = fwd_request.batch.messages.len();
+					tracing::info!(
+						target: LOG_TARGET,
+						?destination,
+						?peer_id,
+						msg_count,
+						"Sending spec-msg batch to relay peer",
+					);
+
+					let (response_tx, _response_rx) = futures::channel::oneshot::channel();
+					outbound_relay_net.start_request(
+						peer_id.into(),
+						ProtocolName::from(SPEC_MSG_PROTOCOL_NAME),
+						request_payload,
+						None,
+						response_tx,
+						sc_network::IfDisconnected::TryConnect,
+					);
+				}
+			}
+			tracing::info!(target: LOG_TARGET, "spec-msg-outbound worker exiting");
+		});
+	}
+
 	let collator_peer_id = network.local_peer_id();
 	if let Some(collator_key) = collator_key {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -455,8 +849,16 @@ where
 
 		if use_slot_based_collator {
 			tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
+			let queue_for_slot = incoming_queue.clone();
 			let params = SlotBasedParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |_, ()| {
+					let queue = queue_for_slot.clone();
+					async move {
+						let entries: Vec<(ParaId, u64, H256)> =
+							std::mem::take(&mut *queue.lock());
+						Ok(SpecMsgInherentDataProvider::new(entries))
+					}
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend.clone(),
@@ -483,8 +885,16 @@ where
 			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 		} else {
 			tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
+			let queue_for_lookahead = incoming_queue.clone();
 			let params = AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |_, ()| {
+					let queue = queue_for_lookahead.clone();
+					async move {
+						let entries: Vec<(ParaId, u64, H256)> =
+							std::mem::take(&mut *queue.lock());
+						Ok(SpecMsgInherentDataProvider::new(entries))
+					}
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend.clone(),

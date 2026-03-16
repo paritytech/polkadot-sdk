@@ -17,6 +17,7 @@ async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
+futures = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true, default-features = true }
@@ -70,6 +71,7 @@ polkadot-service = { workspace = true, default-features = true }
 polkadot-test-service = { workspace = true }
 
 # Cumulus
+async-channel = { workspace = true }
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
@@ -77,7 +79,9 @@ cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
+cumulus-client-speculative-messaging = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-speculative-messaging = { workspace = true, default-features = true }
 cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
@@ -86,6 +90,8 @@ cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 pallet-timestamp = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+polkadot-primitives-speculative-messaging = { workspace = true, default-features = true }
 
 [dev-dependencies]
 cumulus-test-client = { workspace = true }

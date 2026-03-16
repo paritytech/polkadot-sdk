@@ -151,3 +151,12 @@ pub fn get_async_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 			.expect("WASM binary was not built, please build it!"),
 	)
 }
+
+pub fn get_speculative_messaging_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::speculative_messaging::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
+}

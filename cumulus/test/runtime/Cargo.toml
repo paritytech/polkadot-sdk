@@ -47,10 +47,12 @@ polkadot-primitives = { workspace = true }
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-speculative-messaging = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 parachain-info = { workspace = true }
+polkadot-primitives-speculative-messaging = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -61,9 +63,11 @@ std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-speculative-messaging/std",
 	"cumulus-pallet-weight-reclaim/std",
 	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
+	"polkadot-primitives-speculative-messaging/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -113,3 +117,5 @@ async-backing = []
 elastic-scaling-12s-slot = []
 # A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 slot-duration-18s = ["increment-spec-version"]
+# A runtime with speculative messaging support.
+speculative-messaging = ["async-backing"]

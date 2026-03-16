@@ -50,6 +50,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "std")]
+pub mod inherent;
 pub mod per_dest_mmr;
 #[cfg(test)]
 mod tests;
@@ -64,13 +66,20 @@ pub mod pallet {
 	use super::*;
 	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
-	use frame_system::{ensure_root, pallet_prelude::*};
+	use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 	use per_dest_mmr::MmrState;
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use polkadot_primitives_speculative_messaging::{
 		OutgoingMessage, ProvidesCommitment, RequiresCommitment, SourceState, StoredMerkleTree,
 	};
 	use sp_core::H256;
+	use sp_inherents::InherentIdentifier;
+
+	/// Inherent identifier for speculative messaging.
+	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"specmsg0";
+
+	/// The inherent data type: list of (source, count, provides_root) tuples.
+	pub type InherentType = Vec<(ParaId, u64, H256)>;
 
 	/// Current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -290,6 +299,40 @@ pub mod pallet {
 			Self::deposit_event(Event::RelayPeerRemoved { para_id });
 			Ok(())
 		}
+
+		/// Process incoming speculative message metadata via inherent.
+		///
+		/// This is called automatically by the block builder when the
+		/// inherent data provider has queued inbound message metadata.
+		/// Only callable as an unsigned inherent.
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::zero())]
+		pub fn receive_messages_inherent(
+			origin: OriginFor<T>,
+			entries: Vec<(ParaId, u64, H256)>,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+			for (source, count, provides_root) in entries {
+				Self::receive_messages(source, count, provides_root)?;
+			}
+			Ok(())
+		}
+
+		/// Send a speculative message to a destination parachain.
+		///
+		/// This is a signed extrinsic that wraps [`Pallet::send_message`]
+		/// for use in testing and MVP scenarios.
+		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::zero())]
+		pub fn send_message_extrinsic(
+			origin: OriginFor<T>,
+			destination: ParaId,
+			payload: Vec<u8>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			Self::send_message(destination, payload)?;
+			Ok(())
+		}
 	}
 
 	// =========================================================================
@@ -466,6 +509,29 @@ pub mod pallet {
 			RelayPeers::<T>::iter()
 				.map(|(para_id, peer_id)| (para_id, peer_id.into_inner()))
 				.collect()
+		}
+	}
+
+	// =========================================================================
+	// Inherent support
+	// =========================================================================
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+		type Error = sp_inherents::MakeFatalError<()>;
+		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+
+		fn create_inherent(data: &sp_inherents::InherentData) -> Option<Self::Call> {
+			let entries: InherentType = data.get_data(&INHERENT_IDENTIFIER).ok()??;
+			if entries.is_empty() {
+				return None;
+			}
+			Some(Call::receive_messages_inherent { entries })
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::receive_messages_inherent { .. })
 		}
 	}
 }

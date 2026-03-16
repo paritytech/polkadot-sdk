@@ -82,6 +82,13 @@ fn main() {
 		.enable_feature("increment-spec-version")
 		.set_file_name("wasm_binary_slot_duration_18s.rs")
 		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("speculative-messaging")
+		.import_memory()
+		.set_file_name("wasm_binary_speculative_messaging.rs")
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

@@ -71,6 +71,11 @@ pub mod slot_duration_18s {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
 }
 
+pub mod speculative_messaging {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_speculative_messaging.rs"));
+}
+
 mod genesis_config_presets;
 mod test_pallet;
 
@@ -399,6 +404,10 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	#[cfg(feature = "speculative-messaging")]
+	type SpeculativeMessagingProvider =
+		cumulus_pallet_speculative_messaging::Pallet<Runtime>;
+	#[cfg(not(feature = "speculative-messaging"))]
 	type SpeculativeMessagingProvider = ();
 }
 
@@ -413,6 +422,13 @@ impl pallet_aura::Config for Runtime {
 	#[cfg(not(feature = "sync-backing"))]
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+}
+
+impl cumulus_pallet_speculative_messaging::Config for Runtime {
+	type MaxDestinations = ConstU32<100>;
+	type MaxSources = ConstU32<100>;
+	type MaxMessagesPerBlock = ConstU32<1000>;
+	type MaxPayloadSize = ConstU32<1024>;
 }
 
 impl test_pallet::Config for Runtime {}
@@ -432,6 +448,7 @@ construct_runtime! {
 		Aura: pallet_aura,
 		AuraExt: cumulus_pallet_aura_ext,
 		WeightReclaim: cumulus_pallet_weight_reclaim,
+		SpeculativeMessaging: cumulus_pallet_speculative_messaging,
 	}
 }
 
