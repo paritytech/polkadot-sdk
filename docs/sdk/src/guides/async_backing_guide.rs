@@ -86,15 +86,13 @@
 //!
 //! 5. Configure `pallet_aura` in the runtime.
 //!
-//! - Set `AllowMultipleBlocksPerSlot` to `false` (don't worry, we will set it to `true` when we
-//! activate async backing in phase 3).
+//! - Set `AllowMultipleBlocksPerSlot` to `true` to allow multiple blocks per slot.
 //!
 //! - Define `pallet_aura::SlotDuration` using our constant `SLOT_DURATION`
 //! ```ignore
 //! impl pallet_aura::Config for Runtime {
 //! 	..
-//! 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-//! 	#[cfg(feature = "experimental")]
+//! 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 //! 	type SlotDuration = ConstU64<SLOT_DURATION>;
 //! 	..
 //! }
