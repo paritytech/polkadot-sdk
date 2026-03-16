@@ -623,9 +623,12 @@ where
 		});
 	}
 
-	// Spawn OUTBOUND distributor: watches finalized parachain blocks,
-	// reads PendingOutgoing from runtime storage, builds MessageBatch,
-	// and sends to destination relay peers.
+	// Spawn OUTBOUND distributor: watches **best** (not finalized) parachain
+	// blocks, reads PendingOutgoing from runtime storage, builds MessageBatch,
+	// and sends to destination relay peers immediately. This is the
+	// "speculative" part — we forward messages before they are finalized,
+	// achieving ~1 relay block latency instead of waiting for finality
+	// (which would add 2-3 relay blocks of delay).
 	if let Some(ref relay_net) = relay_network {
 		let outbound_client = client.clone();
 		let outbound_relay_net = relay_net.clone();
@@ -635,13 +638,21 @@ where
 			use sc_client_api::{BlockchainEvents, StorageProvider};
 			use sp_core::storage::StorageKey;
 
-			// Subscribe to finalized blocks
-			let mut finality_stream = outbound_client.finality_notification_stream();
+			// Subscribe to best (imported) blocks — NOT finalized.
+			// This lets us forward messages as soon as the block is
+			// built, before the relay chain has even included the
+			// candidate. The relay chain's provides/requires matching
+			// is the safety net if the block is reverted.
+			let mut import_stream = outbound_client.import_notification_stream();
 
 			while let Some(notification) = {
 				use futures::StreamExt;
-				finality_stream.next().await
+				import_stream.next().await
 			} {
+				// Only act on new best blocks (skip reorgs and non-best)
+				if !notification.is_new_best {
+					continue;
+				}
 				let block_hash = notification.hash;
 
 				// Read PendingOutgoing storage for all destinations.
