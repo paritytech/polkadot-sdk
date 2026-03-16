@@ -192,6 +192,7 @@ pub mod pallet {
 	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use polkadot_primitives_speculative_messaging::SpeculativeMessagingProvider as _;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -264,6 +265,17 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Provider for speculative messaging commitments.
+		///
+		/// This is called during `on_finalize` to collect the [`ProvidesCommitment`]
+		/// root and any [`RequiresCommitment`]s produced during this block. The
+		/// collected data is stored in [`ProvidesSpecMsgRoot`] and
+		/// [`PendingRequiresSpecMsg`], which `validate_block` reads to produce the
+		/// [`ValidationResult`].
+		///
+		/// Set to `()` for runtimes that do not use speculative messaging.
+		type SpeculativeMessagingProvider: polkadot_primitives_speculative_messaging::SpeculativeMessagingProvider;
 	}
 
 	#[pallet::hooks]
@@ -451,6 +463,21 @@ pub mod pallet {
 				UnincludedSegment::<T>::append(ancestor);
 			}
 			HrmpOutboundMessages::<T>::put(outbound_messages);
+
+			// Collect speculative messaging commitments from the configured
+			// provider. These ephemeral storage items are read by
+			// `validate_block` and included in the `ValidationResult`.
+			if let Some(root) = T::SpeculativeMessagingProvider::provides_root() {
+				ProvidesSpecMsgRoot::<T>::put(root);
+			}
+			let spec_requires = T::SpeculativeMessagingProvider::requires_commitments();
+			if !spec_requires.is_empty() {
+				let bounded: frame_support::BoundedVec<_, _> = spec_requires.try_into().expect(
+					"Number of requires commitments must not exceed \
+					 MAX_REQUIRES_COMMITMENT_NUM; qed",
+				);
+				PendingRequiresSpecMsg::<T>::put(bounded);
+			}
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {

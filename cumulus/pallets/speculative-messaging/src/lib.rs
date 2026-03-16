@@ -29,11 +29,17 @@
 //!   each upstream source, and the last provides root built against.
 //!   Processing a batch of messages produces a [`RequiresCommitment`].
 //!
-//! # Integration
+//! # Integration with `pallet-parachain-system`
 //!
-//! This pallet is designed to be integrated with `pallet-parachain-system` in
-//! a future step. For now it exposes public methods that the parachain system
-//! pallet (or tests) can call:
+//! This pallet implements [`SpeculativeMessagingProvider`] so that
+//! `pallet-parachain-system` can collect provides/requires commitments at
+//! block finalization. Configure it via:
+//!
+//! ```ignore
+//! type SpeculativeMessagingProvider = pallet_speculative_messaging::Pallet<Runtime>;
+//! ```
+//!
+//! The public API methods are:
 //!
 //! - [`Pallet::send_message`] — append a message to a destination's MMR
 //! - [`Pallet::receive_messages`] — process an incoming batch from a source
@@ -461,5 +467,28 @@ pub mod pallet {
 				.map(|(para_id, peer_id)| (para_id, peer_id.into_inner()))
 				.collect()
 		}
+	}
+}
+
+// =========================================================================
+// SpeculativeMessagingProvider implementation
+// =========================================================================
+
+use polkadot_primitives_speculative_messaging::SpeculativeMessagingProvider;
+
+impl<T: Config> SpeculativeMessagingProvider for Pallet<T> {
+	fn provides_root() -> Option<sp_core::H256> {
+		let commitment = Self::provides_commitment();
+		if commitment.is_empty() {
+			None
+		} else {
+			Some(commitment.root)
+		}
+	}
+
+	fn requires_commitments()
+		-> alloc::vec::Vec<polkadot_primitives_speculative_messaging::RequiresCommitment>
+	{
+		Self::requires_commitments()
 	}
 }

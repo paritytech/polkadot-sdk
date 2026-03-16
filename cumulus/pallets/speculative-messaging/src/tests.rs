@@ -812,3 +812,100 @@ fn mmr_state_validate_detects_missing_peaks() {
 	state.peaks.pop();
 	assert!(!state.validate());
 }
+
+// =========================================================================
+// SpeculativeMessagingProvider trait implementation tests
+// =========================================================================
+
+use polkadot_primitives_speculative_messaging::SpeculativeMessagingProvider;
+
+#[test]
+fn provider_provides_root_returns_none_when_empty() {
+	new_test_ext().execute_with(|| {
+		// No messages sent — root should be None.
+		assert!(<SpeculativeMessaging as SpeculativeMessagingProvider>::provides_root().is_none());
+	});
+}
+
+#[test]
+fn provider_provides_root_returns_some_after_send() {
+	new_test_ext().execute_with(|| {
+		SpeculativeMessaging::send_message(para(100), b"hello".to_vec()).unwrap();
+		let root = <SpeculativeMessaging as SpeculativeMessagingProvider>::provides_root();
+		assert!(root.is_some());
+		// Root should match the commitment from the public API.
+		assert_eq!(root.unwrap(), SpeculativeMessaging::provides_commitment().root);
+	});
+}
+
+#[test]
+fn provider_requires_empty_initially() {
+	new_test_ext().execute_with(|| {
+		let reqs =
+			<SpeculativeMessaging as SpeculativeMessagingProvider>::requires_commitments();
+		assert!(reqs.is_empty());
+	});
+}
+
+#[test]
+fn provider_requires_returns_commitments_after_receive() {
+	new_test_ext().execute_with(|| {
+		let source = para(500);
+		let root = H256::from([0xBB; 32]);
+		SpeculativeMessaging::receive_messages(source, 3, root).unwrap();
+
+		let reqs =
+			<SpeculativeMessaging as SpeculativeMessagingProvider>::requires_commitments();
+		assert_eq!(reqs.len(), 1);
+		assert_eq!(reqs[0].source, source);
+		assert_eq!(reqs[0].expected_root, root);
+	});
+}
+
+#[test]
+fn provider_requires_cleared_across_blocks() {
+	new_test_ext().execute_with(|| {
+		let source = para(100);
+		let root = H256::from([0xAA; 32]);
+		SpeculativeMessaging::receive_messages(source, 1, root).unwrap();
+
+		assert_eq!(
+			<SpeculativeMessaging as SpeculativeMessagingProvider>::requires_commitments().len(),
+			1,
+		);
+
+		next_block();
+
+		// After on_initialize the pending requires are cleared.
+		assert!(
+			<SpeculativeMessaging as SpeculativeMessagingProvider>::requires_commitments()
+				.is_empty(),
+		);
+	});
+}
+
+#[test]
+fn provider_provides_root_persists_across_blocks() {
+	new_test_ext().execute_with(|| {
+		SpeculativeMessaging::send_message(para(200), b"msg".to_vec()).unwrap();
+		let root1 = <SpeculativeMessaging as SpeculativeMessagingProvider>::provides_root();
+
+		next_block();
+
+		// Provides root persists because MMR state persists.
+		let root2 = <SpeculativeMessaging as SpeculativeMessagingProvider>::provides_root();
+		assert_eq!(root1, root2);
+
+		// Sending more changes the root.
+		SpeculativeMessaging::send_message(para(200), b"msg2".to_vec()).unwrap();
+		let root3 = <SpeculativeMessaging as SpeculativeMessagingProvider>::provides_root();
+		assert_ne!(root2, root3);
+	});
+}
+
+#[test]
+fn noop_provider_returns_none_and_empty() {
+	// Verify the () noop implementation.
+	assert!(<() as SpeculativeMessagingProvider>::provides_root().is_none());
+	assert!(<() as SpeculativeMessagingProvider>::requires_commitments().is_empty());
+}

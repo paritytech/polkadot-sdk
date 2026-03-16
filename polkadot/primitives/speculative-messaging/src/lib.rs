@@ -48,3 +48,36 @@ pub use merkle_tree::{DestinationMerkleTree, MerkleProof, StoredMerkleTree};
 pub use messages::{MessageBatch, OutgoingMessage};
 pub use proofs::{bag_peaks, merge_mmr_nodes, LateBlockProof, MmrExtensionProof};
 pub use state::{IncomingMessageState, OutgoingMessageState, SourceState};
+
+use alloc::vec::Vec;
+use sp_core::H256;
+
+/// Trait for collecting speculative messaging commitments at block finalization.
+///
+/// Implementors provide the current block's [`ProvidesCommitment`] root (the
+/// top-level Merkle root over all per-destination MMR roots) and any
+/// [`RequiresCommitment`]s (references to upstream providers' roots that this
+/// chain consumed messages from).
+///
+/// `pallet-parachain-system` calls these methods during `on_finalize` to
+/// populate its ephemeral storage items, which `validate_block` later reads
+/// to produce the [`ValidationResult`].
+pub trait SpeculativeMessagingProvider {
+	/// Returns the provides root for outgoing speculative messages this block,
+	/// or `None` if no messages have ever been sent.
+	fn provides_root() -> Option<H256>;
+
+	/// Returns the requires commitments accumulated during this block.
+	fn requires_commitments() -> Vec<RequiresCommitment>;
+}
+
+/// No-op implementation for runtimes that do not use speculative messaging.
+impl SpeculativeMessagingProvider for () {
+	fn provides_root() -> Option<H256> {
+		None
+	}
+
+	fn requires_commitments() -> Vec<RequiresCommitment> {
+		Vec::new()
+	}
+}
