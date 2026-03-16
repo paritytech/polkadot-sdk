@@ -58,7 +58,7 @@ pub mod pallet {
 	use super::*;
 	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame_system::{ensure_root, pallet_prelude::*};
 	use per_dest_mmr::MmrState;
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use polkadot_primitives_speculative_messaging::{
@@ -143,6 +143,29 @@ pub mod pallet {
 	pub type PendingRequires<T: Config> = StorageValue<_, Vec<RequiresCommitment>, ValueQuery>;
 
 	// =========================================================================
+	// Peer registry storage
+	// =========================================================================
+
+	/// Maximum length of a serialized relay chain peer identity.
+	///
+	/// PeerIds are typically 38 bytes (multihash-encoded ed25519 public
+	/// key). 64 bytes provides room for future peer ID formats.
+	const MAX_PEER_ID_LEN: u32 = 64;
+
+	/// Relay chain peer identities for speculative message routing.
+	///
+	/// Maps a destination `ParaId` to the opaque peer identity bytes of
+	/// the relay chain node responsible for that parachain. This is the
+	/// "hardcoded discovery" mechanism: collators read this map to know
+	/// where to forward speculative messages.
+	///
+	/// Managed via the [`Pallet::set_relay_peer`] and
+	/// [`Pallet::remove_relay_peer`] extrinsics (root-only for MVP).
+	#[pallet::storage]
+	pub type RelayPeers<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, BoundedVec<u8, ConstU32<MAX_PEER_ID_LEN>>, OptionQuery>;
+
+	// =========================================================================
 	// Events
 	// =========================================================================
 
@@ -164,6 +187,14 @@ pub mod pallet {
 		/// A new destination was added to the top-level tree.
 		DestinationAdded {
 			destination: ParaId,
+		},
+		/// A relay chain peer was registered or updated for a parachain.
+		RelayPeerUpdated {
+			para_id: ParaId,
+		},
+		/// A relay chain peer registration was removed.
+		RelayPeerRemoved {
+			para_id: ParaId,
 		},
 	}
 
@@ -209,6 +240,49 @@ pub mod pallet {
 				1 + removed.unique as u64,
 				1 + removed.unique as u64,
 			)
+		}
+	}
+
+	// =========================================================================
+	// Dispatchables (extrinsics)
+	// =========================================================================
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Register the relay chain peer identity for a given parachain.
+		///
+		/// This is the "hardcoded discovery" mechanism for the MVP.
+		/// Collator networking reads this storage to know which relay
+		/// chain peer handles speculative messages for each destination.
+		///
+		/// Only callable by root (sudo) for the MVP.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_relay_peer(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			peer_id: BoundedVec<u8, ConstU32<MAX_PEER_ID_LEN>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			RelayPeers::<T>::insert(para_id, peer_id);
+			Self::deposit_event(Event::RelayPeerUpdated { para_id });
+			Ok(())
+		}
+
+		/// Remove the relay chain peer registration for a given
+		/// parachain.
+		///
+		/// Only callable by root (sudo) for the MVP.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn remove_relay_peer(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			RelayPeers::<T>::remove(para_id);
+			Self::deposit_event(Event::RelayPeerRemoved { para_id });
+			Ok(())
 		}
 	}
 
@@ -373,6 +447,19 @@ pub mod pallet {
 		/// Returns the top-level Merkle tree (for proof generation).
 		pub fn top_level_tree() -> StoredMerkleTree {
 			TopLevelTree::<T>::get()
+		}
+
+		/// Returns the relay chain peer identity registered for the
+		/// given parachain, if any.
+		pub fn relay_peer(para_id: ParaId) -> Option<Vec<u8>> {
+			RelayPeers::<T>::get(para_id).map(|bounded| bounded.into_inner())
+		}
+
+		/// Returns all registered relay chain peer entries.
+		pub fn all_relay_peers() -> Vec<(ParaId, Vec<u8>)> {
+			RelayPeers::<T>::iter()
+				.map(|(para_id, peer_id)| (para_id, peer_id.into_inner()))
+				.collect()
 		}
 	}
 }

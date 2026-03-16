@@ -69,6 +69,7 @@ members = [
 	"cumulus/client/consensus/common",
 	"cumulus/client/consensus/relay-chain",
 	"cumulus/client/network",
+	"cumulus/client/speculative-messaging",
 	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
 	"cumulus/client/relay-chain-inprocess-interface",
@@ -748,6 +749,7 @@ cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", defaul
 cumulus-client-consensus-common = { path = "cumulus/client/consensus/common", default-features = false }
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false }
 cumulus-client-network = { path = "cumulus/client/network", default-features = false }
+cumulus-client-speculative-messaging = { path = "cumulus/client/speculative-messaging" }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
