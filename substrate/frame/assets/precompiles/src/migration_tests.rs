@@ -339,8 +339,8 @@ fn migration_respects_weight_limits() {
 		let mut steps = 0u32;
 
 		// Use a weight that allows processing ~2 assets per step
-		// The default WeightInfo for () returns ~390M ref_time per step
-		let limited_weight = Weight::from_parts(800_000_000, 0);
+		// The default WeightInfo for () returns ~423M ref_time per step
+		let limited_weight = Weight::from_parts(900_000_000, 0);
 
 		loop {
 			let mut meter = WeightMeter::with_limit(limited_weight);
