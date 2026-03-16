@@ -18,6 +18,7 @@ use super::*;
 use crate::{
 	configuration,
 	mock::{new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, Test},
+	runtime_api_impl,
 };
 use bitvec::{bitvec, prelude::Lsb0};
 use frame_support::{assert_err, assert_ok};
@@ -586,4 +587,16 @@ fn active_config_hrmp_channel_size_and_capacity_ratio_works() {
 			(2048, 200)
 		);
 	})
+}
+
+#[test]
+fn max_relay_parent_session_age_runtime_api_returns_zero_post_migration() {
+	// Verify that the `max_relay_parent_session_age` runtime API also
+	// returns 0 when queried against the default / post-migration active config.
+	new_test_ext(Default::default()).execute_with(|| {
+		assert_eq!(
+			runtime_api_impl::vstaging::max_relay_parent_session_age::<Test>(),
+			0,
+		);
+	});
 }
