@@ -222,15 +222,19 @@
 //!
 //! ## Timing by Block Number
 //!
-//! With asynchronous backing it will be possible for parachains to opt for a block time of 6
-//! seconds rather than 12 seconds. But modifying block duration isn’t so simple for a parachain
-//! which was measuring time in terms of its own block number. It could result in expected and
-//! actual time not matching up, stalling the parachain.
+//! With asynchronous backing, parachains produce blocks every 6 seconds rather than 12 seconds.
+//! This means that any on-chain logic that derives time from parachain block numbers will see
+//! time move twice as fast. This could result in expected and actual time not matching up,
+//! potentially causing issues with vesting schedules, unlock periods, or other time-dependent
+//! logic.
 //!
-//! One strategy to deal with this issue is to instead rely on relay chain block numbers for timing.
-//! Relay block number is kept track of by each parachain in `pallet-parachain-system` with the
-//! storage value `LastRelayChainBlockNumber`. This value can be obtained and used wherever timing
-//! based on block number is needed.
+//! The recommended strategy is to rely on relay chain block numbers for timing instead of
+//! parachain block numbers. Relay block number is kept track of by each parachain in
+//! `pallet-parachain-system` with the storage value `LastRelayChainBlockNumber`. This value can
+//! be obtained and used wherever timing based on block number is needed.
+//!
+//! Alternatively, `pallet_timestamp` provides wall-clock time which is independent of block
+//! number and is not affected by changes in block time.
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
