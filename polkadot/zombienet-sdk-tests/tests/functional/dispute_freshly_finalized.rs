@@ -14,7 +14,9 @@ use crate::utils::{
 };
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_para_is_registered, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_is_registered, assert_para_throughput,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use tokio::time::Duration;
@@ -104,6 +106,10 @@ async fn dispute_freshly_finalized_test() -> Result<(), anyhow::Error> {
 
 	check_metrics(&honest_validators, &metric_checks).await?;
 	log::info!("Check approval / dispute finality lag concluded ok");
+
+	for honest_validator in honest_validators {
+		assert_finality_lag(&honest_validator.wait_client().await?, 3).await?;
+	}
 
 	log::info!("Test finished successfully");
 	Ok(())
