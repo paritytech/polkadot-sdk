@@ -197,10 +197,10 @@
 //!
 //! This phase consists of changes to your parachain’s runtime that activate async backing feature.
 //!
-//! 1. Configure `pallet_aura`, setting `AllowMultipleBlocksPerSlot` to true in
-//!    `runtime/src/lib.rs`.
+//! 1. Verify `pallet_aura` has `AllowMultipleBlocksPerSlot` set to `true` in
+//!    `runtime/src/lib.rs` (this should already be done from Phase 1).
 #![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
-//! 2. Increase the maximum `UNINCLUDED_SEGMENT_CAPACITY` in `runtime/src/lib.rs`.
+//! 2. Verify `UNINCLUDED_SEGMENT_CAPACITY` is set to at least `3` in `runtime/src/lib.rs`.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", async_backing_params)]
 //! 3. Decrease `MILLISECS_PER_BLOCK` to 6000.
 //!
@@ -210,16 +210,12 @@
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", block_times)]
 //! 4. Update `MAXIMUM_BLOCK_WEIGHT` to reflect the increased time available for block production.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", max_block_weight)]
-//! 5. Add a feature flagged alternative for `MinimumPeriod` in `pallet_timestamp`. The type should
-//!    be `ConstU64<0>` with the feature flag experimental, and `ConstU64<{SLOT_DURATION / 2}>`
-//!    without.
+//! 5. Set `MinimumPeriod` to `0` in `pallet_timestamp`. This is required to allow multiple blocks
+//!    within the same slot.
 //! ```ignore
 //! impl pallet_timestamp::Config for Runtime {
 //!     ..
-//!     #[cfg(feature = "experimental")]
 //!     type MinimumPeriod = ConstU64<0>;
-//!     #[cfg(not(feature = "experimental"))]
-//!     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 //!     ..
 //! }
 //! ```
