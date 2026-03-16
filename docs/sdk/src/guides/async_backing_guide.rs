@@ -117,11 +117,8 @@
 //! - Inside the `impl_runtime_apis!` block for your runtime, implement the
 //!   `cumulus_primitives_aura::AuraUnincludedSegmentApi` as shown below.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/apis.rs", impl_can_build_upon)]
-//! **Note:** With a capacity of 1 we have an effective velocity of ½ even when velocity is
-//! configured to some larger value. This is because capacity will be filled after a single block is
-//! produced and will only be freed up after that block is included on the relay chain, which takes
-//! 2 relay blocks to accomplish. Thus with capacity 1 and velocity 1 we get the customary 12 second
-//! parachain block time.
+//! **Note:** With the default capacity of 3 and velocity of 1, a single parachain block is
+//! authored per relay chain block, giving a 6 second parachain block time.
 //!
 //! 8. If your `runtime/src/lib.rs` provides a `CheckInherents` type to `register_validate_block`,
 //!    remove it. `FixedVelocityConsensusHook` makes it unnecessary. The following example shows how
