@@ -37,14 +37,13 @@
 //! This phase involves configuring your parachain’s runtime `/runtime/src/lib.rs` to make use of
 //! async backing system.
 //!
-//! 1. Establish and ensure constants for `capacity` and `velocity` are both set to 1 in the
-//!    runtime.
+//! 1. Establish and ensure constants for `capacity` and `velocity` in the runtime.
 //! 2. Establish and ensure the constant relay chain slot duration measured in milliseconds equal to
 //!    `6000` in the runtime.
 //! ```rust
 //! // Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
 //! // relay chain.
-//! pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+//! pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 //! // How many parachain blocks are processed by the relay chain per parent. Limits the number of
 //! // blocks authored per slot.
 //! pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
