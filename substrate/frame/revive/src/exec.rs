@@ -1826,6 +1826,12 @@ where
 		self.top_frame_mut().delegate = Some(delegate);
 	}
 
+	/// Set the read-only flag on the top frame for testing purposes.
+	#[cfg(test)]
+	pub(crate) fn set_read_only(&mut self, read_only: bool) {
+		self.top_frame_mut().read_only = read_only;
+	}
+
 	fn block_hash(&self, block_number: U256) -> Option<H256> {
 		let Ok(block_number) = BlockNumberFor::<T>::try_from(block_number) else {
 			return None;

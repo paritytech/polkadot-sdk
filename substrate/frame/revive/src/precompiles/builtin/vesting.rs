@@ -507,6 +507,56 @@ mod tests {
 	}
 
 	#[test]
+	fn vest_reverts_in_read_only_context() {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			ext.set_read_only(true);
+
+			let input = IVesting::IVestingCalls::vest(IVesting::vestCall {});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			match result {
+				Err(Error::Error(e)) => {
+					assert_eq!(
+						e.error,
+						crate::Error::<Test>::StateChangeDenied.into(),
+						"expected StateChangeDenied"
+					);
+				},
+				other => panic!("expected StateChangeDenied error, got: {:?}", other),
+			}
+		})
+	}
+
+	#[test]
+	fn vest_other_reverts_in_read_only_context() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::test_utils::BOB_ADDR;
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			ext.set_read_only(true);
+
+			let input = IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
+				target: alloy_core::primitives::Address::from(BOB_ADDR.0),
+			});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			match result {
+				Err(Error::Error(e)) => {
+					assert_eq!(
+						e.error,
+						crate::Error::<Test>::StateChangeDenied.into(),
+						"expected StateChangeDenied"
+					);
+				},
+				other => panic!("expected StateChangeDenied error, got: {:?}", other),
+			}
+		})
+	}
+
+	#[test]
 	fn vest_other_reverts_when_target_has_no_schedule() {
 		ExtBuilder::default().build().execute_with(|| {
 			use crate::test_utils::BOB_ADDR;
