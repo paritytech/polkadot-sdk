@@ -27,14 +27,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  #check-synchronization:
-   # uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
-    #secrets:
-     # fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
-
   set-image:
-    #needs: [ check-synchronization ]
-    #if: needs.check-synchronization.outputs.checks_passed == 'true'
+    if: ${{ github.event.inputs.version != '' && contains(fromJSON('["nprt", "ArshamTeymouri", "EgorPopelyaev", "alvicsam", "AndWeHaveAPlan", "eduardspa", "BDevParity"]'), github.actor) }}
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -291,18 +285,9 @@ jobs:
             echo "No changes to commit"
           fi
 
-      - name: Generate token for paritytech/polkadot-sdk
-        id: generate_write_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
-        with:
-            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
-            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: paritytech
-            repositories: polkadot-sdk
-
       - name: Create Pull Request to base release branch
         env:
-          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           BRANCH_NAME: ${{ github.ref_name }}
           FULL_RELEASE: ${{ inputs.version }}
           GH_REPOSITORY: ${{ github.repository }}
@@ -358,7 +343,7 @@ jobs:
 
       - name: Add comment about spec_version
         env:
-          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           BRANCH_NAME: ${{ github.ref_name }}
           GH_REPOSITORY: ${{ github.repository }}
           GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
