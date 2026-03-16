@@ -24,6 +24,8 @@ interface IVesting {
 	/// Returns the amount of funds still locked (to be vested) for the caller.
 	///
 	/// The returned value is in native (Substrate) denomination.
-	/// Returns 0 if the caller has no vesting schedule.
+	/// Returns 0 in two cases: the caller has no vesting schedule, or the caller
+	/// has a schedule but all funds are already unlocked (fully vested). Both cases
+	/// mean there is nothing left to vest; calling vest() in either case will revert.
 	function vestingBalance() external view returns (uint256);
 }

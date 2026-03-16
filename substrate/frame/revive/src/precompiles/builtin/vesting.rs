@@ -119,6 +119,9 @@ where
 				Ok(Vec::new())
 			},
 			// View function to query the currently locked (unvested) balance for the caller.
+			// vesting_balance() returns Option<Balance>: None means no schedule exists,
+			// Some(0) means a schedule exists but all funds are already unlocked. Both
+			// collapse to 0 here — in either case there is nothing left to vest.
 			IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}) => {
 				let account_id = env
 					.caller()
