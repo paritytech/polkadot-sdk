@@ -26,7 +26,7 @@ use sc_client_api::{
 	StaleBlock, StorageData, StorageEventStream, StorageKey, StorageProvider,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_api::{CallApiAt, CallApiAtParams};
+use sp_api::{CallApiAt, CallApiAtParams, CallContext};
 use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMetadata, Info};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
@@ -241,8 +241,12 @@ impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMock
 		self.client.call_api_at(params)
 	}
 
-	fn runtime_version_at(&self, hash: Block::Hash) -> Result<RuntimeVersion, sp_api::ApiError> {
-		self.client.runtime_version_at(hash)
+	fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, sp_api::ApiError> {
+		self.client.runtime_version_at(hash, call_context)
 	}
 
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, sp_api::ApiError> {

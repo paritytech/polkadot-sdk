@@ -21,6 +21,7 @@ pub fn make_submit_delivery_receipt_message() -> EventFixture {
                     hex!("0000000000000000000000000000000000000000000000000000000000000000").into(),
                 ],
                 data: hex!("907b6ec7bf3f2496ef79238e0fb19e032bfe444c7ffe906bd340c6c4ffe8511f0000000000000000000000000000000000000000000000000000000000000001d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").into(),
+                tx_index: 0,
             },
             proof: Proof {
                 receipt_proof: vec![
