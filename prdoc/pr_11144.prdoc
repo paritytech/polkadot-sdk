@@ -1,0 +1,19 @@
+title: 'Snowbridge: receipt verification with alloy primitives'
+doc:
+- audience: Runtime Dev
+  description: "The new verifier checks both the root and the exact receipt key (transaction index), aligning with how proofs are generated and preventing proofs that follow a valid hash chain but reference the wrong key."
+crates:
+- name: snowbridge-beacon-primitives
+  bump: minor
+- name: snowbridge-verification-primitives
+  bump: major
+- name: snowbridge-pallet-ethereum-client
+  bump: major
+- name: snowbridge-inbound-queue-primitives
+  bump: patch
+- name: snowbridge-pallet-inbound-queue-fixtures
+  bump: patch
+- name: snowbridge-pallet-inbound-queue-v2-fixtures
+  bump: patch
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: patch

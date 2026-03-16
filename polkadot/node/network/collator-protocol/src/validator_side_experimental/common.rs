@@ -211,8 +211,8 @@ pub struct ProspectiveCandidate {
 /// Identifier of a collation being requested.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Advertisement {
-	/// Candidate's relay parent.
-	pub relay_parent: Hash,
+	/// Candidate's scheduling parent.
+	pub scheduling_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
@@ -268,7 +268,7 @@ pub struct SecondingRejectionInfo {
 impl From<&Advertisement> for SecondingRejectionInfo {
 	fn from(advertisement: &Advertisement) -> Self {
 		SecondingRejectionInfo {
-			relay_parent: advertisement.relay_parent,
+			relay_parent: advertisement.scheduling_parent,
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
 			maybe_output_head_hash: None,

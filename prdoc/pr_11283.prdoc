@@ -1,0 +1,5 @@
+title: Implement retry in bridges equivocation loop
+doc:
+- audience: Node Dev
+  description: Implement retry mechanism in bridges equivocation loop
+crates: []
