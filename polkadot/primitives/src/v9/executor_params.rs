@@ -120,9 +120,34 @@ pub enum ExecutorParam {
 	/// Enables WASM bulk memory proposal
 	#[codec(index = 7)]
 	WasmExtBulkMemory,
-	/// Enables elliptic curve cryptography (ECC) host functions.
+	/// Enables optional host functions. Multiple entries with different [`ExecutorHostFunction`]
+	/// variants can be present in the executor parameters simultaneously.
 	#[codec(index = 8)]
-	EccHostFn,
+	EnabledHostFunction(ExecutorHostFunction),
+}
+
+/// Optional host functions that can be enabled via [`ExecutorParam::EnabledHostFunction`].
+///
+/// Each variant represents a set of host functions that can be independently toggled on or off.
+/// New host function sets should be added here with deterministic discriminants.
+#[derive(
+	Clone,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+)]
+pub enum ExecutorHostFunction {
+	/// Elliptic curve cryptography (ECC) host functions.
+	///
+	/// Specifically: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377, Ed-on-BLS12-381-Bandersnatch.
+	#[codec(index = 1)]
+	Ecc,
 }
 
 /// Possible inconsistencies of executor params.
@@ -245,7 +270,7 @@ impl ExecutorParams {
 				PvfPrepTimeout(..) => None,
 				PvfExecTimeout(..) => None,
 				WasmExtBulkMemory => Some(param),
-				EccHostFn => None,
+				EnabledHostFunction(..) => None,
 			})
 			.for_each(|p| enc.extend(p.encode()));
 
@@ -329,7 +354,9 @@ impl ExecutorParams {
 					PvfExecKind::Approval => "PvfExecKind::Approval",
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
-				EccHostFn => "EccHostFn",
+				EnabledHostFunction(hf) => match hf {
+					ExecutorHostFunction::Ecc => "EnabledHostFunction::Ecc",
+				},
 			};
 
 			match *param {
@@ -365,7 +392,7 @@ impl ExecutorParams {
 					check!(param_ident, 1);
 				},
 
-				EccHostFn => {
+				EnabledHostFunction(_) => {
 					check!(param_ident, 1);
 				},
 			}
@@ -438,7 +465,7 @@ fn ensure_prep_hash_changes() {
 			PvfExecTimeout(PvfExecKind::Backing, 0),
 			PvfExecTimeout(PvfExecKind::Approval, 0),
 			WasmExtBulkMemory,
-			EccHostFn,
+			EnabledHostFunction(ExecutorHostFunction::Ecc),
 		][..],
 	);
 
@@ -459,7 +486,7 @@ fn ensure_prep_hash_changes() {
 			WasmExtBulkMemory => {
 				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..]))
 			},
-			EccHostFn => (ExecutorParams::default(), ExecutorParams::from(&[EccHostFn][..])),
+			EnabledHostFunction(_) => continue,
 		};
 
 		assert_ne!(ep1.prep_hash(), ep2.prep_hash());

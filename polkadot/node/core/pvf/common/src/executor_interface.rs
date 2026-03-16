@@ -142,7 +142,9 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	let mut config = DEFAULT_CONFIG.clone();
 	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
-	let ecc_hf_enabled = executor_params.iter().any(|p| matches!(p, ExecutorParam::EccHostFn));
+	let ecc_hf_enabled = executor_params.iter().any(|p| {
+		p == &ExecutorParam::EnabledHostFunction(polkadot_primitives::ExecutorHostFunction::Ecc)
+	});
 
 	if ecc_hf_enabled {
 		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctionsWithEcc>(
@@ -180,7 +182,7 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 			ExecutorParam::PrecheckingMaxMemory(_) |
 			ExecutorParam::PvfPrepTimeout(_, _) |
 			ExecutorParam::PvfExecTimeout(_, _) |
-			ExecutorParam::EccHostFn => (), // Not used here
+			ExecutorParam::EnabledHostFunction(_) => (), // Not used here
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit.clone());
@@ -222,7 +224,7 @@ type HostFunctions = (
 );
 
 /// Host functions with ECC (elliptic curve cryptography) support.
-/// Only used when `ExecutorParam::EccHostFn` is present.
+/// Only used when `ExecutorParam::EnabledHostFunction(ExecutorHostFunction::Ecc)` is present.
 type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctions);
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
@@ -413,7 +415,7 @@ mod tests {
 			PvfPrepTimeout(_, _) => true,
 			PvfExecTimeout(_, _) => true,
 			WasmExtBulkMemory => true,
-			EccHostFn => true,
+			EnabledHostFunction(_) => true,
 		};
 
 		// A minimal module with memory and an exported `validate_block` function.
@@ -493,7 +495,15 @@ mod tests {
 				base.clone(),
 				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
 			),
-			("EccHostFn", base.clone(), ExecutorParams::from(&[ExecutorParam::EccHostFn][..])),
+			(
+				"EnabledHostFunction(Ecc)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::EnabledHostFunction(
+						polkadot_primitives::ExecutorHostFunction::Ecc,
+					)][..],
+				),
+			),
 		];
 
 		for (name, a, b) in cases.into_iter() {
