@@ -854,6 +854,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-pallas"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c676d42c65f0b2d334fc0ae72a422de2e62ed75beb3022050c0e8a81f6ccc0f"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-pallas-ext"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bbaeac3876520e76ee237eab49e0eb3586c5b4267e6b740066588da9b58fc30"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
+ "ark-pallas",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
 name = "ark-poly"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1026,6 +1051,32 @@ dependencies = [
  "digest 0.10.7",
  "rand_core 0.6.4",
  "sha3",
+]
+
+[[package]]
+name = "ark-vesta"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3a6d658e5e7380af710828550b2dc2c7b033c9f3103d2690711cb07d5a62df6"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-vesta-ext"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0b7a48a187aa9f58e2b7d4d4f97b0eec39e263ec62e69cadeb0a4399718e778"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
 ]
 
 [[package]]
@@ -23559,8 +23610,12 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-pallas-ext",
  "ark-scale",
  "ark-std 0.5.0",
+ "ark-vesta",
+ "ark-vesta-ext",
  "sp-runtime-interface 24.0.0",
 ]
 
