@@ -2127,6 +2127,101 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	});
 }
 
+/// No reputation penalty for V3 advertisement when the V3 feature flag is disabled.
+#[test]
+fn v3_advertisement_with_v3_feature_disabled_no_reputation_penalty() {
+	// V3 feature is NOT enabled — TestState::default() only sets CandidateReceiptV2.
+	let mut test_state = TestState::default();
+	test_state.group_rotation_info.group_rotation_frequency = 100;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		// Block 2 so that head_b_parent (block 1) is in the allowed ancestry.
+		let head_b_num: u32 = 2;
+		let head_b_parent = get_parent_hash(head_b);
+		let head_b_grandparent = get_parent_hash(head_b_parent);
+
+		// leaf.slot == current_slot → head_b_parent is the valid V3 scheduling_parent.
+		let current_slot = Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+		);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(current_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		// relay_parent = grandparent, scheduling_parent = leaf's parent.
+		let mut committed_candidate =
+			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+		committed_candidate.descriptor.set_version(1);
+
+		let candidate: CandidateReceipt = committed_candidate.to_plain();
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		// Collator sends a V3 advertisement even though the feature is disabled on validators.
+		advertise_collation_v3(
+			&mut virtual_overseer,
+			peer_a,
+			head_b_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			CandidateDescriptorVersion::V3,
+		)
+		.await;
+
+		// Backing subsystem is asked whether it can second this candidate.
+		// Reply false → AdvertisementError::BlockedByBacking → reputation_changes() = None.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(CandidateBackingMessage::CanSecond(request, tx)) => {
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				tx.send(false).expect("CanSecond response dropped");
+			}
+		);
+
+		// No ReportPeer message must follow — the validator discards the advertisement
+		// without penalising the collator at all.
+		assert!(
+			virtual_overseer
+				.recv()
+				.timeout(std::time::Duration::from_millis(100))
+				.await
+				.is_none(),
+			"Validator must not send a ReportPeer message for a V3 advertisement \
+			 when the V3 feature is disabled",
+		);
+
+		virtual_overseer
+	});
+}
+
 /// V3 scheduling parent validation: when the leaf's slot equals the current slot
 /// (still in progress), the scheduling parent must be the leaf's parent.
 #[test]
