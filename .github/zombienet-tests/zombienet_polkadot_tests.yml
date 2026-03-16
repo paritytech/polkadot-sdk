@@ -269,13 +269,13 @@
     for bin in polkadot polkadot-parachain; do
       OLD_NAME="$bin-old"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2506/$bin
+      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
       chmod 755 $BIN_DIR/$OLD_NAME;
     done
     for bin in polkadot-execute-worker polkadot-prepare-worker; do
       OLD_NAME="$bin"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2506/$bin
+      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
       chmod 755 $BIN_DIR/$OLD_NAME;
     done
     ls -ltr $BIN_DIR
