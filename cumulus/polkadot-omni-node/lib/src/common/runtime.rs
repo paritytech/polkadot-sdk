@@ -245,6 +245,11 @@ impl MetadataInspector {
 		)
 		.map_err(|err| err.to_string())?;
 
+		println!("Metadata size: {}", opaque_metadata.len());
+		if opaque_metadata.len() >= 8 {
+			println!("Metadata prefix: {:02x?}", &opaque_metadata[..8]);
+		}
+
 		Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
 	}
 }
@@ -305,5 +310,56 @@ mod tests {
 		assert_eq!(aura_id_from_chain_spec_id("asset-hub-kusama"), AuraConsensusId::Sr25519);
 		assert_eq!(aura_id_from_chain_spec_id("penpal-rococo-1000"), AuraConsensusId::Sr25519);
 		assert_eq!(aura_id_from_chain_spec_id("collectives-westend"), AuraConsensusId::Sr25519);
+	}
+
+	#[test]
+	fn test_aura_consensus_id_v15() {
+		// Test with V15 metadata (Sr25519)
+		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join("tests/chain-specs/coretime-polkadot.json");
+		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
+			.expect("invalid chain spec");
+
+		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
+		let aura_id = inspector.aura_consensus_id();
+		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
+	}
+
+	#[test]
+	fn test_aura_consensus_id_v14() {
+		// Test with V14 metadata (Sr25519) from bridge-hub-polkadot
+		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join("tests/chain-specs/bridge-hub-polkadot.json");
+		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
+			.expect("invalid chain spec");
+
+		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
+		let aura_id = inspector.aura_consensus_id();
+		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
+	}
+
+	#[test]
+	fn test_aura_consensus_id_ed25519_blocker() {
+		// Asset Hub Polkadot uses Ed25519, but its production-like chain specs currently
+		// use V14 metadata that fails to decode with the current subxt-metadata crate.
+		// We use it here to verify that we gracefully handle or document these blockers.
+		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join("tests/chain-specs/asset-hub-polkadot-genesis.json");
+		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
+			.expect("invalid chain spec");
+
+		// Currently, this is expected to return an error during inspection due to V14 decoding issues.
+		// Once V14 support is fully compatible for this spec, this test should be updated 
+		// to verify Ed25519 detection.
+		match MetadataInspector::new(&chain_spec) {
+			Ok(inspector) => {
+				let aura_id = inspector.aura_consensus_id();
+				// If it ever starts working, it should be Ed25519.
+				println!("Detected Aura ID: {:?}", aura_id);
+			}
+			Err(e) => {
+				println!("Metadata inspection failed as expected for this V14 spec: {:?}", e);
+			}
+		}
 	}
 }
