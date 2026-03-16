@@ -62,16 +62,18 @@ mod utils;
 
 /// Host functions to speed up Elliptic Curve math.
 ///
-/// Provides: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377, Ed-on-BLS12-381-Bandersnatch.
+/// Provides: BLS12-381, Ed-on-BLS12-381-Bandersnatch, Pallas, Vesta.
+///
+/// As ratified by [RFC-0163](https://github.com/polkadot-fellows/RFCs/pull/163).
 #[cfg(all(
 	feature = "bls12-381",
-	feature = "bls12-377",
-	feature = "bw6-761",
-	feature = "ed-on-bls12-377",
 	feature = "ed-on-bls12-381-bandersnatch",
+	feature = "pallas",
+	feature = "vesta",
 ))]
-pub type HostFunctions = (
+pub type HostFunctionsRfc163 = (
 	bls12_381::host_calls::HostFunctions,
 	ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
-	// Adding stuff here directly exposes it to the node!
+	pallas::host_calls::HostFunctions,
+	vesta::host_calls::HostFunctions,
 );

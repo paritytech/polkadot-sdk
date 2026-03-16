@@ -2,7 +2,7 @@ title: Expose ECC host functions
 doc:
 - audience: Runtime Dev
   description: |-
-    Expose host functions for `BLS12-381`, `BLS12-377`, `BW6-761`, `Ed-on-BLS12-377`, `Ed-on-BLS12-381-Bandersnatch` for parachains.
+    Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`, `Pallas`, `Vesta` for parachains, as ratified by RFC-0163.
     Node operators should update to this version soon.
 
     The host function can then be enabled on-chain via Governance through `Configuration::set_executor_params`.

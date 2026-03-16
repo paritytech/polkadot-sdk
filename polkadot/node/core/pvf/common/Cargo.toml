@@ -30,7 +30,7 @@ sc-executor-common = { workspace = true, default-features = true }
 sc-executor-wasmtime = { workspace = true, default-features = true }
 
 sp-core = { workspace = true, default-features = true }
-sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["bls12-377", "bls12-381", "bw6-761", "ed-on-bls12-377", "ed-on-bls12-381-bandersnatch"] }
+sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["bls12-381", "ed-on-bls12-381-bandersnatch", "pallas", "vesta"] }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }

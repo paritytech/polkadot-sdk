@@ -143,7 +143,9 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	config.semantics = params_to_wasmtime_semantics(executor_params).0;
 
 	let ecc_hf_enabled = executor_params.iter().any(|p| {
-		p == &ExecutorParam::EnabledHostFunction(polkadot_primitives::ExecutorHostFunction::Ecc)
+		p == &ExecutorParam::EnabledHostFunction(
+			polkadot_primitives::ExecutorHostFunction::EccRfc163,
+		)
 	});
 
 	if ecc_hf_enabled {
@@ -224,8 +226,8 @@ type HostFunctions = (
 );
 
 /// Host functions with ECC (elliptic curve cryptography) support.
-/// Only used when `ExecutorParam::EnabledHostFunction(ExecutorHostFunction::Ecc)` is present.
-type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctions);
+/// Only used when `ExecutorParam::EnabledHostFunction(ExecutorHostFunction::EccRfc163)` is present.
+type HostFunctionsWithEcc = (HostFunctions, sp_crypto_ec_utils::HostFunctionsRfc163);
 
 /// The validation externalities that will panic on any storage related access. (PVFs should not
 /// have a notion of a persistent storage/trie.)
@@ -496,11 +498,11 @@ mod tests {
 				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
 			),
 			(
-				"EnabledHostFunction(Ecc)",
+				"EnabledHostFunction(EccRfc163)",
 				base.clone(),
 				ExecutorParams::from(
 					&[ExecutorParam::EnabledHostFunction(
-						polkadot_primitives::ExecutorHostFunction::Ecc,
+						polkadot_primitives::ExecutorHostFunction::EccRfc163,
 					)][..],
 				),
 			),

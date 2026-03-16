@@ -145,9 +145,9 @@ pub enum ExecutorParam {
 pub enum ExecutorHostFunction {
 	/// Elliptic curve cryptography (ECC) host functions.
 	///
-	/// Specifically: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377, Ed-on-BLS12-381-Bandersnatch.
+	/// Specifically: BLS12-381, Ed-on-BLS12-381-Bandersnatch, Pallas, Vesta.
 	#[codec(index = 1)]
-	Ecc,
+	EccRfc163,
 }
 
 /// Possible inconsistencies of executor params.
@@ -355,7 +355,7 @@ impl ExecutorParams {
 				},
 				WasmExtBulkMemory => "WasmExtBulkMemory",
 				EnabledHostFunction(hf) => match hf {
-					ExecutorHostFunction::Ecc => "EnabledHostFunction::Ecc",
+					ExecutorHostFunction::EccRfc163 => "EnabledHostFunction::EccRfc163",
 				},
 			};
 
@@ -465,7 +465,7 @@ fn ensure_prep_hash_changes() {
 			PvfExecTimeout(PvfExecKind::Backing, 0),
 			PvfExecTimeout(PvfExecKind::Approval, 0),
 			WasmExtBulkMemory,
-			EnabledHostFunction(ExecutorHostFunction::Ecc),
+			EnabledHostFunction(ExecutorHostFunction::EccRfc163),
 		][..],
 	);
 
