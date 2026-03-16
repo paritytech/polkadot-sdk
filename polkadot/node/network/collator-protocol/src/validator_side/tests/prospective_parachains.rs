@@ -2052,8 +2052,7 @@ fn v1_descriptor_version_detection_with_v3_enabled() {
 		)
 		.await;
 
-		let committed =
-			CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+		let committed = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
 		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed).await;
 
 		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V1)

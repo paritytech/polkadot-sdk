@@ -594,9 +594,6 @@ fn max_relay_parent_session_age_runtime_api_returns_zero_post_migration() {
 	// Verify that the `max_relay_parent_session_age` runtime API also
 	// returns 0 when queried against the default / post-migration active config.
 	new_test_ext(Default::default()).execute_with(|| {
-		assert_eq!(
-			runtime_api_impl::vstaging::max_relay_parent_session_age::<Test>(),
-			0,
-		);
+		assert_eq!(runtime_api_impl::vstaging::max_relay_parent_session_age::<Test>(), 0,);
 	});
 }
