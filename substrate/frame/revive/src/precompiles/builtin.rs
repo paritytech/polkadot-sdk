@@ -26,6 +26,7 @@ mod ripemd160;
 mod sha256;
 mod storage;
 mod system;
+#[cfg(any(feature = "vesting-precompile", test))]
 pub mod vesting;
 
 #[cfg(feature = "runtime-benchmarks")]

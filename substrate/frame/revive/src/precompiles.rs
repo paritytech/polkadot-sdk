@@ -56,8 +56,9 @@ pub(crate) use builtin::{
 
 /// Vesting precompile (address 0x0902) that calls `pallet_vesting::vest()`.
 ///
-/// Runtimes that want this precompile should include it in their `Config::Precompiles` tuple
-/// and ensure they implement `pallet_vesting::Config`.
+/// Runtimes that want this precompile should include it in their `Config::Precompiles` tuple,
+/// enable the `vesting-precompile` feature flag, and implement `pallet_vesting::Config`.
+#[cfg(any(feature = "vesting-precompile", test))]
 pub use builtin::vesting::Vesting;
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";

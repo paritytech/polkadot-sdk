@@ -53,7 +53,7 @@ pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
 pallet-transaction-payment = { workspace = true }
-pallet-vesting = { workspace = true }
+pallet-vesting = { workspace = true, optional = true }
 ripemd = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -82,6 +82,7 @@ pallet-proxy = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
+pallet-vesting = { workspace = true, default-features = true }
 proptest = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true }
@@ -111,7 +112,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"pallet-vesting/std",
+	"pallet-vesting?/std",
 	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",
@@ -146,7 +147,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-vesting/runtime-benchmarks",
+	"pallet-vesting?/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",
@@ -162,7 +163,8 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-vesting/try-runtime",
+	"pallet-vesting?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+vesting-precompile = ["dep:pallet-vesting"]
 trybuild = []
