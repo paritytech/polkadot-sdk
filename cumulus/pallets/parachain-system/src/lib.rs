@@ -492,9 +492,16 @@ pub mod pallet {
 			UpwardMessages::<T>::kill();
 			HrmpOutboundMessages::<T>::kill();
 			CustomValidationHeadData::<T>::kill();
+			ProvidesSpecMsgRoot::<T>::kill();
+			PendingRequiresSpecMsg::<T>::kill();
 			// The same as above. Reading here to make sure that the key is included in the proof.
 			HrmpWatermark::<T>::get();
-			weight += T::DbWeight::get().reads_writes(1, 5);
+			// 1 read for HrmpWatermark + 2 reads for the spec-msg storage items that
+			// must be reachable in the proof for `validate_block`, plus 7 writes for
+			// the kills above (ValidationData, ProcessedDownwardMessages, UpwardMessages,
+			// HrmpOutboundMessages, CustomValidationHeadData, ProvidesSpecMsgRoot,
+			// PendingRequiresSpecMsg).
+			weight += T::DbWeight::get().reads_writes(3, 7);
 
 			// Here, in `on_initialize` we must report the weight for both `on_initialize` and
 			// `on_finalize`.
@@ -965,6 +972,39 @@ pub mod pallet {
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+	/// Speculative messaging provides root set during this block.
+	///
+	/// Contains the top-level Merkle root over all per-destination MMR roots
+	/// for this parachain's outgoing speculative messages. Populated by the
+	/// speculative messaging pallet during block execution and read by
+	/// `validate_block` to include in the `ValidationResult`.
+	///
+	/// Cleared at the start of each block.
+	#[pallet::storage]
+	pub type ProvidesSpecMsgRoot<T: Config> = StorageValue<_, sp_core::H256, OptionQuery>;
+
+	/// Speculative messaging requires commitments set during this block.
+	///
+	/// Each entry is a `RequiresCommitment` indicating that this parachain
+	/// consumed messages from a source parachain against the given provides
+	/// root. Populated by the speculative messaging pallet during block
+	/// execution and read by `validate_block`.
+	///
+	/// Bounded by [`MAX_REQUIRES_COMMITMENT_NUM`] to prevent unbounded PoV
+	/// inflation and to guarantee the `validate_block` `try_push` cannot
+	/// panic.
+	///
+	/// Cleared at the start of each block.
+	#[pallet::storage]
+	pub type PendingRequiresSpecMsg<T: Config> = StorageValue<
+		_,
+		BoundedVec<
+			polkadot_primitives_speculative_messaging::RequiresCommitment,
+			ConstU32<{ polkadot_parachain_primitives::primitives::MAX_REQUIRES_COMMITMENT_NUM }>,
+		>,
+		ValueQuery,
+	>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {

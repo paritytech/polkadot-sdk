@@ -17,7 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -29,7 +29,10 @@ use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
-use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	HeadData, ValidationResult, MAX_REQUIRES_COMMITMENT_NUM,
+};
+use polkadot_primitives_speculative_messaging::LateBlockProof;
 use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
@@ -142,7 +145,7 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
-	let (blocks, proof) = block_data.into_inner();
+	let (blocks, proof, late_block_proofs) = block_data.into_inner();
 
 	assert_eq!(
 		*blocks
@@ -179,6 +182,8 @@ where
 	let mut hrmp_watermark = Default::default();
 	let mut head_data = None;
 	let mut new_validation_code = None;
+	let mut provides_spec_msg_root = None;
+	let mut requires_spec_msg = BoundedVec::default();
 	let num_blocks = blocks.len();
 
 	// Create the db
@@ -304,6 +309,72 @@ where
 						crate::CustomValidationHeadData::<PSC>::get()
 							.map_or_else(|| HeadData(parent_header.encode()), HeadData),
 					);
+
+					// Read speculative messaging commitments produced during
+					// block execution.
+					provides_spec_msg_root = crate::ProvidesSpecMsgRoot::<PSC>::get();
+					let raw_requires = crate::PendingRequiresSpecMsg::<PSC>::get();
+
+					// Get our own ParaId for late block proof verification.
+					let self_para_id = PSC::SelfParaId::get();
+
+					// Index late block proofs by source for O(n+m) lookup and
+					// to detect duplicates. Each source may have at most one
+					// late block proof.
+					let mut proof_map: BTreeMap<_, _> = BTreeMap::new();
+					for proof in late_block_proofs.iter() {
+						assert!(
+							proof_map.insert(proof.source, proof).is_none(),
+							"Duplicate late block proof for source {:?}",
+							proof.source,
+						);
+					}
+
+					// Process late block proofs: for each requires commitment
+					// that references an older provides root, find and verify a
+					// matching late block proof from the PoV. If verified,
+					// transform the requires to reference the current provides
+					// root.
+					for req in raw_requires.into_iter() {
+						let final_req =
+							if let Some(proof) = proof_map.remove(&req.source) {
+								// Verify the late block proof. On success it
+								// returns an updated RequiresCommitment
+								// pointing to the new (current) provides
+								// root.
+								proof
+									.verify(
+										req.expected_root,
+										self_para_id,
+										req.source,
+									)
+									.expect(
+										"Late block proof verification failed",
+									)
+							} else {
+								// No timing mismatch — pass through unchanged.
+								req
+							};
+
+						requires_spec_msg
+							.try_push((
+								final_req.source,
+								final_req.expected_root,
+							))
+							.expect(
+								"Number of requires commitments should not \
+								 exceed MAX_REQUIRES_COMMITMENT_NUM; \
+								 storage is bounded; qed",
+							);
+					}
+
+					// All late block proofs supplied in the PoV must have been
+					// consumed. Unused proofs are rejected to prevent PoV bloat.
+					assert!(
+						proof_map.is_empty(),
+						"PoV contains {} unused late block proof(s)",
+						proof_map.len(),
+					);
 				}
 			},
 		);
@@ -378,8 +449,8 @@ where
 		processed_downward_messages,
 		horizontal_messages,
 		hrmp_watermark,
-		provides_spec_msg_root: None,
-		requires_spec_msg: Default::default(),
+		provides_spec_msg_root,
+		requires_spec_msg,
 	}
 }
 

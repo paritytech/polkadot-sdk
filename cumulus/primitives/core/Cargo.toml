@@ -25,7 +25,13 @@ sp-trie = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-primitives = { workspace = true }
+polkadot-primitives-speculative-messaging = { workspace = true }
 xcm = { workspace = true }
+
+[dev-dependencies]
+sp-core = { workspace = true, default-features = true }
+polkadot-primitives-speculative-messaging = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -34,6 +40,7 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
+	"polkadot-primitives-speculative-messaging/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
