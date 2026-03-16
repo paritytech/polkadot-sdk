@@ -12,6 +12,15 @@ interface IVesting {
 	/// Reverts if the caller has no vesting schedule or if the origin is not signed.
 	function vest() external;
 
+	/// Unlock any vested funds of another account.
+	///
+	/// The `target` account must have funds still locked under the vesting pallet.
+	/// On success the vesting lock is reduced in line with the amount "vested" so far.
+	/// The caller pays the fee but the vesting schedule of `target` is updated.
+	///
+	/// Reverts if `target` has no vesting schedule or if the origin is not signed.
+	function vestOther(address target) external;
+
 	/// Returns the amount of funds still locked (to be vested) for the caller.
 	///
 	/// The returned value is in native (Substrate) denomination.

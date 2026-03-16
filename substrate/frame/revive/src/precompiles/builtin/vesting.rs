@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Config, U256,
+	Config, H160, U256,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
 };
@@ -28,6 +28,7 @@ use frame_support::{
 	traits::{Get, VestingSchedule},
 };
 use pallet_revive_uapi::precompiles::vesting::IVesting;
+use sp_runtime::traits::StaticLookup;
 
 pub struct Vesting<T>(PhantomData<T>);
 
@@ -81,6 +82,42 @@ where
 				let origin = frame_system::RawOrigin::Signed(account_id).into();
 				pallet_vesting::Pallet::<T>::vest(origin)
 					.map_err(|e| Error::Revert(alloc::format!("vest failed: {:?}", e).into()))?;
+				Ok(Vec::new())
+			},
+			IVestingCalls::vestOther(_) if env.is_read_only() => {
+				Err(crate::Error::<T>::StateChangeDenied.into())
+			},
+			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
+				if env.is_delegate_call() {
+					return Err(Error::Revert(
+						"vesting precompile cannot be called via delegate call".into(),
+					));
+				}
+
+				let caller_account = env
+					.caller()
+					.account_id()
+					.map_err(|e| {
+						Error::Revert(
+							alloc::format!("vestOther: caller has no account id: {:?}", e).into(),
+						)
+					})?
+					.clone();
+
+				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
+				let target_lookup = T::Lookup::unlookup(target_account);
+
+				let dispatch_weight =
+					pallet_vesting::Call::<T>::vest_other { target: target_lookup.clone() }
+						.get_dispatch_info()
+						.call_weight;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
+
+				let origin = frame_system::RawOrigin::Signed(caller_account).into();
+				pallet_vesting::Pallet::<T>::vest_other(origin, target_lookup).map_err(|e| {
+					Error::Revert(alloc::format!("vestOther failed: {:?}", e).into())
+				})?;
 				Ok(Vec::new())
 			},
 			// View function to query the currently locked (unvested) balance for the caller.
@@ -405,6 +442,82 @@ mod tests {
 				crate::U256::from(0u128),
 				"account with no vesting schedule should return 0"
 			);
+		})
+	}
+
+	#[test]
+	fn vest_other_succeeds_after_vesting_period() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::test_utils::{BOB, BOB_ADDR};
+			use frame_support::traits::{Currency, WithdrawReasons};
+
+			let locked = 500_000u128;
+			let per_block = 100u128;
+			let starting_block = 0u64;
+
+			<pallet_balances::Pallet<Test> as Currency<_>>::make_free_balance_be(
+				&BOB,
+				1_000_000u128,
+			);
+
+			let vesting_info = pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
+			let schedules: frame_support::BoundedVec<
+				_,
+				pallet_vesting::MaxVestingSchedulesGet<Test>,
+			> = alloc::vec![vesting_info].try_into().expect("single schedule; qed");
+			pallet_vesting::Vesting::<Test>::insert(&BOB, schedules);
+
+			let reasons = WithdrawReasons::except(
+				<Test as pallet_vesting::Config>::UnvestedFundsAllowedWithdrawReasons::get(),
+			);
+			<pallet_balances::Pallet<Test> as frame_support::traits::LockableCurrency<_>>::set_lock(
+				*b"vesting ",
+				&BOB,
+				locked,
+				reasons,
+			);
+
+			frame_system::Pallet::<Test>::set_block_number(1000);
+
+			// ALICE (the default caller) calls vestOther on BOB's behalf.
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
+				target: alloy_core::primitives::Address::from(BOB_ADDR.0),
+			});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert!(result.is_ok(), "vestOther precompile should succeed: {:?}", result.err());
+			assert!(result.unwrap().is_empty(), "vestOther returns empty bytes for void");
+		})
+	}
+
+	#[test]
+	fn vest_other_reverts_when_target_has_no_schedule() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::test_utils::BOB_ADDR;
+
+			frame_system::Pallet::<Test>::set_block_number(1000);
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
+				target: alloy_core::primitives::Address::from(BOB_ADDR.0),
+			});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			match result {
+				Err(Error::Revert(revert)) => {
+					assert!(
+						revert.reason.contains("vestOther failed"),
+						"unexpected revert message: {}",
+						revert.reason
+					);
+				},
+				other => panic!("expected Error::Revert for no vesting schedule, got: {:?}", other),
+			}
 		})
 	}
 }
