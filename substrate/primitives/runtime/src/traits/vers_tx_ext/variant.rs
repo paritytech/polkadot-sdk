@@ -155,8 +155,9 @@ where
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
 		match self {
-			ExtensionVariant::V0(ext) =>
-				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
+			ExtensionVariant::V0(ext) => {
+				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION)
+			},
 			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
 		}
 	}
@@ -203,7 +204,7 @@ mod tests {
 			_origin: Self::RuntimeOrigin,
 		) -> crate::DispatchResultWithInfo<Self::PostInfo> {
 			if self.0 == 0 {
-				return Err(DispatchError::Other("call is 0").into())
+				return Err(DispatchError::Other("call is 0").into());
 			}
 			Ok(Default::default())
 		}
@@ -306,7 +307,7 @@ mod tests {
 		) -> ValidateResult<Self::Val, MockCall> {
 			// If 'token' is 0 => invalid. Else ok.
 			if self.token == 0 {
-				return Err(InvalidTransaction::Custom(7).into())
+				return Err(InvalidTransaction::Custom(7).into());
 			}
 			Ok((ValidTransaction::default(), (), origin))
 		}

@@ -133,7 +133,7 @@ impl PipelineMetadataBuilder {
 				false,
 				"Duplicate definition for transaction extension version: {ext_version}",
 			);
-			return
+			return;
 		}
 
 		let mut ext_item_indices = Vec::with_capacity(ext_items.len());

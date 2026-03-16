@@ -81,7 +81,7 @@ impl<const N: u32> TransactionExtension<RuntimeCall> for SimpleExt<N> {
 		_source: TransactionSource,
 	) -> sp_runtime::traits::ValidateResult<Self::Val, RuntimeCall> {
 		if self.token == 0 {
-			return Err(InvalidTransaction::Custom(N as u8).into())
+			return Err(InvalidTransaction::Custom(N as u8).into());
 		}
 		Ok((ValidTransaction::default(), (), frame_system::Origin::<Runtime>::Signed(100).into()))
 	}

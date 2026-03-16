@@ -142,7 +142,7 @@ mod tests {
 			origin: Self::RuntimeOrigin,
 		) -> crate::DispatchResultWithInfo<Self::PostInfo> {
 			if origin.0 == 0 {
-				return Err(DispatchError::Other("origin is 0").into())
+				return Err(DispatchError::Other("origin is 0").into());
 			}
 			Ok(Default::default())
 		}

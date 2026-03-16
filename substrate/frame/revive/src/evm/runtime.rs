@@ -57,7 +57,7 @@ pub trait SetWeightLimit {
 /// [`crate::Call::eth_transact`] extrinsic.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
-	pub generic::UncheckedExtrinsic<
+	pub  generic::UncheckedExtrinsic<
 		Address,
 		CallOf<E::Config>,
 		Signature,
@@ -170,14 +170,14 @@ where
 		E::ExtensionV0,
 		E::ExtensionOtherVersions,
 	>: Checkable<
-		Lookup,
-		Checked = CheckedExtrinsic<
-			AccountIdOf<E::Config>,
-			CallOf<E::Config>,
-			E::ExtensionV0,
-			E::ExtensionOtherVersions,
+			Lookup,
+			Checked = CheckedExtrinsic<
+				AccountIdOf<E::Config>,
+				CallOf<E::Config>,
+				E::ExtensionV0,
+				E::ExtensionOtherVersions,
+			>,
 		>,
-	>,
 {
 	type Checked = CheckedExtrinsic<
 		AccountIdOf<E::Config>,

@@ -108,8 +108,9 @@ where
 					.validate_only(origin, &self.function, info, len, source, EXTENSION_V0_VERSION)
 					.map(|x| x.0)
 			},
-			ExtrinsicFormat::General(ref extension) =>
-				extension.validate_only(None.into(), &self.function, info, len, source),
+			ExtrinsicFormat::General(ref extension) => {
+				extension.validate_only(None.into(), &self.function, info, len, source)
+			},
 		}
 	}
 
@@ -139,8 +140,9 @@ where
 				len,
 				EXTENSION_V0_VERSION,
 			),
-			ExtrinsicFormat::General(extension) =>
-				extension.dispatch_transaction(None.into(), self.function, info, len),
+			ExtrinsicFormat::General(extension) => {
+				extension.dispatch_transaction(None.into(), self.function, info, len)
+			},
 		}
 	}
 }
