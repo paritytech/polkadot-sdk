@@ -41,7 +41,7 @@ where
 	type T = T;
 	type Interface = IVesting::IVestingCalls;
 	const MATCHER: BuiltinAddressMatcher =
-		BuiltinAddressMatcher::Fixed(NonZero::new(0x901).unwrap());
+		BuiltinAddressMatcher::Fixed(NonZero::new(0x902).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
