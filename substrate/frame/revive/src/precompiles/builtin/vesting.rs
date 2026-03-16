@@ -41,7 +41,7 @@ where
 	type T = T;
 	type Interface = IVesting::IVestingCalls;
 	const MATCHER: BuiltinAddressMatcher =
-		BuiltinAddressMatcher::Fixed(NonZero::new(0x902).unwrap());
+		BuiltinAddressMatcher::Fixed(NonZero::new(0x901).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -49,18 +49,17 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if env.is_delegate_call() {
-			return Err(Error::Revert(
-				"vesting precompile cannot be called via delegate call".into(),
-			));
-		}
-
 		use IVesting::IVestingCalls;
 		match input {
 			IVestingCalls::vest(_) if env.is_read_only() => {
 				Err(crate::Error::<T>::StateChangeDenied.into())
 			},
 			IVestingCalls::vest(IVesting::vestCall {}) => {
+				if env.is_delegate_call() {
+					return Err(Error::Revert(
+						"vesting precompile cannot be called via delegate call".into(),
+					));
+				}
 				// Derive the beneficiary from the immediate caller (not the tx origin).
 				let account_id = env
 					.caller()
@@ -93,7 +92,6 @@ where
 						"vesting precompile cannot be called via delegate call".into(),
 					));
 				}
-
 				let caller_account = env
 					.caller()
 					.account_id()
@@ -393,9 +391,10 @@ mod tests {
 	}
 
 	#[test]
-	fn vesting_balance_reverts_on_delegate_call() {
+	fn vesting_balance_succeeds_on_delegate_call() {
 		ExtBuilder::default().build().execute_with(|| {
 			use crate::{DelegateInfo, exec::Origin};
+			use alloy_core::sol_types::SolValue;
 			use sp_core::H160;
 
 			let mut call_setup = CallSetup::<Test>::default();
@@ -408,16 +407,14 @@ mod tests {
 			let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
 			let result =
 				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
-			match result {
-				Err(Error::Revert(revert)) => {
-					assert!(
-						revert.reason.contains("cannot be called via delegate call"),
-						"unexpected revert message: {}",
-						revert.reason
-					);
-				},
-				other => panic!("expected Error::Revert for delegate call, got: {:?}", other),
-			}
+			assert!(
+				result.is_ok(),
+				"vestingBalance should be callable via delegate call: {:?}",
+				result.err()
+			);
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap()).expect("should decode as bytes32");
+			let returned = crate::U256::from_big_endian(&bytes);
+			assert_eq!(returned, crate::U256::zero(), "no vesting schedule should return 0");
 		})
 	}
 
