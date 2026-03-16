@@ -20,10 +20,11 @@ use super::*;
 
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	Header, MutateDescriptorV2, SigningContext, ValidatorId,
+	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Header, MutateDescriptorV2,
+	SigningContext, ValidatorId,
 };
-use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+use polkadot_primitives_test_helpers::{dummy_committed_candidate_receipt_v2, CandidateDescriptor};
 use rstest::rstest;
 
 fn get_parent_hash(hash: Hash) -> Hash {
@@ -2005,13 +2006,9 @@ fn v1_descriptor_version_detection_with_v3_enabled() {
 		)
 		.await;
 
-		// Build a V1 descriptor: `dummy_candidate_receipt_bad_sig` populates `collator` with
-		// `dummy_collator()` (non-zero) and `signature` with `dummy_collator_signature()`
-		// (non-zero). In the V2 layout these bytes occupy `reserved2`, triggering V1 detection.
-		let mut candidate = dummy_candidate_receipt_bad_sig(head_b, Some(Default::default()));
-		candidate.descriptor.para_id = test_state.chain_ids[0];
-		candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
-
+		// Build a V1 descriptor directly with non-zero collator (bytes 0..31) so that
+		// collator[8..24] maps to `reserved1[0..16]` in the V2 layout, triggering V1
+		// detection under the relaxed V3 check.
 		let commitments = CandidateCommitments {
 			head_data: HeadData(vec![1u8]),
 			horizontal_messages: Default::default(),
@@ -2020,14 +2017,37 @@ fn v1_descriptor_version_detection_with_v3_enabled() {
 			processed_downward_messages: 0,
 			hrmp_watermark: 0,
 		};
-		candidate.commitments_hash = commitments.hash();
 
-		// Convert to CandidateReceiptV2 and assert version detection.
-		let candidate: CandidateReceipt = candidate.into();
+		// Non-zero collator: bytes 8..23 map to `reserved1[0..16]` in V2 layout,
+		// triggering V1 detection under the relaxed V3 check.
+		let mut collator_bytes = [0u8; 32];
+		collator_bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
+		let mut signature_bytes = [0u8; 64];
+		signature_bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
+
+		let v1_descriptor = CandidateDescriptor {
+			para_id: test_state.chain_ids[0],
+			relay_parent: head_b,
+			collator: CollatorId::from(sp_core::sr25519::Public::from_raw(collator_bytes)),
+			persisted_validation_data_hash: dummy_pvd().hash(),
+			pov_hash: Hash::zero(),
+			erasure_root: Hash::zero(),
+			signature: CollatorSignature::from(sp_core::sr25519::Signature::from_raw(
+				signature_bytes,
+			)),
+			para_head: Hash::zero(),
+			validation_code_hash: Hash::zero().into(),
+		};
+
+		let candidate = CandidateReceipt {
+			descriptor: v1_descriptor.into(),
+			commitments_hash: commitments.hash(),
+		};
+
 		assert_eq!(
 			candidate.descriptor.version(true),
 			CandidateDescriptorVersion::V1,
-			"non-zero reserved2 bytes must be detected as V1 even when v3_enabled=true"
+			"non-zero reserved1 bytes must be detected as V1 even when v3_enabled=true"
 		);
 
 		let pov = PoV { block_data: BlockData(vec![1]) };
