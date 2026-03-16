@@ -17,13 +17,7 @@
 
 //! Macros to derive runtime debug implementation.
 //!
-//! This custom derive implements a `core::fmt::Debug` trait,
-//! but in case the `std` feature is enabled the implementation
-//! will actually print out the structure as regular `derive(Debug)`
-//! would do. If `std` is disabled the implementation will be empty.
-//!
-//! This behaviour is useful to prevent bloating the runtime WASM
-//! blob from unneeded code.
+//! This macro is deprecated. Use `#[derive(Debug)]` directly instead.
 //!
 //! ```rust
 //! #[derive(sp_debug_derive::RuntimeDebug)]
@@ -35,8 +29,23 @@
 mod impls;
 
 use proc_macro::TokenStream;
+use quote::quote;
 
+/// Derive macro for `Debug` that emits a deprecation warning.
+///
+/// This macro is deprecated. Use `#[derive(Debug)]` directly instead.
 #[proc_macro_derive(RuntimeDebug)]
-pub fn debug_derive(input: TokenStream) -> TokenStream {
-	impls::debug_derive(syn::parse_macro_input!(input))
+pub fn runtime_debug_derive(input: TokenStream) -> TokenStream {
+	let input: syn::DeriveInput = syn::parse_macro_input!(input);
+	let name = &input.ident;
+
+	let warning = proc_macro_warning::Warning::new_deprecated(&format!("RuntimeDebug_{}", name))
+		.old("derive `RuntimeDebug`")
+		.new("derive `Debug`")
+		.span(input.ident.span())
+		.build_or_panic();
+
+	let debug_impl: proc_macro2::TokenStream = impls::debug_derive(input).into();
+
+	quote!(#warning #debug_impl).into()
 }

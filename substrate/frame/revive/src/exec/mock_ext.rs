@@ -17,6 +17,8 @@
 
 #![cfg(test)]
 use crate::{
+	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
+	ReentrancyProtection,
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -25,8 +27,6 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
-	ReentrancyProtection,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -189,7 +189,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::sr25519_verify")
 	}
 
-	fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], ()> {
+	fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], DispatchError> {
 		panic!("MockExt::ecdsa_to_eth_address")
 	}
 
@@ -290,10 +290,6 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn own_code_hash(&mut self) -> &H256 {
 		panic!("MockExt::own_code_hash")
-	}
-
-	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::set_code_hash")
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {

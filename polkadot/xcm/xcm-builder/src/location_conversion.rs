@@ -91,8 +91,9 @@ pub struct DescribeTreasuryVoiceTerminal;
 impl DescribeLocation for DescribeTreasuryVoiceTerminal {
 	fn describe_location(location: &Location) -> Option<Vec<u8>> {
 		match location.unpack() {
-			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
-				Some((b"Treasury", b"Voice").encode()),
+			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => {
+				Some((b"Treasury", b"Voice").encode())
+			},
 			_ => None,
 		}
 	}
@@ -160,24 +161,29 @@ impl DescribeLocation for LegacyDescribeForeignChainAccount {
 	fn describe_location(location: &Location) -> Option<Vec<u8>> {
 		Some(match location.unpack() {
 			// Used on the relay chain for sending paras that use 32 byte accounts
-			(0, [Parachain(para_id), AccountId32 { id, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 0),
+			(0, [Parachain(para_id), AccountId32 { id, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 0)
+			},
 
 			// Used on the relay chain for sending paras that use 20 byte accounts
-			(0, [Parachain(para_id), AccountKey20 { key, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 0),
+			(0, [Parachain(para_id), AccountKey20 { key, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 0)
+			},
 
 			// Used on para-chain for sending paras that use 32 byte accounts
-			(1, [Parachain(para_id), AccountId32 { id, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 1),
+			(1, [Parachain(para_id), AccountId32 { id, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, 1)
+			},
 
 			// Used on para-chain for sending paras that use 20 byte accounts
-			(1, [Parachain(para_id), AccountKey20 { key, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 1),
+			(1, [Parachain(para_id), AccountKey20 { key, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, 1)
+			},
 
 			// Used on para-chain for sending from the relay chain
-			(1, [AccountId32 { id, .. }]) =>
-				LegacyDescribeForeignChainAccount::from_relay_32(id, 1),
+			(1, [AccountId32 { id, .. }]) => {
+				LegacyDescribeForeignChainAccount::from_relay_32(id, 1)
+			},
 
 			// No other conversions provided
 			_ => return None,
@@ -342,8 +348,9 @@ impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
-				Some((TreasuryAccount::get().into() as [u8; 32]).into()),
+			(0, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => {
+				Some((TreasuryAccount::get().into() as [u8; 32]).into())
+			},
 			_ => None,
 		}
 	}
@@ -446,8 +453,9 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 		let (remote_network, remote_location) = devolved;
 
 		match remote_location.as_slice() {
-			[Parachain(remote_network_para_id)] =>
-				Some(AccountId::from(Self::from_params(&remote_network, &remote_network_para_id))),
+			[Parachain(remote_network_para_id)] => {
+				Some(AccountId::from(Self::from_params(&remote_network, &remote_network_para_id)))
+			},
 			_ => None,
 		}
 	}
@@ -491,16 +499,18 @@ impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone
 				// equivalent to `EthereumLocationsConverterFor`
 				[] => (b"ethereum-chain", chain_id).using_encoded(blake2_256).into(),
 				// equivalent to `EthereumLocationsConverterFor`
-				[AccountKey20 { network: _, key }] =>
-					(b"ethereum-chain", chain_id, *key).using_encoded(blake2_256).into(),
+				[AccountKey20 { network: _, key }] => {
+					(b"ethereum-chain", chain_id, *key).using_encoded(blake2_256).into()
+				},
 				// extends `EthereumLocationsConverterFor`
 				tail => (b"ethereum-chain", chain_id, tail).using_encoded(blake2_256).into(),
 			}
 		} else {
 			match remote_location.as_slice() {
 				// equivalent to `GlobalConsensusParachainConvertsFor`
-				[Parachain(para_id)] =>
-					(b"glblcnsnss/prchn_", remote_network, para_id).using_encoded(blake2_256).into(),
+				[Parachain(para_id)] => {
+					(b"glblcnsnss/prchn_", remote_network, para_id).using_encoded(blake2_256).into()
+				},
 				// converts everything else based on hash of encoded location tail
 				tail => (b"glblcnsnss", remote_network, tail).using_encoded(blake2_256).into(),
 			}

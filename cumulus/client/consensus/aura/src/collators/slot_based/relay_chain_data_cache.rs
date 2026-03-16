@@ -91,7 +91,7 @@ where
 			self.relay_client.header(BlockId::Hash(relay_parent)).await
 		else {
 			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block header.");
-			return Err(())
+			return Err(());
 		};
 
 		let max_pov_size = match self
@@ -103,7 +103,7 @@ where
 			Ok(Some(pvd)) => pvd.max_pov_size,
 			Err(err) => {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-				return Err(())
+				return Err(());
 			},
 		};
 

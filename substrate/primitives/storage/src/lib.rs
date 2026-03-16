@@ -23,7 +23,6 @@ extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use sp_debug_derive::RuntimeDebug;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -34,7 +33,7 @@ use core::{
 use ref_cast::RefCast;
 
 /// Storage key.
-#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Clone, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageKey(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
@@ -47,7 +46,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, Debug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -95,7 +94,7 @@ impl From<Vec<u8>> for TrackedStorageKey {
 }
 
 /// Storage key of a child trie, it contains the prefix to the key.
-#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 #[derive(RefCast)]
@@ -136,7 +135,7 @@ impl PrefixedStorageKey {
 }
 
 /// Storage data associated to a [`StorageKey`].
-#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageData(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
@@ -174,7 +173,7 @@ pub struct Storage {
 }
 
 /// Storage change set
-#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {
@@ -192,6 +191,13 @@ pub mod well_known_keys {
 	///
 	/// Encodes to `0x3A636F6465`.
 	pub const CODE: &[u8] = b":code";
+
+	/// New wasm code of the runtime.
+	///
+	/// To be applied in the next block.
+	///
+	/// Stored as a raw byte vector. Required by substrate.
+	pub const PENDING_CODE: &[u8] = b":pending_code";
 
 	/// Number of wasm linear memory pages required for execution of the runtime.
 	///
@@ -298,8 +304,9 @@ impl ChildInfo {
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
-			ChildInfo::ParentKeyId(ChildTrieParentKeyId { data }) =>
-				ChildType::ParentKeyId.new_prefixed_key(data.as_slice()),
+			ChildInfo::ParentKeyId(ChildTrieParentKeyId { data }) => {
+				ChildType::ParentKeyId.new_prefixed_key(data.as_slice())
+			},
 		}
 	}
 

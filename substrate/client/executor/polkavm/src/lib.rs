@@ -21,6 +21,7 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, WasmInstance, WasmModule},
 };
+use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
@@ -45,11 +46,12 @@ impl WasmInstance for Instance {
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
 		let pc = match self.0.module().exports().find(|e| e.symbol() == name) {
 			Some(export) => export.program_counter(),
-			None =>
+			None => {
 				return (
 					Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
 					None,
-				),
+				)
+			},
 		};
 
 		let Ok(raw_data_length) = u32::try_from(raw_data.len()) else {
@@ -93,28 +95,31 @@ impl WasmInstance for Instance {
 
 		match self.0.call_typed(&mut (), pc, (data_pointer, raw_data_length)) {
 			Ok(()) => {},
-			Err(CallError::Trap) =>
+			Err(CallError::Trap) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: trap").into()),
 					None,
-				),
-			Err(CallError::Error(err)) =>
+				)
+			},
+			Err(CallError::Error(err)) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
-				),
-			Err(CallError::User(err)) =>
+				)
+			},
+			Err(CallError::User(err)) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
-				),
+				)
+			},
 			Err(CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
 			Err(CallError::Step) => unreachable!("stepping is never enabled"),
 		};
 
-		let result_pointer = self.0.reg(Reg::A0);
-		let result_length = self.0.reg(Reg::A1);
-		let output = match self.0.read_memory(result_pointer as u32, result_length as u32) {
+		let result = self.0.reg(Reg::A0);
+		let (result_pointer, result_length) = unpack_ptr_and_len(result);
+		let output = match self.0.read_memory(result_pointer, result_length) {
 			Ok(output) => output,
 			Err(error) => {
 				return (Err(format!("call into the runtime method '{name}' failed: failed to read the return payload: {error}").into()), None)
@@ -186,7 +191,7 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 				args[nth_arg] = Value::F32(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as u32);
 				nth_reg += 1;
 			},
-			ValueType::I64 =>
+			ValueType::I64 => {
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::I64(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i64);
 					nth_reg += 1;
@@ -199,8 +204,9 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 
 					args[nth_arg] =
 						Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
-				},
-			ValueType::F64 =>
+				}
+			},
+			ValueType::F64 => {
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::F64(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
 					nth_reg += 1;
@@ -212,7 +218,8 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 					nth_reg += 1;
 
 					args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
-				},
+				}
+			},
 		}
 	}
 
@@ -228,7 +235,7 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 		Ok(value) => value,
 		Err(error) => {
 			let name = function.name();
-			return Err(format!("call into the host function '{name}' failed: {error}"))
+			return Err(format!("call into the host function '{name}' failed: {error}"));
 		},
 	};
 
@@ -240,20 +247,22 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 			Value::F32(value) => {
 				caller.instance.set_reg(Reg::A0, value as u64);
 			},
-			Value::I64(value) =>
+			Value::I64(value) => {
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				},
-			Value::F64(value) =>
+				}
+			},
+			Value::F64(value) => {
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				},
+				}
+			},
 		}
 	}
 

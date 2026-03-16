@@ -19,29 +19,29 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
-	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
+	Pallet as Contracts,
+	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
-		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
-		TransactionSigned, TransactionUnsigned,
+		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
+		block_hash::EthereumBlockBuilder, block_storage,
 	},
 	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
-		self,
+		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
-			sol_data::{Bool, Bytes, FixedBytes, Uint},
 			SolType,
+			sol_data::{Bool, Bytes, FixedBytes, Uint},
 		},
 		run::builtin as run_builtin_precompile,
-		BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
+		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
 		pvm,
 	},
-	Pallet as Contracts, *,
+	*,
 };
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
@@ -51,21 +51,20 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{fungible::InspectHold, Hooks},
+	traits::{Hooks, fungible::InspectHold},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
 use k256::ecdsa::SigningKey;
 use pallet_revive_uapi::{
-	pack_hi_lo,
+	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
-	CallFlags, ReturnErrorCode, StorageFlags,
 };
 use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
-	digests::{PreDigest, PrimaryPreDigest},
 	BABE_ENGINE_ID,
+	digests::{PreDigest, PrimaryPreDigest},
 };
 use sp_consensus_slots::Slot;
 use sp_runtime::{generic::DigestItem, traits::Zero};
@@ -177,10 +176,21 @@ mod benchmarks {
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_init_code_for_runtime_size(c),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
+
+		let code_len = PristineCode::<T>::get(instance.info()?.code_hash)
+			.expect("code should be stored")
+			.len();
+		assert_eq!(
+			code_len, c as usize,
+			"runtime bytecode should be exactly {c} bytes, got {code_len}"
+		);
 
 		#[extrinsic_call]
 		call(
@@ -2112,7 +2122,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2400,7 +2410,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_pairing(n: Linear<0, { 20 }>) {
 		fn generate_random_ecpairs(n: usize) -> Vec<u8> {
-			use bn::{AffineG1, AffineG2, Fr, Group, G1, G2};
+			use bn::{AffineG1, AffineG2, Fr, G1, G2, Group};
 			use rand::SeedableRng;
 			use rand_pcg::Pcg64;
 			let mut rng = Pcg64::seed_from_u64(1);
@@ -2488,35 +2498,6 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
-	/// Benchmark the cost of setting the code hash of a contract.
-	///
-	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
-	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let delete_old_code = r == 1;
-		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
-		let old_code_hash = instance.info()?.code_hash;
-
-		// Increment the refcount of the code hash so that it does not get deleted
-		if !delete_old_code {
-			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
-		Ok(())
-	}
-
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
@@ -2543,7 +2524,7 @@ mod benchmarks {
 	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
 	fn instr(r: Linear<0, 10_000>) {
-		use rand::{seq::SliceRandom, SeedableRng};
+		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
 		// Ideally, this needs to be bigger than the cache.
@@ -2744,8 +2725,8 @@ mod benchmarks {
 	}
 
 	/// Helper function to generate common finalize_block benchmark setup
-	fn setup_finalize_block_benchmark<T>(
-	) -> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
+	fn setup_finalize_block_benchmark<T>()
+	-> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,

@@ -23,7 +23,6 @@ use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
-use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
 
 use crate::Timeslice;
@@ -47,7 +46,7 @@ pub type PartsOf57600 = u16;
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]

@@ -209,7 +209,7 @@ impl Externalities for BasicExternalities {
 	fn place_storage(&mut self, key: StorageKey, maybe_value: Option<StorageValue>) {
 		if is_child_storage_key(&key) {
 			warn!(target: "trie", "Refuse to set child storage key via main storage");
-			return
+			return;
 		}
 
 		self.overlay.set_storage(key, maybe_value)
@@ -246,7 +246,7 @@ impl Externalities for BasicExternalities {
 				"Refuse to clear prefix that is part of child storage key via main storage"
 			);
 			let maybe_cursor = Some(prefix.to_vec());
-			return MultiRemovalResults { maybe_cursor, backend: 0, unique: 0, loops: 0 }
+			return MultiRemovalResults { maybe_cursor, backend: 0, unique: 0, loops: 0 };
 		}
 
 		let count = self.overlay.clear_prefix(prefix);

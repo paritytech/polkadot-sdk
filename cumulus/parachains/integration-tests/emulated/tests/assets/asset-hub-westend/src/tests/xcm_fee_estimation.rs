@@ -83,11 +83,11 @@ fn sender_assertions(test: ParaToParaThroughAHTest) {
 		PenpalA,
 		vec![
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, balance }
+				pallet_assets::Event::Withdrawn { asset_id, who, amount }
 			) => {
 				asset_id: *asset_id == Location::new(1, []),
-				owner: *owner == test.sender.account_id,
-				balance: *balance == test.args.amount,
+				who: *who == test.sender.account_id,
+				amount: *amount == test.args.amount,
 			},
 		]
 	);
@@ -101,7 +101,7 @@ fn hop_assertions(test: ParaToParaThroughAHTest) {
 		AssetHubWestend,
 		vec![
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { amount, .. }
+				pallet_balances::Event::Withdraw { amount, .. }
 			) => {
 				amount: *amount >= test.args.amount * 90/100,
 			},
@@ -117,10 +117,10 @@ fn receiver_assertions(test: ParaToParaThroughAHTest) {
 		PenpalB,
 		vec![
 			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Issued { asset_id, owner, .. }
+				pallet_assets::Event::Deposited { asset_id, who, .. }
 			) => {
 				asset_id: *asset_id == Location::new(1, []),
-				owner: *owner == test.receiver.account_id,
+				who: *who == test.receiver.account_id,
 			},
 		]
 	);
@@ -136,11 +136,20 @@ fn transfer_assets_para_to_para_through_ah_call(
 		assets: Wild(AllCounted(test.args.assets.len() as u32)),
 		beneficiary: test.args.beneficiary,
 	}]);
+	let remote_fee_id: AssetId = test
+		.args
+		.assets
+		.clone()
+		.into_inner()
+		.get(test.args.fee_asset_item as usize)
+		.expect("asset in index fee_asset_item should exist")
+		.clone()
+		.id;
 	RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets_using_type_and_then {
 		dest: bx!(test.args.dest.into()),
 		assets: bx!(test.args.assets.clone().into()),
 		assets_transfer_type: bx!(TransferType::RemoteReserve(asset_hub_location.clone().into())),
-		remote_fees_id: bx!(VersionedAssetId::from(test.args.fee_asset_id)),
+		remote_fees_id: bx!(VersionedAssetId::from(remote_fee_id)),
 		fees_transfer_type: bx!(TransferType::RemoteReserve(asset_hub_location.into())),
 		custom_xcm_on_dest: bx!(VersionedXcm::from(custom_xcm_on_dest)),
 		weight_limit: test.args.weight_limit,
@@ -176,7 +185,6 @@ fn multi_hop_works() {
 	// Init values for Parachain Destination
 	let beneficiary_id = PenpalBReceiver::get();
 
-	let fee_asset_id: AssetId = Parent.into();
 	let test_args = TestContext {
 		sender: PenpalASender::get(),     // Bob in PenpalB.
 		receiver: PenpalBReceiver::get(), // Alice.
@@ -186,7 +194,7 @@ fn multi_hop_works() {
 			amount_to_send,
 			assets,
 			None,
-			fee_asset_id,
+			0,
 		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);

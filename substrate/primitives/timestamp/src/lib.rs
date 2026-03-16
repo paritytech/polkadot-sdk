@@ -131,7 +131,7 @@ impl From<Duration> for Timestamp {
 }
 
 /// Errors that can occur while checking the timestamp inherent.
-#[derive(Encode, sp_runtime::RuntimeDebug)]
+#[derive(Encode, Debug)]
 #[cfg_attr(feature = "std", derive(Decode, thiserror::Error))]
 pub enum InherentError {
 	/// The time between the blocks is too short.

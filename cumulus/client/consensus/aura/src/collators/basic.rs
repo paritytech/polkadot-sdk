@@ -118,13 +118,14 @@ where
 	async move {
 		let mut collation_requests = match params.collation_request_receiver {
 			Some(receiver) => receiver,
-			None =>
+			None => {
 				cumulus_client_collator::relay_chain_driven::init(
 					params.collator_key,
 					params.para_id,
 					params.overseer_handle,
 				)
-				.await,
+				.await
+			},
 		};
 
 		let mut collator = {
@@ -171,15 +172,21 @@ where
 			let parent_hash = parent_header.hash();
 
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
-			let Ok(Some(code)) =
-				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
-					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
-				})
-			else {
-				continue;
+			let code = {
+				let Ok(state) = params.para_client.state_at(parent_hash) else { continue };
+				let Ok(pending) = state.storage(&sp_core::storage::well_known_keys::PENDING_CODE)
+				else {
+					continue;
+				};
+				let Some(code) = pending.or_else(|| {
+					state.storage(&sp_core::storage::well_known_keys::CODE).ok().flatten()
+				}) else {
+					continue;
+				};
+				code
 			};
 
 			super::check_validation_code_or_log(
@@ -228,7 +235,7 @@ where
 			if last_processed_slot >= *claim.slot() &&
 				last_relay_chain_block < *relay_parent_header.number()
 			{
-				continue
+				continue;
 			}
 
 			let (parachain_inherent_data, other_inherent_data) = try_request!(
@@ -238,6 +245,7 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
+						Default::default(),
 						params.collator_peer_id,
 					)
 					.await
@@ -260,7 +268,7 @@ where
 
 			if let Some((collation, block_data)) = maybe_collation {
 				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
-					continue
+					continue;
 				};
 				let result_sender =
 					Some(collator.collator_service().announce_with_barrier(block_hash));
