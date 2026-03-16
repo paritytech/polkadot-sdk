@@ -136,11 +136,9 @@ where
 
 				// Charge upfront for the worst case: Vesting map read + free_balance read.
 				// If no schedule exists only the Vesting map is read; refund the unused read.
-				let charged = env
-					.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::Precompile(
-						<T as frame_system::Config>::DbWeight::get().reads(2),
-					))?;
+				let charged = env.frame_meter_mut().charge_weight_token(
+					RuntimeCosts::Precompile(<T as frame_system::Config>::DbWeight::get().reads(2)),
+				)?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
