@@ -21,7 +21,7 @@
    - 4.4 [Preimage Access & Data Loading](#44-preimage-access-data-loading)
    - 4.5 [Host Functions & PVM Imports](#45-host-functions-pvm-imports)
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
-   - 5.4 [Code Upgrade Lifecycle](#54-code-upgrade-lifecycle)
+   - 5.3 [Code Upgrade Lifecycle](#53-code-upgrade-lifecycle)
 6. [Authorization & Coretime](#6-authorization-coretime)
 7. [Messaging](#7-messaging)
 8. [Open Questions](#8-open-questions)
@@ -174,18 +174,15 @@ struct ParaInfo {
     head_data: HeadData,
     /// Hash of the currently active validation code.
     validation_code_hash: ValidationCodeHash,
-    /// Pending code upgrade, if any. See §5.4 for the full lifecycle.
+    /// Pending code upgrade, if any. See §5.3 for the full lifecycle.
     pending_upgrade: Option<PendingCodeUpgrade>,
 }
 
 struct PendingCodeUpgrade {
     /// Hash of the new PVM code.
     new_code_hash: ValidationCodeHash,
-    /// Timeslot when the upgrade was solicited.
-    solicited_at: Timeslot,
-    /// Timeslot when the preimage became available (None if still pending).
-    available_since: Option<Timeslot>,
-    /// Deadline: upgrade rejected if no block uses new code by this timeslot.
+    /// Deadline: upgrade rejected if preimage is not available or no block
+    /// uses the new code by this timeslot.
     deadline: Timeslot,
 }
 
@@ -299,8 +296,8 @@ The data loading pipeline for a parachain candidate works as follows:
    item payload, accessed via `work_item_payload()`. This data is not a preimage — it is
    submitted fresh with each work package.
 
-3. **Block context (persisted validation data)**: The relay-parent context (header hash,
-   state root, etc.) needed by the PVF comes from the work package's `RefineContext` — a
+3. **Block context**: The relay-parent context (header hash, state root, etc.) needed
+   by the PVF comes from the work package's `RefineContext` — a
    JAM-native struct containing `anchor` (recent header hash), `state_root`, `beefy_root`,
    `lookup_anchor`, and `lookup_anchor_slot`. These values are set by the work package
    builder (collator) and **verified on-chain** when the work report is submitted, so
@@ -314,7 +311,7 @@ The data loading pipeline for a parachain candidate works as follows:
 ```
 Work Package
 ├── Work Item (ParachainWorkItem)
-│   ├── payload: PoV + PersistedValidationData     ← inline, via work_item_payload()
+│   ├── payload: PoV                                ← inline, via work_item_payload()
 │   ├── import manifest: [segment_hash, ...]        ← optional, via import()
 │   └── service: Parachain Service ID
 │
@@ -435,7 +432,7 @@ pallet (`polkadot/runtime/parachains/src/inclusion/mod.rs`):
 2. **Upward signal processing**: Processes `UpwardSignal`s from the candidate commitments:
    - `RequestCodeUpgrade` — calls `solicit(new_code_hash, code_len)` to request the
      preimage via the JAM preimage store, sets `pending_upgrade` with a deadline, and
-     begins the dual-code transition period. See §5.4 for the full lifecycle.
+     begins the dual-code transition period. See §5.3 for the full lifecycle.
    - `InitOpenChannel` / `AcceptOpenChannel` / `CloseChannel` — manages HRMP channel
      lifecycle and queues corresponding `DownwardSignal`s to the affected parachains.
    - `TransferOut` — calls `transfer()` to the destination JAM service (e.g. Asset Hub).
@@ -450,8 +447,9 @@ pallet (`polkadot/runtime/parachains/src/inclusion/mod.rs`):
    a pending new PVF code. If so, activates the new code (updates
    `ParaInfo.validation_code_hash`), calls `forget()` on the old code hash, and
    clears `pending_upgrade`. Also checks if a pending upgrade has exceeded its deadline
-   without any block using the new code — if so, rejects the upgrade by calling
-   `forget()` on the new code hash and clearing `pending_upgrade`.
+   without the preimage becoming available or without any block using the new code — if
+   so, rejects the upgrade by calling `forget()` on the new code hash and clearing
+   `pending_upgrade`.
 7. **Incoming transfer processing**: Any `OnTransfer` calls received from other JAM services
    are decoded (memo identifies the target `ParaId`) and queued as `DownwardSignal::IncomingTransfer`
    for the destination parachain.
@@ -464,7 +462,7 @@ Several responsibilities that the relay chain handles are instead managed by JAM
   to maintain `PendingAvailability` state or process availability bitfields.
 - **Dispute resolution**: JAM's judgment mechanism handles dispute escalation, slashing,
   and finality delays at the protocol level. The Parachain Service only needs to handle
-  rollback if notified of an invalid judgment (see §5.3).
+  rollback if notified of an invalid judgment (handled by JAM's native judgment mechanism).
 - **Validator rewards**: Backing and availability attestation rewards are handled by JAM's
   validator reward mechanism, not by the Parachain Service.
 
@@ -481,23 +479,7 @@ HRMP queues must be handled carefully. Options:
   remainder for the next slot.
 - **Deferred actions**: Schedule expensive operations (e.g. code upgrade application) for a
   future Accumulate call.
-- **Inter-service messaging**: Delegate some processing (e.g. fee accounting) to other services
-  via JAM's `OnTransfer` mechanism.
-
-### 5.3 Disputes and Rollback
-
-JAM's judgment mechanism allows validators to contest work results within ~1 hour. If a
-parachain candidate is judged invalid:
-
-- JAM temporarily halts finality for affected blocks.
-- The Parachain Service's Accumulate call for the invalid result is rolled back.
-- The offending guarantors are slashed.
-- The parachain continues from the last valid head.
-
-This replaces the current dispute protocol in the relay chain runtime, leveraging JAM's native
-judgment infrastructure.
-
-### 5.4 Code Upgrade Lifecycle
+### 5.3 Code Upgrade Lifecycle
 
 Runtime (PVF) code upgrades follow a well-defined lifecycle using JAM's preimage
 store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
@@ -508,24 +490,24 @@ Phase 1: Request
   in its candidate commitments.
       │
       ▼
-Phase 2: Solicitation
+Phase 2: Rquest Preimage
   Accumulate calls solicit(new_code_hash, code_len).
   Sets pending_upgrade with a deadline (current timeslot + UPGRADE_TIMEOUT).
   The parachain now pays for TWO PVF codes in the preimage store.
       │
       ▼
 Phase 3: Preimage Submission
-  Anyone (collator, block author, third party) can submit the PVM code
-  blob as an xtpreimages block extrinsic: (parachain_service_id, code_blob).
-  JAM validates the hash matches the solicitation and stores it.
+  Anyone (collator, block author, third party) can submit the PVM code directly to JAM.
       │
       ▼
 Phase 4: Transition Period
   Once the preimage is available, collators MAY build blocks using either
   the old or the new PVF code. Refine accepts both validation_code_hash
   and pending_upgrade.new_code_hash during this window.
-  The service queries preimage availability via query(new_code_hash, code_len)
-  during each Accumulate and updates pending_upgrade.available_since.
+  The parachain runtime itself can check preimage availability (via the
+  Parachain Service state exposed through the validation inputs) and
+  trigger the switch from within its own block execution — no
+  service-side polling is needed.
       │
       ▼
 Phase 5: Activation or Rejection
@@ -536,8 +518,9 @@ Phase 5: Activation or Rejection
       - Clears pending_upgrade
       The transition is complete. Only the new code is accepted from now on.
 
-  (b) Deadline exceeded: If available_since + UPGRADE_TIMEOUT passes without
-      any block using the new code, Accumulate rejects the upgrade:
+  (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
+      the preimage becoming available or without any block using the new
+      code, Accumulate rejects the upgrade:
       - Calls forget(new_code_hash, code_len) to release the new code
       - Clears pending_upgrade
       The parachain continues with the old code.
@@ -625,17 +608,27 @@ Message Passing) similarly routes messages from parachain to relay chain.
 
 ### 7.2 Full XCMP on JAM
 
+The current HRMP model — routing full message payloads through the relay chain — cannot
+work on JAM because the work result output is too small to carry message payloads on-chain.
+Off-chain messaging is required.
+
 JAM enables **full XCMP** (the original design): only message *headers* and *hashes* are
 recorded on-chain; the actual message payloads are distributed off-chain via JAM's data
-availability system. This removes the per-message size bottleneck.
+availability layer (D3L). This removes the per-message size bottleneck. The Refine function
+uses `export()` to write outbound message payloads into DA segments, and Accumulate only
+records the message hashes and channel metadata on-chain.
+
+This also enables **speculative messaging**: since message payloads are in DA segments
+(available for 28 days), recipient parachains can optimistically consume messages before
+they are finalized, as proposed in the speculative messaging design.
 
 For the Parachain Service:
 
-- **Outgoing HRMP messages** from a parachain are included in `CandidateCommitments.horizontal_messages`.
-  Their payload hashes are recorded in the Parachain Service state; payloads are available
-  via JAM DA.
-- **Incoming HRMP messages** are fetched by the recipient parachain's collators from JAM DA,
-  keyed by the message hash recorded on-chain.
+- **Outgoing XCMP messages** from a parachain are included in the candidate commitments.
+  During Refine, their payloads are exported to DA segments via `export()`. Accumulate
+  records the payload hashes and updates channel metadata in the Parachain Service state.
+- **Incoming XCMP messages** are fetched by the recipient parachain's collators directly
+  from the DA layer by segment hash, keyed by the message hash recorded on-chain.
 
 ### 7.3 Upward & Downward Signals (UMP / DMP Replacement)
 
@@ -653,7 +646,7 @@ enum UpwardSignal {
 	/// Request a runtime (PVF) code upgrade. Only the code hash is included.
 	/// Accumulate calls `solicit(new_code_hash, code_len)` to request the preimage
 	/// via the JAM preimage store. Anyone can then submit the code blob as a
-	/// `xtpreimages` block extrinsic. See §5.4 for the full upgrade lifecycle.
+	/// `xtpreimages` block extrinsic. See §5.3 for the full upgrade lifecycle.
 	RequestCodeUpgrade { new_code_hash: ValidationCodeHash },
 	/// Request to open an HRMP channel to another parachain.
 	InitOpenChannel { recipient: ParaId, max_capacity: u32, max_message_size: u32 },
@@ -661,11 +654,17 @@ enum UpwardSignal {
 	AcceptOpenChannel { sender: ParaId },
 	/// Request to close an existing HRMP channel.
 	CloseChannel { sender: ParaId, recipient: ParaId },
-	/// Transfer DOT out to another JAM service (e.g. Asset Hub) or parachain.
-	/// Accumulate calls `transfer()` to the destination service with the memo
-	/// as payload. For parachain-to-parachain DOT transfers, the destination
-	/// is the Asset Hub service.
-	TransferOut { dest: ServiceId, amount: Balance, memo: Vec<u8> },
+	/// Transfer DOT to Asset Hub. Accumulate calls `transfer()` to the
+	/// Asset Hub service with the memo as payload. Only Asset Hub is a valid
+	/// destination — parachain-to-parachain DOT transfers are handled
+	/// internally by Asset Hub, not by the Parachain Service.
+	TransferToAssetHub { amount: Balance, memo: Vec<u8> },
+	/// Update the authorizer queue for a core. Only callable by the Coretime
+	/// Chain. Accumulate calls the JAM `assign` host call (ΩA) to set the
+	/// authorizer queue for the given core. The `assign` host call takes a
+	/// core index, a sequence of authorizer code hashes (the queue), and
+	/// validates that the calling service is assigned to that core.
+	SetAuthorizerQueue { core: CoreIndex, authorizers: Vec<AuthorizerHash> },
 }
 ```
 
@@ -682,37 +681,12 @@ enum DownwardSignal {
 	HrmpAccepted { recipient: ParaId },
 	/// Notification that a channel is being closed.
 	HrmpClosing { initiator: ParaId, sender: ParaId, recipient: ParaId },
-	/// DOT (or other assets) received from another JAM service via `OnTransfer`.
-	/// The source may be Asset Hub, the Coretime Chain, or any other service.
+	/// DOT received from an external JAM service (e.g. Asset Hub) via
+	/// `OnTransfer`. The source is always an external service, never another
+	/// parachain — inter-parachain transfers are handled by Asset Hub directly.
 	IncomingTransfer { source: ServiceId, amount: Balance, memo: Vec<u8> },
 }
 ```
-
-#### Inter-Service Token Flow
-
-DOT transfers between parachains and other JAM services (including system chains)
-are routed through **Asset Hub** (or other designated system chain services):
-
-```
-Parachain A
-    │  UpwardSignal::TransferOut { dest: AH_SERVICE_ID, amount, memo }
-    ▼
-Parachain Service (Accumulate)
-    │  transfer(AH_SERVICE_ID, amount, memo)        ← JAM OnTransfer
-    ▼
-Asset Hub Service
-    │  credits DOT to destination account (decoded from memo)
-    ▼
-Destination (parachain, service, or user account)
-```
-
-Incoming transfers follow the reverse path: another service calls `transfer()` to
-the Parachain Service with a memo identifying the destination `ParaId`. Accumulate
-queues an `IncomingTransfer` downward signal for that parachain.
-
-This design means the Parachain Service itself never holds or manages DOT balances
-directly — it acts as a routing layer between parachains and the broader JAM service
-ecosystem, with Asset Hub as the canonical DOT custodian.
 
 ### 7.4 XCM
 
@@ -742,7 +716,7 @@ The following questions are not yet resolved and require further design work or 
    onto JAM's per-work-report judgment? What happens if one candidate in a multi-candidate work
    report is disputed?
 
-4. **`UPGRADE_TIMEOUT` value**: The code upgrade lifecycle (§5.4) requires a timeout after
+4. **`UPGRADE_TIMEOUT` value**: The code upgrade lifecycle (§5.3) requires a timeout after
    which an unused upgrade is rejected. The appropriate value depends on the expected
    collator update cadence and preimage store cost model. Candidates: 24-48 hours.
 
