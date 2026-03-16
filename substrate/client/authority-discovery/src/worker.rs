@@ -446,6 +446,18 @@ where
 			})
 		};
 
+		// Addresses without a port cannot be dialed.
+		let address_has_port = |address: &Multiaddr| {
+			address.iter().any(|protocol| {
+				matches!(
+					protocol,
+					multiaddr::Protocol::Tcp(_) |
+						multiaddr::Protocol::Udp(_) |
+						multiaddr::Protocol::Memory(_)
+				)
+			})
+		};
+
 		// These are the addresses the node is listening for incoming connections,
 		// as reported by installed protocols (tcp / websocket etc).
 		//
@@ -458,7 +470,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address)
+				(address_is_global(&address) && address_has_port(&address))
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
@@ -470,8 +482,10 @@ where
 			.external_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(publish_non_global_ips || address_is_global(&address))
-					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+				// Only publish addresses that have a port and are global.
+				(address_has_port(&address) &&
+					(publish_non_global_ips || address_is_global(&address)))
+				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 			})
 			.peekable();
 
@@ -490,6 +504,7 @@ where
 			.public_addresses
 			.clone()
 			.into_iter()
+			.filter(address_has_port)
 			.chain(global_listen_addresses)
 			.chain(external_addresses)
 			// Deduplicate addresses.
@@ -544,7 +559,7 @@ where
 			);
 
 			self.publish_interval.set_to_start();
-			return Ok(())
+			return Ok(());
 		}
 
 		let keys =
@@ -560,7 +575,7 @@ where
 			// If the authority keys did not change and the `publish_if_changed_interval` was
 			// triggered then do nothing.
 			if keys == self.latest_published_keys {
-				return Ok(())
+				return Ok(());
 			}
 
 			// We have detected a change in the authority keys, reset the timers to
@@ -825,7 +840,7 @@ where
 			.map_err(Error::EncodingDecodingScale)?;
 
 		if !AuthorityPair::verify(&auth_signature, &signed_record.record, &authority_id) {
-			return Err(Error::VerifyingDhtPayload)
+			return Err(Error::VerifyingDhtPayload);
 		}
 
 		Ok(signed_record)
@@ -850,7 +865,7 @@ where
 				Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
 			}
 		} else if self.strict_record_validation {
-			return Err(Error::MissingPeerIdSignature)
+			return Err(Error::MissingPeerIdSignature);
 		} else {
 			debug!(
 				target: LOG_TARGET,
@@ -980,7 +995,7 @@ where
 					authority_id, new_record.creation_time, current_record_info.creation_time
 			);
 			self.last_known_records.insert(kademlia_key, new_record);
-			return true
+			return true;
 		}
 
 		if new_record.creation_time == current_record_info.creation_time {
@@ -996,7 +1011,7 @@ where
 			{
 				current_record_info.peers_with_record.extend(new_record.peers_with_record);
 			}
-			return true
+			return true;
 		}
 
 		debug!(
@@ -1011,7 +1026,7 @@ where
 			// storage, so we need to update that as well.
 			new_record.peers_with_record.is_empty(),
 		);
-		return false
+		return false;
 	}
 
 	/// Retrieve our public keys within the current and next authority set.

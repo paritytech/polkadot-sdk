@@ -18,11 +18,13 @@
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
 //! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
-//! instead of burning them. The buffer account is created at genesis with a provider reference
-//! and funded with the existential deposit (ED) to ensure it can receive deposits of any size.
+//! instead of burning them. The buffer account must be pre-funded with at least ED (existential
+//! deposit), e.g., via balances genesis config or a transfer. If the buffer account is not
+//! pre-funded, deposits below ED will be silently burned.
 //!
-//! For existing chains adding DAP, include `dap::migrations::v1::InitBufferAccount` in your
-//! migrations tuple.
+//! Incoming funds are deactivated to exclude them from governance voting.
+//! When DAP distributes funds (e.g., to validators, nominators, treasury, collators), those funds
+//! must be reactivated before transfer.
 //!
 //! Future phases will add:
 //! - `FundingSource` (request_funds) for pulling funds
@@ -42,7 +44,7 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate},
+		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -90,99 +92,6 @@ pub mod pallet {
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
-
-		/// Create the buffer account with a provider reference and fund it with ED.
-		///
-		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains). Safe to call multiple times - will early exit if account
-		/// already exists with sufficient balance.
-		pub fn create_buffer_account() {
-			let buffer = Self::buffer_account();
-			let ed = T::Currency::minimum_balance();
-
-			if frame_system::Pallet::<T>::providers(&buffer) > 0 &&
-				T::Currency::balance(&buffer) >= ed
-			{
-				log::debug!(
-					target: LOG_TARGET,
-					"DAP buffer account already initialized: {buffer:?}"
-				);
-				return;
-			}
-
-			// Ensure the account exists by incrementing its provider count.
-			frame_system::Pallet::<T>::inc_providers(&buffer);
-			log::info!(
-				target: LOG_TARGET,
-				"Attempting to mint ED ({ed:?}) into DAP buffer: {buffer:?}"
-			);
-
-			match T::Currency::mint_into(&buffer, ed) {
-				Ok(_) => {
-					log::info!(
-						target: LOG_TARGET,
-						"🏦 Created DAP buffer account: {buffer:?}"
-					);
-				},
-				Err(e) => {
-					log::error!(
-						target: LOG_TARGET,
-						"🚨 Failed to mint ED into DAP buffer: {e:?}"
-					);
-				},
-			}
-		}
-	}
-
-	/// Genesis config for the DAP pallet.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		_phantom: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			// Create and fund the buffer account at genesis.
-			Pallet::<T>::create_buffer_account();
-		}
-	}
-}
-
-/// Migrations for the DAP pallet.
-pub mod migrations {
-	use super::*;
-
-	/// Version 1 migration.
-	pub mod v1 {
-		use super::*;
-
-		mod inner {
-			use super::*;
-			use frame_support::traits::UncheckedOnRuntimeUpgrade;
-
-			/// Inner migration that creates the buffer account.
-			pub struct InitBufferAccountInner<T>(core::marker::PhantomData<T>);
-
-			impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
-				fn on_runtime_upgrade() -> Weight {
-					Pallet::<T>::create_buffer_account();
-					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-					T::DbWeight::get().reads_writes(3, 3)
-				}
-			}
-		}
-
-		/// Migration to create the DAP buffer account (version 0 → 1).
-		pub type InitBufferAccount<T> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			inner::InitBufferAccountInner<T>,
-			Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
 	}
 }
 
@@ -207,6 +116,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
 			})
 			.inspect(|_| {
+				// Mark funds as inactive so they don't participate in governance voting.
+				// Only deactivate on success; if resolve failed, tokens were burned.
+				<T::Currency as Unbalanced<T::AccountId>>::deactivate(numeric_amount);
 				log::debug!(
 					target: LOG_TARGET,
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"

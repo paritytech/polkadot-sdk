@@ -297,7 +297,7 @@ fn local_asset_reserve_and_local_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 		// Alice spent amount
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - SEND_AMOUNT);
@@ -441,7 +441,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let mut last_events = last_events(3).into_iter();
@@ -870,7 +870,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let weight = BaseXcmWeight::get() * 2;
@@ -1554,7 +1554,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let weight = BaseXcmWeight::get() * 3;
@@ -2182,7 +2182,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let mut last_events = last_events(3).into_iter();
@@ -2343,7 +2343,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 		assert_eq!(result, expected_result);
 		if expected_result.is_err() {
 			// short-circuit here for tests where we expect failure
-			return
+			return;
 		}
 
 		let weight = BaseXcmWeight::get() * 4;

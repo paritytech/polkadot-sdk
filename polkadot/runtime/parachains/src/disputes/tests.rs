@@ -70,12 +70,12 @@ fn contains_duplicates_in_sorted_iter<
 	if let Some(mut previous) = iter.next() {
 		while let Some(current) = iter.next() {
 			if check_equal(previous, current) {
-				return true
+				return true;
 			}
 			previous = current;
 		}
 	}
-	return false
+	return false;
 }
 
 // All arguments for `initializer::on_new_session`

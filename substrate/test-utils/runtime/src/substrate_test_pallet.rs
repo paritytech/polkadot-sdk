@@ -202,7 +202,7 @@ pub mod pallet {
 					next_key = next;
 				} else {
 					if panic_at_end {
-						return Ok(())
+						return Ok(());
 					} else {
 						panic!("Could not read {read} times from the state");
 					}
@@ -243,10 +243,12 @@ pub mod pallet {
 pub fn validate_runtime_call<T: pallet::Config>(call: &pallet::Call<T>) -> TransactionValidity {
 	log::trace!(target: LOG_TARGET, "validate_runtime_call {call:?}");
 	match call {
-		Call::call_do_not_propagate {} =>
-			Ok(ValidTransaction { propagate: false, ..Default::default() }),
-		Call::call_with_priority { priority } =>
-			Ok(ValidTransaction { priority: *priority, ..Default::default() }),
+		Call::call_do_not_propagate {} => {
+			Ok(ValidTransaction { propagate: false, ..Default::default() })
+		},
+		Call::call_with_priority { priority } => {
+			Ok(ValidTransaction { priority: *priority, ..Default::default() })
+		},
 		_ => Ok(Default::default()),
 	}
 }

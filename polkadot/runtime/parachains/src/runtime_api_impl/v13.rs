@@ -26,19 +26,21 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use frame_support::traits::{GetStorageVersion, StorageVersion};
+use frame_support::{pallet_prelude::StorageVersion, traits::GetStorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, NodeFeatures, OccupiedCore, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	node_features::FeatureIndex,
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateDescriptorVersion,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCore,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScheduledCore,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
 
@@ -81,24 +83,69 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let claim_queue = scheduler::Pallet::<T>::get_claim_queue();
+	let claim_queue = scheduler::Pallet::<T>::claim_queue();
 	let occupied_cores: BTreeMap<CoreIndex, inclusion::CandidatePendingAvailability<_, _>> =
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
 	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
+
+	let node_features = configuration::ActiveConfig::<T>::get().node_features;
+	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 	(0..n_cores)
 		.map(|core_idx| {
 			let core_idx = CoreIndex(core_idx as u32);
 			if let Some(pending_availability) = occupied_cores.get(&core_idx) {
-				// Use the same block number for determining the responsible group as what the
-				// backing subsystem would use when it calls validator_groups api.
-				let backing_group_allocation_time =
-					pending_availability.relay_parent_number() + One::one();
+				// Use the same block number for determining the responsible group as what
+				// the backing subsystem would use when it calls validator_groups API.
+				// For V3 candidates, look up the scheduling parent block number from the
+				// relay parent tracker (because it may no longer be in the scheduling parent
+				// tracker, as pending availability candidates can have out of scope scheduling
+				// parents).
+				// For V1/V2, fall back to the relay parent number from the storage.
+				// This is a temporary fallback, because when this is rolled out, the relay parent
+				// tracker does not contain entries for all relay parents in the session. After v3
+				// receipt feature is enabled, we can remove this and always use the scheduling
+				// parent.
+				let scheduling_parent_number = if pending_availability
+					.candidate_descriptor()
+					.version(v3_enabled) ==
+					CandidateDescriptorVersion::V3
+				{
+					let sp = pending_availability.candidate_descriptor().scheduling_parent(true);
+					// Workaround for issue #64.
+					let scheduling_parent_number = if shared::Pallet::<T>::on_chain_storage_version(
+					) == StorageVersion::new(1)
+					{
+						shared::migration::v1::AllowedRelayParents::<T>::get().get_number(sp)
+					} else {
+						let session_index = shared::CurrentSessionIndex::<T>::get();
+						shared::Pallet::<T>::get_relay_parent_info(session_index, sp)
+							.map(|info| info.number)
+					};
+
+					scheduling_parent_number.unwrap_or_else(|| {
+						log::warn!(
+							target: "runtime::polkadot-api",
+							"Could not determine the scheduling parent of this v3 candidate {:?}",
+							pending_availability.candidate_hash()
+						);
+						pending_availability.relay_parent_number()
+					})
+				} else {
+					pending_availability.relay_parent_number()
+				};
+				let backing_group_allocation_time = scheduling_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
-					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(core_idx),
+					next_up_on_available: claim_queue
+						.get(&core_idx)
+						.and_then(|q| q.front())
+						.map(|&para_id| ScheduledCore { para_id, collator: None }),
 					occupied_since: pending_availability.backed_in_number(),
 					time_out_at: time_out_for(pending_availability.backed_in_number()).live_until,
-					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(core_idx),
+					next_up_on_time_out: claim_queue
+						.get(&core_idx)
+						.and_then(|q| q.front())
+						.map(|&para_id| ScheduledCore { para_id, collator: None }),
 					availability: pending_availability.availability_votes().clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
@@ -108,11 +155,8 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
 			} else {
-				if let Some(assignment) = claim_queue.get(&core_idx).and_then(|q| q.front()) {
-					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
-						para_id: assignment.para_id(),
-						collator: None,
-					})
+				if let Some(&para_id) = claim_queue.get(&core_idx).and_then(|q| q.front()) {
+					CoreState::Scheduled(ScheduledCore { para_id, collator: None })
 				} else {
 					CoreState::Free
 				}
@@ -147,12 +191,13 @@ where
 			build()
 		},
 		OccupiedCoreAssumption::TimedOut => build(),
-		OccupiedCoreAssumption::Free =>
+		OccupiedCoreAssumption::Free => {
 			if !<inclusion::Pallet<Config>>::candidates_pending_availability(para_id).is_empty() {
 				None
 			} else {
 				build()
-			},
+			}
+		},
 	}
 }
 
@@ -290,12 +335,15 @@ where
 		.filter_map(|record| extract_event(record.event))
 		.filter_map(|event| {
 			Some(match event {
-				RawEvent::<T>::CandidateBacked(c, h, core, group) =>
-					CandidateEvent::CandidateBacked(c, h, core, group),
-				RawEvent::<T>::CandidateIncluded(c, h, core, group) =>
-					CandidateEvent::CandidateIncluded(c, h, core, group),
-				RawEvent::<T>::CandidateTimedOut(c, h, core) =>
-					CandidateEvent::CandidateTimedOut(c, h, core),
+				RawEvent::<T>::CandidateBacked(c, h, core, group) => {
+					CandidateEvent::CandidateBacked(c, h, core, group)
+				},
+				RawEvent::<T>::CandidateIncluded(c, h, core, group) => {
+					CandidateEvent::CandidateIncluded(c, h, core, group)
+				},
+				RawEvent::<T>::CandidateTimedOut(c, h, core) => {
+					CandidateEvent::CandidateTimedOut(c, h, core)
+				},
 				// Not needed for candidate events.
 				RawEvent::<T>::UpwardMessagesReceived { .. } => return None,
 				RawEvent::<T>::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
@@ -417,27 +465,18 @@ pub fn backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<Constraints<BlockNumberFor<T>>> {
 	let config = configuration::ActiveConfig::<T>::get();
-	// Async backing is only expected to be enabled with a tracker capacity of 1.
-	// Subsequent configuration update gets applied on new session, which always
-	// clears the buffer.
-	//
-	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
 	let now = frame_system::Pallet::<T>::block_number();
 
-	// Use the right storage depending on version to ensure #64 doesn't cause issues with this
-	// migration.
+	// Workaround for issue #64.
 	let min_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
-		StorageVersion::new(0)
+		StorageVersion::new(1)
 	{
-		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+		shared::migration::v1::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
 			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	} else {
-		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
-			now,
-			config.scheduler_params.lookahead.saturating_sub(1),
-		)
+		shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
 	};
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
@@ -547,18 +586,7 @@ pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams 
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let config = configuration::ActiveConfig::<T>::get();
-	// Extra sanity, config should already never be smaller than 1:
-	let n_lookahead = config.scheduler_params.lookahead.max(1);
-	scheduler::Pallet::<T>::get_claim_queue()
-		.into_iter()
-		.map(|(core_index, entries)| {
-			(
-				core_index,
-				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
-			)
-		})
-		.collect()
+	scheduler::Pallet::<T>::claim_queue()
 }
 
 /// Returns all the candidates that are pending availability for a given `ParaId`.

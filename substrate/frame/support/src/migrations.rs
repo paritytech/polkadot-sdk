@@ -182,8 +182,9 @@ impl<
 		match <VersionedPostUpgradeData>::decode_all(&mut &versioned_post_upgrade_data_bytes[..])
 			.map_err(|_| "VersionedMigration post_upgrade failed to decode PreUpgradeData")?
 		{
-			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) =>
-				Inner::post_upgrade(inner_bytes),
+			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) => {
+				Inner::post_upgrade(inner_bytes)
+			},
 			VersionedPostUpgradeData::Noop => Ok(()),
 		}
 	}
@@ -358,7 +359,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 		match contains_prefixed_key(&hashed_prefix) {
 			true => {
 				log::error!("{} has keys remaining post-removal ❗", P::get());
-				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+				return Err("Keys remaining post-removal, this should never happen 🚨".into());
 			},
 			false => log::info!("No {} keys found post-removal 🎉", P::get()),
 		};
@@ -466,7 +467,7 @@ impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 		match contains_prefixed_key(&hashed_prefix) {
 			true => {
 				log::error!("`{}` `{}` has keys remaining post-removal ❗", P::get(), S::get());
-				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+				return Err("Keys remaining post-removal, this should never happen 🚨".into());
 			},
 			false => log::info!("No `{}` `{}` keys found post-removal 🎉", P::get(), S::get()),
 		};
@@ -607,7 +608,7 @@ pub trait FailedMigrationHandler {
 	fn failed(migration: Option<u32>) -> FailedMigrationHandling;
 }
 
-/// Do now allow any transactions to be processed after a runtime upgrade failed.
+/// Block any transactions to be processed after a migration failed.
 ///
 /// This is **not a sane default**, since it prevents governance intervention.
 pub struct FreezeChainOnFailedMigration;
@@ -615,6 +616,18 @@ pub struct FreezeChainOnFailedMigration;
 impl FailedMigrationHandler for FreezeChainOnFailedMigration {
 	fn failed(_migration: Option<u32>) -> FailedMigrationHandling {
 		FailedMigrationHandling::KeepStuck
+	}
+}
+
+/// Ignore any MBM errors and unlock all calls that were locked during migration.
+///
+/// This implies that any storage invariants that were violated by a faulty MBM could now be exposed
+/// to users via calls. It is equivalent to how a faulty single-block-migration would be handled.
+pub struct ForceUnstuckOnFailedMigration;
+
+impl frame_support::migrations::FailedMigrationHandler for ForceUnstuckOnFailedMigration {
+	fn failed(_migration: Option<u32>) -> FailedMigrationHandling {
+		FailedMigrationHandling::ForceUnstuck
 	}
 }
 
@@ -662,7 +675,9 @@ pub enum FailedMigrationHandling {
 	/// Don't do anything with the cursor and let the handler decide.
 	///
 	/// This can be useful in cases where the other two options would overwrite any changes that
-	/// were done by the handler to the cursor.
+	/// were done by the handler to the cursor. If a handler returns this variant but does nothing,
+	/// then the chain will be stuck in an indefinite "crash loop" and keep emitting
+	/// `UpgradeFailed` events.
 	Ignore,
 }
 
@@ -853,7 +868,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		if !n.is_zero() {
 			defensive!("nth_step should only be called with n==0");
-			return None
+			return None;
 		}
 
 		let cursor = match cursor {
@@ -874,7 +889,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		if n != 0 {
 			defensive!("nth_transactional_step should only be called with n==0");
-			return None
+			return None;
 		}
 
 		let cursor = match cursor {

@@ -486,7 +486,7 @@ pub mod pallet {
 				(proposal.lookup_hash().and_then(|h| T::Preimages::len(&h)), proposal.lookup_len())
 			{
 				if preimage_len != proposal_len {
-					return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
+					return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into());
 				}
 			}
 
@@ -1044,7 +1044,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(c) => c,
 			Err(_) => {
 				debug_assert!(false, "Unable to create a bounded call from `one_fewer_deciding`??",);
-				return
+				return;
 			},
 		};
 		Self::set_alarm(call, next_block);
@@ -1071,7 +1071,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							false,
 							"Unable to create a bounded call from `nudge_referendum`??",
 						);
-						return false
+						return false;
 					},
 				};
 			status.alarm = Self::set_alarm(call, alarm);
@@ -1173,7 +1173,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						),
 						true,
 						ServiceBranch::TimedOut,
-					)
+					);
 				}
 			},
 			Some(deciding) => {
@@ -1205,7 +1205,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								),
 								true,
 								ServiceBranch::Approved,
-							)
+							);
 						},
 						Some(_) => ServiceBranch::ContinueConfirming,
 						None => {
@@ -1230,7 +1230,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							),
 							true,
 							ServiceBranch::Rejected,
-						)
+						);
 					}
 					if deciding.confirming.is_some() {
 						// Stop confirming
