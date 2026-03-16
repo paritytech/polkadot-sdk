@@ -66,9 +66,6 @@ mod utils;
 ))]
 pub type HostFunctions = (
 	bls12_381::host_calls::HostFunctions,
-	bls12_377::host_calls::HostFunctions,
-	bw6_761::host_calls::HostFunctions,
-	ed_on_bls12_377::host_calls::HostFunctions,
 	ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
 	// Adding stuff here directly exposes it to the node!
 );
