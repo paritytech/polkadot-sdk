@@ -185,6 +185,10 @@ pub trait BenchmarkHelper<AccountId, Balance> {
 	fn set_price(price: sp_runtime::FixedU128);
 
 	/// Fund an account with native currency (DOT).
+	///
+	/// Implementations must ensure the account can send and receive native
+	/// currency after this call, i.e. the final balance must be at least the
+	/// existential deposit.
 	fn fund_account(account: &AccountId, amount: Balance);
 
 	/// Fund an account with pUSD stablecoin.
@@ -2009,20 +2013,17 @@ pub mod pallet {
 			let config = AuctionConfig::<T>::get(AuctionType::Surplus);
 			let starting_price = inverse_price.saturating_mul(config.buffer);
 
-			// 6. Determine auction amount
-			let pusd_amount = SurplusAuctionAmount::<T>::get();
-
-			// 7. Create Tab for surplus auction
+			// 6. Create Tab for surplus auction
 			// - principal: pUSD amount being sold (not burned, just tracked)
 			// - accrued_interest: Zero (no debt)
 			// - penalty: Zero (no penalty)
-			let tab = Tab::new(pusd_amount, Zero::zero(), Zero::zero());
+			let tab = Tab::new(auction_amount, Zero::zero(), Zero::zero());
 
-			// 8. Surplus keeper incentive is tip only (no chip).
+			// 7. Surplus keeper incentive is tip only (no chip).
 			// Surplus auctions are not time-sensitive, so no percentage-based incentive.
 			let keeper_incentive = config.tip;
 
-			// 9. Create auction record
+			// 8. Create auction record
 			let id = NextAuctionId::<T>::get();
 			let next_id = id.checked_add(1).ok_or(Error::<T>::AuctionIdExhausted)?;
 			NextAuctionId::<T>::put(next_id);
@@ -2044,15 +2045,15 @@ pub mod pallet {
 				curve: config.curve,
 			};
 
-			// 10. Store auction and mark as active surplus auction
+			// 9. Store auction and mark as active surplus auction
 			Auctions::<T>::insert(id, auction);
 			ActiveSurplusAuctionId::<T>::put(id);
 
-			// 11. Emit event
+			// 10. Emit event
 			Self::deposit_event(Event::AuctionStarted {
 				auction_type: AuctionType::Surplus,
 				id,
-				tab: pusd_amount,
+				tab: auction_amount,
 				lot: Zero::zero(),
 				owner: None,
 				starting_block: now,

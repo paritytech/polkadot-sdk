@@ -21,8 +21,9 @@
 
 use crate::{
 	pallet::{
-		ActiveSurplusAuctionId, AuctionConfig, AuctionType, Auctions, BalanceOf,
-		CircuitBreakerLevel, OnIdleCursor, Stopped, SurplusHandlingMode, SurplusMode,
+		ActiveSurplusAuctionId, AuctionConfig, AuctionConfigRecord, AuctionType, Auctions,
+		BalanceOf, CircuitBreakerLevel, MinSurplusPurchaseAmount, OnIdleCursor, Stopped,
+		SurplusAuctionAmount, SurplusAuctionThreshold, SurplusHandlingMode, SurplusMode,
 	},
 	Pallet as AuctionsPallet, *,
 };
@@ -47,12 +48,24 @@ fn bidder_balance<T: Config>() -> BalanceOf<T> {
 	(1_000_000 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into())
 }
 
+fn default_surplus_auction_amount<T: Config>() -> BalanceOf<T> {
+	(10_000 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into())
+}
+
+fn default_min_surplus_purchase_amount<T: Config>() -> BalanceOf<T> {
+	(100 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into())
+}
+
 fn insurance_fund_balance<T: Config>() -> BalanceOf<T> {
 	(200_000 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into())
 }
 
+/// Normalized oracle price: pUSD-smallest-units per DOT-smallest-unit.
+///
+/// For DOT at $4.21 with 10 decimals, and pUSD with 6 decimals:
+/// 4.21 × 10^6 / 10^10 = 0.000421
 fn default_price() -> FixedU128 {
-	FixedU128::from_rational(421, 100) // $4.21 per DOT
+	FixedU128::from_inner(421_000_000_000_000)
 }
 
 fn create_liquidation_auction<T: Config>(
@@ -61,6 +74,7 @@ fn create_liquidation_auction<T: Config>(
 	tab: BalanceOf<T>,
 	keeper: T::AccountId,
 ) -> Result<u32, BenchmarkError> {
+	ensure_liquidation_config::<T>();
 	T::BenchmarkHelper::set_price(default_price());
 	T::BenchmarkHelper::setup_liquidation(&vault_owner, collateral, tab);
 
@@ -86,8 +100,15 @@ fn advance_to_stale<T: Config>() {
 }
 
 fn setup_surplus_auction<T: Config>() -> Result<(), BenchmarkError> {
+	AuctionConfig::<T>::insert(AuctionType::Surplus, AuctionConfigRecord::<T>::default_surplus());
+	let auction_amount = default_surplus_auction_amount::<T>();
+	let min_purchase = default_min_surplus_purchase_amount::<T>();
+
 	T::BenchmarkHelper::set_price(default_price());
 	SurplusMode::<T>::put(SurplusHandlingMode::Auction);
+	SurplusAuctionAmount::<T>::put(auction_amount);
+	SurplusAuctionThreshold::<T>::put(Permill::from_percent(5));
+	MinSurplusPurchaseAmount::<T>::put(min_purchase);
 
 	let if_balance = insurance_fund_balance::<T>();
 	let pusd_supply: BalanceOf<T> =
@@ -96,6 +117,13 @@ fn setup_surplus_auction<T: Config>() -> Result<(), BenchmarkError> {
 	T::BenchmarkHelper::setup_surplus_threshold(if_balance, pusd_supply);
 
 	Ok(())
+}
+
+fn ensure_liquidation_config<T: Config>() {
+	AuctionConfig::<T>::insert(
+		AuctionType::Liquidation,
+		AuctionConfigRecord::<T>::default_liquidation(),
+	);
 }
 
 #[benchmarks]
@@ -114,8 +142,10 @@ mod benchmarks {
 		let auction_id =
 			create_liquidation_auction::<T>(vault_owner.clone(), collateral, tab, keeper.clone())?;
 
-		// Fund buyer with pUSD
+		// Fund buyer with pUSD for the debt payment, and enough native balance
+		// so transfer_on_hold can deposit collateral into the account.
 		T::BenchmarkHelper::fund_pusd(&buyer, bidder_balance::<T>());
+		T::BenchmarkHelper::fund_account(&buyer, 1u32.into());
 
 		// Get current price for max parameter
 		let auction =
@@ -162,8 +192,11 @@ mod benchmarks {
 		// Fund buyer with enough DOT for payment (with margin)
 		T::BenchmarkHelper::fund_account(&buyer, dot_with_margin);
 
+		// Add slippage to max price to account for ceil() rounding
+		let max_price = price.saturating_mul(FixedU128::from_rational(101, 100));
+
 		#[extrinsic_call]
-		_(RawOrigin::Signed(buyer.clone()), auction_id, pusd_amount, price, buyer.clone());
+		_(RawOrigin::Signed(buyer.clone()), auction_id, pusd_amount, max_price, buyer.clone());
 
 		// Verify auction was completed
 		assert!(Auctions::<T>::get(auction_id).is_none());
@@ -228,6 +261,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_buffer() -> Result<(), BenchmarkError> {
 		let new_buffer = FixedU128::from_rational(130, 100);
+		ensure_liquidation_config::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AuctionType::Liquidation, new_buffer);
@@ -241,6 +275,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_maximum_duration() -> Result<(), BenchmarkError> {
 		let new_duration: BlockNumberFor<T> = 43200u32.into();
+		ensure_liquidation_config::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AuctionType::Liquidation, new_duration);
@@ -254,6 +289,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_minimum_price() -> Result<(), BenchmarkError> {
 		let new_min_price = FixedU128::from_rational(50, 100);
+		ensure_liquidation_config::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AuctionType::Liquidation, new_min_price);
@@ -267,6 +303,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_chip() -> Result<(), BenchmarkError> {
 		let new_chip = Permill::from_parts(5000);
+		ensure_liquidation_config::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AuctionType::Liquidation, new_chip);
@@ -280,6 +317,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_tip() -> Result<(), BenchmarkError> {
 		let new_tip: BalanceOf<T> = (200 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into());
+		ensure_liquidation_config::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AuctionType::Liquidation, new_tip);
@@ -293,6 +331,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_curve() -> Result<(), BenchmarkError> {
 		let new_curve = PriceCurve::default();
+		ensure_liquidation_config::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, AuctionType::Liquidation, new_curve);
@@ -305,6 +344,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_stopped() -> Result<(), BenchmarkError> {
+		Stopped::<T>::put(CircuitBreakerLevel::AllEnabled);
+
 		#[extrinsic_call]
 		_(RawOrigin::Root, CircuitBreakerLevel::NoNewAuctions);
 
@@ -315,6 +356,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_surplus_mode() -> Result<(), BenchmarkError> {
+		SurplusMode::<T>::put(SurplusHandlingMode::DirectTransfer);
+
 		#[extrinsic_call]
 		_(RawOrigin::Root, SurplusHandlingMode::Auction);
 
@@ -326,6 +369,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_surplus_auction_threshold() -> Result<(), BenchmarkError> {
 		let threshold = Permill::from_percent(10);
+		SurplusAuctionThreshold::<T>::put(Permill::from_percent(5));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, threshold);
@@ -338,6 +382,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_surplus_auction_amount() -> Result<(), BenchmarkError> {
 		let amount: BalanceOf<T> = (50_000 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into());
+		SurplusAuctionAmount::<T>::put(default_surplus_auction_amount::<T>());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, amount);
@@ -350,6 +395,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_min_surplus_purchase_amount() -> Result<(), BenchmarkError> {
 		let amount: BalanceOf<T> = (200 * PUSD_UNIT).try_into().unwrap_or_else(|_| 1u32.into());
+		MinSurplusPurchaseAmount::<T>::put(default_min_surplus_purchase_amount::<T>());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, amount);
@@ -362,9 +408,12 @@ mod benchmarks {
 	#[benchmark]
 	fn transfer_surplus() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		let transfer_amount = default_surplus_auction_amount::<T>();
 
 		// Set mode to DirectTransfer
 		SurplusMode::<T>::put(SurplusHandlingMode::DirectTransfer);
+		SurplusAuctionAmount::<T>::put(transfer_amount);
+		SurplusAuctionThreshold::<T>::put(Permill::from_percent(5));
 		T::BenchmarkHelper::set_price(default_price());
 
 		let if_balance = insurance_fund_balance::<T>();

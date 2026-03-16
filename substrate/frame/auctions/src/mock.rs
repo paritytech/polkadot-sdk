@@ -427,8 +427,10 @@ impl crate::BenchmarkHelper<u64, u128> for MockBenchmarkHelper {
 	}
 
 	fn fund_account(account: &u64, amount: u128) {
-		use frame_support::traits::fungible::Mutate;
-		let _ = Balances::mint_into(account, amount);
+		use frame_support::traits::{fungible::Mutate, Get};
+		// Ensure at least ED so the account can receive native transfers
+		let ed = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+		let _ = Balances::mint_into(account, amount.max(ed));
 	}
 
 	fn fund_pusd(account: &u64, amount: u128) {

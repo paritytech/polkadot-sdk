@@ -3241,12 +3241,17 @@ impl pallet_auctions::BenchmarkHelper<AccountId, Balance> for AuctionsBenchmarkH
 		insurance_fund_amount: Balance,
 	) {
 		use frame_support::traits::fungible::{Mutate, MutateHold};
-		// Fund vault owner with enough for the hold
-		let _ = Balances::mint_into(vault_owner, collateral * 2);
+		// Fund vault owner with enough for the hold + existential deposit buffer
+		let ed_buffer = ExistentialDeposit::get().saturating_mul(2);
+		let _ = Balances::mint_into(vault_owner, collateral.saturating_add(ed_buffer));
 		// Create seized hold (simulates liquidation from vaults pallet)
 		let _ = Balances::hold(&pallet_vaults::HoldReason::Seized.into(), vault_owner, collateral);
 		// Fund Insurance Fund for keeper payments
 		Self::fund_pusd(&InsuranceFundAccount::get(), insurance_fund_amount);
+		// Set CurrentLiquidationAmount so Vaults::execute_purchase can track debt
+		pallet_vaults::CurrentLiquidationAmount::<Runtime>::mutate(|current| {
+			*current = current.saturating_add(insurance_fund_amount);
+		});
 	}
 
 	fn setup_surplus_threshold(insurance_fund_amount: Balance, _pusd_supply: Balance) {
