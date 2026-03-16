@@ -156,9 +156,9 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		CanSecondRequest, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
-		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest,
+		CanSecondRequest, CandidateBackingMessage, ChainApiMessage, CollatorProtocolMessage,
+		IfDisconnected, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+		ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, SubsystemError,
 };
@@ -170,8 +170,10 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	node_features, CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId,
 	CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	SessionIndex,
+	SessionIndex, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
+use sp_consensus_babe::digests::CompatibleDigestItem;
+use sp_consensus_slots::SlotDuration;
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
@@ -208,6 +210,17 @@ const COST_WRONG_PARA: Rep = Rep::Malicious("A collator provided a collation for
 const COST_PROTOCOL_MISUSE: Rep =
 	Rep::Malicious("A collator advertising a collation for an async backing relay parent using V1");
 const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator connected");
+/// Minor penalty for V3 advertisements whose scheduling parent doesn't match the
+/// last finished relay chain slot. This deters spamming invalid advertisements while
+/// remaining safe for honest collators that occasionally hit slot-boundary timing edges.
+///
+/// `CostMinor` = -100,000 reputation per event. The ban threshold is ~-1.52 billion
+/// (`71% * i32::MIN`). Reputation decays toward 0 at `1/200` per second (~139s half-life).
+/// An honest collator hitting this once per 6s slot reaches a steady-state of roughly
+/// -3.4 million — about 450x away from the ban threshold. Only sustained rapid-fire
+/// spamming (thousands of bad advertisements) can accumulate enough to trigger a disconnect.
+const COST_INVALID_SCHEDULING_PARENT: Rep =
+	Rep::CostMinor("V3 advertisement with invalid scheduling parent");
 const BENEFIT_NOTIFY_GOOD: Rep =
 	Rep::BenefitMinor("A collator was noted good by another subsystem");
 
@@ -563,6 +576,16 @@ struct HeldOffAdvertisement {
 	prospective_candidate: Option<(CandidateHash, Hash)>,
 }
 
+/// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
+/// Stores the leaf's BABE slot and parent hash so the validator can determine whether
+/// the scheduling parent corresponds to the last finished relay chain slot.
+struct LeafSchedulingInfo {
+	/// The parent hash of the leaf block.
+	parent_hash: Hash,
+	/// The BABE slot of the leaf block.
+	slot: sp_consensus_slots::Slot,
+}
+
 /// All state relevant for the validator side of the protocol lives here.
 #[derive(Default)]
 struct State {
@@ -593,6 +616,9 @@ struct State {
 	/// - `is_slot_available()`: validates advertisements using offset-based position checks
 	/// - `unfulfilled_claim_queue_entries()`: determines fetch priority based on CQ order
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+
+	/// Per active leaf scheduling info for V3 scheduling parent validation.
+	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
 
 	/// State tracked per scheduling parent in the implicit view.
 	/// Includes collation tracking, core assignment, and hold-off state.
@@ -1354,8 +1380,9 @@ enum AdvertisementError {
 	SecondedLimitReached,
 	/// For V1 protocol, relay_parent must be an active leaf (no async backing support).
 	ProtocolMisuse,
-	/// For V3 candidate descriptors, scheduling_parent must be an active leaf.
-	SchedulingParentNotActiveLeaf,
+	/// For V3 candidate descriptors, the scheduling parent does not match any active leaf's
+	/// expected scheduling parent based on its slot state.
+	SchedulingParentNotValid,
 	/// Advertisement is invalid.
 	#[allow(dead_code)]
 	Invalid(InsertAdvertisementError),
@@ -1368,10 +1395,10 @@ impl AdvertisementError {
 		use AdvertisementError::*;
 		match self {
 			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
-			SchedulingParentNotActiveLeaf |
-			SchedulingParentUnknown |
-			UndeclaredCollator |
-			Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
+			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
+				Some(COST_UNEXPECTED_MESSAGE)
+			},
+			SchedulingParentNotValid => Some(COST_INVALID_SCHEDULING_PARENT),
 			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
 		}
 	}
@@ -1698,18 +1725,39 @@ where
 {
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
-	// V3 candidate descriptors require scheduling_parent to be an active leaf.
-	// For V1/V2 candidate descriptors sent over V3 protocol, we have to be more lenient.
-	if candidate_descriptor_version == CandidateDescriptorVersion::V3 &&
-		!state.leaf_claim_queues.contains_key(&scheduling_parent)
-	{
-		return Err(AdvertisementError::SchedulingParentNotActiveLeaf);
-	}
-
+	// Fail fast if the scheduling parent is completely unknown.
 	let per_scheduling_parent = state
 		.per_scheduling_parent
 		.get(&scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
+
+	// V3 candidate descriptors require the scheduling_parent to be the block from the last
+	// finished relay chain slot. We compare slot numbers rather than timestamps to keep
+	// the logic simple and aligned with how BABE/Aura reason about slots.
+	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
+		let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
+		let current_slot = sp_consensus_slots::Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			slot_duration,
+		);
+
+		let scheduling_parent_valid =
+			if let Some(info) = state.leaf_scheduling_info.get(&scheduling_parent) {
+				// scheduling_parent is a leaf — valid only if the leaf's slot is exactly
+				// one behind the current slot (i.e., it just finished).
+				*current_slot == *info.slot + 1
+			} else {
+				// scheduling_parent is not a leaf — valid if it's the parent of any leaf
+				// whose slot is the current slot (still in progress).
+				state.leaf_scheduling_info.iter().any(|(_leaf_hash, info)| {
+					*current_slot == *info.slot && scheduling_parent == info.parent_hash
+				})
+			};
+
+		if !scheduling_parent_valid {
+			return Err(AdvertisementError::SchedulingParentNotValid);
+		}
+	}
 
 	// Ensure peer has declared as a collator
 	peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
@@ -1937,6 +1985,29 @@ where
 		state.per_scheduling_parent.insert(*leaf, per_relay_parent);
 		state.leaf_claim_queues.insert(*leaf, leaf_claim_queue);
 
+		// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
+		// Without this info, V3 advertisements referencing this leaf will be rejected.
+		let (tx, rx) = oneshot::channel();
+		sender.send_message(ChainApiMessage::BlockHeader(*leaf, tx)).await;
+		let header = rx.await.ok().and_then(|r| r.ok()).flatten();
+		match header.and_then(|h| {
+			let slot = h.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())?.slot();
+			Some(LeafSchedulingInfo { parent_hash: h.parent_hash, slot })
+		}) {
+			Some(info) => {
+				state.leaf_scheduling_info.insert(*leaf, info);
+			},
+			None => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?leaf,
+					"Could not extract BABE slot from leaf header; \
+					 V3 scheduling parent validation will reject advertisements \
+					 referencing this leaf",
+				);
+			},
+		}
+
 		state
 			.implicit_view
 			.activate_leaf(sender, *leaf)
@@ -1975,6 +2046,7 @@ where
 		);
 
 		state.leaf_claim_queues.remove(&removed);
+		state.leaf_scheduling_info.remove(&removed);
 
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
@@ -2621,7 +2693,11 @@ async fn kick_off_seconding<Context>(
 		};
 
 	// Sanity check of the candidate receipt version.
-	descriptor_version_sanity_check(candidate_receipt.descriptor(), per_scheduling_parent)?;
+	descriptor_version_sanity_check(
+		candidate_receipt.descriptor(),
+		per_scheduling_parent,
+		collation_event.collator_protocol_version,
+	)?;
 
 	let collations = &mut per_scheduling_parent.collations;
 
@@ -3032,10 +3108,18 @@ pub fn descriptor_version_sanity_check_with_params(
 	v3_enabled: bool,
 	expected_core: CoreIndex,
 	expected_session: SessionIndex,
+	collator_protocol_version: CollationVersion,
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version(v3_enabled) {
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
+			// V3 descriptors must only arrive via V3 protocol.
+			if descriptor.version(v3_enabled) == CandidateDescriptorVersion::V3 &&
+				collator_protocol_version != CollationVersion::V3
+			{
+				return Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V3));
+			}
+
 			if let Some(core_index) = descriptor.core_index(v3_enabled) {
 				if core_index != expected_core {
 					return Err(SecondingError::InvalidCoreIndex(core_index.0, expected_core.0));
@@ -3061,12 +3145,14 @@ pub fn descriptor_version_sanity_check_with_params(
 fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
 	per_scheduling_parent: &PerSchedulingParent,
+	collator_protocol_version: CollationVersion,
 ) -> std::result::Result<(), SecondingError> {
 	descriptor_version_sanity_check_with_params(
 		descriptor,
 		per_scheduling_parent.v3_enabled,
 		per_scheduling_parent.current_core,
 		per_scheduling_parent.session_index,
+		collator_protocol_version,
 	)
 }
 
