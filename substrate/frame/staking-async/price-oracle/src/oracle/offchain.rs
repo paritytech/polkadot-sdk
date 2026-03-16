@@ -262,6 +262,78 @@ pub enum ParsingMethod {
 	///
 	/// Response format: `[{"id": "45219", ..., "price_usd": "1.70", ...}]`
 	CoinLoreFree,
+	/// CoinGecko API.
+	///
+	/// Example: <https://api.coingecko.com/api/v3/coins/polkadot>
+	///
+	/// Response format: `{"polkadot": {"usd": 1.49}}`
+	CoinGecko,
+	/// CoinMarketCap API (requires API key).
+	///
+	/// Example: <https://pro-api.coinmarketcap.com/v3/cryptocurrency/quotes/latest?slug=polkadot-new&convert=USD>
+	///
+	/// Response format: `{"data": [{"quote": [{"price": 1.598}]}]}`
+	CoinMarketCap,
+	/// CoinPaprika API.
+	///
+	/// Example: <https://api.coinpaprika.com/v1/tickers/dot-polkadot-token>
+	///
+	/// Response format: `{"quotes": {"USD": {"price": 1.49}}}`
+	CoinPaprika,
+	/// LiveCoinWatch API (requires API key).
+	///
+	/// Example: POST <https://api.livecoinwatch.com/coins/single>
+	///
+	/// Response format: `{"rate": 1.4948}`
+	LiveCoinWatch,
+	/// DIA API.
+	///
+	/// Example: <https://api.diadata.org/v1/quotation/DOT>
+	///
+	/// Response format: `{"Price": 1.492}`
+	Dia,
+	/// Coinbase Exchange API.
+	///
+	/// Example: <https://api.coinbase.com/v2/prices/DOT-USD/spot>
+	///
+	/// Response format: `{"data": {"amount": "1.492"}}`
+	CoinbaseFree,
+	/// Kraken API.
+	///
+	/// Example: <https://api.kraken.com/0/public/Ticker?pair=DOTUSD>
+	///
+	/// Response format: `{"result": {"DOTUSD": {"c": ["1.49070", ...]}}}`
+	KrakenFree,
+	/// OKX API.
+	///
+	/// Example: <https://www.okx.com/api/v5/market/ticker?instId=DOT-USDT>
+	///
+	/// Response format: `{"data": [{"last": "1.491"}]}`
+	OkxFree,
+	/// Bybit API.
+	///
+	/// Example: <https://api.bybit.com/v5/market/tickers?category=spot&symbol=DOTUSDT>
+	///
+	/// Response format: `{"result": {"list": [{"lastPrice": "1.489"}]}}`
+	BybitFree,
+	/// KuCoin API.
+	///
+	/// Example: <https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=DOT-USDT>
+	///
+	/// Response format: `{"data": {"price": "1.4871"}}`
+	KuCoinFree,
+	/// Crypto.com Exchange API.
+	///
+	/// Example: <https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name=DOT_USD>
+	///
+	/// Response format: `{"result": {"data": [{"a": "1.4856"}]}}`
+	CryptoComFree,
+	/// Gate.io API.
+	///
+	/// Example: <https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOT_USDT>
+	///
+	/// Response format: `[{"last": "1.483"}]`
+	GateIoFree,
 }
 
 /// Some data that can be added to the request.
@@ -510,6 +582,176 @@ impl<T: crate::oracle::Config> OracleOffchainWorker<T> {
 					_ => Err(OffchainError::Other("invalid CoinLoreFree response format")),
 				}
 			},
+			ParsingMethod::CoinGecko => {
+				// Expected format: {"polkadot": {"usd": 1.49}}
+				use alloc::string::ToString;
+				let price_str = v
+					.get("polkadot")
+					.and_then(|p| p.get("usd"))
+					.and_then(|n| n.as_number())
+					.map(|n| n.to_string())
+					.ok_or("failed to parse polkadot.usd field")?;
+				ocw_log!(trace, "CoinGecko price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(&price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::CoinMarketCap => {
+				// Expected format: {"data": [{"quote": [{"price": 1.598}]}]}
+				use alloc::string::ToString;
+				let price_str = v
+					.get("data")
+					.and_then(|d| d.as_array())
+					.and_then(|arr| arr.first())
+					.and_then(|item| item.get("quote"))
+					.and_then(|q| q.as_array())
+					.and_then(|arr| arr.first())
+					.and_then(|q| q.get("price"))
+					.and_then(|n| n.as_number())
+					.map(|n| n.to_string())
+					.ok_or("failed to parse data[0].quote[0].price field")?;
+				ocw_log!(trace, "CoinMarketCap price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(&price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::CoinPaprika => {
+				// Expected format: {"quotes": {"USD": {"price": 1.49}}}
+				use alloc::string::ToString;
+				let price_str = v
+					.get("quotes")
+					.and_then(|q| q.get("USD"))
+					.and_then(|usd| usd.get("price"))
+					.and_then(|n| n.as_number())
+					.map(|n| n.to_string())
+					.ok_or("failed to parse quotes.USD.price field")?;
+				ocw_log!(trace, "CoinPaprika price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(&price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::LiveCoinWatch => {
+				// Expected format: {"rate": 1.4948}
+				use alloc::string::ToString;
+				let price_str = v
+					.get("rate")
+					.and_then(|n| n.as_number())
+					.map(|n| n.to_string())
+					.ok_or("failed to parse rate field")?;
+				ocw_log!(trace, "LiveCoinWatch price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(&price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::Dia => {
+				// Expected format: {"Price": 1.492}
+				use alloc::string::ToString;
+				let price_str = v
+					.get("Price")
+					.and_then(|n| n.as_number())
+					.map(|n| n.to_string())
+					.ok_or("failed to parse Price field")?;
+				ocw_log!(trace, "DIA price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(&price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::CoinbaseFree => {
+				// Expected format: {"data": {"amount": "1.492"}}
+				let price_str = v
+					.get("data")
+					.and_then(|d| d.get("amount"))
+					.and_then(|a| a.as_str())
+					.ok_or("failed to parse data.amount field")?;
+				ocw_log!(trace, "Coinbase price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::KrakenFree => {
+				// Expected format: {"result": {"DOTUSD": {"c": ["1.49070", ...]}}}
+				let price_str = v
+					.get("result")
+					.and_then(|r| r.get("DOTUSD"))
+					.and_then(|d| d.get("c"))
+					.and_then(|c| c.as_array())
+					.and_then(|arr| arr.first())
+					.and_then(|p| p.as_str())
+					.ok_or("failed to parse result.DOTUSD.c[0] field")?;
+				ocw_log!(trace, "Kraken price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::OkxFree => {
+				// Expected format: {"data": [{"last": "1.491"}]}
+				let price_str = v
+					.get("data")
+					.and_then(|d| d.as_array())
+					.and_then(|arr| arr.first())
+					.and_then(|item| item.get("last"))
+					.and_then(|l| l.as_str())
+					.ok_or("failed to parse data[0].last field")?;
+				ocw_log!(trace, "OKX price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::BybitFree => {
+				// Expected format: {"result": {"list": [{"lastPrice": "1.489"}]}}
+				let price_str = v
+					.get("result")
+					.and_then(|r| r.get("list"))
+					.and_then(|l| l.as_array())
+					.and_then(|arr| arr.first())
+					.and_then(|item| item.get("lastPrice"))
+					.and_then(|p| p.as_str())
+					.ok_or("failed to parse result.list[0].lastPrice field")?;
+				ocw_log!(trace, "Bybit price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::KuCoinFree => {
+				// Expected format: {"data": {"price": "1.4871"}}
+				let price_str = v
+					.get("data")
+					.and_then(|d| d.get("price"))
+					.and_then(|p| p.as_str())
+					.ok_or("failed to parse data.price field")?;
+				ocw_log!(trace, "KuCoin price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::CryptoComFree => {
+				// Expected format: {"result": {"data": [{"a": "1.4856"}]}}
+				let price_str = v
+					.get("result")
+					.and_then(|r| r.get("data"))
+					.and_then(|d| d.as_array())
+					.and_then(|arr| arr.first())
+					.and_then(|item| item.get("a"))
+					.and_then(|a| a.as_str())
+					.ok_or("failed to parse result.data[0].a field")?;
+				ocw_log!(trace, "CryptoCom price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
+			ParsingMethod::GateIoFree => {
+				// Expected format: [{"last": "1.483"}]
+				let price_str = v
+					.as_array()
+					.and_then(|arr| arr.first())
+					.and_then(|item| item.get("last"))
+					.and_then(|l| l.as_str())
+					.ok_or("failed to parse [0].last field")?;
+				ocw_log!(trace, "GateIo price_str: {:?}", price_str);
+				let price =
+					FixedU128::from_float_str(price_str).map_err(OffchainError::Other)?;
+				Ok(price)
+			},
 		}
 	}
 
@@ -667,6 +909,244 @@ mod parsing_methods {
 		let body = br#"[{"id":"45219","price_usd":"invalid"}]"#.to_vec();
 		assert!(Worker::parse_response(&ParsingMethod::CoinLoreFree, body).is_err());
 	}
+
+	#[test]
+	fn coingecko_parsing() {
+		let body = br#"{"polkadot":{"usd":1.49}}"#.to_vec();
+		let price = Worker::parse_response(&ParsingMethod::CoinGecko, body).unwrap();
+		assert_eq!(price, FixedU128::from_rational(149, 100));
+
+		// Missing polkadot key.
+		let body = br#"{"ethereum":{"usd":1.49}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinGecko, body).is_err());
+
+		// Missing usd key.
+		let body = br#"{"polkadot":{"eur":1.49}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinGecko, body).is_err());
+
+		// usd is not a number.
+		let body = br#"{"polkadot":{"usd":"not a number"}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinGecko, body).is_err());
+	}
+
+	#[test]
+	fn coinmarketcap_parsing() {
+		let body = br#"{"data":[{"quote":[{"price":1.598733470104364}]}]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinMarketCap, body).is_ok());
+
+		// Missing data key.
+		let body = br#"{"status":{}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinMarketCap, body).is_err());
+
+		// Empty data array.
+		let body = br#"{"data":[]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinMarketCap, body).is_err());
+
+		// Missing quote key.
+		let body = br#"{"data":[{"name":"Polkadot"}]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinMarketCap, body).is_err());
+
+		// Empty quote array.
+		let body = br#"{"data":[{"quote":[]}]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinMarketCap, body).is_err());
+	}
+
+	#[test]
+	fn coinpaprika_parsing() {
+		let body =
+			br#"{"quotes":{"USD":{"price":1.49086388598034}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinPaprika, body).is_ok());
+
+		// Missing quotes key.
+		let body = br#"{"id":"dot-polkadot-token"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinPaprika, body).is_err());
+
+		// Missing USD key.
+		let body = br#"{"quotes":{"EUR":{"price":1.49}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinPaprika, body).is_err());
+
+		// Missing price key.
+		let body = br#"{"quotes":{"USD":{"volume_24h":77802}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinPaprika, body).is_err());
+	}
+
+	#[test]
+	fn livecoinwatch_parsing() {
+		let body = br#"{"rate":1.4948022812564912,"volume":130014956}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::LiveCoinWatch, body).is_ok());
+
+		// Missing rate key.
+		let body = br#"{"volume":130014956}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::LiveCoinWatch, body).is_err());
+
+		// rate is not a number.
+		let body = br#"{"rate":"not a number"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::LiveCoinWatch, body).is_err());
+	}
+
+	#[test]
+	fn dia_parsing() {
+		let body = br#"{"Symbol":"DOT","Price":1.49201546159598}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::Dia, body).is_ok());
+
+		// Missing Price key.
+		let body = br#"{"Symbol":"DOT","Name":"Polkadot"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::Dia, body).is_err());
+
+		// Price is not a number.
+		let body = br#"{"Price":"not a number"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::Dia, body).is_err());
+	}
+
+	#[test]
+	fn coinbase_free_parsing() {
+		let body = br#"{"data":{"amount":"1.492","base":"DOT","currency":"USD"}}"#.to_vec();
+		let price = Worker::parse_response(&ParsingMethod::CoinbaseFree, body).unwrap();
+		assert_eq!(price, FixedU128::from_rational(1492, 1000));
+
+		// Missing data key.
+		let body = br#"{"errors":[]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinbaseFree, body).is_err());
+
+		// Missing amount key.
+		let body = br#"{"data":{"base":"DOT"}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinbaseFree, body).is_err());
+
+		// amount is not a valid number string.
+		let body = br#"{"data":{"amount":"invalid"}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CoinbaseFree, body).is_err());
+	}
+
+	#[test]
+	fn kraken_free_parsing() {
+		let body = br#"{"error":[],"result":{"DOTUSD":{"c":["1.49070","6.00000000"]}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KrakenFree, body).is_ok());
+
+		// Missing result key.
+		let body = br#"{"error":["some error"]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KrakenFree, body).is_err());
+
+		// Missing DOTUSD key.
+		let body = br#"{"error":[],"result":{"ETHUSD":{"c":["1.49"]}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KrakenFree, body).is_err());
+
+		// Empty c array.
+		let body = br#"{"error":[],"result":{"DOTUSD":{"c":[]}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KrakenFree, body).is_err());
+
+		// c[0] is not a valid number string.
+		let body = br#"{"error":[],"result":{"DOTUSD":{"c":["invalid"]}}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KrakenFree, body).is_err());
+	}
+
+	#[test]
+	fn okx_free_parsing() {
+		let body = br#"{"code":"0","data":[{"instId":"DOT-USDT","last":"1.491"}]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::OkxFree, body).is_ok());
+
+		// Missing data key.
+		let body = br#"{"code":"0"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::OkxFree, body).is_err());
+
+		// Empty data array.
+		let body = br#"{"code":"0","data":[]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::OkxFree, body).is_err());
+
+		// Missing last key.
+		let body = br#"{"code":"0","data":[{"instId":"DOT-USDT"}]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::OkxFree, body).is_err());
+
+		// last is not a valid number string.
+		let body = br#"{"code":"0","data":[{"last":"invalid"}]}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::OkxFree, body).is_err());
+	}
+
+	#[test]
+	fn bybit_free_parsing() {
+		let body =
+			br#"{"retCode":0,"result":{"category":"spot","list":[{"lastPrice":"1.489"}]}}"#
+				.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::BybitFree, body).is_ok());
+
+		// Missing result key.
+		let body = br#"{"retCode":0}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::BybitFree, body).is_err());
+
+		// Empty list array.
+		let body = br#"{"retCode":0,"result":{"list":[]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::BybitFree, body).is_err());
+
+		// Missing lastPrice key.
+		let body = br#"{"retCode":0,"result":{"list":[{"symbol":"DOTUSDT"}]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::BybitFree, body).is_err());
+
+		// lastPrice is not a valid number string.
+		let body = br#"{"retCode":0,"result":{"list":[{"lastPrice":"invalid"}]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::BybitFree, body).is_err());
+	}
+
+	#[test]
+	fn kucoin_free_parsing() {
+		let body = br#"{"code":"200000","data":{"price":"1.4871","size":"258.9603"}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KuCoinFree, body).is_ok());
+
+		// Missing data key.
+		let body = br#"{"code":"200000"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KuCoinFree, body).is_err());
+
+		// Missing price key.
+		let body = br#"{"code":"200000","data":{"size":"258.9603"}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KuCoinFree, body).is_err());
+
+		// price is not a valid number string.
+		let body = br#"{"code":"200000","data":{"price":"invalid"}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::KuCoinFree, body).is_err());
+	}
+
+	#[test]
+	fn crypto_com_free_parsing() {
+		let body =
+			br#"{"code":0,"result":{"data":[{"i":"DOT_USD","a":"1.4856"}]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CryptoComFree, body).is_ok());
+
+		// Missing result key.
+		let body = br#"{"code":0}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CryptoComFree, body).is_err());
+
+		// Empty data array.
+		let body = br#"{"code":0,"result":{"data":[]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CryptoComFree, body).is_err());
+
+		// Missing a key.
+		let body = br#"{"code":0,"result":{"data":[{"i":"DOT_USD"}]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CryptoComFree, body).is_err());
+
+		// a is not a valid number string.
+		let body = br#"{"code":0,"result":{"data":[{"a":"invalid"}]}}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::CryptoComFree, body).is_err());
+	}
+
+	#[test]
+	fn gate_io_free_parsing() {
+		let body = br#"[{"currency_pair":"DOT_USDT","last":"1.483"}]"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::GateIoFree, body).is_ok());
+
+		// Empty array.
+		let body = br#"[]"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::GateIoFree, body).is_err());
+
+		// Missing last key.
+		let body = br#"[{"currency_pair":"DOT_USDT"}]"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::GateIoFree, body).is_err());
+
+		// last is not a valid number string.
+		let body = br#"[{"last":"invalid"}]"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::GateIoFree, body).is_err());
+
+		// Not an array.
+		let body = br#"{"last":"1.483"}"#.to_vec();
+		assert!(Worker::parse_response(&ParsingMethod::GateIoFree, body).is_err());
+	}
 }
 
 /// Live tests that query the actual API endpoints to verify their response formats haven't changed.
@@ -735,6 +1215,134 @@ mod live_parsing_tests {
 			price > FixedU128::from_rational(1, 100) && price < FixedU128::from_rational(10_000, 1),
 			"CoinLore returned an implausible DOT price: {price:?}"
 		);
+	}
+
+	fn assert_plausible_dot_price(price: FixedU128, source: &str) {
+		assert!(
+			price > FixedU128::from_rational(1, 100) && price < FixedU128::from_rational(10_000, 1),
+			"{source} returned an implausible DOT price: {price:?}"
+		);
+	}
+
+	#[test]
+	fn live_coingecko() {
+		let body = curl_get(
+			"https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd",
+		);
+		let price = Worker::parse_response(&ParsingMethod::CoinGecko, body)
+			.expect("CoinGecko response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "CoinGecko");
+	}
+
+	#[test]
+	fn live_coinpaprika() {
+		let body = curl_get("https://api.coinpaprika.com/v1/tickers/dot-polkadot-token");
+		let price = Worker::parse_response(&ParsingMethod::CoinPaprika, body)
+			.expect("CoinPaprika response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "CoinPaprika");
+	}
+
+	#[test]
+	fn live_dia() {
+		let body = curl_get("https://api.diadata.org/v1/quotation/DOT");
+		let price = Worker::parse_response(&ParsingMethod::Dia, body)
+			.expect("DIA response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "DIA");
+	}
+
+	#[test]
+	fn live_coinbase_free() {
+		let body = curl_get("https://api.coinbase.com/v2/prices/DOT-USD/spot");
+		let price = Worker::parse_response(&ParsingMethod::CoinbaseFree, body)
+			.expect("Coinbase response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "Coinbase");
+	}
+
+	#[test]
+	fn live_kraken_free() {
+		let body = curl_get("https://api.kraken.com/0/public/Ticker?pair=DOTUSD");
+		let price = Worker::parse_response(&ParsingMethod::KrakenFree, body)
+			.expect("Kraken response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "Kraken");
+	}
+
+	#[test]
+	fn live_okx_free() {
+		let body = curl_get("https://www.okx.com/api/v5/market/ticker?instId=DOT-USDT");
+		let price = Worker::parse_response(&ParsingMethod::OkxFree, body)
+			.expect("OKX response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "OKX");
+	}
+
+	#[test]
+	fn live_bybit_free() {
+		let body =
+			curl_get("https://api.bybit.com/v5/market/tickers?category=spot&symbol=DOTUSDT");
+		let price = Worker::parse_response(&ParsingMethod::BybitFree, body)
+			.expect("Bybit response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "Bybit");
+	}
+
+	#[test]
+	fn live_kucoin_free() {
+		let body =
+			curl_get("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=DOT-USDT");
+		let price = Worker::parse_response(&ParsingMethod::KuCoinFree, body)
+			.expect("KuCoin response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "KuCoin");
+	}
+
+	#[test]
+	fn live_crypto_com_free() {
+		let body = curl_get(
+			"https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name=DOT_USD",
+		);
+		let price = Worker::parse_response(&ParsingMethod::CryptoComFree, body)
+			.expect("Crypto.com response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "Crypto.com");
+	}
+
+	#[test]
+	fn live_gate_io_free() {
+		let body =
+			curl_get("https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOT_USDT");
+		let price = Worker::parse_response(&ParsingMethod::GateIoFree, body)
+			.expect("Gate.io response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "Gate.io");
+	}
+
+	#[test]
+	fn live_coinmarketcap() {
+		let api_key = match std::env::var("CMC_API_KEY") {
+			Ok(key) => key,
+			Err(_) => {
+				eprintln!("Skipping live_coinmarketcap: CMC_API_KEY env var not set");
+				return;
+			},
+		};
+		let output = Command::new("curl")
+			.args([
+				"-s",
+				"--fail",
+				"--max-time",
+				"15",
+				"-H",
+				&format!("X-CMC_PRO_API_KEY: {api_key}"),
+				"https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?slug=polkadot&convert=USD",
+			])
+			.output()
+			.expect("failed to execute curl — is it installed?");
+
+		assert!(
+			output.status.success(),
+			"curl request to CoinMarketCap failed with status {:?}, stderr: {}",
+			output.status.code(),
+			String::from_utf8_lossy(&output.stderr)
+		);
+
+		let price = Worker::parse_response(&ParsingMethod::CoinMarketCap, output.stdout)
+			.expect("CoinMarketCap response format has changed — parsing failed");
+		assert_plausible_dot_price(price, "CoinMarketCap");
 	}
 }
 
