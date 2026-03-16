@@ -1503,8 +1503,10 @@ pub trait ExtrinsicMetadata {
 
 	/// All version of transaction extensions attached to this `Extrinsic`.
 	///
-	/// For the transaction extension pipeline used for the signed extrinsics it is defined as the
-	/// version 0, if defined.
+	/// For extrinsic version 4, extrinsics don't specify any version, the pipeline version 0 is
+	/// used.
+	/// For extrinsic version 5, bare extrinsics don't specify any version, the pipeline version 0
+	/// is used.
 	type TransactionExtensionPipelines;
 }
 
