@@ -16,19 +16,21 @@
 //! ## Prerequisite
 //!
 //! The relay chain needs to have async backing enabled so double-check that the relay-chain
-//! configuration contains the following three parameters (especially when testing locally e.g. with
+//! configuration contains the following parameter (especially when testing locally e.g. with
 //! zombienet):
 //!
 //! ```json
-//! "async_backing_params": {
-//!     "max_candidate_depth": 3,
-//!     "allowed_ancestry_len": 2
-//! },
-//! "scheduling_lookahead": 2
+//! "scheduler_params": {
+//!     "lookahead": 3
+//! }
 //! ```
 //!
-//! <div class="warning"><code>scheduling_lookahead</code> must be set to 2, otherwise parachain
+//! <div class="warning"><code>lookahead</code> must be set to at least 3, otherwise parachain
 //! block times will degrade to worse than with sync backing!</div>
+//!
+//! Note: `async_backing_params` (`max_candidate_depth` and `allowed_ancestry_len`) are no longer
+//! required to be explicitly configured. Async backing works with them set to their default values
+//! of 0.
 //!
 //! ## Phase 1 - Update Parachain Runtime
 //!
