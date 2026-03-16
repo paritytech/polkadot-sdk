@@ -1,43 +1,49 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_ethereum::{mpt, Decodable, ReceiptEnvelope};
+use alloy_consensus::ReceiptEnvelope;
+use alloy_primitives::{Bytes, B256};
+use alloy_rlp::Decodable;
+use alloy_trie::{
+	proof::{verify_proof, ProofVerificationError},
+	Nibbles,
+};
 use sp_core::H256;
-use sp_io::hashing::keccak_256;
 use sp_std::prelude::*;
 
-pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<ReceiptEnvelope> {
-	match apply_merkle_proof(values) {
-		Some((root, data)) if root == receipts_root => {
-			ReceiptEnvelope::decode(&mut data.as_slice()).ok()
+pub fn verify_receipt_proof(
+	receipts_root: H256,
+	tx_index: u64,
+	proof: &[Vec<u8>],
+) -> Option<ReceiptEnvelope> {
+	let key = receipt_trie_key(tx_index);
+	let root = B256::from_slice(receipts_root.as_bytes());
+	let proof_nodes: Vec<Bytes> = proof.iter().map(|node| Bytes::copy_from_slice(node)).collect();
+
+	// Call verify_proof with None to extract the value from an inclusion proof. For inclusion
+	// proofs, alloy_trie returns ValueMismatch with the extracted value in `got`. The proof is
+	// already cryptographically verified during this traversal.
+	let value = match verify_proof(root, key, None, proof_nodes.iter()) {
+		Ok(()) => return None, // Exclusion proof - key does not exist
+		Err(ProofVerificationError::ValueMismatch { got: Some(v), expected: None, .. }) => {
+			v.to_vec()
 		},
-		Some((_, _)) => None,
-		None => None,
-	}
+		Err(_) => return None,
+	};
+
+	ReceiptEnvelope::decode(&mut value.as_slice()).ok()
 }
 
-fn apply_merkle_proof(proof: &[Vec<u8>]) -> Option<(H256, Vec<u8>)> {
-	let mut iter = proof.iter().rev();
-	let first_bytes = match iter.next() {
-		Some(b) => b,
-		None => return None,
-	};
-	let item_to_prove: mpt::ShortNode = rlp::decode(first_bytes).ok()?;
-
-	let final_hash: Option<[u8; 32]> = iter.try_fold(keccak_256(first_bytes), |acc, x| {
-		let node: Box<dyn mpt::Node> = x.as_slice().try_into().ok()?;
-		if (*node).contains_hash(acc.into()) {
-			return Some(keccak_256(x));
-		}
-		None
-	});
-
-	final_hash.map(|hash| (hash.into(), item_to_prove.value))
+fn receipt_trie_key(tx_index: u64) -> Nibbles {
+	let encoded_index = alloy_rlp::encode(&tx_index);
+	Nibbles::unpack(encoded_index.as_slice())
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::receipt::verify_receipt_proof;
 	use hex_literal::hex;
+	use sp_core::H256;
 
 	#[test]
 	fn test_verify_receipt_proof() {
@@ -50,7 +56,8 @@ mod tests {
 			hex!("f901f180a00046a08d4f0bdbdc6b31903086ce323182bce6725e7d9415f7ff91ee8f4820bda0e7cd26ad5f3d2771e4b5ab788e268a14a10209f94ee918eb6c829d21d3d11c1da00d4a56d9e9a6751874fd86c7e3cb1c6ad5a848da62751325f478978a00ea966ea064b81920c8f04a8a1e21f53a8280e739fbb7b00b2ab92493ca3f610b70e8ac85a0b1040ed4c55a73178b76abb16f946ce5bebd6b93ab873c83327df54047d12c27a0de6485e9ac58dc6e2b04b4bb38f562684f0b1a2ee586cc11079e7d9a9dc40b32a0d394f4d3532c3124a65fa36e69147e04fd20453a72ee9c50660f17e13ce9df48a066501003fc3e3478efd2803cd0eded6bbe9243ca01ba754d6327071ddbcbc649a0b2684e518f325fee39fc8ea81b68f3f5c785be00d087f3bed8857ae2ee8da26ea071060a5c52042e8d7ce21092f8ecf06053beb9a0b773a6f91a30c4220aa276b2a0fc22436632574ccf6043d0986dede27ea94c9ca9a3bb5ec03ce776a4ddef24a9a05a8a1d6698c4e7d8cc3a2506cb9b12ea9a079c9c7099bc919dc804033cc556e4a0170c468b0716fd36d161f0bf05875f15756a2976de92f9efe7716320509d79c9a0182f909a90cab169f3efb62387f9cccdd61440acc4deec42f68a4f7ca58075c7a055cf0e9202ac75689b76318f1171f3a44465eddc06aae0713bfb6b34fdd27b7980").to_vec(),
 			hex!("f904de20b904daf904d701830652f0b9010004200000000000000000000080020000000000010000000000010000000000000000000000000000000000000000000002000000080000000000000000200000000000000000000000000008000000220000000000400010000000000000000000000000000000000000000000000000000000000000040000000010000100000000000800000000004000000000000000000000000000080000004000000000020000000000020000000000000000000000000000000000000000000004000000000002000000000100000000000000000000000000001000000002000020000010200000000000010000000000000000000000000000000000000010000000f903ccf89b9421130f34829b4c343142047a28ce96ec07814b15f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000007d843005c7433c16b27ff939cb37471541561ebda0000000000000000000000000e9c1281aae66801fa35ec404d5f2aea393ff6988a000000000000000000000000000000000000000000000000000000005d09b7380f89b9421130f34829b4c343142047a28ce96ec07814b15f863a08c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925a00000000000000000000000007d843005c7433c16b27ff939cb37471541561ebda00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da0ffffffffffffffffffffffffffffffffffffffffffffffffffffffcc840c6920f89b94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000e9c1281aae66801fa35ec404d5f2aea393ff6988a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da000000000000000000000000000000000000000000000000003e973b5a5d1078ef87994e9c1281aae66801fa35ec404d5f2aea393ff6988e1a01c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1b840000000000000000000000000000000000000000000000000000001f1420ad1d40000000000000000000000000000000000000000000000014ad400879d159a38f8fc94e9c1281aae66801fa35ec404d5f2aea393ff6988f863a0d78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488db88000000000000000000000000000000000000000000000000000000005d415f3320000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e973b5a5d1078ef87a94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f842a07fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da000000000000000000000000000000000000000000000000003e973b5a5d1078e").to_vec(),
 		);
-		assert!(verify_receipt_proof(root, &proof_receipt5).is_some());
+		let receipt_index = 5;
+		assert!(verify_receipt_proof(root, receipt_index, &proof_receipt5).is_some());
 
 		// Various invalid proofs
 		let proof_empty: Vec<Vec<u8>> = vec![];
@@ -59,15 +66,15 @@ mod tests {
 		let proof_missing_short_node2 = vec![proof_receipt5[0].clone()];
 		let proof_invalid_encoding = vec![proof_receipt5[2][2..].to_vec()];
 		let proof_no_full_node = vec![proof_receipt5[2].clone(), proof_receipt5[2].clone()];
-		assert!(verify_receipt_proof(root, &proof_empty).is_none());
-		assert!(verify_receipt_proof(root, &proof_missing_full_node).is_none());
+		assert!(verify_receipt_proof(root, receipt_index, &proof_empty).is_none());
+		assert!(verify_receipt_proof(root, receipt_index, &proof_missing_full_node).is_none());
 
-		assert_eq!(verify_receipt_proof(root, &proof_missing_short_node1), None);
+		assert_eq!(verify_receipt_proof(root, receipt_index, &proof_missing_short_node1), None);
 
-		assert_eq!(verify_receipt_proof(root, &proof_missing_short_node2), None);
+		assert_eq!(verify_receipt_proof(root, receipt_index, &proof_missing_short_node2), None);
 
-		assert!(verify_receipt_proof(root, &proof_invalid_encoding).is_none());
-		assert!(verify_receipt_proof(root, &proof_no_full_node).is_none());
+		assert!(verify_receipt_proof(root, receipt_index, &proof_invalid_encoding).is_none());
+		assert!(verify_receipt_proof(root, receipt_index, &proof_no_full_node).is_none());
 	}
 
 	#[test]
@@ -83,6 +90,51 @@ mod tests {
 			hex!("f90211a0bb35a84c5b1dcb78ec9d32614912c696e62df77bebf9ab326ee55b5d3acdde46a01084b30dac8df0accfcd0fd6330b7f6fc72a4651246d0694be9162151686a620a03eed50afdce7909d784c6157c445a444c806b5f23d31f3b63786f600c84a95b2a0af5232f1df6c6d41879804d081abe867002abe26ba3e5f8e0254a83a54769831a0607915fb13dd5da594256389a45007a67a7f7a86e95d38d8462792b6c98a722ea00e1260fda1730f2738c650ce2bfba83857bc10f8fb119ebc4fb39acba24e6fbaa0d11de17e417327457812675ca3b84ae8e1b64827abfe01420953697c8313d5b1a05fcaf2f7a88f76336a0c32ffc78acb87ae2005454bd25d658035331be3173b46a03f94f4952ab9e650f83cfd0e7f367b1bcc493aacf39a06f16c4a2e1b5605da48a0bdb4ec79785ca8ae22d60f1bbd42d707b4d7ec4aff231a3ebab755e315b35053a043a67c3f2bcef37c8f47a673adcb7061007a553696d1092408601c11b2e6846aa0c519d5af48cae87c7f4538845417c9735813bee892a6fe2dda79f5c414e8576aa0f7058256e09589501d7c231d739e61c84a850e139690989d24fda6058b432e98a081a52faab520978cb19ce14400dba0cd5bcdc4e5a3c0740678aa8f97ee0e5c56a0bcecc61cadeae52518e3b68a48af4b11603dfd9d99d99d7985efa6d2de44f904a02cba4accfc6f39bc5adb6d4440eb6358b4a5103ef93298e4e694f1f940f8b48280").to_vec(),
 			hex!("f901ae20b901aaf901a70183bb444eb9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000001000000000000000000000000000100000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000002000000000000000000081000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000f89df89b94dac17f958d2ee523a2206206994597c13d831ec7f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000002e514404ff6823f1b46a8318a709251db414e5e1a000000000000000000000000055021c55847c00d764357a352e5803237d328954a0000000000000000000000000000000000000000000000000000000000201c370").to_vec(),
 		];
-		assert!(verify_receipt_proof(root, &proof_receipt263).is_some());
+		let receipt_index = 263;
+		assert!(verify_receipt_proof(root, receipt_index, &proof_receipt263).is_some());
+	}
+
+	/// Test that verify_receipt_proof correctly handles proofs with Extension->Extension
+	/// structure. Uses HashBuilder to construct a receipts trie with keys that may produce
+	/// nested Extension nodes, then verifies the generated proof.
+	#[test]
+	fn test_verify_receipt_proof_with_extension_extension() {
+		use alloy_trie::{
+			hash_builder::HashBuilder, nodes::TrieNode, proof::ProofRetainer, Nibbles,
+		};
+
+		// Extract receipt value from existing proof (leaf node value)
+		let leaf_node = hex!("f901ae20b901aaf901a70183bb444eb9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000001000000000000000000000000000100000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000002000000000000000000081000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000f89df89b94dac17f958d2ee523a2206206994597c13d831ec7f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000002e514404ff6823f1b46a8318a709251db414e5e1a000000000000000000000000055021c55847c00d764357a352e5803237d328954a0000000000000000000000000000000000000000000000000000000000201c370");
+		let receipt_value = match TrieNode::decode(&mut &leaf_node[..]).ok() {
+			Some(TrieNode::Leaf(leaf)) => leaf.value.to_vec(),
+			_ => panic!("Expected leaf node"),
+		};
+
+		// Keys that share prefix [8,2,0,1,0] - may produce Extension->Extension in some trie
+		// implementations. These correspond to tx indices 263, 264, 265 (RLP encoding).
+		let key_263 = Nibbles::unpack(alloy_rlp::encode(&263u64).as_slice());
+		let key_264 = Nibbles::unpack(alloy_rlp::encode(&264u64).as_slice());
+		let key_265 = Nibbles::unpack(alloy_rlp::encode(&265u64).as_slice());
+
+		let retainer = ProofRetainer::new(vec![key_263]);
+		let mut hb = HashBuilder::default().with_proof_retainer(retainer);
+
+		hb.add_leaf(key_263, &receipt_value);
+		hb.add_leaf(key_264, &receipt_value);
+		hb.add_leaf(key_265, &receipt_value);
+
+		let root = hb.root();
+		let proof_nodes = hb.take_proof_nodes();
+		let proof: Vec<Vec<u8>> = proof_nodes
+			.matching_nodes_sorted(&key_263)
+			.into_iter()
+			.map(|(_, bytes)| bytes.to_vec())
+			.collect();
+
+		let root_h256: H256 = root.0.into();
+		assert!(
+			verify_receipt_proof(root_h256, 263, &proof).is_some(),
+			"Proof with potential Extension->Extension structure should verify"
+		);
 	}
 }
