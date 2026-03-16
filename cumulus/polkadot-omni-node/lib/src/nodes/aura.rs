@@ -41,7 +41,7 @@ use cumulus_client_consensus_aura::collators::slot_based::{
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
-		slot_based::SlotBasedBlockImport,
+		slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
@@ -531,6 +531,7 @@ where
 	#[docify::export_content]
 	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
 		params_with_export: SlotBasedParams<
+			Block,
 			ParachainBlockImport<
 				Block,
 				SlotBasedBlockImport<
@@ -576,7 +577,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 			ParachainClient<Block, RuntimeApi>,
 			<AuraId::BoundedPair as Pair>::Public,
 		>,
-		(),
+		SlotBasedBlockImportHandle<Block>,
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
@@ -609,7 +610,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
-		_: (),
+		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -665,6 +666,7 @@ where
 			collator_service,
 			reinitialize: false,
 			slot_offset: Duration::from_secs(1),
+			block_import_handle,
 			spawner: task_manager.spawn_essential_handle(),
 			export_pov: node_extra_args.export_pov,
 			max_pov_percentage: node_extra_args.max_pov_percentage,
@@ -691,12 +693,12 @@ where
 		ParachainClient<Block, RuntimeApi>,
 		<AuraId::BoundedPair as Pair>::Public,
 	>;
-	type BlockImportAuxiliaryData = ();
+	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok((SlotBasedBlockImport::new(client.clone(), client), ()))
+		Ok(SlotBasedBlockImport::new(client.clone(), client))
 	}
 }
 

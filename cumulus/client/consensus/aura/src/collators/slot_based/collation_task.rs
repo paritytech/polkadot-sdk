@@ -51,6 +51,8 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_service: CS,
 	/// Receiver channel for communication with the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
+	/// The handle from the special slot based block import.
+	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
 }
@@ -69,6 +71,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		reinitialize,
 		collator_service,
 		mut collator_receiver,
+		mut block_import_handle,
 		export_pov,
 	}: Params<Block, RClient, CS>,
 ) where
@@ -98,6 +101,11 @@ pub async fn run_collation_task<Block, RClient, CS>(
 
 				handle_collation_message(message, &collator_service, &mut overseer_handle,relay_client.clone(),export_pov.clone()).await;
 			},
+			block_import_msg = block_import_handle.next().fuse() => {
+				// TODO: Implement me.
+				// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
+				let _ = block_import_msg;
+			}
 		}
 	}
 }
@@ -165,7 +173,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	tracing::debug!(
 		target: LOG_TARGET,
 		?core_index,
-		?block_numbers = block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+		block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
 		"Submitting collation for core.",
 	);
 

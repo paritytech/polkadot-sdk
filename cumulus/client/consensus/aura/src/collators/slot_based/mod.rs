@@ -67,7 +67,7 @@
 //! 2. Submission to the collation-generation subsystem
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
-pub use block_import::SlotBasedBlockImport;
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
@@ -107,7 +107,7 @@ mod slot_timer;
 mod tests;
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
+pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -139,6 +139,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner
 	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
 	pub slot_offset: Duration,
+	/// The handle returned by [`SlotBasedBlockImport`].
+	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
 	/// Slot duration of the relay chain
@@ -152,7 +154,7 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner
 
 /// Run aura-based block building and collation task.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+	params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
@@ -199,6 +201,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service,
 		reinitialize,
 		slot_offset,
+		block_import_handle,
 		spawner,
 		export_pov,
 		relay_chain_slot_duration,
@@ -216,6 +219,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		reinitialize,
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
+		block_import_handle,
 		export_pov,
 	};
 

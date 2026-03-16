@@ -19,15 +19,17 @@ use crate::LOG_TARGET;
 use codec::{Codec, Decode, Encode};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
+use futures::{stream::FusedStream, StreamExt};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification, PreCommitActions},
 	HeaderBackend,
 };
 use sc_consensus::{BlockImport, StateAction};
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
-	ProvideRuntimeApi,
+	ProvideRuntimeApi, StorageProof,
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::BlockOrigin;
@@ -67,6 +69,29 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 	}
 }
 
+/// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
+///
+/// This handle should be passed to [`Params`](super::Params) or can also be dropped if the node is
+/// not running as collator.
+pub struct SlotBasedBlockImportHandle<Block> {
+	receiver: TracingUnboundedReceiver<(Block, StorageProof)>,
+}
+
+impl<Block> SlotBasedBlockImportHandle<Block> {
+	/// Returns the next item.
+	///
+	/// The future will never return when the internal channel is closed.
+	pub async fn next(&mut self) -> (Block, StorageProof) {
+		loop {
+			if self.receiver.is_terminated() {
+				futures::pending!()
+			} else if let Some(res) = self.receiver.next().await {
+				return res
+			}
+		}
+	}
+}
+
 /// Register the clean up method for cleaning ignored nodes from blocks on which no further blocks
 /// will be imported.
 fn register_ignored_nodes_cleanup<C, Block>(client: Arc<C>)
@@ -94,18 +119,31 @@ where
 pub struct SlotBasedBlockImport<Block: BlockT, BI, Client, AuthorityId> {
 	inner: BI,
 	client: Arc<Client>,
-	_phantom: PhantomData<(AuthorityId, Block)>,
+	sender: TracingUnboundedSender<(Block, StorageProof)>,
+	_phantom: PhantomData<AuthorityId>,
 }
 
 impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Client, AuthorityId> {
 	/// Create a new instance.
-	pub fn new(inner: BI, client: Arc<Client>) -> Self
+	///
+	/// The returned [`SlotBasedBlockImportHandle`] needs to be passed to the
+	/// [`Params`](super::Params), so that this block import instance can communicate with the
+	/// collation task. If the node is not running as a collator, just dropping the handle is fine.
+	pub fn new(
+		inner: BI,
+		client: Arc<Client>,
+	) -> (Self, SlotBasedBlockImportHandle<Block>)
 	where
 		Client: PreCommitActions<Block>,
 	{
+		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
+
 		register_ignored_nodes_cleanup(client.clone());
 
-		Self { client, inner, _phantom: PhantomData }
+		(
+			Self { sender, client, inner, _phantom: PhantomData },
+			SlotBasedBlockImportHandle { receiver },
+		)
 	}
 
 	/// Get the [`ProofRecorderIgnoredNodes`] for `parent`.
@@ -261,7 +299,12 @@ impl<Block: BlockT, BI: Clone, Client, AuthorityId> Clone
 	for SlotBasedBlockImport<Block, BI, Client, AuthorityId>
 {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), client: self.client.clone(), _phantom: PhantomData }
+		Self {
+			inner: self.inner.clone(),
+			client: self.client.clone(),
+			sender: self.sender.clone(),
+			_phantom: PhantomData,
+		}
 	}
 }
 

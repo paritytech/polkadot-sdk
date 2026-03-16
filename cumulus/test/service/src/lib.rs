@@ -27,7 +27,10 @@ use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport},
+		slot_based::{
+			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+			SlotBasedBlockImportHandle,
+		},
 	},
 	ImportQueueParams,
 };
@@ -200,7 +203,8 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let block_import = SlotBasedBlockImport::new(client.clone(), client.clone());
+	let (block_import, block_import_handle) =
+		SlotBasedBlockImport::new(client.clone(), client.clone());
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 	let transaction_pool = Arc::from(
@@ -470,6 +474,7 @@ where
 				collator_service,
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
+				block_import_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
