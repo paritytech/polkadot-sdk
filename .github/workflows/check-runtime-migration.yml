@@ -1,5 +1,4 @@
 name: check-runtime-migration
-
 on:
   push:
     branches:
@@ -7,24 +6,18 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   # Take a snapshot at 5am when most SDK devs are not working.
-  schedule:
-    - cron: "0 5 * * *"
   merge_group:
   workflow_dispatch:
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 permissions: {}
-
 jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
-
   # Prepare snapshots for all networks. Runs before the actual migration checks.
   # For scheduled runs: always create fresh snapshots.
   # For PRs: use cached snapshots if available, create if not.
@@ -64,14 +57,12 @@ jobs:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-
           fail-on-cache-miss: false
-
       - name: Download CLI
         if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
         run: |
           curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.10.1/try-runtime-x86_64-unknown-linux-musl -o try-runtime
           chmod +x ./try-runtime
           ./try-runtime --version
-
       - name: Generate snapshot for ${{ matrix.network }}
         if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
         run: |
@@ -92,20 +83,17 @@ jobs:
             fi
             sleep 10
           done
-
       - name: Get Date
         id: get-date
         if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
         run: |
           echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-
       - name: Save snapshot to cache
         if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
         uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
-
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -154,27 +142,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
       - name: Download CLI
         run: |
           curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.10.1/try-runtime-x86_64-unknown-linux-musl -o try-runtime
           chmod +x ./try-runtime
           echo "Using try-runtime-cli version:"
           ./try-runtime --version
-
       - name: Restore snapshot from cache
         uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-
           fail-on-cache-miss: true
-
       - name: Build Runtime
         id: required1
         run: |
           echo "---------- Building ${{ matrix.package }} runtime ----------"
           forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime -q
-
       - name: Run Check
         id: required2
         run: |
@@ -186,14 +170,12 @@ jobs:
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
-
       - name: Stop all workflows if failed
         if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-
   # name of this job must be unique across all workflows
   # otherwise GitHub will mark all these jobs as required
   confirm-required-checks-passed:

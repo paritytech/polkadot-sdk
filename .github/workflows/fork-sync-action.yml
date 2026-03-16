@@ -3,13 +3,9 @@
 # paritytech-release/polkadot-sdk specifically,
 # to automatically maintain the critical fork synced with the upstream.
 # This Workflow should be always disabled in the paritytech/polkadot-sdk repo.
-
 name: Sync the forked repo with the upstream
 on:
-  schedule:
-    - cron: "0 0/4 * * *"
   workflow_dispatch:
-
 jobs:
   job_sync_branches:
     uses: paritytech-release/sync-workflows/.github/workflows/sync-with-upstream.yml@main
