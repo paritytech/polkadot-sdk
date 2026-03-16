@@ -2608,3 +2608,234 @@ fn on_idle_respects_weight_limit() {
 		assert!(restarted < 10, "Should not process all with minimal weight");
 	});
 }
+
+#[test]
+fn surplus_take_fails_price_too_high() {
+	new_test_ext().execute_with(|| {
+		setup_surplus_auction_conditions();
+		Balances::mint_into(&BOB, 10_000 * DOT).unwrap();
+
+		assert_ok!(crate::Pallet::<Test>::start_surplus_auction(
+			RuntimeOrigin::signed(ALICE),
+			KEEPER
+		));
+
+		let auction = Auctions::<Test>::get(0).unwrap();
+		let price = crate::Pallet::<Test>::current_price(&auction);
+
+		// Use a max price below current price
+		let too_low_max = price.saturating_mul(FixedU128::from_rational(50, 100));
+		assert_noop!(
+			crate::Pallet::<Test>::take_surplus(
+				RuntimeOrigin::signed(BOB),
+				0,
+				100 * PUSD_UNIT,
+				too_low_max,
+				BOB,
+			),
+			Error::<Test>::PriceTooHigh
+		);
+	});
+}
+
+#[test]
+fn surplus_take_fails_purchase_too_small() {
+	new_test_ext().execute_with(|| {
+		setup_surplus_auction_conditions();
+		Balances::mint_into(&BOB, 10_000 * DOT).unwrap();
+
+		assert_ok!(crate::Pallet::<Test>::start_surplus_auction(
+			RuntimeOrigin::signed(ALICE),
+			KEEPER
+		));
+
+		let auction = Auctions::<Test>::get(0).unwrap();
+		let price = crate::Pallet::<Test>::current_price(&auction);
+
+		// Try to buy less than MinSurplusPurchaseAmount (100 pUSD).
+		// Use slippage on max to pass the effective price check.
+		let max_with_slippage = price.saturating_mul(FixedU128::from_rational(101, 100));
+		assert_noop!(
+			crate::Pallet::<Test>::take_surplus(
+				RuntimeOrigin::signed(BOB),
+				0,
+				1 * PUSD_UNIT, // well below 100 pUSD min
+				max_with_slippage,
+				BOB,
+			),
+			Error::<Test>::PurchaseTooSmall
+		);
+	});
+}
+
+#[test]
+fn surplus_take_fails_on_stale_auction() {
+	new_test_ext().execute_with(|| {
+		setup_surplus_auction_conditions();
+		Balances::mint_into(&BOB, 10_000 * DOT).unwrap();
+
+		assert_ok!(crate::Pallet::<Test>::start_surplus_auction(
+			RuntimeOrigin::signed(ALICE),
+			KEEPER
+		));
+
+		// Advance past maximum_duration to make auction stale
+		Stopped::<Test>::put(CircuitBreakerLevel::NoNewAuctionsOrRestarts);
+		System::set_block_number(21602);
+		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
+
+		let auction = Auctions::<Test>::get(0).unwrap();
+		assert!(crate::Pallet::<Test>::needs_restart(&auction));
+
+		assert_noop!(
+			crate::Pallet::<Test>::take_surplus(
+				RuntimeOrigin::signed(BOB),
+				0,
+				100 * PUSD_UNIT,
+				FixedU128::max_value(),
+				BOB,
+			),
+			Error::<Test>::AuctionNeedsRestart
+		);
+	});
+}
+
+#[test]
+fn start_auction_fails_with_zero_oracle_price() {
+	new_test_ext().execute_with(|| {
+		set_mock_price(Some(FixedU128::zero()));
+
+		let collateral = 100 * DOT;
+		create_seized_hold(VAULT_OWNER, collateral);
+
+		assert_noop!(
+			crate::Pallet::<Test>::start_auction(
+				VAULT_OWNER,
+				collateral,
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
+				KEEPER,
+			),
+			Error::<Test>::PriceNotAvailable
+		);
+	});
+}
+
+#[test]
+fn keeper_incentive_zero_when_no_chip_no_tip() {
+	new_test_ext().execute_with(|| {
+		// Set chip and tip to zero
+		AuctionConfig::<Test>::mutate(AuctionType::Liquidation, |config| {
+			config.chip = Permill::zero();
+			config.tip = 0;
+		});
+
+		let collateral = 100 * DOT;
+		let tab = 1000 * PUSD_UNIT;
+		let auction_id = start_test_auction(VAULT_OWNER, collateral, tab).unwrap();
+
+		let auction = Auctions::<Test>::get(auction_id).unwrap();
+		assert_eq!(auction.keeper_incentive, 0);
+	});
+}
+
+#[test]
+fn set_buffer_rejects_zero() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			crate::Pallet::<Test>::set_buffer(
+				RuntimeOrigin::root(),
+				AuctionType::Liquidation,
+				FixedU128::zero(),
+			),
+			Error::<Test>::InvalidParameter
+		);
+	});
+}
+
+#[test]
+fn set_minimum_price_rejects_zero() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			crate::Pallet::<Test>::set_minimum_price(
+				RuntimeOrigin::root(),
+				AuctionType::Liquidation,
+				FixedU128::zero(),
+			),
+			Error::<Test>::InvalidParameter
+		);
+	});
+}
+
+#[test]
+fn effective_price_check_rejects_rounding_above_max() {
+	new_test_ext().execute_with(|| {
+		// Small debt, large collateral → triggers owe > tab, slice rounding
+		let collateral = 100 * DOT;
+		let tab = 50 * PUSD_UNIT;
+
+		let auction_id = start_test_auction(VAULT_OWNER, collateral, tab).unwrap();
+		let auction = Auctions::<Test>::get(auction_id).unwrap();
+		let price = crate::Pallet::<Test>::current_price(&auction);
+
+		// Use exact price as max — should fail because effective price after
+		// owe>tab rounding is slightly higher
+		assert_noop!(
+			crate::Pallet::<Test>::take_liquidation(
+				RuntimeOrigin::signed(BOB),
+				auction_id,
+				collateral,
+				price, // exact, no slippage
+				BOB,
+			),
+			Error::<Test>::PriceTooHigh
+		);
+
+		// With 1% slippage it should succeed
+		let max_with_slippage = price.saturating_mul(FixedU128::from_rational(101, 100));
+		assert_ok!(crate::Pallet::<Test>::take_liquidation(
+			RuntimeOrigin::signed(BOB),
+			auction_id,
+			collateral,
+			max_with_slippage,
+			BOB,
+		));
+	});
+}
+
+#[test]
+fn execute_purchase_distributes_penalty_to_insurance_fund() {
+	new_test_ext().execute_with(|| {
+		// Create auction where penalty is a large portion of tab.
+		// Tab = principal 100 + penalty 50 = 150 total.
+		// A take that covers >100 pUSD will reach into penalty.
+		let collateral = 100 * DOT;
+		let principal = 100 * PUSD_UNIT;
+		let penalty = 50 * PUSD_UNIT;
+
+		create_seized_hold(VAULT_OWNER, collateral);
+		let auction_id = crate::Pallet::<Test>::start_auction(
+			VAULT_OWNER,
+			collateral,
+			DebtComponents { principal, interest: 0, penalty },
+			KEEPER,
+		)
+		.unwrap();
+
+		let auction = Auctions::<Test>::get(auction_id).unwrap();
+		let price = crate::Pallet::<Test>::current_price(&auction);
+
+		// Take enough collateral that owe exceeds principal (100 pUSD).
+		// At starting price ~5.05 pUSD/DOT, 30 DOT ≈ 151 pUSD > 100 principal.
+		assert_ok!(crate::Pallet::<Test>::take_liquidation(
+			RuntimeOrigin::signed(BOB),
+			auction_id,
+			30 * DOT,
+			price,
+			BOB,
+		));
+
+		// penalty_collected should be non-zero (payment exceeded principal)
+		let auction_after = Auctions::<Test>::get(auction_id).unwrap();
+		assert!(auction_after.penalty_collected > 0, "Penalty should be collected");
+	});
+}
