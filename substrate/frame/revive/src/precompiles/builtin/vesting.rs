@@ -134,16 +134,29 @@ where
 					})?
 					.clone();
 
-				// Charge one DB read for the vesting storage lookup.
-				let read_weight = <T as frame_system::Config>::DbWeight::get().reads(1);
-				env.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::Precompile(read_weight))?;
+				// Charge upfront for the worst case: Vesting map read + free_balance read.
+				// If no schedule exists only the Vesting map is read; refund the unused read.
+				let charged = env
+					.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(
+						<T as frame_system::Config>::DbWeight::get().reads(2),
+					))?;
 
-				let locked =
+				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
 						&account_id,
-					)
-					.unwrap_or_default();
+					);
+
+				if maybe_locked.is_none() {
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::Precompile(
+							<T as frame_system::Config>::DbWeight::get().reads(1),
+						),
+					);
+				}
+
+				let locked = maybe_locked.unwrap_or_default();
 
 				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
 			},
