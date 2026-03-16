@@ -1,0 +1,29 @@
+title: Expose ECC host functions
+doc:
+- audience: Runtime Dev
+  description: |-
+    Expose host functions for `BLS12-381`, `BLS12-377`, `BW6-761`, `Ed-on-BLS12-377`, `Ed-on-BLS12-381-Bandersnatch` for parachains.
+    Node operators should update to this version soon.
+
+    The host function can then be enabled on-chain via Governance through `Configuration::set_executor_params`.
+crates:
+- name: cumulus-client-service
+  bump: major
+- name: sp-crypto-ec-utils
+  bump: minor
+- name: polkadot-node-core-pvf-common
+  bump: patch
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-node-core-candidate-validation
+  bump: patch
+- name: polkadot-node-core-pvf-execute-worker
+  bump: patch
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: patch
+- name: polkadot-node-core-pvf
+  bump: patch
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: patch
