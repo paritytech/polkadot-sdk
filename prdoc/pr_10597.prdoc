@@ -17,7 +17,7 @@ crates:
 - name: polkadot-sdk
   bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: westend-runtime
   bump: minor
 - name: bridge-hub-westend-runtime
@@ -34,3 +34,5 @@ crates:
   bump: minor
 - name: penpal-runtime
   bump: minor
+- name: pallet-collator-selection
+  bump: patch
