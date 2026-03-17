@@ -378,23 +378,10 @@ impl CollationTracker {
 	/// Track a collation for a given period of time (TTL). TTL depends
 	/// on the collation state.
 	/// Collation is evicted after it expires.
-	///
-	/// `relay_parent_on_best_fork` indicates whether the relay parent of the collation
-	/// is on the best fork (i.e., is an ancestor of any currently active leaf).
-	pub fn track(&mut self, mut stats: CollationStats, relay_parent_on_best_fork: bool) {
+	pub fn track(&mut self, mut stats: CollationStats) {
 		// Disable the fetch timer, to prevent bogus observe on drop.
 		if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
 			fetch_latency_metric.stop_and_discard();
-		}
-
-		if !relay_parent_on_best_fork {
-			stats.built_on_fork = true;
-			gum::debug!(
-				target: crate::LOG_TARGET_STATS,
-				?stats.relay_parent_number,
-				?stats.relay_parent,
-				"Collation built on a fork (relay parent not on best fork)",
-			);
 		}
 
 		self.entries.insert(stats.head, stats);
@@ -430,8 +417,6 @@ pub(crate) struct CollationStats {
 	candidate_hash: Hash,
 	/// The Collation PoV hash
 	pov_hash: Hash,
-	/// Collation built on a relay fork.
-	built_on_fork: bool,
 }
 
 impl CollationStats {
@@ -458,7 +443,6 @@ impl CollationStats {
 			backed_latency_metric: None,
 			candidate_hash,
 			pov_hash,
-			built_on_fork: false,
 		}
 	}
 
@@ -573,11 +557,6 @@ impl CollationStats {
 		} else {
 			"none"
 		}
-	}
-
-	/// Returns true if the collation was built on a relay chain fork.
-	pub fn is_built_on_fork(&self) -> bool {
-		self.built_on_fork
 	}
 
 	/// Returns true if the collation is expired.
