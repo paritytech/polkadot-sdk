@@ -79,7 +79,9 @@ fn transactional_process_error_rolls_back_holding() {
 /// `PayFees` uses `transactional_process_with_custom_rollback` with a custom handler that
 /// resets `already_paid_fees`. We verify this by running a failing `PayFees` first, then
 /// running a second program with a valid `PayFees` on the same executor — if the custom
-/// rollback worked, `already_paid_fees` was reset and the second `PayFees` succeeds.
+/// rollback worked, `already_paid_fees` was reset and the second `PayFees` actually
+/// processes (populating the `fees` register). If it were stuck as `true`, the second
+/// `PayFees` would be a no-op, leaving `fees` empty.
 #[test]
 fn custom_rollback_is_invoked_on_error() {
 	add_asset(SENDER, (Here, 100u128));
@@ -95,16 +97,13 @@ fn custom_rollback_is_invoked_on_error() {
 	assert!(vm.bench_process(xcm1).is_err());
 
 	// The custom rollback should have reset `already_paid_fees` to false.
-	// Verify by running a second program on the same executor — if `already_paid_fees`
-	// were still true, PayFees would be a no-op and deposit would fail (no fee payment).
-	// Since it was rolled back, PayFees processes normally.
-	let xcm2 = Xcm::<TestCall>(vec![
-		PayFees { asset: (Here, 10u128).into() },
-		DepositAsset { assets: Wild(All), beneficiary: RECIPIENT.into() },
-	]);
+	// Verify by running a second program: if the flag was properly rolled back,
+	// PayFees will buy weight and populate the `fees` register.
+	let xcm2 = Xcm::<TestCall>(vec![PayFees { asset: (Here, 10u128).into() }]);
 
 	assert!(vm.bench_process(xcm2).is_ok());
 
-	// Recipient got assets (100 withdrawn - 10 for fees = 90).
-	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+	// If `already_paid_fees` was stuck as `true`, PayFees would have been a no-op and
+	// the fees register would be empty. The custom rollback ensures it was reset.
+	assert!(get_first_fungible(vm.fees()).is_some());
 }
