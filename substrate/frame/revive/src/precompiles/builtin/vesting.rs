@@ -40,12 +40,9 @@ type VestingBalance<T> = <<T as pallet_vesting::Config>::Currency as frame_suppo
 impl<T: Config + pallet_vesting::Config> BuiltinPrecompile for Vesting<T>
 where
 	VestingBalance<T>: Into<U256>,
-	// Enforce that pallet-vesting and pallet-revive operate on the same balance denomination.
-	// Both pallets expose Currency via different trait families (LockableCurrency vs
-	// fungibles), so a direct Currency-equality bound is not expressible. Instead we require
-	// mutual From conversions between their Balance types, which is only satisfied when the
-	// types are identical. A compile error here means the runtime has configured mismatched
-	// currencies, which would cause vestingBalance() to return amounts in the wrong denomination.
+	// Weak proxy for type identity: mutual From bounds do not guarantee the types are the same
+	// (e.g. From<u64> for u128 exists in core). The hard guarantee is the identity assertion
+	// inside `call`, which fails to compile unless VestingBalance<T> == <T as Config>::Balance.
 	VestingBalance<T>: From<<T as Config>::Balance>,
 	<T as Config>::Balance: From<VestingBalance<T>>,
 {
@@ -60,6 +57,9 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		// Compile-time type equality assertion: coercing `identity` to this function pointer
+		// type only type-checks when both balance types are identical. Optimized away entirely.
+		let _: fn(VestingBalance<T>) -> <T as Config>::Balance = core::convert::identity;
 		use IVesting::IVestingCalls;
 		match input {
 			IVestingCalls::vest(_) if env.is_read_only() => {
