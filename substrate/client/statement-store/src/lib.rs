@@ -167,16 +167,27 @@ impl StatementsForAccount {
 	}
 }
 
-/// Store configuration
+/// Default number of concurrent workers for statement validation.
+pub const DEFAULT_NETWORK_WORKERS: usize = 1;
+
+/// Default maximum statements per second per peer before rate limiting kicks in.
+pub const DEFAULT_RATE_LIMIT: u32 = sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND;
+
+/// Statement store and network handler configuration.
+#[derive(Debug, Clone, Copy)]
 pub struct Options {
-	/// Maximum statement allowed in the store. Once this limit is reached lower-priority
+	/// Maximum statements allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
-	max_total_statements: usize,
+	pub max_total_statements: usize,
 	/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
-	max_total_size: usize,
+	pub max_total_size: usize,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
-	purge_after_sec: u64,
+	pub purge_after_sec: u64,
+	/// Number of concurrent workers for statement validation from the network.
+	pub network_workers: usize,
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	pub rate_limit: u32,
 }
 
 impl Default for Options {
@@ -185,6 +196,8 @@ impl Default for Options {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
+			network_workers: DEFAULT_NETWORK_WORKERS,
+			rate_limit: DEFAULT_RATE_LIMIT,
 		}
 	}
 }
