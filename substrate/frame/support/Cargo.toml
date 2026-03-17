@@ -20,6 +20,7 @@ array-bytes = { workspace = true }
 binary-merkle-tree = { workspace = true }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+derive-where = { workspace = true }
 docify = { workspace = true }
 environmental = { workspace = true }
 frame-metadata = { features = ["current", "unstable"], workspace = true }
@@ -28,7 +29,6 @@ impl-trait-for-tuples = { workspace = true }
 k256 = { features = ["ecdsa"], workspace = true }
 log = { workspace = true }
 macro_magic = { workspace = true }
-derive-where = { workspace = true }
 paste = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
