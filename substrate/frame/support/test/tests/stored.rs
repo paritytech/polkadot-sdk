@@ -29,11 +29,31 @@ pub trait Config {
 
 // This type itself doesn't implement the requirement to be stored.
 // but the associated types in Config does.
+#[derive(
+	scale_info::TypeInfo,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	codec::Encode,
+	codec::Decode,
+	codec::MaxEncodedLen,
+)]
 struct NotStored;
 
 impl Config for NotStored {
 	type Balance = u8;
 	type AccountId = u64;
+}
+
+pub trait SimpleConfig {
+	type Any: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen;
+}
+
+#[stored]
+pub struct BasicData<T: SimpleConfig> {
+	pub f1: T::Any,
+	pub f2: T::Any,
 }
 
 #[stored]
@@ -45,8 +65,8 @@ pub struct AccountData<T: Config> {
 }
 
 #[stored]
-pub enum Status<T: Config> {
-	Active { account: T::AccountId, phantom: core::marker::PhantomData<T> },
+pub enum Status<V, T: Config> {
+	Active { account: T::AccountId, value: V },
 	Inactive,
 	Pending(T::Balance),
 }
@@ -54,12 +74,17 @@ pub enum Status<T: Config> {
 /// Helper function to ensure types implement all required storage traits.
 fn ensure_storable<T: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen>() {}
 
+impl SimpleConfig for NotStored {
+	type Any = u32;
+}
+
 #[test]
 fn test_stored_struct_implements_required_traits() {
+	ensure_storable::<BasicData<NotStored>>();
 	ensure_storable::<AccountData<NotStored>>();
 }
 
 #[test]
 fn test_stored_enum_implements_required_traits() {
-	ensure_storable::<Status<NotStored>>();
+	ensure_storable::<Status<u128, NotStored>>();
 }

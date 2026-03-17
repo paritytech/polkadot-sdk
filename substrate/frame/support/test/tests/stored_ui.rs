@@ -21,7 +21,7 @@
 fn stored_ui() {
 	// Only run the ui tests when `RUN_UI_TESTS` is set.
 	if std::env::var("RUN_UI_TESTS").is_err() {
-		return
+		return;
 	}
 
 	std::env::set_var("SKIP_WASM_BUILD", "1");

@@ -401,6 +401,8 @@ pub use serde::{Deserialize, Serialize};
 #[doc(hidden)]
 pub use macro_magic;
 
+pub use derive_where;
+
 /// Prelude to be used for pallet testing, for ease of use.
 #[cfg(feature = "std")]
 pub mod testing_prelude {

@@ -65,30 +65,35 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	let _args: StoredArgs = syn::parse2(attr)?;
 	let mut input: syn::DeriveInput = syn::parse2(item)?;
 
-	// Reject unions immediately
-	if let syn::Data::Union(_) = &input.data {
-		return Err(Error::new(
-			input.span(),
-			"#[stored] is only supported on structs and enums, not unions",
-		))
-	}
-
 	// Get the frame_support crate path to use __private re-exports
 	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
 		Ok(path) => path,
-		Err(e) =>
-			return Err(Error::new(
-				proc_macro2::Span::call_site(),
-				format!("Failed to find `frame-support` in dependencies: {}", e),
-			)),
+		Err(_) => match generate_access_from_frame_or_crate("frame") {
+			Ok(path) => path,
+			Err(_) => match generate_access_from_frame_or_crate("polkadot-sdk-frame") {
+				Ok(path) => path,
+
+				Err(e) => {
+					return Err(Error::new(
+						proc_macro2::Span::call_site(),
+						format!(
+							"Failed to find `frame-support`, `frame` or `polkadot-sdk-frame` in dependencies: {}",
+							e
+						),
+					))
+				},
+			},
+		},
 	};
 
 	// Extract field types from structs or enums
 	let field_types = match &input.data {
 		syn::Data::Struct(data_struct) => match &data_struct.fields {
 			syn::Fields::Named(fields) => fields.named.iter().map(|f| &f.ty).collect::<Vec<_>>(),
-			syn::Fields::Unnamed(fields) =>
-				fields.unnamed.iter().map(|f| &f.ty).collect::<Vec<_>>(),
+
+			syn::Fields::Unnamed(fields) => {
+				fields.unnamed.iter().map(|f| &f.ty).collect::<Vec<_>>()
+			},
 			syn::Fields::Unit => Vec::new(),
 		},
 		syn::Data::Enum(data_enum) => {
@@ -108,43 +113,35 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 			field_types
 		},
 		syn::Data::Union(_) => {
-			// This should never be reached due to the early check above,
-			// but kept for exhaustiveness
-			unreachable!("Unions should be rejected earlier")
+			return Err(Error::new(
+				input.span(),
+				"#[stored] is only supported on structs and enums, not unions",
+			))
 		},
 	};
-
-	// Collect all type parameters for scale_info skip_type_params.
-	// By default, we skip all type parameters in TypeInfo metadata as they're rarely needed.
-	let all_type_params: Vec<_> = input
-		.generics
-		.params
-		.iter()
-		.filter_map(|p| match p {
-			syn::GenericParam::Type(tp) => Some(&tp.ident),
-			_ => None,
-		})
-		.collect();
-
-	// Generate scale_info attribute to skip all type parameters
-	if !all_type_params.is_empty() {
-		let scale_info_attr: syn::Attribute = syn::parse_quote! {
-			#[scale_info(skip_type_params(#(#all_type_params),*))]
-		};
-		input.attrs.insert(0, scale_info_attr);
-	}
 
 	// Generate derive_where with field-based bounds
 	// This ensures consistent bounding strategy: bounds are applied to field types, not type
 	// parameters. Codec derives use their default strategy which also bounds fields automatically.
 	let derive_where_attr: syn::Attribute = if !field_types.is_empty() {
 		syn::parse_quote! {
-			#[derive_where::derive_where(Clone, Eq, PartialEq, Debug; #(#field_types),*)]
+			#[#frame_support::derive_where::derive_where(
+				Clone,
+				Eq,
+				PartialEq,
+				Debug;
+				#(#field_types),*
+			)]
 		}
 	} else {
 		// For unit structs/enums, no field types to bound
 		syn::parse_quote! {
-			#[derive_where::derive_where(Clone, Eq, PartialEq, Debug)]
+			#[#frame_support::derive_where::derive_where(
+				Clone,
+				Eq,
+				PartialEq,
+				Debug
+			)]
 		}
 	};
 	input.attrs.insert(0, derive_where_attr);

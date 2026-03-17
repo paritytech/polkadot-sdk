@@ -441,25 +441,31 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// Automatically extracts field types and applies derives with bounds on those fields, ensuring
 /// consistent behavior across all traits. Supports both structs and enums.
 ///
-/// For type infos, skip the info for all type parameters.
-///
 /// Directly recursive types are not supported.
 ///
 /// # Example
 ///
 /// ```
-/// # trait Config {
-/// # type Foo;
-/// # type Foo2;
-/// # }
 /// #[frame_support::stored]
-/// pub struct Foo<T: Config> {
-///     f: T::Foo,
-///     f2: Vec<T::Foo2>,
+/// pub struct Foo<F, F2> {
+///     f: F,
+///     f2: Vec<F2>,
 /// }
 /// ```
 ///
-/// Note: Requires `derive-where` as a dependency in the calling crate.
+/// In this example, the macro will automatically apply field-based bounds to `F` and `F2`
+/// (requiring them to implement `Clone`, `Eq`, `PartialEq`, `Debug`, `TypeInfo`, `Codec`, etc.)
+/// without requiring the user to manually specify them on the generic parameters.
+///
+/// For pallet storage, you can of course still use `T: Config`:
+///
+/// ```
+/// #[frame_support::stored]
+/// pub struct AccountData<T: Config> {
+///     pub free: T::Balance,
+///     pub reserved: T::Balance,
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
 	stored::stored(attr, item)

@@ -6911,6 +6911,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "binary-merkle-tree 13.0.0",
  "bitflags 1.3.2",
+ "derive-where",
  "docify",
  "environmental",
  "frame-metadata 23.0.1",
