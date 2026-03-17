@@ -208,7 +208,7 @@ impl ConnectedPeers {
 		self.peer_info.contains_key(peer_id)
 	}
 
-	/// Get the collation version negociated.
+	/// Get the negociated collation version.
 	/// Returns None if the peer is not connected.
 	pub fn get_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
 		self.peer_info.get(peer_id).map(|peer_info| peer_info.version)

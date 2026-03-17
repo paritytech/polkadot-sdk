@@ -98,7 +98,7 @@ pub struct CollationManager {
 	// must contain the full parent head data.
 	blocked_from_seconding: HashMap<BlockedCollationId, Vec<FetchedCollation>>,
 
-	// Information kept per schedulign parent.
+	// Information kept per scheduling parent.
 	per_scheduling_parent: HashMap<Hash, PerSchedulingParent>,
 
 	// Session info cache.
@@ -475,7 +475,7 @@ impl CollationManager {
 		&mut self,
 		sender: &mut Sender,
 		res: CollationFetchResponse,
-		maybe_collattion_version: Option<CollationVersion>,
+		maybe_collation_version: Option<CollationVersion>,
 	) -> CanSecond {
 		let advertisement = res.0;
 		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
@@ -494,7 +494,9 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info);
 		};
 
-		let Some(collation_version) = maybe_collattion_version else {
+		per_sp.remove_advertisement(&advertisement);
+
+		let Some(collation_version) = maybe_collation_version else {
 			gum::debug!(
 				target: LOG_TARGET,
 				?advertisement,
@@ -502,8 +504,6 @@ impl CollationManager {
 			);
 			return CanSecond::No(None, reject_info);
 		};
-
-		per_sp.remove_advertisement(&advertisement);
 
 		match process_collation_fetch_result(res, per_sp.descriptor_v3_enabled) {
 			Ok(fetched_collation) => {
@@ -803,7 +803,7 @@ impl CollationManager {
 		let can_second = match fetch_pvd_res {
 			Ok(pvd) => {
 				// Mark this claim with the right candidate hash. This is a no-op if for
-				// protocol v2 but in case of v1, the claim was made on the schedulign parent but
+				// protocol v2 but in case of v1, the claim was made on the scheduling parent but
 				// without a candidate hash.
 				self.claim_queue_state.mark_pending_slot_with_candidate(
 					&scheduling_parent,
