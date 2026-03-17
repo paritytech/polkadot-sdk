@@ -71,8 +71,11 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 			p.with_id(3000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("async-backing")
-				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
+				.with_chain("elastic-scaling")
+				.with_default_args(vec![
+					("--authoring=slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
 				.with_collator(|n| n.with_name("collator-3000"))
 		})
 		.build()
