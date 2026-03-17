@@ -94,10 +94,9 @@
 # Misc tests using traditional zombienet
 # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
 - job-name: "zombienet-polkadot-misc-0001-parachains-paritydb"
-  test-definition: "0001-paritydb.zndsl"
-  local-dir: "./polkadot/zombienet_tests/misc"
+  test-filter: "misc::paritydb::paritydb_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 # TODO: needs to resolve how to pass the GH_TOKEN to pods
 # - job-name: "zombienet-polkadot-misc-0002-upgrade-node"
@@ -111,10 +110,9 @@
 
 # Malus tests using traditional zombienet
 - job-name: "zombienet-polkadot-malus-0001-dispute-valid"
-  test-definition: "0001-dispute-valid-block.zndsl"
-  local-dir: "./polkadot/node/malus/integrationtests"
+  test-filter: "misc::malus_dispute_valid_block::malus_dispute_valid_block_test"
   runner-type: "default"
-  use-zombienet-sdk: false
+  use-zombienet-sdk: true
 
 # SDK tests using zombienet-sdk
 # TODO: Disabled
