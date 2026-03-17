@@ -65,12 +65,7 @@ mod utils;
 /// Provides: BLS12-381, Ed-on-BLS12-381-Bandersnatch, Pallas, Vesta.
 ///
 /// As ratified by [RFC-0163](https://github.com/polkadot-fellows/RFCs/pull/163).
-#[cfg(all(
-	feature = "bls12-381",
-	feature = "ed-on-bls12-381-bandersnatch",
-	feature = "pallas",
-	feature = "vesta",
-))]
+#[cfg(feature = "rfc163")]
 pub type HostFunctionsRfc163 = (
 	bls12_381::host_calls::HostFunctions,
 	ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
