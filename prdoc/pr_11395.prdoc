@@ -10,3 +10,5 @@ doc:
 crates:
 - name: sp-core
   bump: minor
+- name: sp-crypto-ec-utils
+  bump: minor
