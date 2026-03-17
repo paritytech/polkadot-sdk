@@ -197,8 +197,8 @@
 //!
 //! This phase consists of changes to your parachain’s runtime that activate async backing feature.
 //!
-//! 1. Verify `pallet_aura` has `AllowMultipleBlocksPerSlot` set to `true` in
-//!    `runtime/src/lib.rs` (this should already be done from Phase 1).
+//! 1. Verify `pallet_aura` has `AllowMultipleBlocksPerSlot` set to `true` in `runtime/src/lib.rs`
+//!    (this should already be done from Phase 1).
 #![doc = docify::embed!("../../templates/parachain/runtime/src/configs/mod.rs", aura_config)]
 //! 2. Verify `UNINCLUDED_SEGMENT_CAPACITY` is set to at least `3` in `runtime/src/lib.rs`.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", async_backing_params)]
