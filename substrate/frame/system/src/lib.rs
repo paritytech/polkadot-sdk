@@ -1932,6 +1932,11 @@ impl<T: Config> Pallet<T> {
 		BlockSize::<T>::get().unwrap_or_default()
 	}
 
+	/// Returns the current active execution phase.
+	pub fn execution_phase() -> Option<Phase> {
+		ExecutionPhase::<T>::get()
+	}
+
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
 	/// current block.
 	///
@@ -2229,7 +2234,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Sets the index of extrinsic that is currently executing.
-	#[cfg(any(feature = "std", test))]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_extrinsic_index(extrinsic_index: u32) {
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &extrinsic_index)
 	}

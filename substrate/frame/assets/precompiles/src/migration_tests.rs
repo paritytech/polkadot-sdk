@@ -41,9 +41,7 @@ impl pallet_assets::BenchmarkHelper<Location, ()> for LocationBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> Location {
 		Location::new(1, [Junction::Parachain(id)])
 	}
-	fn create_reserve_id_parameter(_id: u32) -> () {
-		()
-	}
+	fn create_reserve_id_parameter(_id: u32) {}
 }
 
 // Define a mock runtime that uses Location as the asset ID

@@ -2901,3 +2901,124 @@ fn remove_potential_renewal_makes_auto_renewal_die() {
 		assert_eq!(AutoRenewals::<Test>::get().len(), 0);
 	})
 }
+
+#[test]
+fn force_transfer_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 4));
+		advance_to(2);
+
+		const OLD_OWNER: u64 = 1;
+		const NEW_OWNER: u64 = 222;
+
+		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+		let region = Regions::<Test>::get(region_id).unwrap();
+
+		assert_noop!(
+			Broker::force_transfer(
+				RuntimeOrigin::root(),
+				RegionId {
+					begin: u32::max_value(),
+					core: u16::max_value(),
+					mask: CoreMask::void()
+				},
+				NEW_OWNER
+			),
+			Error::<Test>::UnknownRegion
+		);
+
+		assert_noop!(
+			Broker::force_transfer(RuntimeOrigin::signed(1001), region_id, NEW_OWNER),
+			BadOrigin
+		);
+
+		assert_ok!(Broker::force_transfer(RuntimeOrigin::root(), region_id, NEW_OWNER));
+
+		System::assert_last_event(
+			Event::Transferred {
+				region_id,
+				duration: region.end - region_id.begin,
+				old_owner: Some(OLD_OWNER),
+				owner: Some(NEW_OWNER),
+			}
+			.into(),
+		);
+
+		assert_noop!(
+			Broker::assign(RuntimeOrigin::signed(OLD_OWNER), region_id, 10, Finality::Final),
+			Error::<Test>::NotOwner
+		);
+
+		assert_ok!(Broker::assign(
+			RuntimeOrigin::signed(NEW_OWNER),
+			region_id,
+			10,
+			Finality::Final
+		));
+	});
+}
+
+#[test]
+fn force_transfer_can_transfer_burned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 4));
+		advance_to(2);
+
+		const OLD_OWNER: u64 = 1;
+		const NEW_OWNER: u64 = 222;
+
+		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+
+		assert_ok!(<Broker as Mutate<u64>>::burn(&region_id.into(), None));
+
+		let region = Regions::<Test>::get(region_id).unwrap();
+		assert_eq!(region.owner, None);
+
+		assert_ok!(Broker::force_transfer(RuntimeOrigin::root(), region_id, NEW_OWNER));
+
+		System::assert_last_event(
+			Event::Transferred {
+				region_id,
+				duration: region.end - region_id.begin,
+				old_owner: None,
+				owner: Some(NEW_OWNER),
+			}
+			.into(),
+		);
+
+		assert_ok!(Broker::assign(
+			RuntimeOrigin::signed(NEW_OWNER),
+			region_id,
+			10,
+			Finality::Final
+		));
+	});
+}
+
+#[test]
+fn force_transfer_can_transfer_provisionally_assigned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 4));
+		advance_to(2);
+
+		const OLD_OWNER: u64 = 1;
+		const NEW_OWNER: u64 = 222;
+
+		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+
+		assert_ok!(Broker::assign(RuntimeOrigin::signed(OLD_OWNER), region_id, 1001, Provisional));
+
+		assert_ok!(Broker::force_transfer(RuntimeOrigin::root(), region_id, NEW_OWNER));
+
+		let region = Regions::<Test>::get(region_id).unwrap();
+		System::assert_last_event(
+			Event::Transferred {
+				region_id,
+				duration: region.end - region_id.begin,
+				old_owner: Some(OLD_OWNER),
+				owner: Some(NEW_OWNER),
+			}
+			.into(),
+		);
+	});
+}

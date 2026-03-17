@@ -1297,6 +1297,7 @@ impl pallet_migrations::Config for Runtime {
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
+			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
@@ -1562,6 +1563,7 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
 	// unreleased
 	pallet_assets::migration::next_asset_id::SetNextAssetId<
 		ConstU32<50_000_000>,
@@ -1781,6 +1783,7 @@ mod benches {
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
+		[pallet_assets_precompiles, AssetsPrecompiles]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]

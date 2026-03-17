@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests mock for `pallet-assets-freezer`.
+//! Tests mock for `pallet-assets-precompiles`.
 
 pub use super::*;
 use frame_support::{derive_impl, parameter_types, traits::AsEnsureOriginWithArg};
