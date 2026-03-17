@@ -44,6 +44,9 @@ pub use codec::decode_from_bytes;
 pub use polkadot_parachain_primitives;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
+pub use sp_api;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
 pub use sp_runtime::traits::GetRuntimeBlockType;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]

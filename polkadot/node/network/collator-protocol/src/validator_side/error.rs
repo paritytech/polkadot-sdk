@@ -73,8 +73,8 @@ pub enum SecondingError {
 	#[error("Candidate hash doesn't match the advertisement")]
 	CandidateHashMismatch,
 
-	#[error("Relay parent hash doesn't match the advertisement")]
-	RelayParentMismatch,
+	#[error("Scheduling parent hash doesn't match the advertisement")]
+	SchedulingParentMismatch,
 
 	#[error("Received duplicate collation from the peer")]
 	Duplicate,
@@ -91,6 +91,9 @@ pub enum SecondingError {
 	#[error("Invalid candidate receipt version {0:?}")]
 	InvalidReceiptVersion(CandidateDescriptorVersion),
 
+	#[error("Descriptor version mismatch: advertised {0:?}, fetched {1:?}")]
+	DescriptorVersionMismatch(CandidateDescriptorVersion, CandidateDescriptorVersion),
+
 	#[error("ParaId doesn't match the advertisement")]
 	ParaIdMismatch,
 
@@ -105,11 +108,12 @@ impl SecondingError {
 		match self {
 			PersistedValidationDataMismatch |
 			CandidateHashMismatch |
-			RelayParentMismatch |
+			SchedulingParentMismatch |
 			ParentHeadDataMismatch |
 			InvalidCoreIndex(_, _) |
 			InvalidSessionIndex(_, _) |
-			InvalidReceiptVersion(_) => true,
+			InvalidReceiptVersion(_) |
+			DescriptorVersionMismatch(_, _) |
 			ParaIdMismatch => true,
 			_ => false,
 		}
@@ -142,6 +146,8 @@ pub enum HoldOffError {
 	InvalidStateNotStarted,
 	#[error("`on_hold_off_complete` called in `Done`")]
 	InvalidStateDone,
-	#[error("`on_hold_off_complete` called in the right state but there are no advertisements in the queue")]
+	#[error(
+		"`on_hold_off_complete` called in the right state but there are no advertisements in the queue"
+	)]
 	QueueEmpty,
 }

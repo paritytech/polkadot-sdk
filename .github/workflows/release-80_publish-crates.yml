@@ -38,7 +38,7 @@ jobs:
   set-image:
     needs: [ check-synchronization ]
     if: needs.check-synchronization.outputs.checks_passed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-m
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
@@ -50,7 +50,7 @@ jobs:
 
   publish-crates:
     needs: set-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-m
     environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
@@ -94,6 +94,7 @@ jobs:
         with:
           ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Import GPG keys
         shell: bash
@@ -144,8 +145,8 @@ jobs:
 
       - name: Install parity-publish
         run: |
-          apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.10 --locked -q
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          cargo install parity-publish@0.10.11 --locked -q
 
       - name: Run parity-publish plan
         run: |
@@ -227,14 +228,6 @@ jobs:
             echo "No changes to commit"
           fi
 
-      - name: Push release branch
-        env:
-          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
-        run: |
-          echo "Pushing branch $CRATES_RELEASE_BRANCH..."
-          git push origin "$CRATES_RELEASE_BRANCH"
-          echo "Successfully pushed $CRATES_RELEASE_BRANCH"
-
       - name: Configure cargo registry
         shell: bash
         env:
@@ -272,3 +265,22 @@ jobs:
             parity-publish apply -p
             echo "Crates published successfully to $REGISTRY!"
           fi
+
+      - name: Generate token for paritytech/polkadot-sdk
+        id: generate_write_token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
+            repositories: polkadot-sdk
+
+      - name: Push release branch to paritytech
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          TOKEN: ${{ steps.generate_write_token.outputs.token }}
+        run: |
+          echo "Pushing branch $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk..."
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/paritytech/polkadot-sdk.git"
+          git push origin "$CRATES_RELEASE_BRANCH"
+          echo "Successfully pushed $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk"
