@@ -1239,6 +1239,31 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxFriendsPerConfig: u32 = 128;
+
+	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroupsStorage);
+	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::AttemptStorage);
+	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::InheritorStorage);
+	pub const SlashReceiverAccount: Option<AccountId> = None;
+}
+
+pub const SECURITY_DEPOSIT: u32 = 100;
+
+impl pallet_recovery::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = System;
+	type Currency = Balances;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type SecurityDeposit = ();
+	type MaxFriendsPerConfig = MaxFriendsPerConfig;
+	type SlashReceiver = SlashReceiverAccount;
+	type WeightInfo = ();
+}
+
+parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
@@ -1325,6 +1350,11 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::ConvictionVoting(..) |
 				RuntimeCall::Referenda(..) |
 				RuntimeCall::Whitelist(..) |
+				RuntimeCall::Recovery(pallet_recovery::Call::control_inherited_account{..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::initiate_attempt{..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::approve_attempt{..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::finish_attempt{..}) |
+				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
