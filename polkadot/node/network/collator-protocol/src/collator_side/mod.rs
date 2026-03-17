@@ -56,8 +56,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	node_features, AuthorityDiscoveryId, BlockNumber, CandidateDescriptorVersion, CandidateEvent,
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash,
-	HeadData, Id as ParaId, SessionIndex,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData,
+	Id as ParaId, SessionIndex,
 };
 
 use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
