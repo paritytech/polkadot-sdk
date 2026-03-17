@@ -33,6 +33,53 @@ const MAX_BLOOM_BITS: usize = MAX_STATEMENT_NOTIFICATION_SIZE as usize * 8;
 /// practical configurations while preventing CPU abuse from peers.
 const MAX_NUM_HASHES: u32 = 64;
 
+/// A [`BuildHasher`] factory that produces [`PortableHasher`] instances with
+/// platform-independent hashing.  This ensures bloom-filter bits are identical
+/// on `wasm32` and 64-bit targets when hashing types whose `Hash` impl calls
+/// `write_usize` (e.g. slices, which hash their length).
+#[derive(Clone, Debug)]
+struct PortableBuildHasher(BloomDefaultHasher);
+
+impl PortableBuildHasher {
+	fn seeded(seed: u128) -> Self {
+		Self(BloomDefaultHasher::seeded(&seed.to_le_bytes()))
+	}
+}
+
+impl BuildHasher for PortableBuildHasher {
+	type Hasher = PortableHasher;
+
+	fn build_hasher(&self) -> Self::Hasher {
+		PortableHasher(self.0.build_hasher())
+	}
+}
+
+/// Hasher state returned by [`PortableBuildHasher`].  Delegates everything to
+/// the inner SipHash-based hasher but overrides `write_usize` so that the
+/// length prefix written by `<[T]>::hash` is always 8 bytes regardless of
+/// platform pointer width.
+#[derive(Clone)]
+struct PortableHasher(<BloomDefaultHasher as BuildHasher>::Hasher);
+
+impl Hasher for PortableHasher {
+	#[inline]
+	fn finish(&self) -> u64 {
+		self.0.finish()
+	}
+
+	#[inline]
+	fn write(&mut self, bytes: &[u8]) {
+		self.0.write(bytes);
+	}
+
+	#[inline]
+	fn write_usize(&mut self, i: usize) {
+		// Always write as 8-byte little-endian so that `wasm32` (4-byte
+		// usize) and 64-bit targets produce the same hash.
+		self.0.write(&(i as u64).to_le_bytes());
+	}
+}
+
 /// Wire representation of a bloom filter.
 #[derive(Encode, Decode)]
 struct EncodedBloomFilter {
@@ -61,7 +108,7 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 			return Err("num_hashes out of allowed range");
 		}
 		let bloom = BloomFilter::from_vec(encoded.bits)
-			.seed(&encoded.seed)
+			.hasher(PortableBuildHasher::seeded(encoded.seed))
 			.hashes(encoded.num_hashes);
 		Ok(AffinityFilter { bloom, seed: encoded.seed })
 	}
@@ -70,27 +117,29 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 #[derive(Debug)]
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
-	bloom: BloomFilter,
+	bloom: BloomFilter<PortableBuildHasher>,
 	/// Seed used for hashing items in the bloom filter.
 	seed: u128,
 }
 
 impl AffinityFilter {
+	#[cfg(test)]
 	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
-			.seed(&seed)
+			.hasher(PortableBuildHasher::seeded(seed))
 			.expected_items(expected_items);
 		AffinityFilter { bloom, seed }
 	}
 
 	/// Insert a topic into the bloom filter.
+	#[cfg(test)]
 	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
-		self.bloom.insert_hash(self.topic_hash(topic));
+		self.bloom.insert(topic);
 	}
 
 	/// Check if a topic is likely present in the bloom filter.
 	pub(crate) fn contains(&self, topic: &[u8; 32]) -> bool {
-		self.bloom.contains_hash(self.topic_hash(topic))
+		self.bloom.contains(topic)
 	}
 
 	/// Check if a statement matches this affinity filter.
@@ -103,15 +152,6 @@ impl AffinityFilter {
 			return true;
 		}
 		topics.iter().any(|topic| self.contains(&topic))
-	}
-
-	/// Platform-independent hash for a topic, using a fixed-width length prefix
-	/// to ensure consistent bloom bits across `wasm32` and 64-bit targets.
-	fn topic_hash(&self, topic: &[u8; 32]) -> u64 {
-		let mut hasher = BloomDefaultHasher::seeded(&self.seed.to_be_bytes()).build_hasher();
-		hasher.write(&(topic.len() as u64).to_le_bytes());
-		hasher.write(topic);
-		hasher.finish()
 	}
 }
 
@@ -213,8 +253,8 @@ mod tests {
 		assert_eq!(
 			sp_core::blake2_256(&encoded),
 			[
-				27, 145, 73, 87, 221, 132, 160, 181, 51, 40, 10, 206, 69, 227, 173, 31, 212, 183,
-				3, 234, 182, 113, 25, 246, 214, 21, 86, 121, 25, 192, 5, 240
+				180, 34, 58, 78, 198, 24, 137, 83, 154, 127, 9, 152, 171, 50, 197, 27, 242, 158,
+				30, 79, 143, 192, 53, 151, 174, 106, 132, 105, 20, 145, 133, 0
 			],
 			"blake2_256 digest of encoded bytes must match snapshot"
 		);
