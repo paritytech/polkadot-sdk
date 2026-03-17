@@ -293,7 +293,7 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 /// Assert that the next message is a `CandidateBacking(Second())`.
 async fn assert_candidate_backing_second(
 	virtual_overseer: &mut VirtualOverseer,
-	expected_relay_parent: Hash,
+	expected_scheduling_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
 	version: CollationVersion,
@@ -310,18 +310,18 @@ async fn assert_candidate_backing_second(
 				hash,
 				RuntimeApiRequest::PersistedValidationData(para_id, assumption, tx),
 			)) => {
-				assert_eq!(expected_relay_parent, hash);
+				assert_eq!(expected_scheduling_parent, hash);
 				assert_eq!(expected_para_id, para_id);
 				assert_eq!(OccupiedCoreAssumption::Free, assumption);
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 			) => {
-				assert_eq!(expected_relay_parent, request.candidate_relay_parent);
+				assert_eq!(expected_scheduling_parent, request.candidate_relay_parent);
 				assert_eq!(expected_para_id, request.para_id);
 				tx.send(Some(pvd.clone())).unwrap();
 			}
@@ -330,13 +330,13 @@ async fn assert_candidate_backing_second(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::CandidateBacking(CandidateBackingMessage::Second(
-			relay_parent,
-			candidate_receipt,
-			received_pvd,
-			incoming_pov,
-		)) => {
-			assert_eq!(expected_relay_parent, relay_parent);
+		AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+			scheduling_parent,
+			candidate: candidate_receipt,
+			pvd: received_pvd,
+			pov: incoming_pov,
+		}) => {
+			assert_eq!(expected_scheduling_parent, scheduling_parent);
 			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
 			assert_eq!(*expected_pov, incoming_pov);
 			assert_eq!(pvd, received_pvd);
@@ -362,7 +362,7 @@ async fn assert_collator_disconnect(virtual_overseer: &mut VirtualOverseer, expe
 /// Assert that a fetch collation request was send.
 async fn assert_fetch_collation_request(
 	virtual_overseer: &mut VirtualOverseer,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	candidate_hash: Option<CandidateHash>,
 ) -> ResponseSender {
@@ -377,7 +377,7 @@ async fn assert_fetch_collation_request(
 				req,
 				Requests::CollationFetchingV1(req) => {
 					let payload = req.payload;
-					assert_eq!(payload.relay_parent, relay_parent);
+					assert_eq!(payload.scheduling_parent, scheduling_parent);
 					assert_eq!(payload.para_id, para_id);
 					req.pending_response
 				}
@@ -386,7 +386,7 @@ async fn assert_fetch_collation_request(
 				req,
 				Requests::CollationFetchingV2(req) => {
 					let payload = req.payload;
-					assert_eq!(payload.relay_parent, relay_parent);
+					assert_eq!(payload.scheduling_parent, scheduling_parent);
 					assert_eq!(payload.para_id, para_id);
 					assert_eq!(payload.candidate_hash, candidate_hash);
 					req.pending_response
@@ -423,7 +423,7 @@ async fn connect_and_declare_collator(
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 			))
 		},
-		CollationVersion::V2 => {
+		CollationVersion::V2 | CollationVersion::V3 => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
@@ -446,21 +446,47 @@ async fn connect_and_declare_collator(
 async fn advertise_collation(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	candidate: Option<(CandidateHash, Hash)>, // Candidate hash + parent head data hash.
 ) {
 	let wire_message = match candidate {
 		Some((candidate_hash, parent_head_data_hash)) => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
-				relay_parent,
+				scheduling_parent,
 				candidate_hash,
 				parent_head_data_hash,
 			})
 		},
 		None => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
-			relay_parent,
+			scheduling_parent,
 		)),
 	};
+	overseer_send(
+		virtual_overseer,
+		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+			peer,
+			wire_message,
+		)),
+	)
+	.await;
+}
+
+/// Advertise a collation using the V3 protocol, which includes the candidate descriptor version.
+async fn advertise_collation_v3(
+	virtual_overseer: &mut VirtualOverseer,
+	peer: PeerId,
+	scheduling_parent: Hash,
+	candidate_hash: CandidateHash,
+	parent_head_data_hash: Hash,
+	candidate_descriptor_version: CandidateDescriptorVersion,
+) {
+	let wire_message =
+		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+		});
 	overseer_send(
 		virtual_overseer,
 		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
@@ -566,7 +592,9 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 		.await;
 
 		assert!(
-			overseer_recv_with_timeout(&mut &mut virtual_overseer, Duration::from_millis(30)).await.is_none(),
+			overseer_recv_with_timeout(&mut &mut virtual_overseer, Duration::from_millis(30))
+				.await
+				.is_none(),
 			"There should not be sent any other PoV request while the first one wasn't finished or timed out.",
 		);
 
