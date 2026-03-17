@@ -26,12 +26,12 @@ sp-runtime = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-core/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-revive/std",
 	"pallet-vesting/std",
 	"sp-runtime/std",
-	"alloy-core/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
