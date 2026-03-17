@@ -67,10 +67,15 @@ guarantors, etc.).
 
 ## 2. Architecture Overview
 
-The following diagram illustrates where the Parachain Service sits in the overall JAM
-architecture. A JAM service provides **both** in-core code (Refine, executed off-chain by
-guarantors) and on-chain code (Accumulate, executed by all validators). The Parachain
-Service spans both domains:
+The Parachain Service maps the current relay chain's parachain host logic onto JAM's
+two execution domains:
+
+- **Refine (in-core)**: Executes `validate_block` — the PVF validation that backing
+  validators currently perform. Guarantors run the PVF against the PoV to verify the
+  parachain block candidate. This replaces the current backing subsystem.
+- **Accumulate (on-chain)**: Performs candidate enactment — updating head data, processing
+  signals, managing channels and code upgrades. This replaces the current inclusion pallet
+  logic (`enact_candidate`).
 
 ```
  ┌──────────────────────────────────────────────────────────────────────┐
@@ -158,8 +163,10 @@ struct ParachainServiceState {
     /// All registered parachains and their current metadata.
     parachains: Map<ParaId, ParaInfo>,
 
-    /// HRMP channel state (open channels, queued messages).
-    hrmp_channels: Map<HrmpChannelId, HrmpChannel>,
+    /// Channel state (open channels, message metadata).
+    /// The exact structure depends on the final XCMP design — with full XCMP,
+    /// only message hashes and channel metadata are stored on-chain, not payloads.
+    channels: Map<ChannelId, Channel>,
 
     /// Downward signal queues (from Parachain Service → parachain).
     dsq: Map<ParaId, VecDeque<DownwardSignal>>,
@@ -178,6 +185,9 @@ struct ParaInfo {
     pending_upgrade: Option<PendingCodeUpgrade>,
 }
 
+/// Note: the service state should also maintain a reverse index from
+/// deadline timeslot to ParaId, so expired upgrades can be efficiently
+/// cleaned up during Accumulate.
 struct PendingCodeUpgrade {
     /// Hash of the new PVM code.
     new_code_hash: ValidationCodeHash,
@@ -185,6 +195,7 @@ struct PendingCodeUpgrade {
     /// uses the new code by this timeslot.
     deadline: Timeslot,
 }
+```
 
 ### 3.2 Work Items
 
@@ -197,8 +208,9 @@ struct ParachainWorkItem {
     /// The parachain this candidate belongs to.
     para_id: ParaId,
 
-    /// Compact candidate descriptor: relay parent, collator signature, commitments hash.
-    descriptor: CandidateDescriptor,
+    /// The hash of the currently active validation code. Used by Refine to
+    /// look up the PVF bytecode from the preimage store.
+    validation_code_hash: ValidationCodeHash,
 
     /// The Proof-of-Validity (PoV) — the actual block data + witness.
     /// This is the large input to Refine (up to ~15 MB per slot across all items).
@@ -210,24 +222,34 @@ struct ParachainWorkItem {
 }
 ```
 
-Multiple `ParachainWorkItem`s (i.e., candidates for different parachains) can be batched into a
-single work package, up to the per-slot data limits imposed by JAM.
+Initially, each work package will contain a single work item (one parachain candidate).
+Support for multiple items per package may be added later.
 
 ### 3.3 Work Reports
 
-After the Refine step, guarantors produce a **work result** per work item. The work report
-aggregates these results and is what gets submitted on-chain:
+After the Refine step, guarantors produce a **work result** per work item. The work result
+is an opaque output blob (up to ~48 KB shared with the authorizer trace, see W_R in the
+Gray Paper). For the Parachain Service, this blob encodes the validated candidate outputs:
 
 ```rust
-/// Output of the Refine step for one parachain candidate.
+/// Encoded as the Refine output blob for one parachain candidate.
 struct ParachainWorkResult {
-    /// Which parachain this result belongs to.
-    para_id: ParaId,
-    /// The output of executing the PVF: head data, upward signals, etc.
-    candidate_commitments: CandidateCommitments,
+    /// New head data produced by the parachain block.
+    head_data: HeadData,
+    /// Upward signals from the parachain (code upgrades, channel ops, transfers).
+    upward_signals: Vec<UpwardSignal>,
+    /// Hashes of outbound XCMP messages (payloads are exported to DA via export()).
+    outbound_message_hashes: Vec<(ParaId, Hash)>,
+    /// Number of downward signals processed by the parachain.
+    processed_downward_signals: u32,
+    /// HRMP watermark — up to which point inbound messages were consumed.
+    hrmp_watermark: Timeslot,
 }
-
 ```
+
+The `ParaId` does not need to be in the work result — it is conveyed via the **authorizer
+trace**, which the authorizer returns upon successful authorization and which is available
+to Accumulate as part of the operand tuple.
 
 The work report itself is subject to JAM's **guarantee** and **assurance** mechanisms — validators
 attest its correctness and data availability is enforced before Accumulate runs.
@@ -239,13 +261,13 @@ attest its correctness and data availability is enforced before Accumulate runs.
 ### 4.1 What Refine Does
 
 The Refine entry point of the Parachain Service executes the **Parachain Validation Function
-(PVF)** for each work item. This is an off-chain, stateless computation performed by guarantors
+(PVF)** for each work item. This is a stateless, in-core computation performed by guarantors
 (validators assigned to the relevant JAM core).
 
 Refine:
-1. Fetches the PVF bytecode via the lookup-anchor (using `validation_code_hash`).
+1. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
 2. Instantiates a child PVM with the PVF.
-3. Executes the PVF against the PoV, using the work package's `RefineContext` for block context.
+3. Executes the PVF against the PoV (the `validate_block` call).
 4. Returns a `ParachainWorkResult` with the committed outputs.
 
 Because Refine is stateless, it cannot write to service storage. The only "statefulness" it can
@@ -253,20 +275,15 @@ exercise is via preimage lookups — which is exactly how PVF code is accessed.
 
 ### 4.2 PVF Execution in PVM
 
-In Polkadot 1.x, PVFs are compiled to WebAssembly. On JAM, PVFs will target the
-**Polkadot Virtual Machine (PVM)**, which is based on RISC-V. Key implications:
+PVFs execute in the **Polkadot Virtual Machine (PVM)**, a RISC-V based VM. The resources
+available to PVF execution during Refine:
 
-- PVF code must be recompiled (or retargeted) for RISC-V. Since RISC-V is an official LLVM target,
-  this can largely be done via the same LLVM toolchain used for Wasm today.
-- **Metering**: PVM provides instruction-level gas metering "for free" (unlike Wasm which requires
-  instrumentation). This removes the need for the separate benchmarking-based weight system used
-  by the current PVF executor.
-- **Execution time**: up to 6 seconds of PVM gas per Refine invocation (one full JAM slot), compared
-  to the current ~2-second PVF timeout. This gives parachain runtimes more headroom.
-- **Memory model**: Substrate currently assumes a maximum of 4 GiB addressable memory. While
-  PVM is 64-bit (RISC-V RV64), the available memory for PVFs remains restricted to 4 GB.
-  This means parachain runtimes can continue using 32-bit pointers and addressing — no
-  changes to memory layout or pointer-width assumptions are required for the migration.
+- **Gas**: Up to 6 seconds of PVM gas per Refine invocation (one full JAM slot).
+- **Memory**: Up to 4 GB addressable memory (PVM is 64-bit RV64, but PVF memory is capped).
+- **Code size**: Up to W_C = 4 MB for the PVF bytecode.
+- **I/O**: Access to the work item payload (PoV), import segments from the DA layer, and
+  preimage lookups from the service's preimage store. Outbound data can be written to DA
+  segments via `export()`.
 
 ### 4.3 Guarantor Assignment
 
