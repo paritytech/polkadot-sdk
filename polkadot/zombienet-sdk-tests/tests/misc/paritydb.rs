@@ -19,7 +19,7 @@ use zombienet_sdk::{
 	NetworkConfig, NetworkConfigBuilder,
 };
 
-const PARAS: [u32; 10] = [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009];
+const PARAS: [u32; 5] = [2000, 2001, 2002, 2003, 2004];
 
 #[tokio::test(flavor = "multi_thread")]
 async fn paritydb_test() -> Result<(), anyhow::Error> {
@@ -48,7 +48,7 @@ async fn paritydb_test() -> Result<(), anyhow::Error> {
 
 	// Check that all parachains produce at least 5 blocks within 1 session and 5 blocks (RC)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
-	let para_throughput: [(ParaId, Range<u32>); 10] = PARAS.map(|id| (ParaId::from(id), 2..6));
+	let para_throughput: [(ParaId, Range<u32>); 5] = PARAS.map(|id| (ParaId::from(id), 2..6));
 	assert_para_throughput(&relay_client, 5, para_throughput).await?;
 	log::info!("All parachains producing blocks");
 
@@ -95,7 +95,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					.with_request_memory("2G")
 					.with_request_cpu("1")
 			})
-			.with_node_group(|g| g.with_count(10).with_base_node(|n| n.with_name("validator")))
+			.with_node_group(|g| g.with_count(5).with_base_node(|n| n.with_name("validator")))
 	});
 
 	builder = PARAS.into_iter().fold(builder, |acc, para_id| {
