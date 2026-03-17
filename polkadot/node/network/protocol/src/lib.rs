@@ -578,7 +578,10 @@ pub mod v2 {
 pub mod v3_collation {
 	use codec::{Decode, Encode};
 
-	use polkadot_primitives::{CandidateHash, CollatorId, CollatorSignature, Hash, Id as ParaId};
+	use polkadot_primitives::{
+		CandidateDescriptorVersion, CandidateHash, CollatorId, CollatorSignature, Hash,
+		Id as ParaId,
+	};
 
 	use polkadot_node_primitives::UncheckedSignedFullStatement;
 
@@ -596,16 +599,15 @@ pub mod v3_collation {
 		/// declared that they are a collator with given ID.
 		#[codec(index = 1)]
 		AdvertiseCollation {
-			/// The relay parent of the candidate.
-			relay_parent: Hash,
+			/// Hash of the scheduling parent - used for validator assignment.
+			/// For V3 candidate descriptors, this must be an active leaf.
+			scheduling_parent: Hash,
 			/// Candidate hash.
 			candidate_hash: CandidateHash,
 			/// Parachain head data hash before candidate execution.
 			parent_head_data_hash: Hash,
-			/// Optional scheduling parent, if the candidate is a v3 descriptor.
-			/// When `None`, the scheduling parent equals the relay parent
-			/// (V1/V2 descriptor).
-			scheduling_parent: Option<Hash>,
+			/// The version of the candidate descriptor.
+			candidate_descriptor_version: CandidateDescriptorVersion,
 		},
 		/// A collation sent to a validator was seconded.
 		#[codec(index = 4)]

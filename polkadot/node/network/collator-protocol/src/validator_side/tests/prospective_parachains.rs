@@ -20,8 +20,8 @@ use super::*;
 
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	Header, MutateDescriptorV2,
+	BlockNumber, CandidateCommitments, CandidateDescriptorVersion,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Header, MutateDescriptorV2,
 	SigningContext, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
@@ -2108,7 +2108,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 			head_b,
 			candidate_hash,
 			parent_head_data_hash,
-			Some(head_b),
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
@@ -2201,10 +2201,10 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
-			head_b_grandparent,
+			head_b_parent,
 			candidate_hash,
 			parent_head_data_hash,
-			Some(head_b_parent),
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
@@ -2332,10 +2332,10 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
-			head_b_parent,
+			head_b,
 			candidate_hash,
 			parent_head_data_hash,
-			Some(head_b),
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
@@ -2453,10 +2453,10 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
-			head_b_parent,
+			head_b,
 			candidate_hash,
 			parent_head_data_hash,
-			Some(head_b),
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
@@ -2549,10 +2549,10 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
-			head_b_grandparent,
+			head_b_parent,
 			candidate_hash,
 			parent_head_data_hash,
-			Some(head_b_parent),
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
@@ -2624,10 +2624,10 @@ fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
-			head_b,
+			unknown_scheduling_parent,
 			candidate_hash,
 			parent_head_data_hash,
-			Some(unknown_scheduling_parent),
+			CandidateDescriptorVersion::V3,
 		)
 		.await;
 
