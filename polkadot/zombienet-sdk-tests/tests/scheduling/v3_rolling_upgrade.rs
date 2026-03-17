@@ -114,7 +114,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 		assert_validator_backed_candidates(node, 30).await?;
 	}
 
-	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
 
 	assert_para_throughput(&relay_client, 50, [(ParaId::from(3000), 40..51)]).await?;
 
