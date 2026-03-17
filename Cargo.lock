@@ -13361,6 +13361,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-precompile-vesting"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "frame-support",
+ "frame-system",
+ "pallet-revive",
+ "pallet-revive-uapi",
+ "pallet-vesting",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-revive-proc-macro"
 version = "0.1.0"
 dependencies = [
