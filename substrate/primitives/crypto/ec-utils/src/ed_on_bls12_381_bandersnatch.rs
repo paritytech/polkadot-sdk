@@ -74,30 +74,6 @@ impl CurveHooks for HostHooks {
 		.expect(FAIL_MSG)
 		.into_group()
 	}
-
-	fn msm_sw(bases: &[SWAffine], scalars: &[ScalarField]) -> SWProjective {
-		let mut out = utils::buffer_for::<SWAffine>();
-		host_calls::ed_on_bls12_381_bandersnatch_msm_sw(
-			&utils::encode(bases),
-			&utils::encode(scalars),
-			&mut out,
-		)
-		.and_then(|_| utils::decode::<SWAffine>(&out))
-		.expect(FAIL_MSG)
-		.into_group()
-	}
-
-	fn mul_projective_sw(base: &SWProjective, scalar: &[u64]) -> SWProjective {
-		let mut out = utils::buffer_for::<SWAffine>();
-		host_calls::ed_on_bls12_381_bandersnatch_mul_sw(
-			&utils::encode(base.into_affine()),
-			&utils::encode(scalar),
-			&mut out,
-		)
-		.and_then(|_| utils::decode::<SWAffine>(&out))
-		.expect(FAIL_MSG)
-		.into_group()
-	}
 }
 
 /// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve related
@@ -135,34 +111,6 @@ pub trait HostCalls {
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
 		utils::mul_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar, out)
-	}
-
-	/// Short Weierstrass multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
-	///
-	/// Receives encoded:
-	/// - `bases`: `Vec<SWAffine>`.
-	/// - `scalars`: `Vec<ScalarField>`.
-	/// Writes encoded `SWAffine` to `out`.
-	fn ed_on_bls12_381_bandersnatch_msm_sw(
-		bases: PassFatPointerAndRead<&[u8]>,
-		scalars: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndWrite<&mut [u8]>,
-	) -> HostcallResult {
-		utils::msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars, out)
-	}
-
-	/// Short Weierstrass affine multiplication for *Ed-on-BLS12-381-Bandersnatch*.
-	///
-	/// Receives encoded:
-	/// - `base`: `SWAffine`.
-	/// - `scalar`: `BigInteger`.
-	/// Writes encoded `SWAffine` to `out`.
-	fn ed_on_bls12_381_bandersnatch_mul_sw(
-		base: PassFatPointerAndRead<&[u8]>,
-		scalar: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndWrite<&mut [u8]>,
-	) -> HostcallResult {
-		utils::mul_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar, out)
 	}
 }
 
