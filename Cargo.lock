@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "ark-pallas-ext"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bbaeac3876520e76ee237eab49e0eb3586c5b4267e6b740066588da9b58fc30"
+checksum = "d6906648fb42b7c83fc40ea43b12fbf75b704532057d71a467a25ec4afc239b6"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -1067,9 +1067,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vesta-ext"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0b7a48a187aa9f58e2b7d4d4f97b0eec39e263ec62e69cadeb0a4399718e778"
+checksum = "27dfabb2b731180273184366ebf57b1793600889e9c7b548916433dd19fb8932"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
