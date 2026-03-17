@@ -19,7 +19,7 @@
 //! Schema for BEEFY state persisted in the aux-db.
 
 use crate::{error::Error, round::VoteWeight, worker::PersistedState, LOG_TARGET};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace, warn};
 use sc_client_api::{backend::AuxStore, Backend};
 use sp_application_crypto::RuntimeAppPublic;
@@ -72,46 +72,117 @@ mod v4 {
 	pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
 		pub(crate) votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 	}
+
+	impl<B, AuthorityId> TryFrom<Rounds<B, AuthorityId>> for crate::round::Rounds<B, AuthorityId>
+	where
+		B: BlockT,
+		AuthorityId: AuthorityIdBound,
+	{
+		type Error = ClientError;
+
+		fn try_from(old: Rounds<B, AuthorityId>) -> Result<Self, Self::Error> {
+			let voting_weights = super::compute_voting_weights(&old.validator_set);
+			let rounds: BTreeMap<
+				Commitment<NumberFor<B>>,
+				crate::round::RoundTracker<AuthorityId>,
+			> = old.rounds
+				.into_iter()
+				.map(|(commitment, tracker)| {
+					let accumulated =
+						super::accumulated_votes_weight(&tracker.votes, &voting_weights)?;
+					Ok((
+						commitment,
+						super::decode_from_migrated::<crate::round::RoundTracker<AuthorityId>, _>(
+							(tracker.votes, accumulated),
+						)?,
+					))
+				})
+				.collect::<ClientResult<_>>()?;
+
+			super::decode_from_migrated((
+				rounds,
+				old.previous_votes,
+				old.session_start,
+				old.validator_set,
+				voting_weights,
+				old.mandatory_done,
+				old.best_done,
+			))
+		}
+	}
+
+	impl<B, AuthorityId> TryFrom<VoterOracle<B, AuthorityId>>
+		for crate::worker::VoterOracle<B, AuthorityId>
+	where
+		B: BlockT,
+		AuthorityId: AuthorityIdBound,
+	{
+		type Error = ClientError;
+
+		fn try_from(old: VoterOracle<B, AuthorityId>) -> Result<Self, Self::Error> {
+			let sessions = old
+				.sessions
+				.into_iter()
+				.map(TryInto::try_into)
+				.collect::<ClientResult<VecDeque<_>>>()?;
+
+			crate::worker::VoterOracle::checked_new(
+				sessions,
+				old.min_block_delta,
+				old.best_grandpa_block_header,
+				old.best_beefy_block,
+			)
+			.ok_or_else(|| {
+				ClientError::Backend("BEEFY DB is corrupted: invalid migrated voter oracle".into())
+			})
+		}
+	}
+
+	impl<B, AuthorityId> TryFrom<PersistedState<B, AuthorityId>>
+		for crate::worker::PersistedState<B, AuthorityId>
+	where
+		B: BlockT,
+		AuthorityId: AuthorityIdBound,
+	{
+		type Error = ClientError;
+
+		fn try_from(old: PersistedState<B, AuthorityId>) -> Result<Self, Self::Error> {
+			let voting_oracle: crate::worker::VoterOracle<B, AuthorityId> =
+				old.voting_oracle.try_into()?;
+			super::decode_from_migrated((old.best_voted, voting_oracle, old.pallet_genesis))
+		}
+	}
 }
 
-mod v5 {
-	use super::*;
+fn compute_voting_weights<AuthorityId: AuthorityIdBound>(
+	validator_set: &ValidatorSet<AuthorityId>,
+) -> BTreeMap<AuthorityId, VoteWeight> {
+	validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
+		*acc.entry(authority.to_owned()).or_insert(0) += 1;
+		acc
+	})
+}
 
-	#[derive(Debug, Decode, Encode, PartialEq)]
-	pub(crate) struct PersistedState<B: BlockT, AuthorityId: AuthorityIdBound> {
-		pub(crate) best_voted: NumberFor<B>,
-		pub(crate) voting_oracle: VoterOracle<B, AuthorityId>,
-		pub(crate) pallet_genesis: NumberFor<B>,
-	}
+fn accumulated_votes_weight<AuthorityId: AuthorityIdBound>(
+	votes: &BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	voting_weights: &BTreeMap<AuthorityId, VoteWeight>,
+) -> ClientResult<VoteWeight> {
+	votes.keys().try_fold(0u32, |acc, authority| {
+		let weight = voting_weights.get(authority).copied().ok_or_else(|| {
+			ClientError::Backend(
+				"BEEFY DB is corrupted: authority not found in voting weights".into(),
+			)
+		})?;
+		acc.checked_add(weight).ok_or_else(|| {
+			ClientError::Backend("BEEFY DB is corrupted: accumulated vote weight overflow".into())
+		})
+	})
+}
 
-	#[derive(Debug, Decode, Encode, PartialEq)]
-	pub(crate) struct VoterOracle<B: BlockT, AuthorityId: AuthorityIdBound> {
-		pub(crate) sessions: VecDeque<Rounds<B, AuthorityId>>,
-		pub(crate) min_block_delta: u32,
-		pub(crate) best_grandpa_block_header: <B as BlockT>::Header,
-		pub(crate) best_beefy_block: NumberFor<B>,
-		pub(crate) _phantom: PhantomData<fn() -> AuthorityId>,
-	}
-
-	#[derive(Debug, Decode, Encode, PartialEq)]
-	pub(crate) struct Rounds<B: BlockT, AuthorityId: AuthorityIdBound> {
-		pub(crate) rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
-		pub(crate) previous_votes: BTreeMap<
-			(AuthorityId, NumberFor<B>),
-			VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-		>,
-		pub(crate) session_start: NumberFor<B>,
-		pub(crate) validator_set: ValidatorSet<AuthorityId>,
-		pub(crate) voting_weights: BTreeMap<AuthorityId, VoteWeight>,
-		pub(crate) mandatory_done: bool,
-		pub(crate) best_done: Option<NumberFor<B>>,
-	}
-
-	#[derive(Debug, Decode, Encode, PartialEq)]
-	pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
-		pub(crate) votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-		pub(crate) accumulated_votes_weight: VoteWeight,
-	}
+fn decode_from_migrated<T: Decode, U: Encode>(value: U) -> ClientResult<T> {
+	let encoded = value.encode();
+	T::decode_all(&mut &encoded[..])
+		.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))
 }
 
 pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
@@ -132,7 +203,7 @@ pub(crate) fn write_voter_state<B: BlockT, BE: AuxStore, AuthorityId: AuthorityI
 fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResult<Option<T>> {
 	match backend.get_aux(key)? {
 		None => Ok(None),
-		Some(t) => T::decode(&mut &t[..])
+		Some(t) => T::decode_all(&mut &t[..])
 			.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))
 			.map(Some),
 	}
@@ -155,72 +226,7 @@ where
 		return Ok(None);
 	};
 
-	let compute_voting_weights = |validator_set: &ValidatorSet<AuthorityId>| {
-		validator_set.validators().iter().fold(
-			BTreeMap::<AuthorityId, VoteWeight>::new(),
-			|mut acc, authority| {
-				*acc.entry(authority.to_owned()).or_insert(0) += 1;
-				acc
-			},
-		)
-	};
-
-	let sessions = old
-		.voting_oracle
-		.sessions
-		.into_iter()
-		.map(|rounds| {
-			let voting_weights = compute_voting_weights(&rounds.validator_set);
-			let rounds_map = rounds
-				.rounds
-				.into_iter()
-				.map(|(commitment, tracker)| {
-					let accumulated_votes_weight =
-						tracker.votes.keys().try_fold(0u32, |acc, authority| {
-							let weight =
-								voting_weights.get(authority).copied().ok_or_else(|| {
-									ClientError::Backend(
-									"BEEFY DB is corrupted: authority not found in voting weights"
-										.into(),
-								)
-								})?;
-							acc.checked_add(weight).ok_or_else(|| {
-								ClientError::Backend(
-									"BEEFY DB is corrupted: accumulated vote weight overflow"
-										.into(),
-								)
-							})
-						})?;
-					Ok((
-						commitment,
-						v5::RoundTracker { votes: tracker.votes, accumulated_votes_weight },
-					))
-				})
-				.collect::<ClientResult<_>>()?;
-
-			Ok(v5::Rounds {
-				rounds: rounds_map,
-				previous_votes: rounds.previous_votes,
-				session_start: rounds.session_start,
-				validator_set: rounds.validator_set,
-				voting_weights,
-				mandatory_done: rounds.mandatory_done,
-				best_done: rounds.best_done,
-			})
-		})
-		.collect::<ClientResult<VecDeque<_>>>()?;
-
-	let new_state = v5::PersistedState::<B, AuthorityId> {
-		best_voted: old.best_voted,
-		voting_oracle: v5::VoterOracle::<B, AuthorityId> {
-			sessions,
-			min_block_delta: old.voting_oracle.min_block_delta,
-			best_grandpa_block_header: old.voting_oracle.best_grandpa_block_header,
-			best_beefy_block: old.voting_oracle.best_beefy_block,
-			_phantom: PhantomData,
-		},
-		pallet_genesis: old.pallet_genesis,
-	};
+	let new_state: PersistedState<B, AuthorityId> = old.try_into()?;
 
 	debug!(
 		target: LOG_TARGET,
@@ -269,7 +275,8 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::tests::BeefyTestNet;
+	use crate::{round::VoteImportResult, tests::BeefyTestNet};
+	use codec::DecodeAll;
 	use sc_network_test::TestNetFactory;
 	use sp_consensus_beefy::{
 		ecdsa_crypto, known_payloads, test_utils::Keyring, Payload, ValidatorSet,
@@ -316,14 +323,18 @@ pub(crate) mod tests {
 
 	#[tokio::test]
 	async fn should_migrate_v4_to_v5() {
+		type TestBlock = test_client::runtime::Block;
+		type TestAuthority = ecdsa_crypto::AuthorityId;
+		type TestSig = <TestAuthority as RuntimeAppPublic>::Signature;
+
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let beefy_genesis: NumberFor<test_client::runtime::Block> = 1;
+		let beefy_genesis: NumberFor<TestBlock> = 1;
 
 		let validators = vec![
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+			Keyring::<TestAuthority>::Alice.public(),
+			Keyring::<TestAuthority>::Alice.public(),
+			Keyring::<TestAuthority>::Bob.public(),
 		];
 		let validator_set = ValidatorSet::new(validators, 0).unwrap();
 
@@ -334,39 +345,42 @@ pub(crate) mod tests {
 			H256::random(),
 			Digest::default(),
 		);
-		let commitment = Commitment {
+		let commitment: Commitment<NumberFor<TestBlock>> = Commitment {
 			payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, vec![]),
 			block_number: beefy_genesis,
 			validator_set_id: validator_set.id(),
 		};
-		let mut votes = BTreeMap::new();
+		let mut votes: BTreeMap<TestAuthority, TestSig> = BTreeMap::new();
 		votes.insert(
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"vote"),
+			Keyring::<TestAuthority>::Alice.public(),
+			Keyring::<TestAuthority>::Alice.sign(b"vote"),
 		);
-		let tracker = v4::RoundTracker::<ecdsa_crypto::AuthorityId> { votes };
-		let rounds_map = BTreeMap::from([(commitment, tracker)]);
+		let tracker = v4::RoundTracker::<TestAuthority> { votes };
+		let mut rounds_map: BTreeMap<
+			Commitment<NumberFor<TestBlock>>,
+			v4::RoundTracker<TestAuthority>,
+		> = BTreeMap::new();
+		rounds_map.insert(commitment, tracker);
 
-		let voting_oracle =
-			v4::VoterOracle::<test_client::runtime::Block, ecdsa_crypto::AuthorityId> {
-				sessions: VecDeque::from([v4::Rounds::<
-					test_client::runtime::Block,
-					ecdsa_crypto::AuthorityId,
-				> {
-					rounds: rounds_map,
-					previous_votes: BTreeMap::new(),
-					session_start: beefy_genesis,
-					validator_set,
-					mandatory_done: false,
-					best_done: None,
-				}]),
-				min_block_delta: 1,
-				best_grandpa_block_header: best_grandpa,
-				best_beefy_block: Zero::zero(),
-				_phantom: PhantomData,
-			};
+		let voting_oracle = v4::VoterOracle::<TestBlock, TestAuthority> {
+			sessions: VecDeque::from([v4::Rounds::<TestBlock, TestAuthority> {
+				rounds: rounds_map,
+				previous_votes: BTreeMap::<
+					(TestAuthority, NumberFor<TestBlock>),
+					VoteMessage<NumberFor<TestBlock>, TestAuthority, TestSig>,
+				>::new(),
+				session_start: beefy_genesis,
+				validator_set,
+				mandatory_done: false,
+				best_done: None,
+			}]),
+			min_block_delta: 1,
+			best_grandpa_block_header: best_grandpa,
+			best_beefy_block: Zero::zero(),
+			_phantom: PhantomData,
+		};
 
-		let state_v4 = v4::PersistedState::<test_client::runtime::Block, ecdsa_crypto::AuthorityId> {
+		let state_v4 = v4::PersistedState::<TestBlock, TestAuthority> {
 			best_voted: Zero::zero(),
 			voting_oracle,
 			pallet_genesis: beefy_genesis,
@@ -386,36 +400,43 @@ pub(crate) mod tests {
 
 		assert_eq!(load_decode::<_, u32>(&*backend, VERSION_KEY).unwrap(), Some(4));
 
-		let migrated =
-			load_persistent::<test_client::runtime::Block, _, ecdsa_crypto::AuthorityId>(&*backend)
-				.unwrap()
-				.expect("migration should produce a state; qed.");
+		let migrated = load_persistent::<TestBlock, _, TestAuthority>(&*backend)
+			.unwrap()
+			.expect("migration should produce a state; qed.");
 
 		assert_eq!(migrated.pallet_genesis(), beefy_genesis);
 		assert_eq!(migrated.voting_oracle().voting_target(), Some(beefy_genesis));
 
-		// Between v4 and v5 we changed the way votes are accumulated.
-		// We should check if vote weights are migrated correctly.
+		// Between v4 and v5 we changed how vote weights are accumulated.
+		// Check this indirectly: with Alice(2) already present, a single Bob(1) vote should
+		// immediately conclude the round (threshold=3 for 3 validators).
 		{
 			assert_eq!(migrated.voting_oracle().sessions().len(), 1);
-			let rounds = migrated.voting_oracle().sessions().front().unwrap();
-			let rounds_v5: v5::Rounds<test_client::runtime::Block, ecdsa_crypto::AuthorityId> =
-				Decode::decode(&mut &*rounds.encode()).expect("decode as v5 Rounds; qed");
-
 			assert_eq!(
-				rounds_v5.voting_weights,
-				[
-					(Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(), 2),
-					(Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(), 1),
-				]
-				.into_iter()
-				.collect()
+				migrated
+					.voting_oracle()
+					.mandatory_pending()
+					.map(|(block, _validator_set)| block),
+				Some(beefy_genesis)
 			);
-			assert_eq!(rounds_v5.rounds.len(), 1);
-			let (_commitment, tracker) = rounds_v5.rounds.iter().next().unwrap();
-			// Alice has 2 votes, Bob has 1 vote. Alice already voted before migration, Bob did not,
-			// so we should have accumulated 2 votes.
-			assert_eq!(tracker.accumulated_votes_weight, 2);
+			let rounds = migrated
+				.voting_oracle()
+				.sessions()
+				.front()
+				.expect("session exists; checked above; qed.");
+			let mut rounds: crate::round::Rounds<TestBlock, TestAuthority> =
+				DecodeAll::decode_all(&mut &*rounds.encode())
+					.expect("decode migrated rounds; qed.");
+			let bob_vote = VoteMessage {
+				commitment: Commitment {
+					payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, vec![]),
+					block_number: beefy_genesis,
+					validator_set_id: rounds.validator_set_id(),
+				},
+				id: Keyring::<TestAuthority>::Bob.public(),
+				signature: Keyring::<TestAuthority>::Bob.sign(b"vote"),
+			};
+			assert!(matches!(rounds.add_vote(bob_vote), VoteImportResult::RoundConcluded(_)));
 		}
 
 		assert!(verify_persisted_version(&*backend));
