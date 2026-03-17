@@ -28,11 +28,13 @@ sp-arithmetic = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-babe = { workspace = true }
+sp-consensus-slots = { workspace = true }
 sp-consensus-beefy = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
+sp-price-oracle = { workspace = true }
 sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-mmr-primitives = { workspace = true }
@@ -77,6 +79,7 @@ pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-offences = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
+pallet-price-oracle = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
@@ -177,6 +180,7 @@ std = [
 	"pallet-offences/std",
 	"pallet-parameters/std",
 	"pallet-preimage/std",
+	"pallet-price-oracle/std",
 	"pallet-proxy/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
@@ -214,11 +218,13 @@ std = [
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
+	"sp-consensus-slots/std",
 	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-price-oracle/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-npos-elections/std",

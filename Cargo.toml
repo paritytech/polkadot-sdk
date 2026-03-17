@@ -170,6 +170,7 @@ members = [
 	"polkadot/node/core/chain-selection",
 	"polkadot/node/core/dispute-coordinator",
 	"polkadot/node/core/parachains-inherent",
+	"polkadot/node/price-oracle",
 	"polkadot/node/core/prospective-parachains",
 	"polkadot/node/core/provisioner",
 	"polkadot/node/core/pvf",
@@ -463,6 +464,7 @@ members = [
 	"substrate/frame/system",
 	"substrate/frame/system/benchmarking",
 	"substrate/frame/system/rpc/runtime-api",
+	"substrate/frame/price-oracle",
 	"substrate/frame/timestamp",
 	"substrate/frame/tips",
 	"substrate/frame/transaction-payment",
@@ -534,6 +536,7 @@ members = [
 	"substrate/primitives/std",
 	"substrate/primitives/storage",
 	"substrate/primitives/test-primitives",
+	"substrate/primitives/price-oracle",
 	"substrate/primitives/timestamp",
 	"substrate/primitives/tracing",
 	"substrate/primitives/transaction-pool",
@@ -1079,6 +1082,7 @@ pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", d
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }
 pallet-template = { path = "templates/solochain/pallets/template", default-features = false }
+pallet-price-oracle = { path = "substrate/frame/price-oracle", default-features = false }
 pallet-timestamp = { path = "substrate/frame/timestamp", default-features = false }
 pallet-tips = { path = "substrate/frame/tips", default-features = false }
 pallet-transaction-payment = { path = "substrate/frame/transaction-payment", default-features = false }
@@ -1138,6 +1142,7 @@ polkadot-node-core-chain-api = { path = "polkadot/node/core/chain-api", default-
 polkadot-node-core-chain-selection = { path = "polkadot/node/core/chain-selection", default-features = false }
 polkadot-node-core-dispute-coordinator = { path = "polkadot/node/core/dispute-coordinator", default-features = false }
 polkadot-node-core-parachains-inherent = { path = "polkadot/node/core/parachains-inherent", default-features = false }
+polkadot-node-price-oracle = { path = "polkadot/node/price-oracle" }
 polkadot-node-core-prospective-parachains = { path = "polkadot/node/core/prospective-parachains", default-features = false }
 polkadot-node-core-provisioner = { path = "polkadot/node/core/provisioner", default-features = false }
 polkadot-node-core-pvf = { path = "polkadot/node/core/pvf", default-features = false }
@@ -1197,6 +1202,7 @@ quick_cache = { version = "0.3" }
 quickcheck = { version = "1.0.3", default-features = false }
 quote = { version = "1.0.37" }
 rand = { version = "0.8.5", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rand_chacha = { version = "0.3.1", default-features = false }
 rand_core = { version = "0.6.2" }
 rand_distr = { version = "0.4.3" }
@@ -1385,6 +1391,7 @@ sp-statement-store = { path = "substrate/primitives/statement-store", default-fe
 sp-std = { path = "substrate/primitives/std", default-features = false }
 sp-storage = { path = "substrate/primitives/storage", default-features = false }
 sp-test-primitives = { path = "substrate/primitives/test-primitives" }
+sp-price-oracle = { path = "substrate/primitives/price-oracle", default-features = false }
 sp-timestamp = { path = "substrate/primitives/timestamp", default-features = false }
 sp-tracing = { path = "substrate/primitives/tracing", default-features = false }
 sp-transaction-pool = { path = "substrate/primitives/transaction-pool", default-features = false }

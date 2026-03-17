@@ -508,6 +508,32 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 100);
+	pub const OracleMinNudges: u32 = 0;
+	pub const OracleNudgeValidity: u64 = 10;
+}
+
+pub struct BabeAuthorityProvider;
+impl pallet_price_oracle::pallet::AuthorityProvider for BabeAuthorityProvider {
+	fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
+		pallet_babe::Authorities::<Runtime>::get()
+			.iter()
+			.map(|(id, _weight)| id.clone())
+			.collect()
+	}
+	fn current_slot() -> sp_consensus_slots::Slot {
+		pallet_babe::CurrentSlot::<Runtime>::get()
+	}
+}
+
+impl pallet_price_oracle::Config for Runtime {
+	type Epsilon = OracleEpsilon;
+	type MinNudges = OracleMinNudges;
+	type NudgeValidity = OracleNudgeValidity;
+	type AuthorityProvider = BabeAuthorityProvider;
+}
+
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type EventHandler = StakingAhClient;
@@ -1326,12 +1352,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Staking => {
 				matches!(
 					c,
-					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
-						RuntimeCall::FastUnstake(..) |
-						RuntimeCall::VoterList(..) |
-						RuntimeCall::NominationPools(..)
+					RuntimeCall::Staking(..)
+						| RuntimeCall::Session(..)
+						| RuntimeCall::Utility(..)
+						| RuntimeCall::FastUnstake(..)
+						| RuntimeCall::VoterList(..)
+						| RuntimeCall::NominationPools(..)
 				)
 			},
 			ProxyType::NominationPools => {
@@ -1347,33 +1373,33 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Governance => matches!(
 				c,
 				// OpenGov calls
-				RuntimeCall::ConvictionVoting(..) |
-					RuntimeCall::Referenda(..) |
-					RuntimeCall::Whitelist(..)
+				RuntimeCall::ConvictionVoting(..)
+					| RuntimeCall::Referenda(..)
+					| RuntimeCall::Whitelist(..)
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions(..) |
-					RuntimeCall::Crowdloan(..) |
-					RuntimeCall::Registrar(..) |
-					RuntimeCall::Slots(..)
+				RuntimeCall::Auctions(..)
+					| RuntimeCall::Crowdloan(..)
+					| RuntimeCall::Registrar(..)
+					| RuntimeCall::Slots(..)
 			),
 			ProxyType::ParaRegistration => matches!(
 				c,
-				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. }) |
-					RuntimeCall::Registrar(paras_registrar::Call::register { .. }) |
-					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
-					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
-					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. }) |
-					RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
+				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. })
+					| RuntimeCall::Registrar(paras_registrar::Call::register { .. })
+					| RuntimeCall::Utility(pallet_utility::Call::batch { .. })
+					| RuntimeCall::Utility(pallet_utility::Call::batch_all { .. })
+					| RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
+					| RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
 			),
 		}
 	}
@@ -2039,6 +2065,9 @@ mod runtime {
 	// Root offences pallet
 	#[runtime::pallet_index(105)]
 	pub type RootOffences = pallet_root_offences;
+
+	#[runtime::pallet_index(107)]
+	pub type PriceOracle = pallet_price_oracle;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
@@ -3156,6 +3185,25 @@ sp_api::impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
 			XcmPallet::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl sp_price_oracle::PriceOracleApi<Block> for Runtime {
+		fn current_price() -> sp_runtime::FixedU128 {
+			PriceOracle::current_price()
+		}
+
+		fn epsilon() -> sp_runtime::FixedU128 {
+			OracleEpsilon::get()
+		}
+
+		fn nudge_validity() -> u64 {
+			OracleNudgeValidity::get()
+		}
+
+		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
+			use pallet_price_oracle::pallet::AuthorityProvider;
+			BabeAuthorityProvider::authorities()
 		}
 	}
 }

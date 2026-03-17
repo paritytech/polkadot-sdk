@@ -1,0 +1,261 @@
+use super::*;
+use crate as pallet_price_oracle;
+
+use alloc::vec;
+use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU32};
+use sp_consensus_babe::{AuthorityId, AuthoritySignature};
+use sp_consensus_slots::Slot;
+use sp_core::{crypto::Pair as PairT, sr25519};
+use sp_io::TestExternalities;
+use sp_price_oracle::{Nudge, SignedNudge};
+use sp_runtime::{
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage, FixedU128,
+};
+
+type Block = frame_system::mocking::MockBlock<Test>;
+
+frame_support::construct_runtime!(
+	pub enum Test {
+		System: frame_system,
+		PriceOracle: pallet_price_oracle,
+	}
+);
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Test {
+	type Block = Block;
+}
+
+parameter_types! {
+	pub const Epsilon: FixedU128 = FixedU128::from_rational(1, 100); // 0.01
+	pub const MinNudges: u32 = 0;
+	pub const NudgeValidity: u64 = 10;
+}
+
+thread_local! {
+	static AUTHORITIES: std::cell::RefCell<Vec<AuthorityId>> = std::cell::RefCell::new(Vec::new());
+	static CURRENT_SLOT: std::cell::RefCell<Slot> = std::cell::RefCell::new(Slot::from(1u64));
+}
+
+pub struct MockAuthorityProvider;
+impl pallet::AuthorityProvider for MockAuthorityProvider {
+	fn authorities() -> Vec<AuthorityId> {
+		AUTHORITIES.with(|a| a.borrow().clone())
+	}
+	fn current_slot() -> Slot {
+		CURRENT_SLOT.with(|s| *s.borrow())
+	}
+}
+
+fn set_authorities(pairs: &[sr25519::Pair]) {
+	let authorities: Vec<AuthorityId> =
+		pairs.iter().map(|p| AuthorityId::from(p.public())).collect();
+	AUTHORITIES.with(|a| *a.borrow_mut() = authorities);
+}
+
+fn set_current_slot(slot: u64) {
+	CURRENT_SLOT.with(|s| *s.borrow_mut() = Slot::from(slot));
+}
+
+impl Config for Test {
+	type Epsilon = Epsilon;
+	type MinNudges = MinNudges;
+	type NudgeValidity = NudgeValidity;
+	type AuthorityProvider = MockAuthorityProvider;
+}
+
+fn new_test_ext() -> TestExternalities {
+	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	TestExternalities::new(t)
+}
+
+fn make_signed_nudge(
+	pair: &sr25519::Pair,
+	nudge: Nudge,
+	slot: u64,
+	authority_index: u32,
+) -> SignedNudge {
+	let slot = Slot::from(slot);
+	let payload = SignedNudge::signing_payload(&nudge, slot);
+	let raw_sig = pair.sign(&payload);
+	let signature = AuthoritySignature::from(raw_sig);
+	SignedNudge { nudge, slot, authority_index, signature }
+}
+
+fn generate_test_pairs(count: usize) -> Vec<sr25519::Pair> {
+	(0..count).map(|i| sr25519::Pair::from_seed(&[i as u8; 32])).collect()
+}
+
+#[test]
+fn price_starts_at_zero() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+	});
+}
+
+#[test]
+fn single_up_nudge_increases_price_by_epsilon() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(3);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
+
+		let expected = FixedU128::from_rational(1, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+	});
+}
+
+#[test]
+fn multiple_ups_compound() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(3);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		let nudges = vec![
+			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
+			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
+			make_signed_nudge(&pairs[2], Nudge::Up, 4, 2),
+		];
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+
+		// 3 ups, 0 downs → net 3 → price = 3 * 0.01 = 0.03
+		let expected = FixedU128::from_rational(3, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+	});
+}
+
+#[test]
+fn ups_and_downs_cancel_out() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(4);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		let nudges = vec![
+			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
+			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
+			make_signed_nudge(&pairs[2], Nudge::Down, 4, 2),
+			make_signed_nudge(&pairs[3], Nudge::Up, 4, 3),
+		];
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+
+		// 3 ups, 1 down → net 2 up → price = 2 * 0.01 = 0.02
+		let expected = FixedU128::from_rational(2, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+	});
+}
+
+#[test]
+fn down_nudges_decrease_price() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(3);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		// First set price to 1.0
+		pallet::CurrentPrice::<Test>::put(FixedU128::from_u32(1));
+
+		let nudges = vec![
+			make_signed_nudge(&pairs[0], Nudge::Down, 5, 0),
+			make_signed_nudge(&pairs[1], Nudge::Down, 5, 1),
+		];
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+
+		// 0 ups, 2 downs → net 2 down → price = 1.0 - 0.02 = 0.98
+		let expected = FixedU128::from_rational(98, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+	});
+}
+
+#[test]
+fn stale_nudges_are_skipped() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(2);
+		set_authorities(&pairs);
+		set_current_slot(15);
+
+		let nudges = vec![
+			make_signed_nudge(&pairs[0], Nudge::Up, 15, 0), // valid
+			make_signed_nudge(&pairs[1], Nudge::Up, 4, 1),  // stale (15 - 4 = 11 >= 10)
+		];
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+
+		// Only 1 valid up nudge → price = 0.01
+		let expected = FixedU128::from_rational(1, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+	});
+}
+
+#[test]
+fn invalid_signature_is_skipped() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(2);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		// Sign with pair[1]'s key but claim to be authority 0
+		let bad_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 0);
+		let good_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 1);
+
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![bad_nudge, good_nudge],
+		));
+
+		// Only 1 valid nudge
+		let expected = FixedU128::from_rational(1, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+	});
+}
+
+#[test]
+fn price_cannot_go_below_zero() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(1);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		// Price starts at 0, pushing down should stay at 0
+		let nudge = make_signed_nudge(&pairs[0], Nudge::Down, 5, 0);
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
+
+		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+	});
+}
+
+#[test]
+fn empty_nudges_does_not_change_price() {
+	new_test_ext().execute_with(|| {
+		pallet::CurrentPrice::<Test>::put(FixedU128::from_u32(5));
+
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![],));
+
+		assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
+	});
+}
+
+#[test]
+fn submit_nudges_only_once_per_block() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(1);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![nudge.clone()],
+		));
+
+		// Second submission in the same block should panic
+		let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+			let _ = PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge]);
+		}));
+		assert!(result.is_err());
+	});
+}

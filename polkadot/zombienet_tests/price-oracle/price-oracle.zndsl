@@ -1,0 +1,21 @@
+Description: Price Oracle E2E Test
+Network: ./price-oracle.toml
+Creds: config
+
+# All validators should be running
+alice: is up within 30 seconds
+bob: is up within 30 seconds
+charlie: is up within 30 seconds
+dave: is up within 30 seconds
+
+# Chain should be producing blocks
+alice: reports block height is at least 5 within 60 seconds
+
+# Check price oracle service started (via log)
+alice: log line contains "Price oracle service started" within 30 seconds
+
+# Check that price was fetched from an API
+alice: log line contains "Fetched DOT/USD price" within 30 seconds
+
+# After several blocks, the oracle inherent should have updated the price
+alice: reports block height is at least 15 within 120 seconds

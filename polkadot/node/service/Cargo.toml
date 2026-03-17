@@ -90,6 +90,8 @@ thiserror = { workspace = true }
 polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-node-core-parachains-inherent = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-price-oracle = { workspace = true }
+sp-price-oracle = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }

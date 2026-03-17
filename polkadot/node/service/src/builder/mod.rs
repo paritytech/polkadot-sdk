@@ -239,17 +239,17 @@ where
 		let force_authoring = config.force_authoring;
 		let disable_grandpa = config.disable_grandpa;
 		let name = config.network.node_name.clone();
-		let backoff_authoring_blocks = if !force_authoring_backoff &&
-			(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
+		let backoff_authoring_blocks = if !force_authoring_backoff
+			&& (config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
 		{
 			// the block authoring backoff is disabled by default on production networks
 			None
 		} else {
 			let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
-			if config.chain_spec.is_rococo() ||
-				config.chain_spec.is_versi() ||
-				config.chain_spec.is_dev()
+			if config.chain_spec.is_rococo()
+				|| config.chain_spec.is_versi()
+				|| config.chain_spec.is_dev()
 			{
 				// on testnets that are in flux (like rococo or versi), finality has stalled
 				// sometimes due to operational issues and it's annoying to slow down block
@@ -314,6 +314,16 @@ where
 			},
 		};
 
+		// Price oracle notification protocol (for validators)
+		let (oracle_prototype, oracle_notification_config) =
+			polkadot_node_price_oracle::OracleProtocolPrototype::new::<_, Block, Network>(
+				genesis_hash,
+				config.chain_spec.fork_id(),
+				metrics.clone(),
+				Arc::clone(&peer_store_handle),
+			);
+		net_config.add_notification_protocol(oracle_notification_config);
+
 		// validation/collation protocols are enabled only if `Overseer` is enabled
 		let peerset_protocol_names =
 			PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
@@ -323,8 +333,8 @@ where
 		//
 		// Collators and parachain full nodes require the collator and validator networking to send
 		// collations and to be able to recover PoVs.
-		let notification_services = if role.is_authority() ||
-			is_parachain_node.is_running_alongside_parachain_node()
+		let notification_services = if role.is_authority()
+			|| is_parachain_node.is_running_alongside_parachain_node()
 		{
 			use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 			let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
@@ -697,6 +707,11 @@ where
 			let overseer_handle =
 				overseer_handle.as_ref().ok_or(Error::AuthoritiesRequireRealOverseer)?.clone();
 			let slot_duration = babe_link.config().slot_duration();
+
+			let nudge_store = polkadot_node_price_oracle::NudgeStore::new();
+			let nudge_store_for_inherent = nudge_store.clone();
+			let client_for_oracle = client.clone();
+
 			let babe_config = sc_consensus_babe::BabeParams {
 				keystore: keystore_container.keystore(),
 				client: client.clone(),
@@ -708,11 +723,12 @@ where
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
 					let overseer_handle = overseer_handle.clone();
+					let nudge_store = nudge_store_for_inherent.clone();
 
 					async move {
 						let parachain =
 						polkadot_node_core_parachains_inherent::ParachainsInherentDataProvider::new(
-							client_clone,
+							client_clone.clone(),
 							overseer_handle,
 							parent,
 						);
@@ -725,7 +741,13 @@ where
 							slot_duration,
 						);
 
-						Ok((slot, timestamp, parachain))
+						let oracle_nudges = polkadot_node_price_oracle::create_inherent_data::<
+							Block,
+							_,
+						>(&client_clone, &nudge_store, parent);
+						let oracle = sp_price_oracle::InherentDataProvider::new(oracle_nudges);
+
+						Ok((slot, timestamp, parachain, oracle))
 					}
 				},
 				force_authoring,
@@ -738,6 +760,18 @@ where
 
 			let babe = sc_consensus_babe::start_babe(babe_config)?;
 			task_manager.spawn_essential_handle().spawn_blocking("babe", None, babe);
+
+			let oracle_keystore = keystore_container.keystore();
+			task_manager.spawn_handle().spawn(
+				"price-oracle",
+				None,
+				polkadot_node_price_oracle::run::<Block, _>(
+					oracle_prototype,
+					client_for_oracle,
+					oracle_keystore,
+					nudge_store,
+				),
+			);
 		}
 
 		// if the node isn't actively participating in consensus then it doesn't

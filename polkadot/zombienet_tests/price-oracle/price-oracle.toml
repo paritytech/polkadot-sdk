@@ -1,0 +1,33 @@
+[settings]
+timeout = 300
+
+[relaychain]
+default_command = "./target/release/polkadot"
+chain = "westend-local"
+default_args = ["-lruntime::price-oracle=debug", "-lprice-oracle=debug"]
+
+	[[relaychain.nodes]]
+	name = "alice"
+	validator = true
+	rpc_port = 9944
+
+	[[relaychain.nodes]]
+	name = "bob"
+	validator = true
+	rpc_port = 9955
+
+	[[relaychain.nodes]]
+	name = "charlie"
+	validator = true
+
+	[[relaychain.nodes]]
+	name = "dave"
+	validator = true
+
+	[[relaychain.nodes]]
+	name = "eve"
+	validator = true
+
+	[[relaychain.nodes]]
+	name = "ferdie"
+	validator = true

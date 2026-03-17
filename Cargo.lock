@@ -13185,6 +13185,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [
@@ -15918,6 +15937,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "reqwest",
+ "sc-network 0.34.0",
+ "sc-network-types 0.10.0",
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+ "tokio",
+]
+
+[[package]]
 name = "polkadot-node-primitives"
 version = "7.0.0"
 dependencies = [
@@ -17000,6 +17042,7 @@ dependencies = [
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
+ "polkadot-node-price-oracle",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -17051,6 +17094,7 @@ dependencies = [
  "sp-keyring",
  "sp-mmr-primitives",
  "sp-offchain",
+ "sp-price-oracle",
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-timestamp",
@@ -24000,6 +24044,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "sp-runtime 31.0.1",
+ "thiserror 1.0.65",
+]
+
+[[package]]
 name = "sp-rpc"
 version = "26.0.0"
 dependencies = [
@@ -28178,6 +28238,7 @@ dependencies = [
  "pallet-offences-benchmarking",
  "pallet-parameters",
  "pallet-preimage",
+ "pallet-price-oracle",
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
@@ -28218,6 +28279,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
+ "sp-consensus-slots",
  "sp-core 28.0.0",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
@@ -28226,6 +28288,7 @@ dependencies = [
  "sp-mmr-primitives",
  "sp-npos-elections",
  "sp-offchain",
+ "sp-price-oracle",
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-staking",

@@ -454,4 +454,22 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 	}
+
+	impl sp_price_oracle::PriceOracleApi<Block> for Runtime {
+		fn current_price() -> sp_runtime::FixedU128 {
+			unimplemented!()
+		}
+
+		fn epsilon() -> sp_runtime::FixedU128 {
+			unimplemented!()
+		}
+
+		fn nudge_validity() -> u64 {
+			unimplemented!()
+		}
+
+		fn authorities() -> Vec<sp_consensus_babe::AuthorityId> {
+			unimplemented!()
+		}
+	}
 }
