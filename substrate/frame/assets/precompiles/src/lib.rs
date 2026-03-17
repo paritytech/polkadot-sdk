@@ -61,7 +61,7 @@ pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignA
 pub use migration::MigrateForeignAssetPrecompileMappings;
 pub use permit::pallet::Config as PermitConfig;
 
-/// Mean of extracting the asset id from the precompile address.
+/// Means of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
 	type AssetId;
 	/// Extracts the asset id from the address.
@@ -85,7 +85,7 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
-		return Ok(index.into());
+		Ok(index)
 	}
 }
 
@@ -228,7 +228,7 @@ where
 	}
 
 	/// Convert a balance to a `U256` value.
-	/// Note this is needed cause From is not implemented for unsigned integer types
+	/// Note: this is needed because `From` is not implemented for unsigned integer types.
 	fn to_u256(
 		value: <Runtime as Config<Instance>>::Balance,
 	) -> Result<alloy::primitives::U256, Error> {
@@ -280,7 +280,7 @@ where
 			}),
 		)?;
 
-		return Ok(IERC20::transferCall::abi_encode_returns(&true));
+		Ok(IERC20::transferCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the total supply call.
@@ -293,7 +293,7 @@ where
 
 		let value =
 			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_issuance(asset_id))?;
-		return Ok(IERC20::totalSupplyCall::abi_encode_returns(&value));
+		Ok(IERC20::totalSupplyCall::abi_encode_returns(&value))
 	}
 
 	/// Execute the balance_of call.
@@ -307,7 +307,7 @@ where
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
 		let value =
 			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
-		return Ok(IERC20::balanceOfCall::abi_encode_returns(&value));
+		Ok(IERC20::balanceOfCall::abi_encode_returns(&value))
 	}
 
 	/// Execute the allowance call.
@@ -327,7 +327,7 @@ where
 			asset_id, &owner, &spender,
 		))?;
 
-		return Ok(IERC20::allowanceCall::abi_encode_returns(&value));
+		Ok(IERC20::allowanceCall::abi_encode_returns(&value))
 	}
 
 	/// Execute the approve call.
@@ -357,7 +357,7 @@ where
 			}),
 		)?;
 
-		return Ok(IERC20::approveCall::abi_encode_returns(&true));
+		Ok(IERC20::approveCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the transfer_from call.
@@ -394,7 +394,7 @@ where
 			}),
 		)?;
 
-		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
+		Ok(IERC20::transferFromCall::abi_encode_returns(&true))
 	}
 
 	// ==================== ERC20Permit Functions (EIP-2612) ====================
