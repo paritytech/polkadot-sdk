@@ -144,7 +144,7 @@ fn generate_extern_host_function(
 		#(#cfg_attrs)*
 		#[doc = #doc_string]
 		pub fn #function ( #( #unpacked_args ),* ) #unpacked_return_value {
-			#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
+			#[cfg_attr(target_arch = "riscv64", #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
 			extern "C" {
 				pub fn #ext_function (
 					#( #arg_names: <#arg_types as #crate_::RIType>::FFIType ),*

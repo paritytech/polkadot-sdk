@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -275,11 +275,21 @@ where
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: u64) {
+	fn exit_child_span_with_error(
+		&mut self,
+		_error: crate::DispatchError,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.calls.pop();
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return;

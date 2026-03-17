@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
+	Code, DispatchError, Weight,
+	evm::{CallLog, CallTrace, CallTracerConfig, CallType, decode_revert_reason},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
@@ -81,10 +81,10 @@ impl Tracing for CallTracer {
 		gas_limit: u64,
 	) {
 		// Increment parent's child call count.
-		if let Some(&index) = self.current_stack.last() {
-			if let Some(trace) = self.traces.get_mut(index) {
-				trace.child_call_count += 1;
-			}
+		if let Some(&index) = self.current_stack.last() &&
+			let Some(trace) = self.traces.get_mut(index)
+		{
+			trace.child_call_count += 1;
 		}
 
 		if self.traces.is_empty() || !self.config.only_top_call {
@@ -151,7 +151,12 @@ impl Tracing for CallTracer {
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -177,7 +182,13 @@ impl Tracing for CallTracer {
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: u64) {
+
+	fn exit_child_span_with_error(
+		&mut self,
+		error: DispatchError,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace

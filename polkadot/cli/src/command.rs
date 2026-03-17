@@ -294,6 +294,10 @@ where
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
 				experimental_collator_protocol,
+				collator_reputation_persist_interval: cli
+					.run
+					.collator_reputation_persist_interval
+					.map(std::time::Duration::from_secs),
 			},
 		)
 		.map(|full| full.task_manager)?;

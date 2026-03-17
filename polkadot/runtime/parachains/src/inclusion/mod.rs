@@ -24,7 +24,7 @@ use crate::{
 	disputes, dmp, hrmp,
 	paras::{self, UpgradeStrategy},
 	scheduler,
-	shared::{self, AllowedRelayParentsTracker},
+	shared::{self, AllowedSchedulingParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
 use alloc::{
@@ -317,8 +317,10 @@ pub mod pallet {
 		/// The candidate's relay-parent was not allowed. Either it was
 		/// not recent enough or it didn't advance based on the last parachain block.
 		DisallowedRelayParent,
+		/// The candidate's scheduling-parent was not allowed.
+		DisallowedSchedulingParent,
 		/// Failed to compute group index for the core: either it's out of bounds
-		/// or the relay parent doesn't belong to the current session.
+		/// or the scheduling parent doesn't belong to the current session.
 		InvalidAssignment,
 		/// Invalid group index in core assignment.
 		InvalidGroupIndex,
@@ -617,9 +619,10 @@ impl<T: Config> Pallet<T> {
 	/// (This really should not happen here, if the candidates were properly sanitised in
 	/// paras_inherent).
 	pub(crate) fn process_candidates<GV>(
-		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+		allowed_scheduling_parents: &AllowedSchedulingParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
+		v3_enabled: bool,
 	) -> Result<
 		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
 		DispatchError,
@@ -654,18 +657,24 @@ impl<T: Config> Pallet<T> {
 				// sanitization.
 				let check_ctx = CandidateCheckContext::<T>::new(None);
 				let relay_parent_number = check_ctx.verify_backed_candidate(
-					&allowed_relay_parents,
 					candidate.candidate(),
 					latest_head_data.clone(),
+					v3_enabled,
 				)?;
 
-				// The candidate based upon relay parent `N` should be backed by a
+				let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+
+				let (_, scheduling_parent_number) = allowed_scheduling_parents
+					.acquire_info(scheduling_parent)
+					.ok_or(Error::<T>::DisallowedSchedulingParent)?;
+
+				// The candidate based upon scheduling parent `N` should be backed by a
 				// group assigned to core at block `N + 1`. Thus,
-				// `relay_parent_number + 1` will always land in the current
+				// `scheduling_parent_number + 1` will always land in the current
 				// session.
 				let group_idx = scheduler::Pallet::<T>::group_assigned_to_core(
 					*core,
-					relay_parent_number + One::one(),
+					scheduling_parent_number + One::one(),
 				)
 				.ok_or_else(|| {
 					log::warn!(
@@ -679,8 +688,12 @@ impl<T: Config> Pallet<T> {
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
 				// Check backing vote count and validity.
-				let (backers, backer_idx_and_attestation) =
-					Self::check_backing_votes(candidate, &validators, group_vals)?;
+				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
+					candidate,
+					&scheduling_parent,
+					&validators,
+					group_vals,
+				)?;
 
 				// Found a valid candidate.
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
@@ -745,6 +758,7 @@ impl<T: Config> Pallet<T> {
 
 	fn check_backing_votes(
 		backed_candidate: &BackedCandidate<T::Hash>,
+		scheduling_parent: &T::Hash,
 		validators: &[ValidatorId],
 		group_vals: Vec<ValidatorIndex>,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
@@ -752,7 +766,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 		let signing_context = SigningContext {
-			parent_hash: backed_candidate.descriptor().relay_parent(),
+			parent_hash: *scheduling_parent,
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
@@ -1218,20 +1232,32 @@ impl<T: Config> CandidateCheckContext<T> {
 	/// Returns the relay-parent block number.
 	pub(crate) fn verify_backed_candidate(
 		&self,
-		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
+		v3_enabled: bool,
 	) -> Result<BlockNumberFor<T>, Error<T>> {
 		let para_id = backed_candidate_receipt.descriptor.para_id();
 		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
+		let session_index = backed_candidate_receipt
+			.descriptor
+			.session_index(v3_enabled)
+			.unwrap_or_else(|| shared::CurrentSessionIndex::<T>::get());
+
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (state_root, relay_parent_number) = {
-			match allowed_relay_parents.acquire_info(relay_parent, self.prev_context) {
+			match shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent) {
 				None => return Err(Error::<T>::DisallowedRelayParent),
-				Some((info, relay_parent_number)) => (info.state_root, relay_parent_number),
+				Some(info) => (info.state_root, info.number),
 			}
 		};
+
+		// Candidate's relay parent cannot move backwards.
+		if let Some(prev_context) = self.prev_context {
+			if relay_parent_number < prev_context {
+				return Err(Error::<T>::DisallowedRelayParent);
+			}
+		}
 
 		{
 			let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
