@@ -263,20 +263,33 @@ pub fn new_partial(
 }
 
 /// Create a spec-msg request-response protocol configuration.
+///
+/// Uses genesis hash in the protocol name for proper litep2p negotiation,
+/// matching the pattern used by other relay chain request-response protocols
+/// (e.g., the bootnode protocol).
 fn spec_msg_request_response_config<
 	B: sp_runtime::traits::Block,
 	N: NetworkBackend<B, <B as sp_runtime::traits::Block>::Hash>,
->() -> (N::RequestResponseProtocolConfig, async_channel::Receiver<IncomingRequest>) {
+>(
+	genesis_hash: &[u8],
+) -> (N::RequestResponseProtocolConfig, async_channel::Receiver<IncomingRequest>, String) {
 	let (tx, rx) = async_channel::bounded(100);
+	let hex: String = genesis_hash.iter().map(|b| format!("{b:02x}")).collect();
+	let protocol_name = format!("/{hex}/spec-msg/1");
+	tracing::info!(
+		target: LOG_TARGET,
+		%protocol_name,
+		"Registering spec-msg request-response protocol",
+	);
 	let config = N::request_response_config(
-		ProtocolName::from(SPEC_MSG_PROTOCOL_NAME),
+		ProtocolName::from(protocol_name.clone()),
 		Vec::new(),
 		16 * 1024 * 1024, // MAX_REQUEST_SIZE
 		1024,             // MAX_RESPONSE_SIZE
 		Duration::from_secs(20),
 		Some(tx),
 	);
-	(config, rx)
+	(config, rx, protocol_name)
 }
 
 /// Build a relay chain full node using `PolkadotServiceBuilder`, injecting
@@ -285,7 +298,7 @@ fn build_relay_with_spec_msg_protocol<Network>(
 	config: Configuration,
 	collator_key: Option<CollatorPair>,
 ) -> Result<
-	(polkadot_service::NewFull, async_channel::Receiver<IncomingRequest>),
+	(polkadot_service::NewFull, async_channel::Receiver<IncomingRequest>, String),
 	polkadot_service::Error,
 >
 where
@@ -332,12 +345,15 @@ where
 
 	let mut builder = PolkadotServiceBuilder::<_, Network>::new(config, params)?;
 
-	// Inject spec-msg request-response protocol
-	let (spec_msg_config, spec_msg_rx) =
-		spec_msg_request_response_config::<polkadot_primitives::Block, Network>();
+	// Inject spec-msg request-response protocol (genesis-hash-prefixed name)
+	let genesis_hash = builder.genesis_hash();
+	let (spec_msg_config, spec_msg_rx, protocol_name) =
+		spec_msg_request_response_config::<polkadot_primitives::Block, Network>(
+			genesis_hash.as_ref(),
+		);
 	builder.add_extra_request_response_protocol(spec_msg_config);
 
-	Ok((builder.build()?, spec_msg_rx))
+	Ok((builder.build()?, spec_msg_rx, protocol_name))
 }
 
 /// Result of building the relay chain interface with spec-msg support.
@@ -349,6 +365,8 @@ struct RelayChainBuildResult {
 	/// Inbound spec-msg requests from remote relay peers.
 	/// `None` in external RPC mode.
 	spec_msg_rx: Option<async_channel::Receiver<IncomingRequest>>,
+	/// The genesis-hash-prefixed protocol name for spec-msg requests.
+	spec_msg_protocol: Option<String>,
 }
 
 async fn build_relay_chain_interface(
@@ -360,7 +378,7 @@ async fn build_relay_chain_interface(
 ) -> RelayChainResult<RelayChainBuildResult> {
 	match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => {
-			let (relay_chain_full_node, spec_msg_rx) =
+			let (relay_chain_full_node, spec_msg_rx, protocol_name) =
 				match relay_chain_config.network.network_backend {
 					NetworkBackendType::Libp2p =>
 						build_relay_with_spec_msg_protocol::<sc_network::NetworkWorker<_, _>>(
@@ -395,6 +413,7 @@ async fn build_relay_chain_interface(
 				relay_chain_interface,
 				relay_network: Some(relay_network),
 				spec_msg_rx: Some(spec_msg_rx),
+				spec_msg_protocol: Some(protocol_name),
 			})
 		},
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
@@ -410,6 +429,7 @@ async fn build_relay_chain_interface(
 				relay_chain_interface,
 				relay_network: None,
 				spec_msg_rx: None,
+				spec_msg_protocol: None,
 			})
 		},
 	}
@@ -465,6 +485,7 @@ where
 	let relay_chain_interface = relay_build.relay_chain_interface;
 	let relay_network = relay_build.relay_network;
 	let spec_msg_rx = relay_build.spec_msg_rx;
+	let spec_msg_protocol = relay_build.spec_msg_protocol;
 
 	let import_queue_service = params.import_queue.service();
 	let prometheus_registry = parachain_config.prometheus_registry().cloned();
@@ -629,10 +650,11 @@ where
 	// "speculative" part — we forward messages before they are finalized,
 	// achieving ~1 relay block latency instead of waiting for finality
 	// (which would add 2-3 relay blocks of delay).
-	if let Some(ref relay_net) = relay_network {
+	if let (Some(ref relay_net), Some(ref protocol)) = (&relay_network, &spec_msg_protocol) {
 		let outbound_client = client.clone();
 		let outbound_relay_net = relay_net.clone();
 		let outbound_para_id = para_id;
+		let outbound_protocol = protocol.clone();
 
 		task_manager.spawn_handle().spawn("spec-msg-outbound", None, async move {
 			use sc_client_api::{BlockchainEvents, StorageProvider};
@@ -824,15 +846,32 @@ where
 						"Sending spec-msg batch to relay peer",
 					);
 
-					let (response_tx, _response_rx) = futures::channel::oneshot::channel();
-					outbound_relay_net.start_request(
-						peer_id.into(),
-						ProtocolName::from(SPEC_MSG_PROTOCOL_NAME),
-						request_payload,
-						None,
-						response_tx,
-						sc_network::IfDisconnected::TryConnect,
-					);
+					let relay_net = outbound_relay_net.clone();
+					let protocol =
+						ProtocolName::from(outbound_protocol.clone());
+					tokio::spawn(async move {
+						match relay_net
+							.request(
+								peer_id.into(),
+								protocol,
+								request_payload,
+								None,
+								sc_network::IfDisconnected::TryConnect,
+							)
+							.await
+						{
+							Ok((resp, _proto)) => tracing::info!(
+								target: LOG_TARGET,
+								resp_len = resp.len(),
+								"spec-msg request succeeded",
+							),
+							Err(e) => tracing::warn!(
+								target: LOG_TARGET,
+								?e,
+								"spec-msg request failed",
+							),
+						}
+					});
 				}
 			}
 			tracing::info!(target: LOG_TARGET, "spec-msg-outbound worker exiting");
