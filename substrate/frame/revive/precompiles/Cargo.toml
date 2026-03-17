@@ -31,6 +31,7 @@ std = [
 	"pallet-revive/std",
 	"pallet-vesting/std",
 	"sp-runtime/std",
+	"alloy-core/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
