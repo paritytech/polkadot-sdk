@@ -1308,7 +1308,6 @@ where
 mod tests {
 
 	use super::*;
-	use fastbloom::BloomFilter;
 	use std::sync::{
 		atomic::{AtomicBool, Ordering},
 		Mutex,
@@ -2757,9 +2756,8 @@ mod tests {
 
 		// Send ExplicitTopicAffinity message.
 		let topic: [u8; 32] = [0xAA; 32];
-		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom.insert(&topic);
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic);
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 
@@ -2777,7 +2775,7 @@ mod tests {
 		);
 		// The filter should match the topic we inserted.
 		assert!(
-			peer_data.topic_affinity.as_ref().unwrap().bloom.contains(&topic),
+			peer_data.topic_affinity.as_ref().unwrap().contains(&topic),
 			"Stored affinity filter should match the topic"
 		);
 	}
@@ -2802,9 +2800,8 @@ mod tests {
 		// Set up topic affinity: peer is interested in topic 0xAA only.
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
-		let mut bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom.insert(&topic_aa);
-		let filter = AffinityFilter { bloom, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic_aa);
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -2981,9 +2978,8 @@ mod tests {
 		);
 
 		// Set topic affinity to topic_aa — this triggers the first initial sync.
-		let mut bloom_aa = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_aa.insert(&topic_aa);
-		let filter = AffinityFilter { bloom: bloom_aa, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic_aa);
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -3022,9 +3018,8 @@ mod tests {
 		assert!(!sent_hashes.contains(&hash_bb), "stmt_bb should NOT be sent (filtered)");
 
 		// Now change affinity to topic_bb — triggers re-sync.
-		let mut bloom_bb = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_bb.insert(&topic_bb);
-		let filter = AffinityFilter { bloom: bloom_bb, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic_bb);
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -3113,9 +3108,8 @@ mod tests {
 			.await;
 
 		// Immediately set affinity to topic_aa BEFORE any initial sync runs.
-		let mut bloom_aa = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_aa.insert(&topic_aa);
-		let filter = AffinityFilter { bloom: bloom_aa, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic_aa);
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 		handler
@@ -3160,11 +3154,9 @@ mod tests {
 		assert!(peer.known_statements.contains(&hash_aa), "stmt_aa should be in known_statements");
 
 		// Now change affinity to include topic_bb.
-		let mut bloom_both =
-			BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(100);
-		bloom_both.insert(&topic_aa);
-		bloom_both.insert(&topic_bb);
-		let filter = AffinityFilter { bloom: bloom_both, seed: BLOOM_SEED };
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic_aa);
+		filter.insert(&topic_bb);
 		let msg = StatementMessage::ExplicitTopicAffinity(filter);
 		let encoded = msg.encode();
 
@@ -3228,12 +3220,7 @@ mod tests {
 	#[test]
 	fn test_can_receive_all_combinations() {
 		let make_peer = |is_light: bool, version: PeerProtocolVersion, has_affinity: bool| {
-			let topic_affinity = if has_affinity {
-				let bloom = BloomFilter::with_false_pos(0.01).seed(&BLOOM_SEED).expected_items(10);
-				Some(AffinityFilter { bloom, seed: BLOOM_SEED })
-			} else {
-				None
-			};
+			let topic_affinity = has_affinity.then(|| AffinityFilter::new(BLOOM_SEED, 0.01, 10));
 			Peer {
 				known_statements: LruHashSet::new(NonZeroUsize::new(10).unwrap()),
 				rate_limiter: PeerRateLimiter::new(
