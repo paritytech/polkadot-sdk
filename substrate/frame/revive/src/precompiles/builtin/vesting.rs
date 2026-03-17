@@ -32,11 +32,22 @@ use sp_runtime::traits::StaticLookup;
 
 pub struct Vesting<T>(PhantomData<T>);
 
+/// The balance type used by `pallet-vesting`'s currency.
+type VestingBalance<T> = <<T as pallet_vesting::Config>::Currency as frame_support::traits::Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
+
 impl<T: Config + pallet_vesting::Config> BuiltinPrecompile for Vesting<T>
 where
-	<<T as pallet_vesting::Config>::Currency as frame_support::traits::Currency<
-		<T as frame_system::Config>::AccountId,
-	>>::Balance: Into<U256>,
+	VestingBalance<T>: Into<U256>,
+	// Enforce that pallet-vesting and pallet-revive operate on the same balance denomination.
+	// Both pallets expose Currency via different trait families (LockableCurrency vs
+	// fungibles), so a direct Currency-equality bound is not expressible. Instead we require
+	// mutual From conversions between their Balance types, which is only satisfied when the
+	// types are identical. A compile error here means the runtime has configured mismatched
+	// currencies, which would cause vestingBalance() to return amounts in the wrong denomination.
+	VestingBalance<T>: From<<T as Config>::Balance>,
+	<T as Config>::Balance: From<VestingBalance<T>>,
 {
 	type T = T;
 	type Interface = IVesting::IVestingCalls;
