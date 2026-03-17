@@ -71,8 +71,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::DispatchClass,
 	traits::{
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
-		fungible::{Balanced, Inspect, Mutate, MutateHold},
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
+		fungible::{Balanced, Credit, Inspect, Mutate, MutateHold},
 		tokens::Balance,
 	},
 	weights::WeightMeter,
@@ -122,6 +122,7 @@ pub use weights::WeightInfo;
 pub use crate::vm::pvm::SyscallDoc;
 
 pub type BalanceOf<T> = <T as Config>::Balance;
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
@@ -179,6 +180,15 @@ pub mod pallet {
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ Balanced<Self::AccountId>;
+
+		/// Handler for burned native currency (e.g. gas rounding).
+		///
+		/// When EVM gas accounting rounds up the transaction cost, the small rounding
+		/// difference is withdrawn from the caller and forwarded to this handler.
+		/// Use this to redirect burned value to a treasury or DAP instead of silently
+		/// destroying it.
+		#[pallet::no_default_bounds]
+		type OnBurn: OnUnbalanced<CreditOf<Self>>;
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
@@ -441,6 +451,7 @@ pub mod pallet {
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
 			type GasScale = GasScale;
+			type OnBurn = ();
 		}
 	}
 

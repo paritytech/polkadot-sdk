@@ -58,7 +58,6 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 	where
 		// Migration bounds
 		T: pallet_assets::Config<T::AssetsInstance, AssetId = <T as Config>::ForeignAssetId>,
-		T::ForeignAssetId: From<u32>,
 		// Permit bounds
 		T: crate::permit::Config + pallet_revive::Config,
 		<T as pallet_assets::Config<T::AssetsInstance>>::Balance: From<u32>,
@@ -70,6 +69,7 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 mod benchmarks {
 	use super::*;
 	use frame_support::traits::Get;
+	use pallet_assets::BenchmarkHelper;
 
 	// ==================== Migration benchmarks ====================
 
@@ -84,9 +84,9 @@ mod benchmarks {
 		// Create one asset in pallet_assets storage.
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = <T as frame_system::Config>::Lookup::unlookup(caller);
-		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId = 42u32.into();
-		let asset_id_param: <T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter =
-			asset_id.into();
+		let asset_id_param = <T as pallet_assets::Config<T::AssetsInstance>>::BenchmarkHelper::create_asset_id_parameter(42);
+		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId =
+			asset_id_param.clone().into();
 
 		pallet_assets::Pallet::<T, T::AssetsInstance>::force_create(
 			frame_system::RawOrigin::Root.into(),
@@ -97,9 +97,11 @@ mod benchmarks {
 		)
 		.unwrap();
 
+		// Remove the mapping that was auto-created by the AssetsCallback hook
+		Pallet::<T>::remove_asset_mapping(&asset_id);
+
 		// Verify no precompile mapping exists yet.
-		let foreign_asset_id: T::ForeignAssetId = 42u32.into();
-		assert!(Pallet::<T>::asset_index_of(&foreign_asset_id).is_none());
+		assert!(Pallet::<T>::asset_index_of(&asset_id).is_none());
 
 		let mut meter = WeightMeter::new();
 
@@ -112,7 +114,7 @@ mod benchmarks {
 		}
 
 		// Verify the asset was migrated.
-		assert!(Pallet::<T>::asset_index_of(&foreign_asset_id).is_some());
+		assert!(Pallet::<T>::asset_index_of(&asset_id).is_some());
 		// The step consumes the weight twice: once for migrating the asset and once for
 		// discovering that there are no more assets to migrate.
 		assert_eq!(
@@ -163,9 +165,9 @@ mod benchmarks {
 	#[benchmark]
 	fn permit() {
 		// ── Setup: asset ────────────────────────────────────────────────────────
-		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId = 42u32.into();
-		let asset_id_param: <T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter =
-			asset_id.clone().into();
+		let asset_id_param = <T as pallet_assets::Config<T::AssetsInstance>>::BenchmarkHelper::create_asset_id_parameter(42);
+		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId =
+			asset_id_param.clone().into();
 		let admin: T::AccountId = whitelisted_caller();
 		let admin_lookup = <T as frame_system::Config>::Lookup::unlookup(admin.clone());
 
@@ -257,12 +259,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::ERC20::<T, crate::InlineIdConfig<0x0120>, T::AssetsInstance>::permit(
-				asset_id,
-				verifying_contract,
-				&call,
-				&mut ext,
-			)
+			crate::ERC20::<
+				T,
+				crate::ForeignIdConfig<0x0120, T, T::AssetsInstance>,
+				T::AssetsInstance,
+			>::permit(asset_id, verifying_contract, &call, &mut ext)
 			.expect("permit should succeed");
 		}
 
