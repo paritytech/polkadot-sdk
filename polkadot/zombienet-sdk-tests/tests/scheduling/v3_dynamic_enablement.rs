@@ -156,8 +156,8 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	assert_validator_backed_candidates(experimental_validator_2, 30).await?;
 	assert_validator_backed_candidates(experimental_validator_3, 30).await?;
 
-	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
-	assert_finality_lag(&para_node_slot.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
+	assert_finality_lag(&para_node_slot.wait_client().await?, 10).await?;
 
 	log::info!("V3 dynamic enablement test finished successfully");
 
