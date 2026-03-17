@@ -216,7 +216,7 @@ pub mod vrf {
 	impl Decode for VrfPreOutput {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
 			let buf = <[u8; PREOUT_SERIALIZED_SIZE]>::decode(i)?;
-			let preout = bandersnatch::Output::deserialize_compressed_unchecked(buf.as_slice())
+			let preout = bandersnatch::Output::deserialize_compressed(buf.as_slice())
 				.map_err(|_| "vrf-preout decode error: bad preout")?;
 			Ok(VrfPreOutput(preout))
 		}
@@ -318,12 +318,10 @@ pub mod vrf {
 		aux_data: &[u8],
 	) -> bool {
 		use ark_vrf::ietf::Verifier;
-		let Ok(public) = bandersnatch::Public::deserialize_compressed_unchecked(public.as_slice())
-		else {
+		let Ok(public) = bandersnatch::Public::deserialize_compressed(public.as_slice()) else {
 			return false;
 		};
-		let Ok(proof) =
-			ark_vrf::ietf::Proof::deserialize_compressed_unchecked(signature.proof.as_slice())
+		let Ok(proof) = ark_vrf::ietf::Proof::deserialize_compressed(signature.proof.as_slice())
 		else {
 			return false;
 		};
@@ -576,8 +574,7 @@ pub mod ring_vrf {
 		/// from which the [`RingVerifier`] has been constructed.
 		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
 			use ark_vrf::ring::Verifier;
-			let Ok(proof) =
-				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
+			let Ok(proof) = bandersnatch::RingProof::deserialize_compressed(self.proof.as_slice())
 			else {
 				return false;
 			};
