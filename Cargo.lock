@@ -538,9 +538,9 @@ dependencies = [
 
 [[package]]
 name = "ark-bls12-377-ext"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e47f3bb6e4ef3c0edb795769fc11469767ce807ed1ccdc979ab101aea2dbf4b5"
+checksum = "07208c7ea9e7abfe8fb01e190eba611f6e7c3cdbdef4a5473c9297d396495d1b"
 dependencies = [
  "ark-bls12-377 0.5.0",
  "ark-ec 0.5.0",
@@ -575,9 +575,9 @@ dependencies = [
 
 [[package]]
 name = "ark-bls12-381-ext"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f1dbb23366825700828d373d5fc9c07b7f92253ffed47ab455003b7590d786d"
+checksum = "8a83d59f25570c846b9cfc430539a150e9634c9db6949f87b12f3cbc53149b17"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
@@ -613,9 +613,9 @@ dependencies = [
 
 [[package]]
 name = "ark-bw6-761-ext"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6e1216f968e21c72fdaba53dbc9e547a8a60cc87b1dc74ac589727e906f9297"
+checksum = "60f7fc87dfb5699c1c5a12e8d4f13564c174a5224b5702002587ca67205a9ca7"
 dependencies = [
  "ark-bw6-761",
  "ark-ec 0.5.0",
@@ -677,9 +677,9 @@ dependencies = [
 
 [[package]]
 name = "ark-ed-on-bls12-377-ext"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05093aa26f017411708e1271047852cc5f58686336f1f1a56fb2df747c3e173a"
+checksum = "93170025f4679342661d00f27c9a1586ccf053d29ad78b072d5be11649cae02c"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ed-on-bls12-377",
@@ -702,9 +702,9 @@ dependencies = [
 
 [[package]]
 name = "ark-ed-on-bls12-381-bandersnatch-ext"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e6dce0c47def6f25cf01022acded4f32732f577187dfcd1268510093ef16ea6"
+checksum = "ee7e1fb880811e22d4fc8ffe83eaa260e39a4deb0f345dcc8ffb663d3e034e7a"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ed-on-bls12-381-bandersnatch",
@@ -842,15 +842,40 @@ dependencies = [
 
 [[package]]
 name = "ark-models-ext"
-version = "0.5.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff772c552d00e9c092eab0608632342c553abbf6bca984008b55100a9a78a3a6"
+checksum = "6294fd6ddc4996910adf2a9d3b56e3aa6a1f605ea315952169d2ddebc304dc4c"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "derivative",
+]
+
+[[package]]
+name = "ark-pallas"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c676d42c65f0b2d334fc0ae72a422de2e62ed75beb3022050c0e8a81f6ccc0f"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-pallas-ext"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bbaeac3876520e76ee237eab49e0eb3586c5b4267e6b740066588da9b58fc30"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
+ "ark-pallas",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
 ]
 
 [[package]]
@@ -1026,6 +1051,32 @@ dependencies = [
  "digest 0.10.7",
  "rand_core 0.6.4",
  "sha3",
+]
+
+[[package]]
+name = "ark-vesta"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3a6d658e5e7380af710828550b2dc2c7b033c9f3103d2690711cb07d5a62df6"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-std 0.5.0",
+]
+
+[[package]]
+name = "ark-vesta-ext"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0b7a48a187aa9f58e2b7d4d4f97b0eec39e263ec62e69cadeb0a4399718e778"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-models-ext",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-vesta",
 ]
 
 [[package]]
@@ -1895,7 +1946,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "regex",
@@ -17965,7 +18016,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -23559,8 +23610,12 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-ff 0.5.0",
+ "ark-pallas",
+ "ark-pallas-ext",
  "ark-scale",
  "ark-std 0.5.0",
+ "ark-vesta",
+ "ark-vesta-ext",
  "sp-runtime-interface 24.0.0",
 ]
 
