@@ -656,7 +656,7 @@ ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.0", default-features = f
 ark-ff = { version = "0.5.0", default-features = false }
 ark-scale = { version = "0.0.13", default-features = false }
 ark-std = { version = "0.5.0", default-features = false }
-ark-vrf = { version = "0.1.0", default-features = false }
+ark-vrf = { version = "0.2.2", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
