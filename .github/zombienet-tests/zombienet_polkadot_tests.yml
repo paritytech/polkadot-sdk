@@ -95,7 +95,7 @@
 # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
 - job-name: "zombienet-polkadot-misc-0001-parachains-paritydb"
   test-filter: "misc::paritydb::paritydb_test"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
 
 # TODO: needs to resolve how to pass the GH_TOKEN to pods
