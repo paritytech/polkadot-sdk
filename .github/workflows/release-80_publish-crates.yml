@@ -65,7 +65,7 @@ jobs:
       - name: Install pgpkms
         run: |
           # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
+          pip install git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae
 
       - name: Derive stable branch from release name
         id: derive_branch
