@@ -38,24 +38,15 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
-      - name: Download artifact by ID
+      - name: Install resolc
         id: download
-        run: |
-          curl -L --fail --show-error \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/paritytech/revive/actions/artifacts/5198357315/zip" \
-            -o resolc.zip
-          unzip -q resolc.zip -d resolc
-          chmod +x ./resolc/resolc-x86_64-unknown-linux-musl
-          echo "resolc-path=$(pwd)/resolc/resolc-x86_64-unknown-linux-musl" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/get-resolc
       - name: Run revive differential tests
-        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@004a36f4e88228ee1331cb598c8873ab7315e3f0
         with:
           platform: ${{ matrix.platform }}
           cargo-command: "forklift cargo"
-          revive-differential-tests-ref: "0e41f054405c054c37d524e5172ef8c514852e6b"
+          revive-differential-tests-ref: "004a36f4e88228ee1331cb598c8873ab7315e3f0"
           resolc-path: ${{ steps.download.outputs.resolc-path }}
           expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
