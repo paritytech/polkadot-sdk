@@ -1731,6 +1731,64 @@ mod enter {
 		});
 	}
 
+	#[test]
+	fn v1_descriptor_candidates_are_filtered() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 2);
+			backed_and_concluding.insert(1, 2);
+			backed_and_concluding.insert(2, 2);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				elastic_paras: [(2, 8)].into_iter().collect(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: None,
+			});
+
+			let mut unfiltered_para_inherent_data = scenario.data.clone();
+
+			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
+
+			// Make the last candidate look like V1 by setting the version padding
+			// and version field to garbage values.
+			unfiltered_para_inherent_data.backed_candidates[9]
+				.descriptor_mut()
+				.set_reserved2([0xff; 32]);
+			unfiltered_para_inherent_data.backed_candidates[9]
+				.descriptor_mut()
+				.set_version(0xff);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
+				.unwrap();
+
+			let filtered_para_inherent_data =
+				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+
+			// V1 candidate should be filtered out.
+			assert_eq!(filtered_para_inherent_data.backed_candidates.len(), 9);
+
+			let dispatch_error = Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				unfiltered_para_inherent_data,
+			)
+			.unwrap_err()
+			.error;
+
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
 	/// Test that V3 candidates with relay parents from a previous session pass through the full
 	/// `enter` flow when `max_relay_parent_session_age` allows cross-session relay parents.
 	#[test]
@@ -2989,15 +3047,6 @@ mod sanitizers {
 		fn get_test_data_one_core_per_para(backing_kind: BackingKind) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
-			// Add the scheduling parent to `shared` pallet. Otherwise some code (e.g. filtering
-			// backing votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_scheduling_parent(
-				default_header().hash(),
-				Default::default(),
-				RELAY_PARENT_NUM,
-				1,
-			);
-
 			let header = default_header();
 			let relay_parent = header.hash();
 			let session_index = SessionIndex::from(0_u32);
@@ -3052,19 +3101,24 @@ mod sanitizers {
 			Scheduler::assign_core(
 				CoreIndex(0),
 				0,
-				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				vec![(CoreAssignment::Task(1), PartsOf57600::FULL)],
 				None,
 			)
 			.unwrap();
-			on_demand::Pallet::<Test>::push_back_order(1.into());
 			Scheduler::assign_core(
 				CoreIndex(1),
 				0,
-				vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+				vec![(CoreAssignment::Task(2), PartsOf57600::FULL)],
 				None,
 			)
 			.unwrap();
-			on_demand::Pallet::<Test>::push_back_order(2.into());
+
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
+				relay_parent,
+				Scheduler::claim_queue(),
+				RELAY_PARENT_NUM,
+				1,
+			);
 
 			// Set the on-chain included head data for paras.
 			paras::Pallet::<Test>::set_current_head(ParaId::from(1), HeadData(vec![1]));
@@ -3125,6 +3179,7 @@ mod sanitizers {
 						.hash(),
 						hrmp_watermark: RELAY_PARENT_NUM,
 						validation_code: ValidationCode(vec![idx1 as u8]),
+						core_index: Some(CoreIndex(idx0 as u32)),
 						..Default::default()
 					}
 					.build();
@@ -3186,7 +3241,7 @@ mod sanitizers {
 		// Para 6 is not scheduled. One candidate supplied.
 		// Para 7 is scheduled on core 7 and 8, but the candidate contains the wrong core index.
 		// Para 8 is scheduled on core 9, but the candidate contains the wrong core index.
-		fn get_test_data_multiple_cores_per_para(v2_descriptor: bool) -> TestData {
+		fn get_test_data_multiple_cores_per_para() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			let header = default_header();
@@ -3284,13 +3339,6 @@ mod sanitizers {
 			let mut backed_candidates = vec![];
 			let mut expected_backed_candidates_with_core = BTreeMap::new();
 
-			let maybe_core_index = |core_index: CoreIndex| -> Option<CoreIndex> {
-				if !v2_descriptor {
-					None
-				} else {
-					Some(core_index)
-				}
-			};
 
 			// Para 1
 			{
@@ -3308,7 +3356,7 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM,
 					head_data: HeadData(vec![1, 1]),
 					validation_code: ValidationCode(vec![1]),
-					core_index: maybe_core_index(CoreIndex(0)),
+					core_index: Some(CoreIndex(0)),
 					..Default::default()
 				}
 				.build();
@@ -3343,7 +3391,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![1]),
-					core_index: maybe_core_index(CoreIndex(1)),
+					core_index: Some(CoreIndex(1)),
 					core_selector: Some(1),
 					..Default::default()
 				}
@@ -3380,7 +3428,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
-					core_index: maybe_core_index(CoreIndex(2)),
+					core_index: Some(CoreIndex(2)),
 					..Default::default()
 				}
 				.build();
@@ -3416,7 +3464,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![3]),
-					core_index: maybe_core_index(CoreIndex(4)),
+					core_index: Some(CoreIndex(4)),
 					..Default::default()
 				}
 				.build();
@@ -3452,7 +3500,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![4]),
-					core_index: maybe_core_index(CoreIndex(5)),
+					core_index: Some(CoreIndex(5)),
 					..Default::default()
 				}
 				.build();
@@ -3487,7 +3535,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![4]),
-					core_index: maybe_core_index(CoreIndex(5)),
+					core_index: Some(CoreIndex(5)),
 					..Default::default()
 				}
 				.build();
@@ -3521,7 +3569,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![6]),
-					core_index: maybe_core_index(CoreIndex(6)),
+					core_index: Some(CoreIndex(6)),
 					..Default::default()
 				}
 				.build();
@@ -3553,7 +3601,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![7]),
-					core_index: maybe_core_index(CoreIndex(6)),
+					core_index: Some(CoreIndex(6)),
 					..Default::default()
 				}
 				.build();
@@ -3585,7 +3633,7 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![8]),
-					core_index: maybe_core_index(CoreIndex(7)),
+					core_index: Some(CoreIndex(7)),
 					..Default::default()
 				}
 				.build();
@@ -3748,6 +3796,8 @@ mod sanitizers {
 					head_data: HeadData(vec![1, 1]),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![1]),
+					core_index: Some(CoreIndex(0)),
+					core_selector: Some(0),
 					..Default::default()
 				}
 				.build();
@@ -3777,6 +3827,8 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![1]),
+					core_index: Some(CoreIndex(1)),
+					core_selector: Some(1),
 					..Default::default()
 				}
 				.build();
@@ -3810,6 +3862,8 @@ mod sanitizers {
 					head_data: HeadData(vec![2, 2]),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
+					core_index: Some(CoreIndex(2)),
+					core_selector: Some(0),
 					..Default::default()
 				}
 				.build();
@@ -3844,6 +3898,8 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
 					head_data: HeadData(vec![3, 3]),
+					core_index: Some(CoreIndex(3)),
+					core_selector: Some(1),
 					..Default::default()
 				}
 				.build();
@@ -3873,6 +3929,8 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
+					core_index: Some(CoreIndex(4)),
+					core_selector: Some(2),
 					..Default::default()
 				}
 				.build();
@@ -3905,6 +3963,8 @@ mod sanitizers {
 					head_data: HeadData(vec![3, 3]),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![3]),
+					core_index: Some(CoreIndex(5)),
+					core_selector: Some(0),
 					..Default::default()
 				}
 				.build();
@@ -3939,6 +3999,8 @@ mod sanitizers {
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![3]),
+					core_index: Some(CoreIndex(6)),
+					core_selector: Some(1),
 					..Default::default()
 				}
 				.build();
@@ -3975,6 +4037,8 @@ mod sanitizers {
 					head_data: HeadData(vec![4]),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![4]),
+					core_index: Some(CoreIndex(7)),
+					core_selector: Some(0),
 					..Default::default()
 				}
 				.build();
@@ -4060,29 +4124,6 @@ mod sanitizers {
 			}
 			.hash();
 
-			// Add the scheduling parent to `shared` pallet. Otherwise some code (e.g. filtering
-			// backing votes) won't behave correctly
-			shared::Pallet::<Test>::add_allowed_scheduling_parent(
-				prev_relay_parent,
-				Default::default(),
-				RELAY_PARENT_NUM - 1,
-				2,
-			);
-
-			shared::Pallet::<Test>::add_allowed_scheduling_parent(
-				relay_parent,
-				Default::default(),
-				RELAY_PARENT_NUM,
-				2,
-			);
-
-			shared::Pallet::<Test>::add_allowed_scheduling_parent(
-				next_relay_parent,
-				Default::default(),
-				RELAY_PARENT_NUM + 1,
-				2,
-			);
-
 			let session_index = SessionIndex::from(0_u32);
 
 			let keystore = LocalKeystore::in_memory();
@@ -4132,6 +4173,26 @@ mod sanitizers {
 				.unwrap();
 			}
 
+			let claim_queue = Scheduler::claim_queue();
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
+				prev_relay_parent,
+				claim_queue.clone(),
+				RELAY_PARENT_NUM - 1,
+				2,
+			);
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
+				relay_parent,
+				claim_queue.clone(),
+				RELAY_PARENT_NUM,
+				2,
+			);
+			shared::Pallet::<Test>::add_allowed_scheduling_parent(
+				next_relay_parent,
+				claim_queue,
+				RELAY_PARENT_NUM + 1,
+				2,
+			);
+
 			// Set the on-chain included head data and current code hash.
 			for id in 1..=2u32 {
 				paras::Pallet::<Test>::set_current_head(ParaId::from(id), HeadData(vec![id as u8]));
@@ -4177,6 +4238,8 @@ mod sanitizers {
 					head_data: HeadData(vec![1, 1]),
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![1]),
+					core_index: Some(CoreIndex(0)),
+					core_selector: Some(0),
 					..Default::default()
 				}
 				.build();
@@ -4212,6 +4275,8 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM - 1,
 					validation_code: ValidationCode(vec![1]),
 					head_data: HeadData(vec![1, 1, 1]),
+					core_index: Some(CoreIndex(1)),
+					core_selector: Some(1),
 					..Default::default()
 				}
 				.build();
@@ -4243,6 +4308,8 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![1]),
 					head_data: HeadData(vec![1, 1, 1, 1]),
+					core_index: Some(CoreIndex(2)),
+					core_selector: Some(2),
 					..Default::default()
 				}
 				.build();
@@ -4275,6 +4342,8 @@ mod sanitizers {
 					head_data: HeadData(vec![2, 2]),
 					hrmp_watermark: RELAY_PARENT_NUM - 1,
 					validation_code: ValidationCode(vec![2]),
+					core_index: Some(CoreIndex(3)),
+					core_selector: Some(0),
 					..Default::default()
 				}
 				.build();
@@ -4310,6 +4379,8 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
 					head_data: HeadData(vec![2, 2, 2]),
+					core_index: Some(CoreIndex(4)),
+					core_selector: Some(1),
 					..Default::default()
 				}
 				.build();
@@ -4345,6 +4416,8 @@ mod sanitizers {
 					hrmp_watermark: RELAY_PARENT_NUM,
 					validation_code: ValidationCode(vec![2]),
 					head_data: HeadData(vec![2, 2, 2, 2]),
+					core_index: Some(CoreIndex(5)),
+					core_selector: Some(2),
 					..Default::default()
 				}
 				.build();
@@ -4420,7 +4493,7 @@ mod sanitizers {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data_multiple_cores_per_para(v2_descriptor);
+				} = get_test_data_multiple_cores_per_para();
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4606,7 +4679,7 @@ mod sanitizers {
 		fn nothing_scheduled(#[case] multiple_cores_per_para: bool, #[case] v2_descriptor: bool) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
-					get_test_data_multiple_cores_per_para(v2_descriptor)
+					get_test_data_multiple_cores_per_para()
 				} else {
 					get_test_data_one_core_per_para(BackingKind::Threshold)
 				};
@@ -4669,7 +4742,7 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(v2_descriptor);
+				} = get_test_data_multiple_cores_per_para();
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4707,7 +4780,7 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(v2_descriptor);
+				} = get_test_data_multiple_cores_per_para();
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4919,7 +4992,7 @@ mod sanitizers {
 			// Disable Bob, only the second candidate of paraid 1 should be removed.
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_multiple_cores_per_para(false);
+					get_test_data_multiple_cores_per_para();
 
 				set_disabled_validators(vec![1]);
 
@@ -4941,7 +5014,7 @@ mod sanitizers {
 			for disabled in [vec![0], vec![0, 1]] {
 				new_test_ext(default_config()).execute_with(|| {
 					let TestData { mut expected_backed_candidates_with_core, .. } =
-						get_test_data_multiple_cores_per_para(false);
+						get_test_data_multiple_cores_per_para();
 
 					set_disabled_validators(disabled);
 

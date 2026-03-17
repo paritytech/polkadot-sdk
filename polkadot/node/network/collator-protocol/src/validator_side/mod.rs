@@ -3111,7 +3111,8 @@ pub fn descriptor_version_sanity_check_with_params(
 	collator_protocol_version: CollationVersion,
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version(v3_enabled) {
-		CandidateDescriptorVersion::V1 => Ok(()),
+		CandidateDescriptorVersion::V1 =>
+			Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V1)),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 			// V3 descriptors must only arrive via V3 protocol.
 			if descriptor.version(v3_enabled) == CandidateDescriptorVersion::V3 &&

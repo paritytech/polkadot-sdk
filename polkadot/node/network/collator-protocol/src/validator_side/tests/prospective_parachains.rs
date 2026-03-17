@@ -1889,7 +1889,7 @@ fn v3_descriptor_version_detection(
 	}
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+		let TestHarness { mut virtual_overseer, keystore: _ } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
 
@@ -2017,22 +2017,17 @@ fn v3_descriptor_version_detection(
 			);
 		} else {
 			// V3 is disabled, a real V3 descriptor (with non-zero scheduling_parent)
-			// should be detected as V1 due to backwards compatibility.
-			// The old reserved fields have non-zero values, which triggers old_v1_detected.
-			assert_candidate_backing_second(
-				&mut virtual_overseer,
-				head_b,
-				test_state.chain_ids[0],
-				&pov,
-				collation_version,
-			)
-			.await;
-
-			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
-				.await;
-
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, collation_version)
-				.await;
+			// is detected as V1 due to backwards compatibility. V1 descriptors are now
+			// rejected.
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+				) => {
+					assert_eq!(peer_a, peer_id);
+					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+				}
+			);
 		}
 
 		virtual_overseer

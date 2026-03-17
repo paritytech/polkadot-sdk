@@ -941,10 +941,13 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	let current_session_index = shared::CurrentSessionIndex::<T>::get();
 	let descriptor_version = candidate.descriptor().version(v3_enabled);
 
-	if descriptor_version == CandidateDescriptorVersion::Unknown {
+	if descriptor_version == CandidateDescriptorVersion::Unknown ||
+		descriptor_version == CandidateDescriptorVersion::V1
+	{
 		log::debug!(
 			target: LOG_TARGET,
-			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
+			"Candidate with unsupported descriptor version {:?}. Dropping candidate {:?} for paraid {:?}.",
+			descriptor_version,
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id()
 		);
@@ -955,14 +958,10 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// Needed for all versions to access relay chain state.
 	let relay_parent = candidate.descriptor().relay_parent();
 
-	let session_index = if descriptor_version == CandidateDescriptorVersion::V3 {
-		candidate
-			.descriptor()
-			.session_index(v3_enabled)
-			.expect("Candidate descriptor version is 3")
-	} else {
-		current_session_index
-	};
+	let session_index = candidate
+		.descriptor()
+		.session_index(v3_enabled)
+		.unwrap_or(current_session_index);
 
 	if shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent).is_none() {
 		log::debug!(
@@ -1006,11 +1005,6 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 			candidate.descriptor().para_id()
 		);
 		return false;
-	}
-
-	if descriptor_version == CandidateDescriptorVersion::V1 {
-		// Nothing more to check for v1 descriptors.
-		return true;
 	}
 
 	// For V2/V3: Check scheduling session matches current session.

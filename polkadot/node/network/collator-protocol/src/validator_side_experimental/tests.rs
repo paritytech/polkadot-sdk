@@ -2378,8 +2378,8 @@ async fn test_collation_response_out_of_view() {
 
 #[rstest]
 #[tokio::test]
-// Test that we accept v1 candidates.
-async fn v1_descriptor_compatibility() {
+// Test that V1 candidates are rejected and the peer is slashed.
+async fn v1_descriptor_rejected() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
 
@@ -2387,7 +2387,6 @@ async fn v1_descriptor_compatibility() {
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 
-	// Build a v1 candidate.
 	let mut ccr = dummy_committed_candidate_receipt(active_leaf);
 	ccr.descriptor.para_id = 100.into();
 	ccr.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
@@ -2415,12 +2414,10 @@ async fn v1_descriptor_compatibility() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
 
-	test_state.handle_fetched_collation(&mut state, adv, receipt.into(), None).await;
+	let res = Ok(CollationFetchingResponse::Collation(receipt.into(), dummy_pov()));
+	state.handle_fetched_collation(&mut sender, (adv, res)).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_no_messages().await;
-	test_state
-		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr.into())
-		.await;
+	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
 	test_state.assert_no_messages().await;
 }
 
