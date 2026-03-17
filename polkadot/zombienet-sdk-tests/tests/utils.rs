@@ -24,8 +24,6 @@ pub const DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN: &str =
 pub const DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_NOT_POSSIBLE_PATTERN: &str =
 	"*Data recovery from systematic chunks is not possible*";
 pub const DATA_RECOVERY_CHUNKS_PATTERN: &str = "*Data recovery from chunks complete*";
-pub const DATA_RECOVERY_CHUNKS_NOT_POSSIBLE_PATTERN: &str =
-	"*Data recovery from chunks is not possible*";
 pub const AVAILABILITY_RECOVERY_RECOVERIES_FINISHED: &str =
 	"polkadot_parachain_availability_recovery_recoveries_finished{result=\"failure\"}";
 pub const NODE_ROLES_METRIC: &str = "node_roles";
