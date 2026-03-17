@@ -158,6 +158,33 @@ where
 
 				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
 			},
+			IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall { target }) => {
+				let account_id = env.to_account_id(&H160::from_slice(target.as_slice()));
+
+				// Same worst-case weight as vestingBalance(): Vesting map read + free_balance read.
+				// Refund one read if no schedule exists (only the map was accessed).
+				let charged = env.frame_meter_mut().charge_weight_token(
+					RuntimeCosts::Precompile(<T as frame_system::Config>::DbWeight::get().reads(2)),
+				)?;
+
+				let maybe_locked =
+					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
+						&account_id,
+					);
+
+				if maybe_locked.is_none() {
+					env.frame_meter_mut().adjust_weight(
+						charged,
+						RuntimeCosts::Precompile(
+							<T as frame_system::Config>::DbWeight::get().reads(1),
+						),
+					);
+				}
+
+				let locked = maybe_locked.unwrap_or_default();
+
+				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
+			},
 		}
 	}
 }
@@ -551,6 +578,85 @@ mod tests {
 				},
 				other => panic!("expected StateChangeDenied error, got: {:?}", other),
 			}
+		})
+	}
+
+	#[test]
+	fn vesting_balance_of_returns_locked_amount_for_target() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::test_utils::{BOB, BOB_ADDR};
+			use alloy_core::sol_types::SolValue;
+			use frame_support::traits::{Currency, WithdrawReasons};
+
+			let locked = 500_000u128;
+			let per_block = 100u128;
+			let starting_block = 0u64;
+
+			<pallet_balances::Pallet<Test> as Currency<_>>::make_free_balance_be(
+				&BOB,
+				1_000_000u128,
+			);
+
+			let vesting_info = pallet_vesting::VestingInfo::new(locked, per_block, starting_block);
+			let schedules: frame_support::BoundedVec<
+				_,
+				pallet_vesting::MaxVestingSchedulesGet<Test>,
+			> = alloc::vec![vesting_info].try_into().expect("single schedule; qed");
+			pallet_vesting::Vesting::<Test>::insert(&BOB, schedules);
+
+			let reasons = WithdrawReasons::except(
+				<Test as pallet_vesting::Config>::UnvestedFundsAllowedWithdrawReasons::get(),
+			);
+			<pallet_balances::Pallet<Test> as frame_support::traits::LockableCurrency<_>>::set_lock(
+				*b"vesting ",
+				&BOB,
+				locked,
+				reasons,
+			);
+
+			// At block 1000: 1000 * 100 = 100_000 vested, 400_000 still locked.
+			frame_system::Pallet::<Test>::set_block_number(1000);
+
+			// ALICE is the caller but we query BOB's balance.
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = IVesting::IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall {
+				target: alloy_core::primitives::Address::from(BOB_ADDR.0),
+			});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert!(result.is_ok(), "vestingBalanceOf should succeed: {:?}", result.err());
+
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap()).expect("should decode as bytes32");
+			let returned = crate::U256::from_big_endian(&bytes);
+			assert_eq!(
+				returned,
+				crate::U256::from(400_000u128),
+				"at block 1000, 100_000 should have vested leaving 400_000 locked"
+			);
+		})
+	}
+
+	#[test]
+	fn vesting_balance_of_returns_zero_for_no_schedule() {
+		ExtBuilder::default().build().execute_with(|| {
+			use crate::test_utils::BOB_ADDR;
+			use alloy_core::sol_types::SolValue;
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			let input = IVesting::IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall {
+				target: alloy_core::primitives::Address::from(BOB_ADDR.0),
+			});
+			let result =
+				<Vesting<Test>>::call(&<Vesting<Test>>::MATCHER.base_address(), &input, &mut ext);
+			assert!(result.is_ok(), "vestingBalanceOf should succeed: {:?}", result.err());
+
+			let bytes = <[u8; 32]>::abi_decode(&result.unwrap()).expect("should decode as bytes32");
+			let returned = crate::U256::from_big_endian(&bytes);
+			assert_eq!(returned, crate::U256::zero(), "no vesting schedule should return 0");
 		})
 	}
 

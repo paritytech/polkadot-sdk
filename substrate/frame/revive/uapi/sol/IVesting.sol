@@ -28,4 +28,14 @@ interface IVesting {
 	/// has a schedule but all funds are already unlocked (fully vested). Both cases
 	/// mean there is nothing left to vest; calling vest() in either case will revert.
 	function vestingBalance() external view returns (uint256);
+
+	/// Returns the amount of funds still locked (to be vested) for `target`.
+	///
+	/// Identical semantics to vestingBalance() but queries an arbitrary account
+	/// rather than the caller. Useful for contracts that need to pre-check whether
+	/// vestOther(target) would do any work before dispatching it.
+	///
+	/// The returned value is in native (Substrate) denomination.
+	/// Returns 0 if `target` has no vesting schedule or is fully vested.
+	function vestingBalanceOf(address target) external view returns (uint256);
 }
