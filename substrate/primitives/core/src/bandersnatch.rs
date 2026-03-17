@@ -151,23 +151,16 @@ impl TraitPair for Pair {
 	#[cfg(feature = "full_crypto")]
 	fn sign(&self, data: &[u8]) -> Signature {
 		let zero = bandersnatch::AffinePoint::zero();
-		vrf::vrf_sign_io(
-			&self.secret,
-			bandersnatch::Input::from_affine(zero),
-			bandersnatch::Output::from_affine(zero),
-			data,
-		)
+		vrf::vrf_sign_io(&self.secret, bandersnatch::Input::from_affine(zero), data).proof
 	}
 
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, data: M, public: &Public) -> bool {
 		let zero = bandersnatch::AffinePoint::zero();
-		vrf::vrf_verify_io(
-			public,
-			bandersnatch::Input::from_affine(zero),
-			bandersnatch::Output::from_affine(zero),
-			data.as_ref(),
-			signature,
-		)
+		let vrf_sig = vrf::VrfSignature {
+			pre_output: vrf::VrfPreOutput(bandersnatch::Output::from_affine(zero)),
+			proof: *signature,
+		};
+		vrf::vrf_verify_io(public, bandersnatch::Input::from_affine(zero), &vrf_sig, data.as_ref())
 	}
 
 	/// Return a vector filled with the seed.
@@ -302,11 +295,45 @@ pub mod vrf {
 	}
 
 	#[cfg(feature = "full_crypto")]
+	pub(super) fn vrf_sign_io(
+		secret: &Secret,
+		input: bandersnatch::Input,
+		aux_data: &[u8],
+	) -> VrfSignature {
+		use ark_vrf::ietf::Prover;
+		let output = secret.output(input);
+		let pre_output = VrfPreOutput(output);
+		let proof_impl = secret.prove(input, output, aux_data);
+		let mut proof = Signature::default();
+		proof_impl
+			.serialize_compressed(proof.0.as_mut_slice())
+			.expect("serialization length is constant and checked by test; qed");
+		VrfSignature { pre_output, proof }
+	}
+
+	pub(super) fn vrf_verify_io(
+		public: &Public,
+		input: bandersnatch::Input,
+		signature: &VrfSignature,
+		aux_data: &[u8],
+	) -> bool {
+		use ark_vrf::ietf::Verifier;
+		let Ok(public) = bandersnatch::Public::deserialize_compressed_unchecked(public.as_slice())
+		else {
+			return false;
+		};
+		let Ok(proof) =
+			ark_vrf::ietf::Proof::deserialize_compressed_unchecked(signature.proof.as_slice())
+		else {
+			return false;
+		};
+		public.verify(input, signature.pre_output.0, aux_data, &proof).is_ok()
+	}
+
+	#[cfg(feature = "full_crypto")]
 	impl VrfSecret for Pair {
 		fn vrf_sign(&self, data: &VrfSignData) -> VrfSignature {
-			let output = self.secret.output(data.vrf_input.0);
-			let proof = vrf_sign_io(&self.secret, data.vrf_input.0, output, &data.aux_data);
-			VrfSignature { pre_output: VrfPreOutput(output), proof }
+			vrf_sign_io(&self.secret, data.vrf_input.0, &data.aux_data)
 		}
 
 		fn vrf_pre_output(&self, input: &Self::VrfInput) -> Self::VrfPreOutput {
@@ -322,50 +349,9 @@ pub mod vrf {
 		type VrfSignature = VrfSignature;
 	}
 
-	#[cfg(feature = "full_crypto")]
-	pub(super) fn vrf_sign_io(
-		secret: &Secret,
-		input: bandersnatch::Input,
-		output: bandersnatch::Output,
-		aux_data: &[u8],
-	) -> Signature {
-		use ark_vrf::ietf::Prover;
-		let proof_impl = secret.prove(input, output, aux_data);
-		let mut proof = Signature::default();
-		proof_impl
-			.serialize_compressed(proof.0.as_mut_slice())
-			.expect("serialization length is constant and checked by test; qed");
-		proof
-	}
-
-	pub(super) fn vrf_verify_io(
-		public: &Public,
-		input: bandersnatch::Input,
-		pre_output: bandersnatch::Output,
-		aux_data: &[u8],
-		proof: &Signature,
-	) -> bool {
-		use ark_vrf::ietf::Verifier;
-		let Ok(public) = bandersnatch::Public::deserialize_compressed_unchecked(public.as_slice())
-		else {
-			return false;
-		};
-		let Ok(proof) = ark_vrf::ietf::Proof::deserialize_compressed_unchecked(proof.as_slice())
-		else {
-			return false;
-		};
-		public.verify(input, pre_output, aux_data, &proof).is_ok()
-	}
-
 	impl VrfPublic for Public {
 		fn vrf_verify(&self, data: &VrfSignData, signature: &VrfSignature) -> bool {
-			vrf_verify_io(
-				self,
-				data.vrf_input.0,
-				signature.pre_output.0,
-				&data.aux_data,
-				&signature.proof,
-			)
+			vrf_verify_io(self, data.vrf_input.0, signature, &data.aux_data)
 		}
 	}
 
