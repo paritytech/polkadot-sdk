@@ -4479,13 +4479,19 @@ dependencies = [
 name = "cumulus-client-speculative-messaging"
 version = "0.1.0"
 dependencies = [
+ "async-channel 1.9.0",
  "async-trait",
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-parachain-primitives",
  "polkadot-primitives-speculative-messaging",
+ "sc-client-api 28.0.0",
+ "sc-network 0.34.0",
+ "sc-service",
  "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
  "thiserror 1.0.65",
  "tokio",
  "tracing",
@@ -4835,6 +4841,7 @@ dependencies = [
  "async-channel 1.9.0",
  "async-trait",
  "cumulus-client-bootnodes",
+ "cumulus-client-speculative-messaging",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "futures",

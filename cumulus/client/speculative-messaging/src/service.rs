@@ -134,6 +134,11 @@ where
 		self.incoming_batches.clone()
 	}
 
+	/// Get a reference to the peer registry.
+	pub fn registry(&self) -> &Arc<R> {
+		&self.registry
+	}
+
 	/// Run the worker event loop until the incoming channel is closed.
 	pub async fn run(mut self) {
 		tracing::info!(

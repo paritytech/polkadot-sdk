@@ -164,7 +164,7 @@ async fn extract_relay_peer_id(node: &NetworkNode) -> Result<String, anyhow::Err
 		.filter_map(|l| {
 			l.split("Local node identity is: ").nth(1).map(|s| s.trim().to_string())
 		})
-		.nth(1) // second = relay chain peer
+		.nth(0) // first = relay chain peer (relay network is built before parachain network)
 		.ok_or_else(|| anyhow!("No relay peer ID in logs of {}", node.name()))
 }
 

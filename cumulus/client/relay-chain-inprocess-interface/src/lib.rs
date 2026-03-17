@@ -374,11 +374,19 @@ pub fn check_block_in_chain(
 	Ok(BlockCheckStatus::Unknown(listener))
 }
 
-/// Build Polkadot full node with parachain bootnode request-response protocol.
+/// Build Polkadot full node with parachain bootnode and spec-msg request-response protocols.
 fn build_polkadot_with_paranode_protocol<Network>(
 	config: Configuration,
 	params: NewFullParams<CollatorOverseerGen>,
-) -> Result<(NewFull, async_channel::Receiver<IncomingRequest>), polkadot_service::Error>
+) -> Result<
+	(
+		NewFull,
+		async_channel::Receiver<IncomingRequest>,
+		Option<async_channel::Receiver<IncomingRequest>>,
+		Option<String>,
+	),
+	polkadot_service::Error,
+>
 where
 	Network: NetworkBackend<PBlock, PHash>,
 {
@@ -390,7 +398,19 @@ where
 	);
 	polkadot_builder.add_extra_request_response_protocol(config);
 
-	Ok((polkadot_builder.build()?, request_receiver))
+	// Register the spec-msg request-response protocol
+	let (spec_msg_config, spec_msg_rx, spec_msg_protocol_name) =
+		cumulus_client_speculative_messaging::spec_msg_request_response_config::<PBlock, Network>(
+			polkadot_builder.genesis_hash().as_ref(),
+		);
+	polkadot_builder.add_extra_request_response_protocol(spec_msg_config);
+
+	Ok((
+		polkadot_builder.build()?,
+		request_receiver,
+		Some(spec_msg_rx),
+		Some(spec_msg_protocol_name),
+	))
 }
 
 /// Build the Polkadot full node using the given `config`.
@@ -401,7 +421,13 @@ fn build_polkadot_full_node(
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<
-	(NewFull, Option<CollatorPair>, async_channel::Receiver<IncomingRequest>),
+	(
+		NewFull,
+		Option<CollatorPair>,
+		async_channel::Receiver<IncomingRequest>,
+		Option<async_channel::Receiver<IncomingRequest>>,
+		Option<String>,
+	),
 	polkadot_service::Error,
 > {
 	let (is_parachain_node, maybe_collator_key) = if parachain_config.role.is_authority() {
@@ -438,19 +464,29 @@ fn build_polkadot_full_node(
 		collator_reputation_persist_interval: None,
 	};
 
-	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
-		NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
-			sc_network::NetworkWorker<_, _>,
-		>(config, new_full_params)?,
-		NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
-			sc_network::Litep2pNetworkBackend,
-		>(config, new_full_params)?,
-	};
+	let (relay_chain_full_node, paranode_req_receiver, spec_msg_rx, spec_msg_protocol) =
+		match config.network.network_backend {
+			NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
+				sc_network::NetworkWorker<_, _>,
+			>(config, new_full_params)?,
+			NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
+				sc_network::Litep2pNetworkBackend,
+			>(config, new_full_params)?,
+		};
 
-	Ok((relay_chain_full_node, maybe_collator_key, paranode_req_receiver))
+	Ok((
+		relay_chain_full_node,
+		maybe_collator_key,
+		paranode_req_receiver,
+		spec_msg_rx,
+		spec_msg_protocol,
+	))
 }
 
-/// Builds a relay chain interface by constructing a full relay chain node
+/// Builds a relay chain interface by constructing a full relay chain node.
+///
+/// Returns `(relay_chain_interface, collator_key, network, bootnode_receiver,
+/// spec_msg_receiver, spec_msg_protocol_name)`.
 pub fn build_inprocess_relay_chain(
 	mut polkadot_config: Configuration,
 	parachain_config: &Configuration,
@@ -462,19 +498,22 @@ pub fn build_inprocess_relay_chain(
 	Option<CollatorPair>,
 	Arc<dyn NetworkService>,
 	async_channel::Receiver<IncomingRequest>,
+	Option<async_channel::Receiver<IncomingRequest>>,
+	Option<String>,
 )> {
 	// This is essentially a hack, but we want to ensure that we send the correct node version
 	// to the telemetry.
 	polkadot_config.impl_version = polkadot_cli::Cli::impl_version();
 	polkadot_config.impl_name = polkadot_cli::Cli::impl_name();
 
-	let (full_node, collator_key, paranode_req_receiver) = build_polkadot_full_node(
-		polkadot_config,
-		parachain_config,
-		telemetry_worker_handle,
-		hwbench,
-	)
-	.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
+	let (full_node, collator_key, paranode_req_receiver, spec_msg_rx, spec_msg_protocol) =
+		build_polkadot_full_node(
+			polkadot_config,
+			parachain_config,
+			telemetry_worker_handle,
+			hwbench,
+		)
+		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?;
 
 	let relay_chain_interface = Arc::new(RelayChainInProcessInterface::new(
 		full_node.client,
@@ -487,7 +526,14 @@ pub fn build_inprocess_relay_chain(
 
 	task_manager.add_child(full_node.task_manager);
 
-	Ok((relay_chain_interface, collator_key, full_node.network, paranode_req_receiver))
+	Ok((
+		relay_chain_interface,
+		collator_key,
+		full_node.network,
+		paranode_req_receiver,
+		spec_msg_rx,
+		spec_msg_protocol,
+	))
 }
 
 #[cfg(test)]

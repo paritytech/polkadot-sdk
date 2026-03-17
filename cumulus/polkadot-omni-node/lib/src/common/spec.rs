@@ -358,8 +358,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let para_id = Self::parachain_id(&client, &parachain_config)
 				.ok_or("Failed to retrieve the parachain id")?;
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
-			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
-				build_relay_chain_interface(
+			let relay_build = build_relay_chain_interface(
 					polkadot_config,
 					&parachain_config,
 					telemetry_worker_handle,
@@ -369,6 +368,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				)
 				.await
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+			let relay_chain_interface = relay_build.relay_chain_interface;
+			let collator_key = relay_build.collator_key;
+			let relay_chain_network = relay_build.relay_network;
+			let paranode_rx = relay_build.bootnode_request_receiver;
 
 			let validator = parachain_config.role.is_authority();
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();

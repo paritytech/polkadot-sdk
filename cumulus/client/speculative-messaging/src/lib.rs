@@ -49,13 +49,22 @@
 //!   protocol.
 //! - [`registry`]: Peer discovery registry trait and implementations.
 //! - [`service`]: The main worker that orchestrates message exchange.
+//! - [`transport`]: Concrete [`NetworkTransport`] backed by
+//!   [`sc_network`].
+//! - [`outbound`]: Block-following outbound message distributor.
+//! - [`node`]: Node-level wiring: protocol config and startup function.
 
 pub mod error;
+pub mod node;
+pub mod outbound;
 pub mod protocol;
 pub mod registry;
 pub mod service;
+pub mod transport;
 
 pub use error::Error;
+pub use node::{spec_msg_request_response_config, start_speculative_messaging, SpecMsgHandle};
 pub use protocol::{ForwardMessageRequest, ForwardMessageResponse, NodeRole, PROTOCOL_NAME};
 pub use registry::{HardcodedPeerRegistry, OpaquePeerId, PeerRegistry};
 pub use service::{IncomingRequest, NetworkTransport, ServiceConfig, SpeculativeMessagingWorker};
+pub use transport::ScNetworkTransport;

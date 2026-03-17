@@ -261,8 +261,7 @@ pub async fn start_parachain_node(
 	let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 	let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 
-	let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
-		build_relay_chain_interface(
+	let relay_build = build_relay_chain_interface(
 			polkadot_config,
 			&parachain_config,
 			telemetry_worker_handle,
@@ -272,6 +271,10 @@ pub async fn start_parachain_node(
 		)
 		.await
 		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	let relay_chain_interface = relay_build.relay_chain_interface;
+	let collator_key = relay_build.collator_key;
+	let relay_chain_network = relay_build.relay_network;
+	let paranode_rx = relay_build.bootnode_request_receiver;
 
 	let validator = parachain_config.role.is_authority();
 	let transaction_pool = params.transaction_pool.clone();

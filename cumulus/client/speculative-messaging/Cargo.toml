@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
@@ -24,7 +25,12 @@ polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives-speculative-messaging = { workspace = true, default-features = true }
 
 # Substrate
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }

@@ -220,6 +220,24 @@ pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration
 	parachain_config
 }
 
+/// Result of building the relay chain interface.
+pub struct RelayChainBuildResult {
+	/// The relay chain interface for querying relay chain state.
+	pub relay_chain_interface: Arc<dyn RelayChainInterface + 'static>,
+	/// Collator key pair, if this is a collator node.
+	pub collator_key: Option<CollatorPair>,
+	/// Relay chain network service for outbound requests.
+	pub relay_network: Arc<dyn NetworkService>,
+	/// Bootnode request receiver.
+	pub bootnode_request_receiver: async_channel::Receiver<IncomingRequest>,
+	/// Speculative messaging inbound request receiver.
+	/// `None` when using external RPC mode.
+	pub spec_msg_rx: Option<async_channel::Receiver<IncomingRequest>>,
+	/// Speculative messaging protocol name (genesis-hash-prefixed).
+	/// `None` when using external RPC mode.
+	pub spec_msg_protocol: Option<String>,
+}
+
 /// Build a relay chain interface.
 /// Will return a minimal relay chain node with RPC
 /// client or an inprocess node, based on the [`CollatorOptions`] passed in.
@@ -230,28 +248,49 @@ pub async fn build_relay_chain_interface(
 	task_manager: &mut TaskManager,
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> RelayChainResult<(
-	Arc<dyn RelayChainInterface + 'static>,
-	Option<CollatorPair>,
-	Arc<dyn NetworkService>,
-	async_channel::Receiver<IncomingRequest>,
-)> {
+) -> RelayChainResult<RelayChainBuildResult> {
 	match collator_options.relay_chain_mode {
-		cumulus_client_cli::RelayChainMode::Embedded => build_inprocess_relay_chain(
-			relay_chain_config,
-			parachain_config,
-			telemetry_worker_handle,
-			task_manager,
-			hwbench,
-		),
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
-			build_minimal_relay_chain_node_with_rpc(
+		cumulus_client_cli::RelayChainMode::Embedded => {
+			let (
+				relay_chain_interface,
+				collator_key,
+				relay_network,
+				bootnode_request_receiver,
+				spec_msg_rx,
+				spec_msg_protocol,
+			) = build_inprocess_relay_chain(
 				relay_chain_config,
-				parachain_config.prometheus_registry(),
+				parachain_config,
+				telemetry_worker_handle,
 				task_manager,
-				rpc_target_urls,
-			)
-			.await
+				hwbench,
+			)?;
+			Ok(RelayChainBuildResult {
+				relay_chain_interface,
+				collator_key,
+				relay_network,
+				bootnode_request_receiver,
+				spec_msg_rx,
+				spec_msg_protocol,
+			})
+		},
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
+			let (relay_chain_interface, collator_key, relay_network, bootnode_request_receiver) =
+				build_minimal_relay_chain_node_with_rpc(
+					relay_chain_config,
+					parachain_config.prometheus_registry(),
+					task_manager,
+					rpc_target_urls,
+				)
+				.await?;
+			Ok(RelayChainBuildResult {
+				relay_chain_interface,
+				collator_key,
+				relay_network,
+				bootnode_request_receiver,
+				spec_msg_rx: None,
+				spec_msg_protocol: None,
+			})
 		},
 	}
 }
