@@ -3437,7 +3437,7 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 		get_hash(11),
 		RelayParentInfo {
 			number: 11,
-			parent: get_parent_hash(10),
+			parent: get_parent_hash(11),
 			session_index: leaf_info.session_index,
 			claim_queue: leaf_info.claim_queue.clone(),
 			assigned_core: leaf_info.assigned_core,
@@ -3495,6 +3495,25 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
+
+	// Test that the parent of the current leaf (last finished slot) is accepted.
+	let (ccr, adv) = dummy_candidate_v3(
+		get_hash(10),
+		get_hash(10),
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V3, ccr, active_leaf)
+		.await;
 }
 
 #[tokio::test]
