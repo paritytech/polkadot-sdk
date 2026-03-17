@@ -471,21 +471,25 @@ async fn advertise_collation(
 	.await;
 }
 
-/// Advertise a collation using the V3 protocol, which includes the candidate descriptor version.
+/// Advertise a collation using the V3 protocol.
+///
+/// `relay_parent` is the relay parent of the candidate.
+/// `scheduling_parent` is `Some(hash)` if the candidate uses a V3 descriptor with a different
+/// scheduling parent, or `None` if the scheduling parent equals the relay parent.
 async fn advertise_collation_v3(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	scheduling_parent: Hash,
+	relay_parent: Hash,
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
-	candidate_descriptor_version: CandidateDescriptorVersion,
+	scheduling_parent: Option<Hash>,
 ) {
 	let wire_message =
 		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
-			scheduling_parent,
+			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
-			candidate_descriptor_version,
+			scheduling_parent,
 		});
 	overseer_send(
 		virtual_overseer,

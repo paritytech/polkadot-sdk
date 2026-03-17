@@ -432,13 +432,23 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 			candidate_hash,
 			parent_head_data_hash,
 			..
-		}) |
+		}) => {
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					scheduling_parent,
+					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+				)
+				.await;
+		},
 		CollationProtocols::V3(V3::AdvertiseCollation {
-			scheduling_parent,
+			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
-			..
+			scheduling_parent,
 		}) => {
+			let scheduling_parent = scheduling_parent.unwrap_or(relay_parent);
 			state
 				.handle_advertisement(
 					sender,

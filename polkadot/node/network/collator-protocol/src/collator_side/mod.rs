@@ -55,9 +55,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	node_features, AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData, Id as ParaId,
-	SessionIndex,
+	node_features, AuthorityDiscoveryId, BlockNumber, CandidateDescriptorVersion, CandidateEvent,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash,
+	HeadData, Id as ParaId, SessionIndex,
 };
 
 use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
@@ -937,16 +937,26 @@ async fn advertise_collation<Context>(
 			},
 		}
 
-		// Get the candidate descriptor version from the receipt
+		let relay_parent = collation.receipt.descriptor.relay_parent();
 		let candidate_descriptor_version =
 			collation.receipt.descriptor.version(per_scheduling_parent.v3_enabled);
+		// For V3 descriptors, send `Some(scheduling_parent)` so the validator knows this
+		// is a V3 candidate and can apply the scheduling parent validation rules.
+		// For V1/V2 descriptors, send `None` — the scheduling parent equals the relay
+		// parent.
+		let optional_scheduling_parent =
+			if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
+				Some(scheduling_parent)
+			} else {
+				None
+			};
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
+			?relay_parent,
 			?candidate_hash,
 			peer_id = %peer,
-			?candidate_descriptor_version,
 			"Advertising collation.",
 		);
 
@@ -954,13 +964,12 @@ async fn advertise_collation<Context>(
 
 		let message = match peer_version {
 			CollationVersion::V3 => {
-				// Send V3 protocol message with the actual descriptor version
 				CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
 					protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
-						scheduling_parent,
+						relay_parent,
 						candidate_hash: *candidate_hash,
 						parent_head_data_hash: collation.parent_head_data.hash(),
-						candidate_descriptor_version,
+						scheduling_parent: optional_scheduling_parent,
 					},
 				))
 			},

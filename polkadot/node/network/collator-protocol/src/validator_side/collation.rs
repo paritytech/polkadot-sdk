@@ -112,9 +112,10 @@ pub struct PendingCollation {
 	pub prospective_candidate: Option<ProspectiveCandidate>,
 	/// Hash of the candidate's commitments.
 	pub commitments_hash: Option<Hash>,
-	/// Advertised candidate descriptor version (for V3 protocol).
-	/// None for V1/V2 protocols.
-	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+	/// Whether the advertisement indicated a V3 descriptor (scheduling_parent was set
+	/// in the V3 protocol message). `false` for V1/V2 protocols or V3 advertisements
+	/// without an explicit scheduling parent.
+	pub is_v3_advertisement: bool,
 }
 
 // Manual Hash implementation for use in collation_requests_cancel_handles.
@@ -128,9 +129,6 @@ pub struct PendingCollation {
 // Note: This does NOT prevent fetching the same candidate from different peers sequentially.
 // Multiple peers can advertise the same candidate, and we may fetch from each peer in turn
 // if earlier fetches fail. This is acceptable for redundancy but could be optimized in future.
-//
-// Fields excluded from hash:
-// - advertised_descriptor_version: Protocol metadata, not part of request identity
 impl std::hash::Hash for PendingCollation {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.scheduling_parent.hash(state);
@@ -138,21 +136,18 @@ impl std::hash::Hash for PendingCollation {
 		self.peer_id.hash(state);
 		self.prospective_candidate.hash(state);
 		self.commitments_hash.hash(state);
-		// Explicitly exclude advertised_descriptor_version - it's protocol metadata
+		// Explicitly exclude is_v3_advertisement - it's protocol metadata
 	}
 }
 
 impl PendingCollation {
 	/// Constructor for PendingCollation.
-	///
-	/// For V1/V2 protocol advertisements, pass `None` for `advertised_descriptor_version`.
-	/// For V3 protocol advertisements, pass `Some(version)` to track the advertised version.
 	pub fn new(
 		scheduling_parent: Hash,
 		para_id: ParaId,
 		peer_id: &PeerId,
 		prospective_candidate: Option<ProspectiveCandidate>,
-		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+		is_v3_advertisement: bool,
 	) -> Self {
 		Self {
 			scheduling_parent,
@@ -160,7 +155,7 @@ impl PendingCollation {
 			peer_id: *peer_id,
 			prospective_candidate,
 			commitments_hash: None,
-			advertised_descriptor_version,
+			is_v3_advertisement,
 		}
 	}
 }
@@ -203,13 +198,14 @@ pub fn fetched_collation_sanity_check(
 		return Err(SecondingError::ParentHeadDataMismatch);
 	}
 
-	// For V3 protocol advertisements, verify the fetched descriptor version matches the advertised
-	// one.
-	if let Some(advertised_version) = &advertised.advertised_descriptor_version {
+	// For V3 protocol advertisements, verify the fetched descriptor version matches.
+	// The advertised version is inferred from whether scheduling_parent was set in the
+	// protocol message.
+	if advertised.is_v3_advertisement {
 		let fetched_version = fetched.descriptor.version(v3_enabled);
-		if advertised_version != &fetched_version {
+		if fetched_version != CandidateDescriptorVersion::V3 {
 			return Err(SecondingError::DescriptorVersionMismatch(
-				*advertised_version,
+				CandidateDescriptorVersion::V3,
 				fetched_version,
 			));
 		}
