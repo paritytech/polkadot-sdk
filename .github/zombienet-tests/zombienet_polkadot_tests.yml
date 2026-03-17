@@ -109,7 +109,7 @@
 #   use-zombienet-sdk: false
 
 # Malus tests using traditional zombienet
-- job-name: "zombienet-polkadot-malus-0001-dispute-valid"
+- job-name: "zombienet-polkadot-misc-malus-0002-dispute-valid"
   test-filter: "misc::malus_dispute_valid_block::malus_dispute_valid_block_test"
   runner-type: "default"
   use-zombienet-sdk: true
