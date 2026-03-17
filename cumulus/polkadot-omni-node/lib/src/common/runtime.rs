@@ -348,18 +348,18 @@ mod tests {
 		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
 			.expect("invalid chain spec");
 
-		// Currently, this is expected to return an error during inspection due to V14 decoding issues.
-		// Once V14 support is fully compatible for this spec, this test should be updated 
+		// Currently, this is expected to return an error during inspection due to V14 decoding
+		// issues. Once V14 support is fully compatible for this spec, this test should be updated
 		// to verify Ed25519 detection.
 		match MetadataInspector::new(&chain_spec) {
 			Ok(inspector) => {
 				let aura_id = inspector.aura_consensus_id();
 				// If it ever starts working, it should be Ed25519.
 				println!("Detected Aura ID: {:?}", aura_id);
-			}
+			},
 			Err(e) => {
 				println!("Metadata inspection failed as expected for this V14 spec: {:?}", e);
-			}
+			},
 		}
 	}
 }
