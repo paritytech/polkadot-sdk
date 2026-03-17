@@ -7,8 +7,10 @@ crates:
 - name: pallet-recovery
   bump: major
 - name: frame-support
-  bump: minor
+  bump: major
 - name: westend-runtime
   bump: major
 - name: asset-hub-westend-runtime
+  bump: major
+- name: rococo-runtime
   bump: major
