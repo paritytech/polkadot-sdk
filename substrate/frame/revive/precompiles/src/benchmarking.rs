@@ -133,8 +133,7 @@ mod benchmarks {
 		CurrencyOf::<T>::make_free_balance_be(&caller_account, locked * 10u32.into());
 		add_vesting_schedule::<T>(&caller_account, locked);
 
-		let input =
-			IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
+		let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
 		let address = precompile_address::<T>();
 		let (mut ext, _) = call_setup.ext();
 
