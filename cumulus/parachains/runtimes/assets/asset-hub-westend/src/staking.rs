@@ -270,7 +270,7 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-	type RewardRemainder = ();
+	type RewardRemainder = Dap;
 	type Slash = Dap;
 	type Reward = ();
 	type GeneralPots = pallet_staking_async::Seed<StakingPalletId>;

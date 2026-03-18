@@ -26,8 +26,10 @@
 //! - **Budget Distribution**: Distributes minted inflation across registered
 //!   [`sp_staking::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
-//! - **Slash Collection**: Implements `OnUnbalanced` to collect slashed funds into the buffer
-//!   account. Incoming funds are deactivated to exclude them from governance voting.
+//! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
+//!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
+//!   into the buffer account. Incoming funds are deactivated to exclude them from governance
+//!   voting.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -87,6 +89,7 @@ pub mod pallet {
 		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
+			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
@@ -400,6 +403,9 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
+///
+/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
+/// for the old `Currency` trait is not provided because there are no consumers.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let buffer = Self::buffer_account();
@@ -412,7 +418,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// The only failure would be overflow on destination.
 		let _ = T::Currency::resolve(&buffer, amount)
 			.inspect_err(|_| {
-				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
+				defensive!(
+					"🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!"
+				);
 			})
 			.inspect(|_| {
 				// Deactivate on success; if resolve failed, tokens were burned.
