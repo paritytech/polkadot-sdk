@@ -109,7 +109,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 
 #[benchmarks(
 	where
-		T: Config,
+		T: Config<AccountId = AccountId32>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
@@ -2677,6 +2677,28 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v3_migration_step() {
+		use crate::migrations::v3;
+		let account = AccountId32::new([99u8; 32]);
+		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
+			.expect("should mint into account");
+		// clear the mapping so the migration has work to do
+		T::AddressMapper::unmap(&account).unwrap();
+		assert!(!T::AddressMapper::is_mapped(&account));
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v3::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert!(T::AddressMapper::is_mapped(&account));
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark

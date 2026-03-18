@@ -22,11 +22,10 @@
 //! for every non-eth-derived account that lacks a mapping.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{AddressMapper, Config, LOG_TARGET, address::is_eth_derived};
+use crate::{AddressMapper, Config, LOG_TARGET, address::is_eth_derived, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
-	traits::Get,
 	weights::WeightMeter,
 };
 use sp_runtime::AccountId32;
@@ -52,8 +51,7 @@ impl<T: Config<AccountId = AccountId32>> SteppedMigration for Migration<T> {
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		// 1 read for the system account iterator + 1 read + 1 write for OriginalAccount
-		let required = T::DbWeight::get().reads_writes(2, 1);
+		let required = <T as Config>::WeightInfo::v3_migration_step();
 		if meter.remaining().any_lt(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
@@ -125,6 +123,8 @@ fn migrate_to_v3() {
 	use sp_core::H160;
 
 	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+		use crate::address::AccountId32Mapper;
+
 		// Create some accounts: eth-derived ones should be skipped,
 		// non-eth-derived ones should be mapped.
 		let non_eth_accounts: Vec<AccountId32> =
@@ -135,15 +135,16 @@ fn migrate_to_v3() {
 			AccountId32::new(bytes)
 		};
 
-		// Fund accounts so they exist in the system
+		// Fund accounts so they exist in the system, then map them
 		for acc in &non_eth_accounts {
 			<Test as Config>::Currency::set_balance(acc, 1_000_000);
+			AccountId32Mapper::<Test>::map(acc).unwrap();
 		}
 		<Test as Config>::Currency::set_balance(&eth_account, 1_000_000);
 
-		use crate::address::AccountId32Mapper;
-		// Verify non-eth accounts are not yet mapped
+		// Clear all mappings to simulate pre-migration state
 		for acc in &non_eth_accounts {
+			AccountId32Mapper::<Test>::unmap(acc).unwrap();
 			assert!(
 				!AccountId32Mapper::<Test>::is_mapped(acc),
 				"account should not be mapped before migration"
@@ -186,9 +187,12 @@ fn migrate_to_v3_maps_all_accounts() {
 		let accounts: Vec<AccountId32> = (10..15u8).map(|i| AccountId32::new([i; 32])).collect();
 		for acc in &accounts {
 			<Test as Config>::Currency::set_balance(acc, 1_000_000);
+			AccountId32Mapper::<Test>::map(acc).unwrap();
 		}
 
+		// Clear all mappings to simulate pre-migration state
 		for acc in &accounts {
+			AccountId32Mapper::<Test>::unmap(acc).unwrap();
 			assert!(!AccountId32Mapper::<Test>::is_mapped(acc));
 		}
 
