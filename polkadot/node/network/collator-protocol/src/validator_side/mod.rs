@@ -26,7 +26,7 @@
 //!
 //! ### Layer 1: Basic Validation (in `handle_advertisement`)
 //! - **Peer validation:** Is the peer known and declared as a collator?
-//! - **Protocol version check:** V1 advertisements only accepted for active leaves
+//! - **Protocol version check:** Only V2+ protocols are supported
 //!
 //! ### Layer 2: AssetHub Hold-off (in `handle_advertisement`)
 //! - **Purpose:** Rate-limit permissionless AssetHub collators to prefer invulnerable collators
@@ -148,10 +148,10 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
 	request_response::{
 		outgoing::{Recipient, RequestError},
-		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
+		v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols, OurView,
-	PeerId, UnifiedReputationChange as Rep, View,
+	v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols, OurView, PeerId,
+	UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -207,8 +207,6 @@ const COST_NETWORK_ERROR: Rep = Rep::CostMinor("Some network error");
 const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Invalid network message signature");
 const COST_REPORT_BAD: Rep = Rep::Malicious("A collator was reported by another subsystem");
 const COST_WRONG_PARA: Rep = Rep::Malicious("A collator provided a collation for the wrong para");
-const COST_PROTOCOL_MISUSE: Rep =
-	Rep::Malicious("A collator advertising a collation for an async backing relay parent using V1");
 const COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor("An unneeded collator connected");
 /// Minor penalty for V3 advertisements whose scheduling parent doesn't match the
 /// last finished relay chain slot. This deters spamming invalid advertisements while
@@ -388,24 +386,21 @@ impl PeerData {
 						return Err(InsertAdvertisementError::PeerLimitReached);
 					}
 
-					candidates.insert(candidate_hash);
-				} else {
-					if self.version != CollationVersion::V1 {
-						gum::error!(
-							target: LOG_TARGET,
-							"Programming error, `candidate_hash` can not be `None` \
-							 for non `V1` networking.",
-						);
-					}
+				candidates.insert(candidate_hash);
+			} else {
+				gum::error!(
+					target: LOG_TARGET,
+					"Programming error, `candidate_hash` can not be `None`.",
+				);
 
-					if state.advertisements.contains_key(&on_scheduling_parent) {
-						return Err(InsertAdvertisementError::Duplicate);
-					}
+				if state.advertisements.contains_key(&on_scheduling_parent) {
+					return Err(InsertAdvertisementError::Duplicate);
+				}
 
-					state
-						.advertisements
-						.insert(on_scheduling_parent, HashSet::from_iter(candidate_hash));
-				};
+				state
+					.advertisements
+					.insert(on_scheduling_parent, HashSet::from_iter(candidate_hash));
+			};
 
 				state.last_active = Instant::now();
 				Ok((state.collator_id.clone(), state.para_id))
@@ -913,14 +908,6 @@ pub async fn notify_collation_seconded(
 ) {
 	let statement = statement.into();
 	let wire_message = match version {
-		CollationVersion::V1 => {
-			CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
-				protocol_v1::CollatorProtocolMessage::CollationSeconded(
-					scheduling_parent,
-					statement,
-				),
-			))
-		},
 		CollationVersion::V2 => {
 			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::CollationSeconded(
@@ -990,14 +977,6 @@ async fn request_collation(
 		.ok_or(FetchError::RelayParentOutOfView)?;
 
 	let (requests, response_recv) = match (peer_protocol_version, prospective_candidate) {
-		(CollationVersion::V1, _) => {
-			let (req, response_recv) = OutgoingRequest::new(
-				Recipient::Peer(peer_id),
-				request_v1::CollationFetchingRequest { scheduling_parent, para_id },
-			);
-			let requests = Requests::CollationFetchingV1(req);
-			(requests, response_recv.boxed())
-		},
 		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) |
 		(CollationVersion::V3, Some(ProspectiveCandidate { candidate_hash, .. })) => {
 			let (req, response_recv) = OutgoingRequest::new(
@@ -1063,19 +1042,13 @@ async fn process_incoming_peer_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	origin: PeerId,
-	msg: CollationProtocols<
-		protocol_v1::CollatorProtocolMessage,
-		protocol_v2::CollatorProtocolMessage,
-		protocol_v3::CollatorProtocolMessage,
-	>,
+	msg: CollationProtocols<protocol_v2::CollatorProtocolMessage, protocol_v3::CollatorProtocolMessage>,
 ) {
-	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature)) |
 		CollationProtocols::V2(V2::Declare(collator_id, para_id, signature)) |
 		CollationProtocols::V3(V3::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
@@ -1126,7 +1099,7 @@ async fn process_incoming_peer_message<Context>(
 				return;
 			}
 
-			if !signature.verify(&*protocol_v1::declare_signature_payload(&origin), &collator_id) {
+			if !signature.verify(&*protocol_v2::declare_signature_payload(&origin), &collator_id) {
 				gum::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
@@ -1180,23 +1153,6 @@ async fn process_incoming_peer_message<Context>(
 				.await;
 				gum::trace!(target: LOG_TARGET, "Disconnecting unneeded collator");
 				disconnect_peer(ctx.sender(), origin).await;
-			}
-		},
-		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			if let Err(err) =
-				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
-			{
-				gum::debug!(
-					target: LOG_TARGET,
-					peer_id = ?origin,
-					?relay_parent,
-					error = ?err,
-					"Rejected v1 advertisement",
-				);
-
-				if let Some(rep) = err.reputation_changes() {
-					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
-				}
 			}
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
@@ -1259,7 +1215,6 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
 		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::CollationSeconded(..)) => {
 			gum::warn!(
@@ -1378,8 +1333,6 @@ enum AdvertisementError {
 	UndeclaredCollator,
 	/// Para reached a limit of seconded candidates for this scheduling parent.
 	SecondedLimitReached,
-	/// For V1 protocol, relay_parent must be an active leaf (no async backing support).
-	ProtocolMisuse,
 	/// For V3 candidate descriptors, the scheduling parent does not match any active leaf's
 	/// expected scheduling parent based on its slot state.
 	SchedulingParentNotValid,
@@ -1394,7 +1347,6 @@ impl AdvertisementError {
 	fn reputation_changes(&self) -> Option<Rep> {
 		use AdvertisementError::*;
 		match self {
-			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
 			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
 				Some(COST_UNEXPECTED_MESSAGE)
 			},
@@ -1660,13 +1612,6 @@ where
 {
 	// Basic peer and protocol validation
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
-
-	// V1 protocol requires relay_parent to be an active leaf (no async backing support)
-	if peer_data.version == CollationVersion::V1 &&
-		!state.leaf_claim_queues.contains_key(&scheduling_parent)
-	{
-		return Err(AdvertisementError::ProtocolMisuse);
-	}
 
 	// Ensure peer has declared as a collator
 	peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
@@ -2721,22 +2666,9 @@ async fn kick_off_seconding<Context>(
 				)
 				.await?;
 
-				(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
-			},
-			(CollationVersion::V1, _) => {
-				let pvd = request_persisted_validation_data(
-					ctx.sender(),
-					candidate_receipt.descriptor().relay_parent(),
-					candidate_receipt.descriptor().para_id(),
-				)
-				.await?;
-				(
-					Some(pvd.ok_or(SecondingError::PersistedValidationDataNotFound)?),
-					maybe_parent_head_data,
-					None,
-				)
-			},
-			_ => {
+			(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
+		},
+		_ => {
 				// `handle_advertisement` checks for protocol mismatch.
 				return Ok(false);
 			},
@@ -2907,9 +2839,7 @@ async fn handle_collation_fetch_response(
 			Err(None)
 		},
 		Ok(
-			request_v1::CollationFetchingResponse::Collation(receipt, _) |
 			request_v2::CollationFetchingResponse::Collation(receipt, _) |
-			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. } |
 			request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
 		) if receipt.descriptor().para_id() != pending_collation.para_id => {
 			gum::debug!(
@@ -2922,7 +2852,7 @@ async fn handle_collation_fetch_response(
 
 			Err(Some((pending_collation.peer_id, COST_WRONG_PARA)))
 		},
-		Ok(request_v1::CollationFetchingResponse::Collation(candidate_receipt, pov)) => {
+		Ok(request_v2::CollationFetchingResponse::Collation(candidate_receipt, pov)) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				para_id = %pending_collation.para_id,

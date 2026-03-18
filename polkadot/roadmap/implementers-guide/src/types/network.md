@@ -95,18 +95,22 @@ enum StatementDistributionV1Message {
 }
 ```
 
-### Collator Protocol V1
+### Collator Protocol V2
 
 ```rust
-enum CollatorProtocolV1Message {
+enum CollatorProtocolV2Message {
 	/// Declare the intent to advertise collations under a collator ID and `Para`, attaching a
 	/// signature of the `PeerId` of the node using the given collator ID key.
 	Declare(CollatorId, ParaId, CollatorSignature),
 	/// Advertise a collation to a validator. Can only be sent once the peer has
 	/// declared that they are a collator with given ID.
-	AdvertiseCollation(Hash),
+	AdvertiseCollation {
+		relay_parent: Hash,
+		candidate_hash: CandidateHash,
+		parent_head_data_hash: Hash,
+	},
 	/// A collation sent to a validator was seconded.
-	CollationSeconded(SignedFullStatement),
+	CollationSeconded(Hash, UncheckedSignedFullStatement),
 }
 ```
 
@@ -127,13 +131,13 @@ enum ValidationProtocolV1 {
 }
 ```
 
-### Collation V1
+### Collation V2
 
 These are the messages for the protocol on the collation peer-set
 
 ```rust
-enum CollationProtocolV1 {
-	CollatorProtocol(CollatorProtocolV1Message),
+enum CollationProtocolV2 {
+	CollatorProtocol(CollatorProtocolV2Message),
 }
 ```
 

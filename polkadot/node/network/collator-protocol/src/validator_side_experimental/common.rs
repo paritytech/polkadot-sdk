@@ -209,6 +209,7 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
+/// V2+ protocol only; prospective candidate is always present.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
@@ -217,14 +218,13 @@ pub struct Advertisement {
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
 	pub peer_id: PeerId,
-	/// Optional candidate hash and parent head-data hash if were
-	/// supplied in advertisement.
-	pub prospective_candidate: Option<ProspectiveCandidate>,
+	/// Candidate hash and parent head-data hash from the advertisement (V2+ required).
+	pub prospective_candidate: ProspectiveCandidate,
 }
 
 impl Advertisement {
-	pub fn candidate_hash(&self) -> Option<CandidateHash> {
-		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
+	pub fn candidate_hash(&self) -> CandidateHash {
+		self.prospective_candidate.candidate_hash
 	}
 }
 
@@ -272,7 +272,7 @@ impl From<&Advertisement> for SecondingRejectionInfo {
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
 			maybe_output_head_hash: None,
-			maybe_candidate_hash: advertisement.candidate_hash(),
+			maybe_candidate_hash: Some(advertisement.candidate_hash()),
 		}
 	}
 }

@@ -16,7 +16,7 @@
 
 use crate::{
 	validator_side_experimental::common::{
-		Advertisement, CollationFetchError, CollationFetchResponse, ProspectiveCandidate,
+		Advertisement, CollationFetchError, CollationFetchResponse,
 	},
 	LOG_TARGET,
 };
@@ -27,8 +27,7 @@ use futures::{
 	FutureExt,
 };
 use polkadot_node_network_protocol::request_response::{
-	outgoing::Recipient, v1 as request_v1, v2 as request_v2, OutgoingRequest, OutgoingResult,
-	Requests,
+	outgoing::Recipient, v2 as request_v2, OutgoingRequest, OutgoingResult, Requests,
 };
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use std::{collections::HashMap, future::Future, pin::Pin};
@@ -51,32 +50,15 @@ impl PendingRequests {
 		advertisement_lifetime_timer: Option<HistogramTimer>,
 	) -> Requests {
 		let cancellation_token = CancellationToken::new();
-
-		let (req, response_recv) = match advertisement.prospective_candidate {
-			None => {
-				let (req, response_recv) = OutgoingRequest::new(
-					Recipient::Peer(advertisement.peer_id),
-					request_v1::CollationFetchingRequest {
-						scheduling_parent: advertisement.scheduling_parent,
-						para_id: advertisement.para_id,
-					},
-				);
-				let requests = Requests::CollationFetchingV1(req);
-				(requests, response_recv.boxed())
+		let (req, response_recv) = OutgoingRequest::new(
+			Recipient::Peer(advertisement.peer_id),
+			request_v2::CollationFetchingRequest {
+				scheduling_parent: advertisement.scheduling_parent,
+				para_id: advertisement.para_id,
+				candidate_hash: advertisement.prospective_candidate.candidate_hash,
 			},
-			Some(ProspectiveCandidate { candidate_hash, .. }) => {
-				let (req, response_recv) = OutgoingRequest::new(
-					Recipient::Peer(advertisement.peer_id),
-					request_v2::CollationFetchingRequest {
-						scheduling_parent: advertisement.scheduling_parent,
-						para_id: advertisement.para_id,
-						candidate_hash,
-					},
-				);
-				let requests = Requests::CollationFetchingV2(req);
-				(requests, response_recv.boxed())
-			},
-		};
+		);
+		let (req, response_recv) = (Requests::CollationFetchingV2(req), response_recv.boxed());
 
 		self.cancellation_tokens.insert(*advertisement, cancellation_token.clone());
 		self.futures.push(CollationFetchRequest {

@@ -488,16 +488,14 @@ async fn connect_peer(
 	)
 	.await;
 
-	if version != CollationVersion::V1 {
-		overseer_send(
-			virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerViewChange(
-				peer,
-				view![],
-			)),
-		)
-		.await;
-	}
+	overseer_send(
+		virtual_overseer,
+		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerViewChange(
+			peer,
+			view![],
+		)),
+	)
+	.await;
 }
 
 /// Disconnect a peer
@@ -585,9 +583,9 @@ fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
 	}
 }
 
-// Test that connecting on v1 results in disconnect.
+// Test that another collator declaring to us gets disconnected.
 #[test]
-fn v1_protocol_rejected() {
+fn declaring_collator_gets_disconnected() {
 	let test_state = TestState::default();
 	let local_peer_id = test_state.local_peer_id;
 	let collator_pair = test_state.collator_pair.clone();
@@ -626,7 +624,7 @@ fn v1_protocol_rejected() {
 				.into_iter()
 				.zip(test_state.current_group_validator_peer_ids())
 			{
-				connect_peer(virtual_overseer, peer, CollationVersion::V1, Some(val.clone())).await;
+				connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(val.clone())).await;
 
 				assert_matches!(
 					overseer_recv(virtual_overseer).await,
@@ -1355,11 +1353,11 @@ fn collators_reject_declare_messages() {
 				virtual_overseer,
 				CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 					peer,
-					CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
-						collator_pair2.public(),
-						ParaId::from(5),
-						collator_pair2.sign(b"garbage"),
-					)),
+				CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
+					collator_pair2.public(),
+					ParaId::from(5),
+					collator_pair2.sign(b"garbage"),
+				)),
 				)),
 			)
 			.await;

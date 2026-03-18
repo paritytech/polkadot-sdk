@@ -22,8 +22,7 @@ use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
-	ValidatorIndex,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, HeadData, ValidatorIndex,
 };
 
 use super::{IsRequest, Protocol};
@@ -99,16 +98,7 @@ impl IsRequest for ChunkFetchingRequest {
 	const PROTOCOL: Protocol = Protocol::ChunkFetchingV1;
 }
 
-/// Request the advertised collation at that relay-parent.
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct CollationFetchingRequest {
-	/// Relay parent we want a collation for.
-	pub scheduling_parent: Hash,
-	/// The `ParaId` of the collation.
-	pub para_id: ParaId,
-}
-
-/// Responses as sent by collators.
+/// Responses as sent by collators (shared with V2).
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum CollationFetchingResponse {
 	/// Deliver requested collation.
@@ -126,11 +116,6 @@ pub enum CollationFetchingResponse {
 		/// This is needed for elastic scaling to work.
 		parent_head_data: HeadData,
 	},
-}
-
-impl IsRequest for CollationFetchingRequest {
-	type Response = CollationFetchingResponse;
-	const PROTOCOL: Protocol = Protocol::CollationFetchingV1;
 }
 
 /// Request the advertised collation at that relay-parent.

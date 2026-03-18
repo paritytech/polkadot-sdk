@@ -30,7 +30,7 @@ use codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	v1 as protocol_v1, v3 as protocol_v3, CollationProtocols, ObservedRole, ValidationProtocols,
+	v2 as protocol_v2, v3 as protocol_v3, CollationProtocols, ObservedRole, ValidationProtocols,
 };
 use polkadot_node_subsystem::{FromOrchestra, OverseerSignal};
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
@@ -335,36 +335,36 @@ fn send_messages_to_peers() {
 		// send a collation protocol message.
 
 		{
-			let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
-				Sr25519Keyring::Alice.public().into(),
-				0_u32.into(),
-				dummy_collator_signature(),
-			);
+		let collator_protocol_message = protocol_v2::CollatorProtocolMessage::Declare(
+			Sr25519Keyring::Alice.public().into(),
+			0_u32.into(),
+			dummy_collator_signature(),
+		);
 
-			let message_v1 =
-				protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
+		let message_v2 =
+			protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
-			virtual_overseer
-				.send(FromOrchestra::Communication {
-					msg: NetworkBridgeTxMessage::SendCollationMessage(
-						vec![peer],
-						CollationProtocols::V1(message_v1.clone()),
-					),
-				})
-				.await;
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: NetworkBridgeTxMessage::SendCollationMessage(
+					vec![peer],
+					CollationProtocols::V2(message_v2.clone()),
+				),
+			})
+			.await;
 
-			assert_eq!(
-				network_handle
-					.next_network_action()
-					.timeout(TIMEOUT)
-					.await
-					.expect("Timeout does not occur"),
-				NetworkAction::WriteNotification(
-					peer,
-					PeerSet::Collation,
-					WireMessage::ProtocolMessage(message_v1).encode(),
-				)
-			);
+		assert_eq!(
+			network_handle
+				.next_network_action()
+				.timeout(TIMEOUT)
+				.await
+				.expect("Timeout does not occur"),
+			NetworkAction::WriteNotification(
+				peer,
+				PeerSet::Collation,
+				WireMessage::ProtocolMessage(message_v2).encode(),
+			)
+		);
 		}
 		virtual_overseer
 	});

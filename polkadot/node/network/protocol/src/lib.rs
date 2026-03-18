@@ -244,9 +244,7 @@ pub enum ValidationProtocols<V3> {
 
 /// A protocol-versioned type for collation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CollationProtocols<V1, V2, V3> {
-	/// V1 type.
-	V1(V1),
+pub enum CollationProtocols<V2, V3> {
 	/// V2 type.
 	V2(V2),
 	/// V3 type.
@@ -262,11 +260,10 @@ impl<V3: Clone> ValidationProtocols<&'_ V3> {
 	}
 }
 
-impl<V1: Clone, V2: Clone, V3: Clone> CollationProtocols<&'_ V1, &'_ V2, &'_ V3> {
+impl<V2: Clone, V3: Clone> CollationProtocols<&'_ V2, &'_ V3> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> CollationProtocols<V1, V2, V3> {
+	pub fn clone_inner(&self) -> CollationProtocols<V2, V3> {
 		match *self {
-			CollationProtocols::V1(inner) => CollationProtocols::V1(inner.clone()),
 			CollationProtocols::V2(inner) => CollationProtocols::V2(inner.clone()),
 			CollationProtocols::V3(inner) => CollationProtocols::V3(inner.clone()),
 		}
@@ -284,16 +281,9 @@ impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 
 /// All supported versions of the collation protocol message.
 pub type VersionedCollationProtocol = CollationProtocols<
-	v1::CollationProtocol,
 	v2::CollationProtocol,
 	v3_collation::CollationProtocol,
 >;
-
-impl From<v1::CollationProtocol> for VersionedCollationProtocol {
-	fn from(v1: v1::CollationProtocol) -> Self {
-		VersionedCollationProtocol::V1(v1)
-	}
-}
 
 impl From<v2::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v2: v2::CollationProtocol) -> Self {
@@ -324,7 +314,6 @@ macro_rules! impl_versioned_collation_full_protocol_from {
 		impl From<$from> for $out {
 			fn from(versioned_from: $from) -> $out {
 				match versioned_from {
-					CollationProtocols::V1(x) => CollationProtocols::V1(x.into()),
 					CollationProtocols::V2(x) => CollationProtocols::V2(x.into()),
 					CollationProtocols::V3(x) => CollationProtocols::V3(x.into()),
 				}
@@ -375,7 +364,6 @@ macro_rules! impl_versioned_collation_try_from {
 	(
 		$from:ty,
 		$out:ty,
-		$v1_pat:pat => $v1_out:expr,
 		$v2_pat:pat => $v2_out:expr,
 		$v3_pat:pat => $v3_out:expr
 	) => {
@@ -385,7 +373,6 @@ macro_rules! impl_versioned_collation_try_from {
 			fn try_from(x: $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out)),
 					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out)),
 					CollationProtocols::V3($v3_pat) => Ok(CollationProtocols::V3($v3_out)),
 					_ => Err(crate::WrongVariant),
@@ -399,7 +386,6 @@ macro_rules! impl_versioned_collation_try_from {
 			fn try_from(x: &'a $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out.clone())),
 					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out.clone())),
 					CollationProtocols::V3($v3_pat) => Ok(CollationProtocols::V3($v3_out.clone())),
 					_ => Err(crate::WrongVariant),
@@ -469,7 +455,6 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 
 /// Version-annotated messages used by the collator protocol subsystem.
 pub type CollatorProtocolMessage = CollationProtocols<
-	v1::CollatorProtocolMessage,
 	v2::CollatorProtocolMessage,
 	v3_collation::CollatorProtocolMessage,
 >;
@@ -481,44 +466,12 @@ impl_versioned_collation_full_protocol_from!(
 impl_versioned_collation_try_from!(
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
-	v1::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x,
 	v3_collation::CollationProtocol::CollatorProtocol(x) => x
 );
 
 /// v1 notification protocol types.
 pub mod v1 {
-	use codec::{Decode, Encode};
-
-	use polkadot_primitives::{CollatorId, CollatorSignature, Hash, Id as ParaId};
-
-	use polkadot_node_primitives::UncheckedSignedFullStatement;
-
-	/// Network messages used by the collator protocol subsystem
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum CollatorProtocolMessage {
-		/// Declare the intent to advertise collations under a collator ID, attaching a
-		/// signature of the `PeerId` of the node using the given collator ID key.
-		#[codec(index = 0)]
-		Declare(CollatorId, ParaId, CollatorSignature),
-		/// Advertise a collation to a validator. Can only be sent once the peer has
-		/// declared that they are a collator with given ID.
-		#[codec(index = 1)]
-		AdvertiseCollation(Hash),
-		/// A collation sent to a validator was seconded.
-		#[codec(index = 4)]
-		CollationSeconded(Hash, UncheckedSignedFullStatement),
-	}
-
-	/// All network messages on the collation peer-set.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
-	pub enum CollationProtocol {
-		/// Collator protocol messages
-		#[codec(index = 0)]
-		#[from]
-		CollatorProtocol(CollatorProtocolMessage),
-	}
-
 	/// Get the payload that should be signed and included in a `Declare` message.
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it

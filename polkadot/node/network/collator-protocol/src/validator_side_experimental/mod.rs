@@ -32,8 +32,8 @@ use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
 use futures_timer::Delay;
 use polkadot_node_network_protocol::{
-	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
-	v3_collation as protocol_v3, CollationProtocols, PeerId,
+	self as net_protocol, peer_set::PeerSet, v2 as protocol_v2, v3_collation as protocol_v3,
+	CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
@@ -399,23 +399,16 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
 	state: &mut State<PersistentDb>,
 	origin: PeerId,
-	msg: CollationProtocols<
-		protocol_v1::CollatorProtocolMessage,
-		protocol_v2::CollatorProtocolMessage,
-		protocol_v3::CollatorProtocolMessage,
-	>,
+	msg: CollationProtocols<protocol_v2::CollatorProtocolMessage, protocol_v3::CollatorProtocolMessage>,
 ) {
-	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
 		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) |
 		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) => {
 			state.handle_declare(sender, origin, para_id).await;
 		},
-		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
 		CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			gum::warn!(
@@ -423,9 +416,6 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 				peer_id = ?origin,
 				"Unexpected `CollationSeconded` message",
 			);
-		},
-		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(sender, origin, relay_parent, None).await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			scheduling_parent,

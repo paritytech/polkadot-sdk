@@ -256,6 +256,17 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
+		// V2+ only: ignore advertisements without prospective candidate.
+		let Some(prospective_candidate) = maybe_prospective_candidate else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?peer_id,
+				"Ignoring advertisement without prospective candidate (V2+ required)",
+			);
+			return;
+		};
+
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
@@ -268,7 +279,7 @@ impl<B: Backend> State<B> {
 					peer_id,
 					para_id: *para_id,
 					scheduling_parent: relay_parent,
-					prospective_candidate: maybe_prospective_candidate,
+					prospective_candidate,
 				},
 			)
 			.await

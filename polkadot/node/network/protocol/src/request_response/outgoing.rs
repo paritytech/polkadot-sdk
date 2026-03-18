@@ -31,8 +31,6 @@ use super::{v1, v2, IsRequest, Protocol};
 pub enum Requests {
 	/// Request an availability chunk from a node.
 	ChunkFetching(OutgoingRequest<v2::ChunkFetchingRequest, v1::ChunkFetchingRequest>),
-	/// Fetch a collation from a collator which previously announced it.
-	CollationFetchingV1(OutgoingRequest<v1::CollationFetchingRequest>),
 	/// Fetch a PoV from a validator which previously sent out a seconded statement.
 	PoVFetchingV1(OutgoingRequest<v1::PoVFetchingRequest>),
 	/// Request full available data from a node.
@@ -43,7 +41,6 @@ pub enum Requests {
 	/// Request a candidate and attestations.
 	AttestedCandidateV2(OutgoingRequest<v2::AttestedCandidateRequest>),
 	/// Fetch a collation from a collator which previously announced it.
-	/// Compared to V1 it requires specifying which candidate is requested by its hash.
 	CollationFetchingV2(OutgoingRequest<v2::CollationFetchingRequest>),
 }
 
@@ -58,7 +55,6 @@ impl Requests {
 	pub fn encode_request(self) -> (Protocol, OutgoingRequest<Vec<u8>>) {
 		match self {
 			Self::ChunkFetching(r) => r.encode_request(),
-			Self::CollationFetchingV1(r) => r.encode_request(),
 			Self::CollationFetchingV2(r) => r.encode_request(),
 			Self::PoVFetchingV1(r) => r.encode_request(),
 			Self::AvailableDataFetchingV1(r) => r.encode_request(),

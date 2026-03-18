@@ -23,7 +23,7 @@ use crate::{
 	validator_side_experimental::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
-			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
+			Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
 			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
@@ -75,8 +75,6 @@ pub enum AdvertisementError {
 	PeerLimitReached,
 	#[error("Seconding not allowed by backing subsystem")]
 	BlockedByBacking,
-	#[error("V1 advertisements are only allowed on active leaves")]
-	V1AdvertisementForImplicitParent,
 }
 
 pub struct CollationManager {
@@ -290,13 +288,6 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
-		// V1 advertisements are only allowed on active leaves.
-		if advertisement.prospective_candidate.is_none() &&
-			!self.implicit_view.contains_leaf(&advertisement.scheduling_parent)
-		{
-			return Err(AdvertisementError::V1AdvertisementForImplicitParent);
-		}
-
 		let now = Instant::now();
 
 		let max_assignments = self
@@ -307,12 +298,11 @@ impl CollationManager {
 			return Err(AdvertisementError::InvalidAssignment);
 		}
 
-		if let Some(ProspectiveCandidate { candidate_hash, .. }) =
-			advertisement.prospective_candidate
+		if per_rp
+			.fetched_collations
+			.contains_key(&advertisement.prospective_candidate.candidate_hash)
 		{
-			if per_rp.fetched_collations.contains_key(&candidate_hash) {
-				return Err(AdvertisementError::Duplicate);
-			}
+			return Err(AdvertisementError::Duplicate);
 		}
 
 		if self.fetching.contains(&advertisement) {
@@ -389,14 +379,14 @@ impl CollationManager {
 				if self.claim_queue_state.claim_pending_slot(
 					&advertisement.scheduling_parent,
 					&para_id,
-					advertisement.candidate_hash(),
+					Some(advertisement.candidate_hash()),
 				) {
 					gum::trace!(
 						target: LOG_TARGET,
 						peer_id = ?advertisement.peer_id,
 						?para_id,
 						relay_parent = ?advertisement.scheduling_parent,
-						maybe_candidate_hash = ?advertisement.candidate_hash(),
+						candidate_hash = ?advertisement.candidate_hash(),
 						"Requesting collation",
 					);
 					let req = self.fetching.launch(&advertisement, create_timer_fn());
@@ -867,19 +857,8 @@ impl FetchedCollation {
 	) -> std::result::Result<(), SecondingError> {
 		let candidate_receipt = &self.candidate_receipt;
 
-		match advertised.prospective_candidate {
-			// This implies a check on the declared para if this was a v2 advertisement
-			Some(ProspectiveCandidate { candidate_hash, .. }) => {
-				if candidate_hash != candidate_receipt.hash() {
-					return Err(SecondingError::CandidateHashMismatch);
-				}
-			},
-			// Otherwise, do the explicit check for the para_id.
-			None => {
-				if advertised.para_id != candidate_receipt.descriptor.para_id() {
-					return Err(SecondingError::ParaIdMismatch);
-				}
-			},
+		if advertised.prospective_candidate.candidate_hash != candidate_receipt.hash() {
+			return Err(SecondingError::CandidateHashMismatch);
 		}
 
 		// TODO: Should be scheduling_parent
@@ -950,27 +929,15 @@ impl PerRelayParent {
 	fn eligible_advertisements<'a>(
 		&'a self,
 		para_id: ParaId,
-		leaf: Hash,
+		_leaf: Hash,
 	) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
 		self.peer_advertisements.values().flat_map(|list| &list.advertisements).filter(
 			move |(adv, _adv_info)| {
-				// Only fetch an advertisement if it's either a V2 advertisement or it's a V1
-				// advertisement on the active leaf.
-				let is_v2_or_on_active_leaf = (adv.prospective_candidate.is_none() &&
-					leaf == adv.scheduling_parent) ||
-					adv.prospective_candidate.is_some();
-
-				let already_fetched = adv
-					.prospective_candidate
-					.map(|p| self.fetched_collations.contains_key(&p.candidate_hash))
-					.unwrap_or(false);
-
-				is_v2_or_on_active_leaf &&
-				// Check that the declared paraid matches.
-				(adv.para_id == para_id) &&
-				// And check that it's not already fetched, just to be safe.
-				// Should never happen because we remove the advertisement after it's fetched.
-				!already_fetched
+				let already_fetched = self
+					.fetched_collations
+					.contains_key(&adv.prospective_candidate.candidate_hash);
+				// Check that the declared paraid matches and it's not already fetched.
+				(adv.para_id == para_id) && !already_fetched
 			},
 		)
 	}
@@ -1040,18 +1007,13 @@ async fn backing_allows_seconding<Sender>(
 where
 	Sender: CollatorProtocolSenderTrait,
 {
-	let Some(prospective_candidate) = advertisement.prospective_candidate else {
-		// Nothing to check for v1 protocol.
-		return true;
-	};
-
 	// TODO: use the actual scheduling_parent once V3 is supported in the
 	// experimental module (relay_parent == scheduling_parent before V3).
 	let request = CanSecondRequest {
 		candidate_para_id: advertisement.para_id,
 		candidate_scheduling_parent: advertisement.scheduling_parent,
-		candidate_hash: prospective_candidate.candidate_hash,
-		parent_head_data_hash: prospective_candidate.parent_head_data_hash,
+		candidate_hash: advertisement.prospective_candidate.candidate_hash,
+		parent_head_data_hash: advertisement.prospective_candidate.parent_head_data_hash,
 	};
 	let (tx, rx) = oneshot::channel();
 	sender.send_message(CandidateBackingMessage::CanSecond(request, tx)).await;
@@ -1062,7 +1024,7 @@ where
 			?err,
 			relay_parent = ?advertisement.scheduling_parent,
 			para_id = ?advertisement.para_id,
-			candidate_hash = ?prospective_candidate.candidate_hash,
+			candidate_hash = ?advertisement.prospective_candidate.candidate_hash,
 			"CanSecond-request responder was dropped",
 		);
 
@@ -1173,9 +1135,7 @@ fn process_collation_fetch_result(
 				pov,
 				peer_id: advertisement.peer_id,
 				maybe_parent_head_data: None,
-				maybe_parent_head_data_hash: advertisement
-					.prospective_candidate
-					.map(|p| p.parent_head_data_hash),
+				maybe_parent_head_data_hash: Some(advertisement.prospective_candidate.parent_head_data_hash),
 			})
 		},
 		Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -1194,9 +1154,7 @@ fn process_collation_fetch_result(
 				pov,
 				peer_id: advertisement.peer_id,
 				maybe_parent_head_data: Some(parent_head_data),
-				maybe_parent_head_data_hash: advertisement
-					.prospective_candidate
-					.map(|p| p.parent_head_data_hash),
+				maybe_parent_head_data_hash: Some(advertisement.prospective_candidate.parent_head_data_hash),
 			})
 		},
 	}
@@ -1204,7 +1162,7 @@ fn process_collation_fetch_result(
 
 #[cfg(test)]
 mod tests {
-	use crate::validator_side_experimental::common::MAX_SCORE;
+	use crate::validator_side_experimental::common::{ProspectiveCandidate, MAX_SCORE};
 
 	use super::*;
 	use std::sync::Arc;
@@ -1248,12 +1206,16 @@ mod tests {
 
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
+		let dummy_prospective = ProspectiveCandidate {
+			candidate_hash: CandidateHash::default(),
+			parent_head_data_hash: Hash::default(),
+		};
 
 		let make_adv = |peer_id: PeerId| Advertisement {
 			scheduling_parent,
 			para_id,
 			peer_id,
-			prospective_candidate: None,
+			prospective_candidate: dummy_prospective,
 		};
 
 		let peer_1 = PeerId::random();
@@ -1425,12 +1387,16 @@ mod tests {
 		let peer_a = PeerId::random();
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
+		let dummy_prospective = ProspectiveCandidate {
+			candidate_hash: CandidateHash::default(),
+			parent_head_data_hash: Hash::default(),
+		};
 
 		let make_adv = |peer: PeerId| Advertisement {
 			scheduling_parent,
 			para_id,
 			peer_id: peer,
-			prospective_candidate: None,
+			prospective_candidate: dummy_prospective,
 		};
 
 		let new_collation_manager_instance = || CollationManager {

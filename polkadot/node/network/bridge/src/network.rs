@@ -32,7 +32,7 @@ use sc_network::{
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, ProtocolVersion, ValidationVersion},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, v3_collation, PeerId,
+	v2 as protocol_v2, v3 as protocol_v3, v3_collation, PeerId,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
 
@@ -55,24 +55,6 @@ pub(crate) fn send_validation_message_v3(
 		peers,
 		PeerSet::Validation,
 		ValidationVersion::V3.into(),
-		message,
-		metrics,
-		notification_sinks,
-	);
-}
-
-// Helper function to send a collation v1 message to a list of peers.
-// Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_collation_message_v1(
-	peers: Vec<PeerId>,
-	message: WireMessage<protocol_v1::CollationProtocol>,
-	metrics: &Metrics,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
-) {
-	send_message(
-		peers,
-		PeerSet::Collation,
-		CollationVersion::V1.into(),
 		message,
 		metrics,
 		notification_sinks,
