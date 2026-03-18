@@ -36,7 +36,8 @@ use crate::{
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{
-	error::{Error as PoolError, IntoPoolError}, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+	error::{Error as PoolError, IntoPoolError},
+	PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
@@ -320,47 +321,48 @@ where
 			.into_iter()
 			.find_or_first(Result::is_ok);
 
-			match result {
-				Some(Err(error)) => {
-					// No active view accepted the tx. Check if the error is
-					// AlreadyImported — this indicates a race where
-					// update_view_with_mempool() concurrently imported the tx from
-					// mempool into the view before we got here.
-					// The tx IS in the pool, so return success.
-					match error.into_pool_error() {
-						Ok(PoolError::AlreadyImported(_)) => {
-							trace!(
-								target: LOG_TARGET,
-								?tx_hash,
-								"submit_and_watch: tx already imported into view \
-								 (concurrent maintain race), treating as success"
-							);
-							Ok(ViewStoreSubmitOutcome::new(tx_hash, None)
-								.with_watcher(external_watcher))
-						},
-						Ok(pool_err) => {
-							trace!(
-								target: LOG_TARGET,
-								?tx_hash,
-								?pool_err,
-								"submit_and_watch failed"
-							);
-							Err(pool_err.into())
-						},
-						Err(err) => {
-							trace!(
-								target: LOG_TARGET,
-								?tx_hash,
-								"submit_and_watch failed"
-							);
-							Err(err)
-						},
-					}
-				},
-				Some(Ok(result)) =>
-					Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
-				None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
-			}
+		match result {
+			Some(Err(error)) => {
+				// No active view accepted the tx. Check if the error is
+				// AlreadyImported — this indicates a race where
+				// update_view_with_mempool() concurrently imported the tx from
+				// mempool into the view before we got here.
+				// The tx IS in the pool, so return success.
+				match error.into_pool_error() {
+					Ok(PoolError::AlreadyImported(_)) => {
+						trace!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"submit_and_watch: tx already imported into view \
+							 (concurrent maintain race), treating as success"
+						);
+						Ok(ViewStoreSubmitOutcome::new(tx_hash, None)
+							.with_watcher(external_watcher))
+					},
+					Ok(pool_err) => {
+						trace!(
+							target: LOG_TARGET,
+							?tx_hash,
+							?pool_err,
+							"submit_and_watch failed"
+						);
+						Err(pool_err.into())
+					},
+					Err(err) => {
+						trace!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"submit_and_watch failed"
+						);
+						Err(err)
+					},
+				}
+			},
+			Some(Ok(result)) => {
+				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
+			},
+			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
+		}
 	}
 
 	/// Returns the pool status for every active view.
@@ -1048,8 +1050,7 @@ mod tests {
 		fork_aware_txpool::{
 			dropped_watcher::MultiViewDroppedWatcherController,
 			import_notification_sink::MultiViewImportNotificationSink,
-			multi_view_listener::MultiViewListener,
-			view::View,
+			multi_view_listener::MultiViewListener, view::View,
 		},
 		graph::base_pool::TimedTransactionSource,
 		ValidateTransactionPriority,
@@ -1123,11 +1124,7 @@ mod tests {
 		// The view already has this tx, so view.submit_one will return AlreadyImported.
 		// With the fix, submit_and_watch treats this as success.
 		let result = view_store
-			.submit_and_watch(
-				block_hash,
-				TimedTransactionSource::new_external(false),
-				xt,
-			)
+			.submit_and_watch(block_hash, TimedTransactionSource::new_external(false), xt)
 			.await;
 
 		assert!(
