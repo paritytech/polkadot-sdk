@@ -77,7 +77,7 @@ impl picoalloc::Env for RuntimeAllocator {
 		}
 
 		let grow_bytes = requested_end - current_end;
-		let grow_pages = (grow_bytes + WASM_PAGE_SIZE - 1) / WASM_PAGE_SIZE;
+		let grow_pages = grow_bytes.div_ceil(WASM_PAGE_SIZE);
 
 		wasm32::memory_grow(0, grow_pages) != usize::MAX
 	}
@@ -99,7 +99,7 @@ static LOCAL_ALLOCATOR: LocalAllocator =
 
 fn local_allocator() -> &'static mut picoalloc::Allocator<RuntimeAllocator> {
 	// SAFETY: This is only called when allocating memory, and the allocator
-	// doesn't trigger the global allocator recursively, so only a single
+	// doesn't trigger itself recursively, so only a single
 	// &mut will ever exist at the same time.
 	unsafe { &mut *LOCAL_ALLOCATOR.0.get() }
 }
@@ -136,9 +136,6 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 			return core::ptr::null_mut();
 		};
 
-		// First try the local allocator. Use its `alloc_zeroed` as its
-		// smart enough to not unnecessarily zero-fill the memory if it's
-		// the very first allocation which touches this region of the heap.
 		if let Some(pointer) = local_allocator().alloc_zeroed(align, size) {
 			return pointer.as_ptr();
 		} else {

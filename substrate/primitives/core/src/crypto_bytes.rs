@@ -166,10 +166,9 @@ unsafe impl<const N: usize, T> ToByteSlice for CryptoBytes<N, T> {
 	fn to_byte_slice<U: AsRef<[Self]> + ?Sized>(slice: &U) -> &[u8] {
 		// SAFETY: CryptoBytes<N, T> is #[repr(transparent)] over [u8; N],
 		// for which ToByteSlice is safely implemented.
+		let slice: &[Self] = slice.as_ref();
 		unsafe {
-			<[u8; N] as ToByteSlice>::to_byte_slice(core::mem::transmute::<_, &[[u8; N]]>(
-				slice.as_ref(),
-			))
+			core::slice::from_raw_parts(slice.as_ptr().cast::<u8>(), core::mem::size_of_val(slice))
 		}
 	}
 }
