@@ -34,9 +34,9 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	extract_relay_parent, relay_chain::BlockId, rpsr_digest, ClaimQueueOffset, CoreInfo,
-	CoreSelector, CumulusDigestItem, KeyToIncludeInRelayProof, PersistedValidationData,
-	RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
+	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi, SchedulingProof,
+	SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -59,7 +59,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, Member, Zero},
 	Saturating,
 };
-use sp_timestamp::Timestamp;
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -201,13 +200,6 @@ where
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
-		// Cache the scheduling parent to avoid re-determining it within the same relay
-		// chain slot. With elastic scaling (multiple cores), the para slot timer fires
-		// multiple times per relay chain slot — the scheduling parent cannot change
-		// within the same slot. We store (scheduling_parent_hash, relay_slot_timestamp)
-		// and reuse as long as the current time is still within that relay chain slot.
-		let mut cached_scheduling: Option<(RelayHash, Timestamp)> = None;
-
 		loop {
 			// We wait here until the next slot arrives.
 			if slot_timer.wait_until_next_slot().await.is_err() {
@@ -215,40 +207,8 @@ where
 				return;
 			};
 
-			let relay_slot_duration_ms = relay_chain_slot_duration.as_millis() as u64;
-
-			// Check if the cached scheduling parent is still valid (within the same
-			// relay chain slot). If not, or if there's no cache, re-determine it.
-			let needs_refresh = match cached_scheduling {
-				Some((cached_parent, cached_slot_ts)) => {
-					let now = Timestamp::current();
-					let slot_age_ms = (*now).saturating_sub(*cached_slot_ts);
-					if slot_age_ms < relay_slot_duration_ms {
-						tracing::debug!(
-							target: LOG_TARGET,
-							?cached_parent,
-							slot_age_ms,
-							"Reusing cached scheduling parent (still within relay chain slot).",
-						);
-						false
-					} else {
-						true
-					}
-				},
-				None => true,
-			};
-
-			if needs_refresh {
-				match determine_scheduling_parent(&relay_client, relay_chain_slot_duration).await {
-					Some((parent, slot_ts)) => cached_scheduling = Some((parent, slot_ts)),
-					None => {
-						cached_scheduling = None;
-						continue;
-					},
-				}
-			}
-
-			let Some((scheduling_parent_hash, _)) = cached_scheduling else {
+			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
+				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue;
 			};
 
@@ -266,10 +226,6 @@ where
 			let v3_enabled =
 				para_client.runtime_api().scheduling_v3_enabled(best_hash).unwrap_or(false);
 
-			// With V3 scheduling, the scheduling parent determination already accounts
-			// for relay chain slot timing, so the slot offset is not needed.
-			slot_timer.set_time_offset(if v3_enabled { Duration::ZERO } else { slot_offset });
-
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 				continue;
@@ -277,7 +233,7 @@ where
 
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
-				scheduling_parent_hash,
+				relay_best_hash,
 				relay_parent_offset,
 			)
 			.await
@@ -313,7 +269,7 @@ where
 			// Determine claim queue lookup parameters based on V3 scheduling mode.
 			//
 			// For V3 (with scheduling_parent):
-			//   - Look up claim queue at scheduling_parent
+			//   - Look up claim queue at scheduling_parent (relay_best_hash, the fresh tip)
 			//   - Use depth = max_claim_queue_offset (typically 1)
 			//   - claim_queue_offset = max_claim_queue_offset
 			//
@@ -328,7 +284,7 @@ where
 			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
 			let (claim_queue_relay_block, claim_queue_depth, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip), use max_claim_queue_offset
-				(scheduling_parent_hash, max_claim_queue_offset as u32, max_claim_queue_offset)
+				(relay_best_hash, max_claim_queue_offset as u32, max_claim_queue_offset)
 			} else {
 				// V1/V2: look up at relay_parent, use relay_parent_offset + max_claim_queue_offset
 				let total_offset = relay_parent_offset as u8 + max_claim_queue_offset;
@@ -558,7 +514,8 @@ where
 				if para_client.runtime_api().scheduling_v3_enabled(parent_hash).unwrap_or(false) {
 					// For V3, build the scheduling proof (header chain from scheduling_parent back
 					// to relay_parent)
-					// - scheduling_parent = used for scheduling/backing group
+					// - scheduling_parent = relay_best_hash (fresh leaf, used for
+					//   scheduling/backing group)
 					// - relay_parent = older block (used for execution context)
 					// - header_chain contains headers from newest to oldest (scheduling_parent
 					//   backward)
@@ -571,7 +528,7 @@ where
 					tracing::debug!(
 						target: crate::LOG_TARGET,
 						?relay_parent,
-						?scheduling_parent_hash,
+						?relay_best_hash,
 						header_chain_len = header_chain.len(),
 						"Building V3 collation with scheduling proof",
 					);
@@ -585,9 +542,14 @@ where
 					None
 				};
 
+			// For V3, scheduling_parent is the fresh relay chain tip (relay_best_hash)
+			// For V1/V2, scheduling_parent is None
+			let scheduling_parent =
+				if scheduling_proof.is_some() { Some(relay_best_hash) } else { None };
+
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
-				scheduling_parent: scheduling_proof.is_some().then_some(scheduling_parent_hash),
+				scheduling_parent,
 				parent_header: parent_header.clone(),
 				parachain_candidate: candidate.into(),
 				validation_code_hash,
@@ -683,108 +645,6 @@ where
 	);
 
 	Ok(Some(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into())))
-}
-
-/// Determines the scheduling parent hash for V3 scheduling.
-///
-/// If the relay best block's slot is at least one full slot duration old, returns
-/// its hash. Otherwise falls back to its parent (the previous, finished slot).
-///
-/// Also returns the slot timestamp of the relay best block, so the caller can
-/// cache and reuse the result within the same relay chain slot.
-async fn determine_scheduling_parent<RelayClient>(
-	relay_client: &RelayClient,
-	relay_chain_slot_duration: Duration,
-) -> Option<(RelayHash, Timestamp)>
-where
-	RelayClient: RelayChainInterface + Clone + 'static,
-{
-	let relay_best_hash = match relay_client.best_block_hash().await {
-		Ok(hash) => hash,
-		Err(err) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?err,
-				"Unable to fetch latest relay chain block hash.",
-			);
-			return None;
-		},
-	};
-
-	let relay_best_header = match relay_client.header(BlockId::Hash(relay_best_hash)).await {
-		Ok(Some(header)) => header,
-		Ok(None) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_best_hash,
-				"Relay best block header not found when determining scheduling parent.",
-			);
-			return None;
-		},
-		Err(err) => {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_best_hash,
-				?err,
-				"Failed to fetch relay best block header for scheduling parent.",
-			);
-			return None;
-		},
-	};
-
-	let babe_slot = match sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_best_header) {
-		Ok(pre_digest) => pre_digest.slot(),
-		Err(err) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?relay_best_hash,
-				?err,
-				"Relay chain block does not contain a BABE pre-digest.",
-			);
-			return None;
-		},
-	};
-
-	let slot_duration_millis = relay_chain_slot_duration.as_millis() as u64;
-	let slot_timestamp = match babe_slot
-		.timestamp(sc_consensus_aura::SlotDuration::from_millis(slot_duration_millis))
-	{
-		Some(ts) => ts,
-		None => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?relay_best_hash,
-				?babe_slot,
-				"Failed to compute timestamp for relay best block BABE slot.",
-			);
-			return None;
-		},
-	};
-
-	let now = Timestamp::current();
-	let slot_age_ms = (*now).saturating_sub(*slot_timestamp);
-
-	// If the relay best block's slot is at least one full relay chain slot duration old,
-	// it belongs to a finished relay chain slot and can be used directly.
-	if slot_age_ms >= slot_duration_millis {
-		tracing::debug!(
-			target: LOG_TARGET,
-			?relay_best_hash,
-			slot_age_ms,
-			"Scheduling parent is relay best hash (slot finished).",
-		);
-		Some((relay_best_hash, slot_timestamp))
-	} else {
-		let parent_hash = *relay_best_header.parent_hash();
-		tracing::debug!(
-			target: LOG_TARGET,
-			?relay_best_hash,
-			?parent_hash,
-			slot_age_ms,
-			"Current relay slot still in progress, using parent as scheduling parent.",
-		);
-		Some((parent_hash, slot_timestamp))
-	}
 }
 
 /// Return value of [`determine_core`].

@@ -270,11 +270,6 @@ where
 		self.last_reported_core_num = Some(num_cores_next_block);
 	}
 
-	/// Update the time offset applied to the wall clock.
-	pub fn set_time_offset(&mut self, offset: Duration) {
-		self.time_offset = offset;
-	}
-
 	/// Returns the slot and how much time left until the next block production attempt.
 	pub fn time_until_next_block(&mut self, slot_duration: SlotDuration) -> (Duration, Slot) {
 		compute_next_wake_up_time(
