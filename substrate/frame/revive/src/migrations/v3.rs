@@ -69,13 +69,13 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			};
 
 			if let Some((account_id, _)) = iter.next() {
-				if !T::AddressMapper::is_mapped(&account_id) {
-					if let Err(err) = T::AddressMapper::map_no_deposit(&account_id) {
-						log::error!(
-							target: LOG_TARGET,
-							"Failed to auto-map account {account_id:?}: {err:?}",
-						);
-					}
+				if !T::AddressMapper::is_mapped(&account_id) &&
+					let Err(err) = T::AddressMapper::map_no_deposit(&account_id)
+				{
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to auto-map account {account_id:?}: {err:?}",
+					);
 				}
 				cursor = Some(account_id);
 			} else {
