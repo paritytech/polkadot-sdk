@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
@@ -32,6 +32,27 @@ use pallet_revive::{
 };
 use pallet_revive_uapi::precompiles::vesting::IVesting;
 use sp_runtime::traits::StaticLookup;
+
+pub use pallet::Pallet;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod mock;
+
+/// Minimal pallet providing a `Pallet<T>` type for the FRAME benchmarking machinery.
+#[frame_support::pallet]
+pub mod pallet {
+	#[pallet::config]
+	pub trait Config:
+		frame_system::Config + pallet_revive::Config + pallet_vesting::Config
+	{
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+}
 
 pub struct Vesting<T>(PhantomData<T>);
 
