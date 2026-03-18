@@ -26,7 +26,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
-use byte_slice_cast::ToByteSlice;
+use byte_slice_cast::{ToByteSlice, ToMutByteSlice};
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
@@ -169,6 +169,20 @@ unsafe impl<const N: usize, T> ToByteSlice for CryptoBytes<N, T> {
 		let slice: &[Self] = slice.as_ref();
 		unsafe {
 			core::slice::from_raw_parts(slice.as_ptr().cast::<u8>(), core::mem::size_of_val(slice))
+		}
+	}
+}
+
+unsafe impl<const N: usize, T> ToMutByteSlice for CryptoBytes<N, T> {
+	fn to_mut_byte_slice<U: AsMut<[Self]> + ?Sized>(slice: &mut U) -> &mut [u8] {
+		// SAFETY: CryptoBytes<N, T> is #[repr(transparent)] over [u8; N],
+		// for which ToByteSlice is safely implemented.
+		let slice: &mut [Self] = slice.as_mut();
+		unsafe {
+			core::slice::from_raw_parts_mut(
+				slice.as_mut_ptr().cast::<u8>(),
+				core::mem::size_of_val(slice),
+			)
 		}
 	}
 }

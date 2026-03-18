@@ -601,6 +601,16 @@ impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i64>
 	}
 }
 
+impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i32>
+	for RIIntResult<R, E>
+{
+	type Error = ();
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		(value as i64).try_into()
+	}
+}
+
 impl<E: Into<i64> + strum::EnumCount> From<RIIntResult<VoidResult, E>> for i32 {
 	fn from(value: RIIntResult<VoidResult, E>) -> Self {
 		match value {
