@@ -16,12 +16,12 @@
 // limitations under the License.
 
 #![cfg_attr(substrate_runtime, no_std, no_main)]
-#![cfg(feature = "riscv")]
 
 #[cfg(substrate_runtime)]
 mod fixture;
 
 #[cfg(not(substrate_runtime))]
+#[allow(dead_code)]
 mod binary {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }

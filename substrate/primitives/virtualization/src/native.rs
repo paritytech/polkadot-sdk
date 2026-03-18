@@ -68,7 +68,10 @@ impl MemoryT for Memory {
 	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
 		let instance = self.0.upgrade().ok_or(MemoryError::InvalidInstance)?;
 		let guard = instance.borrow();
-		guard.read_memory_into(offset, dest).map(|_| ()).map_err(|_| MemoryError::OutOfBounds)
+		guard
+			.read_memory_into(offset, dest)
+			.map(|_| ())
+			.map_err(|_| MemoryError::OutOfBounds)
 	}
 
 	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {

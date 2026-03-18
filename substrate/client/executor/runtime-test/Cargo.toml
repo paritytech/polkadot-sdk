@@ -37,4 +37,3 @@ std = [
 	"sp-virtualization/std",
 	"substrate-wasm-builder",
 ]
-riscv = ["sp-virtualization/riscv"]

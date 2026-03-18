@@ -803,9 +803,7 @@ fn return_overflow(wasm_method: WasmExecutionMethod) {
 	}
 }
 
-#[cfg(feature = "riscv")]
 test_wasm_execution!(test_virtualization);
-#[cfg(feature = "riscv")]
 fn test_virtualization(wasm_method: WasmExecutionMethod) {
 	let mut ext = TestExternalities::default();
 	let mut ext = ext.ext();
