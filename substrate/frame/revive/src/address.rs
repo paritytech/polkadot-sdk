@@ -273,6 +273,7 @@ pub struct AutoMapper<T>(PhantomData<T>);
 impl<T: Config> OnNewAccount<T::AccountId> for AutoMapper<T> {
 	fn on_new_account(who: &T::AccountId) {
 		if T::AutoMap::get() &&
+			!T::AddressMapper::is_mapped(who) &&
 			let Err(err) = T::AddressMapper::map_no_deposit(who)
 		{
 			log::warn!(
