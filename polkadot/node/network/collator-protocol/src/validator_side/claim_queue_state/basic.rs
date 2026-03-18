@@ -173,11 +173,12 @@ impl ClaimQueueState {
 				Some(future_block) => {
 					let future_claim = future_block.claim.as_ref();
 					if future_claim != Some(expected_claim) {
-						gum::warn!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?future_claim,
 							?expected_claim,
-							"Inconsistency while adding a leaf to the `ClaimQueueState`."
+							leaf=hash,
+							"Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on session change."
 						);
 
 						// There is an inconsistency. Update our view with the one from the claim
