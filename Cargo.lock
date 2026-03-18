@@ -13193,7 +13193,6 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
- "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-babe",

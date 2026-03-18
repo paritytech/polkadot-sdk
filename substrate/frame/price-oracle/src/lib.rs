@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
+use frame_support::traits::Time;
 use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;
@@ -39,7 +40,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_timestamp::Config {
+	pub trait Config: frame_system::Config {
 		/// Absolute price change per net nudge (e.g. 0.001 means each net Up adds $0.001).
 		#[pallet::constant]
 		type Epsilon: Get<FixedU128>;
@@ -54,6 +55,8 @@ pub mod pallet {
 		type NudgeValidity: Get<u64>;
 
 		type AuthorityProvider: AuthorityProvider;
+
+		type TimeProvider: Time;
 
 		/// Hook called when the price is updated. Set to `()` if unused.
 		type OnPriceUpdate: OnPriceUpdate<BlockNumberFor<Self>>;
@@ -91,6 +94,21 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Submit a set of signed nudges as an inherent.
+		///
+		/// Validation is intentionally graceful: invalid nudges (stale, duplicate authority,
+		/// bad signature, unknown authority) are skipped rather than causing a block rejection.
+		/// This is because:
+		/// - The slot visible to the block author's node may differ by 1 from the runtime's slot
+		///   (node reads parent header, runtime has the current block's slot), making borderline
+		///   nudges valid on one side but stale on the other.
+		/// - The validator set can change between when a nudge was signed and when it's included,
+		///   making a previously-valid authority index invalid.
+		///
+		/// We may change any of them to a panic if needed.
+		///
+		/// `check_inherent` (run by importers) only enforces `MinNudges` as a reasonableness
+		/// check. All per-nudge validation happens here.
 		#[pallet::call_index(0)]
 		#[pallet::weight((
 			Weight::from_parts(10_000, 0).saturating_mul(nudges.len() as u64),
@@ -178,8 +196,7 @@ pub mod pallet {
 
 				CurrentPrice::<T>::put(new_price);
 				let block_number = frame_system::Pallet::<T>::block_number();
-				let timestamp: u64 =
-					pallet_timestamp::Pallet::<T>::get().try_into().unwrap_or(0u64);
+				let timestamp: u64 = T::TimeProvider::now().try_into().unwrap_or(0u64);
 				T::OnPriceUpdate::on_price_update(new_price, block_number, timestamp);
 			}
 
@@ -212,24 +229,6 @@ pub mod pallet {
 			let min = T::MinNudges::get();
 			if (nudges.len() as u32) < min {
 				return Err(InherentError::TooFewNudges(nudges.len() as u32, min));
-			}
-
-			let authorities = T::AuthorityProvider::authorities();
-			let current_slot = T::AuthorityProvider::current_slot();
-			let validity = T::NudgeValidity::get();
-
-			for nudge in nudges {
-				if *nudge.slot + validity <= *current_slot {
-					return Err(InherentError::StaleNudge(nudge.slot));
-				}
-
-				let authority = authorities
-					.get(nudge.authority_index as usize)
-					.ok_or(InherentError::InvalidSignature(nudge.authority_index))?;
-
-				if !nudge.verify(authority) {
-					return Err(InherentError::InvalidSignature(nudge.authority_index));
-				}
 			}
 
 			Ok(())

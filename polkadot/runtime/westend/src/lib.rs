@@ -532,6 +532,7 @@ impl pallet_price_oracle::Config for Runtime {
 	type MinNudges = OracleMinNudges;
 	type NudgeValidity = OracleNudgeValidity;
 	type AuthorityProvider = BabeAuthorityProvider;
+	type TimeProvider = Timestamp;
 	// Note: Later we wire this to pallet-xcm to send the price to AH and anywhere else interested.
 	type OnPriceUpdate = ();
 }

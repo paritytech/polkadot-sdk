@@ -20,7 +20,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
-pallet-timestamp = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-consensus-babe = { workspace = true }
@@ -46,7 +45,6 @@ std = [
 	"frame-support/std",
 	"frame-benchmarking?/std",
 	"frame-system/std",
-	"pallet-timestamp/std",
 	"log/std",
 	"scale-info/std",
 	"sp-consensus-babe/std",

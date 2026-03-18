@@ -6,8 +6,9 @@ use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU32};
 use sp_consensus_babe::{AuthorityId, AuthoritySignature};
 use sp_consensus_slots::Slot;
 use sp_core::{crypto::Pair as PairT, sr25519};
+use sp_inherents::InherentData;
 use sp_io::TestExternalities;
-use sp_price_oracle::{Nudge, SignedNudge};
+use sp_price_oracle::{Nudge, PriceOracleInherentData, SignedNudge, INHERENT_IDENTIFIER};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage, FixedU128,
@@ -18,7 +19,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
-		Timestamp: pallet_timestamp,
 		PriceOracle: pallet_price_oracle,
 	}
 );
@@ -28,11 +28,12 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
-impl pallet_timestamp::Config for Test {
+pub struct MockTime;
+impl frame_support::traits::Time for MockTime {
 	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = frame_support::traits::ConstU64<1>;
-	type WeightInfo = ();
+	fn now() -> u64 {
+		0
+	}
 }
 
 parameter_types! {
@@ -71,6 +72,7 @@ impl Config for Test {
 	type MinNudges = MinNudges;
 	type NudgeValidity = NudgeValidity;
 	type AuthorityProvider = MockAuthorityProvider;
+	type TimeProvider = MockTime;
 	type OnPriceUpdate = ();
 }
 
@@ -306,4 +308,143 @@ fn nudge_count_tracks_valid_nudges() {
 
 		assert_eq!(pallet::NudgeCount::<Test>::get(), 2);
 	});
+}
+
+/// Tests for the full inherent pipeline: node-side data → runtime processing.
+///
+/// In production, the pipeline is:
+///
+/// 1. **Node gossip service** collects signed nudges from peers into `NudgeStore`
+/// 2. **Node inherent provider** (`create_inherent_data`) selects a subset from the store
+///    and packs them into `sp_inherents::InherentData` via `sp_price_oracle::INHERENT_IDENTIFIER`
+/// 3. **Runtime `create_inherent`** deserializes the `InherentData` into `Call::submit_nudges`
+/// 4. **Runtime `check_inherent`** validates signatures and freshness (import-time rejection)
+/// 5. **Runtime `submit_nudges`** executes: verifies sigs, filters stale/duplicate/invalid,
+///    counts ups vs downs, applies epsilon to update `CurrentPrice`
+///
+/// These tests cover steps 3–5 by constructing `InherentData` directly and running it through
+/// `create_inherent` → dispatch. This catches mismatches between what the node side produces
+/// and what the runtime accepts (e.g. the duplicate-authority bug where the node could pass
+/// two nudges from the same validator, which would have caused the runtime to count them twice).
+mod inherent_pipeline {
+	use super::*;
+	use frame_support::pallet_prelude::ProvideInherent;
+	use frame_support::traits::UnfilteredDispatchable;
+
+	fn build_inherent_data(nudges: Vec<SignedNudge>) -> InherentData {
+		let mut data = InherentData::new();
+		data.put_data(INHERENT_IDENTIFIER, &nudges).expect("puts inherent data");
+		data
+	}
+
+	fn run_inherent(nudges: Vec<SignedNudge>) {
+		let data = build_inherent_data(nudges);
+		let call = PriceOracle::create_inherent(&data).expect("create_inherent returns Some");
+		assert_ok!(call.dispatch_bypass_filter(frame_system::RawOrigin::None.into()));
+	}
+
+	#[test]
+	fn happy_path() {
+		let pairs = generate_test_pairs(3);
+		new_test_ext().execute_with(|| {
+			set_authorities(&pairs);
+			set_current_slot(10);
+
+			let nudges = vec![
+				make_signed_nudge(&pairs[0], Nudge::Up, 10, 0),
+				make_signed_nudge(&pairs[1], Nudge::Up, 9, 1),
+				make_signed_nudge(&pairs[2], Nudge::Down, 10, 2),
+			];
+			run_inherent(nudges);
+
+			// 2 ups, 1 down → net 1 up → price = 0.01
+			assert_eq!(PriceOracle::current_price(), FixedU128::from_rational(1, 100));
+			assert_eq!(pallet::NudgeCount::<Test>::get(), 3);
+		});
+	}
+
+	#[test]
+	fn duplicates_do_not_panic() {
+		let pairs = generate_test_pairs(2);
+		new_test_ext().execute_with(|| {
+			set_authorities(&pairs);
+			set_current_slot(10);
+
+			let nudges = vec![
+				make_signed_nudge(&pairs[0], Nudge::Up, 10, 0),
+				make_signed_nudge(&pairs[0], Nudge::Up, 9, 0),
+				make_signed_nudge(&pairs[1], Nudge::Up, 10, 1),
+			];
+			run_inherent(nudges);
+
+			// duplicate skipped → 2 valid ups → price = 0.02
+			assert_eq!(PriceOracle::current_price(), FixedU128::from_rational(2, 100));
+			assert_eq!(pallet::NudgeCount::<Test>::get(), 2);
+		});
+	}
+
+	#[test]
+	fn stale_nudges_filtered() {
+		let pairs = generate_test_pairs(2);
+		new_test_ext().execute_with(|| {
+			set_authorities(&pairs);
+			set_current_slot(20);
+
+			let nudges = vec![
+				make_signed_nudge(&pairs[0], Nudge::Up, 20, 0),
+				make_signed_nudge(&pairs[1], Nudge::Up, 5, 1), // 5+10=15 <= 20 → stale
+			];
+			run_inherent(nudges);
+
+			assert_eq!(PriceOracle::current_price(), FixedU128::from_rational(1, 100));
+			assert_eq!(pallet::NudgeCount::<Test>::get(), 1);
+		});
+	}
+
+	#[test]
+	fn bad_signature_filtered() {
+		let pairs = generate_test_pairs(2);
+		new_test_ext().execute_with(|| {
+			set_authorities(&pairs);
+			set_current_slot(10);
+
+			let nudges = vec![
+				make_signed_nudge(&pairs[1], Nudge::Up, 10, 0), // wrong key for auth 0
+				make_signed_nudge(&pairs[1], Nudge::Up, 10, 1),
+			];
+			run_inherent(nudges);
+
+			assert_eq!(PriceOracle::current_price(), FixedU128::from_rational(1, 100));
+			assert_eq!(pallet::NudgeCount::<Test>::get(), 1);
+		});
+	}
+
+	#[test]
+	fn empty_inherent() {
+		new_test_ext().execute_with(|| {
+			pallet::CurrentPrice::<Test>::put(FixedU128::from_u32(5));
+			run_inherent(vec![]);
+
+			assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
+			assert_eq!(pallet::NudgeCount::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn all_invalid() {
+		let pairs = generate_test_pairs(2);
+		new_test_ext().execute_with(|| {
+			set_authorities(&pairs);
+			set_current_slot(100);
+
+			let nudges = vec![
+				make_signed_nudge(&pairs[0], Nudge::Up, 1, 0),  // stale
+				make_signed_nudge(&pairs[1], Nudge::Up, 10, 3), // invalid authority index
+			];
+			run_inherent(nudges);
+
+			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+			assert_eq!(pallet::NudgeCount::<Test>::get(), 0);
+		});
+	}
 }

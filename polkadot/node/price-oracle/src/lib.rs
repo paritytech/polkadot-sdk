@@ -268,6 +268,7 @@ where
 	use sp_consensus_babe::digests::CompatibleDigestItem;
 	use sp_runtime::traits::Header as _;
 
+	// TODO: is this the slot of the current block being authored, or the parent block? 99% it is the parent!
 	let best_hash = client.info().best_hash;
 	client
 		.header(best_hash)
