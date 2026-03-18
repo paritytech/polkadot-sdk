@@ -36,7 +36,7 @@ use crate::{
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{
-	error::Error as PoolError, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+	error::{Error as PoolError, IntoPoolError}, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
@@ -320,21 +320,47 @@ where
 			.into_iter()
 			.find_or_first(Result::is_ok);
 
-		match result {
-			Some(Err(error)) => {
-				trace!(
-					target: LOG_TARGET,
-					?tx_hash,
-					%error,
-					"submit_and_watch failed"
-				);
-				return Err(error);
-			},
-			Some(Ok(result)) => {
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
-			},
-			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
-		}
+			match result {
+				Some(Err(error)) => {
+					// No active view accepted the tx. Check if the error is
+					// AlreadyImported — this indicates a race where
+					// update_view_with_mempool() concurrently imported the tx from
+					// mempool into the view before we got here.
+					// The tx IS in the pool, so return success.
+					match error.into_pool_error() {
+						Ok(PoolError::AlreadyImported(_)) => {
+							trace!(
+								target: LOG_TARGET,
+								?tx_hash,
+								"submit_and_watch: tx already imported into view \
+								 (concurrent maintain race), treating as success"
+							);
+							Ok(ViewStoreSubmitOutcome::new(tx_hash, None)
+								.with_watcher(external_watcher))
+						},
+						Ok(pool_err) => {
+							trace!(
+								target: LOG_TARGET,
+								?tx_hash,
+								?pool_err,
+								"submit_and_watch failed"
+							);
+							Err(pool_err.into())
+						},
+						Err(err) => {
+							trace!(
+								target: LOG_TARGET,
+								?tx_hash,
+								"submit_and_watch failed"
+							);
+							Err(err)
+						},
+					}
+				},
+				Some(Ok(result)) =>
+					Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
+				None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
+			}
 	}
 
 	/// Returns the pool status for every active view.
@@ -1011,5 +1037,104 @@ where
 		});
 
 		provides_tags_map
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		common::tests::TestApi,
+		fork_aware_txpool::{
+			dropped_watcher::MultiViewDroppedWatcherController,
+			import_notification_sink::MultiViewImportNotificationSink,
+			multi_view_listener::MultiViewListener,
+			view::View,
+		},
+		graph::base_pool::TimedTransactionSource,
+		ValidateTransactionPriority,
+	};
+	use futures::StreamExt;
+	use substrate_test_runtime::{AccountId, Block, ExtrinsicBuilder, Transfer, H256};
+	use substrate_test_runtime_client::Sr25519Keyring::Alice;
+
+	type TestViewStore = ViewStore<TestApi, Block>;
+
+	fn create_test_view_store(
+		api: Arc<TestApi>,
+	) -> (TestViewStore, futures::future::BoxFuture<'static, ()>) {
+		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
+		let listener = Arc::new(listener);
+		let (dropped_controller, _dropped_stream) = MultiViewDroppedWatcherController::new();
+		let (import_sink, _import_task) = MultiViewImportNotificationSink::new_with_worker();
+		let view_store = ViewStore::new(api, listener, dropped_controller, import_sink);
+		(view_store, listener_task)
+	}
+
+	/// Deterministic test for the AlreadyImported fix in submit_and_watch.
+	///
+	/// Simulates the race condition where update_view_with_mempool imports a tx from
+	/// mempool into an active view before view_store.submit_and_watch gets to submit it.
+	/// Without the fix, submit_and_watch would return Err(AlreadyImported). With the fix,
+	/// it returns Ok because the tx IS in the pool.
+	#[tokio::test]
+	async fn submit_and_watch_treats_already_imported_from_view_as_success() {
+		sp_tracing::try_init_simple();
+
+		let api = Arc::new(TestApi::default());
+		let (view_store, listener_task) = create_test_view_store(api.clone());
+
+		// Spawn the listener task so the external watcher stream works.
+		let _listener_handle = tokio::spawn(listener_task);
+
+		// Create a view at block 0.
+		let block_hash = H256::from_low_u64_be(0);
+		let at = sp_blockchain::HashAndNumber { hash: block_hash, number: 0 };
+		let (view, _dropped_stream, aggregated_stream) =
+			View::new(api.clone(), at, Default::default(), Default::default(), true.into());
+		let view = Arc::new(view);
+
+		// Create a test transaction (nonce 0 is "ready" at block 0).
+		let xt = ExtrinsicBuilder::new_transfer(Transfer {
+			from: Alice.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(2)),
+			amount: 5,
+			nonce: 0,
+		})
+		.build();
+		let xt = Arc::from(xt);
+
+		// Submit the tx to the view first — this is what update_view_with_mempool does.
+		view.submit_one(
+			TimedTransactionSource::new_external(false),
+			xt.clone(),
+			ValidateTransactionPriority::Maintained,
+		)
+		.await
+		.expect("initial submit to view should succeed");
+
+		// Connect the view's aggregated stream to the listener and insert into active_views.
+		view_store
+			.listener
+			.add_view_aggregated_stream(block_hash, aggregated_stream.boxed());
+		view_store.active_views.write().insert(block_hash, view);
+
+		// Now call submit_and_watch for the same tx.
+		// The view already has this tx, so view.submit_one will return AlreadyImported.
+		// With the fix, submit_and_watch treats this as success.
+		let result = view_store
+			.submit_and_watch(
+				block_hash,
+				TimedTransactionSource::new_external(false),
+				xt,
+			)
+			.await;
+
+		assert!(
+			result.is_ok(),
+			"submit_and_watch should succeed when views return AlreadyImported \
+			 (simulated update_view_with_mempool race), got: {:?}",
+			result.err().map(|e| e.to_string())
+		);
 	}
 }
