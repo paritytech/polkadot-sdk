@@ -152,6 +152,8 @@ const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+/// Interval for processing pending topic affinity changes from peers.
+const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -434,6 +436,9 @@ impl StatementHandlerPrototype {
 			statements_per_second,
 			metrics,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			pending_affinities_timeout: Box::pin(
+				tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse(),
+			),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		};
@@ -476,6 +481,8 @@ pub struct StatementHandler<
 	metrics: Option<Metrics>,
 	/// Timeout for sending next statement batch during initial sync.
 	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
+	/// Timeout for processing pending topic affinity changes.
+	pending_affinities_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
@@ -526,6 +533,10 @@ pub struct Peer {
 	/// Whether this peer is a light client.
 	/// Light clients on V2 must set topic affinity before receiving statements.
 	is_light: bool,
+	/// A pending topic affinity filter waiting to be scheduled for initial sync.
+	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
+	/// once any in-progress initial sync for this peer completes.
+	pending_topic_affinity: Option<AffinityFilter>,
 }
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
@@ -625,6 +636,7 @@ impl Peer {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			pending_topic_affinity: None,
 		}
 	}
 
@@ -672,6 +684,7 @@ where
 			statements_per_second,
 			metrics: None,
 			initial_sync_timeout: Box::pin(pending().fuse()),
+			pending_affinities_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		}
@@ -726,6 +739,11 @@ where
 					self.process_initial_sync_burst().await;
 					self.initial_sync_timeout =
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
+				},
+				_ = &mut self.pending_affinities_timeout => {
+					self.process_pending_affinities();
+					self.pending_affinities_timeout =
+						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
 				},
 			}
 		}
@@ -860,6 +878,7 @@ where
 						protocol_version,
 						topic_affinity: None,
 						is_light,
+						pending_topic_affinity: None,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -933,14 +952,22 @@ where
 									self.on_statements(peer, statements)
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
-									log::debug!(
-										target: LOG_TARGET,
-										"Received topic affinity filter from {peer}"
-									);
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
-										peer_data.topic_affinity = Some(filter);
-										// Re-sync statements matching the new filter.
-										self.schedule_initial_sync_for_peer(peer);
+										if peer_data.rate_limiter.is_flooding(1) {
+											log::debug!(
+												target: LOG_TARGET,
+												"Rate-limiting ExplicitTopicAffinity from {peer}"
+											);
+											self.network.report_peer(peer, rep::BAD_MESSAGE);
+										} else {
+											log::debug!(
+												target: LOG_TARGET,
+												"Received topic affinity filter from {peer}"
+											);
+											// Defer both the affinity update and sync scheduling
+											// to the main loop tick.
+											peer_data.pending_topic_affinity = Some(filter);
+										}
 									}
 								},
 							}
@@ -1194,6 +1221,30 @@ where
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
 			});
+		}
+	}
+
+	/// Process pending topic affinity changes for peers that have no active initial sync.
+	///
+	/// When a peer sends `ExplicitTopicAffinity`, we defer the expensive
+	/// `schedule_initial_sync_for_peer` call. This method applies the pending affinity
+	/// and schedules the sync once the peer's current sync (if any) has completed.
+	fn process_pending_affinities(&mut self) {
+		let ready_peers: Vec<PeerId> = self
+			.peers
+			.iter()
+			.filter(|(peer_id, peer_data)| {
+				peer_data.pending_topic_affinity.is_some() &&
+					!self.pending_initial_syncs.contains_key(peer_id)
+			})
+			.map(|(peer_id, _)| *peer_id)
+			.collect();
+
+		for peer_id in ready_peers {
+			if let Some(peer_data) = self.peers.get_mut(&peer_id) {
+				peer_data.topic_affinity = peer_data.pending_topic_affinity.take();
+			}
+			self.schedule_initial_sync_for_peer(peer_id);
 		}
 	}
 
@@ -1719,6 +1770,7 @@ mod tests {
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
+				pending_topic_affinity: None,
 			},
 		);
 
@@ -1742,6 +1794,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		};
@@ -1949,6 +2002,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		};
@@ -1987,6 +2041,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		};
@@ -2775,6 +2830,9 @@ mod tests {
 			})
 			.await;
 
+		// Affinity is deferred; process it.
+		handler.process_pending_affinities();
+
 		let peer_data = handler.peers.get(&peer_id).unwrap();
 		assert!(
 			peer_data.topic_affinity.is_some(),
@@ -2817,6 +2875,9 @@ mod tests {
 				notification: encoded.into(),
 			})
 			.await;
+
+		// Affinity is deferred; process it.
+		handler.process_pending_affinities();
 
 		// Create statements: one matching, one not matching, one with no topics.
 		let mut stmt_matching = Statement::new();
@@ -2996,6 +3057,9 @@ mod tests {
 			})
 			.await;
 
+		// Affinity is deferred; process it.
+		handler.process_pending_affinities();
+
 		assert!(
 			handler.pending_initial_syncs.contains_key(&peer_id),
 			"Initial sync should be scheduled after setting affinity"
@@ -3035,6 +3099,9 @@ mod tests {
 				notification: encoded.into(),
 			})
 			.await;
+
+		// Affinity is deferred; process it.
+		handler.process_pending_affinities();
 
 		assert!(
 			handler.pending_initial_syncs.contains_key(&peer_id),
@@ -3126,6 +3193,9 @@ mod tests {
 			})
 			.await;
 
+		// Affinity is deferred; process it.
+		handler.process_pending_affinities();
+
 		// Drain initial sync — should only send stmt_aa (matches affinity).
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
 			handler.process_initial_sync_burst().await;
@@ -3174,6 +3244,9 @@ mod tests {
 				notification: encoded.into(),
 			})
 			.await;
+
+		// Affinity is deferred; process it.
+		handler.process_pending_affinities();
 
 		// Drain re-sync — stmt_bb should now be sent.
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
@@ -3240,6 +3313,7 @@ mod tests {
 				protocol_version: version,
 				topic_affinity,
 				is_light,
+				pending_topic_affinity: None,
 			}
 		};
 
@@ -3398,6 +3472,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		};
@@ -3482,6 +3557,7 @@ mod tests {
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
+				pending_topic_affinity: None,
 			},
 		);
 
