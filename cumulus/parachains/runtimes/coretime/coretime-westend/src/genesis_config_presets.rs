@@ -18,7 +18,7 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use frame_support::build_struct_json_patch;
+use frame_support::{build_struct_json_patch, sp_runtime::traits::AccountIdConversion};
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
@@ -27,6 +27,10 @@ use testnet_parachains_constants::westend::{
 };
 
 const CORETIME_WESTEND_ED: Balance = ExistentialDeposit::get();
+
+fn dap_satellite_account() -> AccountId {
+	DapSatellitePalletId::get().into_account_truncating()
+}
 pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
 
 fn coretime_westend_genesis(
@@ -37,7 +41,12 @@ fn coretime_westend_genesis(
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, endowment))
+				.chain(core::iter::once((dap_satellite_account(), CORETIME_WESTEND_ED)))
+				.collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
