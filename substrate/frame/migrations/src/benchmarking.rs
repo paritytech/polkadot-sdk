@@ -23,7 +23,7 @@ use core::array;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
 use sp_core::{twox_128, Get};
-use sp_io::{storage, KillStorageResult};
+use sp_io::storage;
 use sp_runtime::traits::One;
 
 fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -227,7 +227,7 @@ mod benches {
 		let result;
 		#[block]
 		{
-			result = storage::clear_prefix(&prefix, None, None);
+			result = storage::clear_prefix(prefix, None, None);
 		}
 
 		// It will always reports no keys removed because they are still in the overlay.
