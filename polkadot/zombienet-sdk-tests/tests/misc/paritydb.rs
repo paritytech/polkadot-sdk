@@ -11,15 +11,16 @@ use crate::utils::{
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use log::{info, trace};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use std::ops::Range;
+use std::{ops::Range, path::PathBuf};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder,
+	NetworkConfig, NetworkConfigBuilder, RunScriptOptions,
 };
 
-const PARAS: [u32; 5] = [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009];
+const PARAS: [u32; 10] = [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009];
 
 #[tokio::test(flavor = "multi_thread")]
 async fn paritydb_test() -> Result<(), anyhow::Error> {
@@ -31,6 +32,16 @@ async fn paritydb_test() -> Result<(), anyhow::Error> {
 	let network = initialize_network(config).await?;
 
 	let validator_nodes = network.relaychain().nodes();
+
+	info!("Running script to ensure we are using parityDb");
+	let script_path = create_script().await?;
+
+	for validator in &validator_nodes {
+		let res = validator.run_script(RunScriptOptions::new(&script_path)).await?;
+		assert!(res.is_ok(), "{}", format!("node {} is not using paritydb", validator.name()));
+	}
+	info!("All nodes are using parityDb");
+
 	let relay_node = validator_nodes
 		.first()
 		.ok_or(anyhow!("Relaychain should have at least one node"))?;
@@ -62,6 +73,28 @@ async fn paritydb_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Test finished successfully");
 	Ok(())
+}
+
+async fn create_script() -> Result<PathBuf, anyhow::Error> {
+	// Create test script if it doesn't exist
+	let script_path = PathBuf::from("./test_script.sh");
+	if !script_path.exists() {
+		trace!("Creating test_script.sh...");
+		tokio::fs::write(
+			&script_path,
+			r#"#!/bin/bash
+                # at first check path that works for native provider
+                DIR=./data/chains/rococo_local_testnet/paritydb/full
+                if [ ! -d $DIR ] ; then
+                    # check k8s provider
+                    DIR=/data/chains/rococo_local_testnet/paritydb/full
+                fi
+                ls $DIR 2> /dev/null
+            "#,
+		)
+		.await?;
+	}
+	Ok(script_path)
 }
 
 fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
