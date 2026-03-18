@@ -2,28 +2,29 @@ title: Expose ECC host functions
 doc:
 - audience: Runtime Dev
   description: |-
-    Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`, `Pallas`, `Vesta` for parachains, as ratified by RFC-0163.
-    Node operators should update to this version soon.
+    Changes:
+    - Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`, `Pallas`, `Vesta` for parachains
+    - Add new executor param `EnabledHostFunction` that can be used to enable host function usage.
 
-    The host function can then be enabled on-chain via Governance through `Configuration::set_executor_params`.
+    These were ratified in [RFC 163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing Pasta curves will be added later https://github.com/paritytech/polkadot-sdk/pull/11035. We will use these on the people chain only.
 crates:
 - name: cumulus-client-service
-  bump: major
+  bump: minor
 - name: sp-crypto-ec-utils
   bump: minor
 - name: polkadot-node-core-pvf-common
-  bump: patch
+  bump: none
 - name: polkadot-collator-protocol
-  bump: patch
-- name: polkadot-node-core-candidate-validation
-  bump: patch
-- name: polkadot-node-core-pvf-execute-worker
-  bump: patch
-- name: polkadot-node-core-pvf-prepare-worker
-  bump: patch
-- name: polkadot-node-core-pvf
-  bump: patch
-- name: polkadot-primitives
   bump: major
+- name: polkadot-node-core-candidate-validation
+  bump: minor
+- name: polkadot-node-core-pvf-execute-worker
+  bump: none
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor
+- name: polkadot-node-core-pvf
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: minor
