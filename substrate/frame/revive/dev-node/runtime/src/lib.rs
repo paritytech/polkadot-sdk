@@ -313,6 +313,8 @@ impl frame_system::Config for Runtime {
 	type Hash = Hash;
 	type Nonce = Nonce;
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
+	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
+	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
 }
 
 parameter_types! {
@@ -366,6 +368,7 @@ impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = ConstBool<true>;
+	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<50000>;
 }
 

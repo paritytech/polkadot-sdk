@@ -20,7 +20,9 @@
 use crate::{Config, Error, HoldReason, OriginalAccount, ensure};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::traits::{fungible::MutateHold, tokens::Precision};
+use frame_support::traits::{
+	OnKilledAccount, OnNewAccount, fungible::MutateHold, tokens::Precision,
+};
 use sp_core::{Get, H160};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{AccountId32, DispatchResult, Saturating};
@@ -266,16 +268,34 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 	H160::from_slice(&hash[12..])
 }
 
+pub struct AutoMapper<T>(PhantomData<T>);
+
+impl<T: Config> OnNewAccount<T::AccountId> for AutoMapper<T> {
+	fn on_new_account(who: &T::AccountId) {
+		if T::AutoMap::get() {
+			let _ = T::AddressMapper::map_no_deposit(who);
+		}
+	}
+}
+
+impl<T: Config> OnKilledAccount<T::AccountId> for AutoMapper<T> {
+	fn on_killed_account(who: &T::AccountId) {
+		if T::AutoMap::get() {
+			let _ = T::AddressMapper::unmap(who);
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
 	use crate::{
-		AddressMapper, Error,
+		AddressMapper, Error, Pallet,
 		test_utils::*,
-		tests::{ExtBuilder, Test},
+		tests::{AutoMapFlag, ExtBuilder, RuntimeOrigin, Test},
 	};
 	use frame_support::{
-		assert_err,
+		assert_err, assert_noop,
 		traits::fungible::{InspectHold, Mutate},
 	};
 	use pretty_assertions::assert_eq;
@@ -417,6 +437,89 @@ mod test {
 					&EVE
 				),
 				0
+			);
+		});
+	}
+
+	#[test]
+	fn auto_mapper_maps_on_new_account() {
+		ExtBuilder::default().build().execute_with(|| {
+			AutoMapFlag::set(true);
+
+			assert!(!frame_system::Pallet::<Test>::account_exists(&EVE));
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			// Funding a new account triggers frame_system's OnNewAccount hook
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+			// no deposit taken
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				),
+				0
+			);
+		});
+	}
+
+	#[test]
+	fn auto_mapper_unmaps_on_killed_account() {
+		ExtBuilder::default().build().execute_with(|| {
+			AutoMapFlag::set(true);
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+			// Killing the account triggers frame_system's OnKilledAccount hook
+			<Test as Config>::Currency::set_balance(&EVE, 0);
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+		});
+	}
+
+	#[test]
+	fn auto_mapper_noop_when_disabled() {
+		ExtBuilder::default().build().execute_with(|| {
+			AutoMapFlag::set(false);
+
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+		});
+	}
+
+	#[test]
+	fn auto_mapper_ignores_eth_derived_accounts() {
+		ExtBuilder::default().build().execute_with(|| {
+			AutoMapFlag::set(true);
+
+			// ALICE is eth-derived and already considered mapped
+			assert!(<Test as Config>::AddressMapper::is_mapped(&ALICE));
+			// Funding an eth-derived account silently ignores the AccountAlreadyMapped error
+			<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+			assert!(<Test as Config>::AddressMapper::is_mapped(&ALICE));
+		});
+	}
+
+	#[test]
+	fn map_account_dispatchable_blocked_when_auto_map_enabled() {
+		ExtBuilder::default().build().execute_with(|| {
+			AutoMapFlag::set(true);
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+
+			assert_noop!(
+				Pallet::<Test>::map_account(RuntimeOrigin::signed(EVE)),
+				<Error<Test>>::AutoMappingEnabled,
+			);
+		});
+	}
+
+	#[test]
+	fn unmap_account_dispatchable_blocked_when_auto_map_enabled() {
+		ExtBuilder::default().build().execute_with(|| {
+			AutoMapFlag::set(true);
+
+			assert_noop!(
+				Pallet::<Test>::unmap_account(RuntimeOrigin::signed(EVE)),
+				<Error<Test>>::AutoMappingEnabled,
 			);
 		});
 	}
