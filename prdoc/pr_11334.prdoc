@@ -13,9 +13,9 @@ crates:
 - name: sp-crypto-ec-utils
   bump: minor
 - name: polkadot-node-core-pvf-common
-  bump: none
+  bump: minor
 - name: polkadot-collator-protocol
-  bump: major
+  bump: minor
 - name: polkadot-node-core-candidate-validation
   bump: minor
 - name: polkadot-node-core-pvf-execute-worker
@@ -25,6 +25,6 @@ crates:
 - name: polkadot-node-core-pvf
   bump: minor
 - name: polkadot-primitives
-  bump: minor
+  bump: major
 - name: polkadot-runtime-parachains
   bump: minor
