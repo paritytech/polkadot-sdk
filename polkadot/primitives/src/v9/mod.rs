@@ -1858,23 +1858,18 @@ pub enum CandidateDescriptorVersion {
 
 /// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum VersionCheckError {
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+pub enum CandidateDescriptorVersionCheckError {
 	/// Old-style and new-style version detection disagree, and this is not the
 	/// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
+	#[cfg_attr(
+		feature = "std",
+		error("Descriptor version detection inconsistency (old vs new rules disagree)")
+	)]
 	Inconsistency,
 	/// The descriptor is V3 but the V3 feature is not enabled.
+	#[cfg_attr(feature = "std", error("V3 candidate descriptor but V3 feature not enabled"))]
 	V3NotEnabled,
-}
-
-impl core::fmt::Display for VersionCheckError {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		match self {
-			Self::Inconsistency => {
-				write!(f, "Descriptor version detection inconsistency (old vs new rules disagree)")
-			},
-			Self::V3NotEnabled => write!(f, "V3 candidate descriptor but V3 feature not enabled"),
-		}
-	}
 }
 
 /// A unique descriptor of the candidate receipt.
@@ -1966,10 +1961,6 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// some actually unused bytes are available (don't affect the v1 version
 	/// check).
 	///
-	/// # Arguments
-	///
-	/// Detect the version of the candidate descriptor.
-	///
 	/// Always uses the relaxed (v3-capable) detection logic. This means
 	/// version detection is self-contained and does not require knowing
 	/// whether the V3 node feature is enabled.
@@ -2023,19 +2014,19 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// 1. Old-style and new-style version detection must agree, unless the candidate is V3 and V3
 	///    is enabled (the expected disagreement: old rules see V1, new rules see V3).
 	/// 2. V3 candidates are rejected when V3 is not enabled.
-	pub fn check_version_acceptance(&self, v3_enabled: bool) -> Result<(), VersionCheckError> {
+	pub fn check_version_acceptance(&self, v3_enabled: bool) -> Result<(), CandidateDescriptorVersionCheckError> {
 		let version = self.version();
 
 		// Version consistency: old and new detection must agree, unless this is the
 		// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
 		let is_expected_v3_disagreement = version == CandidateDescriptorVersion::V3 && v3_enabled;
 		if !self.check_version_consistency() && !is_expected_v3_disagreement {
-			return Err(VersionCheckError::Inconsistency);
+			return Err(CandidateDescriptorVersionCheckError::Inconsistency);
 		}
 
 		// V3 gating: reject V3 candidates before the feature is enabled.
 		if version == CandidateDescriptorVersion::V3 && !v3_enabled {
-			return Err(VersionCheckError::V3NotEnabled);
+			return Err(CandidateDescriptorVersionCheckError::V3NotEnabled);
 		}
 
 		Ok(())
@@ -3334,7 +3325,7 @@ pub mod tests {
 		let desc = make_v3_descriptor();
 
 		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
-		assert_eq!(desc.check_version_acceptance(false), Err(VersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(false), Err(CandidateDescriptorVersionCheckError::Inconsistency));
 	}
 
 	#[test]
@@ -3349,8 +3340,8 @@ pub mod tests {
 		assert!(!desc.check_version_consistency());
 
 		// Rejected regardless of v3_enabled.
-		assert_eq!(desc.check_version_acceptance(false), Err(VersionCheckError::Inconsistency));
-		assert_eq!(desc.check_version_acceptance(true), Err(VersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(false), Err(CandidateDescriptorVersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(true), Err(CandidateDescriptorVersionCheckError::Inconsistency));
 	}
 
 	#[test]
@@ -3410,7 +3401,7 @@ pub mod tests {
 		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
 		assert!(!desc.check_version_consistency());
 
-		assert_eq!(desc.check_version_acceptance(false), Err(VersionCheckError::Inconsistency));
-		assert_eq!(desc.check_version_acceptance(true), Err(VersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(false), Err(CandidateDescriptorVersionCheckError::Inconsistency));
+		assert_eq!(desc.check_version_acceptance(true), Err(CandidateDescriptorVersionCheckError::Inconsistency));
 	}
 }

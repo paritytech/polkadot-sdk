@@ -4868,13 +4868,7 @@ fn setup_v3_test_state() -> (TestState, Hash, Hash) {
 	(test_state, relay_parent, scheduling_parent)
 }
 
-/// Regression test: V3 candidate on the very first leaf must be handled correctly.
-///
-/// Before the fix, `Initialized` was created with `v3_ever_seen = false` and
-/// `process_chain_import_backlog` (which processes on-chain backing votes from the
-/// first leaf) ran before `process_active_leaves_update` could set `v3_ever_seen`.
-/// This caused V3 candidates to be misinterpreted as V1, using `relay_parent` instead
-/// of `scheduling_parent` in the backing signature context — breaking the debug_assert.
+/// V3 candidate on the very first leaf must be handled correctly.
 #[test]
 fn v3_candidate_on_first_leaf_is_detected_correctly() {
 	let (mut test_state, relay_parent, scheduling_parent) = setup_v3_test_state();

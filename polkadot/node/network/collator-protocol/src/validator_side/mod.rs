@@ -2702,8 +2702,8 @@ async fn kick_off_seconding<Context>(
 				(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
 			},
 			(CollationVersion::V1, _) => {
-				// Execution context: relay parent for fetching PVD from relay chain state.
-				// TODO: We will need to use the new runtime API here:
+				// V1 protocol only carries V1 descriptors (enforced by
+				// descriptor_version_sanity_check), so the legacy PVD API is correct.
 				let pvd = request_persisted_validation_data(
 					ctx.sender(),
 					candidate_receipt.descriptor().relay_parent(),

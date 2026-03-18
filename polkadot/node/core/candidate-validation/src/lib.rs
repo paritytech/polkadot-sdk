@@ -1000,10 +1000,6 @@ async fn validate_candidate_exhaustive(
 
 	// Backing-only: verify the descriptor's scheduling_session claim against
 	// the session index independently fetched from the runtime.
-	// The relay parent session check is left for later:
-	// https://github.com/paritytech/polkadot-sdk/issues/11182
-	// TODO: Properly check session index in the runtime:
-	// https://github.com/paritytech/polkadot-sdk/issues/11033
 	if let Some(BackingExtras { expected_scheduling_session, .. }) = &backing_extras {
 		if let Some(scheduling_session) = candidate_receipt.descriptor.scheduling_session() {
 			if scheduling_session != *expected_scheduling_session {
