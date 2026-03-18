@@ -17,9 +17,9 @@
 
 //! # Multi-Block Migration v3
 //!
-//! Auto-map all existing `AccountId32` accounts that are not yet mapped.
-//! This iterates `frame_system::Account` and inserts into `OriginalAccount`
-//! for every non-eth-derived account that lacks a mapping.
+//! Auto-map all existing accounts that are not yet mapped.
+//! This iterates `frame_system::Account` and calls `map_no_deposit`
+//! for every account that lacks a mapping.
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::{AddressMapper, Config, LOG_TARGET, weights::WeightInfo};
@@ -28,7 +28,6 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
-use sp_runtime::AccountId32;
 
 #[cfg(feature = "try-runtime")]
 extern crate alloc;
@@ -37,10 +36,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 /// Maps all existing accounts that are not yet address-mapped.
-pub struct Migration<T: Config<AccountId = AccountId32>>(PhantomData<T>);
+pub struct Migration<T: Config>(PhantomData<T>);
 
-impl<T: Config<AccountId = AccountId32>> SteppedMigration for Migration<T> {
-	type Cursor = AccountId32;
+impl<T: Config> SteppedMigration for Migration<T> {
+	type Cursor = T::AccountId;
 	type Identifier = MigrationId<17>;
 
 	fn id() -> Self::Identifier {
@@ -121,6 +120,7 @@ fn migrate_to_v3() {
 	};
 	use frame_support::{traits::fungible::Mutate, weights::WeightMeter};
 	use sp_core::H160;
+	use sp_runtime::AccountId32;
 
 	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 		use crate::address::AccountId32Mapper;
@@ -182,6 +182,7 @@ fn migrate_to_v3_maps_all_accounts() {
 		tests::{ExtBuilder, Test},
 	};
 	use frame_support::{traits::fungible::Mutate, weights::WeightMeter};
+	use sp_runtime::AccountId32;
 
 	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 		let accounts: Vec<AccountId32> = (10..15u8).map(|i| AccountId32::new([i; 32])).collect();

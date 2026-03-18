@@ -109,7 +109,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 
 #[benchmarks(
 	where
-		T: Config<AccountId = AccountId32>,
+		T: Config,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
@@ -2682,11 +2682,12 @@ mod benchmarks {
 	#[benchmark]
 	fn v3_migration_step() {
 		use crate::migrations::v3;
-		let account = AccountId32::new([99u8; 32]);
+		let account = account::<T::AccountId>("target", 0, 0);
 		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
 			.expect("should mint into account");
 		// clear the mapping so the migration has work to do
-		T::AddressMapper::unmap(&account).unwrap();
+		let addr = T::AddressMapper::to_address(&account);
+		crate::OriginalAccount::<T>::remove(addr);
 		assert!(!T::AddressMapper::is_mapped(&account));
 		let mut meter = WeightMeter::new();
 
