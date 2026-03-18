@@ -85,20 +85,34 @@ enum PeerProtocolVersion {
 	V2,
 }
 
-#[derive(Encode, Decode)]
+impl PeerProtocolVersion {
+	/// Returns the encoding envelope overhead for this protocol version.
+	fn envelope_overhead(&self) -> usize {
+		match self {
+			PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
+			PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
+		}
+	}
+}
+
+#[derive(Debug, Encode, Decode)]
 enum StatementMessage {
+	#[codec(index = 0)]
 	Statements(Vec<Statement>),
 	/// Bloom filter bytes representing the topics this peer is interested in.
+	#[codec(index = 1)]
 	ExplicitTopicAffinity(AffinityFilter),
 }
+
+/// Codec variant index for `StatementMessage::Statements`, kept in sync with `#[codec(index)]`.
+const STATEMENTS_VARIANT_INDEX: u8 = 0;
 
 impl StatementMessage {
 	/// Encode a slice of statement references as a `StatementMessage::Statements`
 	/// without cloning the statements.
 	fn encode_statement_refs(statements: &[&Statement]) -> Vec<u8> {
 		let mut out = Vec::new();
-		// Variant index for `Statements`.
-		0u8.encode_to(&mut out);
+		STATEMENTS_VARIANT_INDEX.encode_to(&mut out);
 		statements.encode_to(&mut out);
 		out
 	}
@@ -124,6 +138,8 @@ mod rep {
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
 	/// Reputation change when a peer floods us with statements.
 	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
+	/// Reputation change when a peer sends us a message we can't decode.
+	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad statement message");
 }
 
 const LOG_TARGET: &str = "statement-gossip";
@@ -725,15 +741,12 @@ where
 		peer: &PeerId,
 		statements: &[&Statement],
 	) -> SendChunkResult {
-		let peer_version = self
-			.peers
-			.get(peer)
-			.map(|p| p.protocol_version)
-			.unwrap_or(PeerProtocolVersion::V1);
-		let envelope_overhead = match peer_version {
-			PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
-			PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
+		let Some(peer_data) = self.peers.get(peer) else {
+			log::error!(target: LOG_TARGET, "Peer {peer} not found in peers map during send_statement_chunk");
+			return SendChunkResult::Failed;
 		};
+		let peer_version = peer_data.protocol_version;
+		let envelope_overhead = peer_version.envelope_overhead();
 		match find_sendable_chunk(statements, envelope_overhead) {
 			ChunkResult::Send(0) => SendChunkResult::Empty,
 			ChunkResult::Send(chunk_end) => {
@@ -824,11 +837,11 @@ where
 				} else {
 					PeerProtocolVersion::V2
 				};
-				let is_light =
-					self.network.peer_role(peer, handshake).map_or(false, |role| role.is_light());
+				let peer_role = self.network.peer_role(peer, handshake);
+				let is_light = peer_role.map_or(false, |role| role.is_light());
 				log::debug!(
 					target: LOG_TARGET,
-					"Peer {peer} connected with statement protocol {protocol_version:?}, light={is_light}"
+					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
 				);
 				let _was_in = self.peers.insert(
 					peer,
@@ -892,13 +905,12 @@ where
 					return;
 				}
 
-				let peer_version = self
-					.peers
-					.get(&peer)
-					.map(|p| p.protocol_version)
-					.unwrap_or(PeerProtocolVersion::V1);
+				let Some(peer_data) = self.peers.get(&peer) else {
+					log::error!(target: LOG_TARGET, "Received notification from unknown peer {peer}");
+					return;
+				};
 
-				match peer_version {
+				match peer_data.protocol_version {
 					PeerProtocolVersion::V1 => {
 						// V1 peers send raw Vec<Statement>.
 						if let Ok(statements) =
@@ -910,6 +922,7 @@ where
 								target: LOG_TARGET,
 								"Failed to decode v1 statement list from {peer}"
 							);
+							self.network.report_peer(peer, rep::BAD_MESSAGE);
 						}
 					},
 					PeerProtocolVersion::V2 => {
@@ -926,9 +939,9 @@ where
 									);
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										peer_data.topic_affinity = Some(filter);
+										// Re-sync statements matching the new filter.
+										self.schedule_initial_sync_for_peer(peer);
 									}
-									// Re-sync statements matching the new filter.
-									self.schedule_initial_sync_for_peer(peer);
 								},
 							}
 						} else {
@@ -936,6 +949,7 @@ where
 								target: LOG_TARGET,
 								"Failed to decode v2 statement message from {peer}"
 							);
+							self.network.report_peer(peer, rep::BAD_MESSAGE);
 						}
 					},
 				}
@@ -1161,9 +1175,6 @@ where
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
-		if self.sync.is_major_syncing() {
-			return;
-		}
 		// If there's already a pending sync, clean it up first.
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
 			self.record_initial_sync_completion(pending.started_at);
@@ -1225,13 +1236,11 @@ where
 		// already knows or that don't match its topic affinity directly in the callback.
 		// This avoids materializing non-matching statements and lets each batch carry more
 		// useful data.
-		let peer_data = self.peers.get(&peer_id);
-		let envelope_overhead = peer_data
-			.map(|p| match p.protocol_version {
-				PeerProtocolVersion::V1 => V1_ENVELOPE_OVERHEAD,
-				PeerProtocolVersion::V2 => V2_ENVELOPE_OVERHEAD,
-			})
-			.unwrap_or(V1_ENVELOPE_OVERHEAD);
+		let Some(peer_data) = self.peers.get(&peer_id) else {
+			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
+			return;
+		};
+		let envelope_overhead = peer_data.protocol_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
@@ -1240,13 +1249,11 @@ where
 				// Skip statements the peer already knows or that don't match its topic
 				// affinity. This avoids materializing non-matching statements and lets
 				// each batch carry more useful data.
-				if let Some(peer) = peer_data {
-					if peer.known_statements.contains(hash) {
-						return FilterDecision::Skip;
-					}
-					if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-						return FilterDecision::Skip;
-					}
+				if peer_data.known_statements.contains(hash) {
+					return FilterDecision::Skip;
+				}
+				if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+					return FilterDecision::Skip;
 				}
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
 					return FilterDecision::Abort;
@@ -1283,7 +1290,7 @@ where
 				self.metrics.as_ref().map(|metrics| {
 					metrics.initial_sync_statements_sent.inc_by(sent as u64);
 				});
-				// Only mark actually sent statements as known
+				// Mark statements as known
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
 					for (hash, _) in &statements {
 						peer.known_statements.insert(*hash);
@@ -3362,7 +3369,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_schedule_initial_sync_skips_during_major_sync() {
+	async fn test_initial_sync_queued_during_major_sync_processed_after() {
 		let statement_store = TestStatementStore::new();
 		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
 		let network = TestNetwork::new();
@@ -3380,7 +3387,7 @@ mod tests {
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
 			network: network.clone(),
-			sync,
+			sync: sync.clone(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
@@ -3415,15 +3422,28 @@ mod tests {
 			),
 		);
 
+		// Scheduling during major sync should queue the peer.
 		handler.schedule_initial_sync_for_peer(peer_id);
 
 		assert!(
-			!handler.pending_initial_syncs.contains_key(&peer_id),
-			"No initial sync should be scheduled during major sync"
+			handler.pending_initial_syncs.contains_key(&peer_id),
+			"Initial sync should be queued even during major sync"
 		);
+		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
+
+		// But burst processing should be a no-op while major syncing.
+		handler.process_initial_sync_burst().await;
+		assert!(
+			handler.pending_initial_syncs.contains_key(&peer_id),
+			"Pending sync should remain untouched during major sync"
+		);
+
+		// Once major sync completes, burst processing should proceed.
+		sync.major_syncing.store(false, Ordering::Relaxed);
+		handler.process_initial_sync_burst().await;
 		assert!(
 			handler.initial_sync_peer_queue.is_empty(),
-			"Queue should be empty during major sync"
+			"Peer should have been processed after major sync ended"
 		);
 	}
 

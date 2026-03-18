@@ -55,9 +55,9 @@ impl BuildHasher for PortableBuildHasher {
 }
 
 /// Hasher state returned by [`PortableBuildHasher`].  Delegates everything to
-/// the inner SipHash-based hasher but overrides `write_usize` so that the
-/// length prefix written by `<[T]>::hash` is always 8 bytes regardless of
-/// platform pointer width.
+/// the inner SipHash-based hasher but overrides `write_usize` and `write_isize`
+/// so that platform-width integers are always 8 bytes regardless of pointer
+/// width.
 #[derive(Clone)]
 struct PortableHasher(<BloomDefaultHasher as BuildHasher>::Hasher);
 
@@ -77,6 +77,13 @@ impl Hasher for PortableHasher {
 		// Always write as 8-byte little-endian so that `wasm32` (4-byte
 		// usize) and 64-bit targets produce the same hash.
 		self.0.write(&(i as u64).to_le_bytes());
+	}
+
+	#[inline]
+	fn write_isize(&mut self, i: isize) {
+		// Always write as 8-byte little-endian for the same reason as
+		// `write_usize`.
+		self.0.write(&(i as i64).to_le_bytes());
 	}
 }
 
@@ -151,7 +158,7 @@ impl AffinityFilter {
 		if topics.is_empty() {
 			return true;
 		}
-		topics.iter().any(|topic| self.contains(&topic))
+		topics.iter().any(|topic| self.contains(topic))
 	}
 }
 
