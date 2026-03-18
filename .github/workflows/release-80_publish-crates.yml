@@ -25,6 +25,21 @@ on:
         required: true
         type: boolean
         default: true
+      resume_from:
+        description: 'Resume from a specific phase after a failure. Use "full" for a fresh run.'
+        required: true
+        type: choice
+        options:
+          - full
+          - apply
+          - publish
+          - push
+        default: full
+      prdoc_path:
+        description: 'Path to the prdoc directory used by parity-publish plan to decide whci prdocs use for publishing'
+        required: false
+        type: string
+        default: prdoc
 
 permissions:
   contents: write
@@ -89,6 +104,19 @@ jobs:
 
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
+      - name: Validate resume preconditions
+        if: inputs.resume_from != 'full'
+        shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
+        run: |
+          if ! git ls-remote --heads origin "$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
+            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
+            exit 1
+          fi
+          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
+
       - name: Checkout stable branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -118,9 +146,14 @@ jobs:
         shell: bash
         env:
           CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
         run: |
-
-          if git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
+          if [ "$RESUME_FROM" != "full" ]; then
+            # Resume: checkout the existing branch pushed during the previous failed run
+            echo "Resuming from '$RESUME_FROM' - checking out existing branch $CRATES_RELEASE_BRANCH"
+            git fetch origin "$CRATES_RELEASE_BRANCH"
+            git checkout "$CRATES_RELEASE_BRANCH"
+          elif git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
             echo "Branch $CRATES_RELEASE_BRANCH already exists, switching to it"
             git checkout "$CRATES_RELEASE_BRANCH"
           else
@@ -146,15 +179,18 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.11 --locked -q
+          cargo install parity-publish@0.10.12 --locked -q
 
       - name: Run parity-publish plan
+        if: inputs.resume_from == 'full'
+        env:
+          PRDOC_PATH: ${{ inputs.prdoc_path }}
         run: |
           echo "Running parity-publish plan..."
-          parity-publish plan --prdoc prdoc
+          parity-publish plan --prdoc $PRDOC_PATH
 
       - name: Save Plan.toml diff
-        if: inputs.is_patch
+        if: inputs.resume_from == 'full' && inputs.is_patch
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
         run: |
@@ -167,7 +203,7 @@ jobs:
           cat "release-artifacts/changed_crates_${RELEASE_NAME}.txt"
 
       - name: Parse crate names for release notes
-        if: inputs.is_patch
+        if: inputs.resume_from == 'full' && inputs.is_patch
         shell: bash
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
@@ -182,6 +218,7 @@ jobs:
           cat scripts/release/templates/crates_list.md.tera
 
       - name: Commit Plan.toml and crates list
+        if: inputs.resume_from == 'full'
         shell: bash
         env:
           IS_PATCH: ${{ inputs.is_patch }}
@@ -202,17 +239,20 @@ jobs:
           fi
 
       - name: Run parity-publish apply
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         run: |
           echo "Running parity-publish apply..."
           parity-publish apply
 
       - name: Update Cargo.lock
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         run: |
           echo "Updating Cargo.lock..."
           cargo update --workspace --offline || cargo update --workspace
           echo "Cargo.lock updated"
 
       - name: Commit version bumps
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         shell: bash
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
@@ -229,6 +269,7 @@ jobs:
           fi
 
       - name: Configure cargo registry
+        if: inputs.resume_from != 'push'
         shell: bash
         env:
           REGISTRY: ${{ inputs.registry }}
@@ -249,6 +290,7 @@ jobs:
           cat ~/.cargo/config.toml || echo "(using defaults)"
 
       - name: Publish crates
+        if: inputs.resume_from != 'push'
         shell: bash
         env:
           PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
@@ -284,3 +326,14 @@ jobs:
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/paritytech/polkadot-sdk.git"
           git push origin "$CRATES_RELEASE_BRANCH"
           echo "Successfully pushed $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk"
+
+      - name: Push release branch to fork on failure
+        if: failure()
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+        run: |
+          echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
+          # Restore origin to the fork repo in case it was changed by the upstream push step
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$CRATES_RELEASE_BRANCH" --force-with-lease
+          echo "Branch pushed. To resume, re-run this workflow with resume_from set to the appropriate phase."
