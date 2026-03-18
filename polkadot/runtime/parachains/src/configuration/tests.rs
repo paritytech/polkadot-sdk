@@ -587,4 +587,3 @@ fn active_config_hrmp_channel_size_and_capacity_ratio_works() {
 		);
 	})
 }
-
