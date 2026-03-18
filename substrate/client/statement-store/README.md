@@ -77,7 +77,7 @@ Parameters:
   include any of the provided topics.
 
 ```rust
-let mut subscription: Subscription<Bytes> = rpc_client
+let mut subscription: Subscription<StatementEvent> = rpc_client
     .subscribe(
         "statement_subscribeStatement",
         rpc_params![TopicFilter::MatchAny(bounded_topics)],
