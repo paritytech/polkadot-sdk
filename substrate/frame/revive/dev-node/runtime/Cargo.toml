@@ -11,6 +11,7 @@ edition.workspace = true
 [dependencies]
 array-bytes = { workspace = true }
 codec = { workspace = true }
+pallet-revive-precompile-vesting = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
 	"pallet-balances",
 	"pallet-revive",
@@ -18,6 +19,7 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-timestamp",
 	"pallet-transaction-payment",
 	"pallet-transaction-payment-rpc-runtime-api",
+	"pallet-vesting",
 	"parachains-common",
 	"polkadot-runtime-common",
 	"runtime",
@@ -34,6 +36,7 @@ polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-
 default = ["std"]
 std = [
 	"codec/std",
+	"pallet-revive-precompile-vesting/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",

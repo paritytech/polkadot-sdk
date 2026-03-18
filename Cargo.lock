@@ -18793,6 +18793,7 @@ name = "revive-dev-runtime"
 version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
+ "pallet-revive-precompile-vesting",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
