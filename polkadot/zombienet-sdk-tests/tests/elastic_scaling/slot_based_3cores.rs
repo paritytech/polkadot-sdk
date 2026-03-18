@@ -105,7 +105,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 		&[ParaId::from(2200)],
 		CandidateDescriptorVersion::V2,
 		true,
-		15..21,
+		45..61, // 3 cores × 20 blocks
 		20,
 	)
 	.await?;
