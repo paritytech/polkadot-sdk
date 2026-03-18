@@ -838,8 +838,8 @@ pub trait Pair: CryptoType + Sized {
 	/// and verified with the message and a public key.
 	type Signature: Signature;
 
-	/// The type used to represent proof of possession and ownership of private key is usually
-	/// one or a set of signatures. Can be created from a key pair and message (owner id) and
+	/// The type used to represent key proofs (this includes ownership proof (backcert), proof of possession (of the private key), etc ),
+	/// usually one or a set of signatures. Can be created from a key pair and message (owner id)
 	/// and verified with the owner id and public key.
 	type KeyProofs: Signature;
 

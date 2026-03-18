@@ -12,12 +12,13 @@
 // or implied.  See the License for the specific language governing permissions and limitations
 // under the License.
 
-//! Utilities for proving possession of a particular public key
+//! Utilities for proving various facts about a public key
+//! (possession of its secret key, attestation of the deligating long term key,...)
 
 use crate::crypto::{CryptoType, Pair, Signature};
 use sp_std::vec::Vec;
 
-/// Pair which is able to generate proof of possession.
+/// Pair which is able to generate key proofs.
 ///
 /// This is implemented in different trait to provide default behavior.
 pub trait KeyProofGenerator: Pair
@@ -25,7 +26,7 @@ where
 	Self::Public: CryptoType,
 	Self::KeyProofs: Signature,
 {
-	/// Generate proof of possession.
+	/// Generate key proofs 
 	///
 	/// This is usually done by signing the owner's identifier, this is prevent front runner to
 	/// claim ownership of public keys of other entities.
@@ -39,16 +40,16 @@ where
 	/// Annual {{International Conference}} on the {{Theory}} and {{Applications}} of
 	/// {{Cryptographic Techniques} (pp. 228–245). : Springer).
 	///
-	/// As such, for aggregatable signatures, proof of possession consists of two signatures one
-	/// regular signature signing the owner identity and the second one with unique context
+	/// As such, for aggregatable signatures, key proofs consist of two signatures one
+	/// regular signature signing the owner identity and the second one with a unique context
 	/// which signs the correspoding public key (and nothing else).
 	#[cfg(feature = "full_crypto")]
 	fn generate_key_proofs(&mut self, owner: &[u8]) -> Self::KeyProofs;
 }
 
-/// Pair which is able to verify proof of possession.
+/// Pair which is able to verify key proofs.
 ///
-/// While you don't need a keypair to verify a proof of possession (you only need a public key) we
+/// While you don't need a keypair to verify key proofs  (you only need a public key) we
 /// constrain on Pair to use the Public and Signature types associated to Pair.  This is implemented
 /// in different trait (than Public Key) to provide default behavior.
 pub trait KeyProofVerifier: Pair
@@ -56,9 +57,9 @@ where
 	Self::Public: CryptoType,
 	Self::KeyProofs: Signature,
 {
-	/// Verify proof of possession.
+	/// Verify key proofs.
 	///
-	/// The proof of possession verifier is supposed to to verify a signature with unique hash
+	/// The key proof verifier is supposed to to verify a signature with unique hash
 	/// context that is produced solely for this reason. This proves that that the secret key is
 	/// known to the prover.
 	fn verify_key_proofs(
@@ -68,16 +69,16 @@ where
 	) -> bool;
 }
 
-/// Simply returns the owner prefixed with proof of possession context.
+/// Simply returns the owner prefixed with ownership proof context.
 pub fn statement_of_ownership(owner: &[u8]) -> Vec<u8> {
-	/// The context which attached to pop message to attest its purpose.
-	const PROOF_OF_POSSESSION_CONTEXT_TAG: &[u8; 4] = b"POP_";
-	[PROOF_OF_POSSESSION_CONTEXT_TAG, owner].concat()
+	/// The context which attached to ownership proof message to attest its purpose.
+	const OWNERSHIP_PROOF_CONTEXT_TAG: &[u8; 4] = b"OWN_";
+	[OWNERSHIP_PROOF_CONTEXT_TAG, owner].concat()
 }
 
 /// Marker trait to identify whether the scheme is not aggregatable.
 ///
-/// Aggregatable schemes may change/optimize implementation parts such as Proof Of Possession or
+/// Aggregatable schemes may change/optimize implementation parts such as proof of possession or
 /// other specifics.
 ///
 /// This is specifically because implementation of proof of possession for aggregatable schemes is

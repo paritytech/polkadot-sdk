@@ -106,7 +106,7 @@ fn split_pub_key_bytes(
 	Some((ecdsa_pub_as_bytes, bls381_pub_as_bytes))
 }
 
-/// Helper: Generate ECDSA proof of possession
+/// Helper: Generate ECDSA key proofs
 fn generate_ecdsa_key_proofs(
 	key_type: KeyTypeId,
 	ecdsa_pub_as_bytes: [u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE],
@@ -117,7 +117,7 @@ fn generate_ecdsa_key_proofs(
 	sp_io::crypto::ecdsa_sign(key_type, &ecdsa_pub, &ownership_proof_statement)
 }
 
-/// Helper: Generate BLS381 proof of possession
+/// Helper: Generate BLS381 key proofs
 fn generate_bls381_key_proofs(
 	key_type: KeyTypeId,
 	bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE],
@@ -128,7 +128,7 @@ fn generate_bls381_key_proofs(
 		sp_io::crypto::bls381_sign(key_type, &bls381_pub, &statement_of_ownership(owner))?;
 	let key_proofs =
 		sp_io::crypto::bls381_generate_proof_of_possession(key_type, &bls381_pub)?;
-	let mut combined = [0u8; bls381::PROOF_OF_POSSESSION_SERIALIZED_SIZE];
+	let mut combined = [0u8; bls381::KEY_PROOFS_SERIALIZED_SIZE];
 	combined[..bls381::SIGNATURE_SERIALIZED_SIZE]
 		.copy_from_slice(proof_of_ownership.as_ref());
 	combined[bls381::SIGNATURE_SERIALIZED_SIZE..]
@@ -140,8 +140,8 @@ fn generate_bls381_key_proofs(
 fn combine_key_proofs(
 	ecdsa_key_proofs: &ecdsa::Signature,
 	bls381_key_proofs: &bls381::KeyProofs,
-) -> Option<[u8; ecdsa_bls381::POP_LEN]> {
-	let mut combined_key_proofs_raw = [0u8; ecdsa_bls381::POP_LEN];
+) -> Option<[u8; ecdsa_bls381::KEY_PROOFS_LEN]> {
+	let mut combined_key_proofs_raw = [0u8; ecdsa_bls381::KEY_PROOFS_LEN];
 	combined_key_proofs_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE]
 		.copy_from_slice(ecdsa_key_proofs.as_ref());
 	combined_key_proofs_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..]

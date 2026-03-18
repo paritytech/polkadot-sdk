@@ -191,9 +191,9 @@ pub type Balance = u64;
 mod bls {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
 	pub type Bls381Public = bls381::AppPublic;
-	pub type Bls381Pop = bls381::AppKeyProofs;
+	pub type Bls381KeyProofs = bls381::AppKeyProofs;
 	pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
-	pub type EcdsaBls381Pop = ecdsa_bls381::AppKeyProofs;
+	pub type EcdsaBls381KeyProofs = ecdsa_bls381::AppKeyProofs;
 }
 pub use bls::*;
 
@@ -224,24 +224,24 @@ decl_runtime_apis! {
 		fn get_block_number() -> u64;
 		/// Test that `ed25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ed25519` both the public key and proof of possession.
+		/// Returns the signature generated for the message `ed25519` both the public key and key proofs.
 		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppKeyProofs);
 		/// Test that `sr25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `sr25519` both the public key and proof of possession.
+		/// Returns the signature generated for the message `sr25519` both the public key and key proofs.
 		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppKeyProofs);
 		/// Test that `ecdsa` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ecdsa` both the public key and proof of possession.
+		/// Returns the signature generated for the message `ecdsa` both the public key and key proofs.
 		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppKeyProofs);
 		/// Test that `bls381` crypto works in the runtime
 		///
-		/// Returns both the proof of possession and public key.
-		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public);
+		/// Returns both the key proofs and public key.
+		fn test_bls381_crypto() -> (Bls381KeyProofs, Bls381Public);
 		/// Test that `ecdsa_bls381_crypto` works in the runtime
 		///
-		/// Returns both the proof of possession and public key.
-		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public);
+		/// Returns both the key proofs and public key.
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381KeyProofs, EcdsaBls381Public);
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -481,7 +481,7 @@ fn code_using_trie() -> u64 {
 	res
 }
 
-/// The test owner to test proof of possession generation and verification for the session keys
+/// The test owner to test key proofs generation and verification for the session keys
 pub const TEST_OWNER: &[u8; 5] = b"owner";
 
 impl_opaque_keys! {
@@ -615,11 +615,11 @@ impl_runtime_apis! {
 			test_ecdsa_crypto()
 		}
 
-		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+		fn test_bls381_crypto() -> (Bls381KeyProofs, Bls381Public) {
 			test_bls381_crypto()
 		}
 
-		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381KeyProofs, EcdsaBls381Public) {
 			test_ecdsa_bls381_crypto()
 		}
 
@@ -866,7 +866,7 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppKeyP
 	(signature, public0, key_proofs)
 }
 
-fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+fn test_bls381_crypto() -> (Bls381KeyProofs, Bls381Public) {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
 	let key_proofs = public0
@@ -877,7 +877,7 @@ fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
 	(key_proofs, public0)
 }
 
-fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+fn test_ecdsa_bls381_crypto() -> (EcdsaBls381KeyProofs, EcdsaBls381Public) {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
 	let key_proofs = public0

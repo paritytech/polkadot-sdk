@@ -71,7 +71,7 @@ impl RuntimePublic for Public {
 			sp_io::crypto::bls381_sign(key_type, self, &statement_of_ownership(owner))?;
 		let proof_of_possession =
 			sp_io::crypto::bls381_generate_proof_of_possession(key_type, self)?;
-		let mut combined = [0u8; PROOF_OF_POSSESSION_SERIALIZED_SIZE];
+		let mut combined = [0u8; KEY_PROOFS_SERIALIZED_SIZE];
 		combined[..SIGNATURE_SERIALIZED_SIZE]
 			.copy_from_slice(proof_of_ownership.as_ref());
 		combined[SIGNATURE_SERIALIZED_SIZE..]

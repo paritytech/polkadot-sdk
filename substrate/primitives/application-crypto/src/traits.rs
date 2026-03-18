@@ -43,7 +43,7 @@ pub trait AppCrypto: 'static + Sized + CryptoType {
 	/// The corresponding signature type in this application scheme.
 	type Signature: AppSignature;
 
-	/// The corresponding proof of possession type in this application scheme.
+	/// The corresponding key proofs type in this application scheme.
 	type KeyProofs: AppSignature;
 
 	/// The corresponding key pair type in this application scheme.
@@ -70,7 +70,7 @@ pub trait AppPublic: AppCrypto + Public + Debug + MaybeHash + Codec {
 	type Generic: IsWrappedBy<Self> + Public + Debug + MaybeHash + Codec;
 }
 
-/// Application-specific signature and Proof Of Possession
+/// Application-specific signature and key proofs
 pub trait AppSignature: AppCrypto + Signature + Eq + PartialEq + Debug + Clone {
 	/// The wrapped type which is just a plain instance of `Signature`.
 	type Generic: IsWrappedBy<Self> + Signature + Eq + PartialEq + Debug;
@@ -81,7 +81,7 @@ pub trait RuntimePublic: Sized {
 	/// The signature that will be generated when signing with the corresponding private key.
 	type Signature: Debug + Eq + PartialEq + Clone;
 
-	/// The Proof Of Possession the corresponding private key.
+	/// The key proofs for the corresponding private key.
 	type KeyProofs: Debug + Eq + PartialEq + Clone;
 
 	/// Returns all public keys for the given key type in the keystore.
@@ -119,8 +119,7 @@ pub trait RuntimePublic: Sized {
 	///
 	/// The private key will be requested from the keystore using the given key type.
 	///
-	/// Returns the proof of possession or `None` if it failed or is not able to do
-	/// so.
+	/// Returns the key proofs or `None` if it failed or is not able to do so.
 	fn generate_key_proofs(
 		&mut self,
 		key_type: KeyTypeId,
@@ -151,7 +150,7 @@ pub trait RuntimeAppPublic: Sized {
 	/// The signature that will be generated when signing with the corresponding private key.
 	type Signature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec;
 
-	/// The Proof Of Possession the corresponding private key.
+	/// The key proofs for the corresponding private key.
 	type KeyProofs: Debug + Eq + PartialEq + TypeInfo + Clone;
 
 	/// Returns all public keys for this application in the keystore.
@@ -176,13 +175,13 @@ pub trait RuntimeAppPublic: Sized {
 	#[must_use]
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
-	/// Generate proof of legitimacy for the corresponding public key
+	/// Generate key proofs for the corresponding public key
 	///
-	/// Returns the proof of possession, usually a signature or a list of signature,  or `None` if
+	/// Returns the key proofs, usually a signature or a list of signatures, or `None` if
 	/// it failed or is not able to do so.
 	fn generate_key_proofs(&mut self, owner: &[u8]) -> Option<Self::KeyProofs>;
 
-	/// Verify that the given proof of possession is valid for the corresponding public key.
+	/// Verify that the given key proofs are valid for the corresponding public key.
 	fn verify_key_proofs(&self, owner: &[u8], pop: &Self::KeyProofs) -> bool;
 
 	/// Returns `Self` as raw vec.

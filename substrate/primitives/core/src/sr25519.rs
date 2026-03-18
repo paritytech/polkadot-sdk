@@ -137,7 +137,7 @@ impl<'de> Deserialize<'de> for Public {
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Sr25519Tag>;
 
-/// Proof of Possession is the same as Signature for sr25519
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature for sr25519
 pub type KeyProofs = Signature;
 
 #[cfg(feature = "full_crypto")]

@@ -69,7 +69,7 @@ impl CryptoType for Public {
 /// Bandersnatch Schnorr signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
-/// Proof of Possession is the same as Signature for Bandersnatch
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature for Bandersnatch
 pub type KeyProofs = Signature;
 
 impl CryptoType for Signature {

@@ -172,12 +172,12 @@ impl<PUBLIC: From<VerifyingKey>> GenericSignature<PUBLIC> {
 	}
 }
 
-/// Proof of Possession is the same as Signature.
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature.
 ///
 /// Uses blake2 during key recovery.
 pub type KeyProofs = Signature;
 
-/// Proof of Possession is the same as Signature.
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature.
 ///
 /// Uses keccak during key recovery.
 pub type KeccakKeyProofs = KeccakSignature;

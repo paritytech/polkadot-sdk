@@ -44,13 +44,13 @@ use w3f_bls::{
 #[cfg(feature = "full_crypto")]
 use w3f_bls::ProofOfPossessionGenerator as BlsProofOfPossessionGenerator;
 
-/// Required to generate Proof Of Possession
+/// Required to generate proof of possession
 use sha2::Sha256;
 
 /// BLS-377 specialized types
 pub mod bls377 {
 	pub use super::{
-		PROOF_OF_POSSESSION_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
+		KEY_PROOFS_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 	};
 	use crate::crypto::CryptoTypeId;
 	pub(crate) use w3f_bls::TinyBLS377 as BlsEngine;
@@ -67,7 +67,7 @@ pub mod bls377 {
 	pub type Public = super::Public<BlsEngine>;
 	/// BLS12-377 signature.
 	pub type Signature = super::Signature<BlsEngine>;
-	/// BLS12-377 Proof Of Possesion.
+	/// BLS12-377 key proof (proof of ownership | proof of possesion).
 	pub type KeyProofs = super::KeyProofs<BlsEngine>;
 
 	impl super::HardJunctionId for BlsEngine {
@@ -78,7 +78,7 @@ pub mod bls377 {
 /// BLS-381 specialized types
 pub mod bls381 {
 	pub use super::{
-		PROOF_OF_POSSESSION_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
+		KEY_PROOFS_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 	};
 	use crate::crypto::CryptoTypeId;
 	pub use w3f_bls::TinyBLS381 as BlsEngine;
@@ -96,7 +96,7 @@ pub mod bls381 {
 	/// BLS12-381 signature.
 	pub type Signature = super::Signature<BlsEngine>;
 
-	/// BLS12-381 Proof Of Possesion.
+	/// BLS12-381 key proof (proof of ownership | proof of possesion).
 	pub type KeyProofs = super::KeyProofs<BlsEngine>;
 
 	impl super::HardJunctionId for BlsEngine {
@@ -121,7 +121,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 	<DoubleSignature<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// Signature serialized size (for back cert) + Nugget BLS PoP size
-pub const PROOF_OF_POSSESSION_SERIALIZED_SIZE: usize = SIGNATURE_SERIALIZED_SIZE +
+pub const KEY_PROOFS_SERIALIZED_SIZE: usize = SIGNATURE_SERIALIZED_SIZE +
 	<NuggetBLSnCPPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
@@ -150,7 +150,7 @@ impl<T: BlsBound> CryptoType for Signature<T> {
 
 /// A generic BLS ProofOfpossession
 pub type KeyProofs<SubTag> =
-	SignatureBytes<PROOF_OF_POSSESSION_SERIALIZED_SIZE, (BlsTag, SubTag)>;
+	SignatureBytes<KEY_PROOFS_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
 impl<T: BlsBound> CryptoType for KeyProofs<T> {
 	type Pair = Pair<T>;
@@ -284,7 +284,7 @@ impl<T: BlsBound> Pair<T> {
 
 impl<T: BlsBound> KeyProofGenerator for Pair<T> {
 	#[cfg(feature = "full_crypto")]
-	/// Generate proof of possession for BLS12 curves.
+	/// Generate key proofs for BLS12 curves.
 	///
 	/// Signs on:
 	///  - owner as sort of back cert and proof of ownership to prevent front runner attack
@@ -294,11 +294,11 @@ impl<T: BlsBound> KeyProofGenerator for Pair<T> {
 			self.sign(statement_of_ownership(owner).as_slice()).to_raw();
 		let proof_of_possession: [u8; SIGNATURE_SERIALIZED_SIZE] =
 			self.generate_proof_of_possession().to_raw();
-		let proof_of_ownership_and_possession: [u8; PROOF_OF_POSSESSION_SERIALIZED_SIZE] =
+		let proof_of_ownership_and_possession: [u8; KEY_PROOFS_SERIALIZED_SIZE] =
 			[proof_of_ownership, proof_of_possession]
 				.concat()
 				.try_into()
-				.expect("PROOF_OF_POSSESSION_SERIALIZED_SIZE = SIGNATURE_SERIALIZED_SIZE * 2");
+				.expect("KEY_PROOFS_SERIALIZED_SIZE = SIGNATURE_SERIALIZED_SIZE * 2");
 		Self::KeyProofs::unchecked_from(proof_of_ownership_and_possession)
 	}
 }

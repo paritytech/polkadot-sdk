@@ -52,7 +52,7 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 /// A signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
-/// Proof of Possession is the same as Signature for ed25519
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature for ed25519
 pub type KeyProofs = Signature;
 
 /// A key pair.

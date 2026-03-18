@@ -42,8 +42,8 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	const POP_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
+	const KEY_PROOFS_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::KEY_PROOFS_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
@@ -56,7 +56,7 @@ pub mod ecdsa_bls377 {
 		bls377::Pair,
 		PUBLIC_KEY_LEN,
 		SIGNATURE_LEN,
-		POP_LEN,
+		KEY_PROOFS_LEN,
 		EcdsaBls377Tag,
 	>;
 
@@ -67,7 +67,7 @@ pub mod ecdsa_bls377 {
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls377Tag>;
 
 	/// (ECDSA, (BLS12-377, BLS12-377))
-	pub type KeyProofs = super::Signature<POP_LEN, EcdsaBls377Tag>;
+	pub type KeyProofs = super::Signature<KEY_PROOFS_LEN, EcdsaBls377Tag>;
 
 	impl super::CryptoType for Public {
 		type Pair = Pair;
@@ -157,10 +157,10 @@ pub mod ecdsa_bls381 {
 	pub const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
-	/// Size of Proof Of Possession for (ECDSA, BLS12-381) type (this is one ECDSA and two BLS12-381
-	/// signature)
-	pub const POP_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
+	/// Size of Key Proofs for (ECDSA, BLS12-381) type (this is one ECDSA and two BLS12-381
+	/// signatures)
+	pub const KEY_PROOFS_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::KEY_PROOFS_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls381Tag(ecdsa::EcdsaTag, bls381::Bls381Tag);
@@ -173,7 +173,7 @@ pub mod ecdsa_bls381 {
 		bls381::Pair,
 		PUBLIC_KEY_LEN,
 		SIGNATURE_LEN,
-		POP_LEN,
+		KEY_PROOFS_LEN,
 		EcdsaBls381Tag,
 	>;
 
@@ -184,7 +184,7 @@ pub mod ecdsa_bls381 {
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls381Tag>;
 
 	/// (ECDSA, (BLS12-381, BLS12-381))
-	pub type KeyProofs = super::Signature<POP_LEN, EcdsaBls381Tag>;
+	pub type KeyProofs = super::Signature<KEY_PROOFS_LEN, EcdsaBls381Tag>;
 
 	impl super::CryptoType for Public {
 		type Pair = Pair;
@@ -283,16 +283,16 @@ impl<
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>>
+	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>>
 	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>:
+	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>:
 		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
 {
 	fn from(
-		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>,
+		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>,
 	) -> Self {
 		x.public()
 	}
@@ -302,7 +302,7 @@ where
 pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
-/// A pair of proof of possession of different types
+/// A pair of key proofs of different types
 pub type KeyProofs<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
@@ -312,7 +312,7 @@ pub struct Pair<
 	RightPair: PairT,
 	const PUBLIC_KEY_LEN: usize,
 	const SIGNATURE_LEN: usize,
-	const POP_LEN: usize,
+	const KEY_PROOFS_LEN: usize,
 	SubTag,
 > {
 	left: LeftPair,
@@ -326,9 +326,9 @@ impl<
 		RightPair: PairT + Clone,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag,
-	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 {
 	fn clone(&self) -> Self {
 		Self { left: self.left.clone(), right: self.right.clone(), _phantom: PhantomData }
@@ -341,21 +341,21 @@ impl<
 		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-	KeyProofs<POP_LEN, SubTag>: SignatureT,
+	KeyProofs<KEY_PROOFS_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
 	type Public = Public<PUBLIC_KEY_LEN, SubTag>;
 	type Signature = Signature<SIGNATURE_LEN, SubTag>;
-	type KeyProofs = Signature<POP_LEN, SubTag>;
+	type KeyProofs = Signature<KEY_PROOFS_LEN, SubTag>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -435,21 +435,21 @@ impl<
 		RightPair: PairT + KeyProofGenerator,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
 	> KeyProofGenerator
-	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-	KeyProofs<POP_LEN, SubTag>: SignatureT,
+	KeyProofs<KEY_PROOFS_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	#[cfg(feature = "full_crypto")]
 	fn generate_key_proofs(&mut self, owner: &[u8]) -> Self::KeyProofs {
-		let mut raw: [u8; POP_LEN] = [0u8; POP_LEN];
+		let mut raw: [u8; KEY_PROOFS_LEN] = [0u8; KEY_PROOFS_LEN];
 
 		raw.copy_from_slice(
 			[
@@ -471,15 +471,15 @@ impl<
 		RightPair: PairT + KeyProofVerifier,
 		const PUBLIC_KEY_LEN: usize,
 		const SIGNATURE_LEN: usize,
-		const POP_LEN: usize,
+		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
 	> KeyProofVerifier
-	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-	KeyProofs<POP_LEN, SubTag>: SignatureT,
+	KeyProofs<KEY_PROOFS_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
