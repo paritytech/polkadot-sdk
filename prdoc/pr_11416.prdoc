@@ -9,14 +9,6 @@ doc:
     - Guard `map_account`/`unmap_account` dispatchables with `AutoMappingEnabled` error when auto-mapping is active
     - Wire up `AutoMapper` in Asset Hub Westend and dev-node runtimes with `AutoMap = true`
     - Add v3 multi-block migration to auto-map all existing accounts
-
-    ## Test plan
-
-    - [x] `cargo check -p pallet-revive --all-targets --all-features`
-    - [x] `cargo check -p asset-hub-westend-runtime --all-targets`
-    - [x] `cargo check -p revive-dev-runtime --all-targets`
-    - [x] `cargo test -p pallet-revive` (589 tests pass)
-    - [x] `cargo +nightly fmt`
 crates:
 - name: asset-hub-westend-runtime
   bump: patch
