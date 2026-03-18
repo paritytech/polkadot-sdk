@@ -479,6 +479,7 @@ async fn advertise_collation_v3(
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
 	candidate_descriptor_version: CandidateDescriptorVersion,
+	relay_parent: Hash,
 ) {
 	let wire_message =
 		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
@@ -486,6 +487,7 @@ async fn advertise_collation_v3(
 			candidate_hash,
 			parent_head_data_hash,
 			candidate_descriptor_version,
+			relay_parent,
 		});
 	overseer_send(
 		virtual_overseer,

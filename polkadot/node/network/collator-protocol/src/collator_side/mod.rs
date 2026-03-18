@@ -961,6 +961,7 @@ async fn advertise_collation<Context>(
 						candidate_hash: *candidate_hash,
 						parent_head_data_hash: collation.parent_head_data.hash(),
 						candidate_descriptor_version,
+						relay_parent: collation.receipt.descriptor.relay_parent(),
 					},
 				))
 			},
