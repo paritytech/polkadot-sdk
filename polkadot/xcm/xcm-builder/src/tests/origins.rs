@@ -151,7 +151,7 @@ fn unpaid_execution_should_work() {
 	assert_eq!(
 		r,
 		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
+			used: Weight::zero(),
 			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);

@@ -26,41 +26,13 @@ use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Properties, ShouldExecute};
 
-/// Benchmark weights for this pallet.
-pub trait WeightInfo {
-	fn take_weight_credit() -> Weight;
-	fn allow_top_level_paid_execution_from() -> Weight;
-	fn allow_unpaid_execution_from() -> Weight;
-	fn allow_explicit_unpaid_execution_from() -> Weight;
-	fn allow_known_query_responses() -> Weight;
-	fn allow_subscriptions_from() -> Weight;
-	fn allow_hrmp_notifications_from_relay_chain() -> Weight;
-	fn deny_then_try() -> Weight;
+/// Benchmark weights for these barriers.
+pub trait BarrierWeight {
+	fn weight() -> Weight;
 }
 
-impl WeightInfo for () {
-	fn take_weight_credit() -> Weight {
-		Weight::zero()
-	}
-	fn allow_top_level_paid_execution_from() -> Weight {
-		Weight::zero()
-	}
-	fn allow_unpaid_execution_from() -> Weight {
-		Weight::zero()
-	}
-	fn allow_explicit_unpaid_execution_from() -> Weight {
-		Weight::zero()
-	}
-	fn allow_known_query_responses() -> Weight {
-		Weight::zero()
-	}
-	fn allow_subscriptions_from() -> Weight {
-		Weight::zero()
-	}
-	fn allow_hrmp_notifications_from_relay_chain() -> Weight {
-		Weight::zero()
-	}
-	fn deny_then_try() -> Weight {
+impl BarrierWeight for () {
+	fn weight() -> Weight {
 		Weight::zero()
 	}
 }
@@ -71,7 +43,7 @@ impl WeightInfo for () {
 /// E.g. `pallet_xcm::reserve_asset_transfer` to transfer a reserve asset
 /// out of the local chain to another one.
 pub struct TakeWeightCredit<W = ()>(PhantomData<W>);
-impl<W: WeightInfo> ShouldExecute for TakeWeightCredit<W> {
+impl<W: BarrierWeight> ShouldExecute for TakeWeightCredit<W> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -86,7 +58,7 @@ impl<W: WeightInfo> ShouldExecute for TakeWeightCredit<W> {
 			?properties,
 			"TakeWeightCredit"
 		);
-		let weight = W::take_weight_credit();
+		let weight = W::weight();
 		properties.weight_credit = properties
 			.weight_credit
 			.checked_sub(&max_weight)
@@ -104,7 +76,9 @@ const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 /// `ClaimAsset` XCMs because they are the only ones that place assets in the Holding Register to
 /// pay for execution.
 pub struct AllowTopLevelPaidExecutionFrom<T, W = ()>(PhantomData<(T, W)>);
-impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowTopLevelPaidExecutionFrom<T, W> {
+impl<T: Contains<Location>, W: BarrierWeight> ShouldExecute
+	for AllowTopLevelPaidExecutionFrom<T, W>
+{
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -120,7 +94,7 @@ impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowTopLevelPaidEx
 			"AllowTopLevelPaidExecutionFrom",
 		);
 
-		let weight = W::allow_top_level_paid_execution_from();
+		let weight = W::weight();
 		ensure!(T::contains(origin), (weight, ProcessMessageError::Unsupported));
 		// We will read up to 5 instructions. This allows up to 3 `ClearOrigin` instructions. We
 		// allow for more than one since anything beyond the first is a no-op and it's conceivable
@@ -332,7 +306,7 @@ where
 /// Use only for executions from completely trusted origins, from which no permissionless messages
 /// can be sent.
 pub struct AllowUnpaidExecutionFrom<T, W = ()>(PhantomData<(T, W)>);
-impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowUnpaidExecutionFrom<T, W> {
+impl<T: Contains<Location>, W: BarrierWeight> ShouldExecute for AllowUnpaidExecutionFrom<T, W> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -344,7 +318,7 @@ impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowUnpaidExecutio
 			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowUnpaidExecutionFrom"
 		);
-		let weight = W::allow_unpaid_execution_from();
+		let weight = W::weight();
 		ensure!(T::contains(origin), (weight, ProcessMessageError::Unsupported));
 		Ok(weight)
 	}
@@ -369,8 +343,8 @@ impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowUnpaidExecutio
 pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = Nothing, W = ()>(
 	PhantomData<(T, Aliasers, W)>,
 );
-impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>, W: WeightInfo> ShouldExecute
-	for AllowExplicitUnpaidExecutionFrom<T, Aliasers, W>
+impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>, W: BarrierWeight>
+	ShouldExecute for AllowExplicitUnpaidExecutionFrom<T, Aliasers, W>
 {
 	fn should_execute<Call>(
 		origin: &Location,
@@ -383,7 +357,7 @@ impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>, W: Weigh
 			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowExplicitUnpaidExecutionFrom",
 		);
-		let weight = W::allow_explicit_unpaid_execution_from();
+		let weight = W::weight();
 		// We will read up to 5 instructions before `UnpaidExecution`.
 		// This allows up to 3 asset transfer instructions, thus covering all possible transfer
 		// types, followed by a potential origin altering instruction, and a potential `SetHints`.
@@ -492,7 +466,7 @@ impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
 
 /// Allows only messages if the generic `ResponseHandler` expects them via `expecting_response`.
 pub struct AllowKnownQueryResponses<ResponseHandler, W = ()>(PhantomData<(ResponseHandler, W)>);
-impl<ResponseHandler: OnResponse, W: WeightInfo> ShouldExecute
+impl<ResponseHandler: OnResponse, W: BarrierWeight> ShouldExecute
 	for AllowKnownQueryResponses<ResponseHandler, W>
 {
 	fn should_execute<RuntimeCall>(
@@ -506,7 +480,7 @@ impl<ResponseHandler: OnResponse, W: WeightInfo> ShouldExecute
 			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowKnownQueryResponses"
 		);
-		let weight = W::allow_known_query_responses();
+		let weight = W::weight();
 		instructions
 			.matcher()
 			.assert_remaining_insts(1)
@@ -527,7 +501,7 @@ impl<ResponseHandler: OnResponse, W: WeightInfo> ShouldExecute
 /// Allows execution from `origin` if it is just a straight `SubscribeVersion` or
 /// `UnsubscribeVersion` instruction.
 pub struct AllowSubscriptionsFrom<T, W = ()>(PhantomData<(T, W)>);
-impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowSubscriptionsFrom<T, W> {
+impl<T: Contains<Location>, W: BarrierWeight> ShouldExecute for AllowSubscriptionsFrom<T, W> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -539,7 +513,7 @@ impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowSubscriptionsF
 			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowSubscriptionsFrom",
 		);
-		let weight = W::allow_subscriptions_from();
+		let weight = W::weight();
 		ensure!(T::contains(origin), (weight, ProcessMessageError::Unsupported));
 		instructions
 			.matcher()
@@ -561,7 +535,7 @@ impl<T: Contains<Location>, W: WeightInfo> ShouldExecute for AllowSubscriptionsF
 /// Note: This barrier fulfills safety recommendations for the mentioned instructions - see their
 /// documentation.
 pub struct AllowHrmpNotificationsFromRelayChain<W = ()>(PhantomData<W>);
-impl<W: WeightInfo> ShouldExecute for AllowHrmpNotificationsFromRelayChain<W> {
+impl<W: BarrierWeight> ShouldExecute for AllowHrmpNotificationsFromRelayChain<W> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
@@ -573,7 +547,7 @@ impl<W: WeightInfo> ShouldExecute for AllowHrmpNotificationsFromRelayChain<W> {
 			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowHrmpNotificationsFromRelayChain"
 		);
-		let weight = W::allow_hrmp_notifications_from_relay_chain();
+		let weight = W::weight();
 		// accept only the Relay Chain
 		ensure!(matches!(origin.unpack(), (1, [])), (weight, ProcessMessageError::Unsupported));
 		// accept only HRMP notifications and nothing else
@@ -603,7 +577,7 @@ impl<Deny, Allow, W> ShouldExecute for DenyThenTry<Deny, Allow, W>
 where
 	Deny: DenyExecution,
 	Allow: ShouldExecute,
-	W: WeightInfo,
+	W: BarrierWeight,
 {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
@@ -611,7 +585,7 @@ where
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<Weight, (Weight, ProcessMessageError)> {
-		let weight = W::deny_then_try();
+		let weight = W::weight();
 		if let Err(e) = Deny::deny_execution(origin, message, max_weight, properties) {
 			return Err((weight, e));
 		}

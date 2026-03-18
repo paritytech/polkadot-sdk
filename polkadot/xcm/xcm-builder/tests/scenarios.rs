@@ -340,29 +340,8 @@ fn recursive_xcm_execution_fail() {
 
 	// Dummy weight info for testing
 	struct TestWeightInfo;
-	impl WeightInfo for TestWeightInfo {
-		fn take_weight_credit() -> Weight {
-			Weight::zero()
-		}
-		fn allow_top_level_paid_execution_from() -> Weight {
-			Weight::zero()
-		}
-		fn allow_unpaid_execution_from() -> Weight {
-			Weight::zero()
-		}
-		fn allow_explicit_unpaid_execution_from() -> Weight {
-			Weight::zero()
-		}
-		fn allow_known_query_responses() -> Weight {
-			Weight::zero()
-		}
-		fn allow_subscriptions_from() -> Weight {
-			Weight::zero()
-		}
-		fn allow_hrmp_notifications_from_relay_chain() -> Weight {
-			Weight::zero()
-		}
-		fn deny_then_try() -> Weight {
+	impl BarrierWeight for TestWeightInfo {
+		fn weight() -> Weight {
 			Weight::from_parts(1_000, 1_000)
 		}
 	}
