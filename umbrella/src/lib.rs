@@ -640,6 +640,10 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
+/// Vesting precompile for pallet-revive.
+#[cfg(feature = "pallet-revive-precompile-vesting")]
+pub use pallet_revive_precompile_vesting;
+
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;

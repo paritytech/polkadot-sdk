@@ -133,6 +133,7 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
+	"pallet-revive-precompile-vesting?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
@@ -323,6 +324,7 @@ runtime-benchmarks = [
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
+	"pallet-revive-precompile-vesting?/runtime-benchmarks",
 	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
@@ -466,6 +468,7 @@ try-runtime = [
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
+	"pallet-revive-precompile-vesting?/try-runtime",
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
@@ -687,6 +690,7 @@ runtime-full = [
 	"pallet-referenda",
 	"pallet-remark",
 	"pallet-revive",
+	"pallet-revive-precompile-vesting",
 	"pallet-revive-proc-macro",
 	"pallet-revive-uapi",
 	"pallet-root-offences",
@@ -1661,6 +1665,11 @@ path = "../substrate/frame/remark"
 default-features = false
 optional = true
 path = "../substrate/frame/revive"
+
+[dependencies.pallet-revive-precompile-vesting]
+default-features = false
+optional = true
+path = "../substrate/frame/revive/precompiles"
 
 [dependencies.pallet-revive-proc-macro]
 default-features = false

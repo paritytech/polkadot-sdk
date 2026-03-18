@@ -16559,6 +16559,7 @@ dependencies = [
  "pallet-referenda",
  "pallet-remark",
  "pallet-revive",
+ "pallet-revive-precompile-vesting",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
  "pallet-root-offences",
