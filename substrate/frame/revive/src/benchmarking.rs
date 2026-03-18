@@ -2682,6 +2682,9 @@ mod benchmarks {
 	#[benchmark]
 	fn v3_migration_step() {
 		use crate::migrations::v3;
+		// Remove all pre-existing accounts so only our target is in the system.
+		let _ = frame_system::Account::<T>::clear(u32::MAX, None);
+
 		let account = account::<T::AccountId>("target", 0, 0);
 		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
 			.expect("should mint into account");
@@ -2698,12 +2701,8 @@ mod benchmarks {
 
 		assert!(T::AddressMapper::is_mapped(&account));
 
-		// The migration processes all system accounts plus one final empty iteration.
-		let num_accounts = frame_system::Account::<T>::iter().count() as u64;
-		assert_eq!(
-			meter.consumed(),
-			<T as Config>::WeightInfo::v3_migration_step() * (num_accounts + 1)
-		);
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark
