@@ -38,7 +38,7 @@ pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
-	traits::{Contains, Get, IsInVec, Nothing},
+	traits::{Contains, Get, IsInVec},
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{

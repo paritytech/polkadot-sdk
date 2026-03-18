@@ -238,6 +238,7 @@ fn teleport_to_asset_hub_works() {
 			weight,
 			Weight::zero(),
 		);
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		assert_eq!(
 			r,
 			Outcome::Incomplete {
@@ -245,6 +246,11 @@ fn teleport_to_asset_hub_works() {
 				error: InstructionError { index: 2, error: UntrustedTeleportLocation },
 			}
 		);
+		#[cfg(feature = "runtime-benchmarks")]
+		assert_eq!(r, Outcome::Complete { used: weight });
+
+		#[cfg(feature = "runtime-benchmarks")]
+		mock::clear_sent_xcm();
 
 		// teleports are allowed from asset hub to kusama.
 		let message = Xcm(vec![
