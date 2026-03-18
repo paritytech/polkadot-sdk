@@ -247,7 +247,9 @@ impl pallet_authorship::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	// Includes the cost of the address mapping storage (20 bytes key + 32 bytes value)
+	// so that the existential deposit covers the auto-mapping.
+	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT + deposit(1, 52);
 }
 
 impl pallet_balances::Config for Runtime {
