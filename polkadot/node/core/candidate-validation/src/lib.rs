@@ -217,17 +217,117 @@ where
 		.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".into())
 }
 
-/// Data only needed during backing validation. These are additional strictness
-/// checks that backing performs but approval/dispute can (and need to) skip, because the
-/// runtime also validates them at inclusion time. These depend on chain state date for the
-/// scheduling or even the relay parent to still be around. Which is not a valid assumption in
-/// disputes.
-struct BackingExtras {
-	/// Claim queue snapshot for UMP signal validation.
-	claim_queue: ClaimQueueSnapshot,
-	/// Session index independently fetched from runtime at scheduling_parent,
-	/// used to verify the descriptor's scheduling_session claim.
-	expected_scheduling_session: SessionIndex,
+/// Output of [`pre_validate_candidate`]: data needed by PVF execution and
+/// post-validation.
+struct PreValidationOutput {
+	/// Validation code bomb limit for PVF preparation.
+	validation_code_bomb_limit: u32,
+	/// Claim queue for backing-only UMP signal post-validation. `None` for
+	/// approval/dispute.
+	claim_queue: Option<ClaimQueueSnapshot>,
+}
+
+/// Errors from [`pre_validate_candidate`].
+enum PreValidationError {
+	/// The candidate is definitively invalid.
+	Invalid(InvalidCandidate),
+	/// A runtime API call failed — cannot determine validity.
+	RuntimeError(String),
+}
+
+/// Pre-validate a candidate before PVF execution.
+///
+/// Performs all checks that don't require running the PVF:
+/// - Fetch validation code bomb limit (fetched from runtime)
+/// - Basic checks: PoV size, PoV hash, validation code hash
+/// - Backing-only (skipped for approval/dispute):
+///   - Scheduling session matches runtime
+///   - Relay parent valid in claimed session (v16+ `AllowedRelayParentInfo` API)
+///   - Claim queue fetch
+///
+/// Backing-only checks are skipped for approval/dispute because the runtime
+/// validates them at inclusion time and the chain state they depend on may not
+/// be available in disputes.
+async fn pre_validate_candidate<Sender>(
+	sender: &mut Sender,
+	candidate_receipt: &CandidateReceipt,
+	persisted_validation_data: &PersistedValidationData,
+	pov: &PoV,
+	validation_code_hash: &ValidationCodeHash,
+	exec_kind: PvfExecKind,
+	v3_ever_seen: bool,
+) -> Result<PreValidationOutput, PreValidationError>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let validation_code_bomb_limit =
+		fetch_bomb_limit(&candidate_receipt.descriptor, v3_ever_seen, sender)
+			.await
+			.map_err(PreValidationError::RuntimeError)?;
+
+	if let Err(e) = perform_basic_checks(
+		&candidate_receipt.descriptor,
+		persisted_validation_data.max_pov_size,
+		pov,
+		validation_code_hash,
+	) {
+		return Err(PreValidationError::Invalid(e));
+	}
+
+	let claim_queue = match exec_kind {
+		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
+
+			// Verify scheduling session.
+			let expected_scheduling_session =
+				get_session_index(sender, scheduling_parent).await.ok_or_else(|| {
+					PreValidationError::RuntimeError(
+						"Scheduling session index not found".to_string(),
+					)
+				})?;
+
+			if let Some(scheduling_session) = candidate_receipt.descriptor.scheduling_session() {
+				if scheduling_session != expected_scheduling_session {
+					return Err(PreValidationError::Invalid(
+						InvalidCandidate::InvalidSchedulingSession,
+					));
+				}
+			}
+
+			// Verify relay parent is valid in the claimed session (v16+ API).
+			if let Some(session_index) = candidate_receipt.descriptor.session_index() {
+				match check_relay_parent_in_session(
+					sender,
+					scheduling_parent,
+					session_index,
+					candidate_receipt.descriptor.relay_parent(),
+				)
+				.await
+				{
+					Ok(()) => {},
+					// Safe to skip: on old runtimes cross-session relay parents don't
+					// exist, and the scheduling session check above already covers the
+					// relay parent session (scheduling_parent == relay_parent).
+					Err(CheckRelayParentSessionError::NotSupported) => {},
+					Err(CheckRelayParentSessionError::NotFound) =>
+						return Err(PreValidationError::Invalid(
+							InvalidCandidate::InvalidRelayParentSession,
+						)),
+					Err(CheckRelayParentSessionError::RuntimeError(err)) =>
+						return Err(PreValidationError::RuntimeError(err)),
+				}
+			}
+
+			let cq = claim_queue(scheduling_parent, sender).await.ok_or_else(|| {
+				PreValidationError::RuntimeError("Claim queue not available".to_string())
+			})?;
+
+			Some(cq)
+		},
+		_ => None,
+	};
+
+	Ok(PreValidationOutput { validation_code_bomb_limit, claim_queue })
 }
 
 fn handle_validation_message<S>(
@@ -253,57 +353,31 @@ where
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
 
-			let validation_code_bomb_limit =
-				match fetch_bomb_limit(&candidate_receipt.descriptor, v3_ever_seen, &mut sender)
-					.await
-				{
-					Ok(limit) => limit,
-					Err(err) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							scheduling_parent = ?candidate_receipt.descriptor.scheduling_parent(),
-							?err,
-							"Failed to fetch validation code bomb limit",
-						);
-						let _ = response_sender.send(Err(ValidationFailed(err)));
-						return;
-					},
-				};
-
-			// --- Backing-only extras ---
-			// Stricter checks that backing performs but approval/dispute can
-			// skip, because the runtime also validates them at inclusion time.
-			let backing_extras = match exec_kind {
-				PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
-					let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
-
-					let Some(claim_queue) = claim_queue(scheduling_parent, &mut sender).await
-					else {
-						let _ = response_sender
-							.send(Err(ValidationFailed("Claim queue not available".to_string())));
-						return;
-					};
-
-					let Some(expected_scheduling_session) =
-						get_session_index(&mut sender, scheduling_parent).await
-					else {
-						gum::warn!(
-							target: LOG_TARGET,
-							?scheduling_parent,
-							"Cannot fetch scheduling session index from the runtime",
-						);
-						let _ = response_sender.send(Err(ValidationFailed(
-							"Scheduling session index not found".to_string(),
-						)));
-						return;
-					};
-
-					Some(BackingExtras { claim_queue, expected_scheduling_session })
+			// Phase 1: Pre-validation — cheap checks, fail fast before PVF.
+			let pre = match pre_validate_candidate(
+				&mut sender,
+				&candidate_receipt,
+				&validation_data,
+				&pov,
+				&validation_code.hash(),
+				exec_kind,
+				v3_ever_seen,
+			)
+			.await
+			{
+				Ok(pre) => pre,
+				Err(PreValidationError::Invalid(e)) => {
+					let _ = response_sender.send(Ok(ValidationResult::Invalid(e)));
+					return;
 				},
-				_ => None,
+				Err(PreValidationError::RuntimeError(err)) => {
+					let _ = response_sender.send(Err(ValidationFailed(err)));
+					return;
+				},
 			};
 
-			let res = validate_candidate_exhaustive(
+			// Phase 2: PVF execution + output validation.
+			let res = validate_candidate(
 				validation_host,
 				validation_data,
 				validation_code,
@@ -312,9 +386,8 @@ where
 				executor_params,
 				exec_kind,
 				&metrics,
-				validation_code_bomb_limit,
 				v3_ever_seen,
-				backing_extras,
+				pre,
 			)
 			.await;
 
@@ -619,6 +692,71 @@ where
 	};
 
 	Some(session_index)
+}
+
+enum CheckRelayParentSessionError {
+	/// The `AllowedRelayParentInfo` runtime API (v16+) is not supported.
+	NotSupported,
+	/// The relay parent was not found in the claimed session.
+	NotFound,
+	/// An unexpected runtime API error occurred.
+	RuntimeError(String),
+}
+
+/// Check that the relay parent is known to the runtime in the claimed session.
+///
+/// Uses the `AllowedRelayParentInfo` runtime API (v16+) called at some
+/// `recent_block` (recent enough to have state available). We cannot query
+/// state at the relay parent directly because it may be old and pruned.
+async fn check_relay_parent_in_session<Sender>(
+	sender: &mut Sender,
+	recent_block: Hash,
+	claimed_session: SessionIndex,
+	relay_parent: Hash,
+) -> Result<(), CheckRelayParentSessionError>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let rx = util::request_from_runtime(recent_block, sender, |tx| {
+		RuntimeApiRequest::AllowedRelayParentInfo(claimed_session, relay_parent, tx)
+	})
+	.await;
+
+	match rx.await {
+		Ok(Ok(Some(_))) => Ok(()),
+		Ok(Ok(None)) => Err(CheckRelayParentSessionError::NotFound),
+		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?recent_block,
+				"AllowedRelayParentInfo API not supported",
+			);
+			Err(CheckRelayParentSessionError::NotSupported)
+		},
+		Ok(Err(err)) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?recent_block,
+				?relay_parent,
+				?err,
+				"Error calling AllowedRelayParentInfo runtime API",
+			);
+			Err(CheckRelayParentSessionError::RuntimeError(format!(
+				"AllowedRelayParentInfo runtime API error: {err}"
+			)))
+		},
+		Err(_) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?recent_block,
+				?relay_parent,
+				"AllowedRelayParentInfo request cancelled",
+			);
+			Err(CheckRelayParentSessionError::RuntimeError(
+				"AllowedRelayParentInfo request cancelled".into(),
+			))
+		},
+	}
 }
 
 // Returns true if the node is an authority in the next session.
@@ -972,7 +1110,14 @@ where
 	}
 }
 
-async fn validate_candidate_exhaustive(
+/// Execute a PVF and validate the candidate's output.
+///
+/// Assumes all pre-validation ([`pre_validate_candidate`]) has already passed.
+/// Handles:
+/// 1. PVF execution (backing: single attempt; approval/dispute: with retry)
+/// 2. Post-validation: para_head hash, commitments hash
+/// 3. Backing-only post-validation: UMP signal validation against claim queue
+async fn validate_candidate(
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -981,42 +1126,19 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
-	validation_code_bomb_limit: u32,
 	v3_seen: bool,
-	backing_extras: Option<BackingExtras>,
+	pre: PreValidationOutput,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
-	let validation_code_hash = validation_code.hash();
 	let para_id = candidate_receipt.descriptor.para_id();
 	let candidate_hash = candidate_receipt.hash();
 
 	gum::debug!(
 		target: LOG_TARGET,
-		?validation_code_hash,
 		?candidate_hash,
 		?para_id,
 		"About to validate a candidate.",
 	);
-
-	// Backing-only: verify the descriptor's scheduling_session claim against
-	// the session index independently fetched from the runtime.
-	if let Some(BackingExtras { expected_scheduling_session, .. }) = &backing_extras {
-		if let Some(scheduling_session) = candidate_receipt.descriptor.scheduling_session() {
-			if scheduling_session != *expected_scheduling_session {
-				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
-			}
-		}
-	}
-
-	if let Err(e) = perform_basic_checks(
-		&candidate_receipt.descriptor,
-		persisted_validation_data.max_pov_size,
-		&pov,
-		&validation_code_hash,
-	) {
-		gum::debug!(target: LOG_TARGET, ?para_id, ?candidate_hash, "Invalid candidate (basic checks)");
-		return Ok(ValidationResult::Invalid(e));
-	}
 
 	let persisted_validation_data = Arc::new(persisted_validation_data);
 
@@ -1040,7 +1162,7 @@ async fn validate_candidate_exhaustive(
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
-				validation_code_bomb_limit,
+				pre.validation_code_bomb_limit,
 			);
 
 			validation_backend.validate_candidate(pvf, validation_context, exec_kind).await
@@ -1052,7 +1174,7 @@ async fn validate_candidate_exhaustive(
 					validation_context,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 					exec_kind,
-					validation_code_bomb_limit,
+					pre.validation_code_bomb_limit,
 				)
 				.await
 		},
@@ -1160,7 +1282,7 @@ async fn validate_candidate_exhaustive(
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
 					// Backing-only: validate UMP signals against the claim queue.
-					if let Some(BackingExtras { claim_queue, .. }) = &backing_extras {
+					if let Some(claim_queue) = &pre.claim_queue {
 						if let Err(err) = committed_candidate_receipt
 							.parse_ump_signals(&transpose_claim_queue(claim_queue.0.clone()))
 						{
