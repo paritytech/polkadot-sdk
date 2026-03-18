@@ -48,6 +48,7 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
+pub use sc_rpc_server::create_rpc_runtime;
 use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;

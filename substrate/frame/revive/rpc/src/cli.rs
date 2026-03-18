@@ -28,7 +28,7 @@ use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	TaskManager,
 	config::{PrometheusConfig, RpcConfiguration},
-	start_rpc_servers,
+	create_rpc_runtime, start_rpc_servers,
 };
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -230,12 +230,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
-	// Create dedicated RPC runtime
-	let rpc_runtime = tokio::runtime::Builder::new_multi_thread()
-		.thread_name("eth-rpc")
-		.enable_all()
-		.max_blocking_threads(rpc_config.max_connections as usize)
-		.build()
+	let rpc_runtime = create_rpc_runtime(rpc_config.max_connections)
 		.map_err(|e| anyhow::anyhow!("Failed to create RPC runtime: {}", e))?;
 
 	let rpc_api = rpc_module(is_dev, client.clone(), allow_unprotected_txs)?;
