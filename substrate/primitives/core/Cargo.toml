@@ -73,7 +73,7 @@ ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-externalities = { workspace = true, default-features = false }
-futures = { workspace = true, default-features = false, features = ["alloc"] }
+futures = { workspace = true, features = ["alloc"] }
 dyn-clone = { workspace = true }
 
 [dev-dependencies]
