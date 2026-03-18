@@ -2682,15 +2682,17 @@ mod benchmarks {
 	#[benchmark]
 	fn v3_migration_step() {
 		use crate::migrations::v3;
-		// Remove all pre-existing accounts so only our target is in the system.
+		// Remove all pre-existing accounts
 		let _ = frame_system::Account::<T>::clear(u32::MAX, None);
 
 		let account = account::<T::AccountId>("target", 0, 0);
 		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
 			.expect("should mint into account");
+
 		// clear the mapping so the migration has work to do
 		let addr = T::AddressMapper::to_address(&account);
 		crate::OriginalAccount::<T>::remove(addr);
+
 		assert!(!T::AddressMapper::is_mapped(&account));
 		let mut meter = WeightMeter::new();
 
