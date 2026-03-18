@@ -22,7 +22,7 @@
 //! for every non-eth-derived account that lacks a mapping.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{AddressMapper, Config, LOG_TARGET, address::is_eth_derived, weights::WeightInfo};
+use crate::{AddressMapper, Config, LOG_TARGET, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -70,7 +70,7 @@ impl<T: Config<AccountId = AccountId32>> SteppedMigration for Migration<T> {
 			};
 
 			if let Some((account_id, _)) = iter.next() {
-				if !is_eth_derived(&account_id) && !T::AddressMapper::is_mapped(&account_id) {
+				if !T::AddressMapper::is_mapped(&account_id) {
 					if let Err(err) = T::AddressMapper::map_no_deposit(&account_id) {
 						log::error!(
 							target: LOG_TARGET,
@@ -91,7 +91,7 @@ impl<T: Config<AccountId = AccountId32>> SteppedMigration for Migration<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
 		let unmapped: u32 = frame_system::Account::<T>::iter_keys()
-			.filter(|id| !is_eth_derived(id) && !T::AddressMapper::is_mapped(id))
+			.filter(|id| !T::AddressMapper::is_mapped(id))
 			.count() as u32;
 		log::info!(target: LOG_TARGET, "v3: {unmapped} accounts to map");
 		Ok(unmapped.encode())
@@ -103,7 +103,7 @@ impl<T: Config<AccountId = AccountId32>> SteppedMigration for Migration<T> {
 		let prev_unmapped =
 			u32::decode(&mut &prev[..]).expect("Failed to decode pre_upgrade state");
 		let still_unmapped: u32 = frame_system::Account::<T>::iter_keys()
-			.filter(|id| !is_eth_derived(id) && !T::AddressMapper::is_mapped(id))
+			.filter(|id| !T::AddressMapper::is_mapped(id))
 			.count() as u32;
 		assert_eq!(
 			still_unmapped, 0,

@@ -273,7 +273,12 @@ pub struct AutoMapper<T>(PhantomData<T>);
 impl<T: Config> OnNewAccount<T::AccountId> for AutoMapper<T> {
 	fn on_new_account(who: &T::AccountId) {
 		if T::AutoMap::get() {
-			let _ = T::AddressMapper::map_no_deposit(who);
+			if let Err(err) = T::AddressMapper::map_no_deposit(who) {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"Failed to auto-map account {who:?}: {err:?}",
+				);
+			}
 		}
 	}
 }
@@ -281,7 +286,12 @@ impl<T: Config> OnNewAccount<T::AccountId> for AutoMapper<T> {
 impl<T: Config> OnKilledAccount<T::AccountId> for AutoMapper<T> {
 	fn on_killed_account(who: &T::AccountId) {
 		if T::AutoMap::get() {
-			let _ = T::AddressMapper::unmap(who);
+			if let Err(err) = T::AddressMapper::unmap(who) {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"Failed to auto-unmap account {who:?}: {err:?}",
+				);
+			}
 		}
 	}
 }

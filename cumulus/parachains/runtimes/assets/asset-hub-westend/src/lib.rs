@@ -1301,6 +1301,7 @@ impl pallet_migrations::Config for Runtime {
 			Runtime,
 			ForeignAssetsInstance,
 		>,
+		pallet_revive::migrations::v3::Migration<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
