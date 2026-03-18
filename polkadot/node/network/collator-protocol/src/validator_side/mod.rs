@@ -1731,6 +1731,13 @@ where
 		.get(&scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
+	// Reject V3 advertisements when the V3 feature is not enabled.
+	if candidate_descriptor_version == CandidateDescriptorVersion::V3 &&
+		!per_scheduling_parent.v3_enabled
+	{
+		return Err(AdvertisementError::ProtocolMisuse);
+	}
+
 	// V3 candidate descriptors require the scheduling_parent to be the block from the last
 	// finished relay chain slot. We compare slot numbers rather than timestamps to keep
 	// the logic simple and aligned with how BABE/Aura reason about slots.

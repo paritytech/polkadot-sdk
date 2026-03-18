@@ -2127,9 +2127,11 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	});
 }
 
-/// No reputation penalty for V3 advertisement when the V3 feature flag is disabled.
+/// When the CandidateReceiptV3 node feature is disabled and a collator advertises a V3
+/// candidate descriptor, the validator rejects the advertisement immediately with
+/// `ProtocolMisuse` → `COST_PROTOCOL_MISUSE`. No collation is fetched.
 #[test]
-fn v3_advertisement_with_v3_feature_disabled_no_reputation_penalty() {
+fn v3_advertisement_with_v3_feature_disabled_reputation_penalty() {
 	// V3 feature is NOT enabled — TestState::default() only sets CandidateReceiptV2.
 	let mut test_state = TestState::default();
 	test_state.group_rotation_info.group_rotation_frequency = 100;
@@ -2140,12 +2142,10 @@ fn v3_advertisement_with_v3_feature_disabled_no_reputation_penalty() {
 		let pair_a = CollatorPair::generate().0;
 
 		let head_b = Hash::from_low_u64_be(128);
-		// Block 2 so that head_b_parent (block 1) is in the allowed ancestry.
 		let head_b_num: u32 = 2;
 		let head_b_parent = get_parent_hash(head_b);
 		let head_b_grandparent = get_parent_hash(head_b_parent);
 
-		// leaf.slot == current_slot → head_b_parent is the valid V3 scheduling_parent.
 		let current_slot = Slot::from_timestamp(
 			sp_timestamp::Timestamp::current(),
 			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
@@ -2170,7 +2170,6 @@ fn v3_advertisement_with_v3_feature_disabled_no_reputation_penalty() {
 		)
 		.await;
 
-		// relay_parent = grandparent, scheduling_parent = leaf's parent.
 		let mut committed_candidate =
 			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
@@ -2185,7 +2184,7 @@ fn v3_advertisement_with_v3_feature_disabled_no_reputation_penalty() {
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
-		// Collator sends a V3 advertisement even though the feature is disabled on validators.
+		// Collator sends a V3 advertisement while V3 feature is disabled on validators.
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2196,26 +2195,16 @@ fn v3_advertisement_with_v3_feature_disabled_no_reputation_penalty() {
 		)
 		.await;
 
-		// Backing subsystem is asked whether it can second this candidate.
-		// Reply false → AdvertisementError::BlockedByBacking → reputation_changes() = None.
+		// Advertisement is rejected immediately — V3 descriptor version is not enabled.
+		// ProtocolMisuse → COST_PROTOCOL_MISUSE. No CanSecond, no fetch.
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CandidateBacking(CandidateBackingMessage::CanSecond(request, tx)) => {
-				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
-				tx.send(false).expect("CanSecond response dropped");
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
+				ReportPeerMessage::Single(peer, rep),
+			)) => {
+				assert_eq!(peer, peer_a);
+				assert_eq!(rep.value, COST_PROTOCOL_MISUSE.cost_or_benefit());
 			}
-		);
-
-		// No ReportPeer message must follow — the validator discards the advertisement
-		// without penalising the collator at all.
-		assert!(
-			virtual_overseer
-				.recv()
-				.timeout(std::time::Duration::from_millis(100))
-				.await
-				.is_none(),
-			"Validator must not send a ReportPeer message for a V3 advertisement \
-			 when the V3 feature is disabled",
 		);
 
 		virtual_overseer
