@@ -1,53 +1,18 @@
-title: 'fix(txpool): handle AlreadyImported race in submit_and_watch'
+title: "fix(txpool): handle AlreadyImported race in fork-aware submit_and_watch"
+
 doc:
-- audience: Todo
-  description: "# Description\n\nFixes a race condition in the fork-aware transaction\
-    \ pool where `submit_and_watch` can spuriously return `AlreadyImported` (RPC error\
-    \ 1013) even though only a single submission was made.\n\n### The race\n\n`submit_and_watch_inner()`\
-    \ performs two steps:\n1. `mempool.push_watched()` \u2014 inserts the tx into\
-    \ the shared mempool\n2. `view_store.submit_and_watch()` \u2014 submits the tx\
-    \ to active view(s)\n\nBetween steps 1 and 2, a concurrent `maintain()` call can\
-    \ run `update_view_with_mempool()`, which imports the tx from mempool into a newly-built\
-    \ view. When step 2 then tries to submit to that same view, the view's `ValidatedPool`\
-    \ returns `AlreadyImported`.\n\n### Consequences without the fix\n\n- The tx IS\
-    \ in the view (imported by `maintain` from mempool), but the RPC caller gets error\
-    \ 1013\n- The external watcher stream is never connected to the multi-view listener\n\
-    - Critically, `submit_and_watch_inner` removes the tx from mempool on the error\
-    \ path (L762), so the tx won't be re-imported into future views if the current\
-    \ one is retracted (e.g. due to a fork). The tx's persistence in the pool depends\
-    \ solely on the single view that happened to import it during the race\n\nThe\
-    \ race window is widened in production by slow `clone_view` operations (1-2s observed).\n\
-    \n## Integration\n\nNo integration changes required. This is a bug fix in internal\
-    \ transaction pool logic. The fix only changes error handling in `ViewStore::submit_and_watch()`\
-    \ \u2014 when no active view accepts the tx and the resulting error is `AlreadyImported`,\
-    \ it is treated as success instead of propagating the error. No API changes.\n\
-    \n## Review Notes\n\nThe fix is in `substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs`,\
-    \ in the `submit_and_watch()` method.\n\n`submit_and_watch` submits to all active\
-    \ views in parallel, then uses `find_or_first(Result::is_ok)` to pick the first\
-    \ `Ok`, or the first `Err` if none succeeded. The `Some(Err(...))` branch now\
-    \ uses `into_pool_error()` to check if the error is `AlreadyImported`. If so,\
-    \ it returns `Ok` with the already-created external watcher, since the tx is already\
-    \ in the pool (imported by maintain). Other errors are propagated as before.\n\
-    \nTwo tests are added:\n- **Deterministic unit test** (`view_store::tests`): Pre-populates\
-    \ a view with a tx, then calls `submit_and_watch` for the same tx \u2014 verifies\
-    \ it returns `Ok`. Confirmed this test fails when the fix is reverted.\n- **Concurrent\
-    \ integration test** (`fatp.rs`): Races `submit_and_watch` against `maintain`\
-    \ across 50 iterations \u2014 verifies `submit_and_watch` always returns `Ok`.\n\
-    \n# Checklist\n\n- [x] My PR includes a detailed description as outlined in the\
-    \ \"Description\" and its two subsections above.\n- [x] My PR follows the labeling\
-    \ requirements of this project (at minimum one label for `T` required)\n- [x]\
-    \ I have made corresponding changes to the documentation (if applicable)\n- [x]\
-    \ I have added tests that prove my fix is effective or that my feature works\n\
-    \n\n## Bot Commands\n\nYou can use the following bot commands in comments to help\
-    \ manage your PR:\n\n**Labeling (Self-service for contributors):**\n* `/cmd label\
-    \ T1-FRAME` - Add a single label\n* `/cmd label T1-FRAME R0-no-crate-publish-required`\
-    \ - Add multiple labels\n* `/cmd label T6-XCM D2-substantial I5-enhancement` -\
-    \ Add multiple labels at once\n* See [label documentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html)\
-    \ for all available labels\n\n**Other useful commands:**\n* `/cmd fmt` - Format\
-    \ code (cargo +nightly fmt and taplo)\n* `/cmd prdoc` - Generate PR documentation\n\
-    * `/cmd bench` - Run benchmarks\n* `/cmd update-ui` - Update UI tests\n* `/cmd\
-    \ --help` - Show help for all available commands\n\nYou can remove the \"Checklist\"\
-    \ section once all have been checked. Thank you for your contribution!"
+- audience: Node Dev
+  description: |
+    Fixes a race condition in the fork-aware transaction pool where
+    `submit_and_watch` can spuriously return `AlreadyImported` (RPC error 1013)
+    even though only a single submission was made. This happens when a concurrent
+    `maintain()` call imports the transaction from mempool into a newly-built view
+    before `submit_and_watch` gets to submit to that view. When no active view
+    accepts the transaction and the resulting error is `AlreadyImported`, it means
+    the transaction is already in the pool. Without the fix, this error propagates
+    to the RPC caller and the transaction is removed from mempool, degrading its
+    persistence. With the fix, `AlreadyImported` is treated as success.
+
 crates:
 - name: sc-transaction-pool
   bump: major
