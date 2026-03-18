@@ -48,6 +48,17 @@ jobs:
         run: |
           cd substrate/
           ../.gitlab/ensure-deps.sh
+  check-workspace-inheritance:
+    runs-on: ubuntu-latest
+    needs: isdraft
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check workspace dependency inheritance
+        uses: RomarQ/cargo-workspace-inheritance-check@16fcefd364bbad5af6b3a928f82057b9d68c3388 # v1.1.2
+        with:
+          promotion-failure: true
+          promotion-threshold: 1
   check-zepter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -297,6 +308,7 @@ jobs:
     needs:
       - fmt
       - check-dependency-rules
+      - check-workspace-inheritance
       - check-zepter
       - test-rust-features
       - check-toml-format
