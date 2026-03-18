@@ -257,7 +257,7 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let result = contract_result.result.expect("Outer call should succeed");
 		assert!(
-			contract_result.gas_consumed > gas_limit,
+			contract_result.gas_consumed > gas_limit as u128,
 			"Inner call should consume all forwarded gas. Consumed: {}, Limit: {}",
 			contract_result.gas_consumed,
 			gas_limit
@@ -823,4 +823,50 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 			assert_eq!(case.result, result);
 		});
 	}
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+fn delegatecall_with_large_deposit_limit_succeeds(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		// Use a very large deposit limit to trigger the bug scenario
+		let large_deposit_limit: u128 = u64::MAX as _;
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: large_deposit_limit,
+			})
+			.build();
+
+		// The call must succeed - before the fix, this would fail with OutOfGas
+		let exec_result = result.result.expect("call must not fail");
+		let decoded = Caller::delegateCall::abi_decode_returns(&exec_result.data).unwrap();
+		assert!(decoded.success, "delegatecall must succeed");
+
+		let echo_result = Callee::echoCall::abi_decode_returns(&decoded.output).unwrap();
+		assert_eq!(echo_result, 42, "echo must return the magic number");
+	});
 }

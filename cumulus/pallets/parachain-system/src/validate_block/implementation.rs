@@ -247,7 +247,9 @@ where
 				overlay.storage(well_known_keys::CODE).is_some()
 			};
 		if code_upgrade_detected && num_blocks > 1 {
-			panic!("When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}.")
+			panic!(
+				"When applying a runtime upgrade, only one block per PoV is allowed. Received {num_blocks}."
+			)
 		}
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
@@ -287,16 +289,17 @@ where
 						}
 					})
 					.for_each(|m| {
-						upward_messages.try_push(m)
-							.expect(
-								"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-							)
+						upward_messages.try_push(m).expect(
+							"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+						)
 					});
 
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
-				horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
-					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-				);
+				horizontal_messages
+					.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter())
+					.expect(
+						"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+					);
 				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
 				if block_index + 1 == num_blocks {
@@ -366,6 +369,7 @@ where
 		upward_messages
 			.try_push(UMP_SEPARATOR)
 			.expect("UMPSignals does not fit in UMPMessages");
+
 		upward_messages
 			.try_extend(upward_message_signals.into_iter())
 			.expect("UMPSignals does not fit in UMPMessages");
