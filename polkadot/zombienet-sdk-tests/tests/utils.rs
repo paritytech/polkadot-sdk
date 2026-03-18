@@ -48,22 +48,22 @@ pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
-/// Enables `CandidateReceiptV3` (bit 4) in `node_features` at runtime via a sudo extrinsic.
+/// Enables the given `node_features` bits at runtime via a single sudo extrinsic.
 ///
-/// Bit 3 (`CandidateReceiptV2`) is already set via genesis; this sets bit 4.
+/// All bit indices in `feature_bits` are set to `true` in one batched `set_node_feature` call.
 /// The change takes effect after the next session change.
-pub async fn enable_v3_node_features(
+pub async fn enable_node_features(
 	client: &OnlineClient<PolkadotConfig>,
+	feature_bits: &[u8],
 ) -> Result<(), anyhow::Error> {
-	// set_node_feature(index, value) sets a single bit in node_features.
-	// Bit 4 = CandidateReceiptV3.
-	let call = dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Configuration(set_node_feature { index: 4u8, value: true })
-		}],
-	);
+	let calls: Vec<Value> = feature_bits
+		.iter()
+		.map(|&bit| {
+			value! { Configuration(set_node_feature { index: bit, value: true }) }
+		})
+		.collect();
+
+	let call = dynamic("Sudo", "sudo", vec![value! { Utility(batch { calls: calls }) }]);
 
 	client
 		.tx()

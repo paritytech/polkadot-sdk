@@ -98,14 +98,14 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, 2100, vec![0, 1]).await?;
 	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
 
-	crate::utils::enable_v3_node_features(&relay_client).await?;
+	crate::utils::enable_node_features(&relay_client, &[4]).await?;
 
 	crate::scheduling::assert_candidates_version(
 		&relay_client,
-		ParaId::from(2200),
+		&[ParaId::from(2200)],
 		CandidateDescriptorVersion::V2,
 		true,
-		15,
+		15..21,
 		20,
 	)
 	.await?;

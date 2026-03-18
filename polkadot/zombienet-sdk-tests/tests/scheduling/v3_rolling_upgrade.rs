@@ -14,9 +14,9 @@
 //! - Parachain throughput is sustained.
 
 use super::{assert_candidates_version, assert_validator_backed_candidates};
-use crate::utils::enable_v3_node_features;
+use crate::utils::enable_node_features;
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::assert_finality_lag;
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
 use zombienet_sdk::{
@@ -92,15 +92,15 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// enabling v3 here does not overwrite all node_features
-	enable_v3_node_features(&relay_client).await?;
+	enable_node_features(&relay_client, &[4]).await?;
 
 	assert_candidates_version(
 		&relay_client,
-		ParaId::from(3000),
+		&[ParaId::from(3000)],
 		CandidateDescriptorVersion::V2,
 		true,
-		15,
-		20,
+		40..51,
+		50,
 	)
 	.await?;
 
@@ -118,8 +118,6 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	}
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
-
-	assert_para_throughput(&relay_client, 50, [(ParaId::from(3000), 40..51)]).await?;
 
 	log::info!("Rolling upgrade test finished successfully");
 

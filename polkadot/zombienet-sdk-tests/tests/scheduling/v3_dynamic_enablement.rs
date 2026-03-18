@@ -11,9 +11,9 @@
 //! The validator set contains both standard and experimental-collator-protocol validators.
 
 use super::{assert_candidates_version, assert_validator_backed_candidates};
-use crate::utils::enable_v3_node_features;
+use crate::utils::enable_node_features;
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::assert_finality_lag;
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
 use zombienet_sdk::{
@@ -100,55 +100,30 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
+	let para_ids = &[ParaId::from(2900), ParaId::from(2901)];
+
 	log::info!("checking V2 candidates with V3 disabled");
 	assert_candidates_version(
 		&relay_client,
-		ParaId::from(2900),
+		para_ids,
 		CandidateDescriptorVersion::V2,
 		false, // v3 not enabled
-		10,
-		20,
-	)
-	.await?;
-
-	assert_candidates_version(
-		&relay_client,
-		ParaId::from(2901),
-		CandidateDescriptorVersion::V2,
-		false,
-		10,
+		10..21,
 		20,
 	)
 	.await?;
 
 	log::info!("Enabling V3");
-	enable_v3_node_features(&relay_client).await?;
+	enable_node_features(&relay_client, &[4]).await?;
 
 	log::info!("checking V2 candidates after V3 enabled");
 	assert_candidates_version(
 		&relay_client,
-		ParaId::from(2900),
+		para_ids,
 		CandidateDescriptorVersion::V2,
 		true, // v3 now enabled
-		10,
-		20,
-	)
-	.await?;
-
-	assert_candidates_version(
-		&relay_client,
-		ParaId::from(2901),
-		CandidateDescriptorVersion::V2,
-		true,
-		10,
-		20,
-	)
-	.await?;
-
-	assert_para_throughput(
-		&relay_client,
+		40..51,
 		50,
-		[(ParaId::from(2900), 40..51), (ParaId::from(2901), 40..51)],
 	)
 	.await?;
 

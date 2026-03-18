@@ -5,11 +5,11 @@ mod v3_dynamic_enablement;
 mod v3_rolling_upgrade;
 
 use anyhow::anyhow;
-use codec::Decode;
-use cumulus_zombienet_sdk_helpers::wait_for_first_session_change;
-use polkadot_primitives::{CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId};
+use cumulus_zombienet_sdk_helpers::assert_para_throughput_with;
+use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
+use std::{collections::HashMap, ops::Range};
 use zombienet_sdk::{
-	subxt::{utils::H256, OnlineClient, PolkadotConfig},
+	subxt::{OnlineClient, PolkadotConfig},
 	NetworkNode,
 };
 
@@ -32,108 +32,61 @@ pub async fn assert_validator_backed_candidates(
 		})
 }
 
-/// Find CandidateBacked events and decode them.
-fn find_candidate_backed_events(
-	events: &zombienet_sdk::subxt::events::Events<PolkadotConfig>,
-) -> Result<Vec<CandidateReceiptV2<H256>>, anyhow::Error> {
-	let mut result = vec![];
-	for event in events.iter() {
-		let event = event?;
-		if event.pallet_name() == "ParaInclusion" && event.variant_name() == "CandidateBacked" {
-			result.push(CandidateReceiptV2::<H256>::decode(&mut &event.field_bytes()[..])?);
-		}
-	}
-	Ok(result)
-}
-
-/// Asserts that candidates of the expected version are being backed for a given parachain.
+/// Asserts that candidates of the expected version are being backed for the given parachains.
 ///
 /// Waits for the first session change (so that genesis configuration like `node_features` is
-/// active), then checks that at least `min_candidates` candidates matching `expected_version`
-/// are backed within `max_blocks` relay chain blocks.
+/// active), then checks that the number of candidates matching `expected_version` falls within
+/// `expected_range` after `max_blocks` relay chain blocks for each para ID.
 pub async fn assert_candidates_version(
 	relay_client: &OnlineClient<PolkadotConfig>,
-	para_id: ParaId,
+	para_ids: &[ParaId],
 	expected_version: CandidateDescriptorVersion,
 	v3_enabled: bool,
-	min_candidates: u32,
+	expected_range: Range<u32>,
 	max_blocks: u32,
 ) -> Result<(), anyhow::Error> {
-	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	let expected_ranges: HashMap<ParaId, _> =
+		para_ids.iter().map(|&id| (id, expected_range.clone())).collect();
 
-	wait_for_first_session_change(&mut blocks_sub).await?;
+	assert_para_throughput_with(relay_client, max_blocks, expected_ranges, |receipt| {
+		let para_id = receipt.descriptor.para_id();
+		let version = receipt.descriptor.version(v3_enabled);
+		log::info!(
+			"Para {} candidate backed: version={:?}, \
+			 relay_parent={:?}, \
+			 session_index={:?}, \
+			 scheduling_parent={:?}",
+			para_id,
+			version,
+			receipt.descriptor.relay_parent(),
+			receipt.descriptor.session_index(v3_enabled),
+			receipt.descriptor.scheduling_parent(v3_enabled),
+		);
 
-	let mut matched = 0u32;
-	let mut total = 0u32;
-	let mut block_count = 0u32;
-
-	while let Some(block) = blocks_sub.next().await {
-		let block = block?;
-		log::debug!("Finalized relay chain block {}", block.number());
-
-		for receipt in find_candidate_backed_events(&block.events().await?)? {
-			if receipt.descriptor.para_id() != para_id {
-				continue;
-			}
-
-			total += 1;
-			let version = receipt.descriptor.version(v3_enabled);
-			log::info!(
-				"Para {} candidate backed: version={:?}, \
-				 relay_parent={:?}, \
-				 session_index={:?}, \
-				 scheduling_parent={:?}",
-				para_id,
+		if version != expected_version {
+			return Err(anyhow!(
+				"Para {para_id} candidate has version {:?}, expected {:?}",
 				version,
-				receipt.descriptor.relay_parent(),
-				receipt.descriptor.session_index(v3_enabled),
-				receipt.descriptor.scheduling_parent(v3_enabled),
-			);
+				expected_version,
+			));
+		}
 
-			if version != expected_version {
+		if expected_version == CandidateDescriptorVersion::V2 {
+			if receipt.descriptor.session_index(v3_enabled).is_none() {
+				return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
+			}
+			if receipt.descriptor.relay_parent() != receipt.descriptor.scheduling_parent(v3_enabled)
+			{
 				return Err(anyhow!(
-					"Para {para_id} candidate has version {:?}, expected {:?}",
-					version,
-					expected_version,
+					"Para {para_id} V2 candidate has scheduling_parent={:?} \
+					 != relay_parent={:?}",
+					receipt.descriptor.scheduling_parent(v3_enabled),
+					receipt.descriptor.relay_parent(),
 				));
 			}
-
-			if expected_version == CandidateDescriptorVersion::V2 {
-				if receipt.descriptor.session_index(v3_enabled).is_none() {
-					return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
-				}
-				if receipt.descriptor.relay_parent() !=
-					receipt.descriptor.scheduling_parent(v3_enabled)
-				{
-					return Err(anyhow!(
-						"Para {para_id} V2 candidate has scheduling_parent={:?} \
-						 != relay_parent={:?}",
-						receipt.descriptor.scheduling_parent(v3_enabled),
-						receipt.descriptor.relay_parent(),
-					));
-				}
-			}
-
-			matched += 1;
 		}
 
-		block_count += 1;
-
-		if matched >= min_candidates {
-			log::info!(
-				"Found {matched}/{total} {:?} candidates for para {para_id} in {block_count} blocks",
-				expected_version,
-			);
-			return Ok(());
-		}
-
-		if block_count >= max_blocks {
-			break;
-		}
-	}
-
-	Err(anyhow!(
-		"Only found {matched} {:?} candidates (needed {min_candidates}) out of {total} total for para {para_id} in {block_count} blocks",
-		expected_version,
-	))
+		Ok(true)
+	})
+	.await
 }
