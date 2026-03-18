@@ -906,6 +906,13 @@ where
 					async move {
 						let entries: Vec<(ParaId, u64, H256)> =
 							std::mem::take(&mut *queue.lock());
+						if !entries.is_empty() {
+							tracing::info!(
+								target: LOG_TARGET,
+								count = entries.len(),
+								"Draining spec-msg queue for inherent",
+							);
+						}
 						Ok(SpecMsgInherentDataProvider::new(entries))
 					}
 				},
@@ -942,6 +949,13 @@ where
 					async move {
 						let entries: Vec<(ParaId, u64, H256)> =
 							std::mem::take(&mut *queue.lock());
+						if !entries.is_empty() {
+							tracing::info!(
+								target: LOG_TARGET,
+								count = entries.len(),
+								"Draining spec-msg queue for inherent",
+							);
+						}
 						Ok(SpecMsgInherentDataProvider::new(entries))
 					}
 				},

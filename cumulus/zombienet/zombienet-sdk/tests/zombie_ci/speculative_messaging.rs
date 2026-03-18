@@ -74,6 +74,10 @@ async fn speculative_messaging_e2e() -> Result<(), anyhow::Error> {
 		.await
 		.unwrap_or_else(|e| panic!("collator-a: {e}"));
 
+	// Subscribe to ParaB BEFORE sending — the outbound worker fires on best block
+	// and the message arrives before finalization, so we'd miss it if we subscribed later
+	let mut para_b_sub = para_b_client.blocks().subscribe_best().await?;
+
 	// Send message and measure
 	log::info!("═══ SENDING SPECULATIVE MESSAGE ═══");
 	let t_send = Instant::now();
@@ -98,15 +102,14 @@ async fn speculative_messaging_e2e() -> Result<(), anyhow::Error> {
 	);
 	log::info!("[CHECK] MessageSent confirmed on ParaA");
 
-	// Poll ParaB best blocks for MessagesReceived
+	// Poll ParaB best blocks for MessagesReceived (subscription created before send)
 	log::info!("Polling ParaB for MessagesReceived...");
-	let mut sub = para_b_client.blocks().subscribe_best().await?;
 	let mut t_received: Option<Instant> = None;
 	let deadline = Instant::now() + Duration::from_secs(60);
 	while Instant::now() < deadline {
 		let block = tokio::time::timeout(Duration::from_secs(12), async {
 			use futures::StreamExt;
-			sub.next().await
+			para_b_sub.next().await
 		})
 		.await;
 		let block = match block {
