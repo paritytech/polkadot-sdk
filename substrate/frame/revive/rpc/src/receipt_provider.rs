@@ -614,10 +614,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let filter = filter.unwrap_or_default();
 
 		let latest_block = U256::from(self.block_provider.latest_block_number().await);
+		let earliest_block = U256::from(self.first_evm_block().unwrap_or(0));
 
 		let as_block_number = |block_param| match block_param {
 			None => Ok(None),
 			Some(BlockNumberOrTag::U256(v)) => Ok(Some(v)),
+			Some(BlockNumberOrTag::BlockTag(BlockTag::Earliest)) => Ok(Some(earliest_block)),
 			Some(BlockNumberOrTag::BlockTag(BlockTag::Latest)) => Ok(Some(latest_block)),
 			Some(BlockNumberOrTag::BlockTag(tag)) => anyhow::bail!("Unsupported tag: {tag:?}"),
 		};

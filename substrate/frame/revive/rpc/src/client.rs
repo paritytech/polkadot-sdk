@@ -366,6 +366,12 @@ impl Client {
 		&self.block_provider
 	}
 
+	/// The earliest block number where the ReviveApi is available.
+	/// Falls back to 0 if `first_evm_block` hasn't been discovered yet.
+	fn earliest_block(&self) -> u32 {
+		self.receipt_provider.first_evm_block().unwrap_or(0)
+	}
+
 	/// Subscribe to new blocks, and execute the async closure for each block.
 	async fn subscribe_new_blocks<F, Fut>(
 		&self,
@@ -484,6 +490,13 @@ impl Client {
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Finalized | BlockTag::Safe) => {
 				let block = self.latest_finalized_block().await;
 				Ok(block.hash())
+			},
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Earliest) => {
+				let hash = self
+					.get_block_hash(self.earliest_block())
+					.await?
+					.ok_or(ClientError::BlockNotFound)?;
+				Ok(hash)
 			},
 			BlockNumberOrTagOrHash::BlockTag(_) => {
 				let block = self.latest_block().await;
@@ -687,6 +700,9 @@ impl Client {
 				let block = self.block_provider.latest_finalized_block().await;
 				Ok(Some(block))
 			},
+			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => {
+				self.block_by_number(self.earliest_block()).await
+			},
 			BlockNumberOrTag::BlockTag(_) => {
 				let block = self.block_provider.latest_block().await;
 				Ok(Some(block))
@@ -747,18 +763,16 @@ impl Client {
 		>,
 		ClientError,
 	> {
-		let signed_block: sp_runtime::generic::SignedBlock<
-			sp_runtime::generic::Block<
-				sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
-				sp_runtime::OpaqueExtrinsic,
+		let signed_block: Option<
+			sp_runtime::generic::SignedBlock<
+				sp_runtime::generic::Block<
+					sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+					sp_runtime::OpaqueExtrinsic,
+				>,
 			>,
-		> = self
-			.rpc_client
-			.request("chain_getBlock", rpc_params![block_hash])
-			.await
-			.unwrap();
+		> = self.rpc_client.request("chain_getBlock", rpc_params![block_hash]).await?;
 
-		Ok(signed_block.block)
+		Ok(signed_block.ok_or(ClientError::BlockNotFound)?.block)
 	}
 
 	/// Get the transaction traces for the given block.
@@ -774,6 +788,10 @@ impl Client {
 		let block_hash = self.block_hash_for_tag(at.into()).await?;
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header().parent_hash;
+		// Block 0 has no parent — there is nothing to trace.
+		if parent_hash == Default::default() {
+			return Ok(vec![]);
+		}
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
 		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
