@@ -40,7 +40,9 @@ use frame_support::{
 	DefaultNoBound, assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion},
+	traits::{
+		ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion, tokens::imbalance::ResolveTo,
+	},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
 use pallet_revive_fixtures::compile_module;
@@ -372,6 +374,7 @@ where
 parameter_types! {
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
+	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
 	pub static AutoMapFlag: bool = false;
 }
@@ -404,6 +407,7 @@ impl Config for Test {
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
+	type OnBurn = ResolveTo<BurnDestination, Balances>;
 }
 
 impl TryFrom<RuntimeCall> for Call<Test> {
