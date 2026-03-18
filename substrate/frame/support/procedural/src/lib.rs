@@ -445,7 +445,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// #[frame_support::stored]
 /// pub struct Foo<F, F2> {
 ///     f: F,
@@ -459,7 +459,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 ///
 /// For pallet storage, you can of course still use `T: Config`:
 ///
-/// ```
+/// ```ignore
 /// #[frame_support::stored]
 /// pub struct AccountData<T: Config> {
 ///     pub free: T::Balance,
