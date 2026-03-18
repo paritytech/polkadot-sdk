@@ -2,11 +2,13 @@ title: Decrease the log level for claim queue inconsistency in `ClaimQueueState`
 doc:
 - audience: Node Dev
   description: |-
-    While testing the collator protocol revamp on westend I noticed "Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on session change." pops up a lot at regular intervals.
+    Decrease the log level of "Inconsistency while adding a leaf to the `ClaimQueueState`..." log
+    message from WARN to DEBUG.
 
-    Long story short, when writing this code I assumed that the CQ never change but from a `ClaimQueueState` point of view this is not true. On session change the validators in the active set are reshuffled and end up in different backing groups. In this case we start fetching the claim queue for the newly assigned core and the future assignments in `ClaimQueueState` are no longer valid so overwriting them is the right thing to do.
-
-    We could also implement a logic which detects assignment change, notifies the claim queue and cleans it up but it's an additional complexity which doesn't add any benefits.
+    On session change the validators in the active set are reshuffled and end up in different backing
+    groups. In this case we start fetching the claim queue for the newly assigned core and the
+    future assignments in `ClaimQueueState` are no longer valid so overwriting them is the right
+    thing to do.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
