@@ -18,6 +18,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
+		Timestamp: pallet_timestamp,
 		PriceOracle: pallet_price_oracle,
 	}
 );
@@ -25,6 +26,13 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = frame_support::traits::ConstU64<1>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -63,6 +71,7 @@ impl Config for Test {
 	type MinNudges = MinNudges;
 	type NudgeValidity = NudgeValidity;
 	type AuthorityProvider = MockAuthorityProvider;
+	type OnPriceUpdate = ();
 }
 
 fn new_test_ext() -> TestExternalities {
@@ -257,5 +266,44 @@ fn submit_nudges_only_once_per_block() {
 			let _ = PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge]);
 		}));
 		assert!(result.is_err());
+	});
+}
+
+#[test]
+fn duplicate_authority_nudges_are_skipped() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(2);
+		set_authorities(&pairs);
+		set_current_slot(5);
+
+		let nudges = vec![
+			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
+			make_signed_nudge(&pairs[0], Nudge::Up, 4, 0), // same authority_index=0
+			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
+		];
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+
+		// 2 valid (one from auth 0, one from auth 1), duplicate skipped
+		let expected = FixedU128::from_rational(2, 100);
+		assert_eq!(PriceOracle::current_price(), expected);
+		assert_eq!(pallet::NudgeCount::<Test>::get(), 2);
+	});
+}
+
+#[test]
+fn nudge_count_tracks_valid_nudges() {
+	new_test_ext().execute_with(|| {
+		let pairs = generate_test_pairs(3);
+		set_authorities(&pairs);
+		set_current_slot(15);
+
+		let nudges = vec![
+			make_signed_nudge(&pairs[0], Nudge::Up, 15, 0),
+			make_signed_nudge(&pairs[1], Nudge::Up, 14, 1),
+			make_signed_nudge(&pairs[2], Nudge::Up, 1, 2), // stale: 1+10=11 <= 15
+		];
+		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+
+		assert_eq!(pallet::NudgeCount::<Test>::get(), 2);
 	});
 }

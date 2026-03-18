@@ -509,9 +509,9 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 100);
+	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 1000);
 	pub const OracleMinNudges: u32 = 0;
-	pub const OracleNudgeValidity: u64 = 10;
+	pub const OracleNudgeValidity: u64 = 2;
 }
 
 pub struct BabeAuthorityProvider;
@@ -532,6 +532,8 @@ impl pallet_price_oracle::Config for Runtime {
 	type MinNudges = OracleMinNudges;
 	type NudgeValidity = OracleNudgeValidity;
 	type AuthorityProvider = BabeAuthorityProvider;
+	// Note: Later we wire this to pallet-xcm to send the price to AH and anywhere else interested.
+	type OnPriceUpdate = ();
 }
 
 impl pallet_authorship::Config for Runtime {

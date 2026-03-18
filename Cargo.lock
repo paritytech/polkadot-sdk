@@ -13188,9 +13188,12 @@ dependencies = [
 name = "pallet-price-oracle"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-babe",

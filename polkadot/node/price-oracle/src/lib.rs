@@ -25,25 +25,28 @@ use sp_runtime::{
 };
 
 const LOG_TARGET: &str = "price-oracle";
+/// A single SignedNudge is ~100 bytes; 16KB allows batching up to ~160 nudges in one message.
 const MAX_NOTIFICATION_SIZE: u64 = 16 * 1024;
+/// Match BABE slot time — one price fetch per slot.
 const PRICE_FETCH_INTERVAL: Duration = Duration::from_secs(6);
+/// Match BABE slot time — one nudge broadcast per slot.
 const GOSSIP_INTERVAL: Duration = Duration::from_secs(6);
+/// Prune every 2 slots to avoid churn while still cleaning up promptly.
 const PRUNE_INTERVAL: Duration = Duration::from_secs(12);
 
 mod fetcher;
 
 pub use fetcher::PriceFetcher;
 
-// ------ Shared nudge store ------
-
-/// Thread-safe store of collected nudges, keyed by (authority_index, slot).
+/// Thread-safe store of collected nudges, keyed by authority index.
+/// Only the latest nudge per authority is kept.
 #[derive(Clone)]
 pub struct NudgeStore {
 	inner: Arc<RwLock<NudgeStoreInner>>,
 }
 
 struct NudgeStoreInner {
-	nudges: HashMap<(AuthorityIndex, Slot), SignedNudge>,
+	nudges: HashMap<AuthorityIndex, SignedNudge>,
 	cached_price: Option<FixedU128>,
 }
 
@@ -58,8 +61,17 @@ impl NudgeStore {
 	}
 
 	pub fn insert(&self, nudge: SignedNudge) {
-		let key = (nudge.authority_index, nudge.slot);
-		self.inner.write().nudges.insert(key, nudge);
+		let mut inner = self.inner.write();
+		match inner.nudges.entry(nudge.authority_index) {
+			std::collections::hash_map::Entry::Vacant(e) => {
+				e.insert(nudge);
+			},
+			std::collections::hash_map::Entry::Occupied(mut e) => {
+				if *nudge.slot >= *e.get().slot {
+					e.insert(nudge);
+				}
+			},
+		}
 	}
 
 	pub fn get_all_valid(&self, current_slot: Slot, validity: u64) -> Vec<SignedNudge> {
@@ -69,8 +81,8 @@ impl NudgeStore {
 			.nudges
 			.values()
 			.filter(|n| {
-				let slot_val: u64 = (*n.slot).into();
-				current.saturating_sub(slot_val) < validity
+				let nudge_slot: u64 = (*n.slot).into();
+				current.saturating_sub(nudge_slot) < validity
 			})
 			.cloned()
 			.collect()
@@ -80,8 +92,8 @@ impl NudgeStore {
 		let mut inner = self.inner.write();
 		let current: u64 = (*current_slot).into();
 		inner.nudges.retain(|_, n| {
-			let slot_val: u64 = (*n.slot).into();
-			current.saturating_sub(slot_val) < validity
+			let nudge_slot: u64 = (*n.slot).into();
+			current.saturating_sub(nudge_slot) < validity
 		});
 	}
 
@@ -93,8 +105,6 @@ impl NudgeStore {
 		self.inner.read().cached_price
 	}
 }
-
-// ------ Protocol setup ------
 
 pub struct OracleProtocolPrototype {
 	protocol_name: ProtocolName,
@@ -125,6 +135,8 @@ impl OracleProtocolPrototype {
 			MAX_NOTIFICATION_SIZE,
 			None,
 			SetConfig {
+				// With ~300 validators, 25 in/out peers gives ~8% direct connectivity per node.
+				// Matches the statement handler's defaults. Multi-hop gossip covers the rest.
 				in_peers: 25,
 				out_peers: 25,
 				reserved_nodes: Vec::new(),
@@ -137,8 +149,6 @@ impl OracleProtocolPrototype {
 		(Self { protocol_name: protocol_name.into(), notification_service }, config)
 	}
 }
-
-// ------ Oracle service ------
 
 /// Run the price oracle gossip service.
 ///
@@ -289,24 +299,24 @@ where
 
 	let slot = get_current_slot::<Block, Client>(client);
 
-	// Find our authority index and sign
-	for (index, authority) in authorities.iter().enumerate() {
-		let public = sp_core::sr25519::Public::from(authority.clone());
-		if let Ok(Some(raw_sig)) = keystore.sr25519_sign(
+	let local_keys = keystore.sr25519_public_keys(sp_consensus_babe::KEY_TYPE);
+	let (authority_index, local_public) =
+		authorities.iter().enumerate().find_map(|(i, auth)| {
+			let public = sp_core::sr25519::Public::from(auth.clone());
+			local_keys.contains(&public).then_some((i as u32, public))
+		})?;
+
+	let raw_sig = keystore
+		.sr25519_sign(
 			sp_consensus_babe::KEY_TYPE,
-			&public,
+			&local_public,
 			&SignedNudge::signing_payload(&nudge, slot),
-		) {
-			let signature = AuthoritySignature::from(raw_sig);
-			return Some(SignedNudge { nudge, slot, authority_index: index as u32, signature });
-		}
-	}
+		)
+		.ok()
+		.flatten()?;
 
-	debug!(target: LOG_TARGET, "No BABE key found in keystore for signing nudge");
-	None
+	Some(SignedNudge { nudge, slot, authority_index, signature: AuthoritySignature::from(raw_sig) })
 }
-
-// ------ Inherent data provider ------
 
 /// Creates the price oracle inherent data from the nudge store.
 ///
@@ -390,9 +400,98 @@ where
 
 	info!(
 		target: LOG_TARGET,
-		"Block author: onchain={}, cached={}, direction={:?}, needed={}, selected={}",
+		"Block author: onchain={:?}, cached={:?}, direction={:?}, needed={}, selected={}",
 		onchain_price, cached_price, direction, needed, selected.len(),
 	);
 
 	selected
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_consensus_babe::AuthoritySignature;
+	use sp_consensus_slots::Slot;
+	use sp_core::{crypto::Pair as PairT, sr25519};
+	use sp_price_oracle::{Nudge, SignedNudge};
+
+	fn make_nudge(slot: u64, authority_index: u32, nudge: Nudge) -> SignedNudge {
+		let pair = sr25519::Pair::from_seed(&[authority_index as u8; 32]);
+		let slot = Slot::from(slot);
+		let payload = SignedNudge::signing_payload(&nudge, slot);
+		let sig = pair.sign(&payload);
+		SignedNudge { nudge, slot, authority_index, signature: AuthoritySignature::from(sig) }
+	}
+
+	#[test]
+	fn nudge_store_insert_and_retrieve() {
+		let store = NudgeStore::new();
+		store.insert(make_nudge(10, 0, Nudge::Up));
+		store.insert(make_nudge(10, 1, Nudge::Down));
+		store.insert(make_nudge(11, 2, Nudge::Up));
+
+		let all = store.get_all_valid(Slot::from(11u64), 5);
+		assert_eq!(all.len(), 3);
+	}
+
+	#[test]
+	fn nudge_store_keeps_latest_per_authority() {
+		let store = NudgeStore::new();
+		store.insert(make_nudge(10, 0, Nudge::Up));
+		store.insert(make_nudge(11, 0, Nudge::Down));
+
+		let all = store.get_all_valid(Slot::from(11u64), 5);
+		assert_eq!(all.len(), 1);
+		assert_eq!(all[0].nudge, Nudge::Down);
+		assert_eq!(*all[0].slot, 11);
+	}
+
+	#[test]
+	fn nudge_store_rejects_older_from_same_authority() {
+		let store = NudgeStore::new();
+		store.insert(make_nudge(11, 0, Nudge::Up));
+		store.insert(make_nudge(10, 0, Nudge::Down));
+
+		let all = store.get_all_valid(Slot::from(11u64), 5);
+		assert_eq!(all.len(), 1);
+		assert_eq!(all[0].nudge, Nudge::Up);
+		assert_eq!(*all[0].slot, 11);
+	}
+
+	#[test]
+	fn get_all_valid_filters_stale() {
+		let store = NudgeStore::new();
+		store.insert(make_nudge(5, 0, Nudge::Up));
+		store.insert(make_nudge(10, 1, Nudge::Up));
+		store.insert(make_nudge(15, 2, Nudge::Up));
+
+		// validity=5, current_slot=16 → slot 5 is stale (16-5=11>=5), slot 10 is stale (16-10=6>=5), slot 15 valid
+		let valid = store.get_all_valid(Slot::from(16u64), 5);
+		assert_eq!(valid.len(), 1);
+		assert_eq!(valid[0].authority_index, 2);
+	}
+
+	#[test]
+	fn prune_removes_stale_nudges() {
+		let store = NudgeStore::new();
+		store.insert(make_nudge(1, 0, Nudge::Up));
+		store.insert(make_nudge(5, 1, Nudge::Down));
+		store.insert(make_nudge(10, 2, Nudge::Up));
+
+		store.prune(Slot::from(12u64), 5);
+
+		// After pruning: slot 1 gone (12-1=11>=5), slot 5 gone (12-5=7>=5), slot 10 kept (12-10=2<5)
+		let remaining = store.get_all_valid(Slot::from(12u64), 100);
+		assert_eq!(remaining.len(), 1);
+		assert_eq!(remaining[0].authority_index, 2);
+	}
+
+	#[test]
+	fn cached_price_round_trips() {
+		let store = NudgeStore::new();
+		assert!(store.cached_price().is_none());
+
+		store.set_cached_price(FixedU128::from_u32(5));
+		assert_eq!(store.cached_price(), Some(FixedU128::from_u32(5)));
+	}
 }

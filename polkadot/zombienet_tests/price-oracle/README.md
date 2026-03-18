@@ -89,9 +89,9 @@ These are set in `polkadot/runtime/westend/src/lib.rs`:
 
 | Parameter | Value | Meaning |
 |-----------|-------|---------|
-| `Epsilon` | `0.01` | Each net nudge changes the price by $0.01 |
+| `Epsilon` | `0.001` | Each net nudge changes the price by $0.001 |
 | `MinNudges` | `0` | Blocks are valid even without oracle inherents |
-| `NudgeValidity` | `10` slots | Nudges older than 10 BABE slots are pruned |
+| `NudgeValidity` | `2` slots | Nudges older than 2 BABE slots are pruned |
 
 ## Troubleshooting
 

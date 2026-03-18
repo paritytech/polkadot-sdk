@@ -16,8 +16,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+pallet-timestamp = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-consensus-babe = { workspace = true }
@@ -33,10 +36,17 @@ sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
 std = [
 	"codec/std",
 	"frame-support/std",
+	"frame-benchmarking?/std",
 	"frame-system/std",
+	"pallet-timestamp/std",
 	"log/std",
 	"scale-info/std",
 	"sp-consensus-babe/std",

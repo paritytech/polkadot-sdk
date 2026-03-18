@@ -5,9 +5,42 @@ use std::time::Duration;
 const LOG_TARGET: &str = "price-oracle::fetcher";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
-const BINANCE_URL: &str = "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT";
-const COINLORE_URL: &str = "https://api.coinlore.net/api/ticker/?id=45219";
-const CRYPTOCOMPARE_URL: &str = "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD";
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Endpoint {
+	Binance,
+	CoinLore,
+	CryptoCompare,
+}
+
+impl Endpoint {
+	pub const ALL: &[Endpoint] = &[Endpoint::Binance, Endpoint::CoinLore, Endpoint::CryptoCompare];
+
+	fn url(&self) -> &'static str {
+		match self {
+			Self::Binance => "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT",
+			Self::CoinLore => "https://api.coinlore.net/api/ticker/?id=45219",
+			Self::CryptoCompare => {
+				"https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
+			},
+		}
+	}
+
+	fn parse(&self, body: &[u8]) -> Result<FixedU128, String> {
+		match self {
+			Self::Binance => parse_binance(body),
+			Self::CoinLore => parse_coinlore(body),
+			Self::CryptoCompare => parse_cryptocompare(body),
+		}
+	}
+
+	fn pick_random() -> Self {
+		let seed = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.unwrap_or_default()
+			.subsec_nanos();
+		Self::ALL[seed as usize % Self::ALL.len()]
+	}
+}
 
 pub struct PriceFetcher {
 	client: reqwest::Client,
@@ -23,24 +56,27 @@ impl PriceFetcher {
 	}
 
 	pub async fn fetch_dot_usd_price(&self) -> Result<FixedU128, String> {
-		match self.fetch_and_parse(BINANCE_URL, parse_binance).await {
+		let primary = Endpoint::pick_random();
+		match self.fetch_from(primary).await {
 			Ok(price) => return Ok(price),
-			Err(e) => warn!(target: LOG_TARGET, "Binance failed: {}, trying CoinLore", e),
+			Err(e) => warn!(target: LOG_TARGET, "{:?} failed: {}, trying fallbacks", primary, e),
 		}
 
-		match self.fetch_and_parse(COINLORE_URL, parse_coinlore).await {
-			Ok(price) => return Ok(price),
-			Err(e) => warn!(target: LOG_TARGET, "CoinLore failed: {}, trying CryptoCompare", e),
+		for endpoint in Endpoint::ALL {
+			if *endpoint == primary {
+				continue;
+			}
+			match self.fetch_from(*endpoint).await {
+				Ok(price) => return Ok(price),
+				Err(e) => warn!(target: LOG_TARGET, "{:?} failed: {}", endpoint, e),
+			}
 		}
 
-		self.fetch_and_parse(CRYPTOCOMPARE_URL, parse_cryptocompare).await
+		Err("All endpoints failed".into())
 	}
 
-	async fn fetch_and_parse(
-		&self,
-		url: &str,
-		parser: fn(&[u8]) -> Result<FixedU128, String>,
-	) -> Result<FixedU128, String> {
+	pub async fn fetch_from(&self, endpoint: Endpoint) -> Result<FixedU128, String> {
+		let url = endpoint.url();
 		let bytes = self
 			.client
 			.get(url)
@@ -51,7 +87,7 @@ impl PriceFetcher {
 			.await
 			.map_err(|e| format!("Reading body from {} failed: {}", url, e))?;
 
-		parser(&bytes)
+		endpoint.parse(&bytes)
 	}
 }
 
@@ -175,22 +211,25 @@ mod live_tests {
 
 	#[test]
 	fn live_binance() {
-		let body = curl_get(BINANCE_URL);
-		let price = parse_binance(&body).expect("Binance response format changed");
+		let ep = Endpoint::Binance;
+		let body = curl_get(ep.url());
+		let price = ep.parse(&body).expect("Binance response format changed");
 		assert_plausible_dot_price(price, "Binance");
 	}
 
 	#[test]
 	fn live_coinlore() {
-		let body = curl_get(COINLORE_URL);
-		let price = parse_coinlore(&body).expect("CoinLore response format changed");
+		let ep = Endpoint::CoinLore;
+		let body = curl_get(ep.url());
+		let price = ep.parse(&body).expect("CoinLore response format changed");
 		assert_plausible_dot_price(price, "CoinLore");
 	}
 
 	#[test]
 	fn live_cryptocompare() {
-		let body = curl_get(CRYPTOCOMPARE_URL);
-		let price = parse_cryptocompare(&body).expect("CryptoCompare response format changed");
+		let ep = Endpoint::CryptoCompare;
+		let body = curl_get(ep.url());
+		let price = ep.parse(&body).expect("CryptoCompare response format changed");
 		assert_plausible_dot_price(price, "CryptoCompare");
 	}
 }

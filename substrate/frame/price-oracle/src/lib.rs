@@ -12,6 +12,8 @@ use sp_price_oracle::{
 };
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod tests;
 
@@ -29,11 +31,21 @@ pub mod pallet {
 		fn current_slot() -> Slot;
 	}
 
+	/// Called whenever the on-chain price is updated.
+	/// Can be used to propagate the price via XCM to other chains (e.g. Asset Hub).
+	#[impl_trait_for_tuples::impl_for_tuples(8)]
+	pub trait OnPriceUpdate<BlockNumber> {
+		fn on_price_update(new_price: FixedU128, block_number: BlockNumber, timestamp: u64);
+	}
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + pallet_timestamp::Config {
+		/// Absolute price change per net nudge (e.g. 0.001 means each net Up adds $0.001).
 		#[pallet::constant]
 		type Epsilon: Get<FixedU128>;
 
+		/// Minimum valid nudges required per block. Block panics in `on_finalize` if not met.
+		/// Set to 0 to make oracle inherents optional.
 		#[pallet::constant]
 		type MinNudges: Get<u32>;
 
@@ -42,6 +54,9 @@ pub mod pallet {
 		type NudgeValidity: Get<u64>;
 
 		type AuthorityProvider: AuthorityProvider;
+
+		/// Hook called when the price is updated. Set to `()` if unused.
+		type OnPriceUpdate: OnPriceUpdate<BlockNumberFor<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -50,8 +65,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CurrentPrice<T: Config> = StorageValue<_, FixedU128, ValueQuery>;
 
+	/// Number of valid nudges accepted in the current block's inherent.
 	#[pallet::storage]
-	pub(crate) type DidUpdate<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -60,10 +76,15 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			if T::MinNudges::get() > 0 {
-				assert!(DidUpdate::<T>::take(), "Price oracle inherent must be included in block");
-			} else {
-				DidUpdate::<T>::kill();
+			let count = NudgeCount::<T>::take();
+			let min = T::MinNudges::get();
+			if min > 0 {
+				assert!(
+					count >= min,
+					"Price oracle: got {} valid nudges, need at least {}",
+					count,
+					min,
+				);
 			}
 		}
 	}
@@ -78,7 +99,7 @@ pub mod pallet {
 		pub fn submit_nudges(origin: OriginFor<T>, nudges: Vec<SignedNudge>) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
-				!DidUpdate::<T>::exists(),
+				!NudgeCount::<T>::exists(),
 				"Price oracle inherent must be submitted only once per block"
 			);
 
@@ -89,15 +110,23 @@ pub mod pallet {
 
 			let mut ups: u32 = 0;
 			let mut downs: u32 = 0;
+			let mut seen_authorities = alloc::collections::BTreeSet::<u32>::new();
 
 			for nudge in &nudges {
-				let nudge_slot_val: u64 = (*nudge.slot).into();
-				let current_slot_val: u64 = (*current_slot).into();
-				if current_slot_val.saturating_sub(nudge_slot_val) >= validity {
+				if *nudge.slot + validity <= *current_slot {
 					log::warn!(
 						target: LOG_TARGET,
 						"Stale nudge from slot {:?}, current slot {:?}, validity {}",
 						nudge.slot, current_slot, validity,
+					);
+					continue;
+				}
+
+				if !seen_authorities.insert(nudge.authority_index) {
+					log::warn!(
+						target: LOG_TARGET,
+						"Duplicate nudge from authority index {}, skipping",
+						nudge.authority_index,
 					);
 					continue;
 				}
@@ -129,8 +158,9 @@ pub mod pallet {
 				}
 			}
 
+			let total_valid = ups + downs;
 			let current_price = CurrentPrice::<T>::get();
-			if ups > 0 || downs > 0 {
+			if total_valid > 0 {
 				let net = if ups >= downs { ups - downs } else { downs - ups };
 				let delta = epsilon.saturating_mul(FixedU128::saturating_from_integer(net));
 
@@ -147,9 +177,13 @@ pub mod pallet {
 				);
 
 				CurrentPrice::<T>::put(new_price);
+				let block_number = frame_system::Pallet::<T>::block_number();
+				let timestamp: u64 =
+					pallet_timestamp::Pallet::<T>::get().try_into().unwrap_or(0u64);
+				T::OnPriceUpdate::on_price_update(new_price, block_number, timestamp);
 			}
 
-			DidUpdate::<T>::put(true);
+			NudgeCount::<T>::put(total_valid);
 			Ok(())
 		}
 	}
@@ -185,9 +219,7 @@ pub mod pallet {
 			let validity = T::NudgeValidity::get();
 
 			for nudge in nudges {
-				let nudge_slot_val: u64 = (*nudge.slot).into();
-				let current_slot_val: u64 = (*current_slot).into();
-				if current_slot_val.saturating_sub(nudge_slot_val) >= validity {
+				if *nudge.slot + validity <= *current_slot {
 					return Err(InherentError::StaleNudge(nudge.slot));
 				}
 
