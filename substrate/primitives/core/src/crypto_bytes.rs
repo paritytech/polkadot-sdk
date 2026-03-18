@@ -26,6 +26,8 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
+use byte_slice_cast::ToByteSlice;
+
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 #[cfg(feature = "serde")]
@@ -138,7 +140,7 @@ impl<const N: usize, T> TryFrom<&[u8]> for CryptoBytes<N, T> {
 
 	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
 		if data.len() != N {
-			return Err(())
+			return Err(());
 		}
 		let mut r = [0u8; N];
 		r.copy_from_slice(data);
@@ -157,6 +159,17 @@ impl<const N: usize, T> core::ops::Deref for CryptoBytes<N, T> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+unsafe impl<const N: usize, T> ToByteSlice for CryptoBytes<N, T> {
+	fn to_byte_slice<U: AsRef<[Self]> + ?Sized>(slice: &U) -> &[u8] {
+		// SAFETY: CryptoBytes<N, T> is #[repr(transparent)] over [u8; N],
+		// for which ToByteSlice is safely implemented.
+		let slice: &[Self] = slice.as_ref();
+		unsafe {
+			core::slice::from_raw_parts(slice.as_ptr().cast::<u8>(), core::mem::size_of_val(slice))
+		}
 	}
 }
 

@@ -110,9 +110,9 @@ fn decompress_zstd(blob: &[u8], bomb_limit: usize) -> Result<Vec<u8>, Error> {
 /// which is the limit of bytes which should be decompressed from the blob.
 pub fn decompress_as(
 	ty: MaybeCompressedBlobType,
-	blob: &[u8],
+	blob: &'_ [u8],
 	bomb_limit: usize,
-) -> Result<Cow<[u8]>, Error> {
+) -> Result<Cow<'_, [u8]>, Error> {
 	use MaybeCompressedBlobType::*;
 	let blob_type = blob_type(blob)?;
 	match ty {
@@ -178,7 +178,7 @@ fn compress_with_level_as(
 	level: i32,
 ) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
-		return None
+		return None;
 	}
 
 	let mut buf = match ty {

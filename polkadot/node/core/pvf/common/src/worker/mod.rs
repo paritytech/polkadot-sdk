@@ -64,7 +64,7 @@ macro_rules! decl_worker_main {
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
 				print_help($expected_command);
-				return
+				return;
 			}
 
 			let mut worker_kind = WorkerKind::ExecuteWasm;
@@ -72,16 +72,16 @@ macro_rules! decl_worker_main {
 			match args[1].as_ref() {
 				"--help" | "-h" => {
 					print_help($expected_command);
-					return
+					return;
 				},
 				"--version" | "-v" => {
 					println!("{}", $worker_version);
-					return
+					return;
 				},
 				// Useful for debugging. --version is used for version checks.
 				"--full-version" => {
 					println!("{}", get_full_version());
-					return
+					return;
 				},
 
 				"--check-can-enable-landlock" => {
@@ -145,7 +145,7 @@ macro_rules! decl_worker_main {
 
 				"test-sleep" => {
 					std::thread::sleep(std::time::Duration::from_secs(5));
-					return
+					return;
 				},
 
 				subcommand => {
@@ -207,14 +207,14 @@ macro_rules! decl_worker_main {
 	};
 }
 
-//taken from the os_pipe crate. Copied here to reduce one dependency and
+// taken from the os_pipe crate. Copied here to reduce one dependency and
 // because its type-safe abstractions do not play well with nix's clone
 #[cfg(not(target_os = "macos"))]
 pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 	let mut fds: [libc::c_int; 2] = [0; 2];
 	let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
 	if res != 0 {
-		return Err(io::Error::last_os_error())
+		return Err(io::Error::last_os_error());
 	}
 	Ok((fds[0], fds[1]))
 }
@@ -224,15 +224,15 @@ pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 	let mut fds: [libc::c_int; 2] = [0; 2];
 	let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
 	if res != 0 {
-		return Err(io::Error::last_os_error())
+		return Err(io::Error::last_os_error());
 	}
 	let res = unsafe { libc::fcntl(fds[0], libc::F_SETFD, libc::FD_CLOEXEC) };
 	if res != 0 {
-		return Err(io::Error::last_os_error())
+		return Err(io::Error::last_os_error());
 	}
 	let res = unsafe { libc::fcntl(fds[1], libc::F_SETFD, libc::FD_CLOEXEC) };
 	if res != 0 {
-		return Err(io::Error::last_os_error())
+		return Err(io::Error::last_os_error());
 	}
 	Ok((fds[0], fds[1]))
 }
@@ -367,8 +367,9 @@ pub fn run_worker<F>(
 	let entries: io::Result<Vec<_>> = std::fs::read_dir(&worker_info.worker_dir_path)
 		.and_then(|d| d.map(|res| res.map(|e| e.file_name())).collect());
 	match entries {
-		Ok(entries) =>
-			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
+		Ok(entries) => {
+			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries)
+		},
 		Err(err) => {
 			let err = format!("Could not read worker dir: {}", err.to_string());
 			worker_shutdown_error(worker_info, &err);
@@ -519,7 +520,7 @@ pub fn cpu_time_monitor_loop(
 			}
 		}
 
-		return Some(cpu_time_elapsed)
+		return Some(cpu_time_elapsed);
 	}
 }
 
@@ -581,7 +582,7 @@ pub fn get_total_cpu_usage(rusage: Usage) -> Duration {
 	let micros = (((rusage.user_time().tv_sec() + rusage.system_time().tv_sec()) * 1_000_000) +
 		(rusage.system_time().tv_usec() + rusage.user_time().tv_usec()) as i64) as u64;
 
-	return Duration::from_micros(micros)
+	return Duration::from_micros(micros);
 }
 
 /// Get a job response.
@@ -738,7 +739,7 @@ pub mod thread {
 		let mut flag = lock.lock().unwrap();
 		if !flag.is_pending() {
 			// Someone else already triggered the condvar.
-			return
+			return;
 		}
 		*flag = outcome;
 		cvar.notify_all();

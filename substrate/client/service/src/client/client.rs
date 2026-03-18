@@ -394,7 +394,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state)?;
+			op.set_block_data(header, Some(body), None, None, block_state, true)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -450,8 +450,12 @@ where
 	}
 
 	/// Get the RuntimeVersion at a given block.
-	pub fn runtime_version_at(&self, hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
-		CallExecutor::runtime_version(&self.executor, hash)
+	pub fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> sp_blockchain::Result<RuntimeVersion> {
+		CallExecutor::runtime_version(&self.executor, hash, call_context)
 	}
 
 	/// Apply a checked and validated block to an operation.
@@ -482,7 +486,7 @@ where
 		} = import_block;
 
 		if !intermediates.is_empty() {
-			return Err(Error::IncompletePipeline)
+			return Err(Error::IncompletePipeline);
 		}
 
 		let fork_choice = fork_choice.ok_or(Error::IncompletePipeline)?;
@@ -563,6 +567,7 @@ where
 		let status = self.backend.blockchain().status(hash)?;
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
+
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -580,16 +585,21 @@ where
 			*import_headers.post().number() <= info.finalized_number &&
 			!gap_block
 		{
-			return Err(sp_blockchain::Error::NotInFinalizedChain)
+			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
 
 		// this is a fairly arbitrary choice of where to draw the line on making notifications,
 		// but the general goal is to only make notifications when we are already fully synced
 		// and get a new chain head.
 		let make_notifications = match origin {
-			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast =>
-				true,
-			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
+			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast => {
+				true
+			},
+			BlockOrigin::Genesis |
+			BlockOrigin::NetworkInitialSync |
+			BlockOrigin::File |
+			BlockOrigin::WarpSync |
+			BlockOrigin::GapSync => false,
 		};
 
 		let storage_changes = match storage_changes {
@@ -622,12 +632,14 @@ where
 									let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
 									let storage_key =
 										match ChildType::from_prefixed_key(storage_key) {
-											Some((ChildType::ParentKeyId, storage_key)) =>
-												storage_key,
-											None =>
+											Some((ChildType::ParentKeyId, storage_key)) => {
+												storage_key
+											},
+											None => {
 												return Err(Error::Backend(
 													"Invalid child storage key.".to_string(),
-												)),
+												))
+											},
 										};
 									let entry = storage
 										.children_default
@@ -654,7 +666,7 @@ where
 							// State root mismatch when importing state. This should not happen in
 							// safe fast sync mode, but may happen in unsafe mode.
 							warn!("Error importing state: State root mismatch.");
-							return Err(Error::InvalidStateRoot)
+							return Err(Error::InvalidStateRoot);
 						}
 						None
 					},
@@ -680,8 +692,9 @@ where
 		let is_new_best = !gap_block &&
 			(finalized ||
 				match fork_choice {
-					ForkChoiceStrategy::LongestChain =>
-						import_headers.post().number() > &info.best_number,
+					ForkChoiceStrategy::LongestChain => {
+						import_headers.post().number() > &info.best_number
+					},
 					ForkChoiceStrategy::Custom(v) => v,
 				});
 
@@ -692,6 +705,10 @@ where
 		} else {
 			NewBlockState::Normal
 		};
+
+		// Warp sync imported blocks shall be stored in the DB, but they should not be registered
+		// as leaves.
+		let register_as_leaf = origin != BlockOrigin::WarpSync;
 
 		let tree_route = if is_new_best && info.best_hash != parent_hash && parent_exists {
 			let route_from_best =
@@ -715,6 +732,7 @@ where
 			indexed_body,
 			justifications,
 			leaf_state,
+			register_as_leaf,
 		)?;
 
 		operation.op.insert_aux(aux)?;
@@ -800,18 +818,21 @@ where
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
 		{
-			(BlockStatus::KnownBad, _) =>
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad)),
+			(BlockStatus::KnownBad, _) => {
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad))
+			},
 			(
 				BlockStatus::InChainPruned,
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
-			(BlockStatus::Unknown, _) =>
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
 			(_, StateAction::Skip) => (false, None),
-			(BlockStatus::InChainPruned, StateAction::Execute) =>
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
+			(BlockStatus::Unknown, _) => {
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent))
+			},
+			(BlockStatus::InChainPruned, StateAction::Execute) => {
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState))
+			},
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
 			(_, StateAction::Execute) => (true, None),
 			(_, StateAction::ExecuteIfPossible) => (true, None),
@@ -848,7 +869,7 @@ where
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{
-					return Err(Error::InvalidStateRoot)
+					return Err(Error::InvalidStateRoot);
 				}
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
 			},
@@ -874,7 +895,7 @@ where
 				"Possible safety violation: attempted to re-finalize last finalized block {:?} ",
 				hash,
 			);
-			return Ok(())
+			return Ok(());
 		}
 
 		// Find tree route from last finalized to given block.
@@ -888,7 +909,7 @@ where
 				retracted, info.finalized_hash
 			);
 
-			return Err(sp_blockchain::Error::NotInFinalizedChain)
+			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
 
 		// We may need to coercively update the best block if there is more than one
@@ -970,7 +991,7 @@ where
 				// since we won't be running the loop below which
 				// would also remove any closed sinks.
 				sinks.retain(|sink| !sink.is_closed());
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -1006,7 +1027,7 @@ where
 
 				self.every_import_notification_sinks.lock().retain(|sink| !sink.is_closed());
 
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -1105,17 +1126,18 @@ where
 			.as_ref()
 			.map_or(false, |importing| &hash == importing)
 		{
-			return Ok(BlockStatus::Queued)
+			return Ok(BlockStatus::Queued);
 		}
 
 		let hash_and_number = self.backend.blockchain().number(hash)?.map(|n| (hash, n));
 		match hash_and_number {
-			Some((hash, number)) =>
+			Some((hash, number)) => {
 				if self.backend.have_state_at(hash, number) {
 					Ok(BlockStatus::InChainWithState)
 				} else {
 					Ok(BlockStatus::InChainPruned)
-				},
+				}
+			},
 			None => Ok(BlockStatus::Unknown),
 		}
 	}
@@ -1151,7 +1173,7 @@ where
 
 		let genesis_hash = self.backend.blockchain().info().genesis_hash;
 		if genesis_hash == target_hash {
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		}
 
 		let mut current_hash = target_hash;
@@ -1167,7 +1189,7 @@ where
 			current_hash = ancestor_hash;
 
 			if genesis_hash == current_hash {
-				break
+				break;
 			}
 
 			current = ancestor;
@@ -1252,14 +1274,15 @@ where
 		size_limit: usize,
 	) -> sp_blockchain::Result<Vec<(KeyValueStorageLevel, bool)>> {
 		if start_key.len() > MAX_NESTED_TRIE_DEPTH {
-			return Err(Error::Backend("Invalid start key.".to_string()))
+			return Err(Error::Backend("Invalid start key.".to_string()));
 		}
 		let state = self.state_at(hash)?;
 		let child_info = |storage_key: &Vec<u8>| -> sp_blockchain::Result<ChildInfo> {
 			let storage_key = PrefixedStorageKey::new_ref(storage_key);
 			match ChildType::from_prefixed_key(storage_key) {
-				Some((ChildType::ParentKeyId, storage_key)) =>
-					Ok(ChildInfo::new_default(storage_key)),
+				Some((ChildType::ParentKeyId, storage_key)) => {
+					Ok(ChildInfo::new_default(storage_key))
+				},
 				None => Err(Error::Backend("Invalid child storage key.".to_string())),
 			}
 		};
@@ -1271,7 +1294,7 @@ where
 			{
 				Some((child_info(start_key)?, child_root))
 			} else {
-				return Err(Error::Backend("Invalid root start key.".to_string()))
+				return Err(Error::Backend("Invalid root start key.".to_string()));
 			}
 		} else {
 			None
@@ -1315,7 +1338,7 @@ where
 				let size = value.len() + next_key.len();
 				if total_size + size > size_limit && !entries.is_empty() {
 					complete = false;
-					break
+					break;
 				}
 				total_size += size;
 
@@ -1326,7 +1349,7 @@ where
 					child_roots.insert(value.clone());
 					switch_child_key = Some((next_key.clone(), value.clone()));
 					entries.push((next_key.clone(), value));
-					break
+					break;
 				}
 				entries.push((next_key.clone(), value));
 				current_key = next_key;
@@ -1346,12 +1369,12 @@ where
 					complete,
 				));
 				if !complete {
-					break
+					break;
 				}
 			} else {
 				result[0].0.key_values.extend(entries.into_iter());
 				result[0].1 = complete;
-				break
+				break;
 			}
 		}
 		Ok(result)
@@ -1668,8 +1691,12 @@ where
 			.map_err(Into::into)
 	}
 
-	fn runtime_version_at(&self, hash: Block::Hash) -> Result<RuntimeVersion, sp_api::ApiError> {
-		CallExecutor::runtime_version(&self.executor, hash).map_err(Into::into)
+	fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, sp_api::ApiError> {
+		CallExecutor::runtime_version(&self.executor, hash, call_context).map_err(Into::into)
 	}
 
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, sp_api::ApiError> {
@@ -1756,7 +1783,7 @@ where
 		match self.block_rules.lookup(number, &hash) {
 			BlockLookupResult::KnownBad => {
 				trace!("Rejecting known bad block: #{} {:?}", number, hash);
-				return Ok(ImportResult::KnownBad)
+				return Ok(ImportResult::KnownBad);
 			},
 			BlockLookupResult::Expected(expected_hash) => {
 				trace!(
@@ -1765,7 +1792,7 @@ where
 					expected_hash,
 					number
 				);
-				return Ok(ImportResult::KnownBad)
+				return Ok(ImportResult::KnownBad);
 			},
 			BlockLookupResult::NotSpecial => {},
 		}
@@ -1776,10 +1803,12 @@ where
 			.block_status(hash)
 			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 		{
-			BlockStatus::InChainWithState | BlockStatus::Queued =>
-				return Ok(ImportResult::AlreadyInChain),
-			BlockStatus::InChainPruned if !import_existing =>
-				return Ok(ImportResult::AlreadyInChain),
+			BlockStatus::InChainWithState | BlockStatus::Queued => {
+				return Ok(ImportResult::AlreadyInChain)
+			},
+			BlockStatus::InChainPruned if !import_existing => {
+				return Ok(ImportResult::AlreadyInChain)
+			},
 			BlockStatus::InChainPruned => {},
 			BlockStatus::Unknown => {},
 			BlockStatus::KnownBad => return Ok(ImportResult::KnownBad),
@@ -1945,8 +1974,9 @@ where
 
 	fn block(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<SignedBlock<Block>>> {
 		Ok(match (self.header(hash)?, self.body(hash)?, self.justifications(hash)?) {
-			(Some(header), Some(extrinsics), justifications) =>
-				Some(SignedBlock { block: Block::new(header, extrinsics), justifications }),
+			(Some(header), Some(extrinsics), justifications) => {
+				Some(SignedBlock { block: Block::new(header, extrinsics), justifications })
+			},
 			_ => None,
 		})
 	}

@@ -29,13 +29,12 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Execution, Handshake, WorkerError, WorkerResponse},
+	execute::{Execution, Handshake, WorkerError, WorkerResponse, ValidationContext},
 	worker::WorkerKind,
 	worker_dir, ArtifactChecksum, SecurityStatus,
 };
-use polkadot_node_primitives::PoV;
-use polkadot_primitives::{ExecutorParams, PersistedValidationData};
-use std::{path::Path, sync::Arc, time::Duration};
+use polkadot_primitives::ExecutorParams;
+use std::{path::Path, time::Duration};
 use tokio::{io, net::UnixStream};
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
@@ -128,10 +127,8 @@ pub enum Error {
 pub async fn start_work(
 	worker: IdleWorker,
 	executable: Executable,
-	execution_timeout: Duration,
-	pvd: Arc<PersistedValidationData>,
-	pov: Arc<PoV>,
 	code_bomb_limit: u32,
+	validation_context: ValidationContext,
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 	let code_hash = executable.code_hash();
@@ -166,13 +163,12 @@ pub async fn start_work(
 	}
 
 	let execution = Execution::from(executable);
+	let execution_timeout = validation_context.exec_timeout;
 
 	send_request(
 		&mut stream,
 		execution,
-		pvd,
-		pov,
-		execution_timeout,
+		validation_context,
 		artifact_checksum,
 		code_bomb_limit,
 	)
@@ -274,7 +270,7 @@ async fn handle_result(
 			);
 
 			// Return a timeout error.
-			return Err(WorkerError::JobTimedOut)
+			return Err(WorkerError::JobTimedOut);
 		}
 	}
 
@@ -289,20 +285,11 @@ async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -
 async fn send_request(
 	stream: &mut UnixStream,
 	execution: Execution,
-	pvd: Arc<PersistedValidationData>,
-	pov: Arc<PoV>,
-	execution_timeout: Duration,
+	validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
 	artifact_checksum: ArtifactChecksum,
 	code_bomb_limit: u32,
 ) -> io::Result<()> {
-	let request = polkadot_node_core_pvf_common::execute::ExecuteRequest {
-		execution,
-		pvd: (*pvd).clone(),
-		pov: (*pov).clone(),
-		execution_timeout,
-		artifact_checksum,
-		code_bomb_limit,
-	};
+	let request = validation_context.into_execute_request(execution, artifact_checksum, code_bomb_limit);
 	framed_send(stream, &request.encode()).await
 }
 

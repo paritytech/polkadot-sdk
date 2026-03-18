@@ -93,7 +93,7 @@ where
 		if key_budget == 0 {
 			return Err(SteppedMigrationError::InsufficientWeight {
 				required: T::WeightInfo::reset_pallet_migration(1),
-			})
+			});
 		}
 
 		let outcome = clear_prefix(P::name_hash(), Some(key_budget), None);

@@ -35,15 +35,13 @@ use polkadot_node_core_pvf_common::{
 	worker::WorkerKind,
 	SecurityStatus,
 };
-use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
-use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, Hash, PersistedValidationData};
+use polkadot_primitives::{ExecutorParamsHash, Hash};
 use slotmap::HopSlotMap;
 use std::{
 	collections::{HashMap, VecDeque},
 	fmt,
 	path::PathBuf,
-	sync::Arc,
 	time::{Duration, Instant},
 };
 use strum::{EnumIter, IntoEnumIterator};
@@ -73,23 +71,17 @@ pub enum FromQueue {
 /// to the given result sender.
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
-	pub exec_timeout: Duration,
-	pub pvd: Arc<PersistedValidationData>,
-	pub pov: Arc<PoV>,
-	pub executor_params: ExecutorParams,
 	pub code_bomb_limit: u32,
+	pub validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
 	pub result_tx: ResultSender,
 	pub exec_kind: PvfExecKind,
 }
 
 struct ExecuteJob {
 	executable: Executable,
-	exec_timeout: Duration,
 	exec_kind: PvfExecKind,
-	pvd: Arc<PersistedValidationData>,
-	pov: Arc<PoV>,
-	executor_params: ExecutorParams,
 	code_bomb_limit: u32,
+	validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
 	result_tx: ResultSender,
 	waiting_since: Instant,
 }
@@ -265,11 +257,11 @@ impl Queue {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
 					for (i, job) in queue.iter().enumerate() {
-						if worker_data.executor_params_hash == job.executor_params.hash() &&
+						if worker_data.executor_params_hash == job.validation_context.executor_params.hash() &&
 							worker_data.worker_kind == job.executable.worker_kind()
 						{
 							(worker, job_index) = (Some(finished_worker), i);
-							break
+							break;
 						}
 					}
 				}
@@ -278,10 +270,9 @@ impl Queue {
 
 		if worker.is_none() {
 			// Try to obtain a worker for the job
-			worker = self.workers.find_available(
-				queue[job_index].executor_params.hash(),
-				queue[job_index].executable.worker_kind(),
-			);
+			worker = self
+				.workers
+				.find_available(queue[job_index].validation_context.executor_params.hash(), queue[job_index].executable.worker_kind());
 		}
 
 		if worker.is_none() {
@@ -296,7 +287,7 @@ impl Queue {
 
 		if worker.is_none() && !self.workers.can_afford_one_more() {
 			// Bad luck, no worker slot can be used to execute the job
-			return
+			return;
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
@@ -352,7 +343,7 @@ impl Queue {
 
 			for &index in to_remove.iter().rev() {
 				if index > queue.len() {
-					continue
+					continue;
 				}
 
 				let Some(job) = queue.remove(index) else { continue };
@@ -390,11 +381,8 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		},
 		ToQueue::Enqueue { executable, pending_execution_request } => {
 			let PendingExecutionRequest {
-				exec_timeout,
-				pvd,
-				pov,
-				executor_params,
 				code_bomb_limit,
+				validation_context,
 				result_tx,
 				exec_kind,
 			} = pending_execution_request;
@@ -403,16 +391,13 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 				validation_code_hash = ?executable.code_hash(),
 				"enqueueing an artifact for execution",
 			);
-			queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
+			queue.metrics.observe_pov_size(validation_context.pov.block_data.0.len(), true);
 			queue.metrics.execute_enqueued();
 			let job = ExecuteJob {
 				executable,
-				exec_timeout,
 				exec_kind,
-				pvd,
-				pov,
-				executor_params,
 				code_bomb_limit,
+				validation_context,
 				result_tx,
 				waiting_since: Instant::now(),
 			};
@@ -444,7 +429,7 @@ fn handle_worker_spawned(
 	let worker = queue.workers.running.insert(WorkerData {
 		idle: Some(idle),
 		handle,
-		executor_params_hash: job.executor_params.hash(),
+		executor_params_hash: job.validation_context.executor_params.hash(),
 		worker_kind: job.executable.worker_kind(),
 	});
 
@@ -573,13 +558,15 @@ async fn handle_job_finish(
 		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
-		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =>
-			(None, Err(ValidationError::Internal(err)), None, None, None),
+		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) => {
+			(None, Err(ValidationError::Internal(err)), None, None, None)
+		},
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Err(WorkerInterfaceError::HardTimeout) |
-		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None),
+		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) => {
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None)
+		},
 		// "Maybe invalid" errors (will retry).
 		Err(WorkerInterfaceError::CommunicationErr(_err)) => (
 			None,
@@ -648,7 +635,7 @@ async fn handle_job_finish(
 	if let Some(idle_worker) = idle_worker {
 		if let Some(data) = queue.workers.running.get_mut(worker) {
 			data.idle = Some(idle_worker);
-			return queue.try_assign_next_job(Some(worker))
+			return queue.try_assign_next_job(Some(worker));
 		}
 	} else {
 		// Note it's possible that the worker was purged already by `purge_dead`
@@ -700,7 +687,7 @@ async fn spawn_worker_task(
 			job.executable.worker_kind(),
 			&program_path,
 			&cache_path,
-			job.executor_params.clone(),
+			job.validation_context.executor_params.clone(),
 			spawn_timeout,
 			node_version.as_deref(),
 			security_status.clone(),
@@ -736,7 +723,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 			.running
 			.get(worker)
 			.expect("caller must provide existing worker; qed");
-		worker_data.executor_params_hash == job.executor_params.hash() &&
+		worker_data.executor_params_hash == job.validation_context.executor_params.hash() &&
 			worker_data.worker_kind == job.executable.worker_kind()
 	});
 
@@ -755,10 +742,8 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 			let result = super::worker_interface::start_work(
 				idle,
 				job.executable.clone(),
-				job.exec_timeout,
-				job.pvd,
-				job.pov,
 				job.code_bomb_limit,
+				job.validation_context,
 			)
 			.await;
 			QueueEvent::FinishWork(worker, result, job.executable, job.result_tx)
@@ -919,7 +904,7 @@ impl Unscheduled {
 			.filter_map(|(p, c)| if *p >= *priority { Some(c) } else { None })
 			.sum();
 		if total_scheduled_at_priority_or_lower == 0 {
-			return false
+			return false;
 		}
 
 		let has_reached_threshold = count * 100 / total_scheduled_at_priority_or_lower >= threshold;
@@ -958,9 +943,13 @@ impl Unscheduled {
 
 #[cfg(test)]
 mod tests {
-	use polkadot_node_primitives::BlockData;
+	use polkadot_node_core_pvf_common::execute::ValidationContext;
+	use polkadot_node_primitives::{BlockData, PoV};
 	use polkadot_node_subsystem_test_helpers::mock::new_leaf;
+	use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+	use polkadot_primitives_test_helpers::dummy_candidate_receipt;
 	use sp_core::H256;
+	use std::sync::Arc;
 
 	use super::*;
 	use std::time::Duration;
@@ -974,14 +963,22 @@ mod tests {
 			max_pov_size: 4096 * 1024,
 		});
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
-		ExecuteJob {
-			executable: Executable::default(),
-			exec_timeout: Duration::from_secs(10),
-			exec_kind: PvfExecKind::Approval,
+		let candidate_receipt = dummy_candidate_receipt(H256::default());
+
+		let validation_context = ValidationContext {
+			candidate_receipt: candidate_receipt.into(),
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
+			exec_timeout: Duration::from_secs(10),
+			v3_enabled: false,
+		};
+
+		ExecuteJob {
+			executable: Executable::default(),
+			exec_kind: PvfExecKind::Approval,
 			code_bomb_limit: 16 * 1024 * 1024,
+			validation_context,
 			result_tx,
 			waiting_since: Instant::now(),
 		}
@@ -1139,28 +1136,38 @@ mod tests {
 		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 0);
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
-		let relevant_job = ExecuteJob {
-			executable: Executable::default(),
-			exec_timeout: Duration::from_secs(1),
-			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
+		let relevant_validation_context = ValidationContext {
+			candidate_receipt: dummy_candidate_receipt(relevant_relay_parent).into(),
 			pvd: Arc::new(PersistedValidationData::default()),
 			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 			executor_params: ExecutorParams::default(),
+			exec_timeout: Duration::from_secs(1),
+			v3_enabled: false,
+		};
+		let relevant_job = ExecuteJob {
+			executable: Executable::default(),
 			code_bomb_limit: 16 * 1024 * 1024,
+			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
+			validation_context: relevant_validation_context,
 			result_tx,
 			waiting_since: Instant::now(),
 		};
 		queue.unscheduled.add(relevant_job, Priority::Backing);
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
-			let expired_job = ExecuteJob {
-				executable: Executable::default(),
-				exec_timeout: Duration::from_secs(1),
-				exec_kind: PvfExecKind::Backing(old_relay_parent),
+			let expired_validation_context = ValidationContext {
+				candidate_receipt: dummy_candidate_receipt(old_relay_parent).into(),
 				pvd: Arc::new(PersistedValidationData::default()),
 				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 				executor_params: ExecutorParams::default(),
+				exec_timeout: Duration::from_secs(1),
+				v3_enabled: false,
+			};
+			let expired_job = ExecuteJob {
+				executable: Executable::default(),
 				code_bomb_limit: 16 * 1024 * 1024,
+				exec_kind: PvfExecKind::Backing(old_relay_parent),
+				validation_context: expired_validation_context,
 				result_tx,
 				waiting_since: Instant::now(),
 			};

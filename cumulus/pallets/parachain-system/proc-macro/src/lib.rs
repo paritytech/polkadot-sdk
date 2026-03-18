@@ -67,7 +67,7 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::CheckInherents) {
 				return Err(Error::new(input.span(), "`CheckInherents` is not supported anymore!"));
 			} else {
-				return Err(lookahead.error())
+				return Err(lookahead.error());
 			}
 		}
 
@@ -80,8 +80,9 @@ impl Parse for Input {
 
 fn crate_() -> Result<Ident, Error> {
 	match crate_name("cumulus-pallet-parachain-system") {
-		Ok(FoundCrate::Itself) =>
-			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site())),
+		Ok(FoundCrate::Itself) => {
+			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site()))
+		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}
@@ -108,8 +109,11 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				use sp_runtime_interface::polkavm::{polkavm_export, self};
 
 				#[no_mangle]
-				#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), polkavm_export(abi = sp_runtime_interface::polkavm::polkavm_abi))]
-				pub unsafe extern "C" fn validate_block(arguments_len: usize) -> u64 {
+				#[cfg_attr(
+					target_arch = "riscv64",
+					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
+				)]
+				unsafe fn validate_block(arguments_len: usize) -> u64 {
 					let mut args = #crate_::validate_block::vec![0u8; arguments_len];
 					#crate_::validate_block::sp_io::input::read(&mut args[..]);
 

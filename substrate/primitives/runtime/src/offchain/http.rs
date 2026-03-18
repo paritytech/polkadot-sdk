@@ -203,10 +203,8 @@ impl<'a, I: AsRef<[u8]>, T: IntoIterator<Item = I>> Request<'a, T> {
 	/// Err is returned in case the deadline is reached
 	/// or the request timeouts.
 	pub fn send(self) -> Result<PendingRequest, HttpError> {
-		let meta = &[];
-
 		// start an http request.
-		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, meta)
+		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, vec![])
 			.map_err(|_| HttpError::IoError)?;
 
 		// add custom headers
@@ -399,7 +397,7 @@ impl Iterator for ResponseBody {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.error.is_some() {
-			return None
+			return None;
 		}
 
 		if self.filled_up_to.is_none() {
@@ -408,7 +406,7 @@ impl Iterator for ResponseBody {
 			match result {
 				Err(e) => {
 					self.error = Some(e);
-					return None
+					return None;
 				},
 				Ok(0) => return None,
 				Ok(size) => {
@@ -420,7 +418,7 @@ impl Iterator for ResponseBody {
 
 		if Some(self.position) == self.filled_up_to {
 			self.filled_up_to = None;
-			return self.next()
+			return self.next();
 		}
 
 		let result = self.buffer[self.position];
@@ -447,7 +445,7 @@ impl Headers {
 		let raw = name.as_bytes();
 		for (key, val) in &self.raw {
 			if &**key == raw {
-				return str::from_utf8(val).ok()
+				return str::from_utf8(val).ok();
 			}
 		}
 		None

@@ -89,17 +89,18 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Try to enable landlock for the given kind of worker.
 pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_info.kind {
-		WorkerKind::Prepare => {
+		WorkerKind::Prepare =>
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
-		},
-		WorkerKind::ExecuteWasm => {
+		,
+		WorkerKind::ExecuteWasm =>
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
-		},
-		WorkerKind::ExecutePvm => {
-			unimplemented!("PVM workers do not need landlock");
-		},
+		,
+		WorkerKind::ExecutePvm =>
+			unimplemented!("PVM workers do not need landlock")
+		,
 		WorkerKind::CheckPivotRoot =>
 			panic!("this should only be passed for checking pivot_root; qed"),
+
 	};
 
 	gum::trace!(
@@ -147,14 +148,14 @@ where
 		let mut rules = path_beneath_rules(paths, access_bits).peekable();
 		if rules.peek().is_none() {
 			// `path_beneath_rules` silently ignores missing paths, so check for it manually.
-			return Err(Error::InvalidExceptionPath(fs_path.as_ref().to_owned()))
+			return Err(Error::InvalidExceptionPath(fs_path.as_ref().to_owned()));
 		}
 		ruleset = ruleset.add_rules(rules)?;
 	}
 
 	let status = ruleset.restrict_self()?;
 	if !matches!(status.ruleset, RulesetStatus::FullyEnforced) {
-		return Err(Error::NotFullyEnabled(status.ruleset))
+		return Err(Error::NotFullyEnabled(status.ruleset));
 	}
 
 	Ok(())
@@ -169,7 +170,7 @@ mod tests {
 	fn restricted_thread_cannot_read_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
 		if check_can_fully_enable().is_err() {
-			return
+			return;
 		}
 
 		// Restricted thread cannot read from FS.
@@ -234,7 +235,7 @@ mod tests {
 	fn restricted_thread_cannot_write_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
 		if check_can_fully_enable().is_err() {
-			return
+			return;
 		}
 
 		// Restricted thread cannot write to FS.
@@ -293,7 +294,7 @@ mod tests {
 	fn restricted_thread_can_truncate_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
 		if check_can_fully_enable().is_err() {
-			return
+			return;
 		}
 
 		// Restricted thread can truncate file.

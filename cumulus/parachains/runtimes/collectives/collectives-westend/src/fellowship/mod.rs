@@ -227,7 +227,7 @@ const USDT_UNITS: u128 = 1_000_000;
 /// [`PayOverXcm`] setup to pay the Fellowship salary on the AssetHub in USDT.
 pub type FellowshipSalaryPaymaster = PayOverXcm<
 	Interior,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,
@@ -274,7 +274,7 @@ parameter_types! {
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	VersionedLocation,
@@ -296,6 +296,10 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
+	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
+	// `BurnDestination` to a DAP satellite `OnUnbalanced<NegativeImbalance>` impl so burned funds
+	// flow to the satellite instead of being destroyed. Currently, the satellite only implements
+	// `OnUnbalanced<Credit>`.
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;

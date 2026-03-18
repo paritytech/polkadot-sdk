@@ -54,11 +54,13 @@ use polkadot_node_core_pvf_common::{
 		thread::{self, WaitOutcome},
 		PipeFd, WorkerInfo, WorkerKind,
 	},
-	worker_dir, ArtifactChecksum,
+	worker_dir,
 };
-use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
-use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+use polkadot_node_primitives::{BlockData, POV_BOMB_LIMIT};
+use polkadot_parachain_primitives::primitives::{
+	TrailingOption, ValidationParamsExtension, ValidationResult,
+};
+use polkadot_primitives::{CandidateDescriptorVersion, ExecutorParams};
 use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType};
 use std::{
 	io::{self, Read},
@@ -93,9 +95,7 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-fn recv_request(
-	stream: &mut UnixStream,
-) -> io::Result<(Execution, PersistedValidationData, PoV, Duration, ArtifactChecksum, u32)> {
+fn recv_request(stream: &mut UnixStream) -> io::Result<ExecuteRequest> {
 	let request_bytes = framed_recv_blocking(stream)?;
 	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
@@ -104,14 +104,7 @@ fn recv_request(
 		)
 	})?;
 
-	Ok((
-		request.execution,
-		request.pvd,
-		request.pov,
-		request.execution_timeout,
-		request.artifact_checksum,
-		request.code_bomb_limit,
-	))
+	Ok(request)
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -165,15 +158,21 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (execution, pvd, pov, execution_timeout, artifact_checksum, code_bomb_limit) =
-					recv_request(&mut stream).map_err(|e| {
-						map_and_send_err!(
-							e,
-							InternalValidationError::HostCommunication,
-							&mut stream,
-							worker_info
-						)
-					})?;
+				let request = recv_request(&mut stream).map_err(|e| {
+					map_and_send_err!(
+						e,
+						InternalValidationError::HostCommunication,
+						&mut stream,
+						worker_info
+					)
+				})?;
+
+				let execution = request.execution;
+				let pvd = request.pvd;
+				let pov = request.pov;
+				let execution_timeout = request.execution_timeout;
+				let artifact_checksum = request.artifact_checksum;
+				let code_bomb_limit = request.code_bomb_limit;
 
 				let raw_block_data = match decompress_as(
 					MaybeCompressedBlobType::Pov,
@@ -203,7 +202,34 @@ pub fn worker_entrypoint(
 					relay_parent_number: pvd.relay_parent_number,
 					relay_parent_storage_root: pvd.relay_parent_storage_root,
 				};
-				let params = Arc::new(params.encode());
+
+				let mut encoded_params = params.encode();
+
+				// Append V3+ extension based on descriptor version.
+				// SAFETY: ValidationParams is the complete message passed to the PVF.
+				// TrailingOption is safe here because:
+				// 1. ValidationParams is not embedded in any larger struct
+				// 2. The extension bytes are the ONLY thing after ValidationParams
+				// 3. The PVF will decode ValidationParams + optional extension as the entire input
+				let extension: TrailingOption<ValidationParamsExtension> =
+					match request.descriptor_version {
+						CandidateDescriptorVersion::V3 => {
+							// V3 candidate - append extension with both parent hashes
+							TrailingOption(Some(ValidationParamsExtension::V3 {
+								relay_parent: request.relay_parent,
+								scheduling_parent: request.scheduling_parent,
+							}))
+						},
+						CandidateDescriptorVersion::V1 |
+						CandidateDescriptorVersion::V2 |
+						CandidateDescriptorVersion::Unknown => {
+							// V1/V2/Unknown - no extension appended
+							TrailingOption(None)
+						},
+					};
+				encoded_params.extend(extension.encode());
+
+				let params = Arc::new(encoded_params);
 
 				if let Execution::Pvm(ref code) = execution {
 					// PolkaVM handles sandboxing and forking itself.
@@ -402,18 +428,20 @@ fn validate_using_code(
 		//         [`executor_interface::prepare`].
 		execute_wasm(code, executor_params, params)
 	} {
-		Err(ExecuteError::RuntimeConstruction(wasmerr)) =>
-			return JobResponse::runtime_construction("execute", &wasmerr.to_string()),
+		Err(ExecuteError::RuntimeConstruction(wasmerr)) => {
+			return JobResponse::runtime_construction("execute", &wasmerr.to_string())
+		},
 		Err(err) => return JobResponse::format_invalid("execute", &err.to_string()),
 		Ok(d) => d,
 	};
 
 	let result_descriptor = match ValidationResult::decode(&mut &descriptor_bytes[..]) {
-		Err(err) =>
+		Err(err) => {
 			return JobResponse::format_invalid(
 				"validation result decoding failed",
 				&err.to_string(),
-			),
+			)
+		},
 		Ok(r) => r,
 	};
 
@@ -466,8 +494,9 @@ fn handle_clone(
 			pov_size,
 			execution_timeout,
 		),
-		Err(security::clone::Error::Clone(errno)) =>
-			Ok(Err(internal_error_from_errno("clone", errno))),
+		Err(security::clone::Error::Clone(errno)) => {
+			Ok(Err(internal_error_from_errno("clone", errno)))
+		},
 	}
 }
 
@@ -591,8 +620,9 @@ fn handle_child_process(
 			)),
 			Err(e) => Err(JobError::CpuTimeMonitorThread(stringify_panic_payload(e))),
 		},
-		WaitOutcome::Pending =>
-			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
+		WaitOutcome::Pending => {
+			unreachable!("we run wait_while until the outcome is no longer pending; qed")
+		},
 	};
 
 	send_child_response(&mut pipe_write, response);
@@ -699,7 +729,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Ok(Err(WorkerError::JobTimedOut))
+		return Ok(Err(WorkerError::JobTimedOut));
 	}
 
 	match status {

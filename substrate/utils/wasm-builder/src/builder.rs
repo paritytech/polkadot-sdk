@@ -261,7 +261,7 @@ impl WasmBuilder {
 
 			provide_dummy_wasm_binary_if_not_exist(&file_path);
 
-			return
+			return;
 		}
 
 		build_project(

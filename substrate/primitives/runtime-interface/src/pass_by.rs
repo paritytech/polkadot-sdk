@@ -30,9 +30,9 @@ use crate::host::*;
 use crate::wasm::*;
 
 #[cfg(not(substrate_runtime))]
-use byte_slice_cast::{AsByteSlice, ToByteSlice};
+use byte_slice_cast::AsByteSlice;
 #[cfg(substrate_runtime)]
-use byte_slice_cast::{AsMutByteSlice, ToMutByteSlice};
+use byte_slice_cast::AsMutByteSlice;
 #[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
@@ -298,7 +298,7 @@ impl<T> RIType for PassFatPointerAndReadWrite<T> {
 #[cfg(not(substrate_runtime))]
 impl<'a, T> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]>
 where
-	T: ToByteSlice,
+	[T]: AsByteSlice<T>,
 {
 	type Owned = Vec<T>;
 
@@ -336,7 +336,7 @@ where
 #[cfg(substrate_runtime)]
 impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]>
 where
-	T: ToMutByteSlice,
+	[T]: AsMutByteSlice<T>,
 {
 	type Destructor = ();
 
@@ -369,7 +369,8 @@ impl<T> RIType for PassFatPointerAndWrite<T> {
 #[cfg(not(substrate_runtime))]
 impl<'a, T> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]>
 where
-	T: ToByteSlice + Default,
+	T: Default,
+	[T]: AsByteSlice<T>,
 {
 	type Owned = Vec<T>;
 
@@ -401,7 +402,7 @@ where
 #[cfg(substrate_runtime)]
 impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]>
 where
-	T: ToMutByteSlice,
+	[T]: AsMutByteSlice<T>,
 {
 	type Destructor = ();
 
