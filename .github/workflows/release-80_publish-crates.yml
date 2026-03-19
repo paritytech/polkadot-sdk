@@ -25,6 +25,29 @@ on:
         required: true
         type: boolean
         default: true
+<<<<<<< HEAD
+=======
+      resume_from:
+        description: 'Resume from a specific phase after a failure. Use "full" for a fresh run.'
+        required: true
+        type: choice
+        options:
+          - full
+          - apply
+          - publish
+          - push
+        default: full
+      prdoc_path:
+        description: 'Path to the prdoc directory used by parity-publish plan to decide whci prdocs use for publishing'
+        required: false
+        type: string
+        default: prdoc
+      publish_jobs:
+        description: 'Number of parallel publish jobs (0 = sequential publishing, >0 = parallel with N jobs).'
+        required: false
+        type: string
+        default: '0'
+>>>>>>> fa14a5ad ([Release|CI/CD] Add parallel crates publishing (#11433))
 
 permissions:
   contents: write
@@ -254,15 +277,21 @@ jobs:
           PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
+          PUBLISH_JOBS: ${{ inputs.publish_jobs }}
         run: |
+          PARALLEL_ARGS=""
+          if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
+            echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
+            PARALLEL_ARGS="-j $PUBLISH_JOBS"
+          fi
 
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d
+            parity-publish apply -p -d $PARALLEL_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p
+            parity-publish apply -p $PARALLEL_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
 
