@@ -2851,136 +2851,356 @@ fn pre_validation_v3_scheduling_offset_mismatch() {
 	);
 }
 
-/// A PoV hash mismatch is caught during pre-validation before PVF execution,
-/// for any exec kind.
+/// Basic checks (PoV hash, code hash, PoV size) are caught during pre-validation
+/// before PVF execution, regardless of exec kind.
 #[test]
-fn pre_validation_basic_checks_pov_hash_mismatch() {
+fn pre_validation_basic_checks() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	// Create descriptor with WRONG pov hash
-	let descriptor = make_valid_candidate_descriptor_v2(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		CoreIndex(1),
-		1,
-		dummy_hash(),
-		Hash::repeat_byte(0xFF), // wrong pov hash
-		validation_code.hash(),
-		dummy_hash(),
-		dummy_hash(),
-	);
+	// Each case: (descriptor, pov_override, expected_error)
+	let cases: Vec<(_, Option<PoV>, _)> = vec![
+		// Wrong PoV hash
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				dummy_hash(),
+				Hash::repeat_byte(0xFF), // wrong
+				validation_code.hash(),
+				dummy_hash(),
+				dummy_hash(),
+			),
+			None,
+			InvalidCandidate::PoVHashMismatch,
+		),
+		// Wrong code hash
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				dummy_hash(),
+				pov.hash(),
+				ValidationCode(vec![0xFF; 16]).hash(), // wrong
+				dummy_hash(),
+				dummy_hash(),
+			),
+			None,
+			InvalidCandidate::CodeHashMismatch,
+		),
+		// PoV too large (max_pov_size=1024 but PoV is 2048 bytes)
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				dummy_hash(),
+				PoV { block_data: BlockData(vec![0; 2048]) }.hash(),
+				validation_code.hash(),
+				dummy_hash(),
+				dummy_hash(),
+			),
+			Some(PoV { block_data: BlockData(vec![0; 2048]) }),
+			InvalidCandidate::ParamsTooLarge(2048),
+		),
+	];
 
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
+	let all_exec_kinds = [
+		PvfExecKind::Backing(dummy_hash()),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		PvfExecKind::Approval,
+		PvfExecKind::Dispute,
+	];
 
-	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-	let mock_backend =
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
-			head_data: HeadData(vec![1]),
-			new_validation_code: None,
-			upward_messages: Default::default(),
-			horizontal_messages: Default::default(),
-			processed_downward_messages: 0,
-			hrmp_watermark: 0,
-		}));
+	for (descriptor, pov_override, expected_error) in &cases {
+		let test_pov = pov_override.as_ref().unwrap_or(&pov);
 
-	let (response_tx, response_rx) = oneshot::channel();
+		for exec_kind in &all_exec_kinds {
+			let candidate_receipt =
+				CandidateReceipt { descriptor: descriptor.clone(), commitments_hash: Hash::zero() };
 
-	let task = handle_validation_message(
-		ctx.sender().clone(),
-		mock_backend,
-		Metrics::default(),
-		false,
-		CandidateValidationMessage::ValidateFromExhaustive {
-			validation_data: validation_data.clone(),
-			validation_code: validation_code.clone(),
-			candidate_receipt: candidate_receipt.clone(),
-			pov: Arc::new(pov.clone()),
-			executor_params: ExecutorParams::default(),
-			exec_kind: PvfExecKind::Backing(dummy_hash()),
-			response_sender: response_tx,
-		},
-	);
+			let pool = TaskExecutor::new();
+			let (mut ctx, mut ctx_handle) =
+				make_subsystem_context::<AllMessages, _>(pool.clone());
+			let mock_backend =
+				MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
+					head_data: HeadData(vec![1]),
+					new_validation_code: None,
+					upward_messages: Default::default(),
+					horizontal_messages: Default::default(),
+					processed_downward_messages: 0,
+					hrmp_watermark: 0,
+				}));
 
-	let test_fut = async move {
-		// fetch_bomb_limit
-		mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
-		// perform_basic_checks fails with PoVHashMismatch — no further calls
-	};
+			let (response_tx, response_rx) = oneshot::channel();
 
-	executor::block_on(future::join(test_fut, task));
+			let task = handle_validation_message(
+				ctx.sender().clone(),
+				mock_backend,
+				Metrics::default(),
+				false,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data: validation_data.clone(),
+					validation_code: validation_code.clone(),
+					candidate_receipt,
+					pov: Arc::new(test_pov.clone()),
+					executor_params: ExecutorParams::default(),
+					exec_kind: *exec_kind,
+					response_sender: response_tx,
+				},
+			);
 
-	assert_matches!(
-		executor::block_on(response_rx).unwrap(),
-		Ok(ValidationResult::Invalid(InvalidCandidate::PoVHashMismatch))
-	);
+			let test_fut = async move {
+				mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
+				// perform_basic_checks fails — no further calls
+			};
+
+			executor::block_on(future::join(test_fut, task));
+
+			assert_matches!(
+				executor::block_on(response_rx).unwrap(),
+				Ok(ValidationResult::Invalid(ref e)) => {
+					assert_eq!(
+						std::mem::discriminant(e),
+						std::mem::discriminant(expected_error),
+						"Expected {expected_error:?} for exec_kind {exec_kind:?}, got {e:?}"
+					);
+				}
+			);
+		}
+	}
 }
 
-/// A validation code hash mismatch is caught during pre-validation before PVF
-/// execution, for any exec kind.
+/// Relay parent session check via AllowedRelayParentInfo (v16+ API): backing
+/// rejects when the relay parent is not found in the claimed session.
+///
+/// Also verifies that `NotSupported` (old runtime) is safely skipped — the
+/// scheduling session check covers it on old runtimes where relay_parent ==
+/// scheduling_parent.
 #[test]
-fn pre_validation_basic_checks_code_hash_mismatch() {
+fn pre_validation_relay_parent_session_check() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
+	let scheduling_parent = dummy_hash();
 
-	// Create descriptor with WRONG validation code hash
+	// V2 descriptor with correct session_index=1.
 	let descriptor = make_valid_candidate_descriptor_v2(
 		ParaId::from(1_u32),
-		dummy_hash(),
+		scheduling_parent,
 		CoreIndex(1),
 		1,
 		dummy_hash(),
 		pov.hash(),
-		ValidationCode(vec![0xFF; 16]).hash(), // wrong
-		dummy_hash(),
+		validation_code.hash(),
+		head_data.hash(),
 		dummy_hash(),
 	);
 
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-	let mock_backend =
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
-			head_data: HeadData(vec![1]),
-			new_validation_code: None,
-			upward_messages: Default::default(),
-			horizontal_messages: Default::default(),
-			processed_downward_messages: 0,
-			hrmp_watermark: 0,
-		}));
-
-	let (response_tx, response_rx) = oneshot::channel();
-
-	let task = handle_validation_message(
-		ctx.sender().clone(),
-		mock_backend,
-		Metrics::default(),
-		false,
-		CandidateValidationMessage::ValidateFromExhaustive {
-			validation_data: validation_data.clone(),
-			validation_code: validation_code.clone(),
-			candidate_receipt: candidate_receipt.clone(),
-			pov: Arc::new(pov.clone()),
-			executor_params: ExecutorParams::default(),
-			exec_kind: PvfExecKind::Backing(dummy_hash()),
-			response_sender: response_tx,
-		},
-	);
-
-	let test_fut = async move {
-		// fetch_bomb_limit
-		mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
-		// perform_basic_checks fails with CodeHashMismatch — no further calls
+	let validation_result = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
 	};
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+	let candidate_receipt =
+		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	executor::block_on(future::join(test_fut, task));
+	// Case 1: AllowedRelayParentInfo returns None → InvalidRelayParentSession
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Ok(
+			validation_result.clone(),
+		));
 
-	assert_matches!(
-		executor::block_on(response_rx).unwrap(),
-		Ok(ValidationResult::Invalid(InvalidCandidate::CodeHashMismatch))
-	);
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(dummy_hash()),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
+			// SessionIndexForChild: scheduling session matches.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
+			);
+			// AllowedRelayParentInfo: relay parent NOT found.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AllowedRelayParentInfo(_, _, tx),
+				)) => { let _ = tx.send(Ok(None)); }
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidRelayParentSession))
+		);
+	}
+
+	// Case 2: AllowedRelayParentInfo not supported → skipped, proceeds to valid.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Ok(
+			validation_result.clone(),
+		));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(dummy_hash()),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
+			// SessionIndexForChild: matches.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
+			);
+			// AllowedRelayParentInfo: not supported → skipped.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AllowedRelayParentInfo(_, _, tx),
+				)) => {
+					let _ = tx.send(Err(RuntimeApiError::NotSupported {
+						runtime_api_name: "AllowedRelayParentInfo",
+					}));
+				}
+			);
+			// ClaimQueue: proceeds normally.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Valid(_, _))
+		);
+	}
+
+	// Case 3: AllowedRelayParentInfo returns Some → valid, proceeds.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Ok(
+			validation_result.clone(),
+		));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(dummy_hash()),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
+			);
+			// AllowedRelayParentInfo: found → valid.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AllowedRelayParentInfo(_, _, tx),
+				)) => { let _ = tx.send(Ok(Some(Default::default()))); }
+			);
+			// ClaimQueue.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Valid(_, _))
+		);
+	}
 }
