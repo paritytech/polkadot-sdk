@@ -208,19 +208,27 @@ mod benchmarks {
 
 	/// Benchmark: withdraw_collateral
 	/// Withdraws collateral from a vault.
-	/// Worst case: vault at StaleVaultThreshold, requires CR check after fee update.
+	/// Worst case: vault with debt at StaleVaultThreshold, triggering fee accrual
+	/// (minting to InsuranceFund) and CR validation (oracle + ratio check).
 	#[benchmark]
 	fn withdraw_collateral() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		ensure_insurance_fund::<T>();
 
-		// Create vault with excess collateral (no debt for simpler withdrawal)
-		let deposit = large_deposit::<T>();
-		create_vault_for::<T>(&caller, deposit)?;
+		// Create vault with debt so fee accrual and CR check are exercised
+		create_vault_with_debt::<T>(&caller)?;
 
-		// Advance to stale threshold (worst case)
+		// Deposit extra collateral to create headroom above ICR, so the vault
+		// can survive both fee accrual and a small withdrawal without breaching ICR.
+		let extra = large_deposit::<T>();
+		fund_account::<T>(&caller, extra.saturating_mul(2u32.into()));
+		Vaults::<T>::deposit_collateral(RawOrigin::Signed(caller.clone()).into(), extra)
+			.map_err(|_| BenchmarkError::Stop("Failed to deposit extra collateral"))?;
+
+		// Advance to stale threshold (worst case - maximum realistic fee accrual)
 		advance_to_stale_threshold::<T>();
 
-		// Withdraw a small amount (must remain above minimum)
+		// Withdraw MinimumDeposit — small enough to keep CR above ICR
 		let withdraw_amount = MinimumDeposit::<T>::get().expect("set in genesis; qed");
 		let collateral_before = VaultsStorage::<T>::get(&caller)
 			.ok_or(BenchmarkError::Stop("Vault not found"))?
@@ -239,31 +247,38 @@ mod benchmarks {
 
 	/// Benchmark: mint
 	/// Mints stablecoin against vault collateral.
-	/// Worst case: vault at StaleVaultThreshold, CR validation, max debt check.
+	/// Worst case: vault with existing debt at StaleVaultThreshold, triggering fee
+	/// accrual (minting to InsuranceFund), CR validation, and max debt check.
 	#[benchmark]
 	fn mint() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
+		ensure_insurance_fund::<T>();
 
-		// Create vault with collateral
-		let deposit = large_deposit::<T>();
-		create_vault_for::<T>(&caller, deposit)?;
+		// Create vault with existing debt so fee accrual triggers minting
+		let first_mint = create_vault_with_debt::<T>(&caller)?;
 
-		// Advance to stale threshold (worst case)
+		// Deposit extra collateral to create headroom above ICR, so the vault
+		// can survive fee accrual and a second mint without breaching ICR.
+		let extra = large_deposit::<T>().saturating_mul(2u32.into());
+		fund_account::<T>(&caller, extra.saturating_mul(2u32.into()));
+		Vaults::<T>::deposit_collateral(RawOrigin::Signed(caller.clone()).into(), extra)
+			.map_err(|_| BenchmarkError::Stop("Failed to deposit extra collateral"))?;
+
+		// Advance to stale threshold (worst case - maximum realistic fee accrual)
 		advance_to_stale_threshold::<T>();
 
-		// Mint a safe amount - ensure stablecoin asset exists and we can mint
+		// Mint a second amount on top of existing debt
 		let mint_amount = safe_mint_amount::<T>();
-		ensure_stablecoin_asset::<T>();
-		ensure_can_mint::<T>(mint_amount);
-		ensure_max_position_amount::<T>(mint_amount);
+		ensure_can_mint::<T>(mint_amount.saturating_mul(3u32.into()));
+		ensure_max_position_amount::<T>(first_mint.saturating_add(mint_amount));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), mint_amount);
 
-		// Verify debt increased
+		// Verify debt increased beyond the first mint
 		let vault =
 			VaultsStorage::<T>::get(&caller).ok_or(BenchmarkError::Stop("Vault not found"))?;
-		assert_eq!(vault.principal, mint_amount);
+		assert!(vault.principal > first_mint);
 		Ok(())
 	}
 
