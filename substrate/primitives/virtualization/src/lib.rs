@@ -38,7 +38,11 @@ mod forwarder;
 pub use forwarder::Virt;
 
 #[cfg(feature = "std")]
+mod manager;
+#[cfg(feature = "std")]
 mod native;
+#[cfg(feature = "std")]
+pub use manager::VirtManager;
 #[cfg(feature = "std")]
 pub use native::Virt;
 

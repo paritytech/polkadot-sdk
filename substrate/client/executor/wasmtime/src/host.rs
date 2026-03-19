@@ -21,12 +21,8 @@
 
 use crate::{instance_wrapper::MemoryWrapper, runtime::StoreData, util};
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
-use sp_virtualization::{
-	DestroyError as VirtDestroyError, ExecAction, ExecError as VirtExecError, ExecOutcome,
-	Memory as VirtMemory, MemoryT, Virt, VirtT,
-};
-use sp_wasm_interface::{InstanceId, Pointer, WordSize};
-use std::collections::HashMap;
+use sp_virtualization::VirtManager;
+use sp_wasm_interface::{Pointer, WordSize};
 use wasmtime::Caller;
 
 /// The state required to construct a HostContext context. The context only lasts for one host
@@ -40,15 +36,8 @@ pub struct HostState {
 	/// once.
 	allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
-	/// Maps virtualization instances to their ids.
-	///
-	/// Within a runtime call multiple instances can be spawned and in existence at the same time.
-	/// We assign non recycled ids to them so the runtime can reference them. Please note that the
-	/// ids are per runtime call so there is no potential for non determinism as long as we assign
-	/// them deterministically.
-	virt_instances: HashMap<InstanceId, VirtInstance>,
-	/// A incrementing counter used to generate new ids for [`Self::virt_instances`].
-	virt_counter: u32,
+	/// Manages virtualization instances spawned by the runtime.
+	virt_manager: VirtManager,
 }
 
 impl HostState {
@@ -57,8 +46,7 @@ impl HostState {
 		HostState {
 			allocator: Some(allocator),
 			panic_message: None,
-			virt_instances: Default::default(),
-			virt_counter: 0,
+			virt_manager: VirtManager::default(),
 		}
 	}
 
@@ -144,88 +132,6 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 	}
 
 	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
-		self
+		&mut self.host_state_mut().virt_manager
 	}
-}
-
-impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
-	fn instantiate(&mut self, program: &[u8]) -> sp_wasm_interface::Result<Result<InstanceId, u8>> {
-		let virt = match Virt::instantiate(program) {
-			Ok(virt) => virt,
-			Err(err) => return Ok(Err(err.into())),
-		};
-
-		let host = self.host_state_mut();
-
-		let instance_id = InstanceId({
-			let old = host.virt_counter;
-			host.virt_counter = old + 1;
-			old
-		});
-
-		host.virt_instances
-			.insert(instance_id, VirtInstance { memory: virt.memory(), virt });
-
-		Ok(Ok(instance_id))
-	}
-
-	fn run(
-		&mut self,
-		instance_id: InstanceId,
-		gas_left: i64,
-		action: ExecAction<'_>,
-	) -> sp_wasm_interface::Result<Result<ExecOutcome, u8>> {
-		let mut instance = match self.host_state_mut().virt_instances.remove(&instance_id) {
-			Some(instance) => instance,
-			None => return Ok(Err(VirtExecError::InvalidInstance.into())),
-		};
-
-		let result = instance.virt.run(gas_left, action);
-		self.host_state_mut().virt_instances.insert(instance_id, instance);
-		Ok(result.map_err(|err| err.into()))
-	}
-
-	fn destroy(&mut self, instance_id: InstanceId) -> sp_wasm_interface::Result<Result<(), u8>> {
-		if self.host_state_mut().virt_instances.remove(&instance_id).is_some() {
-			Ok(Ok(()))
-		} else {
-			Ok(Err(VirtDestroyError::InvalidInstance.into()))
-		}
-	}
-
-	fn read_memory(
-		&mut self,
-		instance_id: InstanceId,
-		offset: u32,
-		dest: &mut [u8],
-	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(instance) = self.host_state_mut().virt_instances.get(&instance_id) else {
-			return Ok(Err(VirtDestroyError::InvalidInstance.into()));
-		};
-		if let Err(err) = instance.memory.read(offset, dest) {
-			return Ok(Err(err.into()));
-		}
-		Ok(Ok(()))
-	}
-
-	fn write_memory(
-		&mut self,
-		instance_id: InstanceId,
-		offset: u32,
-		src: &[u8],
-	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(instance) = self.host_state_mut().virt_instances.get_mut(&instance_id) else {
-			return Ok(Err(VirtDestroyError::InvalidInstance.into()));
-		};
-		if let Err(err) = instance.memory.write(offset, src) {
-			return Ok(Err(err.into()));
-		}
-		Ok(Ok(()))
-	}
-}
-
-/// A virtualization instance held in `HostState`.
-struct VirtInstance {
-	virt: Virt,
-	memory: VirtMemory,
 }
