@@ -22,9 +22,35 @@ use mock::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
+#[cfg(not(feature = "runtime-benchmarks"))]
 use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
+#[cfg(feature = "runtime-benchmarks")]
+use xcm::latest::prelude::*;
+#[cfg(feature = "runtime-benchmarks")]
+use xcm_simulator::TestExt;
 use xcm_executor::XcmExecutor;
 use xcm_simulator::fake_message_hash;
+
+fn assert_teleport_outcome(
+	r: Outcome,
+	weight: Weight,
+	_instruction_index: u8,
+	_expected_error: xcm::latest::Error,
+) {
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	assert_eq!(
+		r,
+		Outcome::Incomplete {
+			used: weight,
+			error: InstructionError { index: _instruction_index, error: _expected_error },
+		}
+	);
+	#[cfg(feature = "runtime-benchmarks")]
+	{
+		assert_eq!(r, Outcome::Complete { used: weight });
+		mock::clear_sent_xcm();
+	}
+}
 
 pub const ALICE: AccountId = AccountId::new([0u8; 32]);
 pub const PARA_ID: u32 = 2000;
@@ -238,19 +264,7 @@ fn teleport_to_asset_hub_works() {
 			weight,
 			Weight::zero(),
 		);
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		assert_eq!(
-			r,
-			Outcome::Incomplete {
-				used: weight,
-				error: InstructionError { index: 2, error: UntrustedTeleportLocation },
-			}
-		);
-		#[cfg(feature = "runtime-benchmarks")]
-		assert_eq!(r, Outcome::Complete { used: weight });
-
-		#[cfg(feature = "runtime-benchmarks")]
-		mock::clear_sent_xcm();
+		assert_teleport_outcome(r, weight, 2, UntrustedTeleportLocation);
 
 		// teleports are allowed from asset hub to kusama.
 		let message = Xcm(vec![

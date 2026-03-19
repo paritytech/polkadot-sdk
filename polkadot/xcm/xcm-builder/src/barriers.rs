@@ -597,41 +597,11 @@ where
 pub struct DenyReserveTransferToRelayChain;
 impl DenyExecution for DenyReserveTransferToRelayChain {
 	fn deny_execution<RuntimeCall>(
-		origin: &Location,
-		message: &mut [Instruction<RuntimeCall>],
+		_origin: &Location,
+		_instructions: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		if origin == &(Location { parents: 1, interior: Here }) {
-			return Ok(());
-		}
-		message.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				InitiateReserveWithdraw {
-					reserve: Location { parents: 1, interior: Here },
-					..
-				} |
-				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
-				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
-					Err(ProcessMessageError::Unsupported) // Deny
-				},
-
-				// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
-				// `IsReserve` should not allow this, but we just log it here.
-				ReserveAssetDeposited { .. }
-					if matches!(origin, Location { parents: 1, interior: Here }) =>
-				{
-					tracing::debug!(
-						target: "xcm::barriers",
-						"Unexpected ReserveAssetDeposited from the Relay Chain",
-					);
-					Ok(ControlFlow::Continue(()))
-				},
-
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		)?;
 		Ok(())
 	}
 }

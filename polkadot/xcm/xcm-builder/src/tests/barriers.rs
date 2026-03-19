@@ -1107,7 +1107,7 @@ fn deny_then_try_works() {
 }
 
 #[test]
-fn deny_reserve_transfer_to_relaychain_should_work() {
+fn deny_reserve_transfer_to_relaychain_should_be_noop() {
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
 			DenyReserveTransferToRelayChain::deny_execution(
@@ -1119,7 +1119,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			expected_result
 		);
 	};
-	// deny DepositReserveAsset to RelayChain
+	// no longer denies DepositReserveAsset to RelayChain
 	assert_deny_execution(
 		vec![DepositReserveAsset {
 			assets: Wild(All),
@@ -1127,7 +1127,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
+		Ok(()), // Pass
 	);
 	assert_deny_execution(
 		vec![DepositReserveAsset {
@@ -1136,27 +1136,9 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: Xcm(vec![ClearOrigin]),
 		}],
 		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
+		Ok(()), // Pass
 	);
-	assert_deny_execution(
-		vec![DepositReserveAsset {
-			assets: Wild(All),
-			dest: Location { parents: 1, interior: Here },
-			xcm: Xcm(vec![ClearOrigin, ClearTopic]),
-		}],
-		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
-	);
-	assert_deny_execution(
-		vec![DepositReserveAsset {
-			assets: Wild(All),
-			dest: Location { parents: 1, interior: Here },
-			xcm: vec![].into(),
-		}],
-		Location { parents: 1, interior: Here },
-		Ok(()),
-	);
-	// deny InitiateReserveWithdraw to RelayChain
+	// no longer denies InitiateReserveWithdraw to RelayChain
 	assert_deny_execution(
 		vec![InitiateReserveWithdraw {
 			assets: Wild(All),
@@ -1164,9 +1146,9 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
+		Ok(()), // Pass
 	);
-	// deny TransferReserveAsset to RelayChain
+	// no longer denies TransferReserveAsset to RelayChain
 	assert_deny_execution(
 		vec![TransferReserveAsset {
 			assets: vec![].into(),
@@ -1174,17 +1156,7 @@ fn deny_reserve_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Err(ProcessMessageError::Unsupported),
-	);
-	// accept DepositReserveAsset to destination other than RelayChain
-	assert_deny_execution(
-		vec![DepositReserveAsset {
-			assets: Wild(All),
-			dest: Here.into_location(),
-			xcm: vec![].into(),
-		}],
-		Here.into_location(),
-		Ok(()),
+		Ok(()), // Pass
 	);
 	// others instructions should pass
 	assert_deny_execution(vec![ClearOrigin], Here.into_location(), Ok(()));
@@ -1254,12 +1226,8 @@ impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
 
 #[test]
 fn deny_recursively_then_try_works() {
-	type Barrier = DenyThenTry<DenyRecursively<DenyReserveTransferToRelayChain>, AllowAll>;
-	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
-		assets: Wild(All),
-		dest: Location::parent(),
-		xcm: vec![].into(),
-	}]);
+	type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
+	let xcm = Xcm::<Instruction<()>>(vec![ClearOrigin]);
 	let origin = Here.into_location();
 	let max_weight = Weight::from_parts(10, 10);
 	let mut properties = props(Weight::zero());
@@ -1276,7 +1244,7 @@ fn deny_recursively_then_try_works() {
 	assert!(result.is_err());
 
 	// Should allow with `SetAppendix` for the original `DenyThenTry`
-	type OriginalBarrier = DenyThenTry<DenyReserveTransferToRelayChain, AllowAll>;
+	type OriginalBarrier = DenyThenTry<DenyClearOrigin, AllowAll>;
 	let result =
 		OriginalBarrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
 	assert!(result.is_ok());
@@ -1303,10 +1271,9 @@ fn deny_recursively_then_try_works() {
 	assert!(result.is_err());
 
 	// Should allow for valid XCM with `SetAppendix`
-	let xcm = Xcm::<Instruction<()>>(vec![DepositReserveAsset {
-		assets: Wild(All),
-		dest: Here.into_location(),
-		xcm: vec![].into(),
+	let xcm = Xcm::<Instruction<()>>(vec![BuyExecution {
+		fees: (Parent, 100).into(),
+		weight_limit: Unlimited,
 	}]);
 	let mut message = Xcm::<Instruction<()>>(vec![SetAppendix(xcm.clone())]);
 	let result = Barrier::should_execute(&origin, message.inner_mut(), max_weight, &mut properties);
@@ -1334,7 +1301,7 @@ fn deny_recursively_works() {
 
 #[test]
 fn compare_deny_filters() {
-	type Denies = (DenyNothing, DenyReserveTransferToRelayChain);
+	type Denies = (DenyNothing, DenyClearOrigin);
 
 	fn assert_barrier<Barrier: ShouldExecute>(
 		top_level_result: Result<Weight, (Weight, ProcessMessageError)>,
@@ -1345,14 +1312,7 @@ fn compare_deny_filters() {
 		let mut properties = props(Weight::zero());
 
 		// Validate Top-Level
-		let xcm = Xcm::<Instruction<()>>(
-			vec![DepositReserveAsset {
-				assets: Wild(All),
-				dest: Location::parent(),
-				xcm: Xcm(vec![ClearOrigin]),
-			}]
-			.into(),
-		);
+		let xcm = Xcm::<Instruction<()>>(vec![ClearOrigin]);
 		let result =
 			Barrier::should_execute(&origin, xcm.clone().inner_mut(), max_weight, &mut properties);
 		assert_eq!(top_level_result, result);
