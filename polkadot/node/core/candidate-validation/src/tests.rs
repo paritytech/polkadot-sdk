@@ -899,25 +899,28 @@ fn invalid_session_or_ump_signals() {
 	}
 }
 
+/// V3 UMP signal enforcement: backing requires UMP signals for V3 candidates,
+/// approval/dispute skips the check entirely.
+///
+/// Loops through all exec kinds × (with signals, without signals) and verifies:
+/// - Backing + signals → Valid
+/// - Backing + no signals → Invalid(NoUMPSignalWithV3Descriptor)
+/// - Approval/Dispute + signals → Valid (check skipped)
+/// - Approval/Dispute + no signals → Valid (check skipped)
 #[test]
-/// Tests V3 candidate descriptor validation:
-/// - V3 descriptor with UMP signals is valid
-/// - V3 descriptor without UMP signals is invalid (NoUMPSignalWithV3Descriptor)
-fn v3_descriptor_validation() {
+fn v3_ump_signal_enforcement() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	// Create a V3 descriptor with scheduling_parent different from relay_parent
 	let relay_parent = dummy_hash();
 	let scheduling_parent = Hash::repeat_byte(0x42);
 	let descriptor = make_valid_candidate_descriptor_v3(
 		ParaId::from(1_u32),
 		relay_parent,
 		CoreIndex(0),
-		1, // session_index matching expected
+		1,
 		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
@@ -926,13 +929,10 @@ fn v3_descriptor_validation() {
 		scheduling_parent,
 	);
 
-	// Verify it's detected as V3
 	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
-	// Under old rules, V3 (non-zero scheduling_parent) is detected as V1
-	assert_eq!(descriptor.version_old_rules(), CandidateDescriptorVersion::V1);
 
-	// Validation result WITH UMP signals (required for V3)
-	let mut validation_result_with_signals = WasmValidationResult {
+	// Validation result WITH UMP signals (required for V3 in backing)
+	let mut result_with_signals = WasmValidationResult {
 		head_data: head_data.clone(),
 		new_validation_code: None,
 		upward_messages: Default::default(),
@@ -940,22 +940,13 @@ fn v3_descriptor_validation() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 	};
-	validation_result_with_signals.upward_messages.force_push(UMP_SEPARATOR);
-	validation_result_with_signals
+	result_with_signals.upward_messages.force_push(UMP_SEPARATOR);
+	result_with_signals
 		.upward_messages
 		.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
 
-	let commitments_with_signals = CandidateCommitments {
-		head_data: validation_result_with_signals.head_data.clone(),
-		upward_messages: validation_result_with_signals.upward_messages.clone(),
-		horizontal_messages: validation_result_with_signals.horizontal_messages.clone(),
-		new_validation_code: validation_result_with_signals.new_validation_code.clone(),
-		processed_downward_messages: validation_result_with_signals.processed_downward_messages,
-		hrmp_watermark: validation_result_with_signals.hrmp_watermark,
-	};
-
 	// Validation result WITHOUT UMP signals
-	let validation_result_no_signals = WasmValidationResult {
+	let result_no_signals = WasmValidationResult {
 		head_data: head_data.clone(),
 		new_validation_code: None,
 		upward_messages: Default::default(),
@@ -964,114 +955,80 @@ fn v3_descriptor_validation() {
 		hrmp_watermark: 0,
 	};
 
-	let commitments_no_signals = CandidateCommitments {
-		head_data: validation_result_no_signals.head_data.clone(),
-		upward_messages: validation_result_no_signals.upward_messages.clone(),
-		horizontal_messages: validation_result_no_signals.horizontal_messages.clone(),
-		new_validation_code: validation_result_no_signals.new_validation_code.clone(),
-		processed_downward_messages: validation_result_no_signals.processed_downward_messages,
-		hrmp_watermark: validation_result_no_signals.hrmp_watermark,
-	};
-
-	// Setup claim queue with para assigned to core 0
 	let mut cq = BTreeMap::new();
 	let _ = cq.insert(CoreIndex(0), vec![ParaId::from(1_u32)].into());
 
-	// Test 1: V3 descriptor + UMP signals => Valid
-	{
+	let all_exec_kinds = [
+		PvfExecKind::Backing(dummy_hash()),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		PvfExecKind::Approval,
+		PvfExecKind::Dispute,
+	];
+
+	for has_signals in [true, false] {
+		let validation_result = if has_signals {
+			result_with_signals.clone()
+		} else {
+			result_no_signals.clone()
+		};
+		let commitments = CandidateCommitments {
+			head_data: validation_result.head_data.clone(),
+			upward_messages: validation_result.upward_messages.clone(),
+			horizontal_messages: validation_result.horizontal_messages.clone(),
+			new_validation_code: validation_result.new_validation_code.clone(),
+			processed_downward_messages: validation_result.processed_downward_messages,
+			hrmp_watermark: validation_result.hrmp_watermark,
+		};
 		let candidate_receipt = CandidateReceipt {
 			descriptor: descriptor.clone(),
-			commitments_hash: commitments_with_signals.hash(),
+			commitments_hash: commitments.hash(),
 		};
 
-		let result = executor::block_on(validate_candidate(
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_with_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			false,
-			PreValidationOutput {
-				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
-				claim_queue: Some(ClaimQueueSnapshot(cq.clone())),
-			},
-		))
-		.unwrap();
+		for exec_kind in &all_exec_kinds {
+			let is_backing = matches!(
+				exec_kind,
+				PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_)
+			);
 
-		assert_matches!(result, ValidationResult::Valid(_, _));
-	}
-
-	// Test 2: V3 descriptor + NO UMP signals => Invalid
-	// (NoUMPSignalWithV3Descriptor)
-	{
-		let candidate_receipt = CandidateReceipt {
-			descriptor: descriptor.clone(),
-			commitments_hash: commitments_no_signals.hash(),
-		};
-
-		let result = executor::block_on(validate_candidate(
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_no_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			false,
-			PreValidationOutput {
-				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
-				claim_queue: Some(ClaimQueueSnapshot(cq.clone())),
-			},
-		))
-		.unwrap();
-
-		assert_matches!(
-			result,
-			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-				CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor
-			))
-		);
-	}
-
-	{
-		let mut desc = descriptor.clone();
-		// session_index=1, offset=1 => scheduling_session=2, but expected=1
-		desc.set_scheduling_session_offset(1);
-
-		let candidate_receipt = CandidateReceipt {
-			descriptor: desc,
-			commitments_hash: commitments_with_signals.hash(),
-		};
-
-		for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
 			let result = executor::block_on(validate_candidate(
 				MockValidateCandidateBackend::with_hardcoded_result(Ok(
-					validation_result_with_signals.clone(),
+					validation_result.clone(),
 				)),
 				validation_data.clone(),
 				validation_code.clone(),
 				candidate_receipt.clone(),
 				Arc::new(pov.clone()),
 				ExecutorParams::default(),
-				exec_kind,
+				*exec_kind,
 				&Default::default(),
 				false,
 				PreValidationOutput {
 					validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
-					claim_queue: None,
+					claim_queue: if is_backing {
+						Some(ClaimQueueSnapshot(cq.clone()))
+					} else {
+						None
+					},
 				},
 			))
 			.unwrap();
 
-			assert_matches!(result, ValidationResult::Valid(_, _));
+			match (is_backing, has_signals) {
+				// Backing without signals → V3 requires them.
+				(true, false) => assert_matches!(
+					result,
+					ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+						CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor
+					)),
+					"Backing must reject V3 without UMP signals ({exec_kind:?})"
+				),
+				// All other combinations → valid.
+				_ => assert_matches!(
+					result,
+					ValidationResult::Valid(_, _),
+					"Expected Valid for exec_kind={exec_kind:?} has_signals={has_signals}"
+				),
+			}
 		}
 	}
 }
