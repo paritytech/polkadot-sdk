@@ -2552,58 +2552,6 @@ async fn mock_fetch_bomb_limit_v2(
 	);
 }
 
-/// Helper: respond to the runtime API calls made during backing pre-validation
-/// (after bomb limit): SessionIndexForChild, AllowedRelayParentInfo, ClaimQueue.
-async fn mock_backing_pre_validation(
-	ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
-	expected_scheduling_parent: Hash,
-	scheduling_session_response: SessionIndex,
-	relay_parent_info_response: Option<bool>,
-	claim_queue: BTreeMap<CoreIndex, Vec<ParaId>>,
-) {
-	// get_session_index → SessionIndexForChild
-	assert_matches!(
-		ctx_handle.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::SessionIndexForChild(tx),
-		)) => {
-			assert_eq!(parent, expected_scheduling_parent);
-			let _ = tx.send(Ok(scheduling_session_response));
-		}
-	);
-
-	// check_relay_parent_in_session → AllowedRelayParentInfo
-	if let Some(valid) = relay_parent_info_response {
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::AllowedRelayParentInfo(_session, _relay_parent, tx),
-			)) => {
-				assert_eq!(parent, expected_scheduling_parent);
-				if valid {
-					let _ = tx.send(Ok(Some(Default::default())));
-				} else {
-					let _ = tx.send(Ok(None));
-				}
-			}
-		);
-	}
-
-	// claim_queue → ClaimQueue
-	assert_matches!(
-		ctx_handle.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) => {
-			assert_eq!(parent, expected_scheduling_parent);
-			let cq = claim_queue.into_iter().map(|(k, v)| (k, v.into())).collect();
-			let _ = tx.send(Ok(cq));
-		}
-	);
-}
 
 /// Scheduling session check: backing rejects when the descriptor's session
 /// doesn't match the runtime; approval/dispute skips the check entirely.

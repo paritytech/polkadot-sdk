@@ -1871,10 +1871,10 @@ pub enum CandidateDescriptorVersionCheckError {
 impl core::fmt::Display for CandidateDescriptorVersionCheckError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
-			Self::Inconsistency =>
-				write!(f, "Descriptor version detection inconsistency (old vs new rules disagree)"),
-			Self::V3NotEnabled =>
-				write!(f, "V3 candidate descriptor but V3 feature not enabled"),
+			Self::Inconsistency => {
+				write!(f, "Descriptor version detection inconsistency (old vs new rules disagree)")
+			},
+			Self::V3NotEnabled => write!(f, "V3 candidate descriptor but V3 feature not enabled"),
 		}
 	}
 }
