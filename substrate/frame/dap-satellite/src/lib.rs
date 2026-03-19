@@ -55,10 +55,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		tokens::{
-			Fortitude, Fortitude::Polite, Precision, Precision::BestEffort, Precision::Exact,
-			Preservation, Preservation::Preserve,
-		},
+		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Preserve},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -308,8 +305,8 @@ pub mod pallet {
 			let satellite = Self::satellite_account();
 			let ed = T::Currency::minimum_balance();
 
-			if frame_system::Pallet::<T>::providers(&satellite) > 0
-				&& T::Currency::balance(&satellite) >= ed
+			if frame_system::Pallet::<T>::providers(&satellite) > 0 &&
+				T::Currency::balance(&satellite) >= ed
 			{
 				log::debug!(
 					target: LOG_TARGET,

@@ -50,7 +50,7 @@ fn clear_sent_messages() {
 // have elapsed since the genesis block (i.e. no other transfers have occurred yet).
 #[test]
 fn rate_limit_on_first_transfer() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let period = TransferPeriod::get();
 
 		clear_sent_messages();
@@ -77,7 +77,7 @@ fn rate_limit_on_first_transfer() {
 // until an additional transfer period has occurred.
 #[test]
 fn rate_limit_after_first_transfer() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let period = TransferPeriod::get();
 		let next_transfer_threshold = 7 + period;
 
@@ -112,7 +112,7 @@ fn rate_limit_after_first_transfer() {
 // below the `MinTransferAmount` threshold.
 #[test]
 fn ensure_minimum_amount_limit_is_respected() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let limit = MinTransferAmount::get();
 
 		// Fund the satellite with less than the minimum transferable amount above ED.
@@ -143,7 +143,7 @@ fn ensure_minimum_amount_limit_is_respected() {
 // Verify the XCM destination, message structure, balance changes, storage, and event.
 #[test]
 fn verify_success_path() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		clear_sent_messages();
 		System::set_block_number(1);
 
@@ -199,7 +199,7 @@ fn verify_success_path() {
 // `mint_into` and a `SendFailed` event is emitted. `LastTransferBlock` is updated regardless.
 #[test]
 fn verify_failure_path() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		clear_sent_messages();
 		System::set_block_number(1);
 
