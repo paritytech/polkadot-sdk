@@ -251,6 +251,17 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 }
 
+/// Returns the first EVM block number for main and test nets, `None` otherwise.
+fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u32> {
+	match chain_id {
+		420420417 => Some(4_367_914),  // Paseo Asset Hub
+		420420418 => Some(12_234_156), // Kusama Asset Hub
+		420420419 => Some(11_405_259), // Polkadot Asset Hub
+		420420421 => Some(13_169_391), // Westend Asset Hub
+		_ => None,
+	}
+}
+
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
 	let query = subxt_client::constants().revive().chain_id();
@@ -367,9 +378,12 @@ impl Client {
 	}
 
 	/// The earliest block number where the ReviveApi is available.
-	/// Falls back to 0 if `first_evm_block` hasn't been discovered yet.
-	fn earliest_block(&self) -> u32 {
-		self.receipt_provider.first_evm_block().unwrap_or(0)
+	/// Resolution order: in-memory value > known-networks table > 0.
+	fn earliest_block_number(&self) -> u32 {
+		self.receipt_provider
+			.first_evm_block()
+			.or_else(|| known_first_evm_block_for_chain(self.chain_id))
+			.unwrap_or(0)
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
@@ -493,7 +507,7 @@ impl Client {
 			},
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Earliest) => {
 				let hash = self
-					.get_block_hash(self.earliest_block())
+					.get_block_hash(self.earliest_block_number())
 					.await?
 					.ok_or(ClientError::BlockNotFound)?;
 				Ok(hash)
@@ -701,7 +715,7 @@ impl Client {
 				Ok(Some(block))
 			},
 			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => {
-				self.block_by_number(self.earliest_block()).await
+				self.block_by_number(self.earliest_block_number()).await
 			},
 			BlockNumberOrTag::BlockTag(_) => {
 				let block = self.block_provider.latest_block().await;
@@ -905,8 +919,21 @@ impl Client {
 
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
-		let logs =
-			self.receipt_provider.logs(filter).await.map_err(ClientError::LogFilterFailed)?;
+		let earliest = U256::from(self.earliest_block_number());
+		let latest = U256::from(self.latest_block().await.number());
+		let resolve_block_number = |block: BlockNumberOrTag| match block {
+			BlockNumberOrTag::U256(v) => Ok(v),
+			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(earliest),
+			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(latest),
+			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
+		};
+
+		let logs = self
+			.receipt_provider
+			.logs(filter, &resolve_block_number)
+			.await
+			.map_err(ClientError::LogFilterFailed)?;
+
 		Ok(logs)
 	}
 
