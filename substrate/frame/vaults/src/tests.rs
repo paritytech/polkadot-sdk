@@ -19,8 +19,9 @@ use crate::{
 	mock::*, BadDebt, CollateralManager, CurrentLiquidationAmount, DebtComponents, Error, Event,
 	HoldReason, InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount,
 	MaxPositionAmount, MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint,
-	OnIdleCursor, OracleStalenessThreshold, Pallet as VaultsPallet, PaymentBreakdown, StabilityFee,
-	StaleVaultThreshold, Vault, VaultStatus, Vaults as VaultsStorage,
+	OnIdleCursor, OracleStalenessThreshold, Pallet as VaultsPallet, PaymentBreakdown,
+	PreviousStabilityFee, StabilityFee, StaleVaultThreshold, Vault, VaultStatus,
+	Vaults as VaultsStorage,
 };
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
@@ -1342,6 +1343,150 @@ mod fee_accrual {
 			assert!(
 				new_issuance > current_issuance,
 				"Total issuance should exceed ceiling due to interest"
+			);
+		});
+	}
+
+	/// **Test: Fee change does not apply retroactively**
+	///
+	/// When governance changes the stability fee, the new rate should only apply
+	/// from the moment of the change, not retroactively to the period before it.
+	///
+	/// Timeline:
+	///   t=0: vault created, 200 pUSD debt at 4% fee
+	///   t=6 months: fee raised to 10%
+	///   t=12 months: vault poked
+	///
+	/// Expected interest:
+	///   [0, 6mo] at 4%: 200 × 4% × 0.5 = 4 pUSD
+	///   [6mo, 12mo] at 10%: 200 × 10% × 0.5 = 10 pUSD
+	///   Total: 14 pUSD
+	#[test]
+	fn fee_change_does_not_apply_retroactively() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance 6 months (half year = 2,628,000 blocks at 6s)
+			let half_year_blocks = 2_628_000u64;
+			jump_to_block(half_year_blocks);
+
+			// Governance raises stability fee from 4% to 10%
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(10)));
+
+			// Verify PreviousStabilityFee was stored
+			let prev = PreviousStabilityFee::<Test>::get();
+			assert!(prev.is_some(), "PreviousStabilityFee should be set");
+			let (old_fee, changed_at) = prev.unwrap();
+			assert_eq!(old_fee, Permill::from_percent(4));
+			assert_eq!(changed_at, MockTimestamp::get());
+
+			// Advance another 6 months
+			jump_to_block(half_year_blocks * 2);
+
+			// Expected: 4 pUSD (first half at 4%) + 10 pUSD (second half at 10%) = 14 pUSD
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let expected_interest = 14 * PUSD;
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				PUSD / 2, // 0.5 pUSD tolerance for timestamp variance
+				"Fee change should not apply retroactively",
+			);
+		});
+	}
+
+	/// **Test: Fee decrease does not retroactively reduce owed interest**
+	///
+	/// When governance lowers the stability fee, the old (higher) rate must still
+	/// apply to the period before the change.
+	///
+	/// Timeline:
+	///   t=0: vault created, 200 pUSD debt at 4% fee
+	///   t=6 months: fee lowered to 1%
+	///   t=12 months: vault poked
+	///
+	/// Expected interest:
+	///   [0, 6mo] at 4%: 200 × 4% × 0.5 = 4 pUSD
+	///   [6mo, 12mo] at 1%: 200 × 1% × 0.5 = 1 pUSD
+	///   Total: 5 pUSD
+	#[test]
+	fn fee_decrease_does_not_retroactively_reduce_interest() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance 6 months
+			let half_year_blocks = 2_628_000u64;
+			jump_to_block(half_year_blocks);
+
+			// Governance lowers stability fee from 4% to 1%
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(1)));
+
+			// Advance another 6 months
+			jump_to_block(half_year_blocks * 2);
+
+			// Expected: 4 pUSD (first half at 4%) + 1 pUSD (second half at 1%) = 5 pUSD
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let expected_interest = 5 * PUSD;
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				PUSD / 2,
+				"Fee decrease should not retroactively reduce interest",
+			);
+		});
+	}
+
+	/// **Test: Vault updated after fee change uses only the new rate**
+	///
+	/// If a vault's `last_fee_update` is after the fee change timestamp,
+	/// `PreviousStabilityFee` should be ignored entirely.
+	#[test]
+	fn vault_updated_after_fee_change_uses_new_rate_only() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance 3 months — on_idle pokes the vault
+			let quarter_year_blocks = 1_314_000u64;
+			jump_to_block(quarter_year_blocks);
+
+			// Governance changes fee from 4% to 10%
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(10)));
+
+			// Record interest accrued so far (3 months at 4%)
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest_before = vault.accrued_interest;
+			let expected_before = 2 * PUSD; // 200 × 4% × 0.25 = 2 pUSD
+			assert_approx_eq(
+				interest_before,
+				expected_before,
+				PUSD / 2,
+				"Interest before fee change",
+			);
+
+			// Advance another 3 months — vault was updated AFTER the fee change,
+			// so only the new 10% rate applies for this period
+			jump_to_block(quarter_year_blocks * 2);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let new_interest = vault.accrued_interest - interest_before;
+			let expected_new = 5 * PUSD; // 200 × 10% × 0.25 = 5 pUSD
+			assert_approx_eq(
+				new_interest,
+				expected_new,
+				PUSD / 2,
+				"After fee change, only new rate should apply",
 			);
 		});
 	}

@@ -473,6 +473,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type StabilityFee<T: Config> = StorageValue<_, Permill>;
 
+	/// Previous stability fee and the timestamp when it was changed.
+	///
+	/// Stored when [`StabilityFee`] is updated so that [`update_vault_fees`] can
+	/// split interest accrual across the fee change boundary, preventing the new
+	/// rate from being applied retroactively to periods before the change.
+	#[pallet::storage]
+	pub type PreviousStabilityFee<T: Config> = StorageValue<_, (Permill, MomentOf<T>)>;
+
 	/// Liquidation penalty
 	/// Applied to the debt during liquidation. The penalty is converted to DOT
 	/// and deducted from the collateral returned to the vault owner.
@@ -1475,6 +1483,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 			let old_value = StabilityFee::<T>::get().unwrap_or_default();
+			PreviousStabilityFee::<T>::put((old_value, T::TimeProvider::now()));
 			StabilityFee::<T>::put(fee);
 			Self::deposit_event(Event::StabilityFeeUpdated { old_value, new_value: fee });
 			Ok(())
@@ -2304,6 +2313,8 @@ pub mod pallet {
 		/// ensures total pUSD supply reflects all outstanding obligations.
 		///
 		/// Uses actual timestamps for accurate time-based interest calculation.
+		/// If [`StabilityFee`] was recently changed, accrual is split at the change
+		/// boundary so the new rate is not applied retroactively.
 		/// Emits an `InterestAccrued` event if interest was accrued.
 		///
 		/// # Parameters
@@ -2323,20 +2334,36 @@ pub mod pallet {
 				return Ok(());
 			}
 
-			let millis_elapsed = now.saturating_sub(vault.last_fee_update);
 			let stability_fee = StabilityFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
-			let annual_interest_pusd = stability_fee.mul_floor(vault.principal);
-			if annual_interest_pusd.is_zero() {
-				vault.last_fee_update = now;
-				return Ok(());
-			}
 
-			let elapsed_ratio = FixedU128::saturating_from_rational(
-				millis_elapsed.saturated_into::<u64>(),
-				MILLIS_PER_YEAR,
-			);
-			let accrued = elapsed_ratio.saturating_mul_int(annual_interest_pusd);
+			// Calculate accrued interest, splitting across fee change boundary if needed.
+			let accrued = match PreviousStabilityFee::<T>::get() {
+				Some((previous_fee, changed_at))
+					if vault.last_fee_update < changed_at && changed_at < now =>
+				{
+					let old_elapsed = changed_at.saturating_sub(vault.last_fee_update);
+					let new_elapsed = now.saturating_sub(changed_at);
+					Self::compute_interest(vault.principal, previous_fee, old_elapsed)
+						.saturating_add(Self::compute_interest(
+							vault.principal,
+							stability_fee,
+							new_elapsed,
+						))
+				},
+				_ => {
+					let millis_elapsed = now.saturating_sub(vault.last_fee_update);
+					Self::compute_interest(vault.principal, stability_fee, millis_elapsed)
+				},
+			};
+
 			if accrued.is_zero() {
+				// If the current fee produces zero annual interest (fee or principal is
+				// zero), advance timestamp since no interest can accrue regardless of
+				// elapsed time. Otherwise, don't advance to preserve precision on short
+				// time intervals.
+				if stability_fee.mul_floor(vault.principal).is_zero() {
+					vault.last_fee_update = now;
+				}
 				return Ok(());
 			}
 
@@ -2345,11 +2372,26 @@ pub mod pallet {
 			vault.accrued_interest.saturating_accrue(accrued);
 			vault.last_fee_update = now;
 
-			if !accrued.is_zero() {
-				Self::deposit_event(Event::InterestAccrued { owner: who.clone(), amount: accrued });
-			}
+			Self::deposit_event(Event::InterestAccrued { owner: who.clone(), amount: accrued });
 
 			Ok(())
+		}
+
+		/// Compute interest for a given principal, fee rate, and elapsed time.
+		fn compute_interest(
+			principal: BalanceOf<T>,
+			fee: Permill,
+			millis_elapsed: MomentOf<T>,
+		) -> BalanceOf<T> {
+			let annual_interest = fee.mul_floor(principal);
+			if annual_interest.is_zero() {
+				return Zero::zero();
+			}
+			let elapsed_ratio = FixedU128::saturating_from_rational(
+				millis_elapsed.saturated_into::<u64>(),
+				MILLIS_PER_YEAR,
+			);
+			elapsed_ratio.saturating_mul_int(annual_interest)
 		}
 
 		/// Base weight for `on_idle` overhead.
