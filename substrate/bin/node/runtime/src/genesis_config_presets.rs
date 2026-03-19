@@ -75,9 +75,7 @@ pub fn kitchensink_genesis(
 				.map(|x| x.0.clone())
 				.collect::<Vec<_>>()
 				.try_into()
-				.expect(
-					"Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"
-				),
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
 		},
