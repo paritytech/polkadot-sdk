@@ -440,6 +440,8 @@ pub mod pallet {
 		EarlyPayout,
 		/// The payment has already been attempted.
 		AlreadyAttempted,
+		/// There is another matured spend with a lower index that must be claimed first.
+		SpendNotInOrder,
 		/// There was some issue with the mechanism of payment.
 		PayoutError,
 		/// The payout was not yet attempted/claimed.
@@ -732,11 +734,23 @@ pub mod pallet {
 		///
 		/// Emits [`Event::Paid`] if successful.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::payout())]
+		#[pallet::weight(
+			T::WeightInfo::payout()
+				.saturating_add(T::DbWeight::get().reads(index.saturating_sub(1).into()))
+		)]
 		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			let now = T::BlockNumberProvider::current_block_number();
+			for earlier_index in 0..index {
+				let Some(earlier_spend) = Spends::<T, I>::get(earlier_index) else {
+					continue;
+				};
+				let is_earlier_claimable = now >= earlier_spend.valid_from &&
+					earlier_spend.expire_at > now &&
+					matches!(earlier_spend.status, PaymentState::Pending | PaymentState::Failed);
+				ensure!(!is_earlier_claimable, Error::<T, I>::SpendNotInOrder);
+			}
 			ensure!(now >= spend.valid_from, Error::<T, I>::EarlyPayout);
 			ensure!(spend.expire_at > now, Error::<T, I>::SpendExpired);
 			ensure!(
