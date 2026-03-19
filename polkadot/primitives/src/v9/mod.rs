@@ -1858,18 +1858,25 @@ pub enum CandidateDescriptorVersion {
 
 /// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum CandidateDescriptorVersionCheckError {
 	/// Old-style and new-style version detection disagree, and this is not the
 	/// expected V3 disagreement (old rules → V1, new rules → V3) with V3 enabled.
-	#[cfg_attr(
-		feature = "std",
-		error("Descriptor version detection inconsistency (old vs new rules disagree)")
-	)]
 	Inconsistency,
 	/// The descriptor is V3 but the V3 feature is not enabled.
-	#[cfg_attr(feature = "std", error("V3 candidate descriptor but V3 feature not enabled"))]
 	V3NotEnabled,
+}
+
+// Manual Display impl required because this type is used in `no_std` runtime
+// code (paras_inherent) where thiserror::Error is not available.
+impl core::fmt::Display for CandidateDescriptorVersionCheckError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::Inconsistency =>
+				write!(f, "Descriptor version detection inconsistency (old vs new rules disagree)"),
+			Self::V3NotEnabled =>
+				write!(f, "V3 candidate descriptor but V3 feature not enabled"),
+		}
+	}
 }
 
 /// A unique descriptor of the candidate receipt.
