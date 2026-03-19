@@ -72,8 +72,7 @@ pub enum RIExecError {
 	InvalidInstance = -1,
 	InvalidImage = -2,
 	OutOfGas = -3,
-	InvalidGasValue = -4,
-	Trap = -5,
+	Trap = -4,
 }
 
 impl From<RIExecError> for i64 {
@@ -90,8 +89,7 @@ impl TryFrom<i64> for RIExecError {
 			-1 => Ok(RIExecError::InvalidInstance),
 			-2 => Ok(RIExecError::InvalidImage),
 			-3 => Ok(RIExecError::OutOfGas),
-			-4 => Ok(RIExecError::InvalidGasValue),
-			-5 => Ok(RIExecError::Trap),
+			-4 => Ok(RIExecError::Trap),
 			_ => Err(()),
 		}
 	}
@@ -103,7 +101,6 @@ impl From<RIExecError> for ExecError {
 			RIExecError::InvalidInstance => ExecError::InvalidInstance,
 			RIExecError::InvalidImage => ExecError::InvalidImage,
 			RIExecError::OutOfGas => ExecError::OutOfGas,
-			RIExecError::InvalidGasValue => ExecError::InvalidGasValue,
 			RIExecError::Trap => ExecError::Trap,
 		}
 	}
@@ -115,7 +112,6 @@ impl From<ExecError> for RIExecError {
 			ExecError::InvalidInstance => RIExecError::InvalidInstance,
 			ExecError::InvalidImage => RIExecError::InvalidImage,
 			ExecError::OutOfGas => RIExecError::OutOfGas,
-			ExecError::InvalidGasValue => RIExecError::InvalidGasValue,
 			ExecError::Trap => RIExecError::Trap,
 		}
 	}
@@ -247,9 +243,6 @@ trait LessThan64BitPositiveInteger: Into<i64> {
 
 impl LessThan64BitPositiveInteger for u8 {
 	const MAX: i64 = u8::MAX as i64;
-}
-impl LessThan64BitPositiveInteger for u16 {
-	const MAX: i64 = u16::MAX as i64;
 }
 impl LessThan64BitPositiveInteger for u32 {
 	const MAX: i64 = u32::MAX as i64;

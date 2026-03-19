@@ -273,12 +273,10 @@ pub enum ExecError {
 	InvalidImage = 2,
 	/// The execution ran out of gas before it could finish.
 	OutOfGas = 3,
-	/// The gas value was not within the valid range.
-	InvalidGasValue = 4,
 	/// The execution trapped before it could finish.
 	///
 	/// This can be caused by executing an `unimp` instruction.
-	Trap = 5,
+	Trap = 4,
 }
 
 /// Errors that can be emitted when accessing a virtualization instance's memory.
