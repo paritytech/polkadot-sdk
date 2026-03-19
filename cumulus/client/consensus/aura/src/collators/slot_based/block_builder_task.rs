@@ -200,6 +200,8 @@ where
 				.expect("Relay chain interface must provide overseer handle."),
 		);
 
+		let mut scheduling_info = super::scheduling::SchedulingInfo::default();
+
 		loop {
 			// We wait here until the next slot arrives.
 			if slot_timer.wait_until_next_slot().await.is_err() {
@@ -207,24 +209,32 @@ where
 				return;
 			};
 
-			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
-				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
+			let Some(_relay_best_hash) = scheduling_info
+				.fetch_relay_best_hash(&relay_client)
+				.await
+			else {
 				continue;
 			};
-
+			// Query scheduling parameters at the parachain best head. This assumes
+			// they match the para parent head we build on top of — a practical
+			// optimisation that can only fail if a runtime upgrade changing these
+			// values was done through an unbacked/unincluded candidate. In that
+			// edge case, block building will fail and self-correct once the upgrade
+			// is included on the relay chain.
 			let best_hash = para_client.info().best_hash;
 			let relay_parent_offset =
 				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
-
-			// Fetch max_claim_queue_offset from runtime API, defaulting to 1 for backwards
-			// compatibility with runtimes that don't implement this method yet.
-			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
 			let max_claim_queue_offset =
 				para_client.runtime_api().max_claim_queue_offset(best_hash).unwrap_or(1);
-
-			// Check if V3 scheduling is enabled
 			let v3_enabled =
 				para_client.runtime_api().scheduling_v3_enabled(best_hash).unwrap_or(false);
+
+			let Some(descendants_start) = scheduling_info
+				.descendants_start(&relay_client, relay_chain_slot_duration, v3_enabled)
+				.await
+			else {
+				continue;
+			};
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
@@ -233,7 +243,7 @@ where
 
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
-				relay_best_hash,
+				descendants_start,
 				relay_parent_offset,
 			)
 			.await
@@ -251,6 +261,7 @@ where
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
+			let rp_descendants = rp_data.descendants().to_vec();
 
 			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -284,7 +295,7 @@ where
 			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
 			let (claim_queue_relay_block, claim_queue_depth, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip), use max_claim_queue_offset
-				(relay_best_hash, max_claim_queue_offset as u32, max_claim_queue_offset)
+				(descendants_start, max_claim_queue_offset as u32, max_claim_queue_offset)
 			} else {
 				// V1/V2: look up at relay_parent, use relay_parent_offset + max_claim_queue_offset
 				let total_offset = relay_parent_offset as u8 + max_claim_queue_offset;
@@ -509,43 +520,27 @@ where
 
 			*last_claimed_core_selector = Some(core.core_selector());
 
-			// Check if V3 scheduling is enabled and build scheduling proof if so
-			let scheduling_proof =
-				if para_client.runtime_api().scheduling_v3_enabled(parent_hash).unwrap_or(false) {
-					// For V3, build the scheduling proof (header chain from scheduling_parent back
-					// to relay_parent)
-					// - scheduling_parent = relay_best_hash (fresh leaf, used for
-					//   scheduling/backing group)
-					// - relay_parent = older block (used for execution context)
-					// - header_chain contains headers from newest to oldest (scheduling_parent
-					//   backward)
-					// - header_chain length = relay_parent_offset (number of blocks between them)
-					// - last header's parent_hash = relay_parent (internal scheduling parent)
+			// Check if V3 scheduling is enabled and build scheduling proof if so.
+			let scheduling_proof = v3_enabled.then_some({
+				// The descendants are ordered from oldest to newest, so reverse them
+				let header_chain: Vec<_> = rp_descendants.iter().rev().cloned().collect();
 
-					// The descendants are ordered from oldest to newest, so reverse them
-					let header_chain: Vec<_> = rp_descendants.iter().rev().cloned().collect();
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?descendants_start,
+					header_chain_len = header_chain.len(),
+					"Building V3 collation with scheduling proof",
+				);
 
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						?relay_parent,
-						?relay_best_hash,
-						header_chain_len = header_chain.len(),
-						"Building V3 collation with scheduling proof",
-					);
+				SchedulingProof {
+					header_chain,
+					// Initial submission: no signature needed, core selection from UMP signals
+					signed_scheduling_info: None,
+				}
+			});
 
-					Some(SchedulingProof {
-						header_chain,
-						// Initial submission: no signature needed, core selection from UMP signals
-						signed_scheduling_info: None,
-					})
-				} else {
-					None
-				};
-
-			// For V3, scheduling_parent is the fresh relay chain tip (relay_best_hash)
-			// For V1/V2, scheduling_parent is None
-			let scheduling_parent =
-				if scheduling_proof.is_some() { Some(relay_best_hash) } else { None };
+			let scheduling_parent = scheduling_proof.is_some().then_some(descendants_start);
 
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,

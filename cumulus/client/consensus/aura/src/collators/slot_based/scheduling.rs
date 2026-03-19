@@ -19,8 +19,9 @@ use crate::LOG_TARGET;
 use cumulus_primitives_aura::Slot;
 use cumulus_primitives_core::relay_chain::BlockId;
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash};
+use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, Header as RelayHeader};
 use sc_consensus_aura::SlotDuration;
+use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
 use std::time::Duration;
 
@@ -43,8 +44,8 @@ pub(crate) enum SlotStatus {
 pub(crate) struct SchedulingInfo {
 	/// The relay chain best block hash.
 	relay_best_hash: Option<RelayHash>,
-	/// Whether the relay best block belongs to the current (in-progress) relay chain slot.
-	relay_best_slot_status: Option<SlotStatus>,
+	/// The relay chain best block header, lazily fetched when slot status is queried.
+	relay_best_header: Option<RelayHeader>,
 }
 
 impl SchedulingInfo {
@@ -53,7 +54,17 @@ impl SchedulingInfo {
 		self.relay_best_hash
 	}
 
-	/// Returns the slot status of the relay best block, fetching it if not yet known.
+	/// Returns the cached relay chain best block header.
+	/// Only populated after [`Self::relay_best_slot_status`] has been called.
+	fn relay_best_header(&self) -> Option<&RelayHeader> {
+		self.relay_best_header.as_ref()
+	}
+
+	/// Returns the slot status of the relay best block, recomputed against the
+	/// current wall-clock time on each call.
+	///
+	/// Lazily fetches the relay best block header if not already cached, or if the
+	/// cached header's hash differs from the current `relay_best_hash`.
 	///
 	/// Requires [`Self::fetch_relay_best_hash`] to have been called first.
 	pub async fn relay_best_slot_status<RelayClient>(
@@ -64,13 +75,70 @@ impl SchedulingInfo {
 	where
 		RelayClient: RelayChainInterface + Clone + 'static,
 	{
-		if let Some(status) = self.relay_best_slot_status {
-			return Some(status);
+		let relay_best_hash = self.relay_best_hash?;
+
+		// Fetch the header if not cached or if it belongs to a different block.
+		let needs_fetch =
+			self.relay_best_header.as_ref().map_or(true, |h| h.hash() != relay_best_hash);
+
+		if needs_fetch {
+			let header = match relay_client.header(BlockId::Hash(relay_best_hash)).await {
+				Ok(Some(header)) => header,
+				Ok(None) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?relay_best_hash,
+						"Relay best block header not found.",
+					);
+					return None;
+				},
+				Err(err) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?relay_best_hash,
+						?err,
+						"Failed to fetch relay best block header.",
+					);
+					return None;
+				},
+			};
+			self.relay_best_header = Some(header);
 		}
 
+		let header = self.relay_best_header.as_ref()?;
+		Self::compute_slot_status(header, relay_best_hash, relay_chain_slot_duration)
+	}
+
+	/// Returns the relay chain block hash to use as the starting point for finding
+	/// descendants (and ultimately the relay parent).
+	///
+	/// - V3 (`v3_enabled = true`): uses the last finished RC slot block. If the relay best block's
+	///   slot is still in progress, falls back to its parent.
+	/// - V2 (`v3_enabled = false`): uses `relay_best_hash` directly.
+	///
+	/// Requires [`Self::fetch_relay_best_hash`] to have been called first.
+	pub async fn descendants_start<RelayClient>(
+		&mut self,
+		relay_client: &RelayClient,
+		relay_chain_slot_duration: Duration,
+		v3_enabled: bool,
+	) -> Option<RelayHash>
+	where
+		RelayClient: RelayChainInterface + Clone + 'static,
+	{
 		let relay_best_hash = self.relay_best_hash?;
-		self.check_slot_status(relay_client, relay_best_hash, relay_chain_slot_duration)
-			.await
+
+		if !v3_enabled {
+			return Some(relay_best_hash);
+		}
+
+		match self.relay_best_slot_status(relay_client, relay_chain_slot_duration).await? {
+			SlotStatus::Finished => Some(relay_best_hash),
+			SlotStatus::InProgress => {
+				let header = self.relay_best_header.as_ref()?;
+				Some(*header.parent_hash())
+			},
+		}
 	}
 
 	/// Fetches the relay chain best block hash and caches it.
@@ -84,8 +152,6 @@ impl SchedulingInfo {
 		match relay_client.best_block_hash().await {
 			Ok(hash) => {
 				self.relay_best_hash = Some(hash);
-				// Reset slot status since we have a new relay best hash.
-				self.relay_best_slot_status = None;
 				Some(hash)
 			},
 			Err(err) => {
@@ -99,44 +165,14 @@ impl SchedulingInfo {
 		}
 	}
 
-	/// Fetches the header for the given relay chain block hash, extracts its BABE slot,
-	/// and compares it against the current wall-clock relay chain slot to determine
-	/// whether the block belongs to the current in-progress slot or an already-finished
-	/// one.
-	///
-	/// If `block_hash` matches the cached `relay_best_hash`, the result is also stored
-	/// in `relay_best_slot_status`.
-	async fn check_slot_status<RelayClient>(
-		&mut self,
-		relay_client: &RelayClient,
+	/// Extracts the BABE slot from a relay header and compares it against the
+	/// current wall-clock slot to determine the slot status.
+	fn compute_slot_status(
+		header: &RelayHeader,
 		block_hash: RelayHash,
 		relay_chain_slot_duration: Duration,
-	) -> Option<SlotStatus>
-	where
-		RelayClient: RelayChainInterface + Clone + 'static,
-	{
-		let relay_header = match relay_client.header(BlockId::Hash(block_hash)).await {
-			Ok(Some(header)) => header,
-			Ok(None) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?block_hash,
-					"Relay chain block header not found.",
-				);
-				return None;
-			},
-			Err(err) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?block_hash,
-					?err,
-					"Failed to fetch relay chain block header.",
-				);
-				return None;
-			},
-		};
-
-		let babe_slot = match sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_header) {
+	) -> Option<SlotStatus> {
+		let babe_slot = match sc_consensus_babe::find_pre_digest::<RelayBlock>(header) {
 			Ok(pre_digest) => pre_digest.slot(),
 			Err(err) => {
 				tracing::error!(
@@ -150,10 +186,8 @@ impl SchedulingInfo {
 		};
 
 		let slot_duration_ms = relay_chain_slot_duration.as_millis() as u64;
-		let current_slot = Slot::from_timestamp(
-			Timestamp::current(),
-			SlotDuration::from_millis(slot_duration_ms),
-		);
+		let current_slot =
+			Slot::from_timestamp(Timestamp::current(), SlotDuration::from_millis(slot_duration_ms));
 
 		let status = if babe_slot < current_slot {
 			tracing::debug!(
@@ -174,11 +208,6 @@ impl SchedulingInfo {
 			);
 			SlotStatus::InProgress
 		};
-
-		// Cache the status if this is the relay best hash.
-		if self.relay_best_hash == Some(block_hash) {
-			self.relay_best_slot_status = Some(status);
-		}
 
 		Some(status)
 	}

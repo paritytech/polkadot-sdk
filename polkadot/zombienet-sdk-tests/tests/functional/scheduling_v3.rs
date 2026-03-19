@@ -109,15 +109,15 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_args(vec![
-					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug").into(),
+					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug,parachain::statement-distribution=debug").into(),
 				])
 				.with_genesis_overrides(json!({
 					"patch": {
 						"configuration": {
 							"config": {
 								"scheduler_params": {
-                                    // Set this super high to not
-									"group_rotation_frequency": 4,
+									"max_validators_per_core": 1,
+									"group_rotation_frequency": 1000,
 								},
 								// Enable V3 candidate descriptors via node_features
 								"node_features": node_features_with_v3,
@@ -125,9 +125,9 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..5).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..5).fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(2500)
@@ -202,9 +202,9 @@ async fn v2_candidates_still_working() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..5).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..5).fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(2700)
@@ -281,10 +281,10 @@ async fn scheduling_v3_elastic_scaling() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
 			(1..6).fold(r, |acc, i| {
-				acc.with_node(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})
 		.with_parachain(|p| {
@@ -367,10 +367,10 @@ async fn v2_elastic_scaling_backwards_compat() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
 			(1..6).fold(r, |acc, i| {
-				acc.with_node(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})
 		.with_parachain(|p| {
