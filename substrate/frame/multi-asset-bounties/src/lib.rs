@@ -96,7 +96,7 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
+	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert},
 	Debug, Permill,
 };
 
