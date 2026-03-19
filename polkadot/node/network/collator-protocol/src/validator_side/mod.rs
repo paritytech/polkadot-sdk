@@ -2005,7 +2005,7 @@ where
 			if let Entry::Vacant(entry) = state.per_scheduling_parent.entry(*block_hash) {
 				// Safe to use the same session index for the allowed scheduling parents as well
 				// since they must be in the same session.
-				if let Some(pers_scheduling_parent) = construct_per_scheduling_parent(
+				if let Some(per_scheduling_parent) = construct_per_scheduling_parent(
 					sender,
 					&mut state.assigned_cores,
 					keystore,
@@ -2014,7 +2014,7 @@ where
 				)
 				.await?
 				{
-					entry.insert(pers_scheduling_parent);
+					entry.insert(per_scheduling_parent);
 				}
 			}
 		}
@@ -2690,9 +2690,13 @@ async fn kick_off_seconding<Context>(
 		) {
 			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. })) |
 			(CollationVersion::V3, Some(ProspectiveCandidate { parent_head_data_hash, .. })) => {
+				// PVD contains relay_parent_number and relay_parent_storage_root, so
+				// we must pass the actual relay_parent (execution context), not the
+				// scheduling_parent. For V1/V2 these are identical; for V3 the
+				// relay_parent may be older.
 				let pvd = request_prospective_validation_data(
 					ctx.sender(),
-					scheduling_parent,
+					candidate_receipt.descriptor().relay_parent(),
 					parent_head_data_hash,
 					para_id,
 					maybe_parent_head_data.clone(),
