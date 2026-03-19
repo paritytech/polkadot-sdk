@@ -28,16 +28,12 @@ use emulated_integration_tests_common::{
 	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
-use testnet_parachains_constants::westend::{
-	currency::{deposit, EXISTENTIAL_DEPOSIT},
-	snowbridge::EthereumNetwork,
-};
+use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::{latest::prelude::*, opaque::latest::WESTEND_GENESIS_HASH};
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
-// Includes the address mapping storage cost, matching the runtime's ExistentialDeposit.
-pub const ED: Balance = EXISTENTIAL_DEPOSIT + deposit(1, 52);
+pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
 pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {

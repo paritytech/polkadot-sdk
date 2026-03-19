@@ -37,8 +37,10 @@ pub mod currency {
 	use polkadot_core_primitives::Balance;
 	use westend_runtime_constants as constants;
 
-	/// The existential deposit. Set to 1/10 of its parent Relay Chain.
-	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
+	/// The existential deposit. Set to 1/10 of its parent Relay Chain, plus the cost of one
+	/// address mapping entry (20 bytes key + 32 bytes value) to cover auto-mapping.
+	pub const EXISTENTIAL_DEPOSIT: Balance =
+		constants::currency::EXISTENTIAL_DEPOSIT / 10 + deposit(1, 52);
 
 	pub const UNITS: Balance = constants::currency::UNITS;
 	pub const DOLLARS: Balance = UNITS; // 1_000_000_000_000
