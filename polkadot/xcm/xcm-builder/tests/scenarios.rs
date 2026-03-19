@@ -22,20 +22,17 @@ use mock::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
-#[cfg(feature = "runtime-benchmarks")]
-use xcm::latest::prelude::*;
-#[cfg(feature = "runtime-benchmarks")]
-use xcm_simulator::TestExt;
+use xcm::latest::{prelude::*, Error as XcmError};
 use xcm_executor::XcmExecutor;
 use xcm_simulator::fake_message_hash;
+#[cfg(feature = "runtime-benchmarks")]
+use xcm_simulator::TestExt;
 
 fn assert_teleport_outcome(
 	r: Outcome,
 	weight: Weight,
 	_instruction_index: u8,
-	_expected_error: xcm::latest::Error,
+	_expected_error: XcmError,
 ) {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	assert_eq!(
@@ -264,7 +261,7 @@ fn teleport_to_asset_hub_works() {
 			weight,
 			Weight::zero(),
 		);
-		assert_teleport_outcome(r, weight, 2, UntrustedTeleportLocation);
+		assert_teleport_outcome(r, weight, 2, XcmError::UntrustedTeleportLocation);
 
 		// teleports are allowed from asset hub to kusama.
 		let message = Xcm(vec![
