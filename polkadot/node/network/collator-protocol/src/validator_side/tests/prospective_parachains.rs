@@ -544,6 +544,7 @@ async fn send_collation_and_assert_processing(
 	assert_candidate_backing_second(
 		virtual_overseer,
 		relay_parent,
+		relay_parent,
 		expected_para_id,
 		&pov,
 		CollationVersion::V2,
@@ -624,6 +625,7 @@ fn v1_advertisement_accepted_and_seconded() {
 
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
+			head_b,
 			head_b,
 			test_state.chain_ids[0],
 			&pov,
@@ -1974,6 +1976,7 @@ fn v3_descriptor(#[case] crafted_unknown: bool, #[case] collation_version: Colla
 			assert_candidate_backing_second(
 				&mut virtual_overseer,
 				head_b,
+				head_b,
 				test_state.chain_ids[0],
 				&pov,
 				CollationVersion::V3,
@@ -2176,6 +2179,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			head_b_parent,
+			head_b_grandparent,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V3,
@@ -2301,6 +2305,7 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			head_b,
+			head_b_parent,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V3,

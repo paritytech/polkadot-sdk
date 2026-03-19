@@ -615,6 +615,7 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			test_state.relay_parent,
+			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V1,
@@ -740,6 +741,7 @@ fn fetches_next_collation() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			second,
+			second,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V1,
@@ -850,6 +852,7 @@ fn fetch_next_collation_on_invalid_collation() {
 
 		let receipt = assert_candidate_backing_second(
 			&mut virtual_overseer,
+			relay_parent,
 			relay_parent,
 			test_state.chain_ids[0],
 			&pov,
@@ -1298,6 +1301,7 @@ fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
 		// This triggers candidate backing.
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
+			relay_parent,
 			relay_parent,
 			test_state.chain_ids[0],
 			&pov,
