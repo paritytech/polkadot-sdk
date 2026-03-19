@@ -923,6 +923,9 @@ pub trait Storage {
 	/// function.
 	#[wrapper]
 	fn root() -> Vec<u8> {
+		// By this point, all the information about the length of the hash representing the storage
+		// root has been erased. We're using a generous buffer here. Making host functions generic
+		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(&mut root_out[..]);
 		root_out
@@ -1432,9 +1435,11 @@ pub trait DefaultChildStorage {
 	/// function.
 	#[wrapper]
 	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
+		// By this point, all the information about the length of the hash representing the storage
+		// root has been erased. We're using a generous buffer here. Making host functions generic
+		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
-		let len = root__wrapped(storage_key.as_ref(), &mut root_out[..]) as usize;
-		root_out.truncate(len);
+		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
 		root_out
 	}
 
