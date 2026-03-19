@@ -117,7 +117,7 @@ pub struct Server {
 	/// Listening address of the server
 	listen_addrs: Vec<SocketAddr>,
 	/// Dedicated RPC runtime (kept alive for the lifetime of the server)
-	rpc_runtime: tokio::runtime::Runtime,
+	rpc_runtime: Option<tokio::runtime::Runtime>,
 }
 
 impl Server {
@@ -127,7 +127,7 @@ impl Server {
 		listen_addrs: Vec<SocketAddr>,
 		rpc_runtime: tokio::runtime::Runtime,
 	) -> Server {
-		Server { handle, listen_addrs, rpc_runtime }
+		Server { handle, listen_addrs, rpc_runtime: Some(rpc_runtime) }
 	}
 
 	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to stop the
@@ -143,7 +143,13 @@ impl Server {
 
 	/// Returns the spawn handle for tasks on the dedicated RPC runtime.
 	pub fn spawn_handle(&self) -> Arc<dyn sp_core::traits::SpawnNamed> {
-		Arc::new(RpcSpawnHandle::new(self.rpc_runtime.handle().clone()))
+		Arc::new(RpcSpawnHandle::new(
+			self.rpc_runtime
+				.as_ref()
+				.expect("rpc_runtime is only taken in Drop; qed")
+				.handle()
+				.clone(),
+		))
 	}
 }
 
@@ -151,6 +157,12 @@ impl Drop for Server {
 	fn drop(&mut self) {
 		// This doesn't not wait for the server to be stopped but fires the signal.
 		let _ = self.handle.stop();
+
+		// Use `shutdown_background()` to avoid blocking, which would panic if
+		// we are being dropped from within an async context.
+		if let Some(runtime) = self.rpc_runtime.take() {
+			runtime.shutdown_background();
+		}
 	}
 }
 
