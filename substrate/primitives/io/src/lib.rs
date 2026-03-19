@@ -925,14 +925,6 @@ pub trait Storage {
 	fn root() -> Vec<u8> {
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(&mut root_out[..]);
-		// Determine total length of the SCALE-encoded hash from the compact length prefix.
-		let mut input = &root_out[..];
-		let before = input.len();
-		let data_len = codec::Compact::<u32>::decode(&mut input)
-			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
-			.0 as usize;
-		let prefix_len = before - input.len();
-		root_out.truncate(prefix_len + data_len);
 		root_out
 	}
 
@@ -1419,18 +1411,21 @@ pub trait DefaultChildStorage {
 	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
 	/// value is known to the caller, this function requires the provided buffer to be large enough
 	/// to store the entire value; otherwise, it will panic.
+	///
+	/// Returns the number of bytes written to the output buffer.
 	#[version(3)]
 	#[wrapped]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
-	) {
+	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
 		if out.len() >= root.len() {
 			out[..root.len()].copy_from_slice(&root[..]);
 		}
+		root.len() as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1438,15 +1433,8 @@ pub trait DefaultChildStorage {
 	#[wrapper]
 	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
 		let mut root_out = vec![0u8; 256];
-		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		// Determine total length of the SCALE-encoded hash from the compact length prefix.
-		let mut input = &root_out[..];
-		let before = input.len();
-		let data_len = codec::Compact::<u32>::decode(&mut input)
-			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
-			.0 as usize;
-		let prefix_len = before - input.len();
-		root_out.truncate(prefix_len + data_len);
+		let len = root__wrapped(storage_key.as_ref(), &mut root_out[..]) as usize;
+		root_out.truncate(len);
 		root_out
 	}
 

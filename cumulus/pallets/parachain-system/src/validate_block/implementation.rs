@@ -614,12 +614,13 @@ fn host_default_child_storage_clear_prefix(
 	})
 }
 
-fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
+fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) -> u32 {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
 		let root = ext.child_storage_root(&child_info, StateVersion::V0);
 		let write_len = root.len().min(out.len());
 		out[..write_len].copy_from_slice(&root[..write_len]);
+		root.len() as u32
 	})
 }
 
