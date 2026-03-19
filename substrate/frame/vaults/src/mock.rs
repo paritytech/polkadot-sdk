@@ -334,9 +334,9 @@ impl crate::BenchmarkHelper for MockBenchmarkHelper {
 
 impl crate::Config for Test {
 	type WeightInfo = ();
-	type Currency = Balances;
+	type Collateral = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Asset = VaultsAsset;
+	type StableAsset = VaultsAsset;
 	type InsuranceFund = InsuranceFundAccount;
 	type FeeHandler = ResolveTo<FeeHandlerAccount, Balances>;
 	type SurplusHandler = SurplusPusdToTreasury;

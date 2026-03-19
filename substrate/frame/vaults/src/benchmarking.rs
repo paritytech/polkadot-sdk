@@ -51,11 +51,11 @@ fn safe_mint_amount<T: Config>() -> BalanceOf<T> {
 		.saturating_mul(400u32.into())
 }
 
-/// Fund an account with native currency (DOT)
+/// Fund an account with collateral (DOT)
 fn fund_account<T: Config>(account: &T::AccountId, amount: BalanceOf<T>) {
 	use frame_support::traits::fungible::Mutate;
 	let _ = frame_system::Pallet::<T>::inc_providers(account);
-	let _ = <T::Currency as Mutate<T::AccountId>>::mint_into(account, amount);
+	let _ = <T::Collateral as Mutate<T::AccountId>>::mint_into(account, amount);
 }
 
 /// Ensure the InsuranceFund account can receive funds
@@ -74,7 +74,7 @@ fn ensure_stablecoin_asset<T: Config>() {
 
 /// Set up the system for minting by ensuring MaximumIssuance is set high enough
 fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
-	let current_issuance = T::Asset::total_issuance();
+	let current_issuance = T::StableAsset::total_issuance();
 	let required = current_issuance.saturating_add(amount).saturating_mul(2u32.into());
 	let current_max = MaximumIssuance::<T>::get().unwrap_or_default();
 	if current_max < required {
@@ -98,7 +98,7 @@ fn mint_pusd_to<T: Config>(
 ) -> Result<(), BenchmarkError> {
 	use frame_support::traits::fungible::Mutate;
 	ensure_stablecoin_asset::<T>();
-	let _ = <T::Asset as Mutate<T::AccountId>>::mint_into(account, amount);
+	let _ = <T::StableAsset as Mutate<T::AccountId>>::mint_into(account, amount);
 	Ok(())
 }
 

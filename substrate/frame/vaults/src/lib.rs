@@ -300,27 +300,27 @@ pub mod pallet {
 
 	/// Unified balance type for both collateral (DOT) and stablecoin (pUSD).
 	pub type BalanceOf<T> =
-		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Collateral as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// Type alias for the timestamp moment type from the time provider.
 	pub type MomentOf<T> = <<T as Config>::TimeProvider as Time>::Moment;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The currency used for collateral (native DOT).
-		/// Collateral is managed via `pallet_balances` using holds.
+		/// The collateral asset (native DOT).
+		/// Managed via `pallet_balances` using holds.
 		/// The Balance type is derived from this and must implement `FixedPointOperand`.
-		type Currency: FungibleMutate<Self::AccountId, Balance: FixedPointOperand>
+		type Collateral: FungibleMutate<Self::AccountId, Balance: FixedPointOperand>
 			+ FungibleBalanced<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
-		/// The asset used for pUSD debt.
-		/// Constrained to use the same Balance type as Currency.
+		/// The stable asset used for pUSD debt.
+		/// Constrained to use the same Balance type as Collateral.
 		/// Also implements `Balanced` for creating credits during surplus transfers.
-		type Asset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
+		type StableAsset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
 			+ FungibleBalanced<Self::AccountId>;
 
 		/// Time provider for fee accrual using UNIX timestamps.
@@ -344,15 +344,15 @@ pub mod pallet {
 
 		/// Handler for DOT received from surplus auctions.
 		///
-		/// Use `ResolveTo<Account, Currency>` for simple single-account deposit,
+		/// Use `ResolveTo<Account, Collateral>` for simple single-account deposit,
 		/// or implement custom `OnUnbalanced` logic for fee splitting.
-		type FeeHandler: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
+		type FeeHandler: OnUnbalanced<Credit<Self::AccountId, Self::Collateral>>;
 
 		/// Handler for surplus pUSD transfers in `DirectTransfer` mode.
 		///
-		/// Use `ResolveTo<TreasuryAccount, Asset>` for simple single-account deposit.
+		/// Use `ResolveTo<TreasuryAccount, StableAsset>` for simple single-account deposit.
 		/// The credit is created from the Insurance Fund's pUSD.
-		type SurplusHandler: OnUnbalanced<Credit<Self::AccountId, Self::Asset>>;
+		type SurplusHandler: OnUnbalanced<Credit<Self::AccountId, Self::StableAsset>>;
 
 		/// Origin allowed to update protocol parameters.
 		///
@@ -441,7 +441,7 @@ pub mod pallet {
 
 		/// Get the total collateral held by the Balances pallet for this vault.
 		pub(crate) fn get_held_collateral(&self, who: &T::AccountId) -> BalanceOf<T> {
-			T::Currency::balance_on_hold(&HoldReason::VaultDeposit.into(), who)
+			T::Collateral::balance_on_hold(&HoldReason::VaultDeposit.into(), who)
 		}
 
 		/// Returns total debt (principal + `accrued_interest`).
@@ -904,7 +904,7 @@ pub mod pallet {
 
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
 				ensure!(maybe_vault.is_none(), Error::<T>::VaultAlreadyExists);
-				T::Currency::hold(&HoldReason::VaultDeposit.into(), &who, initial_deposit)?;
+				T::Collateral::hold(&HoldReason::VaultDeposit.into(), &who, initial_deposit)?;
 				*maybe_vault = Some(Vault::new());
 
 				Self::deposit_event(Event::VaultCreated { owner: who.clone() });
@@ -950,7 +950,7 @@ pub mod pallet {
 
 				Self::update_vault_fees(vault, &who, None)?;
 
-				T::Currency::hold(&HoldReason::VaultDeposit.into(), &who, amount)?;
+				T::Collateral::hold(&HoldReason::VaultDeposit.into(), &who, amount)?;
 
 				Self::deposit_event(Event::CollateralDeposited { owner: who.clone(), amount });
 				Ok(())
@@ -1031,7 +1031,7 @@ pub mod pallet {
 						ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 					}
 
-					T::Currency::release(
+					T::Collateral::release(
 						&HoldReason::VaultDeposit.into(),
 						&who,
 						amount,
@@ -1168,7 +1168,7 @@ pub mod pallet {
 				// Note: The Insurance Fund already received this pUSD when it was minted
 				// during fee accrual (mint-on-accrual model). Burning here reduces supply.
 				if !interest_to_pay.is_zero() {
-					T::Asset::burn_from(
+					T::StableAsset::burn_from(
 						&who,
 						interest_to_pay,
 						Preservation::Expendable,
@@ -1180,7 +1180,7 @@ pub mod pallet {
 
 				// Burn principal pUSD from payer
 				if !principal_to_pay.is_zero() {
-					T::Asset::burn_from(
+					T::StableAsset::burn_from(
 						&who,
 						principal_to_pay,
 						Preservation::Expendable,
@@ -1312,7 +1312,7 @@ pub mod pallet {
 				// Change hold reason from VaultDeposit to Seized
 				// The collateral stays in the user's account but is now controlled by the auction
 				// pallet
-				T::Currency::release(
+				T::Collateral::release(
 					&HoldReason::VaultDeposit.into(),
 					&vault_owner,
 					collateral_seized,
@@ -1320,7 +1320,7 @@ pub mod pallet {
 				)?;
 
 				// Immediately re-hold with Seized reason
-				T::Currency::hold(&HoldReason::Seized.into(), &vault_owner, collateral_seized)?;
+				T::Collateral::hold(&HoldReason::Seized.into(), &vault_owner, collateral_seized)?;
 
 				// Start the auction - collateral (native DOT) is held with Seized reason
 				let debt = DebtComponents { principal, interest, penalty };
@@ -1927,7 +1927,7 @@ pub mod pallet {
 
 			// 1. Burn principal + interest pUSD from buyer
 			if !burn_amount.is_zero() {
-				T::Asset::burn_from(
+				T::StableAsset::burn_from(
 					buyer,
 					burn_amount,
 					Preservation::Expendable,
@@ -1939,7 +1939,7 @@ pub mod pallet {
 			// 2. Transfer penalty to Insurance Fund (includes keeper's share temporarily)
 			// Keeper will be paid from IF at auction completion.
 			if !insurance_fund_amount.is_zero() {
-				T::Asset::transfer(
+				T::StableAsset::transfer(
 					buyer,
 					&T::InsuranceFund::get(),
 					insurance_fund_amount,
@@ -1949,14 +1949,14 @@ pub mod pallet {
 
 			// 3. Release collateral from Seized hold and transfer to recipient
 			if vault_owner == recipient {
-				T::Currency::release(
+				T::Collateral::release(
 					&HoldReason::Seized.into(),
 					vault_owner,
 					collateral_amount,
 					Precision::Exact,
 				)?;
 			} else {
-				T::Currency::transfer_on_hold(
+				T::Collateral::transfer_on_hold(
 					&HoldReason::Seized.into(),
 					vault_owner,
 					recipient,
@@ -1991,7 +1991,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Return excess collateral to vault owner
 			if !remaining_collateral.is_zero() {
-				T::Currency::release(
+				T::Collateral::release(
 					&HoldReason::Seized.into(),
 					vault_owner,
 					remaining_collateral,
@@ -2041,7 +2041,7 @@ pub mod pallet {
 
 			// Keeper rewards are best-effort and must not block liquidation finalization.
 			if !keeper_incentive.is_zero() {
-				if T::Asset::transfer(
+				if T::StableAsset::transfer(
 					&T::InsuranceFund::get(),
 					keeper,
 					keeper_incentive,
@@ -2069,7 +2069,7 @@ pub mod pallet {
 		///
 		/// Used by auctions pallet to check if surplus auctions can be started.
 		fn get_insurance_fund_balance() -> BalanceOf<T> {
-			T::Asset::balance(&T::InsuranceFund::get())
+			T::StableAsset::balance(&T::InsuranceFund::get())
 		}
 
 		/// Get the total pUSD supply.
@@ -2077,7 +2077,7 @@ pub mod pallet {
 		/// Used with `get_insurance_fund_balance()` to calculate whether the
 		/// Insurance Fund exceeds the surplus auction threshold.
 		fn get_total_pusd_supply() -> BalanceOf<T> {
-			T::Asset::total_issuance()
+			T::StableAsset::total_issuance()
 		}
 
 		fn execute_surplus_purchase(
@@ -2088,7 +2088,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// 1. Transfer pUSD from Insurance Fund to recipient
 			if !pusd_amount.is_zero() {
-				T::Asset::transfer(
+				T::StableAsset::transfer(
 					&T::InsuranceFund::get(),
 					recipient,
 					pusd_amount,
@@ -2098,7 +2098,7 @@ pub mod pallet {
 
 			// 2. Withdraw collateral from buyer and let FeeHandler decide what to do with it
 			if !collateral_amount.is_zero() {
-				let credit = T::Currency::withdraw(
+				let credit = T::Collateral::withdraw(
 					buyer,
 					collateral_amount,
 					Precision::Exact,
@@ -2117,7 +2117,7 @@ pub mod pallet {
 		/// destination (typically Treasury) without going through an auction.
 		fn transfer_surplus(amount: BalanceOf<T>) -> DispatchResult {
 			// Withdraw pUSD from Insurance Fund creating a credit
-			let credit = T::Asset::withdraw(
+			let credit = T::StableAsset::withdraw(
 				&T::InsuranceFund::get(),
 				amount,
 				Precision::Exact,
@@ -2201,7 +2201,7 @@ pub mod pallet {
 
 			// For principal mints, strictly enforce the system debt ceiling
 			if matches!(purpose, MintPurpose::Principal) {
-				let total_issuance = T::Asset::total_issuance();
+				let total_issuance = T::StableAsset::total_issuance();
 				ensure!(
 					total_issuance.saturating_add(amount) <=
 						MaximumIssuance::<T>::get().ok_or(Error::<T>::NotConfigured)?,
@@ -2210,7 +2210,7 @@ pub mod pallet {
 			}
 
 			// Execute the mint
-			T::Asset::mint_into(to, amount)?;
+			T::StableAsset::mint_into(to, amount)?;
 
 			Ok(())
 		}
@@ -2279,7 +2279,7 @@ pub mod pallet {
 			);
 
 			// Release all collateral
-			let released = T::Currency::release_all(
+			let released = T::Collateral::release_all(
 				&HoldReason::VaultDeposit.into(),
 				who,
 				Precision::BestEffort,
@@ -2528,7 +2528,7 @@ pub mod pallet {
 			for (owner, vault) in Vaults::<T>::iter() {
 				if vault.status == VaultStatus::InLiquidation {
 					let vault_deposit_hold =
-						T::Currency::balance_on_hold(&HoldReason::VaultDeposit.into(), &owner);
+						T::Collateral::balance_on_hold(&HoldReason::VaultDeposit.into(), &owner);
 					ensure!(
 						vault_deposit_hold.is_zero(),
 						"Vault in liquidation should not have VaultDeposit hold"
@@ -2568,7 +2568,7 @@ pub mod pallet {
 			// so total supply can slightly exceed the ceiling. We log a warning instead
 			// of failing for this check.
 			if let Some(max_issuance) = MaximumIssuance::<T>::get() {
-				let total_supply = T::Asset::total_issuance();
+				let total_supply = T::StableAsset::total_issuance();
 				if total_supply > max_issuance {
 					log::warn!(
 						target: LOG_TARGET,

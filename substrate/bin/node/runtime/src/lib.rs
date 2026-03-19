@@ -3203,9 +3203,9 @@ impl pallet_vaults::BenchmarkHelper for VaultsBenchmarkHelper {
 
 /// Configure the Vaults pallet.
 impl pallet_vaults::Config for Runtime {
-	type Currency = Balances;
+	type Collateral = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Asset = VaultsAsset;
+	type StableAsset = VaultsAsset;
 	type InsuranceFund = InsuranceFundAccount;
 	type FeeHandler = ResolveTo<TreasuryAccount, Balances>;
 	type SurplusHandler = ResolveTo<TreasuryAccount, VaultsAsset>;
