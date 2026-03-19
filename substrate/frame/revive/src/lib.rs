@@ -91,10 +91,7 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{
-		AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2,
-		is_eth_derived,
-	},
+	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	evm::{
 		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,

@@ -26,16 +26,16 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use currency::*;
 use frame_support::weights::{
-	constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
 	Weight,
+	constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
 };
 use frame_system::limits::BlockWeights;
 use pallet_revive::{
+	AccountId32Mapper,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::EthExtra,
 	},
-	AccountId32Mapper,
 };
 use pallet_transaction_payment::{ConstFeeMultiplier, FeeDetails, Multiplier, RuntimeDispatchInfo};
 use polkadot_sdk::{
@@ -64,12 +64,12 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
-		RuntimeGenesisConfig, SudoConfig,
+		Balance, BalancesConfig, ReviveConfig, RuntimeGenesisConfig, SudoConfig, currency::DOLLARS,
+		sp_keyring::Sr25519Keyring,
 	};
 
 	use alloc::{vec, vec::Vec};
-	use pallet_revive::is_eth_derived;
+	use pallet_revive::AddressMapper;
 	use serde_json::Value;
 
 	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
@@ -117,7 +117,7 @@ pub mod genesis_config_presets {
 			revive: ReviveConfig {
 				mapped_accounts: endowed_accounts
 					.iter()
-					.filter(|x| !is_eth_derived(x))
+					.filter(|x| !<Runtime as pallet_revive::Config>::AddressMapper::is_mapped(x))
 					.cloned()
 					.collect(),
 			},

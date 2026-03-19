@@ -20,14 +20,14 @@
 use polkadot_sdk::*;
 
 use crate::{
-	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
-	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+	AccountId, AssetsConfig, BABE_GENESIS_EPOCH_CONFIG, BabeConfig, Balance, BalancesConfig,
+	ElectionsConfig, NominationPoolsConfig, ReviveConfig, RuntimeGenesisConfig, SessionConfig,
+	SessionKeys, SocietyConfig, StakerStatus, StakingConfig, SudoConfig, TechnicalCommitteeConfig,
+	constants::currency::*, frame_support::build_struct_json_patch,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_revive::is_eth_derived;
+use pallet_revive::AddressMapper;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -75,7 +75,9 @@ pub fn kitchensink_genesis(
 				.map(|x| x.0.clone())
 				.collect::<Vec<_>>()
 				.try_into()
-				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
+				.expect(
+					"Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"
+				),
 			slash_reward_fraction: Perbill::from_percent(10),
 			stakers,
 		},
@@ -96,7 +98,13 @@ pub fn kitchensink_genesis(
 			min_join_bond: 1 * DOLLARS,
 		},
 		revive: ReviveConfig {
-			mapped_accounts: endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect(),
+			mapped_accounts: endowed_accounts
+				.iter()
+				.filter(|x| {
+					!<crate::Runtime as pallet_revive::Config>::AddressMapper::is_mapped(x)
+				})
+				.cloned()
+				.collect(),
 		},
 	})
 }

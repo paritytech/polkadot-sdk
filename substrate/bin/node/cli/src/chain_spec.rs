@@ -26,7 +26,7 @@ use kitchensink_runtime::{
 	wasm_binary_unwrap, Block, MaxNominations, StakerStatus,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_revive::is_eth_derived;
+use pallet_revive::AddressMapper;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
 use sc_telemetry::TelemetryEndpoints;
@@ -364,7 +364,7 @@ pub fn testnet_genesis_patch(
 			"key": root_key,
 		},
 		"revive": {
-			"mappedAccounts": endowed_accounts.iter().filter(|x| ! is_eth_derived(x)).cloned().collect::<Vec<_>>()
+			"mappedAccounts": endowed_accounts.iter().filter(|x| !<kitchensink_runtime::Runtime as pallet_revive::Config>::AddressMapper::is_mapped(x)).cloned().collect::<Vec<_>>()
 		}
 	})
 }

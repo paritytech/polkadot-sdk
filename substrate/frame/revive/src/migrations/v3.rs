@@ -70,17 +70,20 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			};
 
 			if let Some((account_id, _)) = iter.next() {
-				// Release any held address mapping deposit
-				let _ = T::Currency::release_all(
-					&HoldReason::AddressMapping.into(),
-					&account_id,
-					Precision::BestEffort,
-				);
-				if let Err(err) = T::AddressMapper::map_no_deposit(&account_id) {
-					log::debug!(
-						target: LOG_TARGET,
-						"Skipped auto-mapping account {account_id:?}: {err:?}",
-					);
+				if T::AddressMapper::is_eth_derived(&account_id) {
+					// Eth-derived accounts are stateless mapped, nothing to do.
+				} else if T::AddressMapper::map_no_deposit(&account_id).is_err() {
+					T::Currency::release_all(
+						&HoldReason::AddressMapping.into(),
+						&account_id,
+						Precision::BestEffort,
+					)
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to create mapping for {account_id:?}: {err:?}",
+						);
+					});
 				}
 				cursor = Some(account_id);
 			} else {
@@ -93,6 +96,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		use sp_core::Get;
 		assert!(T::AutoMap::get(), "v3 migration requires AutoMap to be enabled");
 
 		use codec::Encode;
