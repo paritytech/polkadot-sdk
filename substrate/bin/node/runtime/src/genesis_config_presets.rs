@@ -20,10 +20,10 @@
 use polkadot_sdk::*;
 
 use crate::{
-	AccountId, AssetsConfig, BABE_GENESIS_EPOCH_CONFIG, BabeConfig, Balance, BalancesConfig,
-	ElectionsConfig, NominationPoolsConfig, ReviveConfig, RuntimeGenesisConfig, SessionConfig,
-	SessionKeys, SocietyConfig, StakerStatus, StakingConfig, SudoConfig, TechnicalCommitteeConfig,
-	constants::currency::*, frame_support::build_struct_json_patch,
+	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
+	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;

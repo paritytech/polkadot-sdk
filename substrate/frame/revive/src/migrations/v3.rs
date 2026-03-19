@@ -22,7 +22,7 @@
 //! - If already mapped: releases the held address mapping deposit.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{weights::WeightInfo, AddressMapper, Config, HoldReason, LOG_TARGET};
+use crate::{AddressMapper, Config, HoldReason, LOG_TARGET, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -142,8 +142,8 @@ impl<T: Config> SteppedMigration for Migration<T> {
 #[test]
 fn migrate_to_v3() {
 	use crate::{
-		tests::{ExtBuilder, Test},
 		Config, OriginalAccount,
+		tests::{ExtBuilder, Test},
 	};
 	use frame_support::{traits::fungible::Mutate, weights::WeightMeter};
 	use sp_core::H160;
@@ -214,9 +214,9 @@ fn migrate_to_v3() {
 #[test]
 fn migrate_to_v3_maps_all_accounts() {
 	use crate::{
+		Config,
 		address::AccountId32Mapper,
 		tests::{ExtBuilder, Test},
-		Config,
 	};
 	use frame_support::{traits::fungible::Mutate, weights::WeightMeter};
 	use sp_runtime::AccountId32;

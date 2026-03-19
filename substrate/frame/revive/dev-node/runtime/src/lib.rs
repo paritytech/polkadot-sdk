@@ -26,16 +26,16 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use currency::*;
 use frame_support::weights::{
-	Weight,
 	constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+	Weight,
 };
 use frame_system::limits::BlockWeights;
 use pallet_revive::{
-	AccountId32Mapper,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::EthExtra,
 	},
+	AccountId32Mapper,
 };
 use pallet_transaction_payment::{ConstFeeMultiplier, FeeDetails, Multiplier, RuntimeDispatchInfo};
 use polkadot_sdk::{
@@ -64,8 +64,8 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		Balance, BalancesConfig, ReviveConfig, RuntimeGenesisConfig, SudoConfig, currency::DOLLARS,
-		sp_keyring::Sr25519Keyring,
+		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
+		RuntimeGenesisConfig, SudoConfig,
 	};
 
 	use alloc::{vec, vec::Vec};
