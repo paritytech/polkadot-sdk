@@ -42,6 +42,7 @@
 //!   them.
 //! - [`metadata::Inspect`]: Inspector functions for token metadata (name, symbol, decimals).
 //! - [`metadata::Mutate`]: Mutator functions for token metadata.
+//! - [`lifetime::Create`]: Trait for creating a new fungible asset.
 //!
 //! ## Terminology
 //!
@@ -160,6 +161,7 @@ pub mod freeze;
 pub mod hold;
 pub(crate) mod imbalance;
 mod item_of;
+mod lifetime;
 pub mod metadata;
 mod regular;
 mod union_of;
@@ -182,6 +184,7 @@ pub use hold::{
 };
 pub use imbalance::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 pub use item_of::ItemOf;
+pub use lifetime::Create;
 pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };

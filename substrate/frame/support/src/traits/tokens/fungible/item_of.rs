@@ -523,5 +523,20 @@ impl<
 	}
 }
 
+/// Adapter implementation of [`super::lifetime::Create`] for [`ItemOf`].
+///
+/// See the original trait documentation for information on item meaning and usage.
+impl<
+		F: fungibles::Create<AccountId>,
+		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
+		AccountId,
+	> super::lifetime::Create<AccountId> for ItemOf<F, A, AccountId>
+{
+	/// See [`fungibles::Create::create`].
+	fn create(admin: AccountId, is_sufficient: bool, min_balance: Self::Balance) -> DispatchResult {
+		<F as fungibles::Create<AccountId>>::create(A::get(), admin, is_sufficient, min_balance)
+	}
+}
+
 #[test]
 fn test() {}
