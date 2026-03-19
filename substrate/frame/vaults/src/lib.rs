@@ -1571,19 +1571,19 @@ pub mod pallet {
 		///
 		/// - [`Event::BadDebtRepaid`]: Emitted with the amount of bad debt healed.
 		#[pallet::call_index(11)]
-		#[pallet::weight((T::WeightInfo::heal(), Pays::No))]
-		pub fn heal(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::heal())]
+		pub fn heal(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 
 			let current_bad_debt = BadDebt::<T>::get();
 			let repay_amount = amount.min(current_bad_debt);
 
 			if repay_amount.is_zero() {
-				return Ok(());
+				return Ok(Pays::Yes.into());
 			}
 
 			// Burn pUSD from the InsuranceFund to cover the bad debt
-			let burned = T::Asset::burn_from(
+			let burned = T::StableAsset::burn_from(
 				&T::InsuranceFund::get(),
 				repay_amount,
 				Preservation::Expendable,
@@ -1591,7 +1591,7 @@ pub mod pallet {
 				Fortitude::Polite,
 			)?;
 			if burned.is_zero() {
-				return Ok(());
+				return Ok(Pays::Yes.into());
 			}
 
 			// Reduce bad debt
@@ -1601,7 +1601,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::BadDebtRepaid { amount: burned });
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Set the maximum pUSD at risk in active auctions.
