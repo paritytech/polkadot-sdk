@@ -284,9 +284,13 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 }
 
 /// Assert that the next message is a `CandidateBacking(Second())`.
+///
+/// `expected_relay_parent` is the relay parent used for the PVD request (execution
+/// context). For V1/V2 this equals the scheduling parent; for V3 it may differ.
 async fn assert_candidate_backing_second(
 	virtual_overseer: &mut VirtualOverseer,
 	expected_scheduling_parent: Hash,
+	expected_relay_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
 	version: CollationVersion,
@@ -303,7 +307,7 @@ async fn assert_candidate_backing_second(
 				hash,
 				RuntimeApiRequest::PersistedValidationData(para_id, assumption, tx),
 			)) => {
-				assert_eq!(expected_scheduling_parent, hash);
+				assert_eq!(expected_relay_parent, hash);
 				assert_eq!(expected_para_id, para_id);
 				assert_eq!(OccupiedCoreAssumption::Free, assumption);
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
@@ -314,7 +318,7 @@ async fn assert_candidate_backing_second(
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 			) => {
-				assert_eq!(expected_scheduling_parent, request.candidate_relay_parent);
+				assert_eq!(expected_relay_parent, request.candidate_relay_parent);
 				assert_eq!(expected_para_id, request.para_id);
 				tx.send(Some(pvd.clone())).unwrap();
 			}
