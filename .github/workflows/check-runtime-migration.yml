@@ -196,19 +196,19 @@ jobs:
 
   # name of this job must be unique across all workflows
   # otherwise GitHub will mark all these jobs as required
-  # confirm-required-checks-passed:
-  #   runs-on: ubuntu-latest
-  #   name: All runtime migrations passed
-  #   # If any new job gets added, be sure to add it to this array
-  #   needs: [check-runtime-migration]
-  #   if: always() && !cancelled() && github.event_name != 'schedule'
-  #   steps:
-  #     - run: |
-  #         tee resultfile <<< '${{ toJSON(needs) }}'
-  #         FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
-  #         if [ $FAILURES -gt 0 ]; then
-  #           echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
-  #           exit 1
-  #         else
-  #           echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
-  #         fi
+  confirm-required-checks-passed:
+    runs-on: ubuntu-latest
+    name: All runtime migrations passed
+    # If any new job gets added, be sure to add it to this array
+    needs: [check-runtime-migration]
+    if: always() && !cancelled() && github.event_name != 'schedule'
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
