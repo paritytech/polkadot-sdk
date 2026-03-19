@@ -21,35 +21,16 @@
 //!
 //! ## Overview
 //!
-//! The Statement pallet provides means to create and validate statements for the statement store.
+//! The Statement pallet provides means to create statements for the statement store.
 //!
-//! For each statement validation function calculates the following three values based on the
-//! statement author balance:
-//! `max_count`: Maximum number of statements allowed for the author (signer) of this statement.
-//! `max_size`: Maximum total size of statements allowed for the author (signer) of this statement.
-//!
-//! This pallet also contains an offchain worker that turns on-chain statement events into
+//! This pallet contains an offchain worker that turns on-chain statement events into
 //! statements. These statements are placed in the store and propagated over the network.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	pallet_prelude::*,
-	sp_runtime::{traits::CheckedDiv, SaturatedConversion},
-	traits::fungible::Inspect,
-};
+use frame_support::{pallet_prelude::*, traits::fungible::Inspect};
 use frame_system::pallet_prelude::*;
-use sp_statement_store::{
-	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
-	Proof, SignatureVerificationResult, Statement,
-};
-
-#[cfg(test)]
-// We do not declare all features used by `construct_runtime`
-#[allow(unexpected_cfgs)]
-mod mock;
-#[cfg(test)]
-mod tests;
+use sp_statement_store::{Proof, Statement};
 
 pub use pallet::*;
 
@@ -131,74 +112,6 @@ where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet::Event<T>>,
 	sp_statement_store::BlockHash: From<<T as frame_system::Config>::Hash>,
 {
-	/// Validate a statement against current state. This is supposed to be called by the statement
-	/// store on the host side.
-	pub fn validate_statement(
-		_source: StatementSource,
-		mut statement: Statement,
-	) -> Result<ValidStatement, InvalidStatement> {
-		sp_io::init_tracing();
-		log::debug!(target: LOG_TARGET, "Validating statement {:?}", statement);
-		let account: T::AccountId = match statement.proof() {
-			Some(Proof::OnChain { who, block_hash, event_index }) => {
-				if frame_system::Pallet::<T>::parent_hash().as_ref() != block_hash.as_slice() {
-					log::debug!(target: LOG_TARGET, "Bad block hash.");
-					return Err(InvalidStatement::BadProof);
-				}
-				let account: T::AccountId = (*who).into();
-				match frame_system::Pallet::<T>::event_no_consensus(*event_index as usize) {
-					Some(e) => {
-						statement.remove_proof();
-						if let Ok(Event::NewStatement { account: a, statement: s }) = e.try_into() {
-							if a != account || s != statement {
-								log::debug!(target: LOG_TARGET, "Event data mismatch");
-								return Err(InvalidStatement::BadProof);
-							}
-						} else {
-							log::debug!(target: LOG_TARGET, "Event type mismatch");
-							return Err(InvalidStatement::BadProof);
-						}
-					},
-					_ => {
-						log::debug!(target: LOG_TARGET, "Bad event index");
-						return Err(InvalidStatement::BadProof);
-					},
-				}
-				account
-			},
-			_ => match statement.verify_signature() {
-				SignatureVerificationResult::Valid(account) => account.into(),
-				SignatureVerificationResult::Invalid => {
-					log::debug!(target: LOG_TARGET, "Bad statement signature.");
-					return Err(InvalidStatement::BadProof);
-				},
-				SignatureVerificationResult::NoSignature => {
-					log::debug!(target: LOG_TARGET, "Missing statement signature.");
-					return Err(InvalidStatement::NoProof);
-				},
-			},
-		};
-		let statement_cost = T::StatementCost::get();
-		let byte_cost = T::ByteCost::get();
-		let balance = <T::Currency as Inspect<AccountIdOf<T>>>::balance(&account);
-		let min_allowed_statements = T::MinAllowedStatements::get();
-		let max_allowed_statements = T::MaxAllowedStatements::get();
-		let min_allowed_bytes = T::MinAllowedBytes::get();
-		let max_allowed_bytes = T::MaxAllowedBytes::get();
-		let max_count = balance
-			.checked_div(&statement_cost)
-			.unwrap_or_default()
-			.saturated_into::<u32>()
-			.clamp(min_allowed_statements, max_allowed_statements);
-		let max_size = balance
-			.checked_div(&byte_cost)
-			.unwrap_or_default()
-			.saturated_into::<u32>()
-			.clamp(min_allowed_bytes, max_allowed_bytes);
-
-		Ok(ValidStatement { max_count, max_size })
-	}
-
 	/// Submit a statement event. The statement will be picked up by the offchain worker and
 	/// broadcast to the network.
 	pub fn submit_statement(account: T::AccountId, statement: Statement) {

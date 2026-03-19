@@ -221,8 +221,9 @@ where
 	fn best_at_source(&self) -> Option<MessageNonce> {
 		let best_in_queue = self.source_queue.back().map(|(_, range)| range.end());
 		match (best_in_queue, self.best_target_nonce) {
-			(Some(best_in_queue), Some(best_target_nonce)) if best_in_queue > best_target_nonce =>
-				Some(best_in_queue),
+			(Some(best_in_queue), Some(best_target_nonce)) if best_in_queue > best_target_nonce => {
+				Some(best_in_queue)
+			},
 			(_, Some(best_target_nonce)) => Some(best_target_nonce),
 			(_, None) => None,
 		}
@@ -454,7 +455,7 @@ mod tests {
 		}
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn nothing_is_selected_if_something_is_already_selected() {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
@@ -464,7 +465,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn nothing_is_selected_if_something_is_already_submitted() {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
@@ -474,7 +475,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn select_nonces_to_deliver_works() {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
@@ -552,7 +553,7 @@ mod tests {
 		assert_eq!(source_queue_nonces(&strategy.source_queue), Vec::<MessageNonce>::new(),);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn previous_nonces_are_selected_if_reorg_happens_at_target_chain() {
 		let source_header_1 = header_id(1);
 		let target_header_1 = header_id(1);

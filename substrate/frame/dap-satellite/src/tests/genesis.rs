@@ -24,7 +24,7 @@ type DapSatellitePallet = crate::Pallet<Test>;
 
 #[test]
 fn satellite_account_is_derived_from_pallet_id() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let satellite = DapSatellitePallet::satellite_account();
 		let expected: u64 = DapSatellitePalletId::get().into_account_truncating();
 		assert_eq!(satellite, expected);
@@ -32,12 +32,20 @@ fn satellite_account_is_derived_from_pallet_id() {
 }
 
 #[test]
-fn genesis_creates_satellite_account_with_ed() {
-	new_test_ext().execute_with(|| {
+fn satellite_account_exists_when_funded_via_balances_genesis() {
+	new_test_ext(true).execute_with(|| {
 		let satellite = DapSatellitePallet::satellite_account();
-		// Satellite account should exist after genesis and be funded with ED
+		// Given: satellite was funded with ED in balances genesis config
 		assert!(System::account_exists(&satellite));
-		// ED is 1 in TestDefaultConfig
-		assert_eq!(Balances::free_balance(satellite), 1);
+		assert_eq!(Balances::free_balance(satellite), ExistentialDeposit::get());
+	});
+}
+
+#[test]
+fn satellite_account_does_not_exist_when_not_funded() {
+	new_test_ext(false).execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+		assert!(!System::account_exists(&satellite));
+		assert_eq!(Balances::free_balance(satellite), 0);
 	});
 }

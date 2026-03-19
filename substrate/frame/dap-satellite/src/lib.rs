@@ -17,23 +17,27 @@
 
 //! # DAP Satellite Pallet
 //!
-//! Collects funds into a satellite buffer on non-AssetHub chains for eventual transfer to the
-//! central DAP on AssetHub.
+//! Intercepts native token burns (transaction fees, dust removal, coretime revenue) on
+//! non-AssetHub chains and redirects them into a local buffer account for eventual transfer
+//! to the central DAP on AssetHub.
 //!
-//! Use on: Relay Chain, Coretime, People, BridgeHub. Do NOT use on AssetHub (use `pallet-dap`).
+//! Do NOT use on AssetHub (use `pallet-dap`).
 //!
 //! ## Usage
 //!
 //! - **Fees**: Use [`DealWithFeesSplit`] to split fees between DAP satellite and other handlers
-//! - **Slashes/revenue**: Use `DapSatellite` as `OnUnbalanced` handler
-//! - **Burn redirection**: Use [`currency::SatelliteCurrency<T>`] as `type Currency` in pallets
-//!
-//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic bypass the wrapper.
+//! - **Burns/Revenue**: Use `DapSatellite` as `OnUnbalanced<CreditOf>` handler (e.g., dust removal,
+//!   coretime revenue)
+//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected to
+//! the satellite buffer — they still reduce total issuance directly.
 //!
 //! ## Setup
 //!
-//! The satellite account is created at genesis with ED. For existing chains, include
-//! `dap_satellite::migrations::v1::InitSatelliteAccount` in migrations.
+//! The satellite account must be pre-funded with at least existential deposit.
+//! For new chains, include the satellite account in the balances genesis config.
+//! For existing chains, fund it via a manual transfer.
+//!
+//! If the satellite account is not pre-funded, deposits below ED will be silently burned.
 //!
 //! ## Total Issuance
 //!
@@ -54,8 +58,12 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
 		tokens::{
-			Fortitude, Fortitude::Polite, Precision, Precision::BestEffort, Precision::Exact,
-			Preservation, Preservation::Preserve,
+			Fortitude,
+			Fortitude::Polite,
+			Precision,
+			Precision::{BestEffort, Exact},
+			Preservation,
+			Preservation::Preserve,
 		},
 		Imbalance, OnUnbalanced,
 	},
@@ -101,6 +109,10 @@ pub mod pallet {
 		type XcmSender: SendXcm;
 
 		/// The pallet ID used to derive the satellite account.
+		///
+		/// Each runtime should configure a unique ID to avoid collisions if multiple
+		/// DAP satellite instances are used.
+		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
 		/// The location of AssetHub as seen from this chain.
@@ -306,8 +318,8 @@ pub mod pallet {
 			let satellite = Self::satellite_account();
 			let ed = T::Currency::minimum_balance();
 
-			if frame_system::Pallet::<T>::providers(&satellite) > 0
-				&& T::Currency::balance(&satellite) >= ed
+			if frame_system::Pallet::<T>::providers(&satellite) > 0 &&
+				T::Currency::balance(&satellite) >= ed
 			{
 				log::debug!(
 					target: LOG_TARGET,
@@ -452,25 +464,21 @@ where
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 ///
 /// Use this on system chains (not AssetHub) or Relay Chain to collect imbalances
-/// (e.g., coretime revenue) that would otherwise be burned.
+/// (e.g. coretime revenue, tx fees, dust removal) that would otherwise be burned.
 ///
-/// # Example
-///
-/// ```ignore
-/// impl pallet_broker::Config for Runtime {
-///     type OnRevenue = DapSatellite;
-/// }
-/// ```
+/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
+/// for the old `Currency` trait is not provided because there are no active consumers: all pallets
+/// that could produce `NegativeImbalance` on satellite chains (staking, identity,
+/// election-provider, ...) are either deprecated, or already use the new fungible traits.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let satellite = Self::satellite_account();
 		let numeric_amount = amount.peek();
 
 		// Resolve should never fail because:
-		// - can_deposit on destination succeeds since satellite exists (created with provider at
-		//   genesis/runtime upgrade so no ED issue)
+		// - can_deposit on destination succeeds assuming satellite is pre-funded with ED
 		// - amount is guaranteed non-zero by the trait method signature
-		// The only failure would be overflow on destination.
+		// The only failure would be overflow on destination or unfunded satellite.
 		let _ = T::Currency::resolve(&satellite, amount).inspect_err(|_| {
 			frame_support::defensive!(
 				"🚨 Failed to deposit to DAP satellite - funds burned, it should never happen!"

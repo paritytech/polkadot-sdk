@@ -81,8 +81,9 @@ impl<'a> CandidateEnvironment<'a> {
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
 		{
-			Ok(extended_session_info) =>
-				(&extended_session_info.session_info, &extended_session_info.executor_params),
+			Ok(extended_session_info) => {
+				(&extended_session_info.session_info, &extended_session_info.executor_params)
+			},
 			Err(_) => return None,
 		};
 

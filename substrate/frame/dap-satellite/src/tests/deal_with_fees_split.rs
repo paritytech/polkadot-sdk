@@ -18,7 +18,10 @@
 //! DealWithFeesSplit tests for the DAP Satellite pallet.
 
 use crate::{mock::*, CreditOf, DealWithFeesSplit};
-use frame_support::{parameter_types, traits::OnUnbalanced};
+use frame_support::{
+	parameter_types,
+	traits::{fungible::Inspect, OnUnbalanced},
+};
 use pallet_balances::Pallet as BalancesPallet;
 use sp_runtime::Percent;
 use std::cell::Cell;
@@ -57,17 +60,17 @@ parameter_types! {
 
 #[test]
 fn deal_with_fees_split_zero_percent_to_dap() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		use frame_support::traits::fungible::Balanced;
 
 		reset_other_handler();
 		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite has ED (=1)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 1);
+		// Given: satellite has ED
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed);
 
 		// When: fees of 100 with 0% to DAP (all to other handler) + tips of 50
-		// Tips should ALWAYS go to other handler, regardless of DAP percent
 		let fees = <BalancesPallet<Test> as Balanced<u64>>::issue(100);
 		let tips = <BalancesPallet<Test> as Balanced<u64>>::issue(50);
 		<DealWithFeesSplit<Test, ZeroPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
@@ -75,24 +78,24 @@ fn deal_with_fees_split_zero_percent_to_dap() {
 		);
 
 		// Then: satellite unchanged (still just ED), other handler gets 150 (100% fees + tips)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 1);
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed);
 		assert_eq!(get_other_handler_received(), 150);
 	});
 }
 
 #[test]
 fn deal_with_fees_split_hundred_percent_to_dap() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		use frame_support::traits::fungible::Balanced;
 
 		reset_other_handler();
 		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite has ED (=1)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 1);
+		// Given: satellite has ED
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed);
 
 		// When: fees of 100 with 100% to DAP + tips of 50
-		// Tips should ALWAYS go to other handler, regardless of DAP percent
 		let fees = <BalancesPallet<Test> as Balanced<u64>>::issue(100);
 		let tips = <BalancesPallet<Test> as Balanced<u64>>::issue(50);
 		<DealWithFeesSplit<Test, HundredPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
@@ -100,24 +103,24 @@ fn deal_with_fees_split_hundred_percent_to_dap() {
 		);
 
 		// Then: satellite gets ED + 100 (fees), other handler gets 50 (tips)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 101);
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed + 100);
 		assert_eq!(get_other_handler_received(), 50);
 	});
 }
 
 #[test]
 fn deal_with_fees_split_fifty_percent() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		use frame_support::traits::fungible::Balanced;
 
 		reset_other_handler();
 		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite has ED (=1)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 1);
+		// Given: satellite has ED
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed);
 
 		// When: fees of 100 with 50% to DAP + tips of 40
-		// Fees split 50/50, tips 100% to other handler
 		let fees = <BalancesPallet<Test> as Balanced<u64>>::issue(100);
 		let tips = <BalancesPallet<Test> as Balanced<u64>>::issue(40);
 		<DealWithFeesSplit<Test, FiftyPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
@@ -125,19 +128,20 @@ fn deal_with_fees_split_fifty_percent() {
 		);
 
 		// Then: satellite gets ED + 50 (half of fees), other handler gets 90 (half of fees + tips)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 51);
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed + 50);
 		assert_eq!(get_other_handler_received(), 90);
 	});
 }
 
 #[test]
 fn deal_with_fees_split_handles_empty_iterator() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		reset_other_handler();
 		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite has ED (=1)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 1);
+		// Given: satellite has ED
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed);
 
 		// When: no fees, no tips (empty iterator)
 		<DealWithFeesSplit<Test, FiftyPercent, MockOtherHandler> as OnUnbalanced<_>>::on_unbalanceds(
@@ -145,7 +149,7 @@ fn deal_with_fees_split_handles_empty_iterator() {
 		);
 
 		// Then: nothing happens (still just ED)
-		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), 1);
+		assert_eq!(BalancesPallet::<Test>::free_balance(satellite), ed);
 		assert_eq!(get_other_handler_received(), 0);
 	});
 }

@@ -112,11 +112,12 @@ impl ZombienetBackchannel {
 			tokio::spawn(async move {
 				while let Some(Ok(Message::Text(text))) = read.next().await {
 					match serde_json::from_str::<BackchannelItem>(&text) {
-						Ok(backchannel_item) =>
+						Ok(backchannel_item) => {
 							if tx1.send(backchannel_item).is_err() {
 								gum::error!(target: ZOMBIENET, "Error sending through the channel");
 								return;
-							},
+							}
+						},
 						Err(_) => {
 							gum::error!(target: ZOMBIENET, "Invalid payload received");
 						},

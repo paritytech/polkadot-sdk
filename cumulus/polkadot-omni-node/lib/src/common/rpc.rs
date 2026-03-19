@@ -41,6 +41,7 @@ pub(crate) trait BuildRpcExtensions<Client, Backend, Pool, StatementStore> {
 		backend: Arc<Backend>,
 		pool: Arc<Pool>,
 		statement_store: Option<Arc<StatementStore>>,
+		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
@@ -66,6 +67,7 @@ where
 			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 		>,
 		statement_store: Option<Arc<sc_statement_store::Store>>,
+		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());
@@ -74,7 +76,7 @@ where
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
 			if let Some(statement_store) = statement_store {
-				module.merge(StatementStore::new(statement_store).into_rpc())?;
+				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			module.merge(Dev::new(client).into_rpc())?;
 

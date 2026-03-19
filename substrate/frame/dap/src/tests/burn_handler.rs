@@ -34,7 +34,7 @@ type DapPallet = crate::Pallet<Test>;
 
 #[test]
 fn pallet_burn_via_dap_currency_redirects_to_buffer() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// Given
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
@@ -62,7 +62,7 @@ fn pallet_burn_via_dap_currency_redirects_to_buffer() {
 
 #[test]
 fn pallet_burn_via_dap_currency_can_reap_account() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// Given
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
@@ -87,7 +87,7 @@ fn pallet_burn_via_dap_currency_can_reap_account() {
 
 #[test]
 fn standard_balances_burn_from_reduces_total_issuance() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// Given
 		let initial_total = Balances::total_issuance();
 		assert_eq!(Balances::free_balance(1), 100);

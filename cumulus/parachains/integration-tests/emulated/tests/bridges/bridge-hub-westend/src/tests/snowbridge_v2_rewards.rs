@@ -93,7 +93,7 @@ fn claim_rewards_works() {
 			AssetHubWestend,
 			vec![
 				// Check that the reward was paid on AH
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == reward_address.clone().into(),
 				},

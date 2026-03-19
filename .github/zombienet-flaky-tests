@@ -1,6 +1,5 @@
 zombienet-polkadot-coretime-revenue:8944
 zombienet-polkadot-elastic-scaling-slot-based-12cores:8945
-zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:8942
 zombienet-polkadot-disputes-slashing:8946
 zombienet-polkadot-functional-spam-statement-distribution-requests:8947
 zombienet-polkadot-misc-0001-parachains-paritydb:8951
@@ -15,4 +14,3 @@ zombienet-polkadot-functional-async-backing-6-seconds-rate:10653
 zombienet-polkadot-elastic-scaling-doesnt-break-parachains:10653
 zombienet-polkadot-smoke-0005-precompile-pvf-smoke:10653
 zombienet-polkadot-smoke-0004-coretime-smoke-test:10653
-zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:10653

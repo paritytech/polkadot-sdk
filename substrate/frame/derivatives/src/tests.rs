@@ -241,6 +241,7 @@ fn local_nfts() {
 
 #[test]
 fn derivative_nfts() {
+	sp_tracing::try_init_simple();
 	new_test_ext().execute_with(|| {
 		let foreign_para_id = 2222;
 
