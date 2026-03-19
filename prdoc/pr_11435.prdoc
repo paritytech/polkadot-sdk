@@ -4,4 +4,4 @@ doc:
   description: Raise offence queue `BondingDuration` limit to ensure no loss of offences.
 crates:
 - name: pallet-staking-async
-  bump: patch
+  bump: minor
