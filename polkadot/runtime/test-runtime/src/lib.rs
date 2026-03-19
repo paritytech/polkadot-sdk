@@ -305,6 +305,34 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 100);
+	pub const OracleMinNudges: u32 = 0;
+	pub const OracleNudgeValidity: u64 = 10;
+}
+
+pub struct BabeAuthorityProvider;
+impl pallet_price_oracle::pallet::AuthorityProvider for BabeAuthorityProvider {
+	fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
+		pallet_babe::Authorities::<Runtime>::get()
+			.iter()
+			.map(|(id, _weight)| id.clone())
+			.collect()
+	}
+	fn current_slot() -> sp_consensus_slots::Slot {
+		pallet_babe::CurrentSlot::<Runtime>::get()
+	}
+}
+
+impl pallet_price_oracle::Config for Runtime {
+	type Epsilon = OracleEpsilon;
+	type MinNudges = OracleMinNudges;
+	type NudgeValidity = OracleNudgeValidity;
+	type AuthorityProvider = BabeAuthorityProvider;
+	type TimeProvider = Timestamp;
+	type OnPriceUpdate = ();
+}
+
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
 	type EventHandler = Staking;
@@ -837,6 +865,8 @@ construct_runtime! {
 
 		Sudo: pallet_sudo,
 
+		PriceOracle: pallet_price_oracle,
+
 		TestNotifier: pallet_test_notifier,
 	}
 }
@@ -1366,6 +1396,25 @@ sp_api::impl_runtime_apis! {
 	impl crate::GetLastTimestamp<Block> for Runtime {
 		fn get_last_timestamp() -> u64 {
 			Now::<Runtime>::get()
+		}
+	}
+
+	impl sp_price_oracle::PriceOracleApi<Block> for Runtime {
+		fn current_price() -> sp_runtime::FixedU128 {
+			PriceOracle::current_price()
+		}
+
+		fn epsilon() -> sp_runtime::FixedU128 {
+			OracleEpsilon::get()
+		}
+
+		fn nudge_validity() -> u64 {
+			OracleNudgeValidity::get()
+		}
+
+		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
+			use pallet_price_oracle::pallet::AuthorityProvider;
+			BabeAuthorityProvider::authorities()
 		}
 	}
 

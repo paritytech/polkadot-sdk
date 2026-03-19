@@ -33,5 +33,11 @@ sp-price-oracle = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["rt", "time", "macros"] }
 
+[dev-dependencies]
+futures = { workspace = true }
+polkadot-test-client = { workspace = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+
 [features]
 live-test = []

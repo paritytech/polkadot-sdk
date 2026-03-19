@@ -44,6 +44,13 @@ pub trait InitPolkadotBlockBuilder {
 		&self,
 		hash: <Block as BlockT>::Hash,
 	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
+
+	/// Same as [`InitPolkadotBlockBuilder::init_polkadot_block_builder`] but with custom
+	/// price oracle nudges included in the inherent data.
+	fn init_polkadot_block_builder_with_nudges(
+		&self,
+		nudges: sp_price_oracle::PriceOracleInherentData,
+	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
 }
 
 impl InitPolkadotBlockBuilder for Client {
@@ -56,79 +63,91 @@ impl InitPolkadotBlockBuilder for Client {
 		&self,
 		hash: <Block as BlockT>::Hash,
 	) -> BlockBuilder<'_, Block, Client> {
-		let last_timestamp =
-			self.runtime_api().get_last_timestamp(hash).expect("Get last timestamp");
-
-		// `MinimumPeriod` is a storage parameter type that requires externalities to access the
-		// value.
-		let minimum_period = BasicExternalities::new_empty()
-			.execute_with(|| polkadot_test_runtime::MinimumPeriod::get());
-
-		let timestamp = if last_timestamp == 0 {
-			std::time::SystemTime::now()
-				.duration_since(std::time::SystemTime::UNIX_EPOCH)
-				.expect("Time is always after UNIX_EPOCH; qed")
-				.as_millis() as u64
-		} else {
-			last_timestamp + minimum_period
-		};
-
-		// `SlotDuration` is a storage parameter type that requires externalities to access the
-		// value.
-		let slot_duration = BasicExternalities::new_empty()
-			.execute_with(|| polkadot_test_runtime::SlotDuration::get());
-
-		let slot = (timestamp / slot_duration).into();
-
-		let digest = Digest {
-			logs: vec![DigestItem::PreRuntime(
-				BABE_ENGINE_ID,
-				PreDigest::SecondaryPlain(SecondaryPlainPreDigest { slot, authority_index: 42 })
-					.encode(),
-			)],
-		};
-
-		let mut block_builder = BlockBuilderBuilder::new(self)
-			.on_parent_block(hash)
-			.fetch_parent_block_number(&self)
-			.expect("Fetches parent block number")
-			.with_inherent_digests(digest)
-			.build()
-			.expect("Creates new block builder for test runtime");
-
-		let mut inherent_data = sp_inherents::InherentData::new();
-
-		inherent_data
-			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
-			.expect("Put timestamp inherent data");
-
-		let parent_header = self
-			.header(hash)
-			.expect("Get the parent block header")
-			.expect("The target block header must exist");
-
-		let parachains_inherent_data = ParachainsInherentData {
-			bitfields: Vec::new(),
-			backed_candidates: Vec::new(),
-			disputes: Vec::new(),
-			parent_header,
-		};
-
-		inherent_data
-			.put_data(
-				polkadot_primitives::PARACHAINS_INHERENT_IDENTIFIER,
-				&parachains_inherent_data,
-			)
-			.expect("Put parachains inherent data");
-
-		let inherents = block_builder.create_inherents(inherent_data).expect("Creates inherents");
-
-		inherents
-			.into_iter()
-			.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
-
-		block_builder
+		build_block_with_nudges(self, hash, Vec::new())
 	}
+
+	fn init_polkadot_block_builder_with_nudges(
+		&self,
+		nudges: sp_price_oracle::PriceOracleInherentData,
+	) -> BlockBuilder<'_, Block, Client> {
+		let chain_info = self.chain_info();
+		build_block_with_nudges(self, chain_info.best_hash, nudges)
+	}
+}
+
+fn build_block_with_nudges<'a>(
+	client: &'a Client,
+	hash: <Block as BlockT>::Hash,
+	nudges: sp_price_oracle::PriceOracleInherentData,
+) -> BlockBuilder<'a, Block, Client> {
+	let last_timestamp = client.runtime_api().get_last_timestamp(hash).expect("Get last timestamp");
+
+	let minimum_period = BasicExternalities::new_empty()
+		.execute_with(|| polkadot_test_runtime::MinimumPeriod::get());
+
+	let timestamp = if last_timestamp == 0 {
+		std::time::SystemTime::now()
+			.duration_since(std::time::SystemTime::UNIX_EPOCH)
+			.expect("Time is always after UNIX_EPOCH; qed")
+			.as_millis() as u64
+	} else {
+		last_timestamp + minimum_period
+	};
+
+	let slot_duration =
+		BasicExternalities::new_empty().execute_with(|| polkadot_test_runtime::SlotDuration::get());
+
+	let slot = (timestamp / slot_duration).into();
+
+	let digest = Digest {
+		logs: vec![DigestItem::PreRuntime(
+			BABE_ENGINE_ID,
+			PreDigest::SecondaryPlain(SecondaryPlainPreDigest { slot, authority_index: 42 })
+				.encode(),
+		)],
+	};
+
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(hash)
+		.fetch_parent_block_number(client)
+		.expect("Fetches parent block number")
+		.with_inherent_digests(digest)
+		.build()
+		.expect("Creates new block builder for test runtime");
+
+	let mut inherent_data = sp_inherents::InherentData::new();
+
+	inherent_data
+		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
+		.expect("Put timestamp inherent data");
+
+	let parent_header = client
+		.header(hash)
+		.expect("Get the parent block header")
+		.expect("The target block header must exist");
+
+	let parachains_inherent_data = ParachainsInherentData {
+		bitfields: Vec::new(),
+		backed_candidates: Vec::new(),
+		disputes: Vec::new(),
+		parent_header,
+	};
+
+	inherent_data
+		.put_data(polkadot_primitives::PARACHAINS_INHERENT_IDENTIFIER, &parachains_inherent_data)
+		.expect("Put parachains inherent data");
+
+	inherent_data
+		.put_data(sp_price_oracle::INHERENT_IDENTIFIER, &nudges)
+		.expect("Put price oracle inherent data");
+
+	let inherents = block_builder.create_inherents(inherent_data).expect("Creates inherents");
+
+	inherents
+		.into_iter()
+		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
+
+	block_builder
 }
 
 /// Polkadot specific extensions for the [`BlockBuilder`].
