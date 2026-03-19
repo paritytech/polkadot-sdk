@@ -16,3 +16,7 @@ crates:
   bump: patch
 - name: pallet-revive
   bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: kitchensink-runtime
+  bump: patch
