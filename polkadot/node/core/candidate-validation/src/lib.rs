@@ -246,7 +246,7 @@ enum PreValidationError {
 ///   - Claim queue fetch
 ///
 /// Backing-only checks are skipped for approval/dispute because the runtime
-/// validates them at inclusion time and the chain state they depend on may not
+/// validates them at backing time and the chain state they depend on may not
 /// be available in disputes.
 async fn pre_validate_candidate<Sender>(
 	sender: &mut Sender,
@@ -317,12 +317,14 @@ where
 					// exist, and the scheduling session check above already covers the
 					// relay parent session (scheduling_parent == relay_parent).
 					Err(CheckRelayParentSessionError::NotSupported) => {},
-					Err(CheckRelayParentSessionError::NotFound) =>
+					Err(CheckRelayParentSessionError::NotFound) => {
 						return Err(PreValidationError::Invalid(
 							InvalidCandidate::InvalidRelayParentSession,
-						)),
-					Err(CheckRelayParentSessionError::RuntimeError(err)) =>
-						return Err(PreValidationError::RuntimeError(err)),
+						))
+					},
+					Err(CheckRelayParentSessionError::RuntimeError(err)) => {
+						return Err(PreValidationError::RuntimeError(err))
+					},
 				}
 			}
 

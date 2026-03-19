@@ -2007,14 +2007,24 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 	/// Validates that the descriptor version is acceptable given whether V3 is enabled.
 	///
-	/// This is the single source of truth for version gating logic, used by both
-	/// the runtime (`check_descriptor_version_and_signals`) and the backing subsystem.
+	/// Used by both the runtime (`check_descriptor_version_and_signals`) and the
+	/// backing subsystem. Serves two distinct purposes:
 	///
-	/// Checks two things:
-	/// 1. Old-style and new-style version detection must agree, unless the candidate is V3 and V3
-	///    is enabled (the expected disagreement: old rules see V1, new rules see V3).
-	/// 2. V3 candidates are rejected when V3 is not enabled.
-	pub fn check_version_acceptance(&self, v3_enabled: bool) -> Result<(), CandidateDescriptorVersionCheckError> {
+	/// 1. **V2 ambiguity protection (long-lived):** Old-style and new-style version detection must
+	///    agree, unless the candidate is V3 and V3 is enabled (the expected disagreement: old rules
+	///    see V1, new rules see V3). This prevents a crafted candidate from being treated as V2 (no
+	///    mandatory UMP signals) by new nodes but as V1 by old nodes. Needed as long as V1 exists
+	///    (maximum safety) or until we could have valiators not yet using the new rules.
+	///
+	/// 2. **V3 gating (transitional):** V3 candidates are rejected when V3 is not enabled.
+	///
+	/// Note: Consistent `Unknown` versions are not our concern here — they are caught upstream
+	/// by the runtime (`check_descriptor_version_and_signals`) and the collator
+	/// protocol (`descriptor_version_sanity_check`).
+	pub fn check_version_acceptance(
+		&self,
+		v3_enabled: bool,
+	) -> Result<(), CandidateDescriptorVersionCheckError> {
 		let version = self.version();
 
 		// Version consistency: old and new detection must agree, unless this is the
@@ -2268,8 +2278,9 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	) -> Option<SessionIndex> {
 		match self.version_for_candidate_validation(v3_ever_seen) {
 			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => None,
-			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 =>
-				Some(self.session_index),
+			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
+				Some(self.session_index)
+			},
 		}
 	}
 }
@@ -3339,7 +3350,10 @@ pub mod tests {
 		let desc = make_v3_descriptor();
 
 		assert_eq!(desc.version(), CandidateDescriptorVersion::V3);
-		assert_eq!(desc.check_version_acceptance(false), Err(CandidateDescriptorVersionCheckError::Inconsistency));
+		assert_eq!(
+			desc.check_version_acceptance(false),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
 	}
 
 	#[test]
@@ -3354,8 +3368,14 @@ pub mod tests {
 		assert!(!desc.check_version_consistency());
 
 		// Rejected regardless of v3_enabled.
-		assert_eq!(desc.check_version_acceptance(false), Err(CandidateDescriptorVersionCheckError::Inconsistency));
-		assert_eq!(desc.check_version_acceptance(true), Err(CandidateDescriptorVersionCheckError::Inconsistency));
+		assert_eq!(
+			desc.check_version_acceptance(false),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
+		assert_eq!(
+			desc.check_version_acceptance(true),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
 	}
 
 	#[test]
@@ -3415,7 +3435,13 @@ pub mod tests {
 		assert_eq!(desc.version_old_rules(), CandidateDescriptorVersion::V1);
 		assert!(!desc.check_version_consistency());
 
-		assert_eq!(desc.check_version_acceptance(false), Err(CandidateDescriptorVersionCheckError::Inconsistency));
-		assert_eq!(desc.check_version_acceptance(true), Err(CandidateDescriptorVersionCheckError::Inconsistency));
+		assert_eq!(
+			desc.check_version_acceptance(false),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
+		assert_eq!(
+			desc.check_version_acceptance(true),
+			Err(CandidateDescriptorVersionCheckError::Inconsistency)
+		);
 	}
 }

@@ -966,11 +966,8 @@ fn v3_ump_signal_enforcement() {
 	];
 
 	for has_signals in [true, false] {
-		let validation_result = if has_signals {
-			result_with_signals.clone()
-		} else {
-			result_no_signals.clone()
-		};
+		let validation_result =
+			if has_signals { result_with_signals.clone() } else { result_no_signals.clone() };
 		let commitments = CandidateCommitments {
 			head_data: validation_result.head_data.clone(),
 			upward_messages: validation_result.upward_messages.clone(),
@@ -985,15 +982,11 @@ fn v3_ump_signal_enforcement() {
 		};
 
 		for exec_kind in &all_exec_kinds {
-			let is_backing = matches!(
-				exec_kind,
-				PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_)
-			);
+			let is_backing =
+				matches!(exec_kind, PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_));
 
 			let result = executor::block_on(validate_candidate(
-				MockValidateCandidateBackend::with_hardcoded_result(Ok(
-					validation_result.clone(),
-				)),
+				MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 				validation_data.clone(),
 				validation_code.clone(),
 				candidate_receipt.clone(),
@@ -2883,8 +2876,7 @@ fn pre_validation_basic_checks() {
 				CandidateReceipt { descriptor: descriptor.clone(), commitments_hash: Hash::zero() };
 
 			let pool = TaskExecutor::new();
-			let (mut ctx, mut ctx_handle) =
-				make_subsystem_context::<AllMessages, _>(pool.clone());
+			let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
 			let mock_backend =
 				MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
 					head_data: HeadData(vec![1]),
@@ -2977,16 +2969,14 @@ fn pre_validation_relay_parent_session_check() {
 		processed_downward_messages: validation_result.processed_downward_messages,
 		hrmp_watermark: validation_result.hrmp_watermark,
 	};
-	let candidate_receipt =
-		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	// Case 1: AllowedRelayParentInfo returns None → InvalidRelayParentSession
 	{
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-		let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Ok(
-			validation_result.clone(),
-		));
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
 
 		let (response_tx, response_rx) = oneshot::channel();
 
@@ -3036,9 +3026,8 @@ fn pre_validation_relay_parent_session_check() {
 	{
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-		let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Ok(
-			validation_result.clone(),
-		));
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
 
 		let (response_tx, response_rx) = oneshot::channel();
 
@@ -3103,9 +3092,8 @@ fn pre_validation_relay_parent_session_check() {
 	{
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-		let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Ok(
-			validation_result.clone(),
-		));
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
 
 		let (response_tx, response_rx) = oneshot::channel();
 

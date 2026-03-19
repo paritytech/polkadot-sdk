@@ -2660,11 +2660,11 @@ async fn kick_off_seconding<Context>(
 	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(state) => state,
 		None => {
-			// Relay parent went out of view, not an error.
+			// Scheduling parent went out of view, not an error.
 			gum::trace!(
 				target: LOG_TARGET,
-				relay_parent = ?scheduling_parent,
-				"Fetched collation for a parent out of view",
+				?scheduling_parent,
+				"Fetched collation for a scheduling parent out of view",
 			);
 			return Ok(false);
 		},
