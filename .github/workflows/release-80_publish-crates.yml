@@ -342,6 +342,7 @@ jobs:
         if: failure()
         env:
           CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
           # Restore origin to the fork repo in case it was changed by the upstream push step
