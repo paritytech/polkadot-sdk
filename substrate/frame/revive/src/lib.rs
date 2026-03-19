@@ -351,10 +351,6 @@ pub mod pallet {
 
 		/// When enabled, accounts are automatically mapped on creation and unmapped on
 		/// kill via [`AutoMapper`]. This removes the need for explicit `map_account` calls.
-		///
-		/// When set to `true`, the `ExistentialDeposit` should absorb the cost of the
-		/// address mapping storage entry: `DepositPerByte * 52 + DepositPerItem`
-		/// (20 bytes for the H160 key + 32 bytes for the AccountId32 value).
 		#[pallet::constant]
 		type AutoMap: Get<bool>;
 

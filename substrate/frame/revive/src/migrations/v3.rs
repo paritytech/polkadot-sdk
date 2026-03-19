@@ -17,9 +17,10 @@
 
 //! # Multi-Block Migration v3
 //!
-//! Auto-map all existing accounts that are not yet mapped.
-//! This iterates `frame_system::Account` and calls `map_no_deposit`
-//! for every account that lacks a mapping.
+//! Iterates `frame_system::Account` and for each account:
+//! - If unmapped: calls `map_no_deposit` to create a deposit-free mapping.
+//! - If already mapped with a deposit: calls `unmap` then `map_no_deposit` to release the held
+//!   deposit while keeping the mapping.
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::{AddressMapper, Config, LOG_TARGET, weights::WeightInfo};
@@ -69,12 +70,14 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			};
 
 			if let Some((account_id, _)) = iter.next() {
-				if !T::AddressMapper::is_mapped(&account_id) &&
-					let Err(err) = T::AddressMapper::map_no_deposit(&account_id)
-				{
-					log::error!(
+				if T::AddressMapper::is_mapped(&account_id) {
+					// Already mapped: release any held deposit and re-map without deposit
+					let _ = T::AddressMapper::unmap(&account_id);
+				}
+				if let Err(err) = T::AddressMapper::map_no_deposit(&account_id) {
+					log::debug!(
 						target: LOG_TARGET,
-						"Failed to auto-map account {account_id:?}: {err:?}",
+						"Skipped auto-mapping account {account_id:?}: {err:?}",
 					);
 				}
 				cursor = Some(account_id);
@@ -88,6 +91,8 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		assert!(T::AutoMap::get(), "v3 migration requires AutoMap to be enabled");
+
 		use codec::Encode;
 		let unmapped: u32 = frame_system::Account::<T>::iter_keys()
 			.filter(|id| !T::AddressMapper::is_mapped(id))
@@ -99,6 +104,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
+		use frame_support::traits::fungible::InspectHold;
+		use sp_runtime::traits::Zero;
+
 		let prev_unmapped =
 			u32::decode(&mut &prev[..]).expect("Failed to decode pre_upgrade state");
 		let still_unmapped: u32 = frame_system::Account::<T>::iter_keys()
@@ -108,6 +116,19 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			still_unmapped, 0,
 			"v3: {still_unmapped} accounts still unmapped (was {prev_unmapped})",
 		);
+
+		// Verify no accounts have address mapping deposits held
+		for (account_id, _) in frame_system::Account::<T>::iter() {
+			assert!(
+				T::Currency::balance_on_hold(
+					&crate::HoldReason::AddressMapping.into(),
+					&account_id,
+				)
+				.is_zero(),
+				"v3: account {account_id:?} still has address mapping deposit held",
+			);
+		}
+
 		Ok(())
 	}
 }
@@ -124,30 +145,32 @@ fn migrate_to_v3() {
 
 	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 		use crate::address::AccountId32Mapper;
+		use frame_support::traits::fungible::InspectHold;
 
-		// Create some accounts: eth-derived ones should be skipped,
-		// non-eth-derived ones should be mapped.
-		let non_eth_accounts: Vec<AccountId32> =
-			(10..20u8).map(|i| AccountId32::new([i; 32])).collect();
+		let unmapped_accounts: Vec<AccountId32> =
+			(10..15u8).map(|i| AccountId32::new([i; 32])).collect();
+		let mapped_accounts: Vec<AccountId32> =
+			(15..20u8).map(|i| AccountId32::new([i; 32])).collect();
 		let eth_account = {
 			let mut bytes = [0xEE; 32];
 			bytes[..20].copy_from_slice(&[0xAA; 20]);
 			AccountId32::new(bytes)
 		};
 
-		// Fund accounts so they exist in the system, then map them
-		for acc in &non_eth_accounts {
+		// Fund all accounts
+		for acc in unmapped_accounts.iter().chain(&mapped_accounts) {
 			<Test as Config>::Currency::set_balance(acc, 1_000_000);
-			AccountId32Mapper::<Test>::map(acc).unwrap();
 		}
 		<Test as Config>::Currency::set_balance(&eth_account, 1_000_000);
 
-		// Clear all mappings to simulate pre-migration state
-		for acc in &non_eth_accounts {
-			AccountId32Mapper::<Test>::unmap(acc).unwrap();
+		// Map some accounts with a deposit (simulating pre-migration state)
+		for acc in &mapped_accounts {
+			AccountId32Mapper::<Test>::map(acc).unwrap();
 			assert!(
-				!AccountId32Mapper::<Test>::is_mapped(acc),
-				"account should not be mapped before migration"
+				<Test as Config>::Currency::balance_on_hold(
+					&crate::HoldReason::AddressMapping.into(),
+					acc
+				) > 0,
 			);
 		}
 
@@ -158,14 +181,22 @@ fn migrate_to_v3() {
 			cursor = Some(new_cursor);
 		}
 
-		// Verify all non-eth accounts are now mapped
-		for acc in &non_eth_accounts {
-			assert!(
-				AccountId32Mapper::<Test>::is_mapped(acc),
-				"account should be mapped after migration"
-			);
+		// Verify all non-eth accounts are mapped
+		for acc in unmapped_accounts.iter().chain(&mapped_accounts) {
+			assert!(AccountId32Mapper::<Test>::is_mapped(acc));
 			let addr = AccountId32Mapper::<Test>::to_address(acc);
-			assert_eq!(OriginalAccount::<Test>::get(addr).as_ref(), Some(acc),);
+			assert_eq!(OriginalAccount::<Test>::get(addr).as_ref(), Some(acc));
+		}
+
+		// Verify deposits were released for previously-mapped accounts
+		for acc in &mapped_accounts {
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&crate::HoldReason::AddressMapping.into(),
+					acc
+				),
+				0,
+			);
 		}
 
 		// Eth-derived accounts should not have entries in OriginalAccount
