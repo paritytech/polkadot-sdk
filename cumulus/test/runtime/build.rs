@@ -81,7 +81,7 @@ fn main() {
 		.with_current_project()
 		.enable_feature("scheduling-v3-disabled")
 		.import_memory()
-		.set_file_name("wasm_binary_scheduling_v3_disabled.rs")
+		.set_file_name("wasm_binary_scheduling_v3_disabled.rs");
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("slot-duration-18s")
