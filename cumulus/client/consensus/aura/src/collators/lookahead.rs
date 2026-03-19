@@ -37,7 +37,8 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData, SchedulingProof, SchedulingV3EnabledApi,
+	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData, SchedulingProof,
+	SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
@@ -172,7 +173,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ CollectCollationInfo<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ SchedulingV3EnabledApi<Block>,
+		+ SchedulingV3EnabledApi<Block>
 		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
@@ -227,7 +228,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ CollectCollationInfo<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ SchedulingV3EnabledApi<Block>,
+		+ SchedulingV3EnabledApi<Block>
 		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
