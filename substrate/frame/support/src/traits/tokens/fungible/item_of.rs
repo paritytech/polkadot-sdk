@@ -30,6 +30,7 @@ use crate::traits::{
 		WithdrawConsequence,
 	},
 };
+use alloc::vec::Vec;
 use frame_support::traits::fungible::hold::DoneSlash;
 use sp_core::Get;
 use sp_runtime::{DispatchError, DispatchResult};
@@ -481,6 +482,36 @@ impl<
 			who,
 			amount,
 		)
+	}
+}
+
+impl<
+		F: fungibles::metadata::Inspect<AccountId>,
+		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
+		AccountId,
+	> super::metadata::Inspect<AccountId> for ItemOf<F, A, AccountId>
+{
+	fn name() -> Vec<u8> {
+		<F as fungibles::metadata::Inspect<AccountId>>::name(A::get())
+	}
+
+	fn symbol() -> Vec<u8> {
+		<F as fungibles::metadata::Inspect<AccountId>>::symbol(A::get())
+	}
+
+	fn decimals() -> u8 {
+		<F as fungibles::metadata::Inspect<AccountId>>::decimals(A::get())
+	}
+}
+
+impl<
+		F: fungibles::metadata::Mutate<AccountId>,
+		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
+		AccountId,
+	> super::metadata::Mutate<AccountId> for ItemOf<F, A, AccountId>
+{
+	fn set(from: &AccountId, name: Vec<u8>, symbol: Vec<u8>, decimals: u8) -> DispatchResult {
+		<F as fungibles::metadata::Mutate<AccountId>>::set(A::get(), from, name, symbol, decimals)
 	}
 }
 

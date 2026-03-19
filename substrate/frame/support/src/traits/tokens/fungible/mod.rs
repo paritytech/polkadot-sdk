@@ -158,6 +158,7 @@ pub mod freeze;
 pub mod hold;
 pub(crate) mod imbalance;
 mod item_of;
+pub mod metadata;
 mod regular;
 mod union_of;
 
