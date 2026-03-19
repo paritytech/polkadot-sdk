@@ -9,10 +9,13 @@ doc:
     - Guard `map_account`/`unmap_account` dispatchables with `AutoMappingEnabled` error when auto-mapping is active
     - Wire up `AutoMapper` in Asset Hub Westend and dev-node runtimes with `AutoMap = true`
     - Add v3 multi-block migration to auto-map all existing accounts
+    - Increase Westend system parachain `EXISTENTIAL_DEPOSIT` to include the address mapping storage cost (20 bytes key + 32 bytes value), so the existential deposit covers auto-mapping
 crates:
 - name: asset-hub-westend-runtime
   bump: patch
 - name: revive-dev-runtime
   bump: patch
 - name: pallet-revive
+  bump: patch
+- name: testnet-parachains-constants
   bump: patch
