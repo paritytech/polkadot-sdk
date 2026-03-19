@@ -2242,7 +2242,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Scheduling session for use candidate validation.
+	/// Scheduling session for candidate validation.
 	///
 	/// See [`Self::version_for_candidate_validation`] for the safety argument.
 	pub fn scheduling_session_for_candidate_validation(
@@ -2256,6 +2256,20 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
 			CandidateDescriptorVersion::Unknown => None,
+		}
+	}
+
+	/// Session index (relay parent session) for candidate validation.
+	///
+	/// See [`Self::version_for_candidate_validation`] for the safety argument.
+	pub fn session_index_for_candidate_validation(
+		&self,
+		v3_ever_seen: bool,
+	) -> Option<SessionIndex> {
+		match self.version_for_candidate_validation(v3_ever_seen) {
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 =>
+				Some(self.session_index),
 		}
 	}
 }

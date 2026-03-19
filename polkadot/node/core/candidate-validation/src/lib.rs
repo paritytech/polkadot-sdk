@@ -276,7 +276,9 @@ where
 
 	let claim_queue = match exec_kind {
 		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
-			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
+			let scheduling_parent = candidate_receipt
+				.descriptor
+				.scheduling_parent_for_candidate_validation(v3_ever_seen);
 
 			// Verify scheduling session.
 			let expected_scheduling_session =
@@ -286,7 +288,10 @@ where
 					)
 				})?;
 
-			if let Some(scheduling_session) = candidate_receipt.descriptor.scheduling_session() {
+			if let Some(scheduling_session) = candidate_receipt
+				.descriptor
+				.scheduling_session_for_candidate_validation(v3_ever_seen)
+			{
 				if scheduling_session != expected_scheduling_session {
 					return Err(PreValidationError::Invalid(
 						InvalidCandidate::InvalidSchedulingSession,
@@ -295,7 +300,10 @@ where
 			}
 
 			// Verify relay parent is valid in the claimed session (v16+ API).
-			if let Some(session_index) = candidate_receipt.descriptor.session_index() {
+			if let Some(session_index) = candidate_receipt
+				.descriptor
+				.session_index_for_candidate_validation(v3_ever_seen)
+			{
 				match check_relay_parent_in_session(
 					sender,
 					scheduling_parent,
@@ -330,15 +338,16 @@ where
 	Ok(PreValidationOutput { validation_code_bomb_limit, claim_queue })
 }
 
-fn handle_validation_message<S>(
+fn handle_validation_message<S, V>(
 	mut sender: S,
-	validation_host: ValidationHost,
+	validation_host: V,
 	metrics: Metrics,
 	v3_ever_seen: bool,
 	msg: CandidateValidationMessage,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>>
 where
 	S: SubsystemSender<RuntimeApiMessage>,
+	V: ValidationBackend + Clone + Send + 'static,
 {
 	match msg {
 		CandidateValidationMessage::ValidateFromExhaustive {
