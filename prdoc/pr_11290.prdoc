@@ -69,6 +69,8 @@ crates:
     bump: major
   - name: polkadot-dispute-distribution
     bump: major
+  - name: polkadot-node-primitives
+    bump: major
   - name: polkadot-node-collation-generation
     bump: patch
   - name: polkadot-runtime-parachains
