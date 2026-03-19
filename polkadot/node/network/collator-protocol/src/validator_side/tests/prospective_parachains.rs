@@ -2127,12 +2127,14 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	});
 }
 
-/// When the CandidateReceiptV3 node feature is disabled and a collator advertises a V3
-/// candidate descriptor, the validator rejects the advertisement immediately with
-/// `ProtocolMisuse` → `COST_PROTOCOL_MISUSE`. No collation is fetched.
-#[test]
-fn v3_advertisement_with_v3_feature_disabled_reputation_penalty() {
-	// V3 feature is NOT enabled — TestState::default() only sets CandidateReceiptV2.
+/// Helper: V3 advertisement with V3 feature disabled goes through the full fetch flow
+/// (advertisement → CanSecond → fetch → PVD → `fetched_collation_sanity_check`) and
+/// gets rejected with `COST_REPORT_BAD`.
+///
+/// `same_parents`: when true, relay_parent == scheduling_parent so the scheduling parent
+/// check passes and the error is `DescriptorVersionMismatch(V3, V1)`.
+/// When false, they differ and the error is `SchedulingParentMismatch`.
+fn v3_feature_disabled_full_fetch_rejected(same_parents: bool) {
 	let mut test_state = TestState::default();
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
@@ -2170,8 +2172,14 @@ fn v3_advertisement_with_v3_feature_disabled_reputation_penalty() {
 		)
 		.await;
 
+		let (relay_parent, scheduling_parent) = if same_parents {
+			(head_b_parent, head_b_parent)
+		} else {
+			(head_b_grandparent, head_b_parent)
+		};
+
 		let mut committed_candidate =
-			dummy_committed_candidate_receipt_v3(head_b_grandparent, head_b_parent);
+			dummy_committed_candidate_receipt_v3(relay_parent, scheduling_parent);
 		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 		committed_candidate
 			.descriptor
@@ -2184,7 +2192,6 @@ fn v3_advertisement_with_v3_feature_disabled_reputation_penalty() {
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
-		// Collator sends a V3 advertisement while V3 feature is disabled on validators.
 		advertise_collation_v3(
 			&mut virtual_overseer,
 			peer_a,
@@ -2195,20 +2202,78 @@ fn v3_advertisement_with_v3_feature_disabled_reputation_penalty() {
 		)
 		.await;
 
-		// Advertisement is rejected immediately — V3 descriptor version is not enabled.
-		// ProtocolMisuse → COST_PROTOCOL_MISUSE. No CanSecond, no fetch.
+		// No early rejection — advertisement passes through to process_advertisement.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b_parent,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// PVD request via ProspectiveParachains (V3 protocol path).
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
+			) => {
+				assert_eq!(head_b_parent, request.candidate_relay_parent);
+				assert_eq!(test_state.chain_ids[0], request.para_id);
+				tx.send(Some(dummy_pvd())).unwrap();
+			}
+		);
+
+		// fetched_collation_sanity_check fails → is_malicious() → COST_REPORT_BAD.
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 				ReportPeerMessage::Single(peer, rep),
 			)) => {
 				assert_eq!(peer, peer_a);
-				assert_eq!(rep.value, COST_PROTOCOL_MISUSE.cost_or_benefit());
+				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
 			}
 		);
 
 		virtual_overseer
 	});
+}
+
+/// V3 advertisement with V3 disabled and relay_parent != scheduling_parent.
+/// `scheduling_parent(v3_enabled=false)` falls back to relay_parent which differs from
+/// the advertised scheduling_parent → `SchedulingParentMismatch`.
+#[test]
+fn v3_feature_disabled_scheduling_parent_mismatch() {
+	v3_feature_disabled_full_fetch_rejected(false);
+}
+
+/// V3 advertisement with V3 disabled and relay_parent == scheduling_parent.
+/// The scheduling_parent check passes, but the advertised descriptor version (V3) doesn't
+/// match the fetched version (V1, since v3_enabled=false) → `DescriptorVersionMismatch`.
+#[test]
+fn v3_feature_disabled_descriptor_version_mismatch() {
+	v3_feature_disabled_full_fetch_rejected(true);
 }
 
 /// V3 scheduling parent validation: when the leaf's slot equals the current slot
