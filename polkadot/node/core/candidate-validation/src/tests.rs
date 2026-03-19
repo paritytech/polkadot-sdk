@@ -2552,7 +2552,6 @@ async fn mock_fetch_bomb_limit_v2(
 	);
 }
 
-
 /// Scheduling session check: backing rejects when the descriptor's session
 /// doesn't match the runtime; approval/dispute skips the check entirely.
 ///
