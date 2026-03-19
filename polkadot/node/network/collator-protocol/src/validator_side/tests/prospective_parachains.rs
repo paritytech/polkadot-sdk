@@ -26,6 +26,7 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3,
+	make_valid_candidate_descriptor_v3,
 };
 use rstest::rstest;
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
@@ -4161,4 +4162,98 @@ mod ah_stop_gap {
 			},
 		);
 	}
+}
+
+/// Verify that `descriptor_version_sanity_check_with_params` checks the
+/// scheduling session (not the relay-parent session) for V3 descriptors
+/// where the two sessions differ (cross-session relay parent).
+#[test]
+fn v3_sanity_check_uses_scheduling_session_not_relay_parent_session() {
+	let relay_parent = Hash::repeat_byte(1);
+	let scheduling_parent = Hash::repeat_byte(2);
+
+	let relay_parent_session: SessionIndex = 4;
+	let scheduling_session_offset: u8 = 1;
+	// scheduling_session = relay_parent_session + offset = 5
+	let scheduling_session = relay_parent_session + scheduling_session_offset as SessionIndex;
+
+	let core = CoreIndex(0);
+
+	let mut descriptor = make_valid_candidate_descriptor_v3(
+		1.into(),
+		relay_parent,
+		core,
+		relay_parent_session,
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		scheduling_parent,
+	);
+	descriptor.set_scheduling_session_offset(scheduling_session_offset);
+
+	// Sanity: verify the descriptor is V3 and sessions are as expected.
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
+	assert_eq!(descriptor.session_index(), Some(relay_parent_session));
+	assert_eq!(descriptor.scheduling_session(), Some(scheduling_session));
+
+	// The check must pass when expected_session matches the scheduling session.
+	assert!(descriptor_version_sanity_check_with_params(
+		&descriptor,
+		core,
+		scheduling_session,
+		CollationVersion::V3,
+	)
+	.is_ok());
+
+	// The check must fail when expected_session is the relay-parent session
+	// (which differs from the scheduling session for cross-session V3 candidates).
+	assert_matches!(
+		descriptor_version_sanity_check_with_params(
+			&descriptor,
+			core,
+			relay_parent_session,
+			CollationVersion::V3,
+		),
+		Err(SecondingError::InvalidSessionIndex(got, expected)) => {
+			assert_eq!(got, scheduling_session);
+			assert_eq!(expected, relay_parent_session);
+		}
+	);
+}
+
+/// Verify that V2 descriptors still check session_index correctly (V2 has no
+/// scheduling_session_offset, so session_index == scheduling_session).
+#[test]
+fn v2_sanity_check_session_index_unchanged() {
+	let relay_parent = Hash::repeat_byte(1);
+	let core = CoreIndex(0);
+	let session: SessionIndex = 5;
+
+	let mut descriptor = dummy_committed_candidate_receipt_v2(relay_parent);
+	descriptor.descriptor.set_core_index(core);
+	descriptor.descriptor.set_session_index(session);
+
+	assert_eq!(descriptor.descriptor.version(), CandidateDescriptorVersion::V2);
+
+	// Passes with matching session.
+	assert!(descriptor_version_sanity_check_with_params(
+		&descriptor.descriptor,
+		core,
+		session,
+		CollationVersion::V2,
+	)
+	.is_ok());
+
+	// Fails with wrong session.
+	assert_matches!(
+		descriptor_version_sanity_check_with_params(
+			&descriptor.descriptor,
+			core,
+			session + 1,
+			CollationVersion::V2,
+		),
+		Err(SecondingError::InvalidSessionIndex(..))
+	);
 }
