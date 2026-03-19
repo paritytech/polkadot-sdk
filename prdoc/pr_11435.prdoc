@@ -1,0 +1,7 @@
+title: Raise offence queue eras bound limit
+doc:
+- audience: Runtime Dev
+  description: Raise offence queue `BondingDuration` limit to ensure no loss of offences.
+crates:
+- name: pallet-staking-async
+  bump: patch
