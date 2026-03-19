@@ -1,0 +1,15 @@
+title: '[frame-support] Add fungible metadata traits and ItemOf support'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `fungible::metadata` module with `Inspect` and `Mutate` traits for fungible token
+    metadata (name, symbol, decimals), mirroring the existing `fungibles::metadata` API.
+
+    This module initially exists to support metadata functionality in the `ItemOf` adapter for
+    `fungibles`. When a `fungibles` implementation provides `fungibles::metadata::Inspect` and
+    `fungibles::metadata::Mutate`, the corresponding `ItemOf` wrapper now implements
+    `fungible::metadata::Inspect` and `fungible::metadata::Mutate`, allowing a single asset from
+    a fungibles set to be used where fungible metadata is expected.
+crates:
+- name: frame-support
+  bump: minor
