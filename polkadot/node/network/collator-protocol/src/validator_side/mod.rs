@@ -3108,10 +3108,14 @@ pub fn descriptor_version_sanity_check_with_params(
 				}
 			}
 
-			if let Some(session_index) = descriptor.session_index() {
-				if session_index != expected_session {
+			// For V2: session_index() == scheduling_session() (relay_parent == scheduling_parent).
+			// For V3: session_index() is the relay_parent's session which may differ from the
+			// scheduling session when the relay_parent is from a previous session. Check the
+			// scheduling_session instead, which must always match the current session.
+			if let Some(scheduling_session) = descriptor.scheduling_session() {
+				if scheduling_session != expected_session {
 					return Err(SecondingError::InvalidSessionIndex(
-						session_index,
+						scheduling_session,
 						expected_session,
 					));
 				}
