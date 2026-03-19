@@ -48,9 +48,10 @@ use polkadot_node_network_protocol::{
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement,
-	GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex, SignedStatement,
-	SigningContext, ValidatorId, ValidatorIndex,
+	CandidateDescriptorVersion, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash,
+	Id as ParaId, PersistedValidationData, SessionIndex, SignedStatement, SigningContext,
+	ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -729,6 +730,18 @@ fn validate_complete_response(
 
 		let candidate_hash = response.candidate_receipt.hash();
 
+		if response.candidate_receipt.descriptor.version(v3_enabled) ==
+			CandidateDescriptorVersion::V1
+		{
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				peer = ?requested_peer,
+				"Received candidate with unsupported V1 descriptor"
+			);
+			return invalid_candidate_output(COST_INVALID_RESPONSE);
+		}
+
 		// Validate the ump signals.
 		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq, v3_enabled) {
 			gum::debug!(
@@ -932,8 +945,9 @@ fn insert_or_update_priority(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::HeadData;
+	use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId, MutateDescriptorV2};
 	use polkadot_primitives_test_helpers as test_helpers;
+	use std::collections::BTreeSet;
 
 	fn dummy_pvd() -> PersistedValidationData {
 		PersistedValidationData {
@@ -942,6 +956,14 @@ mod tests {
 			max_pov_size: 1024,
 			relay_parent_storage_root: Default::default(),
 		}
+	}
+
+	fn dummy_transposed_claim_queue() -> TransposedClaimQueue {
+		let mut cq = TransposedClaimQueue::new();
+		let mut depth_map = std::collections::BTreeMap::new();
+		depth_map.insert(0u8, BTreeSet::from([CoreIndex(1)]));
+		cq.insert(ParaId::from(1u32), depth_map);
+		cq
 	}
 
 	#[test]
@@ -1055,12 +1077,12 @@ mod tests {
 		let mut response_manager = ResponseManager::new();
 
 		let relay_parent = Hash::from_low_u64_le(1);
-		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt_v2(relay_parent);
 		let persisted_validation_data = dummy_pvd();
-		candidate_receipt.descriptor.persisted_validation_data_hash =
-			persisted_validation_data.hash();
+		candidate_receipt
+			.descriptor
+			.set_persisted_validation_data_hash(persisted_validation_data.hash());
 		let candidate = candidate_receipt.hash();
-		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer_1 = PeerId::random();
 		let requested_peer_2 = PeerId::random();
 
@@ -1116,7 +1138,7 @@ mod tests {
 					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone().into(),
+						candidate_receipt: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1125,14 +1147,15 @@ mod tests {
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
 			let statements = vec![];
+			let cq = dummy_transposed_claim_queue();
 			let output = response.validate_response(
 				&mut request_manager,
 				group,
-				0,
+				1,
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask.clone(),
-				&Default::default(),
+				&cq,
 				false,
 			);
 			assert_eq!(
@@ -1158,7 +1181,7 @@ mod tests {
 					requested_peer: requested_peer_2,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone().into(),
+						candidate_receipt: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1166,14 +1189,15 @@ mod tests {
 			};
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
+			let cq = dummy_transposed_claim_queue();
 			let output = response.validate_response(
 				&mut request_manager,
 				group,
-				0,
+				1,
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
-				&Default::default(),
+				&cq,
 				false,
 			);
 			assert_eq!(
@@ -1197,10 +1221,11 @@ mod tests {
 		let mut response_manager = ResponseManager::new();
 
 		let relay_parent = Hash::from_low_u64_le(1);
-		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt_v2(relay_parent);
 		let persisted_validation_data = dummy_pvd();
-		candidate_receipt.descriptor.persisted_validation_data_hash =
-			persisted_validation_data.hash();
+		candidate_receipt
+			.descriptor
+			.set_persisted_validation_data_hash(persisted_validation_data.hash());
 		let candidate = candidate_receipt.hash();
 		let requested_peer = PeerId::random();
 
@@ -1243,7 +1268,7 @@ mod tests {
 					requested_peer,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone().into(),
+						candidate_receipt: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1252,14 +1277,15 @@ mod tests {
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
 			let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+			let cq = dummy_transposed_claim_queue();
 			let output = response.validate_response(
 				&mut request_manager,
 				group,
-				0,
+				1,
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
-				&Default::default(),
+				&cq,
 				false,
 			);
 			assert_eq!(
@@ -1279,10 +1305,11 @@ mod tests {
 		let mut response_manager = ResponseManager::new();
 
 		let relay_parent = Hash::from_low_u64_le(1);
-		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt_v2(relay_parent);
 		let persisted_validation_data = dummy_pvd();
-		candidate_receipt.descriptor.persisted_validation_data_hash =
-			persisted_validation_data.hash();
+		candidate_receipt
+			.descriptor
+			.set_persisted_validation_data_hash(persisted_validation_data.hash());
 		let candidate = candidate_receipt.hash();
 		let requested_peer = PeerId::random();
 
@@ -1325,7 +1352,7 @@ mod tests {
 					requested_peer,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone().into(),
+						candidate_receipt: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1335,14 +1362,15 @@ mod tests {
 			let allowed_para_lookup = |_para, _g_index| true;
 			let statements = vec![];
 			let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+			let cq = dummy_transposed_claim_queue();
 			let output = response.validate_response(
 				&mut request_manager,
 				group,
-				0,
+				1,
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
-				&Default::default(),
+				&cq,
 				false,
 			);
 			assert_eq!(
@@ -1350,7 +1378,7 @@ mod tests {
 				ResponseValidationOutput {
 					requested_peer,
 					request_status: CandidateRequestStatus::Complete {
-						candidate: candidate_receipt.clone().into(),
+						candidate: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					},
@@ -1374,23 +1402,32 @@ mod tests {
 
 		let relay_parent = Hash::from_low_u64_le(1);
 
-		// Create 3 candidates
-		let mut candidate_receipt_1 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		// Create 3 candidates (differentiated via pov_hash to get distinct hashes).
+		let mut candidate_receipt_1 =
+			test_helpers::dummy_committed_candidate_receipt_v2(relay_parent);
 		let persisted_validation_data_1 = dummy_pvd();
-		candidate_receipt_1.descriptor.persisted_validation_data_hash =
-			persisted_validation_data_1.hash();
+		candidate_receipt_1
+			.descriptor
+			.set_persisted_validation_data_hash(persisted_validation_data_1.hash());
+		candidate_receipt_1.descriptor.set_pov_hash(Hash::from_low_u64_le(1));
 		let candidate_1 = candidate_receipt_1.hash();
 
-		let mut candidate_receipt_2 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let mut candidate_receipt_2 =
+			test_helpers::dummy_committed_candidate_receipt_v2(relay_parent);
 		let persisted_validation_data_2 = dummy_pvd();
-		candidate_receipt_2.descriptor.persisted_validation_data_hash =
-			persisted_validation_data_2.hash();
+		candidate_receipt_2
+			.descriptor
+			.set_persisted_validation_data_hash(persisted_validation_data_2.hash());
+		candidate_receipt_2.descriptor.set_pov_hash(Hash::from_low_u64_le(2));
 		let candidate_2 = candidate_receipt_2.hash();
 
-		let mut candidate_receipt_3 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let mut candidate_receipt_3 =
+			test_helpers::dummy_committed_candidate_receipt_v2(relay_parent);
 		let persisted_validation_data_3 = dummy_pvd();
-		candidate_receipt_3.descriptor.persisted_validation_data_hash =
-			persisted_validation_data_3.hash();
+		candidate_receipt_3
+			.descriptor
+			.set_persisted_validation_data_hash(persisted_validation_data_3.hash());
+		candidate_receipt_3.descriptor.set_pov_hash(Hash::from_low_u64_le(3));
 		let candidate_3 = candidate_receipt_3.hash();
 
 		// Create 2 peers
@@ -1467,7 +1504,7 @@ mod tests {
 					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt_1.clone().into(),
+						candidate_receipt: candidate_receipt_1.clone(),
 						persisted_validation_data: persisted_validation_data_1.clone(),
 						statements,
 					}),
@@ -1475,14 +1512,15 @@ mod tests {
 			};
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
+			let cq = dummy_transposed_claim_queue();
 			let _output = response.validate_response(
 				&mut request_manager,
 				group,
-				0,
+				1,
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask.clone(),
-				&Default::default(),
+				&cq,
 				false,
 			);
 
@@ -1500,5 +1538,80 @@ mod tests {
 		assert!(response_manager.is_sending_to(&requested_peer_1));
 		assert!(response_manager.is_sending_to(&requested_peer_2));
 		assert_eq!(request_manager.requests.len(), 2);
+	}
+
+	#[test]
+	fn v1_descriptor_candidate_is_rejected() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+		let mut candidate_receipt = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data = dummy_pvd();
+		candidate_receipt.descriptor.persisted_validation_data_hash =
+			persisted_validation_data.hash();
+		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
+		let requested_peer = PeerId::random();
+
+		let identifier = request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate, 1.into())
+			.add_peer(requested_peer);
+
+		let group_size = 3;
+		let group = &[ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)];
+
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
+		let peer_advertised =
+			|_identifier: &CandidateIdentifier, _peer: &_| Some(StatementFilter::full(group_size));
+
+		{
+			let request_props =
+				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
+			let outgoing = request_manager
+				.next_request(&mut response_manager, request_props, peer_advertised)
+				.unwrap();
+			assert_eq!(outgoing.payload.candidate_hash, candidate);
+		}
+
+		let response = UnhandledResponse {
+			response: TaggedResponse {
+				identifier,
+				requested_peer,
+				props: request_properties,
+				response: Ok(AttestedCandidateResponse {
+					candidate_receipt: candidate_receipt.clone(),
+					persisted_validation_data: persisted_validation_data.clone(),
+					statements: vec![],
+				}),
+			},
+		};
+		let validator_key_lookup = |_v| None;
+		let allowed_para_lookup = |_para, _g_index| true;
+		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+		let output = response.validate_response(
+			&mut request_manager,
+			group,
+			0,
+			validator_key_lookup,
+			allowed_para_lookup,
+			disabled_mask,
+			&Default::default(),
+			false,
+		);
+		assert_eq!(
+			output,
+			ResponseValidationOutput {
+				requested_peer,
+				request_status: CandidateRequestStatus::Incomplete,
+				reputation_changes: vec![(requested_peer, COST_INVALID_RESPONSE)],
+			}
+		);
 	}
 }

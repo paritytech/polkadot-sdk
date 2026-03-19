@@ -36,13 +36,12 @@ use assert_matches::assert_matches;
 use codec::DecodeAll;
 use frame_support::assert_noop;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
-	CompactStatement as Statement, Hash, MutateDescriptorV2, SignedAvailabilityBitfield,
-	SignedStatement, ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
+	BlockNumber, CandidateCommitments, CollatorId, CompactStatement as Statement, Hash,
+	MutateDescriptorV2, SignedAvailabilityBitfield, SignedStatement, ValidationCode, ValidatorId,
+	ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
-use polkadot_primitives_test_helpers::{dummy_validation_code, CandidateDescriptor};
+use polkadot_primitives_test_helpers::dummy_validation_code;
 use sc_keystore::LocalKeystore;
-use sp_core::ByteArray;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
@@ -313,15 +312,17 @@ impl std::default::Default for TestCandidateBuilder {
 
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
-		let descriptor = if let (Some(core_index), Some(scheduling_parent)) =
-			(self.core_index, self.scheduling_parent)
-		{
-			// V3 descriptor with explicit scheduling_parent.
+		let core_index = self.core_index.unwrap_or(CoreIndex(0));
+		let session_index = self
+			.descriptor_session_index
+			.unwrap_or_else(|| shared::CurrentSessionIndex::<Test>::get());
+
+		let descriptor = if let Some(scheduling_parent) = self.scheduling_parent {
 			CandidateDescriptorV2::new_v3(
 				self.para_id,
 				self.relay_parent,
 				core_index,
-				self.descriptor_session_index.unwrap_or(0),
+				session_index,
 				self.persisted_validation_data_hash,
 				self.pov_hash,
 				Default::default(),
@@ -329,37 +330,18 @@ impl TestCandidateBuilder {
 				self.validation_code.hash(),
 				scheduling_parent,
 			)
-		} else if let Some(core_index) = self.core_index {
+		} else {
 			CandidateDescriptorV2::new(
 				self.para_id,
 				self.relay_parent,
 				core_index,
-				self.descriptor_session_index.unwrap_or(0),
+				session_index,
 				self.persisted_validation_data_hash,
 				self.pov_hash,
 				Default::default(),
 				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
 				self.validation_code.hash(),
 			)
-		} else {
-			CandidateDescriptor {
-				para_id: self.para_id,
-				pov_hash: self.pov_hash,
-				relay_parent: self.relay_parent,
-				persisted_validation_data_hash: self.persisted_validation_data_hash,
-				validation_code_hash: self.validation_code.hash(),
-				para_head: self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
-				erasure_root: Default::default(),
-				signature: CollatorSignature::from_slice(
-					&mut (0..64).into_iter().collect::<Vec<_>>().as_slice(),
-				)
-				.expect("64 bytes; qed"),
-				collator: CollatorId::from_slice(
-					&mut (0..32).into_iter().collect::<Vec<_>>().as_slice(),
-				)
-				.expect("32 bytes; qed"),
-			}
-			.into()
 		};
 		let mut ccr = CommittedCandidateReceipt {
 			descriptor,
@@ -2970,10 +2952,24 @@ fn cross_session_relay_parent_v3() {
 		assert!(result.is_ok(), "V3 cross-session relay parent should succeed");
 		assert_eq!(result.unwrap(), old_relay_parent_number);
 
-		// With v3_enabled=false, the descriptor is seen as V1 (non-zero scheduling_parent).
-		// V1 uses current session (5), and relay parent is not in session 5.
+		// With v3_enabled=false, a V2 descriptor using the old relay parent should fail
+		// because the relay parent lookup uses the current session (5) where it's not
+		// registered.
+		let v2_candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: old_relay_parent,
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: pvd_hash,
+			hrmp_watermark: old_relay_parent_number,
+			core_index: Some(CoreIndex(0)),
+			scheduling_parent: None,
+			descriptor_session_index: Some(5), // current session
+			..Default::default()
+		}
+		.build();
+
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, false);
+		let result = check_ctx.verify_backed_candidate(&v2_candidate, parent_head, false);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3168,6 +3164,95 @@ fn cross_session_process_candidates_v3() {
 			result.is_ok(),
 			"V3 cross-session process_candidates should succeed, got: {:?}",
 			result.err()
+		);
+	});
+}
+
+#[test]
+fn v1_candidate_descriptor_rejected() {
+	let chain_a = ParaId::from(1_u32);
+
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+	let validators = vec![
+		Sr25519Keyring::Alice,
+		Sr25519Keyring::Bob,
+		Sr25519Keyring::Charlie,
+	];
+	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
+	for validator in validators.iter() {
+		Keystore::sr25519_generate_new(
+			&*keystore,
+			PARACHAIN_KEY_TYPE_ID,
+			Some(&validator.to_seed()),
+		)
+		.unwrap();
+	}
+	let validator_public = validator_pubkeys(&validators);
+
+	new_test_ext(genesis_config(paras)).execute_with(|| {
+		shared::Pallet::<Test>::set_active_validators_ascending(validator_public.clone());
+		shared::Pallet::<Test>::set_session_index(5);
+
+		run_to_block(5, |_| None);
+
+		let signing_context =
+			SigningContext { parent_hash: System::parent_hash(), session_index: 5 };
+
+		let group_validators = |group_index: GroupIndex| {
+			match group_index {
+				group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1, 2]),
+				_ => panic!("Group index out of bounds"),
+			}
+			.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
+		};
+
+		let validator_groups = vec![
+			vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)],
+		];
+		Scheduler::set_validator_groups(validator_groups);
+
+		let allowed_scheduling_parents = default_allowed_scheduling_parent_tracker();
+
+		let mut candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: System::parent_hash(),
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: make_vdata_hash(chain_a).unwrap(),
+			hrmp_watermark: 4u32,
+			..Default::default()
+		}
+		.build();
+
+		// Make the descriptor look like V1 by setting reserved2 to non-zero.
+		candidate.descriptor.set_reserved2([0xff; 32]);
+
+		assert_eq!(
+			candidate.descriptor.version(false),
+			CandidateDescriptorVersion::V1,
+		);
+
+		let backed = back_candidate(
+			candidate,
+			&validators,
+			group_validators(GroupIndex::from(0)).unwrap().as_ref(),
+			&keystore,
+			&signing_context,
+			BackingKind::Threshold,
+			CoreIndex(0),
+		);
+
+		let backed_candidates = vec![(chain_a, vec![(backed, CoreIndex(0))])]
+			.into_iter()
+			.collect::<BTreeMap<_, _>>();
+
+		assert_noop!(
+			ParaInclusion::process_candidates(
+				&allowed_scheduling_parents,
+				&backed_candidates,
+				&group_validators,
+				false,
+			),
+			Error::<Test>::UnsupportedCandidateDescriptorVersion
 		);
 	});
 }

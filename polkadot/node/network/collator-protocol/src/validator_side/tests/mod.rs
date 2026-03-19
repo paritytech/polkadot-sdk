@@ -45,7 +45,9 @@ use polkadot_primitives::{
 	GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData, ValidatorId,
 	ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_hash};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt, dummy_hash,
+};
 
 mod prospective_parachains;
 
@@ -1327,4 +1329,43 @@ fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
 
 		virtual_overseer
 	})
+}
+
+#[test]
+fn v1_descriptor_is_rejected_by_sanity_check() {
+	let relay_parent = dummy_hash();
+	let ccr = dummy_committed_candidate_receipt(relay_parent);
+	let v2_descriptor: CandidateDescriptorV2 = ccr.descriptor.into();
+
+	assert_eq!(
+		v2_descriptor.version(false),
+		CandidateDescriptorVersion::V1,
+	);
+
+	for collation_version in [CollationVersion::V1, CollationVersion::V2] {
+		let result = descriptor_version_sanity_check_with_params(
+			&v2_descriptor,
+			false,
+			CoreIndex(0),
+			1,
+			collation_version,
+		);
+		assert_matches!(
+			result,
+			Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V1))
+		);
+	}
+
+	// Also rejected with v3_enabled=true.
+	let result = descriptor_version_sanity_check_with_params(
+		&v2_descriptor,
+		true,
+		CoreIndex(0),
+		1,
+		CollationVersion::V2,
+	);
+	assert_matches!(
+		result,
+		Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V1))
+	);
 }

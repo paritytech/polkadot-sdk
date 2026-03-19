@@ -343,6 +343,8 @@ pub mod pallet {
 		/// The `para_head` hash in the candidate descriptor doesn't match the hash of the actual
 		/// para head in the commitments.
 		ParaHeadMismatch,
+		/// For candidate descriptors versions that are no longer supported.
+		UnsupportedCandidateDescriptorVersion,
 	}
 
 	/// Candidates pending availability by `ParaId`. They form a chain starting from the latest
@@ -1242,7 +1244,7 @@ impl<T: Config> CandidateCheckContext<T> {
 		let session_index = backed_candidate_receipt
 			.descriptor
 			.session_index(v3_enabled)
-			.unwrap_or_else(|| shared::CurrentSessionIndex::<T>::get());
+			.ok_or(Error::<T>::UnsupportedCandidateDescriptorVersion)?;
 
 		// Check that the relay-parent is one of the allowed relay-parents.
 		let (state_root, relay_parent_number) = {
