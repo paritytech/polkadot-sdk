@@ -256,6 +256,13 @@ jobs:
           cargo update --workspace --offline || cargo update --workspace
           echo "Cargo.lock updated"
 
+      - name: Verify workspace compiles
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+        run: |
+          echo "Checking that rewritten manifests compile..."
+          cargo check --workspace --all-targets 2>&1
+          echo "Workspace compiles successfully"
+
       - name: Commit version bumps
         if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         shell: bash
@@ -306,7 +313,7 @@ jobs:
           PARALLEL_ARGS=""
           if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
             echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
-            PARALLEL_ARGS="-j $PUBLISH_JOBS"
+            PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
           fi
 
           if [ "$DRY_RUN" = true ]; then
