@@ -602,13 +602,13 @@ where
 						let count = batch.messages.len() as u64;
 						let provides_root = batch.provides_root;
 
-						tracing::debug!(
+						tracing::info!(
 							target: LOG_TARGET,
 							?source,
 							count,
 							?provides_root,
 							?peer,
-							"Received spec-msg batch",
+							"[INBOUND] Received spec-msg batch, queuing for inherent",
 						);
 
 						// Queue metadata for the inherent data provider

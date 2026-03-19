@@ -312,7 +312,17 @@ pub mod pallet {
 			entries: Vec<(ParaId, u64, H256)>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
+			log::info!(
+				target: LOG_TARGET,
+				"[INHERENT] receive_messages_inherent called with {} entries",
+				entries.len(),
+			);
 			for (source, count, provides_root) in entries {
+				log::info!(
+					target: LOG_TARGET,
+					"[INHERENT] Processing: source={:?}, count={}, provides_root={:?}",
+					source, count, provides_root,
+				);
 				Self::receive_messages(source, count, provides_root)?;
 			}
 			Ok(())
@@ -329,7 +339,12 @@ pub mod pallet {
 			destination: ParaId,
 			payload: Vec<u8>,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
+			log::info!(
+				target: LOG_TARGET,
+				"[EXTRINSIC] send_message_extrinsic: sender={:?}, dest={:?}, payload_len={}",
+				who, destination, payload.len(),
+			);
 			Self::send_message(destination, payload)?;
 			Ok(())
 		}
@@ -402,9 +417,9 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MessageSent { destination, position, leaf_hash });
 
-			log::debug!(
+			log::info!(
 				target: LOG_TARGET,
-				"Sent message to {:?}, position={}, leaf_hash={:?}",
+				"[PALLET] send_message: dest={:?}, position={}, leaf_hash={:?}",
 				destination, position, leaf_hash,
 			);
 
@@ -457,10 +472,10 @@ pub mod pallet {
 				new_provides_root: provides_root,
 			});
 
-			log::debug!(
+			log::info!(
 				target: LOG_TARGET,
-				"Received {} messages from {:?}, provides_root={:?}",
-				count, source, provides_root,
+				"[PALLET] receive_messages: source={:?}, count={}, provides_root={:?}",
+				source, count, provides_root,
 			);
 
 			Ok(())
@@ -527,6 +542,11 @@ pub mod pallet {
 			if entries.is_empty() {
 				return None;
 			}
+			log::info!(
+				target: LOG_TARGET,
+				"[RUNTIME] create_inherent: found {} spec-msg entries to include in block",
+				entries.len(),
+			);
 			Some(Call::receive_messages_inherent { entries })
 		}
 

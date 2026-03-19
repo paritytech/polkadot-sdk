@@ -58,6 +58,11 @@ impl sp_inherents::InherentDataProvider for SpecMsgInherentDataProvider {
 		inherent_data: &mut InherentData,
 	) -> Result<(), sp_inherents::Error> {
 		if !self.entries.is_empty() {
+			log::info!(
+				target: "pallet-speculative-messaging",
+				"[INHERENT-PROVIDER] provide_inherent_data: putting {} entries into InherentData",
+				self.entries.len(),
+			);
 			inherent_data.put_data(INHERENT_IDENTIFIER, &self.entries)?;
 		}
 		Ok(())
