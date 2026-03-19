@@ -22,7 +22,7 @@
 //! - If already mapped: releases the held address mapping deposit.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{AddressMapper, Config, HoldReason, LOG_TARGET, weights::WeightInfo};
+use crate::{weights::WeightInfo, AddressMapper, Config, HoldReason, LOG_TARGET};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -73,7 +73,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				if T::AddressMapper::is_eth_derived(&account_id) {
 					// Eth-derived accounts are stateless mapped, nothing to do.
 				} else if T::AddressMapper::map_no_deposit(&account_id).is_err() {
-					T::Currency::release_all(
+					let _ = T::Currency::release_all(
 						&HoldReason::AddressMapping.into(),
 						&account_id,
 						Precision::BestEffort,
@@ -142,8 +142,8 @@ impl<T: Config> SteppedMigration for Migration<T> {
 #[test]
 fn migrate_to_v3() {
 	use crate::{
-		Config, OriginalAccount,
 		tests::{ExtBuilder, Test},
+		Config, OriginalAccount,
 	};
 	use frame_support::{traits::fungible::Mutate, weights::WeightMeter};
 	use sp_core::H160;
@@ -214,9 +214,9 @@ fn migrate_to_v3() {
 #[test]
 fn migrate_to_v3_maps_all_accounts() {
 	use crate::{
-		Config,
 		address::AccountId32Mapper,
 		tests::{ExtBuilder, Test},
+		Config,
 	};
 	use frame_support::{traits::fungible::Mutate, weights::WeightMeter};
 	use sp_runtime::AccountId32;
