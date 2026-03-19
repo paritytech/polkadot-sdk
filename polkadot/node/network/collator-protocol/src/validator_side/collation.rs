@@ -103,6 +103,8 @@ impl FetchedCollation {
 pub struct PendingCollation {
 	/// Candidate's scheduling parent
 	pub scheduling_parent: Hash,
+	/// Candidate's relay parent
+	pub relay_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
@@ -149,6 +151,7 @@ impl PendingCollation {
 	/// For V3 protocol advertisements, pass `Some(version)` to track the advertised version.
 	pub fn new(
 		scheduling_parent: Hash,
+		relay_parent: Hash,
 		para_id: ParaId,
 		peer_id: &PeerId,
 		prospective_candidate: Option<ProspectiveCandidate>,
@@ -156,6 +159,7 @@ impl PendingCollation {
 	) -> Self {
 		Self {
 			scheduling_parent,
+			relay_parent,
 			para_id,
 			peer_id: *peer_id,
 			prospective_candidate,
@@ -197,6 +201,10 @@ pub fn fetched_collation_sanity_check(
 
 	if advertised.scheduling_parent != fetched.descriptor.scheduling_parent(v3_enabled) {
 		return Err(SecondingError::SchedulingParentMismatch);
+	}
+
+	if advertised.relay_parent != fetched.descriptor.relay_parent() {
+		return Err(SecondingError::RelayParentMismatch);
 	}
 
 	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
