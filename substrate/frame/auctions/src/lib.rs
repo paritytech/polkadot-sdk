@@ -826,24 +826,26 @@ pub mod pallet {
 			let per_restart = T::WeightInfo::restart_auction();
 
 			let iter: Box<dyn Iterator<Item = (u32, Auction<T>)>> = match cursor {
-				Some(ref last_key) => Box::new(
-					Auctions::<T>::iter_from(Auctions::<T>::hashed_key_for(last_key)).skip(1),
-				),
+				Some(ref last_key) =>
+					Box::new(Auctions::<T>::iter_from(Auctions::<T>::hashed_key_for(last_key))),
 				None => Box::new(Auctions::<T>::iter()),
 			};
 
 			let max_items = T::MaxOnIdleItems::get();
 			let mut items_processed: u32 = 0;
-			let mut last_surviving: Option<u32> = None;
+			let mut last_processed: Option<u32> = None;
+			let mut stopped_early = false;
 
 			let now = T::BlockNumberProvider::current_block_number();
 
 			for (id, auction) in iter {
 				if items_processed >= max_items {
+					stopped_early = true;
 					break;
 				}
 
 				if meter.try_consume(per_auction_read).is_err() {
+					stopped_early = true;
 					break;
 				}
 
@@ -870,6 +872,7 @@ pub mod pallet {
 
 				if is_stale {
 					if meter.try_consume(per_restart).is_err() {
+						stopped_early = true;
 						break;
 					}
 
@@ -878,7 +881,6 @@ pub mod pallet {
 							// Restart using the existing keeper so on_idle does not change who is
 							// paid.
 							let _ = Self::do_restart_auction(id, auction.keeper.clone());
-							last_surviving = Some(id);
 						},
 						AuctionType::Surplus => {
 							// Surplus auctions simply end when stale - unsold pUSD stays in IF
@@ -892,25 +894,20 @@ pub mod pallet {
 							ActiveSurplusAuctionId::<T>::kill();
 						},
 					}
-				} else {
-					last_surviving = Some(id);
 				}
+
+				last_processed = Some(id);
 			}
 
-			match last_surviving {
-				Some(last) => {
-					if Auctions::<T>::iter_from(Auctions::<T>::hashed_key_for(last))
-						.nth(1)
-						.is_none()
-					{
-						OnIdleCursor::<T>::kill();
-					} else {
-						OnIdleCursor::<T>::put(last);
-					}
-				},
-				None => {
-					OnIdleCursor::<T>::kill();
-				},
+			// Update cursor based on how we exited
+			if stopped_early {
+				if let Some(last) = last_processed {
+					OnIdleCursor::<T>::put(last);
+				}
+				// If last_processed is None, preserve existing cursor (nothing processed)
+			} else {
+				// Natural end of iteration - clear cursor to restart next time
+				OnIdleCursor::<T>::kill();
 			}
 
 			meter.consumed()
