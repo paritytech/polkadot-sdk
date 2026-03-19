@@ -30,7 +30,6 @@ use sp_statement_store::{statement_allowance_key, StatementAllowance};
 use statement_latency_bench::{connect_to_endpoints, get_keypair, CustomConfig};
 use std::str::FromStr;
 use subxt::{
-	config::DefaultExtrinsicParamsBuilder,
 	ext::scale_value::{value, Value},
 	OnlineClient,
 };
@@ -86,7 +85,11 @@ async fn set_allowances(
 	max_size: u32,
 	max_batch_calls: usize,
 ) -> Result<(), anyhow::Error> {
-	let client = OnlineClient::<CustomConfig>::from_insecure_url(rpc_url).await?;
+	let client = OnlineClient::<CustomConfig>::from_insecure_url_with_config(
+		CustomConfig::default(),
+		rpc_url,
+	)
+	.await?;
 
 	let uri = SecretUri::from_str(sudo_seed).map_err(|e| anyhow!("Invalid sudo seed URI: {e}"))?;
 	let sudo_key =
@@ -124,45 +127,23 @@ async fn set_allowances(
 		num_inner_calls, num_clients, max_batch_calls
 	);
 
-	use subxt::tx::TxStatus;
 	for (chunk_idx, chunk) in storage_calls.chunks(max_batch_calls).enumerate() {
 		let chunk_calls: Vec<Value> = chunk.to_vec();
 		let batch_call = value! { Utility(batch_all { calls: chunk_calls }) };
 		let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
-		let dp = DefaultExtrinsicParamsBuilder::<CustomConfig>::new().immortal().build();
-		let extensions =
-			(dp.0, dp.1, dp.2, dp.3, dp.4, dp.5, dp.6, dp.7, dp.8, (), (), (), (), (), (), ());
 
-		let mut progress = client
+		client
 			.tx()
-			.create_signed(&tx, &sudo_key, extensions)
 			.await?
-			.submit_and_watch()
+			.sign_and_submit_then_watch_default(&tx, &sudo_key)
+			.await?
+			.wait_for_finalized_success()
 			.await?;
 
-		while let Some(status) = progress.next().await.transpose()? {
-			match status {
-				TxStatus::InFinalizedBlock(tx_in_block) => {
-					tx_in_block.wait_for_success().await?;
-					info!(
-						"Batch {}/{} finalized in block {:#?}",
-						chunk_idx + 1,
-						num_inner_calls.div_ceil(max_batch_calls),
-						tx_in_block.block_hash()
-					);
-					break;
-				},
-				TxStatus::Error { message } |
-				TxStatus::Invalid { message } |
-				TxStatus::Dropped { message } => {
-					return Err(anyhow!("Allowance tx batch {} failed: {message}", chunk_idx + 1));
-				},
-				_ => continue,
-			}
-		}
+		info!("Batch {}/{} finalized", chunk_idx + 1, num_inner_calls.div_ceil(max_batch_calls),);
 	}
 
-	// Verify that allowances were actually written to storage.
+	// Verify that allowances were actually written to storage
 	let finalized_hash: String = rpc_client
 		.request("chain_getFinalizedHead", rpc_params![])
 		.await

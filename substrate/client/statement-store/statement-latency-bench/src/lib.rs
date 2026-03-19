@@ -20,150 +20,169 @@
 //! `setup-allowances` and `statement-latency-bench` binaries.
 
 use anyhow::{anyhow, Context};
-use codec::Encode;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use log::debug;
+use scale_info::PortableRegistry;
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, sr25519, Pair};
-use std::{any::Any, sync::Arc};
+use std::sync::Arc;
 use subxt::{
 	config::{
+		substrate::SubstrateConfig,
 		transaction_extensions::{
-			AnyOf, ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
-			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, TransactionExtension,
-			VerifySignatureDetails,
+			ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
+			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, VerifySignature,
 		},
-		Config, ExtrinsicParams, ExtrinsicParamsEncoder,
+		ClientState, Config, TransactionExtension,
 	},
-	utils::Static,
-	PolkadotConfig,
+	ext::frame_decode,
 };
 
-pub struct VerifyMultiSignature<T: Config>(VerifySignatureDetails<T>);
+pub struct VerifyMultiSignature<T: Config>(VerifySignature<T>);
 
-impl<T: Config> ExtrinsicParams<T> for VerifyMultiSignature<T> {
-	type Params = ();
+impl<T: Config> frame_decode::extrinsics::TransactionExtension<PortableRegistry>
+	for VerifyMultiSignature<T>
+{
+	const NAME: &str = "VerifyMultiSignature";
 
-	fn new(
-		_client: &subxt::client::ClientState<T>,
-		_params: Self::Params,
-	) -> Result<Self, subxt::config::ExtrinsicParamsError> {
-		Ok(VerifyMultiSignature(VerifySignatureDetails::Disabled))
-	}
-}
-
-impl<T: Config> ExtrinsicParamsEncoder for VerifyMultiSignature<T> {
-	fn encode_value_to(&self, v: &mut Vec<u8>) {
-		self.0.encode_to(v);
+	fn encode_value_to(
+		&self,
+		type_id: u32,
+		type_resolver: &PortableRegistry,
+		v: &mut Vec<u8>,
+	) -> Result<(), frame_decode::extrinsics::TransactionExtensionError> {
+		self.0.encode_value_to(type_id, type_resolver, v)
 	}
 
-	fn inject_signature(&mut self, account: &dyn Any, signature: &dyn Any) {
-		let account = account
-			.downcast_ref::<T::AccountId>()
-			.expect("A T::AccountId should have been provided")
-			.clone();
-		let signature = signature
-			.downcast_ref::<T::Signature>()
-			.expect("A T::Signature should have been provided")
-			.clone();
-		self.0 = VerifySignatureDetails::Signed { signature, account };
+	fn encode_value_for_signer_payload_to(
+		&self,
+		type_id: u32,
+		type_resolver: &PortableRegistry,
+		v: &mut Vec<u8>,
+	) -> Result<(), frame_decode::extrinsics::TransactionExtensionError> {
+		self.0.encode_value_for_signer_payload_to(type_id, type_resolver, v)
+	}
+
+	fn encode_implicit_to(
+		&self,
+		type_id: u32,
+		type_resolver: &PortableRegistry,
+		v: &mut Vec<u8>,
+	) -> Result<(), frame_decode::extrinsics::TransactionExtensionError> {
+		self.0.encode_implicit_to(type_id, type_resolver, v)
 	}
 }
 
 impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
-	type Decoded = Static<VerifySignatureDetails<T>>;
+	type Decoded = <VerifySignature<T> as TransactionExtension<T>>::Decoded;
+	type Params = ();
 
-	fn matches(identifier: &str, _type_id: u32, _types: &::scale_info::PortableRegistry) -> bool {
-		identifier == "VerifyMultiSignature" || identifier == "VerifySignature"
+	fn new(
+		client: &ClientState<T>,
+		params: Self::Params,
+	) -> Result<Self, subxt::error::TransactionExtensionError> {
+		Ok(VerifyMultiSignature(VerifySignature::new(client, params)?))
+	}
+
+	fn inject_signature(&mut self, account_id: &T::AccountId, signature: &T::Signature) {
+		self.0.inject_signature(account_id, signature);
 	}
 }
 
-/// Macro to define named skip handlers for custom non-empty transaction extensions
+/// Custom transaction extension for `RestrictOrigins`.
 ///
-/// Each generated struct matches by its identifier name via `stringify!($name)` and encodes as
-/// `0x00` (first-variant enum / `None`). Invoke with actual extension names when targeting
-/// runtimes with custom non-empty extensions
-macro_rules! define_skip_unknown_extensions {
-	($($name:ident),+ $(,)?) => { $(
-		pub struct $name;
+/// This extension encodes as `false` (0x00) to disable origin restrictions
+/// It is a `bool` in the runtime (not `Option<T>`), so frame-decode cannot
+/// auto-default it and it must be handled explicitly
+pub struct RestrictOrigins;
 
-		impl<T: Config> ExtrinsicParams<T> for $name {
-			type Params = ();
+impl frame_decode::extrinsics::TransactionExtension<PortableRegistry> for RestrictOrigins {
+	const NAME: &str = "RestrictOrigins";
 
-			fn new(
-				_client: &subxt::client::ClientState<T>,
-				_params: Self::Params,
-			) -> Result<Self, subxt::config::ExtrinsicParamsError> {
-				Ok($name)
-			}
-		}
+	fn encode_value_to(
+		&self,
+		_type_id: u32,
+		_type_resolver: &PortableRegistry,
+		v: &mut Vec<u8>,
+	) -> Result<(), frame_decode::extrinsics::TransactionExtensionError> {
+		// Encode `false` disables origin restriction
+		v.push(0x00);
+		Ok(())
+	}
 
-		impl ExtrinsicParamsEncoder for $name {
-			fn encode_value_to(&self, v: &mut Vec<u8>) {
-				v.push(0x00);
-			}
-		}
-
-		impl<T: Config> TransactionExtension<T> for $name {
-			type Decoded = Static<u8>;
-
-			fn matches(
-				identifier: &str,
-				_type_id: u32,
-				_types: &::scale_info::PortableRegistry,
-			) -> bool {
-				identifier == stringify!($name)
-			}
-		}
-	)+ };
+	fn encode_implicit_to(
+		&self,
+		_type_id: u32,
+		_type_resolver: &PortableRegistry,
+		_v: &mut Vec<u8>,
+	) -> Result<(), frame_decode::extrinsics::TransactionExtensionError> {
+		Ok(())
+	}
 }
 
-// Skip handlers for custom non-empty extensions in the people-westend runtime
-// Zero-sized extensions (e.g. ProvideForVoucherClaimer) are auto-skipped by AnyOf
-define_skip_unknown_extensions!(
-	AsPerson,
-	AsProofOfInkParticipant,
-	ScoreAsParticipant,
-	GameAsInvited,
-	PeopleLiteAuth,
-	AsCoinage,
-	RestrictOrigins, // encodes as a bool false (0x00) disables it
-);
+impl<T: Config> TransactionExtension<T> for RestrictOrigins {
+	type Decoded = u8;
+	type Params = ();
 
-pub type CustomExtrinsicParams<T> = AnyOf<
-	T,
-	(
-		VerifyMultiSignature<T>,
+	fn new(
+		_client: &ClientState<T>,
+		_params: Self::Params,
+	) -> Result<Self, subxt::error::TransactionExtensionError> {
+		Ok(RestrictOrigins)
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct CustomConfig(SubstrateConfig);
+
+impl Default for CustomConfig {
+	fn default() -> Self {
+		CustomConfig(SubstrateConfig::new())
+	}
+}
+
+impl Config for CustomConfig {
+	type AccountId = <SubstrateConfig as Config>::AccountId;
+	type Address = subxt::utils::MultiAddress<Self::AccountId, ()>;
+	type Signature = <SubstrateConfig as Config>::Signature;
+	type Hasher = <SubstrateConfig as Config>::Hasher;
+	type Header = <SubstrateConfig as Config>::Header;
+	type AssetId = <SubstrateConfig as Config>::AssetId;
+	type TransactionExtensions = (
+		VerifyMultiSignature<Self>,
 		CheckSpecVersion,
 		CheckTxVersion,
 		CheckNonce,
-		CheckGenesis<T>,
-		CheckMortality<T>,
-		ChargeAssetTxPayment<T>,
+		CheckGenesis<Self>,
+		CheckMortality<Self>,
+		ChargeAssetTxPayment<Self>,
 		ChargeTransactionPayment,
 		CheckMetadataHash,
-		AsPerson,
-		AsProofOfInkParticipant,
-		ScoreAsParticipant,
-		GameAsInvited,
-		PeopleLiteAuth,
-		AsCoinage,
 		RestrictOrigins,
-	),
->;
+	);
 
-/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`CustomExtrinsicParams`]
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum CustomConfig {}
+	fn genesis_hash(&self) -> Option<subxt::config::HashFor<Self>> {
+		self.0.genesis_hash()
+	}
 
-impl Config for CustomConfig {
-	type AccountId = <PolkadotConfig as Config>::AccountId;
-	type Address = <PolkadotConfig as Config>::Address;
-	type Signature = <PolkadotConfig as Config>::Signature;
-	type Hasher = <PolkadotConfig as Config>::Hasher;
-	type Header = <PolkadotConfig as Config>::Header;
-	type ExtrinsicParams = CustomExtrinsicParams<Self>;
-	type AssetId = <PolkadotConfig as Config>::AssetId;
+	fn spec_and_transaction_version_for_block_number(
+		&self,
+		block_number: u64,
+	) -> Option<(u32, u32)> {
+		self.0.spec_and_transaction_version_for_block_number(block_number)
+	}
+
+	fn metadata_for_spec_version(&self, spec_version: u32) -> Option<subxt::metadata::ArcMetadata> {
+		self.0.metadata_for_spec_version(spec_version)
+	}
+
+	fn set_metadata_for_spec_version(
+		&self,
+		spec_version: u32,
+		metadata: subxt::metadata::ArcMetadata,
+	) {
+		self.0.set_metadata_for_spec_version(spec_version, metadata)
+	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
