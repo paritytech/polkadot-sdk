@@ -2457,8 +2457,12 @@ fn on_idle_processes_multiple_stale_auctions() {
 #[test]
 fn on_idle_cursor_pagination_across_blocks() {
 	new_test_ext().execute_with(|| {
-		// Create 150 auctions (more than MaxOnIdleItems=100)
-		for i in 1..=150 {
+		let max_items = <Test as crate::Config>::MaxOnIdleItems::get();
+		let extra = 22u32;
+		let total = max_items + extra;
+
+		// Create more auctions than MaxOnIdleItems to force pagination
+		for i in 1..=total {
 			let owner = 100 + i as u64;
 			let _ = Balances::mint_into(&owner, INITIAL_BALANCE);
 			create_seized_hold(owner, 10 * DOT);
@@ -2475,11 +2479,11 @@ fn on_idle_cursor_pagination_across_blocks() {
 		System::set_block_number(21602);
 		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
 
-		// First pass: processes 100, sets cursor
+		// First pass: processes max_items, sets cursor
 		crate::Pallet::<Test>::on_idle(21602, Weight::from_parts(u64::MAX, u64::MAX));
 		assert!(OnIdleCursor::<Test>::get().is_some());
 
-		// Second pass: processes remaining 50, clears cursor
+		// Second pass: processes remaining, clears cursor
 		System::set_block_number(21603);
 		crate::Pallet::<Test>::on_idle(21603, Weight::from_parts(u64::MAX, u64::MAX));
 		assert!(OnIdleCursor::<Test>::get().is_none());
@@ -2516,6 +2520,58 @@ fn on_idle_completes_stale_surplus_auction() {
 				shortfall: 0,
 			}
 			.into(),
+		);
+	});
+}
+
+#[test]
+fn on_idle_cursor_advances_past_removed_surplus_auction() {
+	new_test_ext().execute_with(|| {
+		// Create a surplus auction and several liquidation auctions.
+		// After making all stale, on_idle should process all and clear the cursor,
+		// even though surplus auctions are removed (not restarted).
+		setup_surplus_auction_conditions();
+		assert_ok!(crate::Pallet::<Test>::start_surplus_auction(
+			RuntimeOrigin::signed(ALICE),
+			KEEPER,
+		));
+		let surplus_id = 0u32;
+
+		for i in 1..=3 {
+			let owner = 100 + i as u64;
+			let _ = Balances::mint_into(&owner, INITIAL_BALANCE);
+			create_seized_hold(owner, 10 * DOT);
+			crate::Pallet::<Test>::start_auction(
+				owner,
+				10 * DOT,
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
+				KEEPER,
+			)
+			.unwrap();
+		}
+
+		// Make all auctions stale
+		Stopped::<Test>::put(CircuitBreakerLevel::NoNewAuctionsOrRestarts);
+		System::set_block_number(21602);
+		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
+
+		// Process all in one pass
+		crate::Pallet::<Test>::on_idle(21602, Weight::from_parts(u64::MAX, u64::MAX));
+
+		// Surplus auction must be removed
+		assert!(Auctions::<Test>::get(surplus_id).is_none());
+		assert!(ActiveSurplusAuctionId::<Test>::get().is_none());
+
+		// All liquidation auctions must be restarted (not removed)
+		for id in 1..=3u32 {
+			let auction = Auctions::<Test>::get(id);
+			assert!(auction.is_some(), "Liquidation auction {id} should still exist");
+		}
+
+		// Cursor must be cleared (all auctions processed)
+		assert!(
+			OnIdleCursor::<Test>::get().is_none(),
+			"Cursor should be cleared after processing all auctions"
 		);
 	});
 }
@@ -2576,16 +2632,47 @@ fn needs_restart_true_for_zero_starting_price() {
 }
 
 #[test]
-fn on_idle_respects_weight_limit() {
+fn on_idle_zero_weight_is_noop() {
 	new_test_ext().execute_with(|| {
-		for i in 1..=10 {
+		// Create a stale auction
+		let _ = Balances::mint_into(&101, INITIAL_BALANCE);
+		create_seized_hold(101, 10 * DOT);
+		crate::Pallet::<Test>::start_auction(
+			101,
+			10 * DOT,
+			DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
+			KEEPER,
+		)
+		.unwrap();
+		Stopped::<Test>::put(CircuitBreakerLevel::NoNewAuctionsOrRestarts);
+		System::set_block_number(21602);
+		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
+
+		// Call with zero weight. It should be a complete no-op
+		let consumed = crate::Pallet::<Test>::on_idle(21602, Weight::zero());
+		assert_eq!(consumed, Weight::zero());
+
+		// Nothing processed, no cursor set
+		assert!(OnIdleCursor::<Test>::get().is_none());
+		assert_eq!(Auctions::<Test>::get(0).unwrap().starting_block, 1);
+	});
+}
+
+#[test]
+fn on_idle_cursor_preserved_when_nothing_processed() {
+	new_test_ext().execute_with(|| {
+		let max_items = <Test as crate::Config>::MaxOnIdleItems::get();
+		let total = max_items + 10;
+
+		// Create more auctions than MaxOnIdleItems to force pagination
+		for i in 1..=total {
 			let owner = 100 + i as u64;
 			let _ = Balances::mint_into(&owner, INITIAL_BALANCE);
 			create_seized_hold(owner, 10 * DOT);
 			crate::Pallet::<Test>::start_auction(
 				owner,
 				10 * DOT,
-				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 10 * PUSD_UNIT },
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
 				KEEPER,
 			)
 			.unwrap();
@@ -2595,17 +2682,161 @@ fn on_idle_respects_weight_limit() {
 		System::set_block_number(21602);
 		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
 
-		// Minimal weight - only enough for base overhead
-		let minimal = crate::Pallet::<Test>::on_idle_weight();
-		crate::Pallet::<Test>::on_idle(21602, minimal);
+		// First pass with unlimited weight: processes max_items, sets cursor
+		crate::Pallet::<Test>::on_idle(21602, Weight::from_parts(u64::MAX, u64::MAX));
+		let cursor_after_first = OnIdleCursor::<Test>::get();
+		assert!(cursor_after_first.is_some(), "Cursor should be set after partial processing");
 
-		// Should have set cursor (couldn't process all)
-		// Or processed none if weight insufficient
-		let restarted = (0..10u32)
+		// Second pass with only base overhead weight (enough to enter on_idle but not
+		// enough to process any auction). Cursor must be PRESERVED, not killed
+		let base_only = crate::Pallet::<Test>::on_idle_weight();
+		crate::Pallet::<Test>::on_idle(21603, base_only);
+		assert_eq!(
+			OnIdleCursor::<Test>::get(),
+			cursor_after_first,
+			"Cursor must be preserved when no auction could be processed"
+		);
+	});
+}
+
+#[test]
+fn on_idle_weight_exhausted_mid_stale_sets_cursor() {
+	new_test_ext().execute_with(|| {
+		use frame_support::weights::constants::RocksDbWeight;
+
+		// Create 3 stale auctions
+		for i in 1..=3 {
+			let owner = 100 + i as u64;
+			let _ = Balances::mint_into(&owner, INITIAL_BALANCE);
+			create_seized_hold(owner, 10 * DOT);
+			crate::Pallet::<Test>::start_auction(
+				owner,
+				10 * DOT,
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
+				KEEPER,
+			)
+			.unwrap();
+		}
+
+		Stopped::<Test>::put(CircuitBreakerLevel::NoNewAuctionsOrRestarts);
+		System::set_block_number(21602);
+		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
+
+		// Give enough weight for base overhead + reading one auction + restarting it,
+		// but not enough for a second restart.
+		let base = crate::Pallet::<Test>::on_idle_weight();
+		let per_read = RocksDbWeight::get().reads(1);
+		let per_restart = <() as crate::WeightInfo>::restart_auction();
+		// Enough for: base + 1*(read + restart) + 1*read, but not 2nd restart
+		let limit = base
+			.saturating_add(per_read)
+			.saturating_add(per_restart)
+			.saturating_add(per_read);
+		crate::Pallet::<Test>::on_idle(21602, limit);
+
+		// Exactly one auction should be restarted
+		let restarted = (0..3u32)
 			.filter(|id| Auctions::<Test>::get(*id).is_some_and(|a| a.starting_block == 21602))
 			.count();
+		assert!(restarted >= 1, "At least one auction should be restarted");
+		assert!(restarted < 3, "Not all auctions should be restarted");
+		assert!(OnIdleCursor::<Test>::get().is_some(), "Cursor should be set when stopped early");
+	});
+}
 
-		assert!(restarted < 10, "Should not process all with minimal weight");
+#[test]
+fn on_idle_non_stale_auctions_advances_cursor_and_clears() {
+	new_test_ext().execute_with(|| {
+		// Create auctions that are NOT stale (current block is still early)
+		for i in 1..=3 {
+			let owner = 100 + i as u64;
+			let _ = Balances::mint_into(&owner, INITIAL_BALANCE);
+			create_seized_hold(owner, 10 * DOT);
+			crate::Pallet::<Test>::start_auction(
+				owner,
+				10 * DOT,
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
+				KEEPER,
+			)
+			.unwrap();
+		}
+
+		// Block 2 - auctions just started at block 1, not stale yet
+		System::set_block_number(2);
+		crate::Pallet::<Test>::on_idle(2, Weight::from_parts(u64::MAX, u64::MAX));
+
+		// No auctions restarted (none were stale)
+		for id in 0..3u32 {
+			assert_eq!(
+				Auctions::<Test>::get(id).unwrap().starting_block,
+				1,
+				"Auction {id} should NOT be restarted"
+			);
+		}
+
+		// Cursor should be cleared (all auctions visited, iterator exhausted naturally)
+		assert!(
+			OnIdleCursor::<Test>::get().is_none(),
+			"Cursor should be cleared after visiting all non-stale auctions"
+		);
+	});
+}
+
+#[test]
+fn on_idle_empty_storage_is_noop() {
+	new_test_ext().execute_with(|| {
+		// No auctions exist at all
+		assert_eq!(Auctions::<Test>::iter().count(), 0);
+
+		let consumed = crate::Pallet::<Test>::on_idle(1, Weight::from_parts(u64::MAX, u64::MAX));
+
+		// Should consume only base overhead weight
+		assert!(consumed.ref_time() > 0, "Should consume base overhead");
+		assert!(OnIdleCursor::<Test>::get().is_none(), "Cursor should remain None");
+	});
+}
+
+#[test]
+fn on_idle_does_not_overconsume_weight() {
+	new_test_ext().execute_with(|| {
+		use frame_support::weights::constants::RocksDbWeight;
+
+		// Create 3 stale auctions
+		for i in 1..=3 {
+			let owner = 100 + i as u64;
+			let _ = Balances::mint_into(&owner, INITIAL_BALANCE);
+			create_seized_hold(owner, 10 * DOT);
+			crate::Pallet::<Test>::start_auction(
+				owner,
+				10 * DOT,
+				DebtComponents { principal: 100 * PUSD_UNIT, interest: 0, penalty: 0 },
+				KEEPER,
+			)
+			.unwrap();
+		}
+
+		Stopped::<Test>::put(CircuitBreakerLevel::NoNewAuctionsOrRestarts);
+		System::set_block_number(21602);
+		Stopped::<Test>::put(CircuitBreakerLevel::AllEnabled);
+
+		// Give unlimited weight and check we don't overconsume
+		let consumed =
+			crate::Pallet::<Test>::on_idle(21602, Weight::from_parts(u64::MAX, u64::MAX));
+
+		// Weight consumed should be: base + 3*(per_read + per_restart)
+		let base = crate::Pallet::<Test>::on_idle_weight();
+		let per_read = RocksDbWeight::get().reads(1);
+		let per_restart = <() as crate::WeightInfo>::restart_auction();
+
+		let expected = base
+			.saturating_add(per_read.saturating_mul(3))
+			.saturating_add(per_restart.saturating_mul(3));
+
+		assert_eq!(
+			consumed.ref_time(),
+			expected.ref_time(),
+			"ref_time consumed should match expected: base + 3*(read + restart)"
+		);
 	});
 }
 
