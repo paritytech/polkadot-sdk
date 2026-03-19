@@ -348,6 +348,10 @@ pub mod pallet {
 
 		/// When enabled, accounts are automatically mapped on creation and unmapped on
 		/// kill via [`AutoMapper`]. This removes the need for explicit `map_account` calls.
+		///
+		/// Requires `frame_system::Config::OnNewAccount` and `OnKilledAccount` to be set
+		/// to [`AutoMapper`]. When enabled, the `map_account` and `unmap_account`
+		/// dispatchables are disabled.
 		#[pallet::constant]
 		type AutoMap: Get<bool>;
 
