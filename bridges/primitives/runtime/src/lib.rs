@@ -34,7 +34,7 @@ use sp_runtime::{
 use sp_std::{ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
-	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,  
+	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
 	HasherOf, HeaderOf, NonceOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
 	UnderlyingChainOf, UnderlyingChainProvider, __private,
 };
