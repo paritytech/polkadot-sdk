@@ -16,10 +16,13 @@
 // limitations under the License.
 
 use crate::{
-	host_fn, ExecAction, ExecBuffer, ExecError, ExecOutcome, ExecStatus, InstantiateError,
-	MemoryError, MemoryT, VirtT,
+	host_fn, ExecAction, ExecBuffer, ExecError, ExecOutcome, InstantiateError, MemoryError,
+	MemoryT, VirtT,
 };
 use sp_wasm_interface::InstanceId;
+
+#[cfg(not(substrate_runtime))]
+use crate::ExecStatus;
 
 /// The forwarder implementation of [`VirtT`].
 pub struct Virt {

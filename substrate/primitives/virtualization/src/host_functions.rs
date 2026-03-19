@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	DestroyError, ExecBuffer, ExecError, ExecStatus, InstantiateError, MemoryError,
-	EXEC_BUFFER_SIZE,
-};
+use crate::{DestroyError, ExecBuffer, ExecError, InstantiateError, MemoryError, EXEC_BUFFER_SIZE};
 use sp_runtime_interface::{
 	pass_by::{
 		ConvertAndReturnAs, PassFatPointerAndRead, PassFatPointerAndWrite, PassPointerAndWrite,
@@ -26,6 +23,9 @@ use sp_runtime_interface::{
 	runtime_interface,
 };
 use strum::EnumCount;
+
+#[cfg(not(substrate_runtime))]
+use crate::ExecStatus;
 
 #[derive(EnumCount)]
 #[repr(i8)]
@@ -237,18 +237,18 @@ where
 	}
 }
 
-trait LessThan64BitPositiveInteger: Into<i64> {
+trait IntoI64: Into<i64> {
 	const MAX: i64;
 }
 
-impl LessThan64BitPositiveInteger for u8 {
+impl IntoI64 for u8 {
 	const MAX: i64 = u8::MAX as i64;
 }
-impl LessThan64BitPositiveInteger for u32 {
+impl IntoI64 for u32 {
 	const MAX: i64 = u32::MAX as i64;
 }
 
-impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCount>
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount>
 	From<RIIntResult<R, E>> for i64
 {
 	fn from(result: RIIntResult<R, E>) -> Self {
@@ -266,7 +266,7 @@ impl<R: Into<i64> + LessThan64BitPositiveInteger, E: Into<i64> + strum::EnumCoun
 	}
 }
 
-impl<R: TryFrom<i64> + LessThan64BitPositiveInteger, E: TryFrom<i64> + strum::EnumCount>
+impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount>
 	TryFrom<i64> for RIIntResult<R, E>
 {
 	type Error = ();
@@ -284,7 +284,7 @@ impl<R: TryFrom<i64> + LessThan64BitPositiveInteger, E: TryFrom<i64> + strum::En
 
 pub struct VoidResult;
 
-impl LessThan64BitPositiveInteger for VoidResult {
+impl IntoI64 for VoidResult {
 	const MAX: i64 = 0;
 }
 

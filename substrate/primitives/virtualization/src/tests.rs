@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{execute_with_handler, ExecError, Memory, MemoryT, SharedState, Virt, VirtT};
-use alloc::vec::Vec;
+use crate::{ExecAction, ExecError, ExecOutcome, MemoryT, Virt, VirtT};
 
 const GAS_MAX: i64 = i64::MAX;
 
@@ -36,7 +35,6 @@ pub fn run(program: &[u8]) {
 	counter_multiple_calls(program);
 	panic_works(program);
 	exit_works(program);
-	exit_prevents_program_launch(program);
 	run_out_of_gas_works(program);
 	gas_consumption_works(program);
 	memory_reset_on_instantiate(program);
@@ -44,60 +42,75 @@ pub fn run(program: &[u8]) {
 	counter_in_subcall(program);
 }
 
-#[derive(Default)]
-struct State {
-	counter: u64,
-	memory: Option<Memory>,
-	program: Vec<u8>,
+/// The result of running a program to completion.
+enum RunResult {
+	/// Execution finished normally.
+	Ok,
+	/// A syscall handler signalled exit.
+	Exit,
+	/// Execution returned an error.
+	Err(ExecError),
 }
 
-/// The host function implementation for our test fixture.
-extern "C" fn syscall_handler(
-	state: &mut SharedState<State>,
-	syscall_no: u32,
-	a0: u64,
-	_a1: u64,
-	_a2: u64,
-	_a3: u64,
-	_a4: u64,
-	_a5: u64,
-) -> u64 {
-	match syscall_no {
+/// Drives the execute/resume loop calling `handler` for each syscall.
+///
+/// The closure receives `(syscall_no, a0, a1, a2, a3, a4, a5)` and returns
+/// `Ok(return_value)` to resume or `Err(())` to signal exit (trap).
+fn run_loop(
+	virt: &mut Virt,
+	function: &str,
+	gas_left: &mut i64,
+	mut handler: impl FnMut(u32, u64, u64, u64, u64, u64, u64) -> Result<u64, ()>,
+) -> RunResult {
+	let mut action = ExecAction::Execute(function);
+	loop {
+		let outcome = match virt.run(*gas_left, action) {
+			Ok(outcome) => outcome,
+			Err(ExecError::OutOfGas) => {
+				*gas_left = 0;
+				return RunResult::Err(ExecError::OutOfGas);
+			},
+			Err(err) => return RunResult::Err(err),
+		};
+		match outcome {
+			ExecOutcome::Finished { gas_left: g } => {
+				*gas_left = g;
+				return RunResult::Ok;
+			},
+			ExecOutcome::Syscall { gas_left: g, syscall_no, a0, a1, a2, a3, a4, a5 } => {
+				*gas_left = g;
+				match handler(syscall_no, a0, a1, a2, a3, a4, a5) {
+					Ok(result) => action = ExecAction::Resume(result),
+					Err(()) => return RunResult::Exit,
+				}
+			},
+		}
+	}
+}
+
+/// The standard syscall handler for the test fixture.
+///
+/// Captures `counter` and `memory` from the caller.
+fn make_handler<'a>(
+	counter: &'a mut u64,
+	memory: &'a mut <Virt as VirtT>::Memory,
+) -> impl FnMut(u32, u64, u64, u64, u64, u64, u64) -> Result<u64, ()> + 'a {
+	move |syscall_no, a0, _a1, _a2, _a3, _a4, _a5| match syscall_no {
 		// read_counter
-		// memory is used for passing args in order to test memory access
 		1 => {
-			let buf = state.user.counter.to_le_bytes();
-			state.user.memory.as_mut().unwrap().write(a0 as u32, buf.as_ref()).unwrap();
-			syscall_no.into()
+			let buf = counter.to_le_bytes();
+			memory.write(a0 as u32, buf.as_ref()).unwrap();
+			Ok(syscall_no.into())
 		},
 		// increment counter
-		// memory is used for passing args in order to test memory access
 		2 => {
 			let mut buf = [0u8; 8];
-			state.user.memory.as_ref().unwrap().read(a0 as u32, buf.as_mut()).unwrap();
-			state.user.counter += u64::from_le_bytes(buf);
-			u64::from(syscall_no) << 56
+			memory.read(a0 as u32, buf.as_mut()).unwrap();
+			*counter += u64::from_le_bytes(buf);
+			Ok(u64::from(syscall_no) << 56)
 		},
 		// exit
-		3 => {
-			state.exit = true;
-			0
-		},
-		// call counter function in a new instance
-		4 => {
-			let mut instance = Virt::instantiate(state.user.program.as_ref()).unwrap();
-			let mut sub_state = SharedState {
-				gas_left: GAS_MAX,
-				exit: false,
-				user: State { memory: Some(instance.memory()), ..Default::default() },
-			};
-			let ret =
-				execute_with_handler(&mut instance, "counter", syscall_handler, &mut sub_state);
-			assert_eq!(ret, Ok(()));
-			assert!(!sub_state.exit);
-			assert_eq!(sub_state.user.counter, 8);
-			0
-		},
+		3 => Err(()),
 		_ => panic!("unknown syscall: {:?}", syscall_no),
 	}
 }
@@ -105,106 +118,84 @@ extern "C" fn syscall_handler(
 /// Checks memory access and user state functionality.
 fn counter_start_at_0(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "counter", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert!(!state.exit);
-	assert_eq!(state.user.counter, 8);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 8);
 }
 
 /// Checks memory access and user state functionality.
 fn counter_start_at_7(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 7, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "counter", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert!(!state.exit);
-	assert_eq!(state.user.counter, 15);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 7;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 15);
 }
 
 /// Makes sure user state is persistent between calls into the same instance.
 fn counter_multiple_calls(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 7, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "counter", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert!(!state.exit);
-	assert_eq!(state.user.counter, 15);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 7;
+	let mut memory = instance.memory();
 
-	let ret = execute_with_handler(&mut instance, "counter", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert!(!state.exit);
-	assert_eq!(state.user.counter, 23);
+	let result =
+		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 15);
+
+	let result =
+		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 23);
 }
 
 /// Check the correct status is returned when hitting an `unimp` instruction.
 fn panic_works(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "do_panic", syscall_handler, &mut state);
-	assert_eq!(ret, Err(ExecError::Trap));
-	assert!(!state.exit);
-	assert_eq!(state.user.counter, 0);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "do_panic", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Err(ExecError::Trap)));
+	assert_eq!(counter, 0);
 }
 
 /// Check that setting exit in a host function aborts the execution.
 fn exit_works(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "do_exit", syscall_handler, &mut state);
-	assert_eq!(ret, Err(ExecError::Trap));
-	assert!(state.exit);
-	assert_eq!(state.user.counter, 0);
-}
-
-/// Setting exit to true prevents the program from even launching.
-fn exit_prevents_program_launch(program: &[u8]) {
-	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: true,
-		user: State { counter: 7, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "add_99", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert!(state.exit);
-	assert_eq!(state.user.counter, 7);
-	assert_eq!(state.gas_left, GAS_MAX);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "do_exit", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Exit));
+	assert_eq!(counter, 0);
 }
 
 /// Increment the counter in an endless loop until we run out of gas.
 fn run_out_of_gas_works(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: 100_000,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "increment_forever", syscall_handler, &mut state);
-	assert_eq!(ret, Err(ExecError::OutOfGas));
-	assert!(!state.exit);
-	assert_eq!(state.user.counter, 14_285);
-	assert_eq!(state.gas_left, 0);
+	let mut gas_left: i64 = 100_000;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result = run_loop(
+		&mut instance,
+		"increment_forever",
+		&mut gas_left,
+		make_handler(&mut counter, &mut memory),
+	);
+	assert!(matches!(result, RunResult::Err(ExecError::OutOfGas)));
+	assert_eq!(counter, 14_285);
+	assert_eq!(gas_left, 0);
 }
 
 /// Call same function with different gas limits and make sure they consume the same amount of gas.
@@ -213,75 +204,100 @@ fn gas_consumption_works(program: &[u8]) {
 	let gas_limit_1 = gas_limit_0 / 2;
 
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: gas_limit_0,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "counter", syscall_handler, &mut state);
-	let gas_consumed = gas_limit_0 - state.gas_left;
-	assert_eq!(ret, Ok(()));
+	let mut gas_left = gas_limit_0;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	let gas_consumed = gas_limit_0 - gas_left;
 
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: gas_limit_1,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "counter", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert_eq!(gas_consumed, gas_limit_1 - state.gas_left);
+	let mut gas_left = gas_limit_1;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "counter", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(gas_consumed, gas_limit_1 - gas_left);
 }
 
 /// Make sure that globals are reset for a new instance.
 fn memory_reset_on_instantiate(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "offset", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert_eq!(state.user.counter, 3);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 3);
 
 	let mut instance = Virt::instantiate(program).unwrap();
-	state.user.memory = Some(instance.memory());
-	let ret = execute_with_handler(&mut instance, "offset", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert_eq!(state.user.counter, 6);
+	let mut memory = instance.memory();
+	let result =
+		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 6);
 }
 
 /// Make sure globals are not reset between multiple calls into the same instance.
 fn memory_persistent(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), ..Default::default() },
-	};
-	let ret = execute_with_handler(&mut instance, "offset", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert_eq!(state.user.counter, 3);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
 
-	let ret = execute_with_handler(&mut instance, "offset", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert_eq!(state.user.counter, 7);
+	let result =
+		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 3);
+
+	let result =
+		run_loop(&mut instance, "offset", &mut gas_left, make_handler(&mut counter, &mut memory));
+	assert!(matches!(result, RunResult::Ok));
+	assert_eq!(counter, 7);
 }
 
 /// Calls a function that spawns another instance where it calls the `counter` entry point.
 fn counter_in_subcall(program: &[u8]) {
 	let mut instance = Virt::instantiate(program).unwrap();
-	let mut state = SharedState {
-		gas_left: GAS_MAX,
-		exit: false,
-		user: State { counter: 0, memory: Some(instance.memory()), program: program.to_vec() },
-	};
-	let ret = execute_with_handler(&mut instance, "do_subcall", syscall_handler, &mut state);
-	assert_eq!(ret, Ok(()));
-	assert!(!state.exit);
+	let mut gas_left = GAS_MAX;
+	let mut counter: u64 = 0;
+	let mut memory = instance.memory();
+	let program = program.to_vec();
+	let result = run_loop(
+		&mut instance,
+		"do_subcall",
+		&mut gas_left,
+		|syscall_no, a0, a1, a2, a3, a4, a5| {
+			match syscall_no {
+				1..=3 => {
+					make_handler(&mut counter, &mut memory)(syscall_no, a0, a1, a2, a3, a4, a5)
+				},
+				// subcall: spawn a new instance and run counter in it
+				4 => {
+					let mut sub_instance = Virt::instantiate(program.as_ref()).unwrap();
+					let mut sub_gas = GAS_MAX;
+					let mut sub_counter: u64 = 0;
+					let mut sub_memory = sub_instance.memory();
+					let result = run_loop(
+						&mut sub_instance,
+						"counter",
+						&mut sub_gas,
+						make_handler(&mut sub_counter, &mut sub_memory),
+					);
+					assert!(matches!(result, RunResult::Ok));
+					assert_eq!(sub_counter, 8);
+					Ok(0)
+				},
+				_ => panic!("unknown syscall: {:?}", syscall_no),
+			}
+		},
+	);
+	assert!(matches!(result, RunResult::Ok));
 	// sub call should not affect parent state
-	assert_eq!(state.user.counter, 0);
+	assert_eq!(counter, 0);
 }
 
 #[cfg(test)]
