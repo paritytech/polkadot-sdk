@@ -2200,6 +2200,7 @@ fn v3_feature_disabled_full_fetch_rejected(same_parents: bool) {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			relay_parent,
 		)
 		.await;
 
