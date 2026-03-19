@@ -4406,7 +4406,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -20510,7 +20510,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.55.1"
+version = "0.55.2"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -20732,7 +20732,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.20.1"
+version = "0.20.2"
 dependencies = [
  "bs58",
  "bytes",
