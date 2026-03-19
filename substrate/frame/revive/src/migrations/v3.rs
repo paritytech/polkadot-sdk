@@ -19,14 +19,14 @@
 //!
 //! Iterates `frame_system::Account` and for each account:
 //! - If unmapped: calls `map_no_deposit` to create a deposit-free mapping.
-//! - If already mapped with a deposit: calls `unmap` then `map_no_deposit` to release the held
-//!   deposit while keeping the mapping.
+//! - If already mapped: releases the held address mapping deposit.
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{AddressMapper, Config, LOG_TARGET, weights::WeightInfo};
+use crate::{AddressMapper, Config, HoldReason, LOG_TARGET, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
+	traits::{fungible::MutateHold, tokens::Precision},
 	weights::WeightMeter,
 };
 
@@ -70,10 +70,12 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			};
 
 			if let Some((account_id, _)) = iter.next() {
-				if T::AddressMapper::is_mapped(&account_id) {
-					// Already mapped: release any held deposit and re-map without deposit
-					let _ = T::AddressMapper::unmap(&account_id);
-				}
+				// Release any held address mapping deposit
+				let _ = T::Currency::release_all(
+					&HoldReason::AddressMapping.into(),
+					&account_id,
+					Precision::BestEffort,
+				);
 				if let Err(err) = T::AddressMapper::map_no_deposit(&account_id) {
 					log::debug!(
 						target: LOG_TARGET,
