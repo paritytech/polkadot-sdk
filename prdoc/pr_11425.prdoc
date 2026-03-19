@@ -1,50 +1,12 @@
 title: 'fix(pallet-multi-asset-bounties): use non-destructive read in calculate_payout()'
 doc:
-- audience: Todo
-  description: "# Description\n\n`calculate_payout()` in `pallet-multi-asset-bounties`\
-    \ uses `ChildBountiesValuePerParent::take()` \u2014 a destructive read that deletes\
-    \ the storage entry \u2014 instead of `get()`. Since `calculate_payout()` is called\
-    \ from multiple code paths, the `take()` causes incorrect behavior on subsequent\
-    \ calls.\n\n`calculate_payout()` is called from two places:\n\n1. `do_process_payout_payment()`\
-    \ (lib.rs:1736) \u2014 invoked by `award_bounty()` and `retry_payment()`\n2. `do_check_payout_payment_status()`\
-    \ (lib.rs:1771) \u2014 invoked by `check_status()` on payment success\n\nWhen\
-    \ a parent bounty with child bounties is awarded:\n\n- The **first call** (from\
-    \ `award_bounty()`) reads `ChildBountiesValuePerParent` via `take()`, correctly\
-    \ computing `parent_value - children_value`, but **deletes the storage entry**\
-    \ as a side effect.\n- The **second call** (from `check_status()` on success)\
-    \ reads the now-deleted storage, gets `0`, and emits `BountyPayoutProcessed` with\
-    \ `value: parent_value` instead of the correct `value: parent_value - children_value`.\n\
-    \nAdditionally, if a non-synchronous `Paymaster` implementation is used where\
-    \ `check_payment()` can return `Failure`, the `retry_payment()` path would call\
-    \ `calculate_payout()` again on the deleted storage, attempting to pay the full\
-    \ parent value instead of the reduced amount.\n\n## Integration\n\nNo integration\
-    \ changes required for downstream projects. This is a bugfix internal to `pallet-multi-asset-bounties`\
-    \ with no changes to public APIs, storage layout, or trait definitions.\n\n##\
-    \ Review Notes\n\nThree changes were made:\n\n### 1. `calculate_payout()` \u2014\
-    \ `take()` replaced with `get()`\n\n```diff\n- let children_value = ChildBountiesValuePerParent::<T,\
-    \ I>::take(parent_bounty_id);\n+ let children_value = ChildBountiesValuePerParent::<T,\
-    \ I>::get(parent_bounty_id);\n```\n\nThis makes `calculate_payout()` idempotent\
-    \ \u2014 safe to call multiple times for the same bounty.\n\n### 2. `remove_bounty()`\
-    \ \u2014 explicit storage cleanup added\n\n```diff\n  None => {\n      Bounties::<T,\
-    \ I>::remove(parent_bounty_id);\n      ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);\n\
-    \      TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);\n-     debug_assert!(ChildBountiesValuePerParent::<T,\
-    \ I>::get(parent_bounty_id).is_zero());\n+     ChildBountiesValuePerParent::<T,\
-    \ I>::remove(parent_bounty_id);\n  },\n```\n\nThe `debug_assert!` was removed\
-    \ because it was not a true invariant \u2014 it only passed because `take()` had\
-    \ already deleted the value. When child bounties are paid out, `ChildBountiesValuePerParent`\
-    \ remains non-zero until parent bounty cleanup.\n\n### 3. Test updated\n\nAdded\
-    \ an event assertion to the existing `check_status_works` test to verify `BountyPayoutProcessed`\
-    \ emits the correct net payout value (`parent_value - child_value`) instead of\
-    \ the full parent value. This assertion fails with `take()` and passes with `get()`.\n\
-    \n### Impact\n\n- **Current deployments (KAH, PAH)**: Both use `LocalPay` where\
-    \ `check_payment()` always returns `Success`. The retry/lock path is unreachable,\
-    \ but the `BountyPayoutProcessed` event emits an incorrect payout value for parent\
-    \ bounties with child bounties. This affects indexers and UIs consuming on-chain\
-    \ events.\n- **Future deployments**: If the pallet is configured with an async\
-    \ `Paymaster` (e.g., XCM-based) where `check_payment()` can return `Failure`,\
-    \ the `retry_payment()` path would compute a wrong payout amount, potentially\
-    \ leading to permanent fund lock with no recovery path (since `close_bounty()`\
-    \ rejects `PayoutAttempted` status)."
+- audience: Runtime Dev
+  description: |
+    Fix `calculate_payout()` using `ChildBountiesValuePerParent::take()` instead of `get()`.
+    The destructive `take()` deletes the storage entry on first call, causing
+    `BountyPayoutProcessed` to emit an incorrect payout value when `check_status()` calls
+    `calculate_payout()` a second time on the success path. Replaced `take()` with `get()`
+    and moved storage cleanup to `remove_bounty()`.
 crates:
 - name: pallet-multi-asset-bounties
-  bump: major
+  bump: patch
