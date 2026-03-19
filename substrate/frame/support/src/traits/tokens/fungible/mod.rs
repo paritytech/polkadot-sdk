@@ -40,6 +40,9 @@
 //!   which guarantee eventual book-keeping. May be useful for some sophisticated operations where
 //!   funds must be removed from an account before it is known precisely what should be done with
 //!   them.
+//! - [`metadata::Inspect`](metadata::Inspect): Inspector functions for token metadata (name,
+//!   symbol, decimals).
+//! - [`metadata::Mutate`](metadata::Mutate): Mutator functions for token metadata.
 //!
 //! ## Terminology
 //!

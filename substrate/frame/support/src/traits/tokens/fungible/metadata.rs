@@ -23,16 +23,23 @@
 use crate::dispatch::DispatchResult;
 use alloc::vec::Vec;
 
+/// Trait for inspecting fungible token metadata.
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
-	// Get name.
+	/// Returns the name of the token.
 	fn name() -> Vec<u8>;
-	// Get symbol.
+	/// Returns the ticker symbol of the token.
 	fn symbol() -> Vec<u8>;
-	// Get decimals.
+	/// Returns the number of decimals this asset uses to represent one unit.
 	fn decimals() -> u8;
 }
 
+/// Trait for mutating fungible token metadata.
 pub trait Mutate<AccountId>: Inspect<AccountId> {
-	// Set name, symbol and decimals.
+	/// Set the name, symbol and decimals for the token.
+	///
+	/// - `from`: The account of the asset's owner from which the updated deposit will be reserved.
+	/// - `name`: The new name.
+	/// - `symbol`: The new ticker symbol.
+	/// - `decimals`: The new number of decimals this asset uses to represent one unit.
 	fn set(from: &AccountId, name: Vec<u8>, symbol: Vec<u8>, decimals: u8) -> DispatchResult;
 }
