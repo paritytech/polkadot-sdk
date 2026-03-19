@@ -2109,6 +2109,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			head_b,
 		)
 		.await;
 
@@ -2205,6 +2206,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			head_b_grandparent,
 		)
 		.await;
 
@@ -2336,6 +2338,7 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			head_b_parent,
 		)
 		.await;
 
@@ -2457,6 +2460,7 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			head_b_parent,
 		)
 		.await;
 
@@ -2553,6 +2557,7 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			head_b_grandparent,
 		)
 		.await;
 
@@ -2628,6 +2633,7 @@ fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
 			candidate_hash,
 			parent_head_data_hash,
 			CandidateDescriptorVersion::V3,
+			head_b,
 		)
 		.await;
 
