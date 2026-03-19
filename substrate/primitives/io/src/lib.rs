@@ -916,16 +916,11 @@ pub trait Storage {
 	/// function.
 	#[wrapper]
 	fn root() -> Vec<u8> {
+		// By this point, all the information about the length of the hash representing the storage
+		// root has been erased. We're using a generous buffer here. Making host functions generic
+		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(&mut root_out[..]);
-		// Determine total length of the SCALE-encoded hash from the compact length prefix.
-		let mut input = &root_out[..];
-		let before = input.len();
-		let data_len = codec::Compact::<u32>::decode(&mut input)
-			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
-			.0 as usize;
-		let prefix_len = before - input.len();
-		root_out.truncate(prefix_len + data_len);
 		root_out
 	}
 
@@ -1430,16 +1425,11 @@ pub trait DefaultChildStorage {
 	/// function.
 	#[wrapper]
 	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
+		// By this point, all the information about the length of the hash representing the storage
+		// root has been erased. We're using a generous buffer here. Making host functions generic
+		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		// Determine total length of the SCALE-encoded hash from the compact length prefix.
-		let mut input = &root_out[..];
-		let before = input.len();
-		let data_len = codec::Compact::<u32>::decode(&mut input)
-			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
-			.0 as usize;
-		let prefix_len = before - input.len();
-		root_out.truncate(prefix_len + data_len);
 		root_out
 	}
 
