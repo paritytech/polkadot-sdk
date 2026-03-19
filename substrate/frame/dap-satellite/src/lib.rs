@@ -58,13 +58,28 @@ use frame_support::{
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Preserve},
 		Imbalance, OnUnbalanced,
 	},
+	weights::WeightMeter,
 	PalletId,
 };
 use sp_runtime::{Percent, Saturating};
-use xcm::prelude::*;
-use xcm_executor::traits::TransactAsset;
 
 pub use pallet::*;
+
+/// Trait for dispatching the XCM transfer to the DAP buffer on AssetHub.
+///
+/// The pallet burns tokens from the satellite account before calling [`SendToDap::send`].
+/// Implementations should construct and dispatch the appropriate XCM message for `amount`
+/// tokens. On error, the pallet restores the burned tokens via `mint_into`.
+pub trait SendToDap<Balance> {
+	/// The error type returned when sending fails. Must implement [`core::fmt::Debug`] so the
+	/// pallet can log the failure reason.
+	type Error: core::fmt::Debug;
+
+	/// Send `amount` (already burned from the satellite account) to the DAP buffer via XCM.
+	///
+	/// Returns `Ok(())` if the message was successfully enqueued, `Err(Self::Error)` otherwise.
+	fn send(amount: Balance) -> Result<(), Self::Error>;
+}
 
 const LOG_TARGET: &str = "runtime::dap-satellite";
 
@@ -89,25 +104,18 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The currency type.
-		///
-		/// `Balance` must be convertible to `u128` for constructing the XCM asset amount.
-		type Currency: Inspect<Self::AccountId, Balance: Into<u128>>
+		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
-		/// The XCM sender used to dispatch the messages to AssetHub.
-		type XcmSender: SendXcm;
-
 		/// The pallet ID used to derive the satellite account.
 		type PalletId: Get<PalletId>;
 
-		/// The location of AssetHub as seen from this chain.
-		type AssetHubLocation: Get<Location>;
-
-		/// The location of the DAP buffer account on AssetHub, used as the XCM
-		/// beneficiary. Typically derived from the DAP pallet's `PalletId`.
-		type DapBufferLocation: Get<InteriorLocation>;
+		/// The implementation responsible for sending accumulated funds to the DAP buffer
+		/// on AssetHub via XCM. All XCM construction and dispatch logic lives here,
+		/// keeping this pallet free of XCM dependencies.
+		type SendToDap: super::SendToDap<BalanceOf<Self>>;
 
 		/// Minimum number of blocks between successive XCM transfers to AssetHub.
 		/// Acts as a rate limiter to avoid sending too many XCM messages.
@@ -119,21 +127,6 @@ pub mod pallet {
 		/// The satellite account always retains its existential deposit on top of this.
 		#[pallet::constant]
 		type MinTransferAmount: Get<BalanceOf<Self>>;
-
-		/// The local transactor for the native asset. Used for transfers: `can_check_out`
-		/// checks whether sending is allowed, and `check_out` actually records the send.
-		/// - For the RC: configure as the runtime's `LocalAssetTransactor`
-		/// - For parachains: configure as the runtime's native-currency transactor (the
-		///   `CheckingAccount` is `()` so `can_check_out` / `check_out` are no-ops).
-		type AssetTransactor: TransactAsset;
-
-		/// The location of the native asset as seen from the current chain.
-		/// - RC: `Location::here()` — the relay native token originates here.
-		/// - Parachains: `Location::parent()` — the native token is the relay chain's asset.
-		/// This is used to construct the XCM asset identifier before it is included in the
-		/// transfer message.
-		#[pallet::constant]
-		type NativeAsset: Get<Location>;
 	}
 
 	#[pallet::event]
@@ -155,37 +148,41 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(remaining_weight);
+
 			// We need at least one read (of LastTransferBlock) to proceed.
-			let single_read = T::DbWeight::get().reads(1);
-			if !remaining_weight.all_gte(single_read) {
-				return Weight::zero();
+			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+				return meter.consumed();
 			}
 
 			// Enforce the rate limit - don't send until `TransferPeriod` blocks have passed.
 			let last = LastTransferBlock::<T>::get().unwrap_or_default();
 			if block.saturating_sub(last) <= T::TransferPeriod::get() {
-				return single_read;
+				return meter.consumed();
 			}
 
 			// Check how much is available above the ED.
+			// Since the ED is constant, only the balance read counts towards the weight here.
+			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+				return meter.consumed();
+			}
 			let balance = T::Currency::balance(&Self::satellite_account());
 			let ed = T::Currency::minimum_balance();
 			let available_funds = balance.saturating_sub(ed);
 
-			// Two reads so far: `LastTransferBlock` and `balance`.
-			// Since ED is constant, it doesn't require a read.
-			let two_reads = T::DbWeight::get().reads(2);
-
 			if available_funds < T::MinTransferAmount::get() {
-				return two_reads;
+				return meter.consumed();
 			}
 
 			// We update the last transfer block irrespective of the transfer result. If we
 			// don't and a failure occurs repeatedly, then a transfer will be attempted on
 			// every block instead of the configured period, which would be undesirable.
+			if meter.try_consume(T::DbWeight::get().writes(1)).is_err() {
+				return meter.consumed();
+			}
 			LastTransferBlock::<T>::put(block);
 
-			// Attempt the XCM transfer to the central DAP buffer.
+			// Attempt the transfer to the central DAP buffer.
 			match Self::do_send_to_central_dap(available_funds) {
 				Ok(()) => {
 					Self::deposit_event(Event::SendSucceeded { amount: available_funds });
@@ -194,18 +191,26 @@ pub mod pallet {
 					// A warning is sufficient since the transfer will be retried later.
 					log::warn!(
 						target: LOG_TARGET,
-						"DAP satellite XCM transfer of {:?} failed at block {:?}: {:?}",
+						"DAP satellite transfer of {:?} failed at block {:?}: {:?}",
 						available_funds,
 						block,
-						e,
+						e
 					);
 					Self::deposit_event(Event::SendFailed { amount: available_funds });
 				},
 			}
 
-			// Two reads and one write (that of `LastTransferBlock`).
-			T::DbWeight::get().reads_writes(2, 1)
+			meter.consumed()
 		}
+	}
+
+	/// Internal error variants for [`Pallet::do_send_to_central_dap`].
+	#[derive(Debug)]
+	enum DoSendError {
+		/// Failed to burn tokens from the satellite account before sending.
+		BurnFailed,
+		/// The [`Config::SendToDap`] implementation failed to dispatch the XCM.
+		SendFailed,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -216,83 +221,40 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Dispatch an XCM transfer from the satellite account to the central DAP buffer.
+		/// Burns `amount` from the satellite account then delegates to [`Config::SendToDap`].
 		///
-		/// Returns `Ok(())` if the XCM message was successfully enqueued, `Err(...)` otherwise.
+		/// On failure, any burned funds are restored via `mint_into` so the satellite balance
+		/// remains unchanged and the next scheduled attempt can retry.
 		/// The caller is responsible for updating `LastTransferBlock` irrespective of the outcome.
-		/// On failure, any funds that were burned locally are restored via `mint_into` so the
-		/// satellite balance remains unchanged and ready for the next attempt.
-		///
-		/// # Transfer flow:
-		/// 1. `can_check_out` verifies the transfer is permitted
-		/// 2. `burn_from` on the satellite account destroys the local tokens, reducing
-		///    `total_issuance` on this chain (the source side of the transfer).
-		/// 3. Reanchor the asset location to AssetHub's perspective (e.g. the RC's
-		///    `Location::here()` becomes `Location::parent()` from the AssetHub's view).
-		/// 4. Send `[UnpaidExecution, ReceiveTeleportedAsset, DepositAsset]` to AssetHub.
-		/// 5. `check_out` updates the transfer counter (no-op on parachains).
-		fn do_send_to_central_dap(amount: BalanceOf<T>) -> Result<(), SendError> {
-			let dest = T::AssetHubLocation::get();
-			let asset = Asset { id: AssetId(T::NativeAsset::get()), fun: Fungible(amount.into()) };
-			let check_context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
+		fn do_send_to_central_dap(amount: BalanceOf<T>) -> Result<(), DoSendError> {
+			let source = Self::satellite_account();
 
-			// Step 1: Verify the transfer is allowed.
-			T::AssetTransactor::can_check_out(&dest, &asset, &check_context)
-				.map_err(|_| SendError::Unroutable)?;
-
-			// Step 2: The transfer is allowed, so burn the source funds.
-			let source_account = Self::satellite_account();
-			T::Currency::burn_from(&source_account, amount, Preserve, Exact, Polite).map_err(
-				|e| {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to burn {:?} tokens from DAP satellite account: {:?}",
-						amount,
-						e,
-					);
-					SendError::Transport("Failed to burn from DAP satellite account")
-				},
-			)?;
-
-			// Step 3: Reanchor the asset to the destination's perspective.
-			let assets_for_dest =
-				Assets::from(asset.clone()).reanchored(&dest, &Here.into()).map_err(|_| {
-					log::error!(target: LOG_TARGET, "Failed to reanchor asset for transfer");
-					let _ = T::Currency::mint_into(&source_account, amount).inspect_err(|e| {
-						frame_support::defensive!(
-							"Failed to restore burned funds after reanchor failure: {:?}",
-							e
-						);
-					});
-					SendError::Unroutable
-				})?;
-
-			// Step 4: Build and send the XCM message.
-			let beneficiary: Location = T::DapBufferLocation::get().into_location();
-			let message = Xcm(vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				ReceiveTeleportedAsset(assets_for_dest),
-				DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
-			]);
-
-			send_xcm::<T::XcmSender>(dest.clone(), message).map_err(|e| {
+			T::Currency::burn_from(&source, amount, Preserve, Exact, Polite).map_err(|e| {
 				log::error!(
 					target: LOG_TARGET,
-					"Failed to send {:?} tokens to AssetHub: {:?}",
+					"Failed to burn {:?} tokens from DAP satellite account: {:?}",
 					amount,
 					e,
 				);
-				let _ = T::Currency::mint_into(&source_account, amount).inspect_err(|e| {
+				DoSendError::BurnFailed
+			})?;
+
+			T::SendToDap::send(amount).map_err(|e| {
+				log::warn!(
+					target: LOG_TARGET,
+					"DAP satellite XCM send of {:?} failed: {:?}",
+					amount,
+					e,
+				);
+				let _ = T::Currency::mint_into(&source, amount).inspect_err(|e| {
 					frame_support::defensive!(
-						"Failed to restore burned funds after XCM send failure: {:?}",
+						"Failed to restore burned funds after send failure: {:?}",
 						e
 					);
 				});
-				e
+				DoSendError::SendFailed
 			})?;
 
-			// Step 5: Finalise transfer tracking (no-op on parachains).
-			T::AssetTransactor::check_out(&dest, &asset, &check_context);
 			Ok(())
 		}
 
@@ -477,4 +439,83 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 			"💸 Deposited {numeric_amount:?} to DAP satellite"
 		);
 	}
+}
+
+/// Implements [`SendToDap`] for a runtime via XCM teleport to AssetHub.
+///
+/// Generates a `SendToDapError` enum and the `SendToDap<Balance>` impl for the given `$runtime`.
+///
+/// # Parameters
+///
+/// - `$runtime`: The runtime type (e.g. `Runtime`).
+/// - `$asset_transactor`: Type implementing `xcm_executor::traits::TransactAsset`.
+/// - `$xcm_router`: Type implementing `xcm::prelude::SendXcm`.
+/// - `$dest`: Expression returning the [`xcm::prelude::Location`] of AssetHub.
+/// - `$native_asset`: Expression returning the [`xcm::prelude::Location`] of the native token.
+///
+/// # Requirements:
+///
+/// The following must be in scope at the call site:
+/// - `Balance`: the chain's native balance type.
+/// - `DapBufferLocation`: a `parameter_types!`-generated type whose `get()` returns the
+///   [`xcm::prelude::InteriorLocation`] of the DAP buffer account on AssetHub.
+///
+/// # Example:
+///
+/// ```ignore
+/// pallet_dap_satellite::impl_send_to_dap_via_xcm!(
+///     Runtime,
+///     xcm_config::FungibleTransactor,
+///     xcm_config::XcmRouter,
+///     testnet_parachains_constants::westend::locations::AssetHubLocation::get(),
+///     xcm_config::TokenRelayLocation::get(),
+/// );
+/// ```
+#[macro_export]
+macro_rules! impl_send_to_dap_via_xcm {
+	($runtime:ty, $asset_transactor:ty, $xcm_router:ty, $dest:expr, $native_asset:expr $(,)?) => {
+		/// Error variants for the XCM-based [`pallet_dap_satellite::SendToDap`] implementation.
+		#[derive(Debug)]
+		pub enum SendToDapError {
+			/// The asset transactor rejected the outgoing check-out.
+			AssetCheckOutFailed,
+			/// Failed to reanchor assets for the destination chain.
+			ReanchorFailed,
+			/// The XCM router failed to dispatch the message.
+			SendXcmFailed,
+		}
+
+		impl $crate::SendToDap<Balance> for $runtime {
+			type Error = SendToDapError;
+
+			fn send(amount: Balance) -> Result<(), SendToDapError> {
+				use xcm::prelude::*;
+				use xcm_executor::traits::TransactAsset;
+
+				let dest = $dest;
+				let asset = Asset { id: AssetId($native_asset), fun: Fungible(amount) };
+				let check_context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
+
+				<$asset_transactor>::can_check_out(&dest, &asset, &check_context)
+					.map_err(|_| SendToDapError::AssetCheckOutFailed)?;
+
+				let assets_for_dest = Assets::from(asset.clone())
+					.reanchored(&dest, &Here.into())
+					.map_err(|_| SendToDapError::ReanchorFailed)?;
+
+				let beneficiary: Location = DapBufferLocation::get().into_location();
+				let message = Xcm(vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					ReceiveTeleportedAsset(assets_for_dest),
+					DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
+				]);
+
+				send_xcm::<$xcm_router>(dest.clone(), message)
+					.map_err(|_| SendToDapError::SendXcmFailed)?;
+
+				<$asset_transactor>::check_out(&dest, &asset, &check_context);
+				Ok(())
+			}
+		}
+	};
 }

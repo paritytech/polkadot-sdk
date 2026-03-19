@@ -19,12 +19,11 @@
 
 use crate::{self as pallet_dap_satellite, Config};
 use frame_support::{
-	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion, PalletId,
+	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion,
+	weights::constants::RocksDbWeight, PalletId,
 };
 use sp_runtime::BuildStorage;
 use std::cell::RefCell;
-use xcm::prelude::*;
-use xcm_executor::traits::TransactAsset;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -40,6 +39,8 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	/// Use non-zero DB weights so that weight exhaustion can be tested.
+	type DbWeight = RocksDbWeight;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -50,78 +51,45 @@ impl pallet_balances::Config for Test {
 }
 
 thread_local! {
-	/// The local message recorder, containing each sent XCM message.
-	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(vec![]);
-	/// Set to `true` to make `MockXcmSender` return an error on `deliver`.
-	pub static XCM_SEND_FAIL: RefCell<bool> = RefCell::new(false);
+	/// Counts successful `MockSendToDap::send` calls.
+	pub static SEND_COUNT: RefCell<u32> = RefCell::new(0);
+	/// Set to `true` to make `MockSendToDap::send` return an error.
+	pub static SEND_FAIL: RefCell<bool> = RefCell::new(false);
+	/// Records the amount from the most recent successful `MockSendToDap::send` call.
+	pub static LAST_SENT_AMOUNT: RefCell<Option<u64>> = RefCell::new(None);
 }
 
-/// Mock XCM sender that records all dispatched messages.
-pub struct MockXcmSender;
+/// Mock implementation of [`pallet_dap_satellite::SendToDap`].
+pub struct MockSendToDap;
 
-impl SendXcm for MockXcmSender {
-	type Ticket = (Location, Xcm<()>);
+impl pallet_dap_satellite::SendToDap<u64> for MockSendToDap {
+	type Error = ();
 
-	fn validate(
-		dest: &mut Option<Location>,
-		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(Location, Xcm<()>)> {
-		let dest = dest.take().ok_or(SendError::Unroutable)?;
-		let msg = msg.take().ok_or(SendError::Unroutable)?;
-		Ok(((dest, msg), Assets::new()))
-	}
-
-	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		if XCM_SEND_FAIL.with(|f| *f.borrow()) {
-			return Err(SendError::Transport("Requested failure!"));
+	fn send(amount: u64) -> Result<(), ()> {
+		if SEND_FAIL.with(|f| *f.borrow()) {
+			return Err(());
 		}
-
-		SENT_XCM.with(|q| q.borrow_mut().push(pair));
-		Ok([0u8; 32])
-	}
-}
-
-/// Test transactor: `can_check_out` always succeeds, `check_out` is a no-op.
-/// Simulates the parachain case where the tracking of the teleport counter is not needed.
-pub struct TestAssetTransactor;
-
-impl TransactAsset for TestAssetTransactor {
-	fn can_check_out(
-		_dest: &Location,
-		_what: &Asset,
-		_context: &XcmContext,
-	) -> xcm::latest::Result {
+		SEND_COUNT.with(|c| *c.borrow_mut() += 1);
+		LAST_SENT_AMOUNT.with(|a| *a.borrow_mut() = Some(amount));
 		Ok(())
 	}
-
-	fn check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) {}
 }
 
 parameter_types! {
 	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
 	pub const ExistentialDeposit: u64 = 10;
-	/// The AssetHub location as seen from a system parachain.
-	pub AssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
-	/// Interior location of the DAP buffer account on AssetHub.
-	pub DapBufferLocation: InteriorLocation = [PalletInstance(100u8)].into();
 	/// The transfer period in blocks.
 	pub const TransferPeriod: u64 = 5;
 	/// The smallest transferable amount (above ED).
 	pub const MinTransferAmount: u64 = 10;
-	/// Native asset location for tests is `Location::parent()` (to simulate a parachain).
-	pub NativeAsset: Location = Location::parent();
 }
 
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
-	type XcmSender = MockXcmSender;
-	type AssetHubLocation = AssetHubLocation;
-	type DapBufferLocation = DapBufferLocation;
+	type SendToDap = MockSendToDap;
 	type TransferPeriod = TransferPeriod;
 	type MinTransferAmount = MinTransferAmount;
-	type AssetTransactor = TestAssetTransactor;
-	type NativeAsset = NativeAsset;
 }
 
 pub fn new_test_ext(fund_satellite: bool) -> sp_io::TestExternalities {
