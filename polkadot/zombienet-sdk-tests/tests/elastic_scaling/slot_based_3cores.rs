@@ -100,7 +100,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 
 	crate::utils::enable_node_features(&relay_client, &[4]).await?;
 
-	crate::scheduling::assert_candidates_version(
+	crate::utils::assert_candidates_version(
 		&relay_client,
 		&[ParaId::from(2200)],
 		CandidateDescriptorVersion::V2,

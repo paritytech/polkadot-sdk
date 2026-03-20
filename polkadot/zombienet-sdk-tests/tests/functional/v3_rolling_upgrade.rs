@@ -72,7 +72,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 			p.with_id(3000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling")
+				.with_chain("async-backing")
 				.with_default_args(vec![
 					("--authoring=slot-based").into(),
 					("-lparachain=debug,aura=debug").into(),
@@ -104,6 +104,15 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 		50,
 	)
 	.await?;
+
+	// Verify no disputes are raised.
+	relay_node
+		.wait_metric_with_timeout(
+			"polkadot_parachain_candidate_disputes_total",
+			|v| v == 0.0,
+			30u64,
+		)
+		.await?;
 
 	// Verify both new and old validators sign backing statements.
 	for name in [

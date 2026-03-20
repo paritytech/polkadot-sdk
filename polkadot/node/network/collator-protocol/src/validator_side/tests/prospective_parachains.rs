@@ -2128,14 +2128,18 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	});
 }
 
-/// Helper: V3 advertisement with V3 feature disabled goes through the full fetch flow
+/// V3 advertisement with V3 feature disabled goes through the full fetch flow
 /// (advertisement → CanSecond → fetch → PVD → `fetched_collation_sanity_check`) and
 /// gets rejected with `COST_REPORT_BAD`.
 ///
 /// `same_parents`: when true, relay_parent == scheduling_parent so the scheduling parent
 /// check passes and the error is `DescriptorVersionMismatch(V3, V1)`.
 /// When false, they differ and the error is `SchedulingParentMismatch`.
-fn v3_feature_disabled_full_fetch_rejected(same_parents: bool) {
+#[rstest]
+#[case(true)]
+#[case(false)]
+#[test]
+fn v3_feature_disabled_full_fetch_rejected(#[case] same_parents: bool) {
 	let mut test_state = TestState::default();
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
@@ -2260,22 +2264,6 @@ fn v3_feature_disabled_full_fetch_rejected(same_parents: bool) {
 
 		virtual_overseer
 	});
-}
-
-/// V3 advertisement with V3 disabled and relay_parent != scheduling_parent.
-/// `scheduling_parent(v3_enabled=false)` falls back to relay_parent which differs from
-/// the advertised scheduling_parent → `SchedulingParentMismatch`.
-#[test]
-fn v3_feature_disabled_scheduling_parent_mismatch() {
-	v3_feature_disabled_full_fetch_rejected(false);
-}
-
-/// V3 advertisement with V3 disabled and relay_parent == scheduling_parent.
-/// The scheduling_parent check passes, but the advertised descriptor version (V3) doesn't
-/// match the fetched version (V1, since v3_enabled=false) → `DescriptorVersionMismatch`.
-#[test]
-fn v3_feature_disabled_descriptor_version_mismatch() {
-	v3_feature_disabled_full_fetch_rejected(true);
 }
 
 /// V3 scheduling parent validation: when the leaf's slot equals the current slot

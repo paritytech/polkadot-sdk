@@ -250,7 +250,7 @@
   additional-setup: |
     BIN_DIR="$(pwd)/bin_old"
     mkdir -p $BIN_DIR
-    for bin in polkadot polkadot-parachain; do
+    for bin in polkadot; do
       OLD_NAME="$bin-old"
       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
       curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
