@@ -10,5 +10,7 @@ doc:
 crates:
 - name: polkadot-node-network-protocol
   bump: major
+  validate: false
 - name: polkadot-collator-protocol
-  bump: major
+  bump: patch
+  validate: false
