@@ -21,47 +21,47 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	block_sync::SyncCheckpoint,
-	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	SyncLabel, TracerType, TransactionInfo,
+	block_sync::SyncCheckpoint,
+	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
-use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
+use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
-	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256,
-	},
 	EthTransactError,
+	evm::{
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
+	},
 };
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
 	sync::{
-		atomic::{AtomicBool, Ordering},
 		Arc,
+		atomic::{AtomicBool, Ordering},
 	},
 	time::Duration,
 };
 use storage_api::StorageApi;
 use subxt::{
+	Config, OnlineClient,
 	backend::{
+		StreamOf, StreamOfResults,
 		legacy::{
-			rpc_methods::{SystemHealth, TransactionStatus},
 			LegacyRpcMethods,
+			rpc_methods::{SystemHealth, TransactionStatus},
 		},
 		rpc::{
-			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 		},
-		StreamOf, StreamOfResults,
 	},
 	config::{HashFor, Header},
 	ext::subxt_rpcs::rpc_params,
-	Config, OnlineClient,
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
