@@ -957,6 +957,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Cancels an existing approval from `owner` to `delegate` for asset `id`.
+	///
+	/// Removes the approval entry and unreserves the deposit. Emits `ApprovalCancelled`.
+	pub fn do_cancel_approval(
+		id: &T::AssetId,
+		owner: &T::AccountId,
+		delegate: &T::AccountId,
+	) -> DispatchResult {
+		let mut asset_details = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(asset_details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		let approval =
+			Approvals::<T, I>::take((id.clone(), owner, delegate)).ok_or(Error::<T, I>::Unknown)?;
+		T::Currency::unreserve(owner, approval.deposit);
+
+		asset_details.approvals.saturating_dec();
+		Asset::<T, I>::insert(id, asset_details);
+
+		Self::deposit_event(Event::ApprovalCancelled {
+			asset_id: id.clone(),
+			owner: owner.clone(),
+			delegate: delegate.clone(),
+		});
+		Ok(())
+	}
+
 	/// Reduces the asset `id` balance of `owner` by some `amount` and increases the balance of
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
