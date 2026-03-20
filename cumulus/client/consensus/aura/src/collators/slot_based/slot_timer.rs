@@ -154,6 +154,7 @@ fn adjust_authoring_duration(
 	next_block: (Duration, Slot),
 	next_slot_change: (Duration, Slot),
 	different_authors: bool,
+	effective_slot: Slot,
 ) -> Option<Duration> {
 	let (duration, next_block_slot) = next_block;
 	let (duration_until_next_slot, next_slot) = next_slot_change;
@@ -168,6 +169,7 @@ fn adjust_authoring_duration(
 		?next_block_slot,
 		?duration_until_next_slot,
 		?next_slot,
+		?effective_slot,
 		?duration_until_deadline,
 		?different_authors,
 		"Adjusting authoring duration for slot.",
@@ -362,6 +364,7 @@ where
 			next_block,
 			next_slot_change,
 			different_authors,
+			effective_slot,
 		)
 	}
 
