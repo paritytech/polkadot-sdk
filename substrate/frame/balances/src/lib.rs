@@ -855,7 +855,7 @@ pub mod pallet {
 		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
 		/// this `burn` operation will reduce total issuance by the amount _burned_.
 		#[pallet::call_index(10)]
-		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
+		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_keep_alive()} else {T::WeightInfo::burn_allow_death()})]
 		pub fn burn(
 			origin: OriginFor<T>,
 			#[pallet::compact] value: T::Balance,

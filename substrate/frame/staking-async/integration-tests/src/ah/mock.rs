@@ -491,6 +491,10 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 	}
 }
 
+parameter_types! {
+	pub static KeyDeposit: Balance = 10;
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
@@ -498,7 +502,8 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
-	type Balance = Balance;
+	type Currency = Balances;
+	type KeyDeposit = KeyDeposit;
 	type WeightInfo = ();
 }
 

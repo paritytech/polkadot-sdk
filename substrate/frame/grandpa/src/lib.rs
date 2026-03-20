@@ -613,41 +613,33 @@ where
 	where
 		I: Iterator<Item = (&'a T::AccountId, AuthorityId)>,
 	{
+		let mut current_set_id = CurrentSetId::<T>::get();
+
 		// Always issue a change if `session` says that the validators have changed.
 		// Even if their session keys are the same as before, the underlying economic
 		// identities have changed.
-		let current_set_id = if changed || Stalled::<T>::exists() {
+		if changed || Stalled::<T>::exists() {
 			let next_authorities = validators.map(|(_, k)| (k, 1)).collect::<Vec<_>>();
 
-			let res = if let Some((further_wait, median)) = Stalled::<T>::take() {
-				Self::schedule_change(next_authorities, further_wait, Some(median))
-			} else {
-				Self::schedule_change(next_authorities, Zero::zero(), None)
+			let res = match Stalled::<T>::get() {
+				Some((further_wait, median)) => {
+					Self::schedule_change(next_authorities, further_wait, Some(median))
+				},
+				None => Self::schedule_change(next_authorities, Zero::zero(), None),
 			};
 
 			if res.is_ok() {
-				let current_set_id = CurrentSetId::<T>::mutate(|s| {
-					*s += 1;
-					*s
-				});
+				Stalled::<T>::kill();
+
+				current_set_id += 1;
+				CurrentSetId::<T>::set(current_set_id);
 
 				let max_set_id_session_entries = T::MaxSetIdSessionEntries::get().max(1);
 				if current_set_id >= max_set_id_session_entries {
 					SetIdSession::<T>::remove(current_set_id - max_set_id_session_entries);
 				}
-
-				current_set_id
-			} else {
-				// either the session module signalled that the validators have changed
-				// or the set was stalled. but since we didn't successfully schedule
-				// an authority set change we do not increment the set id.
-				CurrentSetId::<T>::get()
 			}
-		} else {
-			// nothing's changed, neither economic conditions nor session keys. update the pointer
-			// of the current set.
-			CurrentSetId::<T>::get()
-		};
+		}
 
 		// update the mapping to note that the current set corresponds to the
 		// latest equivalent session (i.e. now).
