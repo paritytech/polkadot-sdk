@@ -1301,7 +1301,7 @@ fn call_return_code() {
 		let alice_before = get_balance(&ALICE_FALLBACK);
 		assert_eq!(get_balance(&DJANGO_FALLBACK), 0);
 
-		let value = Pallet::<Test>::convert_native_to_evm(1u64);
+		let value = Pallet::<Test>::convert_native_to_evm(1u128);
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
@@ -1336,7 +1336,7 @@ fn call_return_code() {
 
 		// Contract has enough balance but callee reverts because "1" is passed.
 		<Test as Config>::Currency::set_balance(&bob.account_id, min_balance + 1000);
-		let value = Pallet::<Test>::convert_native_to_evm(5u64);
+		let value = Pallet::<Test>::convert_native_to_evm(5u128);
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
@@ -2652,7 +2652,7 @@ fn deposit_limit_in_nested_calls() {
 		let ret = builder::bare_call(addr_caller)
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
 				weight_limit: WEIGHT_LIMIT,
-				deposit_limit: u64::MAX,
+				deposit_limit: u128::MAX,
 			})
 			.data((102u32, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
@@ -2705,7 +2705,7 @@ fn deposit_limit_in_nested_instantiate() {
 	let (binary_caller, _code_hash_caller) =
 		compile_module("create_storage_and_instantiate").unwrap();
 	let (binary_callee, code_hash_callee) = compile_module("store_deploy").unwrap();
-	const ED: u64 = 5;
+	const ED: u128 = 5;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
@@ -2728,7 +2728,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// - 48 for the key
 		let callee_min_deposit = {
 			let callee_info_len =
-				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u64;
+				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u128;
 			let code_deposit = lockup_deposit(&code_hash_callee);
 			callee_info_len + code_deposit + 2 + ED + 2 + 48
 		};
@@ -2774,11 +2774,11 @@ fn deposit_limit_in_nested_instantiate() {
 		// Callee succeeds but caller fails on its 2nd storage operation.
 		// EIP-150 retains 1/64. For caller to fail: caller_deposit > eip_150_retained.
 		let storage_len = 50u32;
-		let caller_deposit = 2 + 48 + storage_len as u64;
-		let callee_deposit = callee_min_deposit + storage_len as u64;
-		let callee_eip_150_peak = (callee_deposit * DENOMINATOR).div_ceil(NUMERATOR);
+		let caller_deposit = 2 + 48 + storage_len as u128;
+		let callee_deposit = callee_min_deposit + storage_len as u128;
+		let callee_eip_150_peak = (callee_deposit * DENOMINATOR as u128).div_ceil(NUMERATOR as u128);
 		let caller_total_deposit = callee_eip_150_peak + caller_deposit;
-		let eip_150_retained = (callee_eip_150_peak + NUMERATOR) / DENOMINATOR;
+		let eip_150_retained = (callee_eip_150_peak + NUMERATOR as u128) / DENOMINATOR as u128;
 		assert!(
 			eip_150_retained < caller_deposit,
 			"eip_150_retained ({eip_150_retained}) must be < caller_deposit ({caller_deposit})"
@@ -2800,7 +2800,7 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// With EIP-150 63/64 rule, nested calls receive floor(remaining * 63/64).
 		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as overhead.
-		let eip_150_overhead = (callee_min_deposit + 1).div_ceil(NUMERATOR);
+		let eip_150_overhead = (callee_min_deposit + 1).div_ceil(NUMERATOR as u128);
 		// The +3 accounts for using 1-byte storage while caller_min_deposit assumes 0-byte:
 		// - +1 for callee's 1-byte storage data
 		// - +2 for caller's two 1-byte storage items
@@ -3982,7 +3982,7 @@ fn call_tracing_works() {
 			a.gas_consumed
 		});
 		let gas_trace = tracer.collect_trace().unwrap();
-		assert_eq!(&gas_trace.gas_used, &gas_used);
+		assert_eq!(gas_trace.gas_used, gas_used as u64);
 
 		for config in tracer_configs {
 			let logs = if config.with_logs {
@@ -5271,7 +5271,7 @@ fn self_destruct_by_syscall_tracing_works() {
 						gas: 0,
 
 						call_type: CallType::Selfdestruct,
-						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
+						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u128)),
 						..Default::default()
 					}],
 					..Default::default()

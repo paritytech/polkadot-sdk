@@ -539,7 +539,7 @@ fn eip_150_deposit_overhead_math_helper() {
 	use crate::metering::math::eip_150::{apply_balance, overhead_balance};
 
 	// Verify: apply_balance(consumed + overhead) == consumed
-	let values: Vec<u64> = vec![0, 1, 62, 63, 64, 126, 630, 6300, 100_000, 847_293_651];
+	let values: Vec<u128> = vec![0, 1, 62, 63, 64, 126, 630, 6300, 100_000, 847_293_651];
 	for consumed in values {
 		let overhead = overhead_balance::<Test>(consumed);
 		let required = consumed.saturating_add(overhead);

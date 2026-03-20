@@ -779,6 +779,8 @@ pub struct FullPeerConfig {
 	pub target_header: Option<<Block as BlockT>::Header>,
 	/// Force genesis even in case of warp & light state sync.
 	pub force_genesis: bool,
+	/// If true, the import queue will not handle justification imports.
+	pub disable_justification_import: bool,
 }
 
 #[async_trait::async_trait]
@@ -854,6 +856,8 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.make_verifier(PeersClient { client: client.clone(), backend: backend.clone() }, &data);
 		let verifier = VerifierAdapter::new(verifier);
 
+		let justification_import =
+			if config.disable_justification_import { None } else { justification_import };
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
 			Box::new(block_import.clone()),
