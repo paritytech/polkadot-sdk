@@ -242,7 +242,7 @@ enum PreValidationError {
 /// - Basic checks: PoV size, PoV hash, validation code hash
 /// - Backing-only (skipped for approval/dispute):
 ///   - Scheduling session matches runtime
-///   - Relay parent valid in claimed session (via `check_relay_parent_info` utility)
+///   - Relay parent valid in claimed session (via `check_relay_parent_session` utility)
 ///   - Claim queue fetch
 ///
 /// Backing-only checks are skipped for approval/dispute because the runtime

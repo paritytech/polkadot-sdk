@@ -81,6 +81,14 @@ crates:
     bump: major
   - name: polkadot-node-core-approval-voting
     bump: major
+  - name: polkadot-node-core-runtime-api
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: polkadot-test-runtime
+    bump: major
   - name: polkadot-node-network-protocol
     bump: major
   - name: polkadot-subsystem-bench
