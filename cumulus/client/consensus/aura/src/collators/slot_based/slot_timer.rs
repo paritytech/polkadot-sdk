@@ -341,7 +341,7 @@ where
 		// For offset = 1, we build on RP n - 1 when RP n arrives.
 		// Assume the RP n - 1 has a slot of 803, the wall clock detects 804 (aura slot)
 		// then our deadline is effectively in slot 805.
-		let effective_slot = para_slot + Slot::from(relay_parent_offset as u64);
+		let effective_slot = para_slot.saturating_add(Slot::from(relay_parent_offset as u64));
 
 		let Some(next_slot_change) =
 			self.time_until_next_slot_change(slot_duration, effective_slot)
