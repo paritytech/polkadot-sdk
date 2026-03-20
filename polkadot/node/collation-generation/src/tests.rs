@@ -556,7 +556,7 @@ fn approved_peer_signal() {
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
 				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
-				assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V3);
+				assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
 			}
 		);
 
