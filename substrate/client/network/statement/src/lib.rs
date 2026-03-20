@@ -784,6 +784,15 @@ where
 					return;
 				}
 
+				if self.peers.contains_key(&peer) || self.pending_initial_syncs.contains_key(&peer)
+				{
+					log::debug!(
+						target: LOG_TARGET,
+						"{peer}: Replacing stale statement peer state on duplicate stream-open event"
+					);
+					self.cleanup_peer_state(peer, false);
+				}
+
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
@@ -2611,6 +2620,58 @@ mod tests {
 			vec![hash],
 			"Queued initial sync should include the current statement-store hashes"
 		);
+	}
+
+	#[tokio::test]
+	async fn duplicate_stream_open_replaces_stale_peer_state_without_leaking_metrics() {
+		let (mut handler, statement_store, network, _notification_service, _sync) =
+			build_handler_no_peers_with_sync(false);
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let mut statement1 = Statement::new();
+		statement1.set_plain_data(b"duplicate-open-1".to_vec());
+		let hash1 = statement1.hash();
+		statement_store.statements.lock().unwrap().insert(hash1, statement1);
+
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		let mut statement2 = Statement::new();
+		statement2.set_plain_data(b"duplicate-open-2".to_vec());
+		let hash2 = statement2.hash();
+		statement_store.statements.lock().unwrap().insert(hash2, statement2);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(
+			!network.get_disconnected_peers().contains(&peer_id),
+			"A duplicate stream-open should refresh local state, not force a disconnect"
+		);
+		assert_eq!(handler.peers.len(), 1);
+		assert_eq!(handler.pending_initial_syncs.len(), 1);
+		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 1);
+
+		let mut queued_hashes = handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.clone();
+		queued_hashes.sort();
+		let mut expected_hashes = vec![hash1, hash2];
+		expected_hashes.sort();
+		assert_eq!(queued_hashes, expected_hashes);
 	}
 
 	#[tokio::test]
