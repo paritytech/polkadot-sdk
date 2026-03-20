@@ -24,8 +24,8 @@ use crate::{
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
-		Get,
-		fungible::Mutate,
+		Get, OnUnbalanced,
+		fungible::{Balanced, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
 	},
 };
@@ -130,7 +130,7 @@ pub(crate) fn transfer_with_dust<T: Config>(
 	Ok(())
 }
 
-/// Burn a balance with dust from an account.
+/// Withdraw a balance with dust from an account and forward it to [`Config::OnBurn`].
 pub(crate) fn burn_with_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	value: BalanceWithDust<BalanceOf<T>>,
@@ -147,33 +147,35 @@ pub(crate) fn burn_with_dust<T: Config>(
 
 	let (value, dust) = value.deconstruct();
 	if dust == 0 {
-		// No dust to handle, just burn the balance
-		T::Currency::burn_from(
+		// No dust to handle, just withdraw the balance.
+		let credit = T::Currency::withdraw(
 			from,
 			value,
-			Preservation::Preserve,
 			Precision::Exact,
+			Preservation::Preserve,
 			Fortitude::Polite,
 		)
 		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Burning {value:?} from {from:?} failed. Err: {err:?}");
+			log::debug!(target: LOG_TARGET, "Withdrawing {value:?} from {from:?} failed. Err: {err:?}");
 			Error::<T>::TransferFailed
 		})?;
+		T::OnBurn::on_unbalanced(credit);
 		return Ok(());
 	}
 
 	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
-	T::Currency::burn_from(
+	let credit = T::Currency::withdraw(
 		from,
 		value,
-		Preservation::Preserve,
 		Precision::Exact,
+		Preservation::Preserve,
 		Fortitude::Polite,
 	)
 	.map_err(|err| {
-		log::debug!(target: LOG_TARGET, "Burning {value:?} from {from:?} failed. Err: {err:?}");
+		log::debug!(target: LOG_TARGET, "Withdrawing {value:?} from {from:?} failed. Err: {err:?}");
 		Error::<T>::TransferFailed
 	})?;
+	T::OnBurn::on_unbalanced(credit);
 
 	from_info.dust = from_info.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
@@ -185,10 +187,13 @@ mod tests {
 	use super::*;
 	use crate::{
 		Config, Error, H160, Pallet,
-		test_utils::{ALICE_ADDR, BOB_ADDR},
-		tests::{ExtBuilder, Test, builder, test_utils::set_balance_with_dust},
+		test_utils::{ALICE, ALICE_ADDR, BOB_ADDR},
+		tests::{BurnDestination, ExtBuilder, Test, builder, test_utils::set_balance_with_dust},
 	};
-	use frame_support::{assert_err, traits::Get};
+	use frame_support::{
+		assert_err, assert_ok,
+		traits::{Get, fungible::Inspect},
+	};
 	use sp_runtime::{DispatchError, traits::Zero};
 
 	#[test]
@@ -386,5 +391,132 @@ mod tests {
 				);
 			});
 		}
+	}
+
+	#[test]
+	fn burn_with_dust_redirects_to_on_burn() {
+		let plank: u32 = <Test as Config>::NativeToEthRatio::get();
+		let burn_dest = BurnDestination::get();
+
+		struct TestCase {
+			description: &'static str,
+			balance: BalanceWithDust<u128>,
+			amount: BalanceWithDust<u128>,
+			expected_balance: BalanceWithDust<u128>,
+			// How much the OnBurn destination should receive (the withdraw portion).
+			expected_on_burn: u128,
+			// ensure_sufficient_dust burns 1 plank via burn_from (real issuance decrease).
+			// Only nonzero when dust conversion is needed.
+			expected_dust_burn: u128,
+		}
+
+		let test_cases = vec![
+			// GIVEN balance without dust, WHEN burning without dust.
+			// THEN the full amount is redirected to OnBurn.
+			TestCase {
+				description: "burn without dust",
+				balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+				amount: BalanceWithDust::new_unchecked::<Test>(5, 0),
+				expected_balance: BalanceWithDust::new_unchecked::<Test>(95, 0),
+				expected_on_burn: 5,
+				expected_dust_burn: 0,
+			},
+			// GIVEN balance without dust, WHEN burning with dust.
+			// THEN 3 planks go to OnBurn, 1 plank is burned for dust conversion.
+			TestCase {
+				description: "burn with dust",
+				balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+				amount: BalanceWithDust::new_unchecked::<Test>(3, 10),
+				expected_balance: BalanceWithDust::new_unchecked::<Test>(96, plank - 10),
+				expected_on_burn: 3,
+				expected_dust_burn: 1,
+			},
+			// GIVEN balance with existing dust, WHEN burning just dust.
+			// THEN no withdraw happens (dust-only, value=0), no OnBurn call.
+			TestCase {
+				description: "burn just dust with existing dust",
+				balance: BalanceWithDust::new_unchecked::<Test>(100, 20),
+				amount: BalanceWithDust::new_unchecked::<Test>(0, 10),
+				expected_balance: BalanceWithDust::new_unchecked::<Test>(100, 10),
+				expected_on_burn: 0,
+				expected_dust_burn: 0,
+			},
+			// GIVEN zero amount, WHEN burning nothing (no-op).
+			TestCase {
+				description: "burn zero is a no-op",
+				balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+				amount: BalanceWithDust::new_unchecked::<Test>(0, 0),
+				expected_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+				expected_on_burn: 0,
+				expected_dust_burn: 0,
+			},
+		];
+
+		for TestCase {
+			description,
+			balance,
+			amount,
+			expected_balance,
+			expected_on_burn,
+			expected_dust_burn,
+		} in test_cases.into_iter()
+		{
+			ExtBuilder::default().build().execute_with(|| {
+				set_balance_with_dust(&ALICE_ADDR, balance);
+				// Seed the burn destination so it can receive funds.
+				let ed = <Test as Config>::Currency::minimum_balance();
+				<Test as Config>::Currency::set_balance(&burn_dest, ed);
+
+				let issuance_before = <Test as Config>::Currency::total_issuance();
+				let dest_before = <Test as Config>::Currency::balance(&burn_dest);
+
+				assert_ok!(burn_with_dust::<Test>(&ALICE, amount));
+
+				assert_eq!(
+					Pallet::<Test>::evm_balance(&ALICE_ADDR),
+					Pallet::<Test>::convert_native_to_evm(expected_balance),
+					"{description}: invalid balance"
+				);
+
+				// OnBurn destination received the withdrawn amount.
+				let dest_after = <Test as Config>::Currency::balance(&burn_dest);
+				assert_eq!(
+					dest_after - dest_before,
+					expected_on_burn,
+					"{description}: OnBurn destination balance mismatch"
+				);
+
+				// Only the dust conversion burn reduces total issuance.
+				let issuance_after = <Test as Config>::Currency::total_issuance();
+				assert_eq!(
+					issuance_before - issuance_after,
+					expected_dust_burn,
+					"{description}: total issuance mismatch"
+				);
+			});
+		}
+	}
+
+	#[test]
+	fn burn_with_dust_fails_on_insufficient_balance() {
+		ExtBuilder::default().build().execute_with(|| {
+			// GIVEN Alice has 10 planks.
+			set_balance_with_dust(&ALICE_ADDR, BalanceWithDust::new_unchecked::<Test>(10, 0));
+
+			// WHEN trying to burn more than available.
+			// THEN it fails.
+			assert_err!(
+				burn_with_dust::<Test>(&ALICE, BalanceWithDust::new_unchecked::<Test>(20, 0),),
+				Error::<Test>::TransferFailed,
+			);
+
+			// AND balance is unchanged.
+			assert_eq!(
+				Pallet::<Test>::evm_balance(&ALICE_ADDR),
+				Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(
+					10, 0
+				)),
+			);
+		});
 	}
 }

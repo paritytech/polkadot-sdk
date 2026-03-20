@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "ark-pallas-ext"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bbaeac3876520e76ee237eab49e0eb3586c5b4267e6b740066588da9b58fc30"
+checksum = "d6906648fb42b7c83fc40ea43b12fbf75b704532057d71a467a25ec4afc239b6"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -1067,9 +1067,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vesta-ext"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0b7a48a187aa9f58e2b7d4d4f97b0eec39e263ec62e69cadeb0a4399718e778"
+checksum = "27dfabb2b731180273184366ebf57b1793600889e9c7b548916433dd19fb8932"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -1095,7 +1095,26 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rayon",
  "sha2 0.10.9",
- "w3f-ring-proof",
+ "w3f-ring-proof 0.0.2",
+ "zeroize",
+]
+
+[[package]]
+name = "ark-vrf"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d815a2faa9e0fe6c342cc7f25f1f30016774cfbc966f56ea1967377a7ac2066"
+dependencies = [
+ "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "digest 0.10.7",
+ "rand_chacha 0.3.1",
+ "sha2 0.10.9",
+ "w3f-ring-proof 0.0.6",
  "zeroize",
 ]
 
@@ -2811,6 +2830,7 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
@@ -3442,6 +3462,7 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-preimage",
@@ -3796,6 +3817,7 @@ dependencies = [
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-proxy",
@@ -11561,7 +11583,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "k256",
  "log",
  "pallet-assets",
  "pallet-balances",
@@ -11572,6 +11593,7 @@ dependencies = [
  "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "test-case",
@@ -12156,6 +12178,23 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-dap-satellite"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-dap",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -14815,6 +14854,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
+ "pallet-dap-satellite",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-migrations",
@@ -16519,6 +16559,7 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-dap",
+ "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",
@@ -23501,7 +23542,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
- "ark-vrf",
+ "ark-vrf 0.2.2",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
@@ -23552,7 +23593,7 @@ version = "38.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "707602208776d0e19d4269bb3f68c5306cacbdfabbb2e4d8d499af7b907bb0a3"
 dependencies = [
- "ark-vrf",
+ "ark-vrf 0.1.0",
  "array-bytes 6.2.2",
  "bitflags 1.3.2",
  "blake2 0.10.6",
@@ -27392,7 +27433,7 @@ checksum = "225eaa083192400abfe78838e3089c539a361e0dd9b6884f61b5c6237676ec01"
 dependencies = [
  "ark-scale",
  "ark-serialize 0.5.0",
- "ark-vrf",
+ "ark-vrf 0.1.0",
  "bounded-collections 0.1.9",
  "derive-where",
  "parity-scale-codec",
@@ -27451,6 +27492,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "w3f-pcs"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ea1046a1deb6d26c34ba2d1f1bab4222d695d126502ee765f80b021753cb674"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "merlin",
+]
+
+[[package]]
 name = "w3f-plonk-common"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -27464,7 +27519,23 @@ dependencies = [
  "getrandom_or_panic",
  "rand_core 0.6.4",
  "rayon",
- "w3f-pcs",
+ "w3f-pcs 0.0.2",
+]
+
+[[package]]
+name = "w3f-plonk-common"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "077db25196f87773d7f0784c0ea5b11f18f38d336fa25c24bc67d7936af05d7a"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "getrandom_or_panic",
+ "rand_core 0.6.4",
+ "w3f-pcs 0.0.5",
 ]
 
 [[package]]
@@ -27480,8 +27551,24 @@ dependencies = [
  "ark-std 0.5.0",
  "ark-transcript",
  "rayon",
- "w3f-pcs",
- "w3f-plonk-common",
+ "w3f-pcs 0.0.2",
+ "w3f-plonk-common 0.0.2",
+]
+
+[[package]]
+name = "w3f-ring-proof"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3afac5d485a6eed7c1762be4b7b70a6f9b346bd6eebe485f48b7d909a6773f5"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-transcript",
+ "w3f-pcs 0.0.5",
+ "w3f-plonk-common 0.0.6",
 ]
 
 [[package]]
@@ -28159,6 +28246,7 @@ dependencies = [
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-conviction-voting",
+ "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
