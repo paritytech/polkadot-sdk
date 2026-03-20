@@ -776,6 +776,15 @@ where
 				// major sync starts still keep their queued initial-sync recovery path.
 				let should_pause_statement_protocol = self.should_pause_statement_protocol();
 				if should_pause_statement_protocol {
+					if self.peers.contains_key(&peer)
+						|| self.pending_initial_syncs.contains_key(&peer)
+					{
+						log::debug!(
+							target: LOG_TARGET,
+							"{peer}: Cleaning up stale statement peer state before rejecting stream-open while unavailable"
+						);
+						self.cleanup_peer_state(peer, false);
+					}
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Disconnecting statement stream opened while major syncing or offline"
@@ -2620,6 +2629,38 @@ mod tests {
 			vec![hash],
 			"Queued initial sync should include the current statement-store hashes"
 		);
+	}
+
+	#[tokio::test]
+	async fn duplicate_stream_open_while_offline_cleans_up_stale_peer_state() {
+		let (mut handler, _statement_store, network, _notification_service, _sync) =
+			build_handler();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+		handler.metrics.as_ref().unwrap().initial_sync_peers_active.inc();
+		handler.sync.set_offline(true);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(!handler.initial_sync_peer_queue.contains(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
 	}
 
 	#[tokio::test]
