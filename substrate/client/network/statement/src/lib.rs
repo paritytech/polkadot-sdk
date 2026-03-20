@@ -1140,10 +1140,13 @@ where
 		) {
 			Ok(r) => r,
 			Err(e) => {
-				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
-				let started_at = entry.get().started_at;
-				entry.remove();
-				self.record_initial_sync_completion(started_at);
+				log::debug!(
+					target: LOG_TARGET,
+					"{peer_id}: Failed to fetch statements for initial sync, disconnecting peer for clean retry: {e:?}"
+				);
+				drop(entry);
+				self.network.disconnect_peer(peer_id, self.protocol_name.clone());
+				self.cleanup_peer_state(peer_id, false);
 				return;
 			},
 		};
@@ -1471,11 +1474,20 @@ mod tests {
 		statements: Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		recent_statements:
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
+		fail_statements_by_hashes: Arc<AtomicBool>,
 	}
 
 	impl TestStatementStore {
 		fn new() -> Self {
-			Self { statements: Default::default(), recent_statements: Default::default() }
+			Self {
+				statements: Default::default(),
+				recent_statements: Default::default(),
+				fail_statements_by_hashes: Arc::new(AtomicBool::new(false)),
+			}
+		}
+
+		fn set_fail_statements_by_hashes(&self, value: bool) {
+			self.fail_statements_by_hashes.store(value, Ordering::Relaxed);
 		}
 	}
 
@@ -1523,6 +1535,10 @@ mod tests {
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 			usize,
 		)> {
+			if self.fail_statements_by_hashes.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Storage("injected test failure".into()));
+			}
+
 			let statements = self.statements.lock().unwrap();
 			let mut result = Vec::new();
 			let mut processed = 0;
@@ -2035,6 +2051,51 @@ mod tests {
 		assert!(
 			notification_service.get_sent_notifications().is_empty(),
 			"Failed initial sync sends should not leave partial notifications behind"
+		);
+	}
+
+	#[tokio::test]
+	async fn initial_sync_fetch_failure_disconnects_peer_and_cleans_up() {
+		let (mut handler, statement_store, network, _notification_service, _sync) =
+			build_handler_no_peers();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"initial-sync-fetch-failure".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.set_fail_statements_by_hashes(true);
+
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 1);
+
+		handler.process_initial_sync_burst().await;
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(!handler.initial_sync_peer_queue.contains(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
+		assert_eq!(
+			handler
+				.metrics
+				.as_ref()
+				.unwrap()
+				.initial_sync_duration_seconds
+				.get_sample_count(),
+			0,
+			"A failed initial-sync fetch must not be recorded as a completed sync"
 		);
 	}
 
