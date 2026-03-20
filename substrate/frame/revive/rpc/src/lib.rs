@@ -27,6 +27,8 @@ use sp_core::{H160, H256, U256, keccak_256};
 use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use thiserror::Error;
 
+mod block_sync;
+pub(crate) use block_sync::{ChainMetadata, SyncLabel, SyncStateKey};
 pub mod cli;
 pub mod client;
 pub mod example;
