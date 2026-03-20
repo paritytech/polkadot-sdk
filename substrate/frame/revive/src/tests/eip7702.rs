@@ -118,17 +118,17 @@ fn delegation_storage_basics() {
 		let target2 = H160::from([0x33; 20]);
 
 		// Set delegation
-		AccountInfo::<Test>::set_delegation(&authority, target1);
+		AccountInfo::<Test>::set_delegation(&authority, target1).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target1));
 
 		// Update to different target
-		AccountInfo::<Test>::set_delegation(&authority, target2);
+		AccountInfo::<Test>::set_delegation(&authority, target2).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target2));
 
 		// Clear delegation
-		AccountInfo::<Test>::clear_delegation(&authority);
+		AccountInfo::<Test>::clear_delegation(&authority).unwrap();
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
 	});
@@ -158,7 +158,7 @@ fn eip3607_checks() {
 		let authority = H160::from([0x11; 20]);
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-		AccountInfo::<Test>::set_delegation(&authority, H160::from([0x22; 20]));
+		AccountInfo::<Test>::set_delegation(&authority, H160::from([0x22; 20])).unwrap();
 		assert_ok!(Contracts::ensure_non_contract_if_signed(&RuntimeOrigin::signed(authority_id)));
 
 		// Regular contracts are rejected
@@ -546,7 +546,7 @@ fn redelegation_preserves_storage() {
 			.build_and_unwrap_contract();
 
 		// Alice delegates to Counter A and writes storage
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter_a.addr);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter_a.addr).unwrap();
 
 		let result = builder::bare_call(ALICE_ADDR)
 			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
@@ -560,7 +560,7 @@ fn redelegation_preserves_storage() {
 		assert_eq!(Counter::numberCall::abi_decode_returns(&result.data).unwrap(), 42u64);
 
 		// Re-delegate to Counter B (same ABI, same storage layout)
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter_b.addr);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter_b.addr).unwrap();
 
 		// Storage from Counter A should still be accessible since the trie_id is
 		// derived from the delegated address, not the target
@@ -608,7 +608,7 @@ fn cleared_delegation_does_not_execute_code() {
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
 
 		// Delegate ALICE → Counter and write storage
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter.addr);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter.addr).unwrap();
 
 		let result = builder::bare_call(ALICE_ADDR)
 			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
@@ -621,7 +621,7 @@ fn cleared_delegation_does_not_execute_code() {
 		assert_eq!(Counter::numberCall::abi_decode_returns(&result.data).unwrap(), 42u64);
 
 		// Clear delegation
-		AccountInfo::<Test>::clear_delegation(&ALICE_ADDR);
+		AccountInfo::<Test>::clear_delegation(&ALICE_ADDR).unwrap();
 		assert!(!AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 
 		// Calling number() should no longer execute Counter code
@@ -715,7 +715,7 @@ fn delegation_chain_does_not_execute() {
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
 
 		// Alice delegates to the Counter contract
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter.addr);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter.addr).unwrap();
 
 		// Helper to read Alice's number storage slot
 		let read_number = || {
@@ -755,7 +755,7 @@ fn delegation_chain_does_not_execute() {
 
 		// Case 3: Bob delegates to Alice (chain: Bob -> Alice -> Counter)
 		// Calling Bob should NOT execute code because chains are not followed
-		AccountInfo::<Test>::set_delegation(&BOB_ADDR, ALICE_ADDR);
+		AccountInfo::<Test>::set_delegation(&BOB_ADDR, ALICE_ADDR).unwrap();
 
 		let result = builder::bare_call(BOB_ADDR)
 			.data(Counter::setNumberCall { newNumber: 99u64 }.abi_encode())
@@ -777,7 +777,7 @@ fn delegation_to_nonexistent_address_is_noop() {
 
 		// Delegate Alice to an address that has no deployed contract
 		let nonexistent = H160::from([0xDE; 20]);
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, nonexistent);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, nonexistent).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR), Some(nonexistent));
 
@@ -837,7 +837,7 @@ fn selfdestruct_on_delegated_account() {
 		let alice_balance = 5_000_000u128;
 		let alice_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&alice_id, alice_balance);
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, contract.addr);
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, contract.addr).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 
 		// Beneficiary must exist (has at least ED) so the selfdestruct balance
@@ -996,15 +996,15 @@ fn delegation_manages_code_refcount() {
 		let authority = H160::from([0x11; 20]);
 
 		// Set delegation → refcount++
-		AccountInfo::<Test>::set_delegation(&authority, target.addr);
+		AccountInfo::<Test>::set_delegation(&authority, target.addr).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before + 1);
 
 		// Re-delegate to same target → refcount unchanged
-		AccountInfo::<Test>::set_delegation(&authority, target.addr);
+		AccountInfo::<Test>::set_delegation(&authority, target.addr).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before + 1);
 
 		// Clear delegation → refcount--
-		AccountInfo::<Test>::clear_delegation(&authority);
+		AccountInfo::<Test>::clear_delegation(&authority).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before);
 	});
 }
@@ -1034,11 +1034,11 @@ fn redelegation_updates_refcounts() {
 		let authority = H160::from([0x11; 20]);
 
 		// Delegate to A
-		AccountInfo::<Test>::set_delegation(&authority, target_a.addr);
+		AccountInfo::<Test>::set_delegation(&authority, target_a.addr).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(), refcount_a_before + 1);
 
 		// Re-delegate to B
-		AccountInfo::<Test>::set_delegation(&authority, target_b.addr);
+		AccountInfo::<Test>::set_delegation(&authority, target_b.addr).unwrap();
 		assert_eq!(
 			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
 			refcount_a_before,
@@ -1080,7 +1080,7 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
 		// Step 1: delegate to contract A — charges deposit, increments refcount
-		let deposit_a = AccountInfo::<Test>::set_delegation(&authority, target_a.addr);
+		let deposit_a = AccountInfo::<Test>::set_delegation(&authority, target_a.addr).unwrap();
 		let charge_a = match deposit_a {
 			crate::StorageDeposit::Charge(d) => d,
 			other => panic!("expected Charge, got {other:?}"),
@@ -1090,7 +1090,7 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 
 		// Step 2: re-delegate to a plain EOA — refunds the full deposit, decrements refcount
 		let plain_eoa = H160::from([0x77; 20]);
-		let deposit_eoa = AccountInfo::<Test>::set_delegation(&authority, plain_eoa);
+		let deposit_eoa = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
 		assert_eq!(
 			deposit_eoa,
 			crate::StorageDeposit::Refund(charge_a),
@@ -1103,7 +1103,7 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 		);
 
 		// Step 3: re-delegate to contract C — charges a fresh deposit, must NOT touch A
-		let deposit_c = AccountInfo::<Test>::set_delegation(&authority, target_c.addr);
+		let deposit_c = AccountInfo::<Test>::set_delegation(&authority, target_c.addr).unwrap();
 		let charge_c = match deposit_c {
 			crate::StorageDeposit::Charge(d) => d,
 			other => panic!("expected Charge, got {other:?}"),
@@ -1131,7 +1131,7 @@ fn delegation_to_eoa_has_no_deposit() {
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
-		let deposit = AccountInfo::<Test>::set_delegation(&authority, plain_eoa);
+		let deposit = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert!(deposit.is_zero(), "delegation to EOA should not charge any deposit");
@@ -1161,8 +1161,8 @@ fn multiple_delegations_each_have_own_deposit() {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&id_b, 100_000_000);
 
 		// Delegate both to the same target
-		let deposit_a = AccountInfo::<Test>::set_delegation(&authority_a, target.addr);
-		let deposit_b = AccountInfo::<Test>::set_delegation(&authority_b, target.addr);
+		let deposit_a = AccountInfo::<Test>::set_delegation(&authority_a, target.addr).unwrap();
+		let deposit_b = AccountInfo::<Test>::set_delegation(&authority_b, target.addr).unwrap();
 
 		// Both should get the same charge since they delegate to the same code
 		assert_eq!(deposit_a, deposit_b);

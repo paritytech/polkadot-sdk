@@ -117,6 +117,11 @@ pub fn process_authorizations<T: Config>(
 			AccountInfo::<T>::set_delegation(&authority, auth.address)
 		};
 
+		let Ok(deposit) = deposit else {
+			log::debug!(target: LOG_TARGET, "Delegation failed for {authority:?}, skipping");
+			continue;
+		};
+
 		match deposit {
 			StorageDeposit::Charge(amount) => {
 				Pallet::<T>::charge_deposit(

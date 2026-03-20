@@ -269,7 +269,10 @@ impl<T: Config> AccountInfo<T> {
 	///
 	/// Note: the target's `code_hash` is snapshotted at delegation time. This is fine
 	/// because `set_code` (the only way to change a contract's code) requires root.
-	pub(crate) fn set_delegation(address: &H160, target: H160) -> StorageDeposit<BalanceOf<T>> {
+	pub(crate) fn set_delegation(
+		address: &H160,
+		target: H160,
+	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
 		let target_code_hash =
 			<AccountInfoOf<T>>::get(&target).and_then(|info| match info.account_type {
 				AccountType::Contract(c) => Some(c.code_hash),
@@ -351,23 +354,23 @@ impl<T: Config> AccountInfo<T> {
 		if let Some(new_hash) = target_code_hash &&
 			Some(new_hash) != old_code_hash
 		{
-			if let Err(e) = CodeInfo::<T>::increment_refcount(new_hash) {
+			CodeInfo::<T>::increment_refcount(new_hash).inspect_err(|e| {
 				log::warn!(target: LOG_TARGET, "increment_refcount({new_hash:?}) failed: {e:?}");
-			}
+			})?;
 		}
 		if let Some(old_hash) = old_code_hash &&
 			Some(old_hash) != target_code_hash
 		{
-			if let Err(e) = CodeInfo::<T>::decrement_refcount(old_hash) {
+			let _ = CodeInfo::<T>::decrement_refcount(old_hash).inspect_err(|e| {
 				log::warn!(target: LOG_TARGET, "decrement_refcount({old_hash:?}) failed: {e:?}");
-			}
+			})?;
 		}
 
-		if new_deposit >= old_deposit {
+		Ok(if new_deposit >= old_deposit {
 			StorageDeposit::Charge(new_deposit.saturating_sub(old_deposit))
 		} else {
 			StorageDeposit::Refund(old_deposit.saturating_sub(new_deposit))
-		}
+		})
 	}
 
 	/// EIP-7702: Clear delegation indicator.
@@ -376,7 +379,9 @@ impl<T: Config> AccountInfo<T> {
 	/// the child trie and deposit accounting are preserved for future re-delegation.
 	///
 	/// Returns the `storage_base_deposit` to refund.
-	pub(crate) fn clear_delegation(address: &H160) -> StorageDeposit<BalanceOf<T>> {
+	pub(crate) fn clear_delegation(
+		address: &H160,
+	) -> Result<StorageDeposit<BalanceOf<T>>, DispatchError> {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			let mut refund: BalanceOf<T> = Zero::zero();
 			if let Some(account) = account &&
@@ -385,14 +390,14 @@ impl<T: Config> AccountInfo<T> {
 			{
 				*delegate_target = None;
 				if !contract_info.code_hash.is_zero() {
-					if let Err(e) = CodeInfo::<T>::decrement_refcount(contract_info.code_hash) {
+					let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash).inspect_err(|e| {
 						log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
-					}
+					})?;
 					refund = core::mem::take(&mut contract_info.storage_base_deposit);
 					contract_info.code_hash = Default::default();
 				}
 			}
-			StorageDeposit::Refund(refund)
+			Ok(StorageDeposit::Refund(refund))
 		})
 	}
 }
