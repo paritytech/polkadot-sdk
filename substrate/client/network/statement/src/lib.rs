@@ -485,6 +485,8 @@ enum SendChunkResult {
 	Skipped,
 	/// Nothing to send.
 	Empty,
+	/// Statement sending is paused because the node is unavailable.
+	Paused,
 	/// Send failed.
 	Failed,
 }
@@ -648,6 +650,10 @@ where
 		peer: &PeerId,
 		statements: &[&Statement],
 	) -> SendChunkResult {
+		if self.should_pause_statement_protocol() {
+			return SendChunkResult::Paused;
+		}
+
 		match find_sendable_chunk(statements) {
 			ChunkResult::Send(0) => SendChunkResult::Empty,
 			ChunkResult::Send(chunk_end) => {
@@ -664,9 +670,19 @@ where
 				.await;
 				drop(sent_latency_timer);
 
-				if let Err(e) = send_result {
-					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
-					return SendChunkResult::Failed;
+				match send_result {
+					Err(e) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Timed out while sending notification to {peer}: {e:?}"
+						);
+						return SendChunkResult::Failed;
+					},
+					Ok(Err(e)) => {
+						log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
+						return SendChunkResult::Failed;
+					},
+					Ok(Ok(())) => {},
 				}
 
 				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
@@ -983,13 +999,16 @@ where
 	///
 	/// Internally filters `statements` to only send unknown statements to the peer.
 	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
-		let Some(peer) = self.peers.get_mut(who) else {
+		let Some(peer) = self.peers.get(who) else {
 			return;
 		};
 
+		let mut projected_known_statements = peer.known_statements.clone();
 		let to_send: Vec<_> = statements
 			.iter()
-			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
+			.filter_map(|(hash, stmt)| {
+				projected_known_statements.insert(*hash).then(|| (*hash, stmt))
+			})
 			.collect();
 
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
@@ -998,21 +1017,27 @@ where
 			return;
 		}
 
-		self.send_statements_in_chunks(who, &to_send).await;
-	}
-
-	/// Send statements to a peer in chunks, respecting the maximum notification size.
-	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
 		let mut offset = 0;
-		while offset < statements.len() {
-			match self.send_statement_chunk(who, &statements[offset..]).await {
+		while offset < to_send.len() {
+			let chunk: Vec<_> = to_send[offset..].iter().map(|(_, stmt)| *stmt).collect();
+			match self.send_statement_chunk(who, &chunk).await {
 				SendChunkResult::Sent(chunk_end) => {
+					if let Some(peer) = self.peers.get_mut(who) {
+						for (hash, _) in &to_send[offset..offset + chunk_end] {
+							peer.known_statements.insert(*hash);
+						}
+					}
 					offset += chunk_end;
 				},
 				SendChunkResult::Skipped => {
+					if let Some(peer) = self.peers.get_mut(who) {
+						peer.known_statements.insert(to_send[offset].0);
+					}
 					offset += 1;
 				},
-				SendChunkResult::Empty | SendChunkResult::Failed => return,
+				SendChunkResult::Empty | SendChunkResult::Paused | SendChunkResult::Failed => {
+					return
+				},
 			}
 		}
 	}
@@ -1060,7 +1085,7 @@ where
 			return;
 		};
 
-		let Entry::Occupied(mut entry) = self.pending_initial_syncs.entry(peer_id) else {
+		let Entry::Occupied(entry) = self.pending_initial_syncs.entry(peer_id) else {
 			return;
 		};
 
@@ -1098,18 +1123,22 @@ where
 			},
 		};
 
-		// Drain processed hashes and check if more remain
-		entry.get_mut().hashes.drain(..processed);
-		let has_more = !entry.get().hashes.is_empty();
 		drop(entry);
 
 		// Send statements (already sized to fit in one message)
 		let to_send: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
 		match self.send_statement_chunk(&peer_id, &to_send).await {
 			SendChunkResult::Failed => {
-				if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-					self.record_initial_sync_completion(pending.started_at);
-				}
+				log::debug!(
+					target: LOG_TARGET,
+					"{peer_id}: Initial sync send failed, disconnecting peer to retry on reconnect"
+				);
+				self.network.disconnect_peer(peer_id, self.protocol_name.clone());
+				self.cleanup_peer_state(peer_id, false);
+				return;
+			},
+			SendChunkResult::Paused => {
+				self.initial_sync_peer_queue.push_front(peer_id);
 				return;
 			},
 			SendChunkResult::Sent(sent) => {
@@ -1117,7 +1146,7 @@ where
 				self.metrics.as_ref().map(|metrics| {
 					metrics.initial_sync_statements_sent.inc_by(sent as u64);
 				});
-				// Mark statements as known
+				// Mark statements as known only after they were actually sent.
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
 					for (hash, _) in &statements {
 						peer.known_statements.insert(*hash);
@@ -1127,13 +1156,19 @@ where
 			SendChunkResult::Empty | SendChunkResult::Skipped => {},
 		}
 
+		let has_more = {
+			let Some(pending) = self.pending_initial_syncs.get_mut(&peer_id) else {
+				return;
+			};
+			pending.hashes.drain(..processed);
+			!pending.hashes.is_empty()
+		};
+
 		// Re-queue if more hashes remain
 		if has_more {
 			self.initial_sync_peer_queue.push_back(peer_id);
-		} else {
-			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-				self.record_initial_sync_completion(pending.started_at);
-			}
+		} else if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
+			self.record_initial_sync_completion(pending.started_at);
 		}
 	}
 }
@@ -1322,15 +1357,23 @@ mod tests {
 	#[derive(Debug, Clone)]
 	struct TestNotificationService {
 		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		fail_async_send: Arc<AtomicBool>,
 	}
 
 	impl TestNotificationService {
 		fn new() -> Self {
-			Self { sent_notifications: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				sent_notifications: Arc::new(Mutex::new(Vec::new())),
+				fail_async_send: Arc::new(AtomicBool::new(false)),
+			}
 		}
 
 		fn get_sent_notifications(&self) -> Vec<(PeerId, Vec<u8>)> {
 			self.sent_notifications.lock().unwrap().clone()
+		}
+
+		fn set_fail_async_send(&self, value: bool) {
+			self.fail_async_send.store(value, Ordering::Relaxed);
 		}
 	}
 
@@ -1353,6 +1396,10 @@ mod tests {
 			peer: &PeerId,
 			notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {
+			if self.fail_async_send.load(Ordering::Relaxed) {
+				return Err(sc_network::error::Error::ConnectionClosed);
+			}
+
 			self.sent_notifications.lock().unwrap().push((*peer, notification));
 			Ok(())
 		}
@@ -1417,9 +1464,9 @@ mod tests {
 
 		fn statement(
 			&self,
-			_hash: &sp_statement_store::Hash,
+			hash: &sp_statement_store::Hash,
 		) -> sp_statement_store::Result<Option<sp_statement_store::Statement>> {
-			unimplemented!()
+			Ok(self.statements.lock().unwrap().get(hash).cloned())
 		}
 
 		fn has_statement(&self, hash: &sp_statement_store::Hash) -> bool {
@@ -1802,6 +1849,72 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 		};
 		(handler, statement_store, network, notification_service, sync)
+	}
+
+	#[tokio::test]
+	async fn propagate_statement_retries_after_send_failure() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
+			build_handler();
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"retry-after-send-failure".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		notification_service.set_fail_async_send(true);
+		handler.propagate_statement(&hash).await;
+		assert!(
+			notification_service.get_sent_notifications().is_empty(),
+			"A failed send must not produce a recorded notification"
+		);
+
+		notification_service.set_fail_async_send(false);
+		handler.propagate_statement(&hash).await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 1, "The statement should be retried after send recovery");
+		let decoded = <Statements as Decode>::decode(&mut sent[0].1.as_slice()).unwrap();
+		assert_eq!(decoded.len(), 1);
+		assert_eq!(decoded[0].hash(), hash);
+	}
+
+	#[tokio::test]
+	async fn initial_sync_send_failure_disconnects_peer_and_cleans_up() {
+		let (mut handler, statement_store, network, notification_service, _sync) =
+			build_handler_no_peers();
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"initial-sync-send-failure".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		notification_service.set_fail_async_send(true);
+
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+
+		handler.process_initial_sync_burst().await;
+
+		assert!(
+			network.get_disconnected_peers().contains(&peer_id),
+			"Peers whose initial sync send fails should be disconnected for a clean retry"
+		);
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(!handler.initial_sync_peer_queue.contains(&peer_id));
+		assert!(
+			notification_service.get_sent_notifications().is_empty(),
+			"Failed initial sync sends should not leave partial notifications behind"
+		);
 	}
 
 	#[tokio::test]
