@@ -8,6 +8,7 @@ The PSM pallet allows users to swap external stablecoins (e.g., USDC, USDT) for 
 
 - **Reserves are held**: External stablecoins are held in a pallet-derived account (`PalletId`)
 - **pUSD is minted/burned**: Users receive pUSD when depositing external stablecoins, and burn pUSD when redeeming
+- **Fees are routed via `FeeHandler`**: Mint and redeem fees are collected in pUSD and dispatched through a configurable handler
 - **Circuit breaker provides emergency control**: Per-asset circuit breaker can disable minting or all swaps
 
 ## Swap Lifecycle
@@ -18,7 +19,7 @@ mint(origin, asset_id, external_amount)
 ```
 - Deposits external stablecoin into the PSM account
 - Mints pUSD to the user (minus minting fee)
-- Fee is minted as pUSD to the Insurance Fund
+- Fee is issued as pUSD credit and routed through `FeeHandler`
 - Enforces three-tier debt ceiling: system-wide, aggregate PSM, and per-asset
 - Requires `external_amount >= MinSwapAmount`
 
@@ -26,9 +27,9 @@ mint(origin, asset_id, external_amount)
 ```rust
 redeem(origin, asset_id, pusd_amount)
 ```
-- Burns pUSD from the user (minus redemption fee)
+- Burns pUSD from the user equal to the external amount being redeemed
 - Transfers external stablecoin from PSM account to user
-- Fee is transferred as pUSD from user to Insurance Fund
+- Redemption fee is withdrawn from the user as pUSD credit and routed through `FeeHandler`
 - Limited by tracked PSM debt (not raw reserve balance)
 - Requires `pusd_amount >= MinSwapAmount`
 
@@ -56,10 +57,10 @@ Setting an asset's weight to 0% disables minting and redistributes its capacity 
 
 ## Fee Structure
 
-Fees are calculated using `Permill::mul_ceil` (rounds up):
+Fees are calculated using `Permill::mul_ceil` (rounds up) and handled as pUSD credits via `FeeHandler`:
 
-- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)` -- deducted from pUSD output, minted to Insurance Fund
-- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)` -- transferred as pUSD from user to Insurance Fund
+- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)` -- deducted from pUSD output, issued as pUSD credit, and passed to `FeeHandler`
+- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)` -- withdrawn from the user as pUSD credit and passed to `FeeHandler`
 
 With 0.5% fees on both sides, arbitrage opportunities exist when pUSD trades outside $0.995-$1.005.
 
@@ -84,7 +85,7 @@ The `set_asset_status` extrinsic can be called by both `GeneralAdmin` and `Emerg
 | `set_max_psm_debt(ratio)`                    | Full              | Update global PSM ceiling as % of MaximumIssuance |
 | `set_asset_ceiling_weight(asset_id, weight)` | Full              | Update per-asset ceiling weight                   |
 | `set_asset_status(asset_id, status)`         | Full or Emergency | Set per-asset circuit breaker level               |
-| `add_external_asset(asset_id)`               | Full              | Add approved stablecoin (defaults to AllEnabled)  |
+| `add_external_asset(asset_id)`               | Full              | Add approved stablecoin with matching decimals; defaults to `AllEnabled` |
 | `remove_external_asset(asset_id)`            | Full              | Remove approved stablecoin (requires zero debt)   |
 
 ### Privilege Levels
@@ -99,21 +100,36 @@ The `ManagerOrigin` returns a privilege level:
 2. Redemptions slowly drain remaining PSM debt
 3. Once `PsmDebt[asset_id]` reaches zero, call `remove_external_asset(asset_id)`
 
+### Asset Onboarding Requirements
+
+Before calling `add_external_asset(asset_id)`:
+
+- The asset must already exist in the `Fungibles` implementation
+- The asset's decimals must match `StableAsset::decimals()`
+- The pallet must still be below `MaxExternalAssets`
+
 ## Configuration
 
 ```rust
 impl pallet_psm::Config for Runtime {
-    type Asset = Assets;                    // Fungibles impl for pUSD and external stablecoins
-    type AssetId = u32;                     // Asset identifier type
-    type VaultsInterface = Vaults;          // Interface to query MaximumIssuance from Vaults
-    type ManagerOrigin = EnsurePsmManager;  // Governance origin (returns privilege level)
+    type Fungibles = Assets;
+    type AssetId = u32;
+    type VaultsInterface = Vaults;
+    type ManagerOrigin = EnsurePsmManager;
     type WeightInfo = weights::SubstrateWeight<Runtime>;
-    type StablecoinAssetId = StablecoinAssetId;  // Constant: pUSD asset ID
-    type InsuranceFund = InsuranceFundAccount;    // Account receiving fee revenue
-    type PalletId = PsmPalletId;                  // For deriving PSM account address
-    type MinSwapAmount = MinSwapAmount;           // Minimum swap amount (prevents dust)
+    type StableAsset = frame_support::traits::fungible::ItemOf<
+        Assets,
+        StablecoinAssetId,
+        AccountId,
+    >;
+    type FeeHandler = ResolveTo<InsuranceFundAccount, Self::StableAsset>;
+    type PalletId = PsmPalletId;
+    type MinSwapAmount = MinSwapAmount;
+    type MaxExternalAssets = ConstU32<10>;
 }
 ```
+
+`Fungibles` must expose metadata for approved assets, and `StableAsset` must expose metadata for the pUSD asset because `add_external_asset` validates that decimals match before approval.
 
 ### Parameters (Set via Governance)
 
@@ -126,10 +142,14 @@ impl pallet_psm::Config for Runtime {
 
 ### Required Constants
 
-- `StablecoinAssetId`: The asset ID for pUSD
-- `InsuranceFund`: Account that receives fee revenue (shared with pallet-vaults)
 - `PalletId`: Unique identifier for deriving the PSM account
 - `MinSwapAmount`: Minimum amount for any swap (default: 100 pUSD)
+- `MaxExternalAssets`: Maximum number of approved external assets
+
+Typical runtime helpers used in the configuration above:
+
+- `StablecoinAssetId`: Runtime constant used by `ItemOf<..., StablecoinAssetId, ...>` to bind `StableAsset` to pUSD
+- `InsuranceFundAccount`: Example fee destination account when using `ResolveTo`
 
 ## Events
 
@@ -156,6 +176,8 @@ impl pallet_psm::Config for Runtime {
 - `AssetNotApproved`: Asset not in approved list
 - `AssetHasDebt`: Cannot remove asset with outstanding debt
 - `InsufficientPrivilege`: Emergency origin tried a Full-only operation
+- `TooManyAssets`: Maximum number of approved external assets reached
+- `DecimalsMismatch`: External asset decimals do not match the stable asset decimals
 
 ## Testing
 
