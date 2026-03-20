@@ -421,8 +421,11 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
-			let adjusted_authoring_duration =
-				slot_timer.adjust_authoring_duration(authoring_duration);
+			let adjusted_authoring_duration = slot_timer.adjust_authoring_duration(
+				authoring_duration,
+				para_slot.slot,
+				relay_parent_offset,
+			);
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
 
 			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {

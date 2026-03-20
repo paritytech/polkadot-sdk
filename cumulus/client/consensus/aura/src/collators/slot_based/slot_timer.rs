@@ -285,12 +285,13 @@ where
 	fn time_until_next_slot_change(
 		&mut self,
 		slot_duration: SlotDuration,
+		effective_slot: Slot,
 	) -> Option<(Duration, Slot)> {
 		compute_time_until_next_slot_change(
 			slot_duration,
 			duration_now(),
 			self.time_offset,
-			self.last_reported_slot.unwrap_or_default(),
+			effective_slot,
 		)
 	}
 
@@ -322,14 +323,29 @@ where
 	/// Adjust the authoring duration to fit into the slot timing.
 	///
 	/// Returns the adjusted authoring duration and the slot that it corresponds to.
-	pub fn adjust_authoring_duration(&mut self, authoring_duration: Duration) -> Option<Duration> {
+	pub fn adjust_authoring_duration(
+		&mut self,
+		authoring_duration: Duration,
+		para_slot: Slot,
+		relay_parent_offset: u32,
+	) -> Option<Duration> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 			return None;
 		};
 
 		let next_block = self.time_until_next_block(slot_duration);
-		let Some(next_slot_change) = self.time_until_next_slot_change(slot_duration) else {
+
+		// The effective parachain slot must count for the relay parent offset as well.
+		//
+		// For offset = 1, we build on RP n - 1 when RP n arrives.
+		// Assume the RP n - 1 has a slot of 803, the wall clock detects 804 (aura slot)
+		// then our deadline is effectively in slot 805.
+		let effective_slot = para_slot + Slot::from(relay_parent_offset as u64);
+
+		let Some(next_slot_change) =
+			self.time_until_next_slot_change(slot_duration, effective_slot)
+		else {
 			tracing::error!(
 				target: LOG_TARGET,
 				"Failed to compute time until next slot change. Using unadjusted authoring duration."
@@ -337,9 +353,9 @@ where
 			return Some(authoring_duration);
 		};
 
-		// Check if authors at current and next slots are different
-		let current_slot = self.last_reported_slot.unwrap_or(next_block.1);
-		let different_authors = self.check_different_slot_authors(current_slot, next_slot_change.1);
+		// Check if authors at current effective slot and next slots are different
+		let different_authors =
+			self.check_different_slot_authors(effective_slot, next_slot_change.1);
 
 		adjust_authoring_duration(
 			authoring_duration,
