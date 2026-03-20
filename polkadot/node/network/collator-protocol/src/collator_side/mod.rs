@@ -47,7 +47,6 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_node_features,
 	runtime::{
 		fetch_claim_queue, get_candidate_events, get_group_rotation_info, ClaimQueueSnapshot,
 		RuntimeInfo,
@@ -55,7 +54,7 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	node_features, AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
+	AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData, Id as ParaId,
 	SessionIndex,
 };
@@ -295,8 +294,6 @@ struct PerSchedulingParent {
 	block_number: Option<BlockNumber>,
 	/// The session index of this relay parent.
 	session_index: SessionIndex,
-	/// Whether v3 candidate receipts are enabled.
-	v3_enabled: bool,
 }
 
 impl PerSchedulingParent {
@@ -329,22 +326,12 @@ impl PerSchedulingParent {
 			validator_groups.insert(*core, group);
 		}
 
-		let node_features = request_node_features(block_hash, session_index, ctx.sender())
-			.await
-			.await
-			.ok()
-			.and_then(|r| r.ok())
-			.unwrap_or_default();
-
-		let v3_enabled = node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features);
-
 		Ok(Self {
 			validator_group: validator_groups,
 			collations: HashMap::new(),
 			assignments,
 			block_number,
 			session_index,
-			v3_enabled,
 		})
 	}
 }
@@ -480,26 +467,8 @@ async fn distribute_collation<Context>(
 	)
 	.await;
 
-	// Step 1: Extract execution relay_parent to lookup node features and get v3_enabled
-	let relay_parent = receipt.descriptor.relay_parent();
-	let v3_enabled = match state.per_scheduling_parent.get(&relay_parent) {
-		Some(sp_state) => sp_state.v3_enabled,
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = %id,
-				?relay_parent,
-				?candidate_hash,
-				"Dropping candidate: candidate relay parent is out of our view",
-			);
-			return Ok(());
-		},
-	};
+	let scheduling_parent = receipt.descriptor.scheduling_parent();
 
-	// Step 2: Extract scheduling_parent using v3_enabled
-	let scheduling_parent = receipt.descriptor.scheduling_parent(v3_enabled);
-
-	// Step 3: Lookup the ACTUAL per_relay_parent state using scheduling_parent
 	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(per_scheduling_parent) => per_scheduling_parent,
 		None => {
@@ -938,8 +907,7 @@ async fn advertise_collation<Context>(
 		}
 
 		// Get the candidate descriptor version from the receipt
-		let candidate_descriptor_version =
-			collation.receipt.descriptor.version(per_scheduling_parent.v3_enabled);
+		let candidate_descriptor_version = collation.receipt.descriptor.version();
 
 		gum::debug!(
 			target: LOG_TARGET,

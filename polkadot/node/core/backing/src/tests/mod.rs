@@ -32,8 +32,8 @@ use polkadot_primitives::{
 	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys, CandidateDescriptor,
+	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt_v2, dummy_hash,
+	validator_pubkeys,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use sp_application_crypto::AppCrypto;
@@ -236,18 +236,17 @@ struct TestCandidateBuilder {
 impl TestCandidateBuilder {
 	fn build(self) -> CommittedCandidateReceipt {
 		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
-				para_id: self.para_id,
-				pov_hash: self.pov_hash,
-				relay_parent: self.relay_parent,
-				erasure_root: self.erasure_root,
-				collator: dummy_collator(),
-				signature: dummy_collator_signature(),
-				para_head: self.head_data.hash(),
-				validation_code_hash: ValidationCode(self.validation_code).hash(),
-				persisted_validation_data_hash: self.persisted_validation_data_hash,
-			}
-			.into(),
+			descriptor: polkadot_primitives::CandidateDescriptorV2::new(
+				self.para_id,
+				self.relay_parent,
+				CoreIndex(0),
+				1, // session_index (matches TestState default)
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				self.erasure_root,
+				self.head_data.hash(),
+				ValidationCode(self.validation_code).hash(),
+			),
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				upward_messages: Default::default(),
@@ -4191,6 +4190,415 @@ fn occupied_core_assignment() {
 		);
 
 		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
+
+		virtual_overseer
+	});
+}
+
+// Test that an ambiguous candidate (version consistency check fails) is silently rejected
+// when sent via CandidateBackingMessage::Second.
+#[test]
+fn ambiguous_candidate_rejected_on_second() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let mut candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		// Make the candidate ambiguous: set scheduling_parent to non-zero while keeping
+		// version=0. Old rules see V1 (non-zero scheduling_parent), new rules see V2.
+		candidate.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
+
+		// The candidate should be silently rejected — no validation work issued.
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		virtual_overseer
+	});
+}
+
+// Test that an ambiguous candidate (version consistency check fails) is silently rejected
+// when received as a Seconded statement from another validator via
+// CandidateBackingMessage::Statement.
+#[test]
+fn ambiguous_candidate_rejected_on_statement() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+
+		let pov_hash = pov.hash();
+		let mut candidate = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+
+		// Make the candidate ambiguous: set scheduling_parent to non-zero while keeping
+		// version=0. Old rules see V1 (non-zero scheduling_parent), new rules see V2.
+		candidate.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		// Sign as a Seconded statement from another validator.
+		let public = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[2].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed_statement = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+			&test_state.signing_context,
+			ValidatorIndex(2),
+			&public.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_statement,
+		};
+
+		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
+
+		// The candidate should be silently rejected — no validation work issued.
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		virtual_overseer
+	});
+}
+
+/// Helper: send a BlockFinalized signal that activates V3 node features.
+///
+/// Uses session 2 (uncached) so the subsystem fetches fresh NodeFeatures with V3 enabled.
+async fn activate_v3_via_block_finalized(virtual_overseer: &mut VirtualOverseer) {
+	let finalized_hash = Hash::repeat_byte(0xFF);
+	virtual_overseer
+		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(finalized_hash, 1)))
+		.await;
+
+	// check_v3_on_finalized: SessionIndexForChild → session 2
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::SessionIndexForChild(tx),
+		)) if parent == finalized_hash => {
+			tx.send(Ok(2)).unwrap();
+		}
+	);
+
+	// NodeFeatures for session 2 → V3 enabled
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::NodeFeatures(session_index, tx),
+		)) if parent == finalized_hash && session_index == 2 => {
+			let mut features = NodeFeatures::new();
+			features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+			features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+			tx.send(Ok(features)).unwrap();
+		}
+	);
+}
+
+/// Helper: sign a Seconded statement as validator 2 for use with
+/// CandidateBackingMessage::Statement.
+fn sign_seconded_statement(
+	test_state: &TestState,
+	candidate: &CommittedCandidateReceipt,
+	pvd: &PersistedValidationData,
+) -> SignedFullStatementWithPVD {
+	let public = Keystore::sr25519_generate_new(
+		&*test_state.keystore,
+		ValidatorId::ID,
+		Some(&test_state.validators[2].to_seed()),
+	)
+	.expect("Insert key into keystore");
+
+	SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(2),
+		&public.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed")
+}
+
+// Test that version acceptance filtering behaves correctly before and after V3 activation
+// via the CandidateBackingMessage::Second path (local seconding).
+// - Ambiguous candidates (old rules ≠ new rules in an unexpected way) are always rejected.
+// - V3 candidates are rejected before activation but accepted after.
+#[test]
+fn version_acceptance_before_and_after_v3_activation_on_second() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let pov_hash = pov.hash();
+
+		// --- Before V3 activation ---
+
+		// 1. Ambiguous candidate: rejected (Inconsistency).
+		// scheduling_parent non-zero + version=0 → old rules see V1, new rules see V2.
+		let mut ambiguous = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		ambiguous.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: ambiguous.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 2. V3 candidate: rejected (V3NotEnabled).
+		let v3_candidate = CommittedCandidateReceipt {
+			descriptor: CandidateDescriptorV2::new_v3(
+				test_state.chain_ids[0],
+				test_state.relay_parent,
+				CoreIndex(0),
+				1,
+				pvd.hash(),
+				pov_hash,
+				make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+				expected_head_data.hash(),
+				ValidationCode(validation_code.0.clone()).hash(),
+				test_state.relay_parent,
+			),
+			commitments: CandidateCommitments {
+				head_data: expected_head_data.clone(),
+				..Default::default()
+			},
+		};
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: v3_candidate.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// --- Activate V3 ---
+		activate_v3_via_block_finalized(&mut virtual_overseer).await;
+
+		// --- After V3 activation ---
+
+		// 3. Ambiguous candidate: STILL rejected (Inconsistency is always fatal).
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: ambiguous.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 4. V3 candidate: NOW ACCEPTED — passes check_version_acceptance.
+		// It proceeds past the version check into the normal seconding flow.
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Second {
+					scheduling_parent: test_state.relay_parent,
+					candidate: v3_candidate.to_plain(),
+					pvd: pvd.clone(),
+					pov: pov.clone(),
+				},
+			})
+			.await;
+
+		// The candidate passed version acceptance and proceeds to validation —
+		// executor params are fetched as part of the validation setup.
+		// (Before V3 activation, the same candidate produced a timeout above.)
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutorParams(_, _),
+			))
+		);
+
+		virtual_overseer
+	});
+}
+
+// Same test as above but via the CandidateBackingMessage::Statement path
+// (receiving a Seconded statement from another validator).
+#[test]
+fn version_acceptance_before_and_after_v3_activation_on_statement() {
+	let mut test_state = TestState::default();
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+		let expected_head_data = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let pov_hash = pov.hash();
+
+		// Ambiguous candidate
+		let mut ambiguous = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash,
+			head_data: expected_head_data.clone(),
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			persisted_validation_data_hash: pvd.hash(),
+			validation_code: validation_code.0.clone(),
+		}
+		.build();
+		ambiguous.descriptor.set_scheduling_parent(Hash::repeat_byte(0xAB));
+
+		// V3 candidate
+		let v3_candidate = CommittedCandidateReceipt {
+			descriptor: CandidateDescriptorV2::new_v3(
+				test_state.chain_ids[0],
+				test_state.relay_parent,
+				CoreIndex(0),
+				1,
+				pvd.hash(),
+				pov_hash,
+				make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+				expected_head_data.hash(),
+				ValidationCode(validation_code.0.clone()).hash(),
+				test_state.relay_parent,
+			),
+			commitments: CandidateCommitments {
+				head_data: expected_head_data.clone(),
+				..Default::default()
+			},
+		};
+
+		// --- Before V3 activation ---
+
+		// 1. Ambiguous candidate via Statement: rejected.
+		let stmt = sign_seconded_statement(&test_state, &ambiguous, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 2. V3 candidate via Statement: rejected (V3NotEnabled).
+		let stmt = sign_seconded_statement(&test_state, &v3_candidate, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// --- Activate V3 ---
+		activate_v3_via_block_finalized(&mut virtual_overseer).await;
+
+		// --- After V3 activation ---
+
+		// 3. Ambiguous candidate via Statement: STILL rejected.
+		let stmt = sign_seconded_statement(&test_state, &ambiguous, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+
+		// 4. V3 candidate via Statement: NOW ACCEPTED.
+		let stmt = sign_seconded_statement(&test_state, &v3_candidate, &pvd);
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: stmt,
+				},
+			})
+			.await;
+
+		// The candidate passed version acceptance and is forwarded to
+		// prospective parachains for import — this is the first step of the
+		// Statement path after the version check.
+		// (Before V3 activation, the same candidate produced a timeout above.)
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(_, _),
+			)
+		);
 
 		virtual_overseer
 	});

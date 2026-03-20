@@ -221,8 +221,8 @@ where
 			MaxRelayParentSessionAge(session_index, max_relay_parent_session_age) => self
 				.requests_cache
 				.cache_max_relay_parent_session_age(session_index, max_relay_parent_session_age),
-			AllowedRelayParentInfo(relay_parent, session_index, queried_relay_parent, info) => {
-				self.requests_cache.cache_allowed_relay_parent_info(
+			AncestorRelayParentInfo(relay_parent, session_index, queried_relay_parent, info) => {
+				self.requests_cache.cache_ancestor_relay_parent_info(
 					relay_parent,
 					session_index,
 					queried_relay_parent,
@@ -455,8 +455,8 @@ where
 					Some(Request::MaxRelayParentSessionAge(index, sender))
 				}
 			},
-			Request::AllowedRelayParentInfo(session_index, queried_relay_parent, sender) => {
-				if let Some(value) = self.requests_cache.allowed_relay_parent_info(
+			Request::AncestorRelayParentInfo(session_index, queried_relay_parent, sender) => {
+				if let Some(value) = self.requests_cache.ancestor_relay_parent_info(
 					relay_parent,
 					session_index,
 					queried_relay_parent,
@@ -465,7 +465,7 @@ where
 					let _ = sender.send(Ok(value.clone()));
 					None
 				} else {
-					Some(Request::AllowedRelayParentInfo(
+					Some(Request::AncestorRelayParentInfo(
 						session_index,
 						queried_relay_parent,
 						sender,
@@ -820,10 +820,10 @@ where
 			sender,
 			result = (index)
 		),
-		Request::AllowedRelayParentInfo(session_index, queried_relay_parent, sender) => query!(
-			AllowedRelayParentInfo,
-			allowed_relay_parent_info(session_index, queried_relay_parent),
-			ver = Request::ALLOWED_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+		Request::AncestorRelayParentInfo(session_index, queried_relay_parent, sender) => query!(
+			AncestorRelayParentInfo,
+			ancestor_relay_parent_info(session_index, queried_relay_parent),
+			ver = Request::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
 			sender,
 			result = (relay_parent, session_index, queried_relay_parent)
 		),
