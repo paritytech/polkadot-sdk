@@ -35,6 +35,7 @@ use std::{
 
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
+	codec::{Compact, Decode, Encode},
 	traits::{Block as BlockT, Header as _, NumberFor},
 	Justifications,
 };
@@ -415,6 +416,30 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	}))
 }
 
+/// Unix millis from the first extrinsic (timestamp inherent).
+///
+/// Assumes: first extrinsic is `pallet_timestamp::set`
+fn block_timestamp_unix_ms<Block: BlockT>(body: &[Block::Extrinsic]) -> Option<u128> {
+	let encoded = body.first()?.encode();
+	let inner = peel_opaque_extrinsic_outer(encoded.as_slice());
+	let mut args = inner.get(1..)?.get(2..)?;
+	let moment = Compact::<u64>::decode(&mut args).ok()?;
+	Some(moment.0 as u128)
+}
+
+fn peel_opaque_extrinsic_outer(data: &[u8]) -> &[u8] {
+	let mut input = data;
+	let Ok(len_c) = Compact::<u32>::decode(&mut input) else {
+		return data;
+	};
+	let len = len_c.0 as usize;
+	if input.len() >= len {
+		&input[..len]
+	} else {
+		data
+	}
+}
+
 pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	import_handle: &mut impl BlockImport<Block, Error = ConsensusError>,
 	import_parameters: SingleBlockImportParameters<Block>,
@@ -428,9 +453,11 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	let number = *import_block.header.number();
 	let parent_hash = *import_block.header.parent_hash();
 
+	let block_ms = import_block.body.as_ref().and_then(|b| block_timestamp_unix_ms::<Block>(b));
 	let imported = import_handle.import_block(import_block).await;
 	if let Some(metrics) = metrics {
 		metrics.report_verification_and_import(started.elapsed() + verification_time);
+		metrics.report_block_propagation(block_ms);
 	}
 
 	import_handler::<Block>(number, hash, parent_hash, block_origin, imported)

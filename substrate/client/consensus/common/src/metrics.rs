@@ -19,25 +19,28 @@
 //! Metering tools for consensus
 
 use prometheus_endpoint::{
-	register, CounterVec, Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
-	U64,
+	exponential_buckets, register, CounterVec, Histogram, HistogramOpts, HistogramVec, Opts,
+	PrometheusError, Registry, U64,
 };
 
 use sp_runtime::traits::{Block as BlockT, NumberFor};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::import_queue::{BlockImportError, BlockImportStatus};
 
 /// Generic Prometheus metrics for common consensus functionality.
 #[derive(Clone)]
-pub(crate) struct Metrics {
+pub struct Metrics {
 	pub import_queue_processed: CounterVec<U64>,
 	pub block_verification_time: HistogramVec,
 	pub block_verification_and_import_time: Histogram,
 	pub justification_import_time: Histogram,
+	pub block_propagation_time: Histogram,
 }
 
 impl Metrics {
-	pub(crate) fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+	/// Register all consensus import-queue and related Prometheus metrics on `registry`.
+	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			import_queue_processed: register(
 				CounterVec::new(
@@ -73,6 +76,17 @@ impl Metrics {
 				))?,
 				registry,
 			)?,
+			block_propagation_time: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_block_propagation_time",
+						"Block propagation time in seconds: local wall clock when block import finishes minus \
+						 the timestamp from the block body.",
+					)
+					.buckets(exponential_buckets(0.001, 1.5, 25)?),
+				)?,
+				registry,
+			)?,
 		})
 	}
 
@@ -102,5 +116,15 @@ impl Metrics {
 
 	pub fn report_verification_and_import(&self, time: std::time::Duration) {
 		self.block_verification_and_import_time.observe(time.as_secs_f64());
+	}
+
+	/// Observe block propagation time
+	pub fn report_block_propagation(&self, block_unix_ms: Option<u128>) {
+		let Some(block_ms) = block_unix_ms else { return };
+		let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else {
+			return;
+		};
+		let drift_ms = now.as_millis().saturating_sub(block_ms);
+		self.block_propagation_time.observe(drift_ms as f64 / 1000.0);
 	}
 }
