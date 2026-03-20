@@ -159,8 +159,6 @@ impl crate::Config for Test {
 	type VaultsInterface = MockVaultsInterface;
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type StableAssetId = StablecoinAssetId;
 	type StableAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;
 	type FeeHandler = ResolveTo<InsuranceFundAccount, Self::StableAsset>;
 	type PalletId = PsmPalletId;

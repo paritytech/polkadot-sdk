@@ -190,10 +190,6 @@ pub mod pallet {
 		/// A type representing the weights required by the dispatchables of this pallet.
 		type WeightInfo: WeightInfo;
 
-		/// The stable asset ID, needed by benchmarks to create it via `T::Fungibles`.
-		#[cfg(feature = "runtime-benchmarks")]
-		type StableAssetId: Get<Self::AssetId>;
-
 		/// The pUSD asset as a single-asset `fungible` type.
 		///
 		/// Typically `ItemOf<Asset, StablecoinAssetId, AccountId>`.

@@ -23,6 +23,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
 	traits::{
+		fungible::Create as FungibleCreate,
 		fungibles::{
 			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 		},
@@ -39,8 +40,8 @@ const ASSET_ID_OFFSET: u32 = 100;
 
 /// Set up `n` external assets ready for PSM benchmarks.
 ///
-/// Creates the target asset (`ASSET_ID_OFFSET`) and the stable asset in
-/// `T::Fungibles`, registers `n` external assets (`ASSET_ID_OFFSET..+n`), and
+/// Creates the target asset (`ASSET_ID_OFFSET`) and the stable asset,
+/// registers `n` external assets (`ASSET_ID_OFFSET..+n`), and
 /// configures ceiling weights so the target can absorb the full mint amount.
 ///
 /// Assets beyond the target are filler, they only populate PSM storage so
@@ -49,6 +50,7 @@ const ASSET_ID_OFFSET: u32 = 100;
 fn setup_assets<T: Config>(n: u32) -> T::AssetId
 where
 	T::Fungibles: FungiblesCreate<T::AccountId>,
+	T::StableAsset: FungibleCreate<T::AccountId>,
 	T::AssetId: From<u32>,
 {
 	let admin: T::AccountId = whitelisted_caller();
@@ -57,10 +59,7 @@ where
 	if !T::Fungibles::asset_exists(target_id) {
 		assert_ok!(T::Fungibles::create(target_id, admin.clone(), true, 1u32.into()));
 	}
-	let stable_id = T::StableAssetId::get();
-	if !T::Fungibles::asset_exists(stable_id) {
-		assert_ok!(T::Fungibles::create(stable_id, admin, true, 1u32.into()));
-	}
+	let _ = T::StableAsset::create(admin, true, 1u32.into());
 
 	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
 	for i in 0..n {
@@ -75,7 +74,7 @@ where
 	target_id
 }
 
-#[benchmarks(where T::Fungibles: FungiblesCreate<T::AccountId>, T::AssetId: From<u32>)]
+#[benchmarks(where T::Fungibles: FungiblesCreate<T::AccountId>, T::StableAsset: FungibleCreate<T::AccountId>, T::AssetId: From<u32>)]
 mod benchmarks {
 	use super::*;
 

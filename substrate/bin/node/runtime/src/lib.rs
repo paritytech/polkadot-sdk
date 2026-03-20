@@ -3117,8 +3117,6 @@ impl pallet_psm::Config for Runtime {
 	type VaultsInterface = NoVaultsCeiling;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type StableAssetId = PsmStablecoinAssetId;
 	type StableAsset = PsmStableAsset;
 	type FeeHandler = ResolveTo<PsmInsuranceFundAccount, PsmStableAsset>;
 	type PalletId = PsmPalletId;
