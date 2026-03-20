@@ -140,8 +140,9 @@ impl EnsureOrigin<RuntimeOrigin> for MockManagerOrigin {
 		use frame_system::RawOrigin;
 		match o.clone().into() {
 			Ok(RawOrigin::Root) => Ok(crate::PsmManagerLevel::Full),
-			Ok(RawOrigin::Signed(who)) if who == EMERGENCY_ACCOUNT =>
-				Ok(crate::PsmManagerLevel::Emergency),
+			Ok(RawOrigin::Signed(who)) if who == EMERGENCY_ACCOUNT => {
+				Ok(crate::PsmManagerLevel::Emergency)
+			},
 			_ => Err(o),
 		}
 	}

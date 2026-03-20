@@ -77,14 +77,12 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub use frame_support::traits::PsmInterface;
-pub(crate) use frame_support::traits::VaultsInterface;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::VaultsInterface;
+	pub use frame_support::traits::tokens::stable::{PsmInterface, VaultsInterface};
 
 	use alloc::collections::btree_map::BTreeMap;
 	use codec::DecodeWithMemTracking;
