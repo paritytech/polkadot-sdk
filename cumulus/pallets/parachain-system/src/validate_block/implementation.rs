@@ -20,6 +20,7 @@ use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use crate::RelayChainBlockNumber;
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cell::RefCell;
 use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
@@ -412,16 +413,31 @@ fn trie_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 	}
 }
 
+struct NomtProofSizeProvider {
+	estimations: RefCell<Vec<u64>>,
+}
+
+impl sp_trie::ProofSizeProvider for NomtProofSizeProvider {
+	fn estimate_encoded_size(&self) -> usize {
+		// UNWRAP: estimate_encoded_size is expected to be called
+		// the same amout of times as the number of estimations present within the PoV.
+		let estimation_result = self.estimations.borrow_mut().pop().unwrap() as usize;
+		estimation_result
+	}
+}
+
 #[derive(Debug)]
 struct NomtValidationBackend {
 	reads: BTreeMap<Vec<u8>, ([u8; 32], Vec<u8>)>,
+	estimations: Vec<u64>,
 	proof: NomtVerifiedMultiProof,
 }
 
 impl NomtValidationBackend {
 	fn new(compact_proof: sp_state_machine::NomtCompactProof, root: [u8; 32]) -> Self {
-		let NomtCompactProof { proof, mut values } = compact_proof;
+		let NomtCompactProof { proof, mut values, mut estimations } = compact_proof;
 		values.reverse();
+		estimations.reverse();
 
 		let verified_multi_proof =
 			nomt_core::proof::verify_multi_proof::<Blake3Hasher>(&proof, root).unwrap();
@@ -440,13 +456,13 @@ impl NomtValidationBackend {
 					// NOTE: What are reads? During block execution what is accessed by the runtime
 					// through the `storage` and `raw_iter` is registered as a read.
 					// But what about things like `exists` or `storage_hash`, are they used by the
-					// runtime or are them only used by the client?
+					// runtime or are they only used by the client?
 					//
-					// For now they are not count as reads.
+					// For now they are not counted as reads.
 
 					if let Some(value) = values.last() {
 						if Blake3Hasher::hash_value(value) == *value_hash {
-							// TODO: udpate the code to return a proper error.
+							// TODO: update the code to return a proper error.
 							assert!(verified_multi_proof
 								.confirm_value_with_index(key_path, *value_hash, index)
 								.unwrap());
@@ -458,7 +474,7 @@ impl NomtValidationBackend {
 				// now.
 				nomt_core::proof::PathProofTerminal::CollisionLeaf(_, _) => todo!(),
 				nomt_core::proof::PathProofTerminal::Terminator(trie_pos) => {
-					// TODO: udpate the code to return a proper error.
+					// TODO: update the code to return a proper error.
 					assert!(verified_multi_proof
 						.confirm_nonexistence_with_index(trie_pos.raw_path(), index)
 						.unwrap());
@@ -466,7 +482,11 @@ impl NomtValidationBackend {
 			}
 		}
 
-		NomtValidationBackend { reads, proof: verified_multi_proof }
+		NomtValidationBackend { reads, proof: verified_multi_proof, estimations }
+	}
+
+	fn proof_size_provider(&self) -> NomtProofSizeProvider {
+		NomtProofSizeProvider { estimations: RefCell::new(self.estimations.clone()) }
 	}
 }
 
@@ -688,16 +708,14 @@ fn nomt_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 	let mut parent_header = parent_header.clone();
 	let state_root: &[u8] = parent_header.state_root().as_ref();
 	let backend = NomtValidationBackend::new(compact_proof, state_root.try_into().unwrap());
+	let mut proof_size_provider = backend.proof_size_provider();
 	let mut overlay = OverlayedChanges::default();
 
 	parent_header = block.header().clone();
 
-	// TODO: once DummyProofSizeProvider will not be used and proper size
-	// estimation will work probably there will be a required distinction as in
-	// `trie_backend_validate_block` between `execute_backend` and `backend`.
 	run_with_externalities_and_recorder::<B, _, _>(
 		&backend,
-		&mut sp_state_machine::backend::DummyProofSizeProvider {},
+		&mut proof_size_provider,
 		&mut overlay,
 		|| {
 			E::execute_block(block);
@@ -706,6 +724,8 @@ fn nomt_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 
 	run_with_externalities_and_recorder::<B, _, _>(
 		&backend,
+		// NOTE: the trie backend seems to used a proof size provider
+		// with no empty nodes, thus it seems like a dummy proof size provider.
 		&mut sp_state_machine::backend::DummyProofSizeProvider {},
 		&mut overlay,
 		|| {

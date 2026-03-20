@@ -250,16 +250,9 @@ where
 
 		let mut api = call_api_at.runtime_api();
 
-		// NOTE: Forcing the usage of a ProofRecorder to test draining the storage proof.
-		let proof_recorder = Some(ProofRecorder::<Block>::new(call_api_at.backend_type()));
-
 		if let Some(recorder) = proof_recorder {
 			api.record_proof_with_recorder(recorder.clone());
-			// TODO: handle ProofSizeEstimation!
-			// api.register_extension(ProofSizeExt::new(recorder));
-			api.register_extension(ProofSizeExt::new(
-				sp_state_machine::backend::DummyProofSizeProvider {},
-			));
+			api.register_extension(ProofSizeExt::new(recorder));
 		}
 
 		api.set_call_context(CallContext::Onchain);
@@ -433,6 +426,16 @@ where
 	pub fn estimate_block_size(&self, include_proof: bool) -> usize {
 		let size = self.estimated_header_size + self.extrinsics.encoded_size();
 
+		// NOTE: This is not that straightforward.
+		// This is a call to `estimate_encoded_size` made from the client, thus something
+		// that does not have to be registered. How does this happen if the
+		// proof recorder implements `sp_trie::ProofSizeProvider`, which estimates and records
+		// the estimation?
+		// The same struct implements the *same* method, just not under the trait, and thus
+		// if the trait is not imported in this module, the method of the struct is being called
+		// and not the one implemented within the trait.
+		// If the trait were imported within this module, `use sp_trie::ProofSizeProvider`,
+		// then the implementation which records the estimation would be used.
 		if include_proof {
 			size + self.api.proof_recorder().map(|pr| pr.estimate_encoded_size()).unwrap_or(0)
 		} else {

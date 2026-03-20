@@ -501,6 +501,8 @@ where
 		})
 	}
 
+	pub fn hint_write(&self, key: &[u8]) {}
+
 	/// Returns the hash value
 	pub fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Result<Option<H::Out>> {
 		let child_root = match self.child_root(child_info)? {

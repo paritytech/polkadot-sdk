@@ -361,6 +361,7 @@ where
 			),
 		);
 
+		self.backend.hint_write(&key[..]);
 		self.overlay.set_storage(key, value);
 	}
 
@@ -380,6 +381,8 @@ where
 		);
 		let _guard = guard();
 
+		// TODO: handle hint_writes for child tries.
+		// self.backend.hint_write(&key[..]);
 		self.overlay.set_child_storage(child_info, key, value);
 	}
 

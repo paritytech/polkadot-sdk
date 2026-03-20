@@ -626,8 +626,7 @@ where
 
 		let storage_proof_recorder = ProofRecorder::<Block>::new(self.client.backend_type());
 
-		// TODO: handle `ProofSizeExt`.
-		// runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
+		runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 
 		runtime_api

@@ -830,11 +830,10 @@ where
 
 				if self.config.enable_import_proof_recording {
 					runtime_api.record_proof();
-					// TODO: handle Proof Size Estimation.
-					// let recorder = runtime_api
-					// 	.proof_recorder()
-					// 	.expect("Proof recording is enabled in the line above; qed.");
-					// runtime_api.register_extension(ProofSizeExt::new(recorder));
+					let recorder = runtime_api
+						.proof_recorder()
+						.expect("Proof recording is enabled in the line above; qed.");
+					runtime_api.register_extension(ProofSizeExt::new(recorder));
 				}
 
 				runtime_api.execute_block(

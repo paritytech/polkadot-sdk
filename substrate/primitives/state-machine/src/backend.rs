@@ -330,6 +330,9 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Get keyed storage or None if there is nothing associated.
 	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error>;
 
+	/// Hint the backend that a write under the specified key will happend.
+	fn hint_write(&self, key: &[u8]) {}
+
 	/// Get keyed storage value hash or None if there is nothing associated.
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error>;
 

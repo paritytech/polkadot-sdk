@@ -175,6 +175,7 @@ pub struct NomtStorageProof {
 	// thus the easiest way to be able to encode reads within the compact proof
 	// is to carry them around along the nomt witness.
 	pub reads: Vec<Vec<u8>>,
+	pub estimations: Vec<u64>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, codec::Encode, codec::Decode)]
@@ -187,6 +188,7 @@ pub enum StorageProof {
 pub struct NomtCompactProof {
 	pub proof: NomtMultiProof,
 	pub values: Vec<Vec<u8>>,
+	pub estimations: Vec<u64>,
 }
 
 /// Storage proof in compact form.
@@ -211,7 +213,7 @@ impl StorageProof {
 		match self {
 			StorageProof::Trie(trie_proof) =>
 				Ok(CompactProof::Trie(trie_proof.into_compact_proof::<H>(root).map_err(|_| ())?)),
-			StorageProof::Nomt(NomtStorageProof { witness, reads }) => {
+			StorageProof::Nomt(NomtStorageProof { witness, reads, estimations }) => {
 				let mut path_proofs: Vec<_> = witness
 					.path_proofs
 					.into_iter()
@@ -221,7 +223,11 @@ impl StorageProof {
 
 				let multi_proof = NomtMultiProof::from_path_proofs(path_proofs);
 
-				Ok(CompactProof::Nomt(NomtCompactProof { proof: multi_proof, values: reads }))
+				Ok(CompactProof::Nomt(NomtCompactProof {
+					proof: multi_proof,
+					values: reads,
+					estimations,
+				}))
 			},
 		}
 	}
