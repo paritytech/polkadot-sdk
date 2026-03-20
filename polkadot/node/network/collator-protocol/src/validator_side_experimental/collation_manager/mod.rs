@@ -45,13 +45,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_session_index_for_child,
-	request_validator_groups, request_validators, runtime::recv_runtime,
+	request_claim_queue, request_session_index_for_child, request_validator_groups,
+	request_validators, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	CandidateDescriptorVersion, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
-	HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
+	GroupIndex, GroupRotationInfo, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	SessionIndex,
 };
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
@@ -272,10 +272,8 @@ impl CollationManager {
 					},
 				};
 				// If session info is not available  default to assume v2 candidate descriptors.
-				self.per_scheduling_parent.insert(
-					*ancestor,
-					PerSchedulingParent::new(session_index, core),
-				);
+				self.per_scheduling_parent
+					.insert(*ancestor, PerSchedulingParent::new(session_index, core));
 
 				if idx == 0 && ancestor == leaf {
 					let mut claim_queues =
@@ -513,9 +511,7 @@ impl CollationManager {
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
-				if let Err(err) = fetched_collation
-					.ensure_matches_advertisement(&advertisement)
-				{
+				if let Err(err) = fetched_collation.ensure_matches_advertisement(&advertisement) {
 					gum::warn!(
 						target: LOG_TARGET,
 						?advertisement,
@@ -530,7 +526,7 @@ impl CollationManager {
 					fetched_collation.candidate_receipt.descriptor(),
 					per_sp.core_index,
 					per_sp.session_index,
-					collation_version
+					collation_version,
 				) {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -761,11 +757,7 @@ impl CollationManager {
 
 			self.per_session.insert(
 				index,
-				PerSessionInfo {
-					our_group,
-					n_cores: groups.len(),
-					group_rotation_info,
-				},
+				PerSessionInfo { our_group, n_cores: groups.len(), group_rotation_info },
 			);
 		}
 
@@ -926,9 +918,7 @@ impl FetchedCollation {
 		peer_id: PeerId,
 	) -> Self {
 		Self {
-			scheduling_parent: candidate_receipt
-				.descriptor()
-				.scheduling_parent(),
+			scheduling_parent: candidate_receipt.descriptor().scheduling_parent(),
 			candidate_receipt,
 			pov,
 			maybe_parent_head_data,
@@ -959,9 +949,7 @@ impl FetchedCollation {
 			},
 		}
 
-		if advertised.scheduling_parent !=
-			candidate_receipt.descriptor.scheduling_parent()
-		{
+		if advertised.scheduling_parent != candidate_receipt.descriptor.scheduling_parent() {
 			return Err(SecondingError::SchedulingParentMismatch);
 		}
 		if let Some(advertised_version) = &advertised.advertised_descriptor_version {
@@ -1020,10 +1008,7 @@ struct PerSchedulingParent {
 }
 
 impl PerSchedulingParent {
-	fn new(
-		session_index: SessionIndex,
-		core_index: CoreIndex,
-	) -> Self {
+	fn new(session_index: SessionIndex, core_index: CoreIndex) -> Self {
 		Self {
 			session_index,
 			core_index,
