@@ -23,6 +23,7 @@ path = "src/main.rs"
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
+derive_more = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
@@ -55,6 +56,7 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }
 sp-io = { workspace = true, default-features = true }
+tempfile = { workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }

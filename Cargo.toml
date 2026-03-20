@@ -349,6 +349,7 @@ members = [
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
 	"substrate/frame/dap",
+	"substrate/frame/dap-satellite",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/derivatives",
@@ -643,20 +644,24 @@ approx = { version = "0.5.1" }
 aquamarine = { version = "0.5.0" }
 arbitrary = { version = "1.3.2" }
 ark-bls12-377 = { version = "0.5.0", default-features = false }
-ark-bls12-377-ext = { version = "0.5.0", default-features = false }
+ark-bls12-377-ext = { version = "0.5.2", default-features = false }
 ark-bls12-381 = { version = "0.5.0", default-features = false }
-ark-bls12-381-ext = { version = "0.5.0", default-features = false }
+ark-bls12-381-ext = { version = "0.5.2", default-features = false }
 ark-bw6-761 = { version = "0.5.0", default-features = false }
-ark-bw6-761-ext = { version = "0.5.0", default-features = false }
+ark-bw6-761-ext = { version = "0.5.2", default-features = false }
 ark-ec = { version = "0.5.0", default-features = false }
 ark-ed-on-bls12-377 = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-377-ext = { version = "0.5.0", default-features = false }
+ark-ed-on-bls12-377-ext = { version = "0.5.2", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.2", default-features = false }
 ark-ff = { version = "0.5.0", default-features = false }
+ark-pallas = { version = "0.5.0", default-features = false }
+ark-pallas-ext = { version = "0.5.2", default-features = false }
 ark-scale = { version = "0.0.13", default-features = false }
 ark-std = { version = "0.5.0", default-features = false }
-ark-vrf = { version = "0.1.0", default-features = false }
+ark-vesta = { version = "0.5.0", default-features = false }
+ark-vesta-ext = { version = "0.5.2", default-features = false }
+ark-vrf = { version = "0.2.2", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -979,6 +984,7 @@ pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-featu
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
 pallet-dap = { path = "substrate/frame/dap", default-features = false }
+pallet-dap-satellite = { path = "substrate/frame/dap-satellite", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
@@ -1486,9 +1492,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.6" }
-zombienet-orchestrator = { version = "0.4.6" }
-zombienet-sdk = { version = "0.4.6" }
+zombienet-configuration = { version = "0.4.7" }
+zombienet-orchestrator = { version = "0.4.7" }
+zombienet-sdk = { version = "0.4.7" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

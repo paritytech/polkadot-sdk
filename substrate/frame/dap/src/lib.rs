@@ -17,19 +17,21 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
-//! instead of burning them. The buffer account must be pre-funded with at least ED (existential
-//! deposit), e.g., via balances genesis config or a transfer. If the buffer account is not
-//! pre-funded, deposits below ED will be silently burned.
+//! Intercepts native token burns (staking slashes, transaction fees, dust removal, reward
+//! remainders, EVM gas rounding) on AssetHub and redirects them into a buffer account instead
+//! of destroying them.
+//! The buffer account must be pre-funded with at least ED (existential deposit), e.g., via
+//! balances genesis config or a transfer. If the buffer account is not pre-funded, deposits
+//! below ED will be silently burned.
 //!
 //! Incoming funds are deactivated to exclude them from governance voting.
 //! When DAP distributes funds (e.g., to validators, nominators, treasury, collators), those funds
 //! must be reactivated before transfer.
 //!
-//! Future phases will add:
-//! - `FundingSource` (request_funds) for pulling funds
-//! - Issuance curve and minting logic
-//! - Distribution rules and scheduling
+//! - **Burns**: Use `Dap` as `OnUnbalanced` handler for any burn source (e.g., `type Slash = Dap`,
+//!   `type DustRemoval = Dap`, `type OnBurn = Dap`)
+//! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected to
+//! the buffer — they still reduce total issuance directly.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -38,13 +40,11 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
-extern crate alloc;
-
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		fungible::{Balanced, Credit, Inspect, Unbalanced},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -74,7 +74,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
+			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
@@ -101,6 +101,9 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 
 /// Implementation of OnUnbalanced for the fungible::Balanced trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
+///
+/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
+/// for the old `Currency` trait is not provided because there are no consumers.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let buffer = Self::buffer_account();
@@ -113,7 +116,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// The only failure would be overflow on destination.
 		let _ = T::Currency::resolve(&buffer, amount)
 			.inspect_err(|_| {
-				defensive!("🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!");
+				defensive!(
+					"🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!"
+				);
 			})
 			.inspect(|_| {
 				// Mark funds as inactive so they don't participate in governance voting.
