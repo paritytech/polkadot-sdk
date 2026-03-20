@@ -9,6 +9,7 @@ type SmoldotChain = {
 
 export interface GameAnnouncement {
   creator: string;
+  creatorName?: string;
   potAmount: string;
   timestamp: number;
   onChainGameId?: string;
@@ -19,6 +20,7 @@ export interface JoinRequest {
   creator: string;
   gameTimestamp: number;
   joiner: string;
+  joinerName?: string;
   joinTimestamp: number;
 }
 
@@ -362,10 +364,11 @@ export class StatementStoreClient {
     creatorTimestamp: number,
     joiner: string,
     publicKey: Uint8Array,
-    rawSign: RawSign
+    rawSign: RawSign,
+    joinerName?: string,
   ): Promise<boolean> {
     try {
-      const request: JoinRequest = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinTimestamp: Date.now() };
+      const request: JoinRequest = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinerName, joinTimestamp: Date.now() };
       const data = new TextEncoder().encode(JSON.stringify(request));
       const channel = joinResponseChannel(creator, joiner, creatorTimestamp);
       const priority = 100;
@@ -529,7 +532,8 @@ export class StatementStoreClient {
       const signature = await rawSign(signingPayload);
       const statement = encodeStatementWithProof(signature, publicKey, expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
       const hex = toHex(statement);
-      await this.sendRequest("statement_submit", [hex]);
+      const result = await this.sendRequest("statement_submit", [hex]);
+      console.log("Pong submit result:", result);
       return true;
     } catch (e) {
       console.error("Failed to send liveness pong:", e);

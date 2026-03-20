@@ -590,8 +590,20 @@
   </style>
 </head>
 <body>
+  <!-- Username Screen -->
+  <div id="username-screen" class="screen active">
+    <h1>BATTLESHIP</h1>
+    <div class="section" style="text-align: center;">
+      <h2>Enter your name</h2>
+      <div class="input-group">
+        <input type="text" id="username-input" placeholder="Captain..." autocomplete="off" maxlength="20" style="text-align: center; font-size: 1.3rem;" />
+      </div>
+      <button id="username-confirm-btn" class="btn btn-success" disabled>Start</button>
+    </div>
+  </div>
+
   <!-- Loading Screen -->
-  <div id="loading" class="screen active">
+  <div id="loading" class="screen">
     <h1>BATTLESHIP</h1>
     <div class="loading-container">
       <div class="loading-spinner"></div>
@@ -602,7 +614,7 @@
   <!-- Game Lobby Screen -->
   <div id="game-lobby" class="screen">
     <div class="lobby-header">
-      <h1>BATTLESHIP LOBBY</h1>
+      <h1 id="lobby-title">BATTLESHIP LOBBY</h1>
       <div class="account-info">
         <span class="address" id="lobby-address"></span>
         <span class="balance" id="lobby-balance"></span>
@@ -672,7 +684,7 @@
   <!-- Game Screen -->
   <div id="game">
     <div id="header">
-      <h1>BATTLESHIP</h1>
+      <h1 id="game-title">BATTLESHIP</h1>
       <div id="status">Connecting...</div>
       <div id="instructions">Place your ships on the board</div>
     </div>

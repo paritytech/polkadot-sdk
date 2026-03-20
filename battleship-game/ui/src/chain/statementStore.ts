@@ -9,6 +9,7 @@ type SmoldotChain = {
 
 export interface GameAnnouncement {
   creator: string;
+  creatorName?: string;
   potAmount: string;
   timestamp: number;
   onChainGameId?: string;
@@ -19,6 +20,7 @@ export interface JoinRequest {
   creator: string;
   gameTimestamp: number;
   joiner: string;
+  joinerName?: string;
   joinTimestamp: number;
 }
 
@@ -250,6 +252,7 @@ export class StatementStoreClient {
 
       try {
         const parsed = JSON.parse(msg);
+        console.log("[StatementStore] RPC msg:", parsed.id != null ? `response id=${parsed.id}` : parsed.method || "notification", parsed.params?.statement ? "has statement" : "");
 
         if (parsed.id != null) {
           const pending = this.pendingRequests.get(String(parsed.id));
@@ -354,10 +357,11 @@ export class StatementStoreClient {
     creatorTimestamp: number,
     joiner: string,
     publicKey: Uint8Array,
-    rawSign: RawSign
+    rawSign: RawSign,
+    joinerName?: string,
   ): Promise<boolean> {
     try {
-      const request: JoinRequest = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinTimestamp: Date.now() };
+      const request: JoinRequest = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinerName, joinTimestamp: Date.now() };
       const data = new TextEncoder().encode(JSON.stringify(request));
       const channel = joinResponseChannel(creator, joiner, creatorTimestamp);
       const priority = 100;

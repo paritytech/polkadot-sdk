@@ -45,6 +45,21 @@ export async function getStatementChain() {
     });
     return statementChainInstance;
 }
+export async function subscribeToBestBlocks(onBlock) {
+    const client = await getClient();
+    const subscription = client.bestBlocks$.subscribe({
+        next: () => onBlock(),
+        error: (err) => console.error("[client] bestBlocks$ subscription error:", err),
+    });
+    return () => {
+        try {
+            subscription.unsubscribe();
+        }
+        catch {
+            // ignore cleanup failures
+        }
+    };
+}
 export async function createNewClient(label) {
     const tag = label || "new";
     console.log(`[client:${tag}] Starting smoldot light client...`);
@@ -83,6 +98,14 @@ export async function createNewClient(label) {
             catch { }
         },
     };
+}
+export async function createStatementChain() {
+    if (!smoldotInstance || !relayChainInstance)
+        return null;
+    return smoldotInstance.addChain({
+        chainSpec: parachainSpec,
+        potentialRelayChains: [relayChainInstance],
+    });
 }
 export function disconnectClient() {
     if (clientInstance) {

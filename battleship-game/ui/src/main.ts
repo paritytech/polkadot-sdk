@@ -9,7 +9,7 @@ import { getStatementChain } from "./chain/client.ts";
 import { getStatementStore, type StatementStoreClient, type GameAnnouncement, type GameCreatedNotification } from "./chain/statementStore.ts";
 import type { Position } from "./types/index.ts";
 
-type Screen = "loading" | "game-lobby" | "game";
+type Screen = "username-screen" | "loading" | "game-lobby" | "game";
 
 class BattleshipApp {
   private game: OnchainGame | null = null;
@@ -32,12 +32,41 @@ class BattleshipApp {
   private lobbyRefreshInterval: number | null = null;
   private statementStore: StatementStoreClient | null = null;
   private buttonAbortController: AbortController | null = null;
+  private username = "";
+  private opponentName = "";
+
   constructor() {
     this.walletManager = getWalletManager();
-    this.init();
+    this.setupUsernameScreen();
+  }
+
+  private setupUsernameScreen(): void {
+    const input = document.getElementById("username-input") as HTMLInputElement;
+    const confirmBtn = document.getElementById("username-confirm-btn") as HTMLButtonElement;
+
+    input?.addEventListener("input", () => {
+      const name = input.value.trim();
+      if (confirmBtn) confirmBtn.disabled = name.length === 0;
+    });
+
+    const submit = () => {
+      const name = input?.value.trim();
+      if (!name) return;
+      this.username = name;
+      this.init();
+    };
+
+    confirmBtn?.addEventListener("click", submit);
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submit();
+    });
+
+    input?.focus();
   }
 
   private async init(): Promise<void> {
+    this.showScreen("loading");
+
     const account = getOrCreateWallet();
     this.currentAccount = account;
 
@@ -212,6 +241,8 @@ class BattleshipApp {
     const addressEl = document.getElementById("lobby-address");
     const balanceEl = document.getElementById("lobby-balance");
 
+    const lobbyTitle = document.getElementById("lobby-title");
+    if (lobbyTitle) lobbyTitle.textContent = `${this.username}'s Lobby`;
     if (addressEl) addressEl.textContent = this.truncateAddress(this.currentAccount.address);
     if (balanceEl) balanceEl.textContent = WalletManager.formatBalance(this.currentBalance) + " UNIT";
 
@@ -250,31 +281,29 @@ class BattleshipApp {
     if (!gamesList) return;
 
     try {
-      const filteredGames: { creator: string; potAmount: bigint; timestamp: number }[] = [];
+      const filteredGames: { creator: string; creatorName?: string; potAmount: bigint; timestamp: number }[] = [];
 
       if (this.statementStore && this.currentAccount) {
         // Statement-based discovery with ping/pong liveness
         const announcements = this.statementStore.getAnnouncements();
+        console.log(`[refreshGamesList] announcements: ${announcements.length}, myAddr: ${this.currentAccount.address.slice(0, 8)}...`);
 
         for (const ann of announcements) {
           // Skip our own games
           if (ann.creator === this.currentAccount.address) continue;
 
-          // Send a ping if we haven't already
-          if (!this.statementStore.hasPong(ann.creator, ann.timestamp, this.currentAccount.address)) {
-            await this.statementStore.sendLivenessPing(
-              ann.creator,
-              ann.timestamp,
-              this.currentAccount.address,
-              this.currentAccount.publicKey!,
-              this.currentAccount.rawSign!,
-            );
-            continue; // Wait for pong on next refresh cycle
-          }
+          // Send a liveness ping (fire-and-forget)
+          this.statementStore.sendLivenessPing(
+            ann.creator,
+            ann.timestamp,
+            this.currentAccount.address,
+            this.currentAccount.publicKey!,
+            this.currentAccount.rawSign!,
+          );
 
-          // We have a pong — creator is online, show the game
           filteredGames.push({
             creator: ann.creator,
+            creatorName: ann.creatorName,
             potAmount: BigInt(ann.potAmount),
             timestamp: ann.timestamp,
           });
@@ -299,22 +328,23 @@ class BattleshipApp {
     }
   }
 
-  private createGameCard(game: { creator: string; potAmount: bigint; timestamp: number }): HTMLElement {
+  private createGameCard(game: { creator: string; creatorName?: string; potAmount: bigint; timestamp: number }): HTMLElement {
     const card = document.createElement("div");
     card.className = "game-card";
 
     const stakeFormatted = WalletManager.formatBalance(game.potAmount);
     const prizeFormatted = WalletManager.formatBalance(game.potAmount * 2n);
+    const displayName = game.creatorName || this.truncateAddress(game.creator);
 
     card.innerHTML = `
-      <div class="game-id">Game by ${this.truncateAddress(game.creator)}</div>
+      <div class="game-id">${displayName}'s game</div>
       <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
       <div class="game-prize">Winner receives: ${prizeFormatted} UNIT</div>
       <button class="btn btn-success">Join Game</button>
     `;
 
     const joinBtn = card.querySelector("button");
-    joinBtn?.addEventListener("click", () => this.handleJoinGame(game.creator, game.timestamp));
+    joinBtn?.addEventListener("click", () => this.handleJoinGame(game.creator, game.timestamp, game.creatorName));
 
     return card;
   }
@@ -422,6 +452,7 @@ class BattleshipApp {
       // Announce game intent via statement store (NO on-chain game yet)
       const announcement: GameAnnouncement = {
         creator: this.currentAccount.address,
+        creatorName: this.username,
         potAmount: potAmount.toString(),
         timestamp,
       };
@@ -447,6 +478,7 @@ class BattleshipApp {
         if (this._pendingGameId !== null) return; // Already processing a join
 
         console.log(`[createGame] Received join request from ${req.joiner.slice(0, 8)}...`);
+        this.opponentName = req.joinerName || this.truncateAddress(req.joiner);
         const statusEl = document.querySelector("#waiting-card .game-status");
         if (statusEl) statusEl.textContent = "Opponent found! Creating game on-chain...";
 
@@ -510,7 +542,7 @@ class BattleshipApp {
     waitingCard.id = "waiting-card";
     const stakeFormatted = WalletManager.formatBalance(potAmount);
     waitingCard.innerHTML = `
-      <div class="game-id">Your Game</div>
+      <div class="game-id">${this.username}'s game</div>
       <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
       <div class="game-status">Waiting for opponent to join...</div>
       <button class="btn btn-danger" id="cancel-game-btn">Cancel</button>
@@ -596,7 +628,7 @@ class BattleshipApp {
     this.refreshGamesList();
   }
 
-  private async handleJoinGame(creator: string, gameTimestamp: number): Promise<void> {
+  private async handleJoinGame(creator: string, gameTimestamp: number, creatorName?: string): Promise<void> {
     if (!this.currentAccount || !this.statementStore) return;
 
     this.stopLobbyRefresh();
@@ -604,12 +636,14 @@ class BattleshipApp {
     try {
       // Send join request via statement store
       console.log(`[handleJoinGame] Sending join request to ${creator.slice(0, 8)}...`);
+      this.opponentName = creatorName || this.truncateAddress(creator);
       await this.statementStore.sendJoinRequest(
         creator,
         gameTimestamp,
         this.currentAccount.address,
         this.currentAccount.publicKey!,
         this.currentAccount.rawSign!,
+        this.username,
       );
 
       // Show waiting UI
@@ -664,6 +698,11 @@ class BattleshipApp {
   private startGame(): void {
     console.log("[startGame] Showing game screen");
     this.showScreen("game");
+
+    const titleEl = document.getElementById("game-title");
+    if (titleEl) {
+      titleEl.textContent = `${this.username} vs ${this.opponentName}`;
+    }
 
     this.renderer = new Renderer();
     this.playerCanvas = document.getElementById("player-board") as HTMLCanvasElement;
@@ -864,6 +903,7 @@ class BattleshipApp {
 
     this.playerHover = null;
     this.enemyHover = null;
+    this.opponentName = "";
 
     this.showScreen("game-lobby");
     document.getElementById("create-game-btn")?.removeAttribute("disabled");

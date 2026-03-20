@@ -613,7 +613,7 @@ export class OnchainGame {
       } finally {
         this.isPolling = false;
       }
-    }, 500);
+    }, 100);
   }
 
   private stopPolling(): void {

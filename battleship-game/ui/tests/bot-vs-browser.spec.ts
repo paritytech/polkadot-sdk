@@ -74,6 +74,14 @@ test.describe("Bot vs Browser", () => {
 
 		await page.goto("/");
 
+		// Current app flow starts on a username gate before chain connection and lobby setup.
+		const usernameInput = page.locator("#username-input");
+		if (await usernameInput.isVisible({ timeout: 10_000 }).catch(() => false)) {
+			await usernameInput.fill("Browser Player");
+			await page.locator("#username-confirm-btn").click();
+			console.log("[Test] Submitted username");
+		}
+
 		// Wait for lobby
 		console.log("[Test] Waiting for lobby...");
 		await expect(page.locator("#game-lobby.active")).toBeVisible({ timeout: 240_000 });
@@ -145,14 +153,19 @@ test.describe("Bot vs Browser", () => {
 		// Helper: wait until the previous attack is fully resolved (opponent's turn)
 		async function waitForAttackResolved(): Promise<"resolved" | "game_over"> {
 			let result: "resolved" | "game_over" = "resolved";
+			// With a block-driven bot, the UI can advance from our attack back to our turn
+			// before Playwright samples the intermediate "Opponent's turn" text.
+			await page.waitForTimeout(1000);
 			await expect(async () => {
 				const text = await page.locator("#instructions").textContent();
 				if (text?.includes("Victory") || text?.includes("Defeat")) {
 					result = "game_over";
 					return;
 				}
-				// Turn must have switched away from us (bot reveals, then bot gets its turn)
-				expect(text).toContain("Opponent's turn");
+				const resolved =
+					text?.includes("Opponent's turn") ||
+					text?.includes("click enemy waters");
+				expect(resolved).toBe(true);
 			}).toPass({ timeout: 60_000, intervals: [500] });
 			return result;
 		}

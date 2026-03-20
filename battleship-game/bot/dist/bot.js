@@ -1,6 +1,7 @@
 import { resetLocalNonce } from "./battleship.js";
 import { placeShipsRandomly, selectAttackTarget } from "./game.js";
 import { buildMerkleTree } from "./merkle.js";
+import { subscribeToBestBlocks } from "./client.js";
 import { GRID_SIZE } from "./types.js";
 export class BattleshipBot {
     client;
@@ -10,10 +11,13 @@ export class BattleshipBot {
     announcementTimestamp = null;
     waitingForJoin = false;
     processingJoinRequest = false;
+    botName;
+    lastAnnounceTime = 0;
     constructor(client, account, statementStore) {
         this.client = client;
         this.account = account;
         this.statementStore = statementStore ?? null;
+        this.botName = `Bot-${account.address.slice(0, 6)}`;
         this.setupStatementHandlers();
     }
     setupStatementHandlers() {
@@ -60,22 +64,39 @@ export class BattleshipBot {
         });
     }
     async run() {
-        console.log(`[Bot] Starting with address ${this.account.address}`);
-        while (true) {
-            try {
-                // Only look for new games if we're not in any
-                if (this.games.size === 0) {
-                    await this.findOrCreateGame();
+        console.log(`[Bot] Starting as "${this.botName}" with address ${this.account.address}`);
+        let pendingTick = true;
+        let wakeLoop = null;
+        const requestTick = () => {
+            pendingTick = true;
+            if (wakeLoop) {
+                const wake = wakeLoop;
+                wakeLoop = null;
+                wake();
+            }
+        };
+        const unsubscribe = await subscribeToBestBlocks(requestTick);
+        try {
+            while (true) {
+                if (!pendingTick) {
+                    await new Promise((resolve) => {
+                        wakeLoop = resolve;
+                    });
                 }
-                // Play all active games
-                await this.playActiveGames();
-                // Wait before next iteration
-                await new Promise(r => setTimeout(r, 3000));
+                pendingTick = false;
+                try {
+                    if (this.games.size === 0) {
+                        await this.findOrCreateGame();
+                    }
+                    await this.playActiveGames();
+                }
+                catch (e) {
+                    console.error("[Bot] Error in main loop:", e);
+                }
             }
-            catch (e) {
-                console.error("[Bot] Error in main loop:", e);
-                await new Promise(r => setTimeout(r, 5000));
-            }
+        }
+        finally {
+            unsubscribe();
         }
     }
     async findOrCreateGame() {
@@ -102,18 +123,24 @@ export class BattleshipBot {
                 return;
             }
         }
-        // Already announced and waiting for a join request
-        if (this.waitingForJoin)
+        // Re-announce periodically so new UI clients can discover us
+        const now = Date.now();
+        const shouldAnnounce = !this.waitingForJoin || (now - this.lastAnnounceTime > 30_000);
+        if (!shouldAnnounce)
             return;
         // Announce game intent via statement store (NO on-chain game yet)
         if (this.statementStore) {
-            this.announcementTimestamp = Date.now();
+            if (!this.waitingForJoin) {
+                this.announcementTimestamp = Date.now();
+            }
             const announcement = {
                 creator: this.account.address,
+                creatorName: this.botName,
                 potAmount: "1000000000000",
                 timestamp: this.announcementTimestamp,
             };
             await this.statementStore.announceGame(announcement, this.account.publicKey, this.account.rawSign);
+            this.lastAnnounceTime = now;
             this.waitingForJoin = true;
             console.log("[Bot] Game announced via statement store, waiting for opponent...");
         }

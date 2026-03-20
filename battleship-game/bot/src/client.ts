@@ -54,6 +54,21 @@ export async function getStatementChain(): Promise<Chain | null> {
   return statementChainInstance;
 }
 
+export async function subscribeToBestBlocks(onBlock: () => void): Promise<() => void> {
+  const client = await getClient();
+  const subscription = (client as any).bestBlocks$.subscribe({
+    next: () => onBlock(),
+    error: (err: unknown) => console.error("[client] bestBlocks$ subscription error:", err),
+  });
+  return () => {
+    try {
+      subscription.unsubscribe();
+    } catch {
+      // ignore cleanup failures
+    }
+  };
+}
+
 export interface IndependentClient {
   client: PolkadotClient;
   destroy: () => void;
@@ -99,6 +114,14 @@ export async function createNewClient(label?: string): Promise<IndependentClient
       try { sm.terminate(); } catch {}
     },
   };
+}
+
+export async function createStatementChain(): Promise<Chain | null> {
+  if (!smoldotInstance || !relayChainInstance) return null;
+  return smoldotInstance.addChain({
+    chainSpec: parachainSpec,
+    potentialRelayChains: [relayChainInstance],
+  });
 }
 
 export function disconnectClient(): void {

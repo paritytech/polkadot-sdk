@@ -248,9 +248,9 @@ export class StatementStoreClient {
         }
         return games.sort((a, b) => b.timestamp - a.timestamp);
     }
-    async sendJoinRequest(creator, creatorTimestamp, joiner, publicKey, rawSign) {
+    async sendJoinRequest(creator, creatorTimestamp, joiner, publicKey, rawSign, joinerName) {
         try {
-            const request = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinTimestamp: Date.now() };
+            const request = { type: "join_request", creator, gameTimestamp: creatorTimestamp, joiner, joinerName, joinTimestamp: Date.now() };
             const data = new TextEncoder().encode(JSON.stringify(request));
             const channel = joinResponseChannel(creator, joiner, creatorTimestamp);
             const priority = 100;
@@ -376,7 +376,8 @@ export class StatementStoreClient {
             const signature = await rawSign(signingPayload);
             const statement = encodeStatementWithProof(signature, publicKey, expirySeconds, priority, channel, [GAME_LOBBY_TOPIC], data);
             const hex = toHex(statement);
-            await this.sendRequest("statement_submit", [hex]);
+            const result = await this.sendRequest("statement_submit", [hex]);
+            console.log("Pong submit result:", result);
             return true;
         }
         catch (e) {
