@@ -165,9 +165,8 @@ fn vest_actually_unlocks_funds() {
 		assert!(result.is_ok());
 
 		// After vest(), the vesting schedule should be removed entirely.
-		let schedule = <pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(
-			&caller,
-		);
+		let schedule =
+			<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&caller);
 		assert_eq!(schedule, None, "vesting schedule should be removed after full vest");
 	});
 }
@@ -482,4 +481,3 @@ fn vesting_balance_returns_zero_when_fully_vested() {
 		assert_eq!(balance, U256::zero(), "fully vested schedule should report 0 locked");
 	});
 }
-
