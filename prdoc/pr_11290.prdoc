@@ -49,34 +49,44 @@ crates:
     bump: major
     validate: false
   - name: polkadot-primitives-test-helpers
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-node-core-backing
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-node-core-candidate-validation
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-node-core-pvf
     bump: patch
+    validate: false
   - name: polkadot-node-core-pvf-common
     bump: major
     validate: false
   - name: polkadot-node-core-prospective-parachains
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-node-core-dispute-coordinator
-    bump: patch
+    bump: minor
+    validate: false
   - name: polkadot-node-core-provisioner
     bump: patch
+    validate: false
   - name: polkadot-collator-protocol
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-statement-distribution
     bump: major
     validate: false
   - name: polkadot-dispute-distribution
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-node-primitives
     bump: major
     validate: false
   - name: polkadot-node-collation-generation
     bump: patch
+    validate: false
   - name: polkadot-runtime-parachains
     bump: major
     validate: false
@@ -87,13 +97,17 @@ crates:
     bump: major
     validate: false
   - name: polkadot-node-core-approval-voting
-    bump: patch
+    bump: major
+    validate: false
   - name: polkadot-node-core-runtime-api
-    bump: patch
+    bump: major
+    validate: false
   - name: rococo-runtime
-    bump: minor
+    bump: major
+    validate: false
   - name: westend-runtime
-    bump: minor
+    bump: major
+    validate: false
   - name: polkadot-test-runtime
     bump: major
     validate: false
@@ -101,7 +115,8 @@ crates:
     bump: major
     validate: false
   - name: cumulus-relay-chain-minimal-node
-    bump: minor
+    bump: major
+    validate: false
   - name: cumulus-relay-chain-rpc-interface
     bump: major
     validate: false
@@ -110,5 +125,7 @@ crates:
     validate: false
   - name: polkadot-subsystem-bench
     bump: patch
+    validate: false
   - name: polkadot-test-malus
     bump: patch
+    validate: false
