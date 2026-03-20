@@ -5039,8 +5039,6 @@ pub(crate) mod tests {
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
 	}
-<<<<<<< HEAD
-=======
 
 	#[test]
 	fn prune_blocks_with_empty_predicates_prunes_all() {
