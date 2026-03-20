@@ -177,7 +177,7 @@ impl ClaimQueueState {
 							target: LOG_TARGET,
 							?future_claim,
 							?expected_claim,
-							leaf=hash,
+							leaf=?hash,
 							"Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on session change."
 						);
 
