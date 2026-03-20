@@ -5,3 +5,5 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
