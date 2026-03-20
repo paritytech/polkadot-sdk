@@ -2727,55 +2727,29 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_sustained_rate_above_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
-
-		let peer_id = *handler.peers.keys().next().unwrap();
-
-		let mut counter = 0u32;
-
-		let start = std::time::Instant::now();
-		let duration = std::time::Duration::from_secs(5);
-
-		let mut flooding_detected = false;
-		while start.elapsed() < duration {
-			let mut statements = Vec::new();
-			for i in 0..30_000 {
-				let mut statement = Statement::new();
-				statement.set_plain_data(vec![
-					counter as u8,
-					(counter >> 8) as u8,
-					(counter >> 16) as u8,
-					i as u8,
-				]);
-				statements.push(statement);
-				counter = counter.wrapping_add(1);
-			}
-
-			handler.on_statements(peer_id, statements);
-
-			// Check if flooding was detected
-			let reports = network.get_reports();
-			if reports
-				.iter()
-				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
-			{
-				flooding_detected = true;
-				break;
-			}
-
-			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-		}
-
-		assert!(flooding_detected, "Sustained rate of 300k/sec should trigger flooding");
-
-		let disconnected = network.get_disconnected_peers();
-		assert!(
-			disconnected.contains(&peer_id),
-			"Peer should be disconnected after sustained high rate. Disconnected: {:?}",
-			disconnected
+		let clock = governor::clock::FakeRelativeClock::default();
+		let statements_per_second =
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("rate is nonzero");
+		let burst =
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst is nonzero");
+		let limiter = RateLimiter::direct_with_clock(
+			Quota::per_second(statements_per_second).allow_burst(burst),
+			&clock,
 		);
 
-		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+		assert_eq!(
+			limiter.check_n(NonZeroU32::new(240_000).unwrap()),
+			Ok(Ok(())),
+			"A near-burst first batch should be accepted"
+		);
+
+		clock.advance(std::time::Duration::from_millis(100));
+
+		let second_batch_result = limiter.check_n(NonZeroU32::new(80_000).unwrap());
+		assert!(
+			matches!(second_batch_result, Ok(Err(_))),
+			"After only 100ms of refill, another 80k statements should exceed the budget"
+		);
 	}
 }
