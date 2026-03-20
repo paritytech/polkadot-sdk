@@ -328,24 +328,16 @@ impl HopDataPool {
 		}
 	}
 
-	/// Claim data from the pool (read-only). Verifies the signature against recipient
-	/// public keys. Returns the data if the signature matches a recipient.
-	///
-	/// This does NOT mark the recipient as claimed — call `ack` after receiving the data
-	/// to confirm receipt.
-	///
-	/// Returns `AlreadyClaimed` if the recipient has already ack'd (data may be deleted).
-	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
-		let index = self.index.read();
-		let meta = index.get(hash).ok_or(HopError::NotFound)?;
-
-		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
+	/// Decode a signature and find the matching recipient index.
+	fn find_recipient(
+		meta: &HopEntryMeta,
+		hash: &HopHash,
+		signature: &[u8],
+	) -> Result<usize, HopError> {
 		let multi_sig =
 			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 
-		// Find which recipient this signature matches
-		let recipient_index = meta
-			.recipients
+		meta.recipients
 			.iter()
 			.enumerate()
 			.find_map(|(i, signer)| {
@@ -356,7 +348,20 @@ impl HopDataPool {
 					None
 				}
 			})
-			.ok_or(HopError::NotRecipient)?;
+			.ok_or(HopError::NotRecipient)
+	}
+
+	/// Claim data from the pool (read-only). Verifies the signature against recipient
+	/// public keys. Returns the data if the signature matches a recipient.
+	///
+	/// This does NOT mark the recipient as claimed — call `ack` after receiving the data
+	/// to confirm receipt.
+	///
+	/// Returns `AlreadyClaimed` if the recipient has already ack'd (data may be deleted).
+	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
+		let index = self.index.read();
+		let meta = index.get(hash).ok_or(HopError::NotFound)?;
+		let recipient_index = Self::find_recipient(meta, hash, signature)?;
 
 		// If this recipient already ack'd, the data may be gone.
 		if meta.claimed[recipient_index] {
@@ -380,25 +385,7 @@ impl HopDataPool {
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
 		let mut index = self.index.write();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-
-		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
-		let multi_sig =
-			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
-
-		// Find which recipient this signature matches
-		let recipient_index = meta
-			.recipients
-			.iter()
-			.enumerate()
-			.find_map(|(i, signer)| {
-				let account_id = signer.clone().into_account();
-				if multi_sig.verify(hash.as_bytes(), &account_id) {
-					Some(i)
-				} else {
-					None
-				}
-			})
-			.ok_or(HopError::NotRecipient)?;
+		let recipient_index = Self::find_recipient(meta, hash, signature)?;
 
 		// Idempotent: already ack'd is fine.
 		if meta.claimed[recipient_index] {
