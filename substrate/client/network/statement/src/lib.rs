@@ -1035,9 +1035,16 @@ where
 					}
 					offset += 1;
 				},
-				SendChunkResult::Empty | SendChunkResult::Paused | SendChunkResult::Failed => {
-					return
+				SendChunkResult::Paused | SendChunkResult::Failed => {
+					log::debug!(
+						target: LOG_TARGET,
+						"{who}: Outbound statement send interrupted, disconnecting peer for clean recovery"
+					);
+					self.network.disconnect_peer(*who, self.protocol_name.clone());
+					self.cleanup_peer_state(*who, false);
+					return;
 				},
+				SendChunkResult::Empty => return,
 			}
 		}
 	}
@@ -1293,7 +1300,7 @@ mod tests {
 		}
 	}
 
-	#[derive(Clone)]
+	#[derive(Debug, Clone)]
 	struct TestSync {
 		major_syncing: Arc<AtomicBool>,
 		offline: Arc<AtomicBool>,
@@ -1358,6 +1365,7 @@ mod tests {
 	struct TestNotificationService {
 		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
 		fail_async_send: Arc<AtomicBool>,
+		offline_after_next_successful_send: Arc<Mutex<Option<TestSync>>>,
 	}
 
 	impl TestNotificationService {
@@ -1365,6 +1373,7 @@ mod tests {
 			Self {
 				sent_notifications: Arc::new(Mutex::new(Vec::new())),
 				fail_async_send: Arc::new(AtomicBool::new(false)),
+				offline_after_next_successful_send: Arc::new(Mutex::new(None)),
 			}
 		}
 
@@ -1374,6 +1383,10 @@ mod tests {
 
 		fn set_fail_async_send(&self, value: bool) {
 			self.fail_async_send.store(value, Ordering::Relaxed);
+		}
+
+		fn go_offline_after_next_successful_send(&self, sync: TestSync) {
+			*self.offline_after_next_successful_send.lock().unwrap() = Some(sync);
 		}
 	}
 
@@ -1401,6 +1414,9 @@ mod tests {
 			}
 
 			self.sent_notifications.lock().unwrap().push((*peer, notification));
+			if let Some(sync) = self.offline_after_next_successful_send.lock().unwrap().take() {
+				sync.set_offline(true);
+			}
 			Ok(())
 		}
 
@@ -1852,9 +1868,79 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn propagate_statement_retries_after_send_failure() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
+	async fn propagate_statement_send_failure_disconnects_peer_and_cleans_up() {
+		let (mut handler, statement_store, network, notification_service, _queue_receiver) =
 			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"propagate-send-failure".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		notification_service.set_fail_async_send(true);
+		handler.propagate_statement(&hash).await;
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(!handler.initial_sync_peer_queue.contains(&peer_id));
+		assert!(notification_service.get_sent_notifications().is_empty());
+	}
+
+	#[tokio::test]
+	async fn propagate_statements_disconnects_unsent_peers_if_node_goes_offline_mid_flight() {
+		let (mut handler, statement_store, network, notification_service, sync) =
+			build_handler_no_peers();
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		for peer in [peer1, peer2] {
+			handler.peers.insert(
+				peer,
+				Peer {
+					known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
+					rate_limiter: PeerRateLimiter::new(
+						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+						NonZeroU32::new(
+							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+						)
+						.expect("burst capacity is nonzero"),
+					),
+				},
+			);
+		}
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"mid-flight-offline".to_vec());
+		let hash = statement.hash();
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		notification_service.go_offline_after_next_successful_send(sync.clone());
+		handler.propagate_statements().await;
+
+		assert_eq!(notification_service.get_sent_notifications().len(), 1);
+		assert_eq!(network.get_disconnected_peers().len(), 1);
+		assert_eq!(handler.peers.len(), 1, "One unsent peer should be disconnected for recovery");
+		assert!(
+			sp_consensus::SyncOracle::is_offline(&sync),
+			"The test hook should have forced the node offline"
+		);
+	}
+
+	#[tokio::test]
+	async fn propagate_statement_retries_after_send_failure_once_peer_reconnects() {
+		let (mut handler, statement_store, network, notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
 
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"retry-after-send-failure".to_vec());
@@ -1867,12 +1953,29 @@ mod tests {
 			notification_service.get_sent_notifications().is_empty(),
 			"A failed send must not produce a recorded notification"
 		);
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert!(!handler.peers.contains_key(&peer_id));
+
+		handler.peers.insert(
+			peer_id,
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
+				rate_limiter: PeerRateLimiter::new(
+					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.expect("burst capacity is nonzero"),
+				),
+			},
+		);
 
 		notification_service.set_fail_async_send(false);
 		handler.propagate_statement(&hash).await;
 
 		let sent = notification_service.get_sent_notifications();
-		assert_eq!(sent.len(), 1, "The statement should be retried after send recovery");
+		assert_eq!(sent.len(), 1, "The statement should be retried after the peer reconnects");
 		let decoded = <Statements as Decode>::decode(&mut sent[0].1.as_slice()).unwrap();
 		assert_eq!(decoded.len(), 1);
 		assert_eq!(decoded[0].hash(), hash);
