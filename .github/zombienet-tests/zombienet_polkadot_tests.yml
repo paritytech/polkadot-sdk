@@ -250,17 +250,13 @@
   additional-setup: |
     BIN_DIR="$(pwd)/bin_old"
     mkdir -p $BIN_DIR
-    for bin in polkadot; do
-      OLD_NAME="$bin-old"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
+    echo "downloading polkadot as polkadot-old in $BIN_DIR"
+    curl -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
+    chmod 755 $BIN_DIR/polkadot-old
     for bin in polkadot-execute-worker polkadot-prepare-worker; do
-      OLD_NAME="$bin"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
+      echo "downloading $bin in $BIN_DIR"
+      curl -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
+      chmod 755 $BIN_DIR/$bin
     done
     ls -ltr $BIN_DIR
     export PATH=$BIN_DIR:$PATH
