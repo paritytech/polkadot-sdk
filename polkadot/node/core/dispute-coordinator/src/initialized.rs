@@ -44,9 +44,10 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
-	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	node_features::FeatureIndex, slashing, BlockNumber, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
+	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -279,8 +280,9 @@ impl Initialized {
 							self.scraper.process_finalized_block(&n);
 							default_confirm
 						},
-						FromOrchestra::Communication { msg } =>
-							self.handle_incoming(ctx, &mut overlay_db, msg, clock.now()).await?,
+						FromOrchestra::Communication { msg } => {
+							self.handle_incoming(ctx, &mut overlay_db, msg, clock.now()).await?
+						},
 					},
 				};
 
@@ -602,20 +604,49 @@ impl Initialized {
 		// Scraped on-chain backing votes for the candidates with
 		// the new active leaf as if we received them via gossip.
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
-			// Obtain the session info, for sake of `ValidatorId`s
 			let relay_parent = candidate_receipt.descriptor.relay_parent();
-			let session_info = match self
+
+			// First, fetch session info for the message session to get node_features
+			let extended_session_info = match self
 				.runtime_info
 				.get_session_info_by_index(ctx.sender(), relay_parent, session)
 				.await
 			{
-				Ok(extended_session_info) => &extended_session_info.session_info,
+				Ok(info) => info,
 				Err(err) => {
 					gum::warn!(
 						target: LOG_TARGET,
 						?session,
 						?err,
 						"Could not retrieve session info from RuntimeInfo",
+					);
+					return Ok(());
+				},
+			};
+
+			let v3_enabled =
+				FeatureIndex::CandidateReceiptV3.is_set(&extended_session_info.node_features);
+
+			// For V2/V3: Get scheduling session and parent from descriptor
+			// For V1: These methods return None/relay_parent, fall back to message session
+			let scheduling_session =
+				candidate_receipt.descriptor.scheduling_session(v3_enabled).unwrap_or(session);
+			let scheduling_parent = candidate_receipt.descriptor.scheduling_parent(v3_enabled);
+
+			// Backing validators are from the scheduling context
+			// Fetch session info using scheduling_parent as the runtime API context
+			let session_info = match self
+				.runtime_info
+				.get_session_info_by_index(ctx.sender(), scheduling_parent, scheduling_session)
+				.await
+			{
+				Ok(info) => &info.session_info,
+				Err(err) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						?scheduling_session,
+						?err,
+						"Could not retrieve scheduling session info from RuntimeInfo",
 					);
 					return Ok(());
 				},
@@ -645,24 +676,26 @@ impl Initialized {
 						})
 						.cloned()?;
 					let validator_signature = attestation.signature().clone();
+					// Backing statements use scheduling_parent in the signing context
+					// because backing validators are selected based on scheduling context
 					let valid_statement_kind =
 						match attestation.to_compact_statement(candidate_hash) {
 							CompactStatement::Seconded(_) =>
-								ValidDisputeStatementKind::BackingSeconded(relay_parent),
+								ValidDisputeStatementKind::BackingSeconded(scheduling_parent),
 							CompactStatement::Valid(_) =>
-								ValidDisputeStatementKind::BackingValid(relay_parent),
+								ValidDisputeStatementKind::BackingValid(scheduling_parent),
 						};
 					debug_assert!(
 						SignedDisputeStatement::new_checked(
 							DisputeStatement::Valid(valid_statement_kind.clone()),
 							candidate_hash,
-							session,
+							scheduling_session,
 							validator_public.clone(),
 							validator_signature.clone(),
 						).is_ok(),
 						"Scraped backing votes had invalid signature! candidate: {:?}, session: {:?}, validator_public: {:?}, validator_index: {}",
 						candidate_hash,
-						session,
+						scheduling_session,
 						validator_public,
 						validator_index.0,
 					);
@@ -670,7 +703,7 @@ impl Initialized {
 						SignedDisputeStatement::new_unchecked_from_trusted_source(
 							DisputeStatement::Valid(valid_statement_kind.clone()),
 							candidate_hash,
-							session,
+							scheduling_session,
 							validator_public,
 							validator_signature,
 						);
@@ -685,7 +718,7 @@ impl Initialized {
 					ctx,
 					overlay_db,
 					MaybeCandidateReceipt::Provides(candidate_receipt),
-					session,
+					scheduling_session,
 					statements,
 					now,
 				)
@@ -948,8 +981,9 @@ impl Initialized {
 		let candidate_hash = candidate_receipt.hash();
 		let votes_in_db = overlay_db.load_candidate_votes(session, &candidate_hash)?;
 		let relay_parent = match &candidate_receipt {
-			MaybeCandidateReceipt::Provides(candidate_receipt) =>
-				candidate_receipt.descriptor().relay_parent(),
+			MaybeCandidateReceipt::Provides(candidate_receipt) => {
+				candidate_receipt.descriptor().relay_parent()
+			},
 			MaybeCandidateReceipt::AssumeBackingVotePresent(candidate_hash) => match &votes_in_db {
 				Some(votes) => votes.candidate_receipt.descriptor().relay_parent(),
 				None => {
@@ -1006,7 +1040,7 @@ impl Initialized {
 		// not have a `CandidateReceipt` available.
 		let old_state = match votes_in_db.map(CandidateVotes::from) {
 			Some(votes) => CandidateVoteState::new(votes, &env, now),
-			None =>
+			None => {
 				if let MaybeCandidateReceipt::Provides(candidate_receipt) = candidate_receipt {
 					CandidateVoteState::new_from_receipt(candidate_receipt)
 				} else {
@@ -1017,7 +1051,8 @@ impl Initialized {
 						"Cannot import votes, without `CandidateReceipt` available!"
 					);
 					return Ok(ImportStatementsResult::InvalidImport);
-				},
+				}
+			},
 		};
 
 		gum::trace!(target: LOG_TARGET, ?candidate_hash, ?session, "Loaded votes");

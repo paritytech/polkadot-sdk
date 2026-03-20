@@ -64,11 +64,12 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig,
+		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
 		RuntimeGenesisConfig, SudoConfig,
 	};
 
 	use alloc::{vec, vec::Vec};
+	use pallet_revive::is_eth_derived;
 	use serde_json::Value;
 
 	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
@@ -103,14 +104,23 @@ pub mod genesis_config_presets {
 
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
+		let endowed_accounts = well_known_accounts();
 		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: well_known_accounts()
-					.into_iter()
+				balances: endowed_accounts
+					.iter()
+					.cloned()
 					.map(|id| (id, ENDOWMENT))
 					.collect::<Vec<_>>(),
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+			revive: ReviveConfig {
+				mapped_accounts: endowed_accounts
+					.iter()
+					.filter(|x| !is_eth_derived(x))
+					.cloned()
+					.collect(),
+			},
 		})
 	}
 
@@ -269,8 +279,10 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
-const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
+const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
+	polkadot_primitives::MAX_POV_SIZE as u64,
+);
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -298,6 +310,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
+	type BlockWeights = RuntimeBlockWeights;
 	type Version = Version;
 	type AccountId = AccountId;
 	type Hash = Hash;

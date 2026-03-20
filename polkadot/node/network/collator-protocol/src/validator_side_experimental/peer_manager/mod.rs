@@ -16,6 +16,8 @@
 mod backend;
 mod connected;
 mod db;
+mod persistence;
+mod persistent_db;
 
 use futures::channel::oneshot;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -32,7 +34,10 @@ use crate::{
 };
 pub use backend::Backend;
 use connected::ConnectedPeers;
+#[cfg(test)]
 pub use db::Db;
+pub use persistence::PersistenceError;
+pub use persistent_db::PersistentDb;
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
@@ -117,6 +122,17 @@ impl<B: Backend> PeerManager<B> {
 
 		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
 
+		if latest_finalized_block_number != processed_finalized_block_number {
+			gum::trace!(
+				target: LOG_TARGET,
+				blocks_processed = std::cmp::min(
+					latest_finalized_block_number.saturating_sub(processed_finalized_block_number),
+					MAX_STARTUP_ANCESTRY_LOOKBACK
+				),
+				"Startup lookback completed"
+			);
+		}
+
 		Ok(instance)
 	}
 
@@ -138,11 +154,7 @@ impl<B: Backend> PeerManager<B> {
 
 		let updates = self
 			.db
-			.process_bumps(
-				finalized_block_number,
-				bumps,
-				Some(Score::new(INACTIVITY_DECAY).expect("INACTIVITY_DECAY is a valid score")),
-			)
+			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)))
 			.await;
 		for update in updates {
 			self.connected.update_reputation(update);
@@ -403,6 +415,23 @@ impl<B: Backend> PeerManager<B> {
 	}
 }
 
+impl PeerManager<PersistentDb> {
+	/// Persist the reputation database to disk asynchronously (fire-and-forget).
+	pub fn persist_to_disk_async(&mut self) {
+		self.db.persist_async(None);
+	}
+
+	/// Persist and wait for the background writer to finish the write.
+	pub async fn persist_and_wait(&mut self) {
+		if self.db.persist_and_wait().await.is_err() {
+			gum::error!(
+				target: LOG_TARGET,
+				"Failed to persist reputation DB: background writer closed"
+			);
+		}
+	}
+}
+
 async fn get_ancestors<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
 	k: usize,
@@ -485,8 +514,14 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 
 		for event in candidate_events {
 			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {
-				// Only v2 receipts can contain UMP signals.
-				if receipt.descriptor.version() == CandidateDescriptorVersion::V2 {
+				// Only v2+ receipts can contain UMP signals.
+				// Assuming node feature set here is fine, misinterpretations are harmless in this
+				// context:
+				let has_ump_signals = match receipt.descriptor.version(true) {
+					CandidateDescriptorVersion::V1 => false,
+					_ => true,
+				};
+				if has_ump_signals {
 					v2_candidates_per_rp
 						.entry(parent_rp)
 						.or_default()
