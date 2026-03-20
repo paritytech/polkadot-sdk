@@ -237,13 +237,13 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement"
-  test-filter: "scheduling::v3_dynamic_enablement::v3_dynamic_enablement_test"
+  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test"
   runner-type: "default"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
-  test-filter: "scheduling::v3_rolling_upgrade::v3_rolling_upgrade"
+  test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"
   runner-type: "default"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"

@@ -10,8 +10,9 @@
 //!
 //! The validator set contains both standard and experimental-collator-protocol validators.
 
-use super::{assert_candidates_version, assert_validator_backed_candidates};
-use crate::utils::enable_node_features;
+use crate::utils::{
+	assert_candidates_version, assert_validator_backed_candidates, enable_node_features,
+};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_finality_lag;
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
