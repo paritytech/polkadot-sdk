@@ -745,7 +745,10 @@ where
 				let _ = result_tx.send(result);
 			},
 			NotificationEvent::NotificationStreamOpened { peer, .. } => {
-				if self.sync.is_major_syncing() {
+				// Snapshot the sync state once for this open event so peers admitted just before
+				// major sync starts still keep their queued initial-sync recovery path.
+				let major_syncing = self.sync.is_major_syncing();
+				if major_syncing {
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Disconnecting statement stream opened while major syncing or offline"
@@ -776,18 +779,14 @@ where
 					metrics.peers_connected.set(self.peers.len() as u64);
 				});
 
-				if !self.sync.is_major_syncing() {
-					let hashes = self.statement_store.statement_hashes();
-					if !hashes.is_empty() {
-						self.pending_initial_syncs.insert(
-							peer,
-							PendingInitialSync { hashes, started_at: Instant::now() },
-						);
-						self.initial_sync_peer_queue.push_back(peer);
-						self.metrics.as_ref().map(|metrics| {
-							metrics.initial_sync_peers_active.inc();
-						});
-					}
+				let hashes = self.statement_store.statement_hashes();
+				if !hashes.is_empty() {
+					self.pending_initial_syncs
+						.insert(peer, PendingInitialSync { hashes, started_at: Instant::now() });
+					self.initial_sync_peer_queue.push_back(peer);
+					self.metrics.as_ref().map(|metrics| {
+						metrics.initial_sync_peers_active.inc();
+					});
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
@@ -1251,15 +1250,23 @@ mod tests {
 	#[derive(Clone)]
 	struct TestSync {
 		major_syncing: Arc<AtomicBool>,
+		scripted_major_syncing: Arc<Mutex<VecDeque<bool>>>,
 	}
 
 	impl TestSync {
 		fn new(major_syncing: bool) -> Self {
-			Self { major_syncing: Arc::new(AtomicBool::new(major_syncing)) }
+			Self {
+				major_syncing: Arc::new(AtomicBool::new(major_syncing)),
+				scripted_major_syncing: Arc::new(Mutex::new(VecDeque::new())),
+			}
 		}
 
 		fn set_major_syncing(&self, value: bool) {
 			self.major_syncing.store(value, Ordering::Relaxed);
+		}
+
+		fn set_major_syncing_sequence(&self, values: impl IntoIterator<Item = bool>) {
+			*self.scripted_major_syncing.lock().unwrap() = values.into_iter().collect();
 		}
 	}
 
@@ -1274,7 +1281,11 @@ mod tests {
 
 	impl sp_consensus::SyncOracle for TestSync {
 		fn is_major_syncing(&self) -> bool {
-			self.major_syncing.load(Ordering::Relaxed)
+			if let Some(value) = self.scripted_major_syncing.lock().unwrap().pop_front() {
+				value
+			} else {
+				self.major_syncing.load(Ordering::Relaxed)
+			}
 		}
 
 		fn is_offline(&self) -> bool {
@@ -2293,6 +2304,48 @@ mod tests {
 			handler.pending_initial_syncs.get(&peer_id).unwrap().hashes,
 			vec![hash],
 			"Queued initial sync should include the current statement-store hashes"
+		);
+	}
+
+	#[tokio::test]
+	async fn stream_open_snapshot_still_queues_initial_sync_if_major_sync_starts_mid_open() {
+		let (mut handler, statement_store, network, _notification_service, sync) =
+			build_handler_no_peers_with_sync(false);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"open-snapshot".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		let peer_id = PeerId::random();
+		sync.set_major_syncing_sequence([false, true]);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(
+			!network.get_disconnected_peers().contains(&peer_id),
+			"Peer admitted before the sync transition should stay connected"
+		);
+		assert!(handler.peers.contains_key(&peer_id), "Peer should be inserted");
+		assert!(
+			handler.pending_initial_syncs.contains_key(&peer_id),
+			"Open-path sync snapshot should still queue initial sync"
+		);
+		assert!(
+			handler.initial_sync_peer_queue.contains(&peer_id),
+			"Peer should remain queued for catch-up after sync exits"
+		);
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().hashes,
+			vec![hash],
+			"Initial sync should preserve the statement-store snapshot from the open event"
 		);
 	}
 
