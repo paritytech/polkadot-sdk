@@ -335,7 +335,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// NOTE: A block is not in its own `AllowedRelayParents` storage (it gets
 		/// added during the next block's inherent). Querying a block about itself
-		/// will always return `None`. Use the node-side `check_relay_parent_info`
+		/// will always return `None`. Use the node-side `check_relay_parent_session`
 		/// utility for a general-purpose check that handles both the self and
 		/// ancestor cases.
 		#[api_version(16)]

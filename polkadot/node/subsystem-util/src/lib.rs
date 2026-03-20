@@ -321,7 +321,7 @@ specialize_requests! {
 
 }
 
-/// Result of [`check_relay_parent_info`].
+/// Result of [`check_relay_parent_session`].
 pub enum CheckRelayParentSessionResult {
 	/// The relay parent is valid in the given session.
 	Valid,

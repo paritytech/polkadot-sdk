@@ -2874,7 +2874,7 @@ fn pre_validation_basic_checks() {
 }
 
 /// Relay parent session check: for V2 candidates (scheduling_parent == relay_parent),
-/// the `check_relay_parent_info` utility takes the self-query path, verifying the
+/// the `check_relay_parent_session` utility takes the self-query path, verifying the
 /// session via `session_index_for_child` directly.
 ///
 /// Case 1: Session mismatch → InvalidRelayParentSession.
@@ -2954,7 +2954,7 @@ fn pre_validation_relay_parent_session_check() {
 					_, RuntimeApiRequest::SessionIndexForChild(tx),
 				)) => { let _ = tx.send(Ok(1)); }
 			);
-			// check_relay_parent_info self-query: session_index_for_child returns 99
+			// check_relay_parent_session self-query: session_index_for_child returns 99
 			// (mismatch with descriptor's session_index=1).
 			assert_matches!(
 				ctx_handle.recv().await,
@@ -3006,7 +3006,7 @@ fn pre_validation_relay_parent_session_check() {
 					_, RuntimeApiRequest::SessionIndexForChild(tx),
 				)) => { let _ = tx.send(Ok(1)); }
 			);
-			// check_relay_parent_info self-query: session matches (session=1).
+			// check_relay_parent_session self-query: session matches (session=1).
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -3036,7 +3036,7 @@ fn pre_validation_relay_parent_session_check() {
 }
 
 /// Relay parent session check for V3 candidates (scheduling_parent != relay_parent):
-/// the `check_relay_parent_info` utility takes the ancestor-query path, calling
+/// the `check_relay_parent_session` utility takes the ancestor-query path, calling
 /// the `AncestorRelayParentInfo` runtime API.
 ///
 /// Case 1: AncestorRelayParentInfo returns None → InvalidRelayParentSession.

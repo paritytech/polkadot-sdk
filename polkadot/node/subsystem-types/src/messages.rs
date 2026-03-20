@@ -840,7 +840,7 @@ pub enum RuntimeApiRequest {
 	MaxRelayParentSessionAge(SessionIndex, RuntimeApiSender<u32>),
 	/// Look up relay parent info for an **ancestor** block. A block is not in its
 	/// own `AllowedRelayParents`, so querying a block about itself returns `None`.
-	/// Use the node-side `check_relay_parent_info` utility for the general case. `V16`
+	/// Use the node-side `check_relay_parent_session` utility for the general case. `V16`
 	AncestorRelayParentInfo(
 		SessionIndex,
 		Hash,
