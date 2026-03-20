@@ -337,10 +337,10 @@ impl<B: Backend> State<B> {
 		// request as successful, despite we might not be able to second it.
 		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
-			CanSecond::Yes(scheduling_parent, candidate_receipt, pov, pvd) => {
+			CanSecond::Yes(candidate_receipt, pov, pvd) => {
 				sender
 					.send_message(CandidateBackingMessage::Second {
-						scheduling_parent,
+						scheduling_parent: candidate_receipt.descriptor().scheduling_parent(),
 						candidate: candidate_receipt,
 						pvd,
 						pov,
@@ -551,9 +551,10 @@ impl<B: Backend> State<B> {
 	) {
 		for can_second_unblocked in unblocked_collations {
 			match can_second_unblocked {
-				CanSecond::Yes(scheduling_parent, candidate_receipt, pov, pvd) => {
+				CanSecond::Yes(candidate_receipt, pov, pvd) => {
 					let candidate_hash = candidate_receipt.hash();
 					let para_id = candidate_receipt.descriptor.para_id();
+					let scheduling_parent = candidate_receipt.descriptor().scheduling_parent();
 
 					sender
 						.send_message(CandidateBackingMessage::Second {

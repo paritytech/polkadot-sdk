@@ -217,7 +217,8 @@ impl CollationManager {
 		let mut removed_blocked = vec![];
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
-				let remove = !self.per_scheduling_parent.contains_key(&collation.scheduling_parent);
+				let remove =
+					!self.per_scheduling_parent.contains_key(&collation.scheduling_parent());
 
 				if remove {
 					removed_blocked.push(collation.candidate_receipt.hash());
@@ -614,7 +615,7 @@ impl CollationManager {
 		let mut unblocked_can_second = Vec::with_capacity(unblocked.len());
 		for fetched_collation in unblocked {
 			let reject_info = SecondingRejectionInfo {
-				scheduling_parent: fetched_collation.scheduling_parent,
+				scheduling_parent: fetched_collation.scheduling_parent(),
 				peer_id: fetched_collation.peer_id,
 				para_id: fetched_collation.candidate_receipt.descriptor.para_id(),
 				maybe_output_head_hash: Some(
@@ -771,7 +772,7 @@ impl CollationManager {
 		queue_blocked_collations: bool,
 		reject_info: SecondingRejectionInfo,
 	) -> CanSecond {
-		let scheduling_parent = fetched_collation.scheduling_parent;
+		let scheduling_parent = fetched_collation.scheduling_parent();
 		let candidate_hash = fetched_collation.candidate_receipt.hash();
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
 
@@ -792,12 +793,7 @@ impl CollationManager {
 					&para_id,
 					&candidate_hash,
 				);
-				CanSecond::Yes(
-					fetched_collation.scheduling_parent,
-					fetched_collation.candidate_receipt,
-					fetched_collation.pov,
-					pvd,
-				)
+				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
 			},
 			Err(error) => match error {
 				SecondingError::BlockedOnParent(parent) => {
@@ -855,7 +851,7 @@ impl CollationManager {
 
 		for collation in blocked {
 			let candidate_hash = collation.candidate_receipt.hash();
-			let scheduling_parent = collation.scheduling_parent;
+			let scheduling_parent = collation.scheduling_parent();
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
@@ -905,8 +901,6 @@ struct FetchedCollation {
 	pub maybe_parent_head_data_hash: Option<Hash>,
 	/// The peer that sent this collation.
 	pub peer_id: PeerId,
-	/// Candidate's scheduling parent.
-	pub scheduling_parent: Hash,
 }
 
 impl FetchedCollation {
@@ -918,13 +912,16 @@ impl FetchedCollation {
 		peer_id: PeerId,
 	) -> Self {
 		Self {
-			scheduling_parent: candidate_receipt.descriptor().scheduling_parent(),
 			candidate_receipt,
 			pov,
 			maybe_parent_head_data,
 			maybe_parent_head_data_hash,
 			peer_id,
 		}
+	}
+
+	pub fn scheduling_parent(&self) -> Hash {
+		self.candidate_receipt.descriptor().scheduling_parent()
 	}
 
 	/// Performs a sanity check between advertised and fetched collations.

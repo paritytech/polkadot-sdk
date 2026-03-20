@@ -272,7 +272,7 @@ pub enum CanSecond {
 	/// collation info.
 	No(Option<Score>, SecondingRejectionInfo),
 	/// Seconding can begin. Returns all the needed data for seconding.
-	Yes(Hash, CandidateReceipt, PoV, PersistedValidationData),
+	Yes(CandidateReceipt, PoV, PersistedValidationData),
 	/// Seconding is blocked because we are waiting for the parent to be seconded.
 	/// Returns the hash of the parent candidate header, together with the rejected collation info.
 	BlockedOnParent(Hash, SecondingRejectionInfo),
