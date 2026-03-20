@@ -141,7 +141,7 @@ pub struct Block {
 }
 
 /// Block number or tag
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum BlockNumberOrTag {
 	/// Block number
@@ -498,7 +498,7 @@ pub type Addresses = Vec<Address>;
 /// and containing the set of transactions usually taken from local mempool. Before the merge
 /// transition is finalized, any call querying for `finalized` or `safe` block MUST be responded to
 /// with `-39001: Unknown block` error
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Copy, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum BlockTag {
 	Earliest,
