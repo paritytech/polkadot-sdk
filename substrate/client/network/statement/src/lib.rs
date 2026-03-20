@@ -835,25 +835,15 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				let _peer = self.peers.remove(&peer);
-				if _peer.is_none() {
+				let had_peer_state = self.peers.contains_key(&peer)
+					|| self.pending_initial_syncs.contains_key(&peer);
+				if !had_peer_state {
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Statement stream closed after peer state was already cleaned up"
 					);
 				}
-				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.initial_sync_peers_active.dec();
-						metrics
-							.initial_sync_duration_seconds
-							.observe(pending.started_at.elapsed().as_secs_f64());
-					});
-				}
-				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				self.metrics.as_ref().map(|metrics| {
-					metrics.peers_connected.set(self.peers.len() as u64);
-				});
+				self.cleanup_peer_state(peer, false);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;
@@ -868,7 +858,7 @@ where
 						"{peer}: Disconnecting peer that sent statements while major syncing or offline"
 					);
 					self.network.disconnect_peer(peer, self.protocol_name.clone());
-					self.cleanup_peer_state(peer, true);
+					self.cleanup_peer_state(peer, false);
 					return;
 				}
 
@@ -2578,6 +2568,8 @@ mod tests {
 	async fn disconnects_existing_peer_that_sends_while_offline() {
 		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
 			build_handler();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 		handler.pending_initial_syncs.insert(
@@ -2585,6 +2577,7 @@ mod tests {
 			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
 		);
 		handler.initial_sync_peer_queue.push_back(peer_id);
+		handler.metrics.as_ref().unwrap().initial_sync_peers_active.inc();
 
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"offline-live-message".to_vec());
@@ -2601,6 +2594,17 @@ mod tests {
 		assert!(network.get_disconnected_peers().contains(&peer_id));
 		assert!(!handler.peers.contains_key(&peer_id));
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
+		assert_eq!(
+			handler
+				.metrics
+				.as_ref()
+				.unwrap()
+				.initial_sync_duration_seconds
+				.get_sample_count(),
+			0,
+			"Unavailable receives must not be recorded as completed initial syncs"
+		);
 	}
 
 	#[tokio::test]
@@ -2863,6 +2867,8 @@ mod tests {
 	async fn disconnects_existing_peer_that_sends_during_major_sync() {
 		let (mut handler, statement_store, network, _notification_service, _queue_receiver) =
 			build_handler();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 		let existing_pending = vec![[7u8; 32]];
@@ -2871,6 +2877,7 @@ mod tests {
 			PendingInitialSync { hashes: existing_pending.clone(), started_at: Instant::now() },
 		);
 		handler.initial_sync_peer_queue.push_back(peer_id);
+		handler.metrics.as_ref().unwrap().initial_sync_peers_active.inc();
 
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"major-sync-live-message".to_vec());
@@ -2897,6 +2904,64 @@ mod tests {
 		assert!(
 			!handler.initial_sync_peer_queue.contains(&peer_id),
 			"Peer should be removed from the initial sync queue"
+		);
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
+		assert_eq!(
+			handler
+				.metrics
+				.as_ref()
+				.unwrap()
+				.initial_sync_duration_seconds
+				.get_sample_count(),
+			0,
+			"Unavailable peers must not be recorded as completed initial syncs"
+		);
+	}
+
+	#[tokio::test]
+	async fn stream_close_during_initial_sync_does_not_record_completion() {
+		let (mut handler, statement_store, _network, _notification_service, _sync) =
+			build_handler_no_peers();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"stream-close-before-sync-complete".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 1);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
+				peer: peer_id,
+			})
+			.await;
+
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(!handler.initial_sync_peer_queue.contains(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
+		assert_eq!(
+			handler
+				.metrics
+				.as_ref()
+				.unwrap()
+				.initial_sync_duration_seconds
+				.get_sample_count(),
+			0,
+			"A closed stream must not be recorded as a completed initial sync"
 		);
 	}
 
