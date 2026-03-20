@@ -355,6 +355,16 @@ where
 			return Some(authoring_duration);
 		};
 
+		if next_slot_change.0 == Duration::ZERO {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?effective_slot,
+				?next_slot_change,
+				?relay_parent_offset,
+				"Effective slot is already past. Relay parent may be stale."
+			);
+		}
+
 		// Check if authors at current effective slot and next slots are different
 		let different_authors =
 			self.check_different_slot_authors(effective_slot, next_slot_change.1);
