@@ -712,11 +712,22 @@ where
 		}
 	}
 
+	fn should_pause_statement_protocol(&self) -> bool {
+		self.sync.is_major_syncing() || self.sync.is_offline()
+	}
+
 	fn cleanup_peer_state(&mut self, peer: PeerId, record_initial_sync_completion: bool) {
 		self.peers.remove(&peer);
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+			self.metrics.as_ref().map(|metrics| {
+				metrics.initial_sync_peers_active.dec();
+			});
 			if record_initial_sync_completion {
-				self.record_initial_sync_completion(pending.started_at);
+				self.metrics.as_ref().map(|metrics| {
+					metrics
+						.initial_sync_duration_seconds
+						.observe(pending.started_at.elapsed().as_secs_f64());
+				});
 			}
 		}
 		self.initial_sync_peer_queue.retain(|p| *p != peer);
@@ -728,7 +739,7 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
-				if self.sync.is_major_syncing() {
+				if self.should_pause_statement_protocol() {
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Rejecting statement substream while major syncing or offline"
@@ -747,8 +758,8 @@ where
 			NotificationEvent::NotificationStreamOpened { peer, .. } => {
 				// Snapshot the sync state once for this open event so peers admitted just before
 				// major sync starts still keep their queued initial-sync recovery path.
-				let major_syncing = self.sync.is_major_syncing();
-				if major_syncing {
+				let should_pause_statement_protocol = self.should_pause_statement_protocol();
+				if should_pause_statement_protocol {
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Disconnecting statement stream opened while major syncing or offline"
@@ -816,8 +827,8 @@ where
 					metrics.bytes_received_total.inc_by(bytes_received);
 				});
 
-				// Accept statements only when node is not major syncing
-				if self.sync.is_major_syncing() {
+				// Accept statements only when node is neither major syncing nor offline
+				if self.should_pause_statement_protocol() {
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Disconnecting peer that sent statements while major syncing or offline"
@@ -957,8 +968,8 @@ where
 
 	/// Propagate one statement.
 	pub async fn propagate_statement(&mut self, hash: &Hash) {
-		// Accept statements only when node is not major syncing
-		if self.sync.is_major_syncing() {
+		// Accept statements only when node is neither major syncing nor offline
+		if self.should_pause_statement_protocol() {
 			return;
 		}
 
@@ -1018,8 +1029,8 @@ where
 
 	/// Call when we must propagate ready statements to peers.
 	async fn propagate_statements(&mut self) {
-		// Send out statements only when node is not major syncing
-		if self.sync.is_major_syncing() {
+		// Send out statements only when node is neither major syncing nor offline
+		if self.should_pause_statement_protocol() {
 			return;
 		}
 
@@ -1041,7 +1052,7 @@ where
 
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
 	async fn process_initial_sync_burst(&mut self) {
-		if self.sync.is_major_syncing() {
+		if self.should_pause_statement_protocol() {
 			return;
 		}
 
@@ -1250,19 +1261,25 @@ mod tests {
 	#[derive(Clone)]
 	struct TestSync {
 		major_syncing: Arc<AtomicBool>,
+		offline: Arc<AtomicBool>,
 		scripted_major_syncing: Arc<Mutex<VecDeque<bool>>>,
 	}
 
 	impl TestSync {
-		fn new(major_syncing: bool) -> Self {
+		fn new(major_syncing: bool, offline: bool) -> Self {
 			Self {
 				major_syncing: Arc::new(AtomicBool::new(major_syncing)),
+				offline: Arc::new(AtomicBool::new(offline)),
 				scripted_major_syncing: Arc::new(Mutex::new(VecDeque::new())),
 			}
 		}
 
 		fn set_major_syncing(&self, value: bool) {
 			self.major_syncing.store(value, Ordering::Relaxed);
+		}
+
+		fn set_offline(&self, value: bool) {
+			self.offline.store(value, Ordering::Relaxed);
 		}
 
 		fn set_major_syncing_sequence(&self, values: impl IntoIterator<Item = bool>) {
@@ -1289,7 +1306,7 @@ mod tests {
 		}
 
 		fn is_offline(&self) -> bool {
-			false
+			self.offline.load(Ordering::Relaxed)
 		}
 	}
 
@@ -1522,7 +1539,7 @@ mod tests {
 		let (queue_sender, queue_receiver) = async_channel::bounded(2);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
-		let sync = TestSync::new(false);
+		let sync = TestSync::new(false, false);
 		let peer_id = PeerId::random();
 		let mut peers = HashMap::new();
 		peers.insert(
@@ -1759,7 +1776,7 @@ mod tests {
 		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
-		let sync = TestSync::new(major_syncing);
+		let sync = TestSync::new(major_syncing, false);
 
 		let handler = StatementHandler {
 			protocol_name: "/statement/1".into(),
@@ -2219,6 +2236,79 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn rejects_inbound_statement_substream_while_offline() {
+		let (mut handler, _statement_store, network, _notification_service, sync) =
+			build_handler_no_peers_with_sync(false);
+		network.set_peer_role_result(Some(sc_network::ObservedRole::Full));
+		sync.set_offline(true);
+
+		let peer_id = PeerId::random();
+		let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+
+		handler
+			.handle_notification_event(NotificationEvent::ValidateInboundSubstream {
+				peer: peer_id,
+				handshake: vec![1, 2, 3],
+				result_tx,
+			})
+			.await;
+
+		assert_eq!(result_rx.await.unwrap(), ValidationResult::Reject);
+		assert!(handler.peers.is_empty(), "Offline nodes should reject statement substreams");
+	}
+
+	#[tokio::test]
+	async fn disconnects_opened_statement_stream_while_offline() {
+		let (mut handler, _statement_store, network, _notification_service, sync) =
+			build_handler_no_peers_with_sync(false);
+		sync.set_offline(true);
+
+		let peer_id = PeerId::random();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn disconnects_existing_peer_that_sends_while_offline() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"offline-live-message".to_vec());
+		let bytes_received = statement.encode();
+
+		handler.sync.set_offline(true);
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: bytes_received,
+			})
+			.await;
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert!(!handler.peers.contains_key(&peer_id));
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
 	async fn disconnects_opened_statement_stream_while_major_syncing() {
 		let (mut handler, _statement_store, network, notification_service, _sync) =
 			build_handler_no_peers_with_sync(true);
@@ -2428,6 +2518,38 @@ mod tests {
 		assert!(
 			!handler.initial_sync_peer_queue.contains(&peer_id),
 			"Peer should be removed from the initial sync queue"
+		);
+	}
+
+	#[tokio::test]
+	async fn flooding_cleanup_decrements_initial_sync_active_metric() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+		handler.metrics.as_ref().unwrap().initial_sync_peers_active.inc();
+
+		let mut flood_statements = Vec::new();
+		for i in 0..600_000 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![i as u8, (i >> 8) as u8, (i >> 16) as u8]);
+			flood_statements.push(statement);
+		}
+
+		handler.on_statements(peer_id, flood_statements);
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert_eq!(
+			handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(),
+			0,
+			"Flooding cleanup should decrement the active initial-sync gauge"
 		);
 	}
 
