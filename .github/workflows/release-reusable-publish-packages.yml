@@ -108,7 +108,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-pip reprepro rpm createrepo-c
 
-          python3 -m pip install --user awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151"
+          python3 -m pip install --user awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae"
 
           # Ensure ~/.local/bin is in PATH right now and for later steps
           export PATH=$HOME/.local/bin:$PATH

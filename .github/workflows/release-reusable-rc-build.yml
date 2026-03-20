@@ -87,7 +87,11 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
+<<<<<<< HEAD
           python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
+=======
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae"
+>>>>>>> 8416b6e6 ([CI/CD] Update pgpkms tool (#11400))
           which pgpkms
 
       - name: Checkout sources
@@ -242,12 +246,19 @@ jobs:
         with:
           subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
+<<<<<<< HEAD
       - name: Sign artifacts
         working-directory: ${{ env.ARTIFACTS_PATH }}
         env:
           BINARY_NAME: ${{ matrix.binaries }}
         run: |
           python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
+=======
+       - name: Install pgpkkms
+         run: |
+           # Install pgpkms that is used to sign built artifacts
+           python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae" --break-system-packages
+>>>>>>> 8416b6e6 ([CI/CD] Update pgpkms tool (#11400))
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: ${{ env.ARTIFACTS_PATH }}
