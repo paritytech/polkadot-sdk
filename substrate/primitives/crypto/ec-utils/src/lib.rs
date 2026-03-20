@@ -44,6 +44,10 @@ pub mod bw6_761;
 pub mod ed_on_bls12_377;
 #[cfg(feature = "ed-on-bls12-381-bandersnatch")]
 pub mod ed_on_bls12_381_bandersnatch;
+#[cfg(feature = "pallas")]
+pub mod pallas;
+#[cfg(feature = "vesta")]
+pub mod vesta;
 
 #[cfg(any(
 	feature = "bls12-377",
@@ -51,5 +55,7 @@ pub mod ed_on_bls12_381_bandersnatch;
 	feature = "bw6-761",
 	feature = "ed-on-bls12-377",
 	feature = "ed-on-bls12-381-bandersnatch",
+	feature = "pallas",
+	feature = "vesta",
 ))]
 mod utils;
