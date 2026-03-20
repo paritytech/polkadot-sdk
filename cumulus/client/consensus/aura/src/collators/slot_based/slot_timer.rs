@@ -37,20 +37,6 @@ use std::{
 /// Defensive mechanism, corresponds to 12 cores at 6 second block time.
 const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500);
 
-/// Theoretically, the block production is capped at `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`.
-/// In practice, there might be slight deviations due to timing inaccuracies and delays.
-///
-/// This constant is taken into account while adjusting the authoring duration to fit into the slot.
-/// Therefore, it will only reduce the authoring duration if we are within the
-/// `BLOCK_PRODUCTION_ADJUSTMENT_MS` threshold of the next slot.
-///
-/// ### 12 cores 500ms blocks
-///
-/// For example, for 12 cores 500ms blocks: the next slot is scheduled in 490ms due to delays.
-/// In that case, we still want to attempt producing the block, as missing the slot would be worse
-/// than producing slightly too fast.
-const BLOCK_PRODUCTION_THRESHOLD_MS: Duration = Duration::from_millis(100);
-
 /// The amount of time the authoring duration of the last block production attempt
 /// should be reduced by to fit into the slot timing.
 const BLOCK_PRODUCTION_ADJUSTMENT_MS: Duration = Duration::from_millis(1000);
@@ -199,16 +185,12 @@ fn adjust_authoring_duration(
 	if different_authors && authoring_duration >= duration_until_deadline {
 		authoring_duration = duration_until_deadline;
 
-		// Ensure we are not going below the minimum interval within a reasonable threshold.
-		// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
-		// - Block 10: next slot change in 1.493s:
-		// 	 - After adjusting the deadline: 1.493s - 1s = 0.493s the block could be produced
-		//     without issues.
-		// - Block 11: next slot change in 0.993s - skipped by the deadline
-		// - Block 12: next slot change in 0.493s - skipped by the deadline
-		if authoring_duration <
-			BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
-		{
+		// Ensure we are not going below the minimum block production interval.
+		// For 12+ cores at 500ms intervals with 1s buffer, the last 2 blocks
+		// in the slot are skipped:
+		// - Block 11: next slot change in 1.493s, deadline = 0.493s < 500ms → skip
+		// - Block 12: next slot change in 0.993s, deadline = 0 → skip
+		if authoring_duration < BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS {
 			tracing::debug!(
 				target: LOG_TARGET,
 				?authoring_duration,
@@ -588,13 +570,13 @@ mod tests {
 		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(950)), // Expected
 	)]
-	#[case::blocks_2s_reduce_to_minimum(
+	#[case::blocks_2s_reduce_below_minimum_at_400ms(
 		Duration::from_millis(2000), // Authoring duration
 		(Duration::from_millis(1400), Slot::from(1)), // Next block
 		(Duration::from_millis(1400), Slot::from(2)), // Next slot change
 		true, // Different authors
 		Slot::from(1), // Effective slot
-		Some(Duration::from_millis(400)), // Expected
+		None, // Expected: deadline=400ms < 500ms minimum → skip
 	)]
 	#[case::blocks_2s_reduce_below_minimum(
 		Duration::from_millis(2000), // Authoring duration
