@@ -23,6 +23,8 @@
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
    - 5.3 [Code Upgrade Lifecycle](#53-code-upgrade-lifecycle)
 6. [Authorization & Coretime](#6-authorization-coretime)
+   - 6.3 [Authorizer Design: AURA Example](#63-authorizer-design-aura-example)
+   - 6.4 [On-Demand Parachains](#64-on-demand-parachains)
 7. [Messaging](#7-messaging)
 8. [Open Questions](#8-open-questions)
 9. [References](#9-references)
@@ -605,8 +607,114 @@ The authorizer's state (valid coretime assignments per parachain) is maintained 
 Parachain Service's Accumulate function, updated when coretime assignments arrive from the
 Coretime Chain.
 
-### 6.3 On-Demand Parachains
+### 6.3 Authorizer Design: AURA Example
 
+The authorizer is a single piece of PVM code (≤ 64 KB) deployed once as a preimage and
+reused across all cores. Per-core behavior is controlled by the **config blob** (`pf`),
+which is committed to when the authorizer queue is set via `assign`.
+
+#### Config
+
+The config encodes the parachain's collator set and slot timing:
+
+```rust
+struct AuthorizerConfig {
+    /// The parachain assigned to this core.
+    para_id: ParaId,
+    /// Root of a binary Merkle trie over the collator public keys.
+    /// Leaf index == collator index in the set.
+    collator_set_root: Hash,
+    /// Number of collators in the set.
+    collator_set_size: u32,
+    /// Slot duration as a multiple of the JAM timeslot (6s).
+    /// E.g. slot_duration = 2 means one parachain slot every 12s.
+    slot_duration: u32,
+}
+```
+
+Since the config is hashed together with the authorizer code hash to form the authorizer
+hash (`H(code_hash ⌢ config)`), the same authorizer hash is used for **every slot** in
+the pool and queue as long as the collator set and slot duration remain unchanged.
+
+When a parachain wants to **rotate its collator set** or **change its slot duration**, it
+announces this to the Coretime Chain. The Coretime Chain then sends an
+`UpwardSignal::SetAuthorizerQueue` to update the authorizer queue for the relevant core
+with a new config (and thus a new authorizer hash).
+
+#### Authorization Token
+
+The collator includes an authorization token (`pj`) in the work package:
+
+```rust
+struct AuthorizationToken {
+    /// Full JAM block header at the anchor, so the authorizer can extract
+    /// the timeslot. (~1 KB including seal.)
+    anchor_header: Vec<u8>,
+    /// Merkle proof that the collator's public key exists at the expected
+    /// leaf index in the collator set trie.
+    collator_proof: Vec<Hash>,
+    /// The collator's public key.
+    collator_key: PublicKey,
+    /// Signature over the work package hash (excluding the token itself).
+    signature: Signature,
+}
+```
+
+#### Authorizer Logic
+
+1. Decode config (`pf`) → `para_id`, `collator_set_root`, `collator_set_size`,
+   `slot_duration`.
+2. Decode token (`pj`) → `anchor_header`, `collator_proof`, `collator_key`, `signature`.
+3. Hash `anchor_header` and verify it matches the anchor hash `a` from the refinement
+   context — proving the header is authentic.
+4. Extract the anchor timeslot from the header.
+5. Compute the expected collator index:
+   `collator_index = (anchor_timeslot / slot_duration) mod collator_set_size`.
+6. Verify `collator_proof` against `collator_set_root` at leaf `collator_index`,
+   confirming `collator_key` is the expected collator for this slot.
+7. Verify `signature` over the work package hash using `collator_key`.
+8. Check the work item's `para_id` matches the config's `para_id`.
+9. Return trace = `encode(para_id)`.
+
+#### Anchor Selection and Slot Claiming
+
+The collator picks an anchor block (one of the last 8 JAM blocks) whose timeslot maps
+to their collator index. Since the authorizer pool holds O = 8 entries — all with the
+**same** authorizer hash — the collator can pick any of the 8 recent anchors.
+
+This has a consequence: for **small collator sets** (< 8 collators), a collator could
+claim **two consecutive blocks** by choosing different anchor blocks whose timeslots
+both map to their index (e.g. with `collator_set_size = 4` and `slot_duration = 1`,
+anchor timeslots T and T+4 both yield the same collator index).
+
+This is acceptable — the Refine logic enforces that the **anchor timeslot is
+non-decreasing** compared to the parachain's last included block. This prevents
+a collator from going backwards, but allows the same collator to produce consecutive
+blocks when the set is small. The non-decreasing constraint is not strict (equal is
+allowed) to support **elastic scaling**, where multiple blocks for the same parachain
+may reference the same anchor.
+
+#### Collator Set Rotation Flow
+
+```
+Parachain runtime
+    │  Decides to rotate collator set (e.g. via session change)
+    │  Sends XCM to Coretime Chain with new collator set root + size
+    ▼
+Coretime Chain
+    │  UpwardSignal::SetAuthorizerQueue { core, authorizers }
+    │  (new authorizer hashes computed from same code + updated config)
+    ▼
+Parachain Service (Accumulate)
+    │  assign(core, new_queue)
+    │  New authorizer hashes enter the pool via queue rotation
+    ▼
+Pool (8 entries)
+    │  Old authorizer hashes drain out over ~8 blocks (48s)
+    │  New ones rotate in
+```
+
+### 6.4 On-Demand Parachains
 
 On-demand parachains (currently acquired via `pallet-on-demand`) continue to work: they
 acquire a single-shot coretime allocation for one slot, submitted as a work package to the
@@ -681,7 +789,13 @@ enum UpwardSignal {
 	/// authorizer queue for the given core. The `assign` host call takes a
 	/// core index, a sequence of authorizer code hashes (the queue), and
 	/// validates that the calling service is assigned to that core.
+	/// The Parachain Service must be listed in χA for the relevant core.
 	SetAuthorizerQueue { core: CoreIndex, authorizers: Vec<AuthorizerHash> },
+	/// Set the next epoch's validator key set. Only callable by the Staking
+	/// Chain. Accumulate calls the JAM `designate` host call (ΩD) to set ι
+	/// (the upcoming validator keys). The Parachain Service must hold the
+	/// χV privilege for this call to succeed.
+	SetValidatorKeys { keys: Vec<ValidatorKey> },
 }
 ```
 
