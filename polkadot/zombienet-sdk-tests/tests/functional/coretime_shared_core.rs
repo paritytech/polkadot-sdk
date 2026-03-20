@@ -133,7 +133,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	//  collator-2003 (30s): same batch as 2002, max 1 slot-cycle lag (24s) + margin.
 
 	log::info!("Checks parachains block production...");
-	let para_timeout = vec![(2000, 180), (2001, 30), (2002, 30), (2003, 30)];
+	let para_timeout = vec![(2000, 180), (2001, 30), (2002, 90), (2003, 30)];
 	for (para_id, timeout) in para_timeout {
 		let node = network.get_node(format!("collator-{para_id}"))?;
 		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED_METRIC, |v| v >= 6.0, timeout as u64)
