@@ -5382,5 +5382,4 @@ pub(crate) mod tests {
 		assert_eq!(gap.start, 1);
 		assert_eq!(gap.end, 2);
 	}
->>>>>>> 0f64cfca (client/db: Close missing body gaps for non archive nodes (#11332))
 }
