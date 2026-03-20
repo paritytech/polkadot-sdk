@@ -129,6 +129,7 @@ std = [
 	"pallet-people?/std",
 	"pallet-preimage?/std",
 	"pallet-proxy?/std",
+	"pallet-psm?/std",
 	"pallet-ranked-collective?/std",
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
@@ -319,6 +320,7 @@ runtime-benchmarks = [
 	"pallet-people?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
+	"pallet-psm?/runtime-benchmarks",
 	"pallet-ranked-collective?/runtime-benchmarks",
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
@@ -462,6 +464,7 @@ try-runtime = [
 	"pallet-people?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-proxy?/try-runtime",
+	"pallet-psm?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
@@ -682,6 +685,7 @@ runtime-full = [
 	"pallet-people",
 	"pallet-preimage",
 	"pallet-proxy",
+	"pallet-psm",
 	"pallet-ranked-collective",
 	"pallet-recovery",
 	"pallet-referenda",
@@ -1631,6 +1635,11 @@ path = "../substrate/frame/people"
 default-features = false
 optional = true
 path = "../substrate/frame/preimage"
+
+[dependencies.pallet-psm]
+default-features = false
+optional = true
+path = "../substrate/frame/psm"
 
 [dependencies.pallet-proxy]
 default-features = false

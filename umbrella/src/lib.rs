@@ -615,6 +615,10 @@ pub use pallet_people;
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
 
+/// FRAME pallet for the Peg Stability Module.
+#[cfg(feature = "pallet-psm")]
+pub use pallet_psm;
+
 /// FRAME proxying pallet.
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
