@@ -322,7 +322,7 @@ specialize_requests! {
 }
 
 /// Result of [`check_relay_parent_info`].
-pub enum CheckRelayParentInfoResult {
+pub enum CheckRelayParentSessionResult {
 	/// The relay parent is valid in the given session.
 	Valid,
 	/// The relay parent was not found in the given session (or session mismatch
@@ -343,22 +343,22 @@ pub enum CheckRelayParentInfoResult {
 /// only works for ancestors (a block is not in its own `AllowedRelayParents`).
 /// This utility handles the self case by verifying the session directly via
 /// `session_index_for_child`.
-pub async fn check_relay_parent_info(
+pub async fn check_relay_parent_session(
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 	query_at: Hash,
 	session_index: SessionIndex,
 	relay_parent: Hash,
-) -> CheckRelayParentInfoResult {
+) -> CheckRelayParentSessionResult {
 	if query_at == relay_parent {
 		// Self-query: the runtime API can't answer (block not in its own
 		// AllowedRelayParents). Verify the session directly.
 		return match request_session_index_for_child(relay_parent, sender).await.await {
-			Ok(Ok(session)) if session == session_index => CheckRelayParentInfoResult::Valid,
-			Ok(Ok(_)) => CheckRelayParentInfoResult::NotFound,
-			Ok(Err(err)) => CheckRelayParentInfoResult::RuntimeError(format!(
+			Ok(Ok(session)) if session == session_index => CheckRelayParentSessionResult::Valid,
+			Ok(Ok(_)) => CheckRelayParentSessionResult::NotFound,
+			Ok(Err(err)) => CheckRelayParentSessionResult::RuntimeError(format!(
 				"SessionIndexForChild error: {err}"
 			)),
-			Err(_) => CheckRelayParentInfoResult::RuntimeError(
+			Err(_) => CheckRelayParentSessionResult::RuntimeError(
 				"SessionIndexForChild request cancelled".into(),
 			),
 		};
@@ -371,14 +371,15 @@ pub async fn check_relay_parent_info(
 	.await
 	.await
 	{
-		Ok(Ok(Some(_))) => CheckRelayParentInfoResult::Valid,
-		Ok(Ok(None)) => CheckRelayParentInfoResult::NotFound,
-		Ok(Err(RuntimeApiError::NotSupported { .. })) =>
-			CheckRelayParentInfoResult::NotSupported,
-		Ok(Err(err)) => CheckRelayParentInfoResult::RuntimeError(format!(
+		Ok(Ok(Some(_))) => CheckRelayParentSessionResult::Valid,
+		Ok(Ok(None)) => CheckRelayParentSessionResult::NotFound,
+		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			CheckRelayParentSessionResult::NotSupported
+		},
+		Ok(Err(err)) => CheckRelayParentSessionResult::RuntimeError(format!(
 			"AncestorRelayParentInfo error: {err}"
 		)),
-		Err(_) => CheckRelayParentInfoResult::RuntimeError(
+		Err(_) => CheckRelayParentSessionResult::RuntimeError(
 			"AncestorRelayParentInfo request cancelled".into(),
 		),
 	}

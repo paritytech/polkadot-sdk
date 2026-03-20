@@ -307,7 +307,7 @@ where
 				.session_index_for_candidate_validation(v3_ever_seen)
 			{
 				let relay_parent = candidate_receipt.descriptor.relay_parent();
-				match util::check_relay_parent_info(
+				match util::check_relay_parent_session(
 					sender,
 					scheduling_parent,
 					session_index,
@@ -315,17 +315,17 @@ where
 				)
 				.await
 				{
-					util::CheckRelayParentInfoResult::Valid => {},
+					util::CheckRelayParentSessionResult::Valid => {},
 					// Safe to skip: on old runtimes cross-session relay parents don't
 					// exist, and the scheduling session check above already covers the
 					// relay parent session (scheduling_parent == relay_parent).
-					util::CheckRelayParentInfoResult::NotSupported => {},
-					util::CheckRelayParentInfoResult::NotFound => {
+					util::CheckRelayParentSessionResult::NotSupported => {},
+					util::CheckRelayParentSessionResult::NotFound => {
 						return Err(PreValidationError::Invalid(
 							InvalidCandidate::InvalidRelayParentSession,
 						))
 					},
-					util::CheckRelayParentInfoResult::RuntimeError(err) => {
+					util::CheckRelayParentSessionResult::RuntimeError(err) => {
 						return Err(PreValidationError::RuntimeError(err))
 					},
 				}

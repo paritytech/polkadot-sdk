@@ -3034,3 +3034,261 @@ fn pre_validation_relay_parent_session_check() {
 		);
 	}
 }
+
+/// Relay parent session check for V3 candidates (scheduling_parent != relay_parent):
+/// the `check_relay_parent_info` utility takes the ancestor-query path, calling
+/// the `AncestorRelayParentInfo` runtime API.
+///
+/// Case 1: AncestorRelayParentInfo returns None → InvalidRelayParentSession.
+/// Case 2: AncestorRelayParentInfo not supported → skipped, proceeds to valid.
+/// Case 3: AncestorRelayParentInfo returns Some → valid, proceeds.
+#[test]
+fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+	let relay_parent = dummy_hash();
+	let scheduling_parent = Hash::repeat_byte(0x42);
+
+	// V3 descriptor: scheduling_parent != relay_parent, session_index=1.
+	let descriptor = make_valid_candidate_descriptor_v3(
+		ParaId::from(1_u32),
+		relay_parent,
+		CoreIndex(1),
+		1,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+		scheduling_parent,
+	);
+
+	let validation_result = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	// Helper: mock the V3 bomb limit fetch flow (no SessionIndexForChild, goes
+	// straight to ValidationCodeBombLimit since V3 has session in descriptor).
+	async fn mock_fetch_bomb_limit_v3(
+		ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
+		expected_scheduling_parent: Hash,
+		session_index: SessionIndex,
+	) {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
+			)) => {
+				assert_eq!(parent, expected_scheduling_parent);
+				assert_eq!(session, session_index);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
+	}
+
+	// Helper: mock the V3 backing pre-validation flow up to (but not including)
+	// the relay parent session check.
+	async fn mock_v3_pre_checks(
+		ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
+		scheduling_parent: Hash,
+		session: SessionIndex,
+	) {
+		mock_fetch_bomb_limit_v3(ctx_handle, scheduling_parent, session).await;
+		// Scheduling session check: SessionIndexForChild at scheduling_parent.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_, RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => { let _ = tx.send(Ok(session)); }
+		);
+		// AllowedRelayParentInfo check for relay parent in session (v16+ API).
+		// This is only reached for V3 with v3_ever_seen=true, where
+		// session_index_for_candidate_validation returns Some.
+	}
+
+	// Case 1: AncestorRelayParentInfo returns None → InvalidRelayParentSession.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			true, // v3_ever_seen
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(scheduling_parent),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			// AncestorRelayParentInfo: relay parent NOT found.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					parent,
+					RuntimeApiRequest::AncestorRelayParentInfo(session, rp, tx),
+				)) => {
+					assert_eq!(parent, scheduling_parent);
+					assert_eq!(session, 1);
+					assert_eq!(rp, relay_parent);
+					let _ = tx.send(Ok(None));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidRelayParentSession))
+		);
+	}
+
+	// Case 2: AncestorRelayParentInfo not supported → skipped, proceeds past session check.
+	// (Candidate then fails UMP signal check since V3 requires signals — this proves
+	// the session check was skipped successfully.)
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			true,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(scheduling_parent),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			// AncestorRelayParentInfo: not supported → skipped.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AncestorRelayParentInfo(_, _, tx),
+				)) => {
+					let _ = tx.send(Err(RuntimeApiError::NotSupported {
+						runtime_api_name: "AncestorRelayParentInfo",
+					}));
+				}
+			);
+			// ClaimQueue: proceeds past session check.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		// V3 requires UMP signals which this candidate doesn't have — but the
+		// point is we got past the session check.
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(_)))
+		);
+	}
+
+	// Case 3: AncestorRelayParentInfo returns Some → proceeds past session check.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			true,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(scheduling_parent),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			// AncestorRelayParentInfo: found.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AncestorRelayParentInfo(_, _, tx),
+				)) => { let _ = tx.send(Ok(Some(Default::default()))); }
+			);
+			// ClaimQueue.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		// Same as case 2 — V3 UMP signals missing, but we got past session check.
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(_)))
+		);
+	}
+}
