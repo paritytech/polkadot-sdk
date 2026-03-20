@@ -242,7 +242,7 @@ enum PreValidationError {
 /// - Basic checks: PoV size, PoV hash, validation code hash
 /// - Backing-only (skipped for approval/dispute):
 ///   - Scheduling session matches runtime
-///   - Relay parent valid in claimed session (v16+ `AllowedRelayParentInfo` API)
+///   - Relay parent valid in claimed session (via `check_relay_parent_info` utility)
 ///   - Claim queue fetch
 ///
 /// Backing-only checks are skipped for approval/dispute because the runtime
@@ -299,30 +299,33 @@ where
 				}
 			}
 
-			// Verify relay parent is valid in the claimed session (v16+ API).
+			// Verify relay parent is valid in the claimed session.
+			// Uses the node-side utility which handles both the self-query case
+			// (scheduling_parent == relay_parent, V2) and ancestor queries (V3).
 			if let Some(session_index) = candidate_receipt
 				.descriptor
 				.session_index_for_candidate_validation(v3_ever_seen)
 			{
-				match check_relay_parent_in_session(
+				let relay_parent = candidate_receipt.descriptor.relay_parent();
+				match util::check_relay_parent_info(
 					sender,
 					scheduling_parent,
 					session_index,
-					candidate_receipt.descriptor.relay_parent(),
+					relay_parent,
 				)
 				.await
 				{
-					Ok(()) => {},
+					util::CheckRelayParentInfoResult::Valid => {},
 					// Safe to skip: on old runtimes cross-session relay parents don't
 					// exist, and the scheduling session check above already covers the
 					// relay parent session (scheduling_parent == relay_parent).
-					Err(CheckRelayParentSessionError::NotSupported) => {},
-					Err(CheckRelayParentSessionError::NotFound) => {
+					util::CheckRelayParentInfoResult::NotSupported => {},
+					util::CheckRelayParentInfoResult::NotFound => {
 						return Err(PreValidationError::Invalid(
 							InvalidCandidate::InvalidRelayParentSession,
 						))
 					},
-					Err(CheckRelayParentSessionError::RuntimeError(err)) => {
+					util::CheckRelayParentInfoResult::RuntimeError(err) => {
 						return Err(PreValidationError::RuntimeError(err))
 					},
 				}
@@ -703,71 +706,6 @@ where
 	};
 
 	Some(session_index)
-}
-
-enum CheckRelayParentSessionError {
-	/// The `AllowedRelayParentInfo` runtime API (v16+) is not supported.
-	NotSupported,
-	/// The relay parent was not found in the claimed session.
-	NotFound,
-	/// An unexpected runtime API error occurred.
-	RuntimeError(String),
-}
-
-/// Check that the relay parent is known to the runtime in the claimed session.
-///
-/// Uses the `AllowedRelayParentInfo` runtime API (v16+) called at some
-/// `recent_block` (recent enough to have state available). We cannot query
-/// state at the relay parent directly because it may be old and pruned.
-async fn check_relay_parent_in_session<Sender>(
-	sender: &mut Sender,
-	recent_block: Hash,
-	claimed_session: SessionIndex,
-	relay_parent: Hash,
-) -> Result<(), CheckRelayParentSessionError>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let rx = util::request_from_runtime(recent_block, sender, |tx| {
-		RuntimeApiRequest::AllowedRelayParentInfo(claimed_session, relay_parent, tx)
-	})
-	.await;
-
-	match rx.await {
-		Ok(Ok(Some(_))) => Ok(()),
-		Ok(Ok(None)) => Err(CheckRelayParentSessionError::NotFound),
-		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?recent_block,
-				"AllowedRelayParentInfo API not supported",
-			);
-			Err(CheckRelayParentSessionError::NotSupported)
-		},
-		Ok(Err(err)) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?recent_block,
-				?relay_parent,
-				?err,
-				"Error calling AllowedRelayParentInfo runtime API",
-			);
-			Err(CheckRelayParentSessionError::RuntimeError(format!(
-				"AllowedRelayParentInfo runtime API error: {err}"
-			)))
-		},
-		Err(_) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?recent_block,
-				?relay_parent,
-				"AllowedRelayParentInfo request cancelled",
-			);
-			Err(CheckRelayParentSessionError::RuntimeError(
-				"AllowedRelayParentInfo request cancelled".into(),
-			))
-		},
-	}
 }
 
 // Returns true if the node is an authority in the next session.

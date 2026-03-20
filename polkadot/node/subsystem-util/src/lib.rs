@@ -321,6 +321,69 @@ specialize_requests! {
 
 }
 
+/// Result of [`check_relay_parent_info`].
+pub enum CheckRelayParentInfoResult {
+	/// The relay parent is valid in the given session.
+	Valid,
+	/// The relay parent was not found in the given session (or session mismatch
+	/// in the self-query case).
+	NotFound,
+	/// The `ancestor_relay_parent_info` runtime API is not supported. Safe to
+	/// skip on old runtimes where cross-session relay parents don't exist.
+	NotSupported,
+	/// A runtime API or communication error occurred.
+	RuntimeError(String),
+}
+
+/// Check whether a relay parent is valid in a given session.
+///
+/// Works for all blocks within the `max_relay_parent_session_age` window,
+/// including the block being queried at (the "self" case where
+/// `query_at == relay_parent`). The `ancestor_relay_parent_info` runtime API
+/// only works for ancestors (a block is not in its own `AllowedRelayParents`).
+/// This utility handles the self case by verifying the session directly via
+/// `session_index_for_child`.
+pub async fn check_relay_parent_info(
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	query_at: Hash,
+	session_index: SessionIndex,
+	relay_parent: Hash,
+) -> CheckRelayParentInfoResult {
+	if query_at == relay_parent {
+		// Self-query: the runtime API can't answer (block not in its own
+		// AllowedRelayParents). Verify the session directly.
+		return match request_session_index_for_child(relay_parent, sender).await.await {
+			Ok(Ok(session)) if session == session_index => CheckRelayParentInfoResult::Valid,
+			Ok(Ok(_)) => CheckRelayParentInfoResult::NotFound,
+			Ok(Err(err)) => CheckRelayParentInfoResult::RuntimeError(format!(
+				"SessionIndexForChild error: {err}"
+			)),
+			Err(_) => CheckRelayParentInfoResult::RuntimeError(
+				"SessionIndexForChild request cancelled".into(),
+			),
+		};
+	}
+
+	// Ancestor query: use the runtime API.
+	match request_from_runtime(query_at, sender, |tx| {
+		RuntimeApiRequest::AncestorRelayParentInfo(session_index, relay_parent, tx)
+	})
+	.await
+	.await
+	{
+		Ok(Ok(Some(_))) => CheckRelayParentInfoResult::Valid,
+		Ok(Ok(None)) => CheckRelayParentInfoResult::NotFound,
+		Ok(Err(RuntimeApiError::NotSupported { .. })) =>
+			CheckRelayParentInfoResult::NotSupported,
+		Ok(Err(err)) => CheckRelayParentInfoResult::RuntimeError(format!(
+			"AncestorRelayParentInfo error: {err}"
+		)),
+		Err(_) => CheckRelayParentInfoResult::RuntimeError(
+			"AncestorRelayParentInfo request cancelled".into(),
+		),
+	}
+}
+
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
 /// session index at the relay-parent, relying on the fact that it should be cached by the runtime
 /// API caching layer even if the block itself has already been pruned. Then requests executor

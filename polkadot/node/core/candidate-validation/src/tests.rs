@@ -2873,12 +2873,12 @@ fn pre_validation_basic_checks() {
 	}
 }
 
-/// Relay parent session check via AllowedRelayParentInfo (v16+ API): backing
-/// rejects when the relay parent is not found in the claimed session.
+/// Relay parent session check: for V2 candidates (scheduling_parent == relay_parent),
+/// the `check_relay_parent_info` utility takes the self-query path, verifying the
+/// session via `session_index_for_child` directly.
 ///
-/// Also verifies that `NotSupported` (old runtime) is safely skipped — the
-/// scheduling session check covers it on old runtimes where relay_parent ==
-/// scheduling_parent.
+/// Case 1: Session mismatch → InvalidRelayParentSession.
+/// Case 2: Session matches → valid, proceeds to PVF execution.
 #[test]
 fn pre_validation_relay_parent_session_check() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
@@ -2887,7 +2887,7 @@ fn pre_validation_relay_parent_session_check() {
 	let validation_code = ValidationCode(vec![2; 16]);
 	let scheduling_parent = dummy_hash();
 
-	// V2 descriptor with correct session_index=1.
+	// V2 descriptor with session_index=1.
 	let descriptor = make_valid_candidate_descriptor_v2(
 		ParaId::from(1_u32),
 		scheduling_parent,
@@ -2918,7 +2918,9 @@ fn pre_validation_relay_parent_session_check() {
 	};
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	// Case 1: AllowedRelayParentInfo returns None → InvalidRelayParentSession
+	// Case 1: Self-query session mismatch → InvalidRelayParentSession.
+	// The utility calls session_index_for_child which returns 99 (doesn't match
+	// descriptor's session_index=1).
 	{
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
@@ -2945,19 +2947,20 @@ fn pre_validation_relay_parent_session_check() {
 
 		let test_fut = async move {
 			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
-			// SessionIndexForChild: scheduling session matches.
+			// Scheduling session check: matches (session=1).
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_, RuntimeApiRequest::SessionIndexForChild(tx),
 				)) => { let _ = tx.send(Ok(1)); }
 			);
-			// AllowedRelayParentInfo: relay parent NOT found.
+			// check_relay_parent_info self-query: session_index_for_child returns 99
+			// (mismatch with descriptor's session_index=1).
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_, RuntimeApiRequest::AllowedRelayParentInfo(_, _, tx),
-				)) => { let _ = tx.send(Ok(None)); }
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(99)); }
 			);
 		};
 
@@ -2969,7 +2972,7 @@ fn pre_validation_relay_parent_session_check() {
 		);
 	}
 
-	// Case 2: AllowedRelayParentInfo not supported → skipped, proceeds to valid.
+	// Case 2: Self-query session matches → valid, proceeds to PVF execution.
 	{
 		let pool = TaskExecutor::new();
 		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
@@ -2996,86 +2999,21 @@ fn pre_validation_relay_parent_session_check() {
 
 		let test_fut = async move {
 			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
-			// SessionIndexForChild: matches.
+			// Scheduling session check: matches.
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_, RuntimeApiRequest::SessionIndexForChild(tx),
 				)) => { let _ = tx.send(Ok(1)); }
 			);
-			// AllowedRelayParentInfo: not supported → skipped.
+			// check_relay_parent_info self-query: session matches (session=1).
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_, RuntimeApiRequest::AllowedRelayParentInfo(_, _, tx),
-				)) => {
-					let _ = tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "AllowedRelayParentInfo",
-					}));
-				}
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
 			);
 			// ClaimQueue: proceeds normally.
-			assert_matches!(
-				ctx_handle.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_, RuntimeApiRequest::ClaimQueue(tx),
-				)) => {
-					let mut cq = BTreeMap::new();
-					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
-					let _ = tx.send(Ok(cq));
-				}
-			);
-		};
-
-		executor::block_on(future::join(test_fut, task));
-
-		assert_matches!(
-			executor::block_on(response_rx).unwrap(),
-			Ok(ValidationResult::Valid(_, _))
-		);
-	}
-
-	// Case 3: AllowedRelayParentInfo returns Some → valid, proceeds.
-	{
-		let pool = TaskExecutor::new();
-		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-		let mock_backend =
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
-
-		let (response_tx, response_rx) = oneshot::channel();
-
-		let task = handle_validation_message(
-			ctx.sender().clone(),
-			mock_backend,
-			Metrics::default(),
-			false,
-			CandidateValidationMessage::ValidateFromExhaustive {
-				validation_data: validation_data.clone(),
-				validation_code: validation_code.clone(),
-				candidate_receipt: candidate_receipt.clone(),
-				pov: Arc::new(pov.clone()),
-				executor_params: ExecutorParams::default(),
-				exec_kind: PvfExecKind::Backing(dummy_hash()),
-				response_sender: response_tx,
-			},
-		);
-
-		let test_fut = async move {
-			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
-			assert_matches!(
-				ctx_handle.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_, RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => { let _ = tx.send(Ok(1)); }
-			);
-			// AllowedRelayParentInfo: found → valid.
-			assert_matches!(
-				ctx_handle.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_, RuntimeApiRequest::AllowedRelayParentInfo(_, _, tx),
-				)) => { let _ = tx.send(Ok(Some(Default::default()))); }
-			);
-			// ClaimQueue.
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
