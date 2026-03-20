@@ -45,11 +45,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_node_features, request_session_index_for_child,
+	request_claim_queue, request_session_index_for_child,
 	request_validator_groups, request_validators, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	node_features, CandidateDescriptorVersion, CandidateHash,
+	CandidateDescriptorVersion, CandidateHash,
 	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
 	HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
 };
@@ -272,13 +272,9 @@ impl CollationManager {
 					},
 				};
 				// If session info is not available  default to assume v2 candidate descriptors.
-				let descriptor_v3_enabled = self
-					.per_session
-					.get(&session_index)
-					.map_or(false, |per_session_info| per_session_info.descriptor_v3_enabled);
 				self.per_scheduling_parent.insert(
 					*ancestor,
-					PerSchedulingParent::new(session_index, core, descriptor_v3_enabled),
+					PerSchedulingParent::new(session_index, core),
 				);
 
 				if idx == 0 && ancestor == leaf {
@@ -505,7 +501,7 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info);
 		};
 
-		match process_collation_fetch_result(res, per_sp.descriptor_v3_enabled) {
+		match process_collation_fetch_result(res) {
 			Ok(fetched_collation) => {
 				// It can't be a duplicate, because we check before initiating fetch. For the old
 				// protocol version, we anyway only fetch one per scheduling parent.
@@ -518,7 +514,7 @@ impl CollationManager {
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
 				if let Err(err) = fetched_collation
-					.ensure_matches_advertisement(&advertisement, per_sp.descriptor_v3_enabled)
+					.ensure_matches_advertisement(&advertisement)
 				{
 					gum::warn!(
 						target: LOG_TARGET,
@@ -532,10 +528,9 @@ impl CollationManager {
 				// Sanity check of the candidate receipt version.
 				if let Err(err) = descriptor_version_sanity_check_with_params(
 					fetched_collation.candidate_receipt.descriptor(),
-					per_sp.descriptor_v3_enabled,
 					per_sp.core_index,
 					per_sp.session_index,
-					collation_version,
+					collation_version
 				) {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -763,10 +758,6 @@ impl CollationManager {
 					.and_then(|(_, index)| {
 						polkadot_node_subsystem_util::find_validator_group(&groups, index)
 					});
-			let node_features =
-				recv_runtime(request_node_features(*parent, index, sender).await).await?;
-			let descriptor_v3_enabled =
-				node_features::FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 			self.per_session.insert(
 				index,
@@ -774,7 +765,6 @@ impl CollationManager {
 					our_group,
 					n_cores: groups.len(),
 					group_rotation_info,
-					descriptor_v3_enabled,
 				},
 			);
 		}
@@ -934,12 +924,11 @@ impl FetchedCollation {
 		maybe_parent_head_data: Option<HeadData>,
 		maybe_parent_head_data_hash: Option<Hash>,
 		peer_id: PeerId,
-		descriptor_v3_enabled: bool,
 	) -> Self {
 		Self {
 			scheduling_parent: candidate_receipt
 				.descriptor()
-				.scheduling_parent(descriptor_v3_enabled),
+				.scheduling_parent(),
 			candidate_receipt,
 			pov,
 			maybe_parent_head_data,
@@ -952,7 +941,6 @@ impl FetchedCollation {
 	fn ensure_matches_advertisement(
 		&self,
 		advertised: &Advertisement,
-		descriptor_v3_enabled: bool,
 	) -> std::result::Result<(), SecondingError> {
 		let candidate_receipt = &self.candidate_receipt;
 
@@ -972,12 +960,12 @@ impl FetchedCollation {
 		}
 
 		if advertised.scheduling_parent !=
-			candidate_receipt.descriptor.scheduling_parent(descriptor_v3_enabled)
+			candidate_receipt.descriptor.scheduling_parent()
 		{
 			return Err(SecondingError::SchedulingParentMismatch);
 		}
 		if let Some(advertised_version) = &advertised.advertised_descriptor_version {
-			let fetched_version = candidate_receipt.descriptor().version(descriptor_v3_enabled);
+			let fetched_version = candidate_receipt.descriptor().version();
 			if advertised_version != &fetched_version {
 				return Err(SecondingError::DescriptorVersionMismatch(
 					*advertised_version,
@@ -1029,14 +1017,12 @@ struct PerSchedulingParent {
 	// The time at which this scheduling parent was activated. Used to calculate fetch
 	// delays relative to leaf activation.
 	activated_at: Instant,
-	descriptor_v3_enabled: bool,
 }
 
 impl PerSchedulingParent {
 	fn new(
 		session_index: SessionIndex,
 		core_index: CoreIndex,
-		descriptor_v3_enabled: bool,
 	) -> Self {
 		Self {
 			session_index,
@@ -1044,7 +1030,6 @@ impl PerSchedulingParent {
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
 			activated_at: Instant::now(),
-			descriptor_v3_enabled,
 		}
 	}
 
@@ -1135,7 +1120,6 @@ struct PerSessionInfo {
 	// The group rotation info changes once per session, apart from the `now` field. The caller
 	// must ensure to override it with the right value.
 	group_rotation_info: GroupRotationInfo,
-	descriptor_v3_enabled: bool,
 }
 
 // Requests backing subsystem to sanity check the advertisement.
@@ -1224,7 +1208,6 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 
 fn process_collation_fetch_result(
 	(advertisement, res): CollationFetchResponse,
-	descriptor_v3_enabled: bool,
 ) -> std::result::Result<FetchedCollation, Option<Score>> {
 	match res {
 		Err(CollationFetchError::Cancelled) => {
@@ -1279,7 +1262,6 @@ fn process_collation_fetch_result(
 				None,
 				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
 				advertisement.peer_id,
-				descriptor_v3_enabled,
 			))
 		},
 		Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -1299,7 +1281,6 @@ fn process_collation_fetch_result(
 				Some(parent_head_data),
 				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
 				advertisement.peer_id,
-				descriptor_v3_enabled,
 			))
 		},
 	}
@@ -1543,7 +1524,7 @@ mod tests {
 			claim_queue_state: PerLeafClaimQueueState::new(),
 			per_scheduling_parent: HashMap::from([(
 				scheduling_parent,
-				PerSchedulingParent::new(0, CoreIndex(0), false),
+				PerSchedulingParent::new(0, CoreIndex(0)),
 			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),

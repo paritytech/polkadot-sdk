@@ -464,14 +464,6 @@ impl TestState {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
-					RuntimeApiRequest::NodeFeatures(s_index, tx),
-				)) => {
-					let session_index = self.rp_info.get(&rp).unwrap().session_index;
-					assert_eq!(session_index, s_index);
-					tx.send(Ok(self.node_features.clone())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					rp,
 					RuntimeApiRequest::ClaimQueue(tx),
 				)) => {
 					let rp_info = self.rp_info.get(&rp).unwrap();
@@ -762,6 +754,7 @@ impl TestState {
 		&mut self,
 		adv: Advertisement,
 		pvd: Option<PersistedValidationData>,
+		expected_relay_parent: Hash,
 	) {
 		let msg = match self.buffered_msg.take() {
 			Some(msg) => msg,
@@ -780,7 +773,7 @@ impl TestState {
 					}, tx)
 				) => {
 					assert_eq!(para_id, adv.para_id);
-					assert_eq!(candidate_relay_parent, adv.scheduling_parent);
+					assert_eq!(candidate_relay_parent, expected_relay_parent);
 
 					assert!(
 						matches!(
@@ -846,6 +839,7 @@ impl TestState {
 		adv: Advertisement,
 		receipt: CandidateReceipt,
 		maybe_pvd: Option<PersistedValidationData>,
+		expected_relay_parent: Hash,
 	) {
 		let mut sender = self.sender.clone();
 		let pvd = maybe_pvd.unwrap_or_else(|| dummy_pvd());
@@ -855,7 +849,7 @@ impl TestState {
 				&mut sender,
 				(adv, Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov())))
 			),
-			self.assert_pvd_request(adv, Some(pvd.clone()))
+			self.assert_pvd_request(adv, Some(pvd.clone()), expected_relay_parent)
 		);
 
 		self.assert_seconding_kickoff(receipt, pvd, dummy_pov(), adv.scheduling_parent)
@@ -1445,7 +1439,13 @@ async fn test_peer_disconnects_after_fetch() {
 
 	// Send a successful response to the third advertisement and start seconding it.
 	test_state
-		.handle_fetched_collation(&mut state, third_adv, third_ccr.to_plain(), None)
+		.handle_fetched_collation(
+			&mut state,
+			third_adv,
+			third_ccr.to_plain(),
+			None,
+			third_adv.scheduling_parent,
+		)
 		.await;
 
 	// Second peer disconnects, which will not free up the claim queue slot since the collation was
@@ -1460,7 +1460,7 @@ async fn test_peer_disconnects_after_fetch() {
 	// The collation was seconded, the claim will still not be freed but we won't be able to send
 	// back a notification to the collator.
 
-	let parent = third_ccr.descriptor.scheduling_parent(false);
+	let parent = third_ccr.descriptor.scheduling_parent();
 	let statement = make_seconded_statement(&test_state.keystore, third_ccr);
 
 	state.handle_seconded_collation(&mut sender, statement, parent).await;
@@ -1974,7 +1974,9 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 
 	// We still detect the duplicate advertisement with the fetched collation.
-	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, adv.scheduling_parent)
+		.await;
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
@@ -2244,7 +2246,7 @@ async fn test_collation_fetch_failure() {
 		let res = Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov()));
 		futures::join!(
 			state.handle_fetched_collation(&mut sender, (adv, res)),
-			test_state.assert_pvd_request(adv, None)
+			test_state.assert_pvd_request(adv, None, adv.scheduling_parent)
 		);
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		// No slash, as it's not the collator's fault.
@@ -2288,7 +2290,7 @@ async fn test_collation_fetch_failure() {
 		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
 		futures::join!(
 			state.handle_fetched_collation(&mut sender, (adv, res)),
-			test_state.assert_pvd_request(adv, Some(pvd))
+			test_state.assert_pvd_request(adv, Some(pvd), adv.scheduling_parent)
 		);
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
@@ -2328,7 +2330,7 @@ async fn test_collation_fetch_failure() {
 		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
 		futures::join!(
 			state.handle_fetched_collation(&mut sender, (adv, res)),
-			test_state.assert_pvd_request(adv, Some(dummy_pvd()))
+			test_state.assert_pvd_request(adv, Some(dummy_pvd()), adv.scheduling_parent)
 		);
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
@@ -2375,7 +2377,7 @@ async fn test_collation_fetch_failure() {
 
 		futures::join!(
 			state.handle_fetched_collation(&mut sender, (adv, res)),
-			test_state.assert_pvd_request(adv, Some(pvd))
+			test_state.assert_pvd_request(adv, Some(pvd), adv.scheduling_parent)
 		);
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
@@ -2462,9 +2464,9 @@ async fn test_collation_response_out_of_view() {
 }
 
 // TODO(https://github.com/paritytech/polkadot-sdk/issues/10883?issue=paritytech%7Cpolkadot-sdk%7C11084): Add
-// test_v3_descriptor_without_feature_enabled — verify V3 descriptors are rejected when v3_enabled
-// is false. The previous test_v2_descriptor_without_feature_enabled was removed because V2 is now
-// always enabled.
+// test for V3 descriptor validation. The previous test_v2_descriptor_without_feature_enabled was
+// removed because V2 is now always enabled. The v3_enabled parameter has been removed from
+// descriptor methods.
 
 #[rstest]
 #[tokio::test]
@@ -2506,7 +2508,9 @@ async fn v1_descriptor_compatibility() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
 
-	test_state.handle_fetched_collation(&mut state, adv, receipt.into(), None).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv, receipt.into(), None, adv.scheduling_parent)
+		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 	let parent = ccr.descriptor.relay_parent;
@@ -2579,12 +2583,18 @@ async fn test_invalid_collation() {
 
 	// The bad collation was fetched and it's invalid.
 	test_state
-		.handle_fetched_collation(&mut state, bad_adv, bad_receipt.clone(), None)
+		.handle_fetched_collation(
+			&mut state,
+			bad_adv,
+			bad_receipt.clone(),
+			None,
+			bad_adv.scheduling_parent,
+		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	let parent = bad_receipt.descriptor.scheduling_parent(false);
+	let parent = bad_receipt.descriptor.scheduling_parent();
 	state.handle_invalid_collation(bad_receipt, parent).await;
 
 	// Bad peer was slashed.
@@ -2712,7 +2722,13 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 
 	// First collation is fetched and seconding kicks off.
 	test_state
-		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), Some(first_pvd))
+		.handle_fetched_collation(
+			&mut state,
+			first_adv,
+			first_ccr.to_plain(),
+			Some(first_pvd),
+			first_adv.scheduling_parent,
+		)
 		.await;
 
 	// Then, second collation is fetched and seconding kicks off (but the parent header is unknown
@@ -2721,7 +2737,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	futures::join!(
 		state.handle_fetched_collation(&mut sender, (second_adv, res)),
 		// We don't know it's pvd so it gets blocked from seconding
-		test_state.assert_pvd_request(second_adv, None)
+		test_state.assert_pvd_request(second_adv, None, second_adv.scheduling_parent)
 	);
 	test_state.assert_no_messages().await;
 
@@ -2762,7 +2778,11 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			async {
 				state.handle_seconded_collation(&mut sender, statement.clone(), parent).await;
 			},
-			test_state.assert_pvd_request(second_adv, Some(second_pvd.clone()))
+			test_state.assert_pvd_request(
+				second_adv,
+				Some(second_pvd.clone()),
+				second_adv.scheduling_parent
+			)
 		);
 
 		test_state
@@ -2959,7 +2979,13 @@ async fn test_outdated_blocked_collations_are_pruned() {
 
 	// First collation is fetched and seconding kicks off.
 	test_state
-		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), Some(first_pvd))
+		.handle_fetched_collation(
+			&mut state,
+			first_adv,
+			first_ccr.to_plain(),
+			Some(first_pvd),
+			first_adv.scheduling_parent,
+		)
 		.await;
 
 	// Then, second collation is fetched and seconding kicks off (but the parent header is unknown
@@ -2968,7 +2994,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 	futures::join!(
 		state.handle_fetched_collation(&mut sender, (second_adv, res)),
 		// We don't know it's pvd so it gets blocked from seconding
-		test_state.assert_pvd_request(second_adv, None)
+		test_state.assert_pvd_request(second_adv, None, second_adv.scheduling_parent)
 	);
 	test_state.assert_no_messages().await;
 
@@ -3237,7 +3263,13 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 	test_state.assert_no_messages().await;
 
 	test_state
-		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), None)
+		.handle_fetched_collation(
+			&mut state,
+			first_adv,
+			first_ccr.to_plain(),
+			None,
+			first_adv.scheduling_parent,
+		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -3344,9 +3376,12 @@ async fn v3_descriptor_accepted_when_v3_enabled() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
+	// V3: relay_parent (execution context) is older than scheduling_parent.
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
 	let (ccr, adv) = dummy_candidate_v3(
-		get_hash(9),
-		get_hash(9),
+		relay_parent,
+		scheduling_parent,
 		100.into(),
 		peer_id,
 		leaf_info.assigned_core,
@@ -3358,7 +3393,9 @@ async fn v3_descriptor_accepted_when_v3_enabled() {
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
-	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, relay_parent)
+		.await;
 	test_state
 		.second_collation(&mut state, peer_id, CollationVersion::V3, ccr, active_leaf)
 		.await;
@@ -3394,9 +3431,11 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
+	let relay_parent = get_hash(9);
+	let scheduling_parent = get_hash(10);
 	let (ccr, adv) = dummy_candidate_v3(
-		get_hash(10),
-		get_hash(10),
+		relay_parent,
+		scheduling_parent,
 		100.into(),
 		peer_id,
 		leaf_info.assigned_core,
@@ -3408,7 +3447,9 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
-	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, relay_parent)
+		.await;
 	test_state
 		.second_collation(&mut state, peer_id, CollationVersion::V3, ccr, active_leaf)
 		.await;
@@ -3497,9 +3538,11 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 	test_state.assert_no_messages().await;
 
 	// Test that the parent of the current leaf (last finished slot) is accepted.
+	let relay_parent = get_hash(9);
+	let scheduling_parent = get_hash(10);
 	let (ccr, adv) = dummy_candidate_v3(
-		get_hash(10),
-		get_hash(10),
+		relay_parent,
+		scheduling_parent,
 		100.into(),
 		peer_id,
 		leaf_info.assigned_core,
@@ -3510,36 +3553,41 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
-	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, relay_parent)
+		.await;
 	test_state
 		.second_collation(&mut state, peer_id, CollationVersion::V3, ccr, active_leaf)
 		.await;
 }
 
 #[tokio::test]
-// Test that a V3 descriptor is treated as V1 via backward compatibility
-// when the CandidateReceiptV3 is not enabled.
-async fn v3_descriptor_backwards_compat_without_v3() {
+// V3 descriptor via V2 protocol → rejected (wrong protocol).
+async fn v3_descriptor_rejected_via_v2_protocol() {
 	let mut test_state = TestState::default();
 
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 	let peer_id = PeerId::random();
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
-	let mut ccr = dummy_committed_candidate_receipt_v2(active_leaf);
-	ccr.descriptor.set_para_id(100.into());
-	ccr.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
-	ccr.descriptor.set_core_index(leaf_info.assigned_core);
-	ccr.descriptor.set_session_index(leaf_info.session_index);
-	ccr.descriptor.set_version(1);
-	ccr.descriptor.set_scheduling_parent(active_leaf);
+	let (ccr, _) = dummy_candidate_v3(
+		active_leaf,
+		active_leaf,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
 
 	let receipt = ccr.to_plain();
+
 	let adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
@@ -3551,14 +3599,14 @@ async fn v3_descriptor_backwards_compat_without_v3() {
 		advertised_descriptor_version: None,
 	};
 
-	// Advertise the v3 candidate
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
-	test_state.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None).await;
-	test_state
-		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr, active_leaf)
-		.await;
+
+	let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+	state.handle_fetched_collation(&mut sender, (adv, res)).await;
+	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+	test_state.assert_no_messages().await;
 }
 
 #[tokio::test]

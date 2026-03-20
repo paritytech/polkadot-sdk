@@ -448,6 +448,7 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 			candidate_hash,
 			parent_head_data_hash,
 			candidate_descriptor_version,
+			..
 		}) => {
 			state
 				.handle_advertisement(
