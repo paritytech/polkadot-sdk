@@ -25,8 +25,6 @@ use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::{prelude::*, Error as XcmError};
 use xcm_executor::XcmExecutor;
 use xcm_simulator::fake_message_hash;
-#[cfg(feature = "runtime-benchmarks")]
-use xcm_simulator::TestExt;
 
 fn assert_teleport_outcome(
 	r: Outcome,
