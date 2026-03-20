@@ -209,12 +209,6 @@ where
 				return;
 			};
 
-			let Some(_relay_best_hash) = scheduling_info
-				.fetch_relay_best_hash(&relay_client)
-				.await
-			else {
-				continue;
-			};
 			// Query scheduling parameters at the parachain best head. This assumes
 			// they match the para parent head we build on top of — a practical
 			// optimisation that can only fail if a runtime upgrade changing these

@@ -126,7 +126,10 @@ impl SchedulingInfo {
 	where
 		RelayClient: RelayChainInterface + Clone + 'static,
 	{
-		let relay_best_hash = self.relay_best_hash?;
+		let relay_best_hash = match self.relay_best_hash {
+			Some(hash) => hash,
+			None => self.fetch_relay_best_hash(relay_client).await?,
+		};
 
 		if !v3_enabled {
 			return Some(relay_best_hash);
