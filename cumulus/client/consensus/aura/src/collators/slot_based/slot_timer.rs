@@ -553,6 +553,7 @@ mod tests {
 		(Duration::from_millis(2000), Slot::from(1)), // Next block
 		(Duration::from_millis(4000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(2000)), // Expected
 	)]
 	#[case::blocks_2s_closer_next_slot(
@@ -560,6 +561,7 @@ mod tests {
 		(Duration::from_millis(1950), Slot::from(1)), // Next block
 		(Duration::from_millis(4000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(1950)), // Expected
 	)]
 	#[case::blocks_2s_closer_next_slot_bigger(
@@ -567,6 +569,7 @@ mod tests {
 		(Duration::from_millis(1500), Slot::from(1)), // Next block
 		(Duration::from_millis(4000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(1500)), // Expected
 	)]
 	#[case::blocks_2s_reduce_by_1s(
@@ -574,6 +577,7 @@ mod tests {
 		(Duration::from_millis(2000), Slot::from(1)), // Next block
 		(Duration::from_millis(2000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(1000)), // Expected
 	)]
 	#[case::blocks_2s_reduce_by_1s_plus_offset(
@@ -581,6 +585,7 @@ mod tests {
 		(Duration::from_millis(1950), Slot::from(1)), // Next block
 		(Duration::from_millis(1950), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(950)), // Expected
 	)]
 	#[case::blocks_2s_reduce_to_minimum(
@@ -588,6 +593,7 @@ mod tests {
 		(Duration::from_millis(1400), Slot::from(1)), // Next block
 		(Duration::from_millis(1400), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(400)), // Expected
 	)]
 	#[case::blocks_2s_reduce_below_minimum(
@@ -595,6 +601,7 @@ mod tests {
 		(Duration::from_millis(1300), Slot::from(1)), // Next block
 		(Duration::from_millis(1300), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		None, // Expected to reduce below minimum
 	)]
 	#[case::blocks_2s_same_author(
@@ -602,6 +609,7 @@ mod tests {
 		(Duration::from_millis(1400), Slot::from(1)), // Next block
 		(Duration::from_millis(1400), Slot::from(2)), // Next slot change
 		false, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(1400)), // Expected no adjustment for last second.
 	)]
 	// Various scenarios for 500ms block production adjustment.
@@ -610,6 +618,7 @@ mod tests {
 		(Duration::from_millis(500), Slot::from(1)), // Next block
 		(Duration::from_millis(2000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(500)), // Expected
 	)]
 	#[case::blocks_500ms_closer_next_slot(
@@ -617,6 +626,7 @@ mod tests {
 		(Duration::from_millis(450), Slot::from(1)), // Next block
 		(Duration::from_millis(2000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(450)), // Expected
 	)]
 	#[case::blocks_500ms_closer_next_slot_bigger(
@@ -624,6 +634,7 @@ mod tests {
 		(Duration::from_millis(400), Slot::from(1)), // Next block
 		(Duration::from_millis(1500), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(400)), // Expected
 	)]
 	#[case::blocks_500ms_reduce_by_1s(
@@ -631,6 +642,7 @@ mod tests {
 		(Duration::from_millis(500), Slot::from(1)), // Next block
 		(Duration::from_millis(1000), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		None, // Expected
 	)]
 	#[case::blocks_500ms_reduce_by_1s_closer(
@@ -638,6 +650,7 @@ mod tests {
 		(Duration::from_millis(500), Slot::from(1)), // Next block
 		(Duration::from_millis(500), Slot::from(2)), // Next slot change
 		true, // Different authors
+		Slot::from(1), // Effective slot
 		None, // Expected
 	)]
 	// If we are producing with 1 collator for 500ms authoring duration,
@@ -647,6 +660,7 @@ mod tests {
 		(Duration::from_millis(410), Slot::from(1)), // Next block
 		(Duration::from_millis(1000), Slot::from(2)), // Next slot change
 		false, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(410)), // Expected no adjustment for last second.
 	)]
 	#[case::blocks_500ms_same_author_closer(
@@ -654,6 +668,7 @@ mod tests {
 		(Duration::from_millis(400), Slot::from(1)), // Next block
 		(Duration::from_millis(400), Slot::from(2)), // Next slot change
 		false, // Different authors
+		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(400)), // Expected no adjustment for last second.
 	)]
 	fn test_adjust_authoring_duration(
@@ -661,6 +676,7 @@ mod tests {
 		#[case] next_block: (Duration, Slot),
 		#[case] next_slot_change: (Duration, Slot),
 		#[case] different_authors: bool,
+		#[case] effective_slot: Slot,
 		#[case] expected: Option<Duration>,
 	) {
 		sp_tracing::init_for_tests();
@@ -670,8 +686,397 @@ mod tests {
 			next_block,
 			next_slot_change,
 			different_authors,
+			effective_slot,
 		);
 		tracing::debug!("Adjusted authoring duration: {:?}", result);
 		assert_eq!(result, expected);
+	}
+
+	/// Tests the combined behavior of `relay_parent_offset` on effective slot computation
+	/// and authoring duration adjustment.
+	///
+	/// This simulates what `SlotTimer::adjust_authoring_duration()` does internally:
+	/// 1. Compute `effective_slot = para_slot + relay_parent_offset`
+	/// 2. Compute time until next slot change using `effective_slot`
+	/// 3. Call `adjust_authoring_duration` with the results
+	#[rstest]
+	// relay_parent_offset = 0: normal behavior, block fits comfortably in slot.
+	// Wall clock at 31000ms (slot 5), effective_slot=5.
+	// Next slot change: 36000-31000 = 5000ms, deadline = 4000ms.
+	// Authoring duration 2000ms < 4000ms deadline → produce.
+	#[case::offset_0_normal(
+		6000,                         // para_slot_duration_ms
+		31000,                        // time_now_ms
+		Slot::from(5),                // para_slot
+		0u32,                         // relay_parent_offset
+		Duration::from_millis(2000),  // authoring_duration
+		(Duration::from_millis(2000), Slot::from(6)), // next_block
+		true,                         // different_authors
+		Some(Duration::from_millis(2000)),
+	)]
+	// relay_parent_offset = 1, fresh relay parent: extended deadline.
+	// Wall clock at 31000ms, effective_slot=6.
+	// Next slot change: 42000-31000 = 11000ms, deadline = 10000ms.
+	// 2000ms < 10000ms → produce.
+	#[case::offset_1_fresh(
+		6000,
+		31000,
+		Slot::from(5),
+		1u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(6)),
+		true,
+		Some(Duration::from_millis(2000)),
+	)]
+	// relay_parent_offset = 1 with wall clock near end of current slot.
+	// Wall clock at 35500ms (near slot 5 boundary at 36000ms), effective_slot=6.
+	// Next slot change: 42000-35500 = 6500ms, deadline = 5500ms.
+	// 2000ms < 5500ms → produce.
+	#[case::offset_1_near_boundary(
+		6000,
+		35500,
+		Slot::from(5),
+		1u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(6)),
+		true,
+		Some(Duration::from_millis(2000)),
+	)]
+	// relay_parent_offset = 0 at slot boundary → stale effective slot, different authors → skip.
+	// Wall clock at 37000ms (past slot 5 boundary), effective_slot=5.
+	// Next slot change: 36000-37000 = 0 (saturating), deadline = 0.
+	// Different authors and deadline=0 → None.
+	#[case::offset_0_stale_different_authors(
+		6000,
+		37000,
+		Slot::from(5),
+		0u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(7)),
+		true,
+		None,
+	)]
+	// relay_parent_offset = 1 rescues a stale relay parent.
+	// Wall clock at 37000ms, para_slot=5, effective_slot=6.
+	// Next slot change: 42000-37000 = 5000ms, deadline = 4000ms.
+	// 2000ms < 4000ms → produce (offset=1 saved us from skipping!).
+	#[case::offset_1_rescues_stale(
+		6000,
+		37000,
+		Slot::from(5),
+		1u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(7)),
+		true,
+		Some(Duration::from_millis(2000)),
+	)]
+	// relay_parent_offset = 1 but relay parent is very stale (2+ slots behind).
+	// Wall clock at 43000ms (slot 7), para_slot=5, effective_slot=6.
+	// Next slot change: 42000-43000 = 0 (saturating), deadline = 0.
+	// Different authors and deadline=0 → None.
+	#[case::offset_1_very_stale(
+		6000,
+		43000,
+		Slot::from(5),
+		1u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(8)),
+		true,
+		None,
+	)]
+	// relay_parent_offset = 0, stale, but same author → still produce.
+	// Wall clock at 37000ms, effective_slot=5, next slot change = 0ms.
+	// Same author → return Some(min(authoring, next_block_duration)).
+	#[case::offset_0_stale_same_author(
+		6000,
+		37000,
+		Slot::from(5),
+		0u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(7)),
+		false,
+		Some(Duration::from_millis(2000)),
+	)]
+	// Large relay_parent_offset = 5, plenty of room.
+	// Wall clock at 31000ms, effective_slot=10.
+	// Next slot change: 66000-31000 = 35000ms, deadline = 34000ms.
+	// 2000ms < 34000ms → produce.
+	#[case::offset_5_large(
+		6000,
+		31000,
+		Slot::from(5),
+		5u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(6)),
+		true,
+		Some(Duration::from_millis(2000)),
+	)]
+	// relay_parent_offset = 0, near deadline → authoring clamped to deadline.
+	// Wall clock at 34500ms, effective_slot=5.
+	// Next slot change: 36000-34500 = 1500ms, deadline = 500ms.
+	// 2000ms > 500ms → clamped to 500ms. 500ms >= 400ms (min-threshold) → produce.
+	#[case::offset_0_clamped_to_minimum(
+		6000,
+		34500,
+		Slot::from(5),
+		0u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(6)),
+		true,
+		Some(Duration::from_millis(500)),
+	)]
+	// relay_parent_offset = 0, too close to deadline → below minimum threshold.
+	// Wall clock at 34800ms, effective_slot=5.
+	// Next slot change: 36000-34800 = 1200ms, deadline = 200ms.
+	// 2000ms > 200ms → clamped to 200ms. 200ms < 400ms (min-threshold) → None.
+	#[case::offset_0_below_minimum(
+		6000,
+		34800,
+		Slot::from(5),
+		0u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(6)),
+		true,
+		None,
+	)]
+	// relay_parent_offset = 1 rescues from below-minimum case.
+	// Same wall clock at 34800ms, but effective_slot=6.
+	// Next slot change: 42000-34800 = 7200ms, deadline = 6200ms.
+	// 2000ms < 6200ms → produce.
+	#[case::offset_1_rescues_below_minimum(
+		6000,
+		34800,
+		Slot::from(5),
+		1u32,
+		Duration::from_millis(2000),
+		(Duration::from_millis(2000), Slot::from(6)),
+		true,
+		Some(Duration::from_millis(2000)),
+	)]
+	fn test_adjust_authoring_duration_with_relay_offset(
+		#[case] para_slot_duration_ms: u64,
+		#[case] time_now_ms: u64,
+		#[case] para_slot: Slot,
+		#[case] relay_parent_offset: u32,
+		#[case] authoring_duration: Duration,
+		#[case] next_block: (Duration, Slot),
+		#[case] different_authors: bool,
+		#[case] expected: Option<Duration>,
+	) {
+		sp_tracing::init_for_tests();
+
+		let slot_duration = SlotDuration::from_millis(para_slot_duration_ms);
+		let time_now = Duration::from_millis(time_now_ms);
+		let time_offset = Duration::ZERO;
+
+		// Step 1: Compute effective slot (mirrors SlotTimer::adjust_authoring_duration).
+		let effective_slot = para_slot.saturating_add(Slot::from(relay_parent_offset as u64));
+
+		// Step 2: Compute time until next slot change using effective_slot.
+		let next_slot_change = compute_time_until_next_slot_change(
+			slot_duration,
+			time_now,
+			time_offset,
+			effective_slot,
+		)
+		.expect("Should compute next slot change");
+
+		// Step 3: Call adjust_authoring_duration with computed values.
+		let result = adjust_authoring_duration(
+			authoring_duration,
+			next_block,
+			next_slot_change,
+			different_authors,
+			effective_slot,
+		);
+
+		tracing::debug!(
+			?effective_slot,
+			?next_slot_change,
+			?relay_parent_offset,
+			?result,
+			"Test result for relay_parent_offset scenario"
+		);
+		assert_eq!(result, expected);
+	}
+
+	/// Regression test for the "wrongful skip near slot boundary" bug.
+	///
+	/// Reproduces a real-world scenario where the 1-second buffer
+	/// (`BLOCK_PRODUCTION_ADJUSTMENT_MS`) caused incorrect decisions:
+	///
+	/// Attempt 1 — Wrongful SKIP (offset=0):
+	///   para_slot=803, wall_clock near end of slot 803 (491ms until slot 804).
+	///   deadline = 491ms - 1000ms = 0 → skip, even though we're still in our slot.
+	///
+	/// Attempt 1 — Correct APPROVE (offset=1):
+	///   effective_slot=804, deadline based on slot 805 boundary (6491ms away).
+	///   deadline = 5491ms → plenty of room to produce.
+	///
+	/// Attempt 3 — Wrongful APPROVE (offset=0, using wall clock slot):
+	///   para_slot=803 (stale), wall_clock=805, deadline based on slot 806 (5990ms).
+	///   Would approve despite para_slot being 2 slots behind.
+	///
+	/// Attempt 3 — Correct SKIP (offset=1):
+	///   effective_slot=804, wall_clock past slot 805 boundary → remaining=0.
+	///   deadline = 0, different authors → skip.
+	#[test]
+	fn test_wrongful_skip_near_slot_boundary() {
+		sp_tracing::init_for_tests();
+
+		let slot_duration = SlotDuration::from_millis(6000);
+		let para_slot = Slot::from(803);
+		// Slot 803 = [4_818_000ms, 4_824_000ms)
+		// Slot 804 = [4_824_000ms, 4_830_000ms)
+		// Slot 805 = [4_830_000ms, 4_836_000ms)
+
+		// --- Attempt 1: wall clock at 4_823_509ms (491ms before slot 804) ---
+		let time_now_attempt1 = Duration::from_millis(4_823_509);
+		let next_block = (Duration::from_millis(500), Slot::from(804));
+
+		// With offset=0: effective_slot=803, next_slot=804 at 4_824_000ms.
+		// remaining = 491ms, deadline = 0 → wrongful SKIP.
+		{
+			let effective_slot = para_slot; // offset=0
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_now_attempt1,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			assert_eq!(next_slot_change.0.as_millis(), 491);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(500),
+				next_block,
+				next_slot_change,
+				true, // different authors
+				effective_slot,
+			);
+			// Deadline = 491 - 1000 = 0 → skip (the wrongful behavior without offset).
+			assert_eq!(result, None, "offset=0 near boundary: wrongful skip");
+		}
+
+		// With offset=1: effective_slot=804, next_slot=805 at 4_830_000ms.
+		// remaining = 6491ms, deadline = 5491ms → correct APPROVE.
+		{
+			let effective_slot = para_slot.saturating_add(Slot::from(1u64)); // offset=1
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_now_attempt1,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			assert_eq!(next_slot_change.0.as_millis(), 6491);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(500),
+				next_block,
+				next_slot_change,
+				true, // different authors
+				effective_slot,
+			);
+			assert_eq!(
+				result,
+				Some(Duration::from_millis(500)),
+				"offset=1 near boundary: correctly approved"
+			);
+		}
+
+		// --- Attempt 3: wall clock at 4_831_000ms (in slot 805, para_slot=803 is stale) ---
+		let time_now_attempt3 = Duration::from_millis(4_831_000);
+		let next_block_attempt3 = (Duration::from_millis(500), Slot::from(806));
+
+		// With offset=0: effective_slot=803, next_slot=804 at 4_824_000ms.
+		// remaining = 0 (stale), deadline = 0 → correct SKIP.
+		{
+			let effective_slot = para_slot; // offset=0
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_now_attempt3,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			assert_eq!(next_slot_change.0, Duration::ZERO);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(500),
+				next_block_attempt3,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			assert_eq!(result, None, "offset=0 stale: correctly skipped");
+		}
+
+		// With offset=1: effective_slot=804, next_slot=805 at 4_830_000ms.
+		// remaining = 0 (stale, wall clock past 805) → correct SKIP.
+		{
+			let effective_slot = para_slot.saturating_add(Slot::from(1u64)); // offset=1
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_now_attempt3,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			assert_eq!(next_slot_change.0, Duration::ZERO);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(500),
+				next_block_attempt3,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			assert_eq!(result, None, "offset=1 stale: correctly skipped");
+		}
+	}
+
+	/// Test that `compute_time_until_next_slot_change` returns zero remaining time
+	/// when the effective slot is already past (stale relay parent scenario).
+	#[rstest]
+	// Effective slot is current → positive remaining time.
+	#[case::current_slot(6000, 31000, Slot::from(5), 5000)]
+	// Effective slot is one ahead → even more remaining time.
+	#[case::one_ahead(6000, 31000, Slot::from(6), 11000)]
+	// Effective slot is behind wall clock → zero remaining time (stale).
+	#[case::stale_behind(6000, 37000, Slot::from(5), 0)]
+	// Effective slot is far behind → zero remaining time.
+	#[case::very_stale(6000, 50000, Slot::from(5), 0)]
+	// Effective slot exactly at boundary → remaining time for next full slot.
+	#[case::at_boundary(6000, 36000, Slot::from(5), 0)]
+	fn test_stale_effective_slot_detection(
+		#[case] para_slot_millis: u64,
+		#[case] time_now_ms: u64,
+		#[case] effective_slot: Slot,
+		#[case] expected_remaining_ms: u128,
+	) {
+		let slot_duration = SlotDuration::from_millis(para_slot_millis);
+		let time_now = Duration::from_millis(time_now_ms);
+
+		let result = compute_time_until_next_slot_change(
+			slot_duration,
+			time_now,
+			Duration::ZERO,
+			effective_slot,
+		)
+		.expect("Should compute next slot change");
+
+		assert_eq!(
+			result.0.as_millis(),
+			expected_remaining_ms,
+			"Remaining time mismatch for effective_slot={:?} at time={}ms",
+			effective_slot,
+			time_now_ms,
+		);
+
+		// Verify stale detection: Duration::ZERO means the effective slot is past.
+		if expected_remaining_ms == 0 {
+			assert_eq!(result.0, Duration::ZERO, "Stale effective slot should have zero remaining");
+		}
 	}
 }
