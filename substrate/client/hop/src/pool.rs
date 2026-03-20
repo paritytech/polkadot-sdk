@@ -58,11 +58,7 @@ impl HopDataPool {
 	///
 	/// Creates shard directories under `data_dir` and rebuilds the in-memory index
 	/// from existing `.meta` files on disk (recovery after restart).
-	pub fn new(
-		max_size: u64,
-		retention_blocks: u32,
-		data_dir: PathBuf,
-	) -> Result<Self, HopError> {
+	pub fn new(max_size: u64, retention_blocks: u32, data_dir: PathBuf) -> Result<Self, HopError> {
 		// Create shard directories (256 each for blobs/ and meta/).
 		for i in 0u8..=255 {
 			let shard = format!("{:02x}", i);
@@ -245,19 +241,13 @@ impl HopDataPool {
 		let usage_map = self.user_usage.read();
 		let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
 		let is_new_user = current_usage == 0;
-		let active_users = if is_new_user {
-			usage_map.len() as u64 + 1
-		} else {
-			usage_map.len() as u64
-		};
+		let active_users =
+			if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
 		let per_user_limit = self.max_size / active_users.max(1);
 		drop(usage_map);
 
 		if current_usage + data_len > per_user_limit {
-			return Err(HopError::UserQuotaExceeded {
-				used: current_usage,
-				limit: per_user_limit,
-			});
+			return Err(HopError::UserQuotaExceeded { used: current_usage, limit: per_user_limit });
 		}
 
 		let hash = H256(blake2_256(&data));
@@ -338,26 +328,27 @@ impl HopDataPool {
 		}
 	}
 
-	/// Claim data from the pool. Verifies the signature against recipient public keys.
-	/// Returns the data if the signature matches an unclaimed recipient.
-	/// Removes the entry once all recipients have claimed.
+	/// Claim data from the pool (read-only). Verifies the signature against recipient
+	/// public keys. Returns the data if the signature matches a recipient.
+	///
+	/// This does NOT mark the recipient as claimed — call `ack` after receiving the data
+	/// to confirm receipt.
+	///
+	/// Returns `AlreadyClaimed` if the recipient has already ack'd (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
-		let mut index = self.index.write();
-		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
+		let index = self.index.read();
+		let meta = index.get(hash).ok_or(HopError::NotFound)?;
 
 		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
-		let multi_sig = MultiSignature::decode(&mut &signature[..])
-			.map_err(|_| HopError::InvalidSignature)?;
+		let multi_sig =
+			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 
-		// Find which unclaimed recipient this signature matches
+		// Find which recipient this signature matches
 		let recipient_index = meta
 			.recipients
 			.iter()
 			.enumerate()
 			.find_map(|(i, signer)| {
-				if meta.claimed[i] {
-					return None;
-				}
 				let account_id = signer.clone().into_account();
 				if multi_sig.verify(hash.as_bytes(), &account_id) {
 					Some(i)
@@ -367,13 +358,56 @@ impl HopDataPool {
 			})
 			.ok_or(HopError::NotRecipient)?;
 
-		meta.claimed[recipient_index] = true;
+		// If this recipient already ack'd, the data may be gone.
+		if meta.claimed[recipient_index] {
+			return Err(HopError::AlreadyClaimed);
+		}
+
+		let blob_path = self.blob_path(hash);
+		drop(index);
 
 		// Read blob from disk.
-		let data = fs::read(self.blob_path(hash))
-			.map_err(|e| HopError::IoError(format!("read blob: {}", e)))?;
+		let data =
+			fs::read(blob_path).map_err(|e| HopError::IoError(format!("read blob: {}", e)))?;
 
-		// If all recipients have claimed, remove the entry entirely.
+		Ok(data)
+	}
+
+	/// Acknowledge receipt of claimed data. Marks the recipient as claimed and triggers
+	/// cleanup when all recipients have ack'd.
+	///
+	/// Idempotent: acking a recipient that already ack'd returns `Ok(())`.
+	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
+		let mut index = self.index.write();
+		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
+
+		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
+		let multi_sig =
+			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
+
+		// Find which recipient this signature matches
+		let recipient_index = meta
+			.recipients
+			.iter()
+			.enumerate()
+			.find_map(|(i, signer)| {
+				let account_id = signer.clone().into_account();
+				if multi_sig.verify(hash.as_bytes(), &account_id) {
+					Some(i)
+				} else {
+					None
+				}
+			})
+			.ok_or(HopError::NotRecipient)?;
+
+		// Idempotent: already ack'd is fine.
+		if meta.claimed[recipient_index] {
+			return Ok(());
+		}
+
+		meta.claimed[recipient_index] = true;
+
+		// If all recipients have ack'd, remove the entry entirely.
 		if meta.claimed.iter().all(|&c| c) {
 			let size = meta.size;
 			let alias = meta.sender_alias;
@@ -397,7 +431,7 @@ impl HopDataPool {
 			tracing::info!(
 				target: "hop",
 				hash = ?hex::encode(hash),
-				"All recipients claimed, data removed"
+				"All recipients acked, data removed"
 			);
 		} else {
 			let claimed_count = meta.claimed.iter().filter(|&&c| c).count();
@@ -407,18 +441,18 @@ impl HopDataPool {
 			drop(index);
 
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist claimed state");
+				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist ack state");
 			}
 
 			tracing::debug!(
 				target: "hop",
 				hash = ?hex::encode(hash),
 				claimed = claimed_count,
-				"Recipient claimed"
+				"Recipient acked"
 			);
 		}
 
-		Ok(data)
+		Ok(())
 	}
 
 	/// Check if data exists in the pool.
@@ -625,10 +659,15 @@ mod tests {
 
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
-		let result = pool.claim(&hash, &multi_sig.encode()).unwrap();
-		assert_eq!(data, result);
+		let encoded_sig = multi_sig.encode();
 
-		// Entry should be removed after sole recipient claims
+		// Claim returns data but does NOT remove the entry.
+		let result = pool.claim(&hash, &encoded_sig).unwrap();
+		assert_eq!(data, result);
+		assert!(pool.has(&hash));
+
+		// Ack removes the entry.
+		pool.ack(&hash, &encoded_sig).unwrap();
 		assert!(!pool.has(&hash));
 	}
 
@@ -673,26 +712,36 @@ mod tests {
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], ALIAS_A).unwrap();
 
-		// First recipient claims
 		let sig1 = pair1.sign(hash.as_bytes());
 		let multi_sig1 = MultiSignature::Ed25519(sig1);
-		let result1 = pool.claim(&hash, &multi_sig1.encode()).unwrap();
-		assert_eq!(data, result1);
-		assert!(pool.has(&hash)); // still exists, second recipient hasn't claimed
-
-		// Second recipient claims
+		let encoded_sig1 = multi_sig1.encode();
 		let sig2 = pair2.sign(hash.as_bytes());
 		let multi_sig2 = MultiSignature::Ed25519(sig2);
-		let result2 = pool.claim(&hash, &multi_sig2.encode()).unwrap();
+		let encoded_sig2 = multi_sig2.encode();
+
+		// Both recipients claim — entry still exists (claims are read-only).
+		let result1 = pool.claim(&hash, &encoded_sig1).unwrap();
+		assert_eq!(data, result1);
+		assert!(pool.has(&hash));
+
+		let result2 = pool.claim(&hash, &encoded_sig2).unwrap();
 		assert_eq!(data, result2);
-		assert!(!pool.has(&hash)); // now removed
+		assert!(pool.has(&hash));
+
+		// First ack — entry still exists.
+		pool.ack(&hash, &encoded_sig1).unwrap();
+		assert!(pool.has(&hash));
+
+		// Second ack — entry removed.
+		pool.ack(&hash, &encoded_sig2).unwrap();
+		assert!(!pool.has(&hash));
 
 		// Pool size should be back to 0
 		assert_eq!(pool.status().total_bytes, 0);
 	}
 
 	#[test]
-	fn test_claim_already_claimed_recipient() {
+	fn test_claim_after_ack_returns_already_claimed() {
 		let (pool, _dir) = create_test_pool();
 		let (pair, signer) = test_recipient();
 		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
@@ -701,15 +750,17 @@ mod tests {
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool.insert(data.clone(), 0, vec![signer, signer2], ALIAS_A).unwrap();
 
-		// First claim succeeds
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
 		let encoded_sig = multi_sig.encode();
-		pool.claim(&hash, &encoded_sig).unwrap();
 
-		// Same recipient tries to claim again — should fail (already claimed)
+		// Claim and ack succeed.
+		pool.claim(&hash, &encoded_sig).unwrap();
+		pool.ack(&hash, &encoded_sig).unwrap();
+
+		// Claiming again after ack returns AlreadyClaimed.
 		let result = pool.claim(&hash, &encoded_sig);
-		assert!(matches!(result, Err(HopError::NotRecipient)));
+		assert!(matches!(result, Err(HopError::AlreadyClaimed)));
 	}
 
 	#[test]
@@ -762,7 +813,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_quota_released_after_claim() {
+	fn test_quota_released_after_ack() {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap();
 		let (pair, signer) = test_recipient();
@@ -774,10 +825,16 @@ mod tests {
 		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], ALIAS_A);
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 
-		// Claim the first entry — frees 100 bytes of user quota
+		// Claim does NOT free quota.
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
-		pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		pool.claim(&hash, &encoded_sig).unwrap();
+		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], ALIAS_A);
+		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
+
+		// Ack frees 100 bytes of user quota.
+		pool.ack(&hash, &encoded_sig).unwrap();
 
 		// Now user A can insert again
 		pool.insert(vec![2u8; 100], 0, vec![signer], ALIAS_A).unwrap();
@@ -812,12 +869,15 @@ mod tests {
 		let hash = pool.insert(vec![0u8; 50], 0, vec![signer], ALIAS_A).unwrap();
 		assert!(pool.user_usage.read().contains_key(&ALIAS_A));
 
-		// Claim removes the entry
+		// Claim does not remove the user from usage map.
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
-		pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		pool.claim(&hash, &encoded_sig).unwrap();
+		assert!(pool.user_usage.read().contains_key(&ALIAS_A));
 
-		// User A should no longer be in usage map
+		// Ack removes the entry and the user from usage map.
+		pool.ack(&hash, &encoded_sig).unwrap();
 		assert!(!pool.user_usage.read().contains_key(&ALIAS_A));
 	}
 
@@ -904,9 +964,86 @@ mod tests {
 
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Sr25519(sig);
-		let result = pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		let result = pool.claim(&hash, &encoded_sig).unwrap();
 		assert_eq!(data, result);
+		assert!(pool.has(&hash));
+
+		pool.ack(&hash, &encoded_sig).unwrap();
 		assert!(!pool.has(&hash));
+	}
+
+	#[test]
+	fn test_claim_is_repeatable() {
+		let (pool, _dir) = create_test_pool();
+		let (pair, signer) = test_recipient();
+		let data = vec![1, 2, 3, 4, 5];
+		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
+
+		let sig = pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let encoded_sig = multi_sig.encode();
+
+		// Calling claim twice returns the same data both times.
+		let result1 = pool.claim(&hash, &encoded_sig).unwrap();
+		let result2 = pool.claim(&hash, &encoded_sig).unwrap();
+		assert_eq!(data, result1);
+		assert_eq!(data, result2);
+		assert!(pool.has(&hash));
+	}
+
+	#[test]
+	fn test_ack_idempotent() {
+		let (pool, _dir) = create_test_pool();
+		let (pair, signer) = test_recipient();
+		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
+		let signer2 = MultiSigner::Ed25519(pair2.public());
+
+		let data = vec![1, 2, 3, 4, 5];
+		let hash = pool.insert(data, 0, vec![signer, signer2], ALIAS_A).unwrap();
+
+		let sig = pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let encoded_sig = multi_sig.encode();
+
+		// Acking twice succeeds silently.
+		pool.ack(&hash, &encoded_sig).unwrap();
+		pool.ack(&hash, &encoded_sig).unwrap();
+		assert!(pool.has(&hash)); // second recipient hasn't acked
+	}
+
+	#[test]
+	fn test_multi_recipient_partial_ack() {
+		let (pool, _dir) = create_test_pool();
+		let pair1 = ed25519::Pair::from_seed(&[1u8; 32]);
+		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
+		let signer1 = MultiSigner::Ed25519(pair1.public());
+		let signer2 = MultiSigner::Ed25519(pair2.public());
+
+		let data = vec![1, 2, 3, 4, 5];
+		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], ALIAS_A).unwrap();
+
+		let sig1 = pair1.sign(hash.as_bytes());
+		let multi_sig1 = MultiSignature::Ed25519(sig1);
+		let encoded_sig1 = multi_sig1.encode();
+		let sig2 = pair2.sign(hash.as_bytes());
+		let multi_sig2 = MultiSignature::Ed25519(sig2);
+		let encoded_sig2 = multi_sig2.encode();
+
+		// R1 claims and acks.
+		let result1 = pool.claim(&hash, &encoded_sig1).unwrap();
+		assert_eq!(data, result1);
+		pool.ack(&hash, &encoded_sig1).unwrap();
+		assert!(pool.has(&hash));
+
+		// R2 can still claim.
+		let result2 = pool.claim(&hash, &encoded_sig2).unwrap();
+		assert_eq!(data, result2);
+
+		// R2 acks — entry deleted.
+		pool.ack(&hash, &encoded_sig2).unwrap();
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().total_bytes, 0);
 	}
 
 	#[test]
@@ -918,21 +1055,24 @@ mod tests {
 		let sr_signer = MultiSigner::Sr25519(sr_pair.public());
 
 		let data = vec![42, 43, 44];
-		let hash =
-			pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], ALIAS_A).unwrap();
 
-		// sr25519 recipient claims first
+		// sr25519 recipient claims and acks first
 		let sr_sig = sr_pair.sign(hash.as_bytes());
 		let sr_multi = MultiSignature::Sr25519(sr_sig);
-		let result1 = pool.claim(&hash, &sr_multi.encode()).unwrap();
+		let sr_encoded = sr_multi.encode();
+		let result1 = pool.claim(&hash, &sr_encoded).unwrap();
 		assert_eq!(data, result1);
-		assert!(pool.has(&hash)); // ed25519 recipient hasn't claimed yet
+		pool.ack(&hash, &sr_encoded).unwrap();
+		assert!(pool.has(&hash)); // ed25519 recipient hasn't acked yet
 
-		// ed25519 recipient claims second
+		// ed25519 recipient claims and acks second
 		let ed_sig = ed_pair.sign(hash.as_bytes());
 		let ed_multi = MultiSignature::Ed25519(ed_sig);
-		let result2 = pool.claim(&hash, &ed_multi.encode()).unwrap();
+		let ed_encoded = ed_multi.encode();
+		let result2 = pool.claim(&hash, &ed_encoded).unwrap();
 		assert_eq!(data, result2);
-		assert!(!pool.has(&hash)); // all claimed
+		pool.ack(&hash, &ed_encoded).unwrap();
+		assert!(!pool.has(&hash)); // all acked
 	}
 }

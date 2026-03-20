@@ -159,6 +159,9 @@ pub enum HopError {
 
 	#[error("I/O error: {0}")]
 	IoError(String),
+
+	#[error("Recipient already claimed")]
+	AlreadyClaimed,
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -177,6 +180,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::UserQuotaExceeded { .. } => 1013,
 			HopError::InvalidPersonhoodProof => 1014,
 			HopError::IoError(_) => 1015,
+			HopError::AlreadyClaimed => 1016,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
