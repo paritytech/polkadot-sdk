@@ -440,10 +440,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				task_manager.spawn_handle().spawn("hop-promotion", None, async move {
 					loop {
 						futures_timer::Delay::new(Duration::from_secs(check_interval)).await;
-						let block = task_client
-							.info()
-							.best_number
-							.saturated_into::<u32>();
+						let block = task_client.info().best_number.saturated_into::<u32>();
 						let freed = task_pool.cleanup_expired(block);
 						if freed > 0 {
 							log::info!(
