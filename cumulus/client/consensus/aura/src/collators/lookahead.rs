@@ -501,11 +501,11 @@ where
 									SubmitCollationParams {
 										relay_parent,
 										collation,
-										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: None,
 										core_index,
 										scheduling_parent: None,
+										validation_data,
 									},
 								),
 								"SubmitCollation",

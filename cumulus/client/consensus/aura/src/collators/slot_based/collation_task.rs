@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use codec::Encode;
 use std::path::PathBuf;
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
@@ -126,7 +125,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_code_hash,
 		relay_parent,
 		core_index,
-		max_pov_size,
+		validation_data,
 	} = message;
 
 	let hash = parachain_candidate.block.header().hash();
@@ -156,7 +155,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 						parent_header.clone(),
 						relay_parent_header.state_root,
 						relay_parent_header.number,
-						max_pov_size,
+						validation_data.max_pov_size,
 					);
 				}
 			} else {
@@ -178,11 +177,11 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 				relay_parent,
 				collation,
-				parent_head: parent_header.encode().into(),
 				validation_code_hash,
 				core_index,
 				result_sender: None,
 				scheduling_parent: None,
+				validation_data,
 			}),
 			"SubmitCollation",
 		)

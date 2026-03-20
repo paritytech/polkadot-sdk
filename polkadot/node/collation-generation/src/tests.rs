@@ -178,10 +178,15 @@ fn submit_collation_is_no_op_before_initialization() {
 					relay_parent: Hash::repeat_byte(0),
 					scheduling_parent: Some(Hash::repeat_byte(0)),
 					collation: test_collation(),
-					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash: Hash::repeat_byte(1).into(),
 					result_sender: None,
 					core_index: CoreIndex(0),
+					validation_data: PersistedValidationData {
+						parent_head: vec![1, 2, 3].into(),
+						relay_parent_number: 10,
+						relay_parent_storage_root: Hash::repeat_byte(1),
+						max_pov_size: 1024,
+					},
 				}),
 			})
 			.await;
@@ -223,10 +228,10 @@ fn submit_collation_leads_to_distribution() {
 					relay_parent,
 					scheduling_parent: Some(relay_parent),
 					collation,
-					parent_head: dummy_head_data(),
 					validation_code_hash,
 					result_sender: None,
 					core_index: CoreIndex(0),
+					validation_data: expected_pvd.clone(),
 				}),
 			})
 			.await;
@@ -234,8 +239,6 @@ fn submit_collation_leads_to_distribution() {
 		helpers::handle_runtime_calls_on_submit_collation(
 			&mut virtual_overseer,
 			relay_parent,
-			para_id,
-			expected_pvd.clone(),
 			[(CoreIndex(0), VecDeque::from([para_id]))].into(),
 		)
 		.await;
@@ -469,10 +472,10 @@ fn v2_receipts_failed_core_index_check() {
 					relay_parent,
 					scheduling_parent: Some(relay_parent),
 					collation: test_collation(),
-					parent_head: dummy_head_data(),
 					validation_code_hash,
 					result_sender: None,
 					core_index: CoreIndex(0),
+					validation_data: expected_pvd.clone(),
 				}),
 			})
 			.await;
@@ -480,8 +483,6 @@ fn v2_receipts_failed_core_index_check() {
 		helpers::handle_runtime_calls_on_submit_collation(
 			&mut virtual_overseer,
 			relay_parent,
-			para_id,
-			expected_pvd.clone(),
 			// Core index commitment is on core 0 but don't add any assignment for core 0.
 			[(CoreIndex(1), [para_id].into_iter().collect())].into_iter().collect(),
 		)
@@ -527,10 +528,10 @@ fn approved_peer_signal() {
 					relay_parent,
 					scheduling_parent: Some(relay_parent),
 					collation,
-					parent_head: dummy_head_data(),
 					validation_code_hash,
 					result_sender: None,
 					core_index: CoreIndex(0),
+					validation_data: expected_pvd.clone(),
 				}),
 			})
 			.await;
@@ -538,8 +539,6 @@ fn approved_peer_signal() {
 		helpers::handle_runtime_calls_on_submit_collation(
 			&mut virtual_overseer,
 			relay_parent,
-			para_id,
-			expected_pvd.clone(),
 			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
 		)
 		.await;
@@ -706,32 +705,20 @@ mod helpers {
 		}
 	}
 
-	// Handles all runtime requests performed in `handle_submit_collation`
+	// Handles all runtime requests performed in `handle_submit_collation`.
+	// All requests are made against the scheduling parent (or relay_parent for V2).
 	pub async fn handle_runtime_calls_on_submit_collation(
 		virtual_overseer: &mut VirtualOverseer,
-		relay_parent: Hash,
-		para_id: ParaId,
-		expected_pvd: PersistedValidationData,
+		scheduling_parent: Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) {
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::PersistedValidationData(id, a, tx))) => {
-				assert_eq!(rp, relay_parent);
-				assert_eq!(id, para_id);
-				assert_eq!(a, OccupiedCoreAssumption::TimedOut);
-
-				tx.send(Ok(Some(expected_pvd))).unwrap();
-			}
-		);
-
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				rp,
 				RuntimeApiRequest::ClaimQueue(tx),
 			)) => {
-				assert_eq!(rp, relay_parent);
+				assert_eq!(rp, scheduling_parent);
 				tx.send(Ok(claim_queue)).unwrap();
 			}
 		);
@@ -739,7 +726,7 @@ mod helpers {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				assert_eq!(rp, relay_parent);
+				assert_eq!(rp, scheduling_parent);
 				tx.send(Ok(1)).unwrap();
 			}
 		);
@@ -747,7 +734,7 @@ mod helpers {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::Validators(tx))) => {
-				assert_eq!(rp, relay_parent);
+				assert_eq!(rp, scheduling_parent);
 				tx.send(Ok(vec![
 					Sr25519Keyring::Alice.public().into(),
 					Sr25519Keyring::Bob.public().into(),
