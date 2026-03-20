@@ -972,6 +972,31 @@ where
 		(call.0, call.1.into_executable().unwrap())
 	}
 
+	/// Set the read-only flag on the current (top) frame.
+	///
+	/// This is useful for testing pre-compiles that guard against state changes
+	/// in read-only contexts.
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	pub fn set_read_only(&mut self, read_only: bool) {
+		self.top_frame_mut().read_only = read_only;
+	}
+
+	/// Mark the current (top) frame as a delegate call.
+	///
+	/// This is useful for testing pre-compiles that reject delegate calls.
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	pub fn set_delegate_call(&mut self, delegate: bool) {
+		let frame = self.top_frame_mut();
+		if delegate {
+			frame.delegate = Some(DelegateInfo {
+				caller: Origin::from_account_id(frame.account_id.clone()),
+				callee: H160::zero(),
+			});
+		} else {
+			frame.delegate = None;
+		}
+	}
+
 	/// Create a new call stack.
 	///
 	/// Returns `None` when calling a non existent contract. This is not an error case

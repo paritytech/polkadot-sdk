@@ -41,6 +41,9 @@ pub mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 
+#[cfg(test)]
+mod tests;
+
 /// Minimal pallet providing a `Pallet<T>` type for the FRAME benchmarking machinery.
 #[frame_support::pallet]
 pub mod pallet {
