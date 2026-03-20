@@ -130,8 +130,8 @@ mod tests {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
 
-		map.insert(peer1, ScoreEntry { score: Score::new(100).unwrap(), last_bumped: 1234567890 });
-		map.insert(peer2, ScoreEntry { score: Score::new(50).unwrap(), last_bumped: 9876543210 });
+		map.insert(peer1, ScoreEntry { score: Score::new(100), last_bumped: 1234567890 });
+		map.insert(peer2, ScoreEntry { score: Score::new(50), last_bumped: 9876543210 });
 
 		let stored: StoredParaReputations = map.into();
 		let encoded = stored.encode();
@@ -140,7 +140,7 @@ mod tests {
 		let restored_map: HashMap<PeerId, ScoreEntry> = decoded.into();
 
 		assert_eq!(restored_map.len(), 2);
-		assert_eq!(restored_map.get(&peer1).unwrap().score, Score::new(100).unwrap());
-		assert_eq!(restored_map.get(&peer2).unwrap().score, Score::new(50).unwrap());
+		assert_eq!(restored_map.get(&peer1).unwrap().score, Score::new(100));
+		assert_eq!(restored_map.get(&peer2).unwrap().score, Score::new(50));
 	}
 }

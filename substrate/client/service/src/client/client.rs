@@ -394,7 +394,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state)?;
+			op.set_block_data(header, Some(body), None, None, block_state, true)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -450,8 +450,12 @@ where
 	}
 
 	/// Get the RuntimeVersion at a given block.
-	pub fn runtime_version_at(&self, hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
-		CallExecutor::runtime_version(&self.executor, hash)
+	pub fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> sp_blockchain::Result<RuntimeVersion> {
+		CallExecutor::runtime_version(&self.executor, hash, call_context)
 	}
 
 	/// Apply a checked and validated block to an operation.
@@ -702,6 +706,10 @@ where
 			NewBlockState::Normal
 		};
 
+		// Warp sync imported blocks shall be stored in the DB, but they should not be registered
+		// as leaves.
+		let register_as_leaf = origin != BlockOrigin::WarpSync;
+
 		let tree_route = if is_new_best && info.best_hash != parent_hash && parent_exists {
 			let route_from_best =
 				sp_blockchain::tree_route(self.backend.blockchain(), info.best_hash, parent_hash)?;
@@ -724,6 +732,7 @@ where
 			indexed_body,
 			justifications,
 			leaf_state,
+			register_as_leaf,
 		)?;
 
 		operation.op.insert_aux(aux)?;
@@ -1682,8 +1691,12 @@ where
 			.map_err(Into::into)
 	}
 
-	fn runtime_version_at(&self, hash: Block::Hash) -> Result<RuntimeVersion, sp_api::ApiError> {
-		CallExecutor::runtime_version(&self.executor, hash).map_err(Into::into)
+	fn runtime_version_at(
+		&self,
+		hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, sp_api::ApiError> {
+		CallExecutor::runtime_version(&self.executor, hash, call_context).map_err(Into::into)
 	}
 
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, sp_api::ApiError> {
