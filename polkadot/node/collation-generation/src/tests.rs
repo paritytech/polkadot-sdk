@@ -263,6 +263,77 @@ fn submit_collation_leads_to_distribution() {
 }
 
 #[test]
+fn submit_collation_v3_runtime_calls_use_scheduling_parent() {
+	let relay_parent = Hash::repeat_byte(0xAA);
+	let scheduling_parent = Hash::repeat_byte(0xBB);
+	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+	let parent_head = dummy_head_data();
+	let para_id = ParaId::from(5);
+	let expected_pvd = PersistedValidationData {
+		parent_head: parent_head.clone(),
+		relay_parent_number: 10,
+		relay_parent_storage_root: Hash::repeat_byte(1),
+		max_pov_size: 1024,
+	};
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		let mut collation = test_collation();
+		collation.upward_messages.force_push(UMP_SEPARATOR);
+		collation
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+					relay_parent,
+					scheduling_parent: Some(scheduling_parent),
+					collation,
+					validation_code_hash,
+					result_sender: None,
+					core_index: CoreIndex(0),
+					validation_data: expected_pvd.clone(),
+				}),
+			})
+			.await;
+
+		// All runtime API calls must be against the scheduling_parent, not relay_parent.
+		helpers::handle_runtime_calls_on_submit_collation(
+			&mut virtual_overseer,
+			scheduling_parent,
+			[(CoreIndex(0), VecDeque::from([para_id]))].into(),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+				candidate_receipt,
+				parent_head_data_hash,
+				..
+			}) => {
+				let CandidateReceiptV2 { descriptor, .. } = candidate_receipt;
+				assert_eq!(parent_head_data_hash, parent_head.hash());
+				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+				// relay_parent in the descriptor is the execution context
+				assert_eq!(descriptor.relay_parent(), relay_parent);
+				// scheduling_parent in the descriptor is the scheduling context
+				assert_eq!(descriptor.scheduling_parent(), scheduling_parent);
+				assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+#[test]
 fn distribute_collation_only_for_assigned_para_id_at_offset_0() {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
