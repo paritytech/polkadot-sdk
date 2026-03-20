@@ -37,7 +37,6 @@ async fn assert_candidates_version(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	para_id: ParaId,
 	expected_version: CandidateDescriptorVersion,
-	v3_enabled: bool,
 	min_candidates: u32,
 	max_blocks: u32,
 ) -> Result<(), anyhow::Error> {
@@ -59,7 +58,7 @@ async fn assert_candidates_version(
 			}
 
 			total += 1;
-			let version = receipt.descriptor.version(v3_enabled);
+			let version = receipt.descriptor.version();
 			log::info!(
 				"Para {} candidate backed: version={:?}, relay_parent={:?}",
 				para_id,
@@ -134,7 +133,7 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 				.with_default_command("test-parachain")
                 .with_chain("async-backing")
 				.with_default_args(vec![
-					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug").into(),
+					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug,aura::cumulus=trace").into(),
 					// Use slot-based collator which supports V3 scheduling
 					("--authoring=slot-based").into(),
 				])
@@ -160,7 +159,6 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		ParaId::from(2500),
 		CandidateDescriptorVersion::V3,
-		true,
 		5,
 		20,
 	)
@@ -231,7 +229,6 @@ async fn v2_candidates_still_working() -> Result<(), anyhow::Error> {
 		&relay_client,
 		ParaId::from(2700),
 		CandidateDescriptorVersion::V2,
-		false, // v3 not enabled
 		5,
 		20,
 	)
@@ -321,7 +318,6 @@ async fn scheduling_v3_elastic_scaling() -> Result<(), anyhow::Error> {
 		&relay_client,
 		ParaId::from(2800),
 		CandidateDescriptorVersion::V3,
-		true,
 		15,
 		20,
 	)
@@ -406,7 +402,6 @@ async fn v2_elastic_scaling_backwards_compat() -> Result<(), anyhow::Error> {
 		&relay_client,
 		ParaId::from(2900),
 		CandidateDescriptorVersion::V2,
-		false, // v3 not enabled
 		15,
 		20,
 	)

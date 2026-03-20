@@ -30,12 +30,15 @@ use crate::{
 };
 use anyhow::anyhow;
 use clap::Parser;
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use jsonrpsee::{
+	core::ClientError,
+	ws_client::{WsClient, WsClientBuilder},
+};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, H256,
-		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, GenericTransaction,
+		H256, HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -46,6 +49,7 @@ use subxt::{
 	ext::subxt_rpcs::rpc_params,
 	tx::{SubmittableTransaction, TxStatus},
 };
+use subxt_signer::eth::Keypair;
 
 const LOG_TARGET: &str = "eth-rpc-tests";
 
@@ -321,6 +325,10 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
+		test_estimate_gas_of_contract_with_consume_all_gas,
+		test_gas_estimation_for_contract_requiring_binary_search,
+		test_gas_estimation_with_no_funds_no_gas_specified,
+		test_gas_estimation_with_no_funds_and_with_gas_specified,
 		test_block_sync_fresh,
 		test_block_sync_resume_interrupted,
 		test_block_sync_detects_corruption,
@@ -707,7 +715,7 @@ async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	];
 
 	for tag in tags {
-		let balance = client.get_balance(account.address(), tag.clone().into()).await?;
+		let balance = client.get_balance(account.address(), tag.into()).await?;
 
 		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
 	}
@@ -845,6 +853,82 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	Ok(())
 }
 
+async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractWithConsumeAllGas",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
+	let transaction = GenericTransaction {
+		from: Some(account.address()),
+		input: test_function_selector.into(),
+		to: Some(contract_address),
+		chain_id: Some(client.chain_id().await?),
+		nonce: Some(
+			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
+		),
+		r#type: Some(0u8.into()),
+		..Default::default()
+	};
+	let dry_run_result = client.estimate_gas(transaction, None).await;
+
+	// Assert
+	dry_run_result.expect("Dry run of this transaction must succeed");
+
+	Ok(())
+}
+
+async fn test_gas_estimation_for_contract_requiring_binary_search() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractRequiringBinarySearchForGasEstimation",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let main_function_selector = [0xdf, 0xfe, 0xad, 0xd0];
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(contract_address)
+		.input(main_function_selector.to_vec())
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	// Assert
+	assert!(receipt.is_success());
+
+	Ok(())
+}
+
 /// Test that deploys and calls the Fibonacci contract via Substrate APIs works
 async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
@@ -959,6 +1043,47 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
+
+	Ok(())
+}
+
+async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractWithConsumeAllGas",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::from(Keypair::from_seed([0xFF; 16].as_slice()).unwrap());
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
+	let transaction = GenericTransaction {
+		from: Some(account.address()),
+		input: test_function_selector.into(),
+		to: Some(contract_address),
+		chain_id: Some(client.chain_id().await?),
+		nonce: Some(
+			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
+		),
+		r#type: Some(0u8.into()),
+		..Default::default()
+	};
+	let dry_run_result = client.estimate_gas(transaction, None).await;
+
+	// Assert
+	dry_run_result.expect("Expected this dry run to succeed");
 
 	Ok(())
 }
@@ -1100,6 +1225,51 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		sync_head_after.block_number >= sync_head.block_number,
 		"Head should not regress after re-sync"
 	);
+
+	Ok(())
+}
+
+async fn test_gas_estimation_with_no_funds_and_with_gas_specified() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractWithConsumeAllGas",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::from(Keypair::from_seed([0xFF; 16].as_slice()).unwrap());
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
+	let transaction = GenericTransaction {
+		from: Some(account.address()),
+		input: test_function_selector.into(),
+		to: Some(contract_address),
+		chain_id: Some(client.chain_id().await?),
+		nonce: Some(
+			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
+		),
+		r#type: Some(0u8.into()),
+		gas: Some(U256::from(100_000_000u64)),
+		..Default::default()
+	};
+	let dry_run_result = client.estimate_gas(transaction, None).await;
+
+	// Assert
+	assert!(matches!(
+		dry_run_result, Err(ClientError::Call(error_object))
+		if error_object.message().contains("insufficient funds for gas")
+	));
 
 	Ok(())
 }

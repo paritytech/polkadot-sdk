@@ -46,10 +46,9 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, sender_receiver, TestSubsystemSender};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features::FeatureIndex, ApprovedPeerId, BlockNumber,
-	CandidateReceiptV2 as CandidateReceipt,
+	ApprovedPeerId, BlockNumber, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupRotationInfo, Hash,
-	HeadData, Header, Id as ParaId, MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption,
+	HeadData, Header, Id as ParaId, MutateDescriptorV2, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, SigningContext, UMPSignal, ValidatorId, ValidatorIndex,
 	UMP_SEPARATOR,
 };
@@ -398,16 +397,6 @@ impl TestState {
 						session_info.group_rotation_info.clone(),
 					)))
 					.unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					rp,
-					RuntimeApiRequest::NodeFeatures(s_index, tx),
-				)) => {
-					let session_index = self.rp_info.get(&rp).unwrap().session_index;
-					assert_eq!(session_index, s_index);
-					let mut node_features = NodeFeatures::EMPTY;
-					node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
-					tx.send(Ok(node_features)).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
@@ -2372,9 +2361,9 @@ async fn test_collation_response_out_of_view() {
 }
 
 // TODO(https://github.com/paritytech/polkadot-sdk/issues/10883?issue=paritytech%7Cpolkadot-sdk%7C11084): Add
-// test_v3_descriptor_without_feature_enabled — verify V3 descriptors are rejected when v3_enabled
-// is false. The previous test_v2_descriptor_without_feature_enabled was removed because V2 is now
-// always enabled.
+// test for V3 descriptor validation. The previous test_v2_descriptor_without_feature_enabled was
+// removed because V2 is now always enabled. The v3_enabled parameter has been removed from
+// descriptor methods.
 
 #[rstest]
 #[tokio::test]

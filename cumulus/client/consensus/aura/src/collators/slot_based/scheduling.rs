@@ -49,17 +49,6 @@ pub(crate) struct SchedulingInfo {
 }
 
 impl SchedulingInfo {
-	/// Returns the cached relay chain best block hash.
-	pub fn relay_best_hash(&self) -> Option<RelayHash> {
-		self.relay_best_hash
-	}
-
-	/// Returns the cached relay chain best block header.
-	/// Only populated after [`Self::relay_best_slot_status`] has been called.
-	fn relay_best_header(&self) -> Option<&RelayHeader> {
-		self.relay_best_header.as_ref()
-	}
-
 	/// Returns the slot status of the relay best block, recomputed against the
 	/// current wall-clock time on each call.
 	///
@@ -67,7 +56,7 @@ impl SchedulingInfo {
 	/// cached header's hash differs from the current `relay_best_hash`.
 	///
 	/// Requires [`Self::fetch_relay_best_hash`] to have been called first.
-	pub async fn relay_best_slot_status<RelayClient>(
+	async fn relay_best_slot_status<RelayClient>(
 		&mut self,
 		relay_client: &RelayClient,
 		relay_chain_slot_duration: Duration,
@@ -126,11 +115,7 @@ impl SchedulingInfo {
 	where
 		RelayClient: RelayChainInterface + Clone + 'static,
 	{
-		let relay_best_hash = match self.relay_best_hash {
-			Some(hash) => hash,
-			None => self.fetch_relay_best_hash(relay_client).await?,
-		};
-
+		let relay_best_hash = self.fetch_relay_best_hash(relay_client).await?;
 		if !v3_enabled {
 			return Some(relay_best_hash);
 		}

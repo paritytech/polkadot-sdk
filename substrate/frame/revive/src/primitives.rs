@@ -450,7 +450,7 @@ impl<T: Config> ExecConfig<T> {
 			bump_nonce: self.bump_nonce,
 			collect_deposit_from_hold: self.collect_deposit_from_hold,
 			effective_gas_price: self.effective_gas_price,
-			is_dry_run: self.is_dry_run.clone(),
+			is_dry_run: self.is_dry_run,
 			mock_handler: None,
 			test_env_transient_storage: None,
 		}
