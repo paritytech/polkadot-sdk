@@ -76,4 +76,39 @@ pub trait MockHandler<T: pallet::Config> {
 	fn mocked_code(&self, _address: H160) -> Option<&[u8]> {
 		None
 	}
+
+	/// Returns a mocked block number.
+	///
+	/// If [`None`] is returned then there is no mock for the block number.
+	fn mock_block_number(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Returns a mocked block difficulty.
+	///
+	/// If [`None`] is returned then there is no mock for the difficulty.
+	fn mock_block_difficulty(&self) -> Option<&u64> {
+		None
+	}
+
+	/// Returns a mocked gas limit.
+	///
+	/// If [`None`] is returned then this value is not mocked.
+	fn mock_block_gas_limit(&self) -> Option<&u64> {
+		None
+	}
+
+	/// Returns a mocked block coinbase.
+	///
+	/// If [`None`] is returned then this value is not mocked.
+	fn mock_block_coinbase(&self) -> Option<&H160> {
+		None
+	}
+
+	/// Returns a mocked block base fee per gas.
+	///
+	/// If [`None`] is returned then this value is not mocked.
+	fn mock_block_base_fee_per_gas(&self) -> Option<&U256> {
+		None
+	}
 }

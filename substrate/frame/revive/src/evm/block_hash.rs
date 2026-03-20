@@ -25,7 +25,9 @@ mod hash_builder;
 pub use hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};
 
 mod block_builder;
-pub use block_builder::{EthereumBlockBuilder, EthereumBlockBuilderIR};
+pub use block_builder::{
+	EthereumBlockBuilder, EthereumBlockBuilderIR, EthereumBlockBuilderMockHandler,
+};
 
 use crate::evm::Block;
 
@@ -35,6 +37,8 @@ use alloy_core::primitives::{B256, bytes::BufMut};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::{H256, U256};
+
+use crate::precompiles::alloy::primitives::U256 as AlloyU256;
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
@@ -87,7 +91,7 @@ impl Block {
 			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
 			requests_hash: self.requests_hash.map(|hash| hash.0.into()),
 
-			..Default::default()
+			difficulty: AlloyU256::from_be_bytes(self.difficulty.to_big_endian()),
 		};
 
 		alloy_header.hash_slow().0.into()

@@ -2798,7 +2798,7 @@ mod benchmarks {
 				);
 
 				// Store transaction
-				let _ = block_storage::bench_with_ethereum_context(|| {
+				let _ = block_storage::with_receipt_context(|| {
 					let (encoded_logs, bloom) =
 						block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2874,7 +2874,7 @@ mod benchmarks {
 			);
 
 			// Store transaction
-			let _ = block_storage::bench_with_ethereum_context(|| {
+			let _ = block_storage::with_receipt_context(|| {
 				let (encoded_logs, bloom) =
 					block_storage::get_receipt_details().unwrap_or_default();
 
@@ -2942,7 +2942,7 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		let _ = block_storage::with_receipt_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -2961,7 +2961,7 @@ mod benchmarks {
 
 		// Create e events with minimal data to isolate event count overhead
 		for _ in 0..e {
-			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
+			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![], true);
 		}
 
 		#[block]
@@ -3007,7 +3007,7 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		let _ = block_storage::with_receipt_context(|| {
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -3047,7 +3047,7 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics, true);
 
 		#[block]
 		{

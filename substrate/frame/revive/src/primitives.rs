@@ -18,8 +18,11 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{
-	BalanceOf, Config, H160, Time, U256, evm::DryRunConfig, mock::MockHandler,
-	storage::WriteOutcome, transient_storage::TransientStorage,
+	BalanceOf, Config, H160, Time, U256,
+	evm::{DryRunConfig, SimulationCallResult, block_hash::LogsBloom},
+	mock::MockHandler,
+	storage::WriteOutcome,
+	transient_storage::TransientStorage,
 };
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -27,7 +30,7 @@ use core::cell::RefCell;
 use frame_support::{DefaultNoBound, traits::tokens::Balance, weights::Weight};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
-use sp_core::Get;
+use sp_core::{Get, H256};
 use sp_runtime::{
 	DispatchError,
 	traits::{One, Saturating, Zero},
@@ -396,6 +399,9 @@ pub struct ExecConfig<T: Config> {
 	/// This is only used for testing purposes and should be `None` in production
 	/// environments.
 	pub test_env_transient_storage: Option<RefCell<TransientStorage<T>>>,
+	/// Controls if events should be emitted for transfers or not. This is required for the
+	/// simulation method which allows the user to configure transfers to emit special events.
+	pub trace_transfers: bool,
 }
 
 impl<T: Config> ExecConfig<T> {
@@ -408,6 +414,7 @@ impl<T: Config> ExecConfig<T> {
 			is_dry_run: None,
 			mock_handler: None,
 			test_env_transient_storage: None,
+			trace_transfers: false,
 		}
 	}
 
@@ -419,6 +426,7 @@ impl<T: Config> ExecConfig<T> {
 			mock_handler: None,
 			is_dry_run: None,
 			test_env_transient_storage: None,
+			trace_transfers: false,
 		}
 	}
 
@@ -431,6 +439,7 @@ impl<T: Config> ExecConfig<T> {
 			mock_handler: None,
 			is_dry_run: None,
 			test_env_transient_storage: None,
+			trace_transfers: false,
 		}
 	}
 
@@ -440,6 +449,18 @@ impl<T: Config> ExecConfig<T> {
 		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Self {
 		self.is_dry_run = Some(dry_run_config);
+		self
+	}
+
+	/// Sets the mock handler to use in the execution.
+	pub fn with_mock_handler(mut self, mock_handler: impl MockHandler<T> + 'static) -> Self {
+		self.mock_handler = Some(Box::new(mock_handler));
+		self
+	}
+
+	/// Sets the trace transfers boolean on the execution config.
+	pub fn with_trace_transfers(mut self, trace_transfers: bool) -> Self {
+		self.trace_transfers = trace_transfers;
 		self
 	}
 
@@ -453,6 +474,7 @@ impl<T: Config> ExecConfig<T> {
 			is_dry_run: self.is_dry_run.clone(),
 			mock_handler: None,
 			test_env_transient_storage: None,
+			trace_transfers: self.trace_transfers,
 		}
 	}
 }
@@ -464,4 +486,68 @@ pub enum CodeRemoved {
 	No,
 	/// The code was removed. (refcount == 0)
 	Yes,
+}
+
+#[derive(Eq, Clone, Encode, Decode, Debug, TypeInfo, PartialEq)]
+pub enum SimulationError {
+	DispatchError(DispatchError),
+	EthTransactError(EthTransactError),
+	ConversionError,
+	BlockCapacityExceeded,
+	CallCapacityExceeded,
+	OverflowError,
+	InvalidTransaction,
+	CallReverted,
+	BlockNumberOverrideMustBeMonotonicallyIncreasing,
+	BlockTimestampOverrideMustBeEqualOrMonotonicallyIncreasing,
+	ConflictingFeeFields,
+	ChainIdMismatch { have: U256, want: U256 },
+	NonceTooHigh { address: H160, tx: U256, state: U256 },
+	NonceTooLow { address: H160, tx: U256, state: U256 },
+	FeeCapTooLow { max_fee_per_gas: U256, base_fee: U256 },
+	TipAboveFeeCap { max_priority_fee_per_gas: U256, max_fee_per_gas: U256 },
+	InsufficientFunds { address: H160, have: U256, want: U256 },
+}
+
+impl From<DispatchError> for SimulationError {
+	fn from(value: DispatchError) -> Self {
+		Self::DispatchError(value)
+	}
+}
+
+impl From<EthTransactError> for SimulationError {
+	fn from(value: EthTransactError) -> Self {
+		Self::EthTransactError(value)
+	}
+}
+
+impl<T: Config> From<crate::Error<T>> for SimulationError {
+	fn from(value: crate::Error<T>) -> Self {
+		Self::DispatchError(value.into())
+	}
+}
+
+#[derive(Eq, Clone, Encode, Decode, Debug, TypeInfo, PartialEq)]
+pub struct SimulationCallOutcome<SimulationError> {
+	pub encoded_payload: Vec<u8>,
+	pub transaction_hash: H256,
+	pub max_storage_deposit: U256,
+	pub effective_gas_price: U256,
+	pub encoded_logs: Vec<u8>,
+	pub logs_bloom: LogsBloom,
+	pub from: H160,
+	pub result: SimulationCallResult<SimulationError>,
+}
+
+impl<SimulationError> SimulationCallOutcome<SimulationError> {
+	pub fn is_success(&self) -> bool {
+		matches!(self.result, SimulationCallResult::Success { .. })
+	}
+
+	pub fn gas_used(&self) -> &U256 {
+		match self.result {
+			SimulationCallResult::Success { ref gas_used, .. } |
+			SimulationCallResult::Failed { ref gas_used, .. } => gas_used,
+		}
+	}
 }

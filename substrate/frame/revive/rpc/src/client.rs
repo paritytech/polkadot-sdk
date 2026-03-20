@@ -168,6 +168,9 @@ pub enum ClientError {
 	/// Receipt data length mismatch.
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
+	/// Simulation error.
+	#[error("Simulation error: {0:?}")]
+	SimulationError(pallet_revive::SimulationError),
 	/// Transaction submission timeout.
 	#[error("Transaction submission timeout")]
 	Timeout,

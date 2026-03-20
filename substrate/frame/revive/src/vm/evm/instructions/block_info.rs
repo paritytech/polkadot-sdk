@@ -19,7 +19,7 @@ use crate::{
 	Error, RuntimeCosts,
 	vm::{
 		Ext,
-		evm::{DIFFICULTY, EVMGas, Interpreter, interpreter::Halt},
+		evm::{EVMGas, Interpreter, interpreter::Halt},
 	},
 };
 use core::ops::ControlFlow;
@@ -68,7 +68,7 @@ pub fn block_number<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
 pub fn difficulty<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
-	interpreter.stack.push(U256::from(DIFFICULTY))?;
+	interpreter.stack.push(U256::from(interpreter.ext.block_difficulty()))?;
 	ControlFlow::Continue(())
 }
 

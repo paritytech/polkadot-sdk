@@ -259,6 +259,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}
+
+	fn block_base_fee_per_gas(&self) -> U256 {
+		panic!("MockExt::block_base_fee_per_gas")
+	}
+
+	fn block_difficulty(&self) -> u64 {
+		panic!("MockExt::block_difficulty")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {

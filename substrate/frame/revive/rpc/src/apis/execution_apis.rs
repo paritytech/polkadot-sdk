@@ -19,7 +19,7 @@
 #![allow(missing_docs)]
 
 use crate::*;
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, types::ErrorObjectOwned};
 
 #[rpc(server, client)]
 pub trait EthRpc {
@@ -186,4 +186,12 @@ pub trait EthRpc {
 		newest_block: BlockNumberOrTag,
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult>;
+
+	/// Simulate multiple blocks of transactions with state and block overrides.
+	#[method(name = "eth_simulateV1")]
+	async fn simulate_v1(
+		&self,
+		payload: SimulationParameters,
+		block: Option<BlockNumberOrTagOrHash>,
+	) -> RpcResult<SimulationResponse<ErrorObjectOwned>>;
 }
