@@ -25,7 +25,8 @@ use polkadot_primitives::{
 	SigningContext, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3, CandidateDescriptor,
+	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3,
+	make_valid_candidate_descriptor_v3, CandidateDescriptor,
 };
 use rstest::rstest;
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
@@ -112,16 +113,6 @@ pub(super) async fn update_view_with_slot(
 			)) => {
 				tx.send(Ok(test_state.session_index)).unwrap();
 				(parent, new_view.get(&parent).copied().expect("Unknown parent requested"))
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::NodeFeatures(_, tx)
-			)) => {
-				tx.send(Ok(test_state.node_features.clone())).unwrap();
 			}
 		);
 
@@ -554,6 +545,7 @@ async fn send_collation_and_assert_processing(
 	assert_candidate_backing_second(
 		virtual_overseer,
 		relay_parent,
+		relay_parent,
 		expected_para_id,
 		&pov,
 		CollationVersion::V2,
@@ -634,6 +626,7 @@ fn v1_advertisement_accepted_and_seconded() {
 
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
+			head_b,
 			head_b,
 			test_state.chain_ids[0],
 			&pov,
@@ -1863,30 +1856,13 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 }
 
 #[rstest]
-#[case(true, false, CollationVersion::V1)] // V3 enabled, not crafted, V1 protocol
-#[case(true, false, CollationVersion::V2)] // V3 enabled, not crafted, V2 protocol
-#[case(false, false, CollationVersion::V1)] // V3 disabled, not crafted (detected as V1), V1 protocol
-#[case(false, false, CollationVersion::V2)] // V3 disabled, not crafted (detected as V1), V2 protocol
-#[case(false, true, CollationVersion::V1)] // V3 disabled, crafted unknown, V1 protocol
-#[case(false, true, CollationVersion::V2)] // V3 disabled, crafted unknown, V2 protocol
-fn v3_descriptor_version_detection(
-	#[case] v3_feature_enabled: bool,
-	#[case] crafted_unknown: bool,
-	#[case] collation_version: CollationVersion,
-) {
+#[case(false, CollationVersion::V3)] // V3 descriptor via V3 protocol → accepted
+#[case(false, CollationVersion::V1)] // V3 descriptor via V1 protocol → rejected (wrong protocol)
+#[case(false, CollationVersion::V2)] // V3 descriptor via V2 protocol → rejected (wrong protocol)
+#[case(true, CollationVersion::V1)] // Crafted unknown descriptor via V1 → rejected
+#[case(true, CollationVersion::V2)] // Crafted unknown descriptor via V2 → rejected
+fn v3_descriptor(#[case] crafted_unknown: bool, #[case] collation_version: CollationVersion) {
 	let mut test_state = TestState::default();
-
-	if v3_feature_enabled {
-		// Enable V3 feature for case_1
-		test_state
-			.node_features
-			.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-		test_state
-			.node_features
-			.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
-	} else {
-		test_state.node_features = NodeFeatures::EMPTY;
-	}
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -1919,18 +1895,12 @@ fn v3_descriptor_version_detection(
 		committed_candidate.descriptor.set_session_index(test_state.session_index);
 
 		if crafted_unknown {
-			// Create a crafted descriptor that will be detected as Unknown when
-			// v3_enabled=false. Set version field to 1 but keep scheduling_parent as zero.
-			// Since scheduling_parent is zero, old_v1_detected doesn't trigger (no backward
-			// compat). Then v2_version() checks the version field: version=1 is not recognized
-			// when v3_enabled=false (only version=0 is valid), so it returns Unknown.
-			committed_candidate.descriptor.set_version(1);
-			// Don't set scheduling_parent - keep it as default (zero)
+			// Create a descriptor with an unrecognized version field (version=2).
+			// version=0 is V2, version=1 is V3, anything else is Unknown.
+			committed_candidate.descriptor.set_version(2);
 		} else {
-			// Normal V3 descriptor
-			// Make it a V3 descriptor by setting version field to 1
+			// Normal V3 descriptor: version=1 with scheduling_parent set
 			committed_candidate.descriptor.set_version(1);
-			// Set scheduling_parent to head_b (which is in active leaves)
 			committed_candidate.descriptor.set_scheduling_parent(head_b);
 		}
 
@@ -1991,21 +1961,8 @@ fn v3_descriptor_version_detection(
 			.send(Ok((encoded_response, ProtocolName::from(""))))
 			.expect("Sending response should succeed");
 
-		if crafted_unknown {
-			// Case 3: V3 disabled with crafted descriptor (zero reserved fields, non-zero version)
-			// Should be rejected as Unknown version
-			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
-				) => {
-					assert_eq!(peer_a, peer_id);
-					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
-				}
-			);
-		} else if v3_feature_enabled {
-			// V3 is enabled but descriptor arrived via V1/V2 protocol.
-			// V3 descriptors must only be sent via V3 protocol, so this should be rejected.
+		if crafted_unknown || collation_version != CollationVersion::V3 {
+			// Crafted unknown version or V3 descriptor via wrong protocol → rejected
 			assert_matches!(
 				overseer_recv(&mut virtual_overseer).await,
 				AllMessages::NetworkBridgeTx(
@@ -2016,22 +1973,21 @@ fn v3_descriptor_version_detection(
 				}
 			);
 		} else {
-			// V3 is disabled, a real V3 descriptor (with non-zero scheduling_parent)
-			// should be detected as V1 due to backwards compatibility.
-			// The old reserved fields have non-zero values, which triggers old_v1_detected.
+			// V3 descriptor via V3 protocol → accepted (V3 gating is done in backing)
 			assert_candidate_backing_second(
 				&mut virtual_overseer,
 				head_b,
+				head_b,
 				test_state.chain_ids[0],
 				&pov,
-				collation_version,
+				CollationVersion::V3,
 			)
 			.await;
 
 			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
 				.await;
 
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, collation_version)
+			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V3)
 				.await;
 		}
 
@@ -2045,14 +2001,6 @@ fn v3_descriptor_version_detection(
 #[test]
 fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	let mut test_state = TestState::default();
-
-	// Enable V3.
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
@@ -2177,23 +2125,39 @@ fn v3_feature_disabled_full_fetch_rejected(#[case] same_parents: bool) {
 		)
 		.await;
 
-		let (relay_parent, scheduling_parent) = if same_parents {
+		let (relay_parent, _scheduling_parent) = if same_parents {
 			(head_b_parent, head_b_parent)
 		} else {
 			(head_b_grandparent, head_b_parent)
 		};
 
-		let mut committed_candidate =
-			dummy_committed_candidate_receipt_v3(relay_parent, scheduling_parent);
-		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
-		committed_candidate
-			.descriptor
-			.set_persisted_validation_data_hash(dummy_pvd().hash());
-		committed_candidate.descriptor.set_core_index(CoreIndex(0));
-		committed_candidate.descriptor.set_session_index(test_state.session_index);
-		committed_candidate.descriptor.set_version(1);
+		// Build a V1 descriptor: non-zero collator bytes in reserved1[0..16] trigger V1
+		// detection under the v3_version() rules.
+		let mut collator_bytes = [0u8; 32];
+		collator_bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
+		let mut signature_bytes = [0u8; 64];
+		signature_bytes.iter_mut().enumerate().for_each(|(i, b)| *b = i as u8);
 
-		let candidate: CandidateReceipt = committed_candidate.to_plain();
+		let v1_descriptor = CandidateDescriptor {
+			para_id: test_state.chain_ids[0],
+			relay_parent,
+			collator: CollatorId::from(sp_core::sr25519::Public::from_raw(collator_bytes)),
+			persisted_validation_data_hash: dummy_pvd().hash(),
+			pov_hash: Hash::zero(),
+			erasure_root: Hash::zero(),
+			signature: CollatorSignature::from(sp_core::sr25519::Signature::from_raw(
+				signature_bytes,
+			)),
+			para_head: Hash::zero(),
+			validation_code_hash: Hash::zero().into(),
+		};
+
+		let candidate = CandidateReceipt {
+			descriptor: v1_descriptor.into(),
+			commitments_hash: Hash::zero(),
+		};
+		assert_eq!(candidate.descriptor.version(), CandidateDescriptorVersion::V1);
+
 		let candidate_hash = candidate.hash();
 		let parent_head_data_hash = Hash::zero();
 
@@ -2240,12 +2204,14 @@ fn v3_feature_disabled_full_fetch_rejected(#[case] same_parents: bool) {
 			.expect("Sending response should succeed");
 
 		// PVD request via ProspectiveParachains (V3 protocol path).
+		// The relay_parent comes from the descriptor, which is the actual relay_parent
+		// (not the scheduling_parent).
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 			) => {
-				assert_eq!(head_b_parent, request.candidate_relay_parent);
+				assert_eq!(relay_parent, request.candidate_relay_parent);
 				assert_eq!(test_state.chain_ids[0], request.para_id);
 				tx.send(Some(dummy_pvd())).unwrap();
 			}
@@ -2272,12 +2238,6 @@ fn v3_feature_disabled_full_fetch_rejected(#[case] same_parents: bool) {
 fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 	let mut test_state = TestState::default();
 
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
@@ -2378,6 +2338,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			head_b_parent,
+			head_b_grandparent,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V3,
@@ -2405,12 +2366,6 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent() {
 fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 	let mut test_state = TestState::default();
 
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
@@ -2510,6 +2465,7 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			head_b,
+			head_b_parent,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V3,
@@ -2534,12 +2490,6 @@ fn v3_scheduling_parent_finished_slot_accepts_leaf() {
 fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 	let mut test_state = TestState::default();
 
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
@@ -2625,12 +2575,6 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf() {
 fn v3_scheduling_parent_finished_slot_rejects_parent() {
 	let mut test_state = TestState::default();
 
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 	// Prevent core rotation so group 0 stays on core 0 across all ancestry blocks.
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
@@ -2720,13 +2664,6 @@ fn v3_scheduling_parent_finished_slot_rejects_parent() {
 fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
 	let mut test_state = TestState::default();
 
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
-
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
@@ -2795,14 +2732,6 @@ fn v3_scheduling_parent_outside_allowed_ancestry_rejected() {
 #[test]
 fn v1_descriptor_version_detection_with_v3_enabled() {
 	let mut test_state = TestState::default();
-
-	// Enable both V2 and V3 features — this is a "V3-capable" validator.
-	test_state
-		.node_features
-		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-	test_state
-		.node_features
-		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2875,7 +2804,7 @@ fn v1_descriptor_version_detection_with_v3_enabled() {
 		};
 
 		assert_eq!(
-			candidate.descriptor.version(true),
+			candidate.descriptor.version(),
 			CandidateDescriptorVersion::V1,
 			"non-zero reserved1 bytes must be detected as V1 even when v3_enabled=true"
 		);
@@ -2895,6 +2824,7 @@ fn v1_descriptor_version_detection_with_v3_enabled() {
 		// assert_candidate_backing_second with CollationVersion::V1 asserts exactly that.
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
+			head_b,
 			head_b,
 			test_state.chain_ids[0],
 			&pov,
@@ -4508,4 +4438,98 @@ mod ah_stop_gap {
 			},
 		);
 	}
+}
+
+/// Verify that `descriptor_version_sanity_check_with_params` checks the
+/// scheduling session (not the relay-parent session) for V3 descriptors
+/// where the two sessions differ (cross-session relay parent).
+#[test]
+fn v3_sanity_check_uses_scheduling_session_not_relay_parent_session() {
+	let relay_parent = Hash::repeat_byte(1);
+	let scheduling_parent = Hash::repeat_byte(2);
+
+	let relay_parent_session: SessionIndex = 4;
+	let scheduling_session_offset: u8 = 1;
+	// scheduling_session = relay_parent_session + offset = 5
+	let scheduling_session = relay_parent_session + scheduling_session_offset as SessionIndex;
+
+	let core = CoreIndex(0);
+
+	let mut descriptor = make_valid_candidate_descriptor_v3(
+		1.into(),
+		relay_parent,
+		core,
+		relay_parent_session,
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		Hash::zero(),
+		scheduling_parent,
+	);
+	descriptor.set_scheduling_session_offset(scheduling_session_offset);
+
+	// Sanity: verify the descriptor is V3 and sessions are as expected.
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
+	assert_eq!(descriptor.session_index(), Some(relay_parent_session));
+	assert_eq!(descriptor.scheduling_session(), Some(scheduling_session));
+
+	// The check must pass when expected_session matches the scheduling session.
+	assert!(descriptor_version_sanity_check_with_params(
+		&descriptor,
+		core,
+		scheduling_session,
+		CollationVersion::V3,
+	)
+	.is_ok());
+
+	// The check must fail when expected_session is the relay-parent session
+	// (which differs from the scheduling session for cross-session V3 candidates).
+	assert_matches!(
+		descriptor_version_sanity_check_with_params(
+			&descriptor,
+			core,
+			relay_parent_session,
+			CollationVersion::V3,
+		),
+		Err(SecondingError::InvalidSessionIndex(got, expected)) => {
+			assert_eq!(got, scheduling_session);
+			assert_eq!(expected, relay_parent_session);
+		}
+	);
+}
+
+/// Verify that V2 descriptors still check session_index correctly (V2 has no
+/// scheduling_session_offset, so session_index == scheduling_session).
+#[test]
+fn v2_sanity_check_session_index_unchanged() {
+	let relay_parent = Hash::repeat_byte(1);
+	let core = CoreIndex(0);
+	let session: SessionIndex = 5;
+
+	let mut descriptor = dummy_committed_candidate_receipt_v2(relay_parent);
+	descriptor.descriptor.set_core_index(core);
+	descriptor.descriptor.set_session_index(session);
+
+	assert_eq!(descriptor.descriptor.version(), CandidateDescriptorVersion::V2);
+
+	// Passes with matching session.
+	assert!(descriptor_version_sanity_check_with_params(
+		&descriptor.descriptor,
+		core,
+		session,
+		CollationVersion::V2,
+	)
+	.is_ok());
+
+	// Fails with wrong session.
+	assert_matches!(
+		descriptor_version_sanity_check_with_params(
+			&descriptor.descriptor,
+			core,
+			session + 1,
+			CollationVersion::V2,
+		),
+		Err(SecondingError::InvalidSessionIndex(..))
+	);
 }

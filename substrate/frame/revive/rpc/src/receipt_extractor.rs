@@ -32,7 +32,14 @@ use pallet_revive::{
 	evm::{GenericTransaction, H256, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, U256},
 };
 use sp_core::keccak_256;
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{
+	future::Future,
+	pin::Pin,
+	sync::{
+		Arc,
+		atomic::{AtomicU32, Ordering},
+	},
+};
 use subxt::{OnlineClient, blocks::ExtrinsicDetails};
 
 type FetchReceiptDataFn = Arc<
@@ -53,40 +60,31 @@ pub struct ReceiptExtractor {
 	/// Fetch ethereum block hash.
 	fetch_eth_block_hash: FetchEthBlockHashFn,
 
-	/// Earliest block number to consider when searching for transaction receipts.
-	earliest_receipt_block: Option<SubstrateBlockNumber>,
+	/// Auto-discovered first EVM block on the chain.
+	/// Set once during backward sync when the first non-EVM block is encountered.
+	/// Uses `u32::MAX` as sentinel for "not yet discovered".
+	first_evm_block: Arc<AtomicU32>,
 
 	/// Recover the ethereum address from a transaction signature.
 	recover_eth_address: RecoverEthAddressFn,
 }
 
 impl ReceiptExtractor {
-	/// Check if the block is before the earliest block.
-	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		block_number < self.earliest_receipt_block.unwrap_or_default()
-	}
-
-	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
-	pub async fn new(
-		api: OnlineClient<SrcChainConfig>,
-		earliest_receipt_block: Option<SubstrateBlockNumber>,
-	) -> Result<Self, ClientError> {
+	/// Create a new `ReceiptExtractor`.
+	pub async fn new(api: OnlineClient<SrcChainConfig>) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
 			api,
-			earliest_receipt_block,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
 		.await
 	}
 
-	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
+	/// Create a new `ReceiptExtractor` with custom Ethereum address recovery logic.
 	///
-	/// Specify also a custom Ethereum address recovery logic.
 	/// Use `ReceiptExtractor::new` if the default Ethereum address recovery
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
 	pub async fn new_with_custom_address_recovery(
 		api: OnlineClient<SrcChainConfig>,
-		earliest_receipt_block: Option<SubstrateBlockNumber>,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
 		let api_inner = api.clone();
@@ -116,7 +114,7 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block,
+			first_evm_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: recover_eth_address_fn,
 		})
 	}
@@ -135,11 +133,33 @@ impl ReceiptExtractor {
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block: None,
+			first_evm_block: Arc::new(AtomicU32::new(u32::MAX)),
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
 			}),
 		}
+	}
+
+	/// Check if the block is before the `first_evm_block` floor.
+	/// When sentinel (`u32::MAX`), no blocks are rejected (permissive default).
+	pub fn is_before_first_evm_block(&self, block_number: SubstrateBlockNumber) -> bool {
+		let val = self.first_evm_block.load(Ordering::Acquire);
+		val != u32::MAX && block_number < val
+	}
+
+	/// Set the first EVM block. Only stores if lower than the current value.
+	pub fn set_first_evm_block(&self, block_number: SubstrateBlockNumber) {
+		let prev = self.first_evm_block.fetch_min(block_number, Ordering::AcqRel);
+		if block_number > prev {
+			log::debug!(target: LOG_TARGET,
+				"Ignored attempt to raise first_evm_block to #{block_number}, current is #{prev}");
+		}
+	}
+
+	/// The auto-discovered first EVM block, or `None` if not yet discovered.
+	pub fn first_evm_block(&self) -> Option<SubstrateBlockNumber> {
+		let val = self.first_evm_block.load(Ordering::Acquire);
+		(val != u32::MAX).then_some(val)
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
@@ -233,7 +253,7 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		if self.is_before_earliest_block(block.number()) {
+		if self.is_before_first_evm_block(block.number()) {
 			return Ok(vec![]);
 		}
 
@@ -351,5 +371,28 @@ impl ReceiptExtractor {
 		block_number: u64,
 	) -> Option<H256> {
 		(self.fetch_eth_block_hash)(*block_hash, block_number).await
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn defaults_and_first_evm_block_only_decreases() {
+		let extractor = ReceiptExtractor::new_mock();
+
+		assert!(extractor.first_evm_block().is_none());
+
+		// first_evm_block only decreases
+		extractor.set_first_evm_block(100);
+		assert_eq!(extractor.first_evm_block(), Some(100));
+
+		extractor.set_first_evm_block(50);
+		assert_eq!(extractor.first_evm_block(), Some(50));
+
+		// Higher value is ignored
+		extractor.set_first_evm_block(100);
+		assert_eq!(extractor.first_evm_block(), Some(50));
 	}
 }

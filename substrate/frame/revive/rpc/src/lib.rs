@@ -27,6 +27,8 @@ use sp_core::{H160, H256, U256, keccak_256};
 use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use thiserror::Error;
 
+mod block_sync;
+pub(crate) use block_sync::{ChainMetadata, SyncLabel, SyncStateKey};
 pub mod cli;
 pub mod client;
 pub mod example;
@@ -162,12 +164,17 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(receipt)
 	}
 
+	/// Performs gas estimations to find the lowest gas limit required to run the transaction.
+	///
+	/// This method implements the same gas estimation logic found in Geth which performs binary
+	/// search with some simple heuristics to find the smallest gas limit for the transaction.
 	async fn estimate_gas(
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
+
 		let block = block.unwrap_or_else(|| {
 			if self.use_pending_for_estimate_gas {
 				BlockTag::Pending.into()
@@ -175,11 +182,15 @@ impl EthRpcServer for EthRpcServerImpl {
 				Default::default()
 			}
 		});
-		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
-		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
-		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
-		Ok(dry_run.eth_gas)
+		let hash = self.client.block_hash_for_tag(block.into()).await?;
+		let gas_estimate =
+			self.client.runtime_api(hash).estimate_gas(transaction, block.into()).await?;
+
+		log::trace!(
+			target: LOG_TARGET,
+			"estimate_gas result={gas_estimate:?}",
+		);
+		Ok(gas_estimate)
 	}
 
 	async fn call(
