@@ -20,7 +20,7 @@ use crate::{
 	client::Balance,
 	subxt_client::{self, SrcChainConfig},
 };
-use futures::TryFutureExt;
+use futures::{StreamExt, TryFutureExt, stream};
 use pallet_revive::{
 	DryRunConfig, EthTransactInfo,
 	evm::{
@@ -85,15 +85,15 @@ impl RuntimeApi {
 		// that the pallet may have available which is why we make use of this stream. The functions
 		// with higher priority are put at the start while the functions with lower priority are at
 		// the end.
-		let mut stream = stream::empty()
+		let mut stream =
 			// Estimate through the `estimate_gas` function
-			.chain(stream::once(Box::pin(async {
+			stream::once(Box::pin(async {
 				let payload = subxt_client::apis().revive_api().eth_estimate_gas(
 					tx.clone().into(),
 					DryRunConfig::new(timestamp_override).into(),
 				);
 				self.0.call(payload).await.map(|value| value.map(|value| value.0))
-			})))
+			}))
 			// Otherwise, estimate through `eth_transact_with_config`
 			.chain(stream::once(Box::pin(async {
 				let payload = subxt_client::apis().revive_api().eth_transact_with_config(
