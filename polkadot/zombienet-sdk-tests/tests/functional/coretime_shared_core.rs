@@ -4,12 +4,18 @@
 //! Setup a network with 4 validators and 4 parachains. Then assign core 0
 //! to be shared by all paras and check the block production in each one.
 
+use std::ops::Range;
+
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
 	initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+	wait_for_nth_session_change,
+};
+use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx},
@@ -96,6 +102,19 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Core 0 assignment shared for all paras completed");
 
+	// Wait 2 sessions for registration/core assignment
+	log::info!("Waiting for 2 session boundaries");
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
+	log::info!("Session boundaries passed");
+
+	// Check that all parachains produce at least 2/3 blocks within 12 RC blocks (since core is
+	// shared between all paras)
+	log::info!("Checking parachain block production (all paras registered at genesis)");
+	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..5));
+	assert_para_throughput(&relay_client, 12, para_throughput).await?;
+	log::info!("All parachains producing blocks");
+
 	//  Timeout derivation (zombienet checks run sequentially; each timeout starts after the
 	//  previous check passes, with actual elapsed time anywhere from 0s to the full budget):
 	//
@@ -114,7 +133,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	//  collator-2003 (30s): same batch as 2002, max 1 slot-cycle lag (24s) + margin.
 
 	log::info!("Checks parachains block production...");
-	let para_timeout = vec![(2000, 260), (2001, 30), (2002, 90), (2003, 30)];
+	let para_timeout = vec![(2000, 180), (2001, 30), (2002, 30), (2003, 30)];
 	for (para_id, timeout) in para_timeout {
 		let node = network.get_node(format!("collator-{para_id}"))?;
 		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED_METRIC, |v| v >= 6.0, timeout as u64)
