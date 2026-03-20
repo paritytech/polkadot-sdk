@@ -3118,7 +3118,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 				_, RuntimeApiRequest::SessionIndexForChild(tx),
 			)) => { let _ = tx.send(Ok(session)); }
 		);
-		// AllowedRelayParentInfo check for relay parent in session (v16+ API).
+		// AncestorRelayParentInfo check for relay parent in session (v16+ API).
 		// This is only reached for V3 with v3_ever_seen=true, where
 		// session_index_for_candidate_validation returns Some.
 	}

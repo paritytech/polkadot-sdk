@@ -89,6 +89,12 @@ crates:
     bump: major
   - name: polkadot-test-runtime
     bump: major
+  - name: pallet-staking-async-rc-runtime
+    bump: major
+  - name: cumulus-relay-chain-minimal-node
+    bump: major
+  - name: cumulus-relay-chain-rpc-interface
+    bump: major
   - name: polkadot-node-network-protocol
     bump: major
   - name: polkadot-subsystem-bench
