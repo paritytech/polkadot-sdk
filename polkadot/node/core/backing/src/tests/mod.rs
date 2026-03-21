@@ -4416,7 +4416,8 @@ fn version_acceptance_before_and_after_v3_activation_on_second() {
 				test_state.chain_ids[0],
 				test_state.relay_parent,
 				CoreIndex(0),
-				1,
+				1, // session_index
+				1, // scheduling_session_index
 				pvd.hash(),
 				pov_hash,
 				make_erasure_root(&test_state, pov.clone(), pvd.clone()),
@@ -4521,7 +4522,8 @@ fn version_acceptance_before_and_after_v3_activation_on_statement() {
 				test_state.chain_ids[0],
 				test_state.relay_parent,
 				CoreIndex(0),
-				1,
+				1, // session_index
+				1, // scheduling_session_index
 				pvd.hash(),
 				pov_hash,
 				make_erasure_root(&test_state, pov.clone(), pvd.clone()),

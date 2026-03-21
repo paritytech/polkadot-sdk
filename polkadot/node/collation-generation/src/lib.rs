@@ -233,6 +233,7 @@ impl CollationGenerationSubsystem {
 			result_sender,
 			core_index,
 			scheduling_parent,
+			session_index,
 			validation_data,
 		} = params;
 
@@ -258,6 +259,7 @@ impl CollationGenerationSubsystem {
 			validation_code_hash,
 			n_validators: session_info.n_validators,
 			core_index,
+			session_index,
 			scheduling_session,
 		};
 
@@ -474,6 +476,8 @@ impl CollationGenerationSubsystem {
 							validation_code_hash,
 							n_validators,
 							core_index: descriptor_core_index,
+							session_index,
+							// V2 only: relay_parent == scheduling_parent, same session.
 							scheduling_session: session_index,
 						},
 						&mut task_sender,
@@ -555,6 +559,9 @@ struct PreparedCollation {
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
 	core_index: CoreIndex,
+	/// The relay parent's session index.
+	session_index: SessionIndex,
+	/// The scheduling parent's session index.
 	scheduling_session: SessionIndex,
 }
 
@@ -576,6 +583,7 @@ async fn construct_and_distribute_receipt(
 		validation_code_hash,
 		n_validators,
 		core_index,
+		session_index,
 		scheduling_session,
 	} = collation;
 
@@ -623,6 +631,7 @@ async fn construct_and_distribute_receipt(
 				para_id,
 				relay_parent,
 				core_index,
+				session_index,
 				scheduling_session,
 				persisted_validation_data_hash,
 				pov_hash,
@@ -637,7 +646,7 @@ async fn construct_and_distribute_receipt(
 				para_id,
 				relay_parent,
 				core_index,
-				scheduling_session,
+				session_index,
 				persisted_validation_data_hash,
 				pov_hash,
 				erasure_root,

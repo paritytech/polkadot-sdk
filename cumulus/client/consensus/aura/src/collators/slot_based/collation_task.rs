@@ -170,6 +170,19 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		);
 	}
 
+	let session_index = match relay_client.session_index_for_child(relay_parent).await {
+		Ok(session_index) => session_index,
+		Err(err) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to fetch session index."
+			);
+			return;
+		},
+	};
+
 	tracing::debug!(target: LOG_TARGET, ?core_index, ?hash, %number, "Submitting collation for core.");
 
 	overseer_handle
@@ -181,6 +194,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				core_index,
 				result_sender: None,
 				scheduling_parent: None,
+				session_index,
 				validation_data,
 			}),
 			"SubmitCollation",

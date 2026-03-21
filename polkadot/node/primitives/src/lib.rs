@@ -545,6 +545,9 @@ pub struct SubmitCollationParams {
 	///
 	/// WARNING: Should only be set if the `CandidateReceiptV3` node feature is set.
 	pub scheduling_parent: Option<Hash>,
+	/// The session index of the relay parent. Goes into the candidate descriptor.
+	/// Must be provided by the caller because the relay parent's state may be pruned.
+	pub session_index: SessionIndex,
 	/// The persisted validation data for this collation. The `parent_head` field must be set
 	/// to the correct parent head-data for the parablock being submitted.
 	pub validation_data: PersistedValidationData,
