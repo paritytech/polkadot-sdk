@@ -1327,7 +1327,7 @@ fn v1_backed_statement_distributed_to_v3_capable_peer() {
 			commitments: candidate.commitments,
 		};
 
-		assert_eq!(candidate.descriptor.version(true), CandidateDescriptorVersion::V1);
+		assert_eq!(candidate.descriptor.version(), CandidateDescriptorVersion::V1);
 
 		let candidate_hash = candidate.hash();
 

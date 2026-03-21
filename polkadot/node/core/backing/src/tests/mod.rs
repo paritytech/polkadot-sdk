@@ -34,7 +34,7 @@ use polkadot_primitives::{
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt_v2, dummy_hash,
-	validator_pubkeys,
+	validator_pubkeys, CandidateDescriptor,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use sp_application_crypto::{AppCrypto, ByteArray};
@@ -4138,7 +4138,7 @@ fn v3_capable_validator_backs_v1_descriptor() {
 		};
 
 		// The descriptor must be detected as V1
-		assert_eq!(candidate.descriptor.version(true), CandidateDescriptorVersion::V1);
+		assert_eq!(candidate.descriptor.version(), CandidateDescriptorVersion::V1);
 
 		let candidate_hash = candidate.hash();
 

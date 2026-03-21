@@ -2747,8 +2747,8 @@ mod enter {
 			assert_eq!(expected_para_inherent_data.backed_candidates.len(), 2);
 
 			for candidate in &expected_para_inherent_data.backed_candidates {
-				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V1);
-				assert!(candidate.descriptor().session_index(true).is_none());
+				assert_eq!(candidate.descriptor().version(), CandidateDescriptorVersion::V1);
+				assert!(candidate.descriptor().session_index().is_none());
 			}
 
 			let mut inherent_data = InherentData::new();
