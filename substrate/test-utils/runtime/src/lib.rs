@@ -189,9 +189,9 @@ pub type Balance = u64;
 mod bls {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
 	pub type Bls381Public = bls381::AppPublic;
-	pub type Bls381Pop = bls381::AppProofOfPossession;
+	pub type Bls381KeyProofs = bls381::AppKeyProofs;
 	pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
-	pub type EcdsaBls381Pop = ecdsa_bls381::AppProofOfPossession;
+	pub type EcdsaBls381KeyProofs = ecdsa_bls381::AppKeyProofs;
 }
 pub use bls::*;
 
@@ -222,24 +222,24 @@ decl_runtime_apis! {
 		fn get_block_number() -> u64;
 		/// Test that `ed25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ed25519` both the public key and proof of possession.
-		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession);
+		/// Returns the signature generated for the message `ed25519` both the public key and key proofs.
+		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppKeyProofs);
 		/// Test that `sr25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `sr25519` both the public key and proof of possession.
-		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession);
+		/// Returns the signature generated for the message `sr25519` both the public key and key proofs.
+		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppKeyProofs);
 		/// Test that `ecdsa` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ecdsa` both the public key and proof of possession.
-		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession);
+		/// Returns the signature generated for the message `ecdsa` both the public key and key proofs.
+		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppKeyProofs);
 		/// Test that `bls381` crypto works in the runtime
 		///
-		/// Returns both the proof of possession and public key.
-		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public);
+		/// Returns both the key proofs and public key.
+		fn test_bls381_crypto() -> (Bls381KeyProofs, Bls381Public);
 		/// Test that `ecdsa_bls381_crypto` works in the runtime
 		///
-		/// Returns both the proof of possession and public key.
-		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public);
+		/// Returns both the key proofs and public key.
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381KeyProofs, EcdsaBls381Public);
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -484,7 +484,7 @@ fn code_using_trie() -> u64 {
 	res
 }
 
-/// The test owner to test proof of possession generation and verification for the session keys
+/// The test owner to test key proofs generation and verification for the session keys
 pub const TEST_OWNER: &[u8; 5] = b"owner";
 
 impl_opaque_keys! {
@@ -606,23 +606,23 @@ impl_runtime_apis! {
 			System::block_number()
 		}
 
-		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
+		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppKeyProofs) {
 			test_ed25519_crypto()
 		}
 
-		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
+		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppKeyProofs) {
 			test_sr25519_crypto()
 		}
 
-		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession) {
+		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppKeyProofs) {
 			test_ecdsa_crypto()
 		}
 
-		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+		fn test_bls381_crypto() -> (Bls381KeyProofs, Bls381Public) {
 			test_bls381_crypto()
 		}
 
-		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381KeyProofs, EcdsaBls381Public) {
 			test_ecdsa_bls381_crypto()
 		}
 
@@ -807,7 +807,7 @@ impl_runtime_apis! {
 }
 
 fn test_ed25519_crypto(
-) -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
+) -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppKeyProofs) {
 	let mut public0 = ed25519::AppPublic::generate_pair(None);
 	let public1 = ed25519::AppPublic::generate_pair(None);
 	let public2 = ed25519::AppPublic::generate_pair(None);
@@ -817,18 +817,18 @@ fn test_ed25519_crypto(
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let proof_of_possession = public0
-		.generate_proof_of_possession(b"owner")
-		.expect("Cant generate proof_of_possession for ed25519");
-	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+	let key_proofs = public0
+		.generate_key_proofs(b"owner")
+		.expect("Cant generate key_proofs for ed25519");
+	assert!(public0.verify_key_proofs(b"owner", &key_proofs));
 
 	let signature = public0.sign(&"ed25519").expect("Generates a valid `ed25519` signature.");
 	assert!(public0.verify(&"ed25519", &signature));
-	(signature, public0, proof_of_possession)
+	(signature, public0, key_proofs)
 }
 
 fn test_sr25519_crypto(
-) -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
+) -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppKeyProofs) {
 	let mut public0 = sr25519::AppPublic::generate_pair(None);
 	let public1 = sr25519::AppPublic::generate_pair(None);
 	let public2 = sr25519::AppPublic::generate_pair(None);
@@ -838,17 +838,17 @@ fn test_sr25519_crypto(
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let proof_of_possession = public0
-		.generate_proof_of_possession(b"owner")
-		.expect("Cant generate proof_of_possession for sr25519");
-	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+	let key_proofs = public0
+		.generate_key_proofs(b"owner")
+		.expect("Cant generate key_proofs for sr25519");
+	assert!(public0.verify_key_proofs(b"owner", &key_proofs));
 
 	let signature = public0.sign(&"sr25519").expect("Generates a valid `sr25519` signature.");
 	assert!(public0.verify(&"sr25519", &signature));
-	(signature, public0, proof_of_possession)
+	(signature, public0, key_proofs)
 }
 
-fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession) {
+fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppKeyProofs) {
 	let mut public0 = ecdsa::AppPublic::generate_pair(None);
 	let public1 = ecdsa::AppPublic::generate_pair(None);
 	let public2 = ecdsa::AppPublic::generate_pair(None);
@@ -858,37 +858,37 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProo
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
-	let proof_of_possession = public0
-		.generate_proof_of_possession(b"owner")
-		.expect("Cant generate proof_of_possession for ecdsa");
-	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+	let key_proofs = public0
+		.generate_key_proofs(b"owner")
+		.expect("Cant generate key_proofs for ecdsa");
+	assert!(public0.verify_key_proofs(b"owner", &key_proofs));
 
 	let signature = public0.sign(&"ecdsa").expect("Generates a valid `ecdsa` signature.");
 
 	assert!(public0.verify(&"ecdsa", &signature));
-	(signature, public0, proof_of_possession)
+	(signature, public0, key_proofs)
 }
 
-fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+fn test_bls381_crypto() -> (Bls381KeyProofs, Bls381Public) {
 	let mut public0 = bls381::AppPublic::generate_pair(None);
 
-	let proof_of_possession = public0
-		.generate_proof_of_possession(b"owner")
-		.expect("Cant generate proof_of_possession for bls381");
-	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+	let key_proofs = public0
+		.generate_key_proofs(b"owner")
+		.expect("Cant generate key_proofs for bls381");
+	assert!(public0.verify_key_proofs(b"owner", &key_proofs));
 
-	(proof_of_possession, public0)
+	(key_proofs, public0)
 }
 
-fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+fn test_ecdsa_bls381_crypto() -> (EcdsaBls381KeyProofs, EcdsaBls381Public) {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
-	let proof_of_possession = public0
-		.generate_proof_of_possession(b"owner")
-		.expect("Cant Generate proof_of_possession for ecdsa_bls381");
-	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+	let key_proofs = public0
+		.generate_key_proofs(b"owner")
+		.expect("Cant Generate key_proofs for ecdsa_bls381");
+	assert!(public0.verify_key_proofs(b"owner", &key_proofs));
 
-	(proof_of_possession, public0)
+	(key_proofs, public0)
 }
 
 fn test_read_storage() {

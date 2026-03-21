@@ -62,7 +62,7 @@ pub mod hash;
 #[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
-pub mod proof_of_possession;
+pub mod key_proofs;
 pub mod testing;
 #[cfg(not(substrate_runtime))]
 pub mod traits;

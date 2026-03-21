@@ -2898,12 +2898,11 @@ pub trait Crypto {
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
-		owner: PassFatPointerAndRead<&[u8]>,
-		out: PassPointerAndWrite<&mut bls381::ProofOfPossession, 224>,
+		out: PassPointerAndWrite<&mut bls381::Signature, 112>,
 	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_proof_of_possession(id, pub_key, owner)
+			.bls381_generate_proof_of_possession(id, pub_key)
 			.ok()
 			.flatten()
 			.map(|pop| {
@@ -2918,10 +2917,9 @@ pub trait Crypto {
 	fn bls381_generate_proof_of_possession(
 		id: KeyTypeId,
 		pub_key: &bls381::Public,
-		owner: &[u8],
-	) -> Option<bls381::ProofOfPossession> {
-		let mut pop = bls381::ProofOfPossession::default();
-		bls381_generate_proof_of_possession__wrapped(id, pub_key, owner, &mut pop).ok()?;
+	) -> Option<bls381::Signature> {
+		let mut pop = bls381::Signature::default();
+		bls381_generate_proof_of_possession__wrapped(id, pub_key, &mut pop).ok()?;
 		Some(pop)
 	}
 

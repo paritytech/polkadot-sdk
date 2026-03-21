@@ -110,7 +110,6 @@ impl IdentifyAccount for sp_core::ecdsa::Public {
 	}
 }
 
-#[cfg(feature = "bls-experimental")]
 impl IdentifyAccount for sp_core::ecdsa_bls381::Public {
 	type AccountId = Self;
 	fn into_account(self) -> Self {
@@ -2210,7 +2209,7 @@ macro_rules! impl_opaque_keys_inner {
 						<
 							<$type as $crate::BoundToRuntimeAppPublic>::Public
 								as $crate::RuntimeAppPublic
-						>::ProofOfPossession
+						>::KeyProofs
 					),*
 				)
 			> {
@@ -2285,13 +2284,13 @@ macro_rules! impl_opaque_keys_inner {
 						<
 							<$type as $crate::BoundToRuntimeAppPublic>::Public
 								as $crate::RuntimeAppPublic
-						>::ProofOfPossession
+						>::KeyProofs
 					),*
 				),
 				()
 			> {
 				let res = ($(
-					$crate::RuntimeAppPublic::generate_proof_of_possession(&mut self.$field, &owner).ok_or(())?
+					$crate::RuntimeAppPublic::generate_key_proofs(&mut self.$field, &owner).ok_or(())?
 				),*);
 
 				Ok(res)
@@ -2334,7 +2333,7 @@ macro_rules! impl_opaque_keys_inner {
 							<
 								$type as $crate::BoundToRuntimeAppPublic
 							>::Public as $crate::RuntimeAppPublic
-						>::ProofOfPossession
+						>::KeyProofs
 				),*) as $crate::codec::DecodeAll>::decode_all(&mut &proof[..]) else {
 					return false
 				};
@@ -2344,7 +2343,7 @@ macro_rules! impl_opaque_keys_inner {
 
 				// Verify that all the signatures signed `owner`.
 				$(
-					let valid = $crate::RuntimeAppPublic::verify_proof_of_possession(&self.$field, &owner, &$field);
+					let valid = $crate::RuntimeAppPublic::verify_key_proofs(&self.$field, &owner, &$field);
 
 					if !valid {
 						// We found an invalid signature.
@@ -2618,7 +2617,7 @@ mod tests {
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
 		ecdsa, ed25519,
-		proof_of_possession::ProofOfPossessionGenerator,
+		key_proofs::KeyProofGenerator,
 		sr25519,
 	};
 	use std::sync::Arc;
@@ -2805,29 +2804,29 @@ mod tests {
 
 		let owner = &b"owner"[..];
 
-		let sr25519_sig = sr25519.generate_proof_of_possession(&owner);
-		let ed25519_sig = ed25519.generate_proof_of_possession(&owner);
-		let ecdsa_sig = ecdsa.generate_proof_of_possession(&owner);
+		let sr25519_sig = sr25519.generate_key_proofs(&owner);
+		let ed25519_sig = ed25519.generate_key_proofs(&owner);
+		let ecdsa_sig = ecdsa.generate_key_proofs(&owner);
 
 		for invalidate in [None, Some(0), Some(1), Some(2)] {
 			let proof = if let Some(invalidate) = invalidate {
 				match invalidate {
 					0 => (
-						sr25519.generate_proof_of_possession(&b"invalid"[..]),
+						sr25519.generate_key_proofs(&b"invalid"[..]),
 						&ed25519_sig,
 						&ecdsa_sig,
 					)
 						.encode(),
 					1 => (
 						&sr25519_sig,
-						ed25519.generate_proof_of_possession(&b"invalid"[..]),
+						ed25519.generate_key_proofs(&b"invalid"[..]),
 						&ecdsa_sig,
 					)
 						.encode(),
 					2 => (
 						&sr25519_sig,
 						&ed25519_sig,
-						ecdsa.generate_proof_of_possession(&b"invalid"[..]),
+						ecdsa.generate_key_proofs(&b"invalid"[..]),
 					)
 						.encode(),
 					_ => unreachable!(),

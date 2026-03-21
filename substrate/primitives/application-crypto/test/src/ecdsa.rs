@@ -21,7 +21,7 @@ use sp_application_crypto::{ecdsa::AppPair, RuntimePublic};
 use sp_core::{
 	crypto::{ByteArray, Pair},
 	ecdsa::Pair as ECDSAPair,
-	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+	key_proofs::{KeyProofGenerator, KeyProofVerifier},
 	testing::ECDSA,
 };
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
@@ -40,28 +40,28 @@ fn ecdsa_works_in_runtime() {
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
 
-	let (signature, public, proof_of_possession) = runtime_api
+	let (signature, public, key_proofs) = runtime_api
 		.test_ecdsa_crypto(test_client.chain_info().genesis_hash)
 		.expect("Tests `ecdsa` crypto.");
 
 	let supported_keys = keystore.keys(ECDSA).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 	assert!(AppPair::verify(&signature, "ecdsa", &public));
-	assert!(AppPair::verify_proof_of_possession(
+	assert!(AppPair::verify_key_proofs(
 		TEST_OWNER,
-		&proof_of_possession.into(),
+		&key_proofs.into(),
 		&public.into()
 	));
 }
 
 #[test]
-fn ecdsa_client_generated_proof_of_possession_verified_by_runtime_public() {
+fn ecdsa_client_generated_key_proofs_verified_by_runtime_public() {
 	let (mut test_pair, _) = ECDSAPair::generate();
 
-	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession(TEST_OWNER);
-	assert!(RuntimePublic::verify_proof_of_possession(
+	let client_generated_key_proofs = test_pair.generate_key_proofs(TEST_OWNER);
+	assert!(RuntimePublic::verify_key_proofs(
 		&test_pair.public(),
 		TEST_OWNER,
-		&client_generated_proof_of_possession
+		&client_generated_key_proofs
 	));
 }

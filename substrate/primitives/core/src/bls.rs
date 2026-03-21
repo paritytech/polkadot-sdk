@@ -28,8 +28,8 @@ use crate::{
 		CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
 		SignatureBytes, UncheckedFrom,
 	},
-	proof_of_possession::{
-		statement_of_ownership, ProofOfPossessionGenerator, ProofOfPossessionVerifier,
+	key_proofs::{
+		statement_of_ownership, KeyProofGenerator, KeyProofVerifier,
 	},
 };
 
@@ -44,13 +44,13 @@ use w3f_bls::{
 #[cfg(feature = "full_crypto")]
 use w3f_bls::ProofOfPossessionGenerator as BlsProofOfPossessionGenerator;
 
-/// Required to generate Proof Of Possession
+/// Required to generate proof of possession
 use sha2::Sha256;
 
 /// BLS-377 specialized types
 pub mod bls377 {
 	pub use super::{
-		PROOF_OF_POSSESSION_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
+		KEY_PROOFS_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 	};
 	use crate::crypto::CryptoTypeId;
 	pub(crate) use w3f_bls::TinyBLS377 as BlsEngine;
@@ -67,8 +67,8 @@ pub mod bls377 {
 	pub type Public = super::Public<BlsEngine>;
 	/// BLS12-377 signature.
 	pub type Signature = super::Signature<BlsEngine>;
-	/// BLS12-377 Proof Of Possesion.
-	pub type ProofOfPossession = super::ProofOfPossession<BlsEngine>;
+	/// BLS12-377 key proof (proof of ownership | proof of possesion).
+	pub type KeyProofs = super::KeyProofs<BlsEngine>;
 
 	impl super::HardJunctionId for BlsEngine {
 		const ID: &'static str = "BLS12377HDKD";
@@ -78,7 +78,7 @@ pub mod bls377 {
 /// BLS-381 specialized types
 pub mod bls381 {
 	pub use super::{
-		PROOF_OF_POSSESSION_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
+		KEY_PROOFS_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 	};
 	use crate::crypto::CryptoTypeId;
 	pub use w3f_bls::TinyBLS381 as BlsEngine;
@@ -96,8 +96,8 @@ pub mod bls381 {
 	/// BLS12-381 signature.
 	pub type Signature = super::Signature<BlsEngine>;
 
-	/// BLS12-381 Proof Of Possesion.
-	pub type ProofOfPossession = super::ProofOfPossession<BlsEngine>;
+	/// BLS12-381 key proof (proof of ownership | proof of possesion).
+	pub type KeyProofs = super::KeyProofs<BlsEngine>;
 
 	impl super::HardJunctionId for BlsEngine {
 		const ID: &'static str = "BLS12381HDKD";
@@ -121,7 +121,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 	<DoubleSignature<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// Signature serialized size (for back cert) + Nugget BLS PoP size
-pub const PROOF_OF_POSSESSION_SERIALIZED_SIZE: usize = SIGNATURE_SERIALIZED_SIZE +
+pub const KEY_PROOFS_SERIALIZED_SIZE: usize = SIGNATURE_SERIALIZED_SIZE +
 	<NuggetBLSnCPPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
@@ -149,10 +149,10 @@ impl<T: BlsBound> CryptoType for Signature<T> {
 }
 
 /// A generic BLS ProofOfpossession
-pub type ProofOfPossession<SubTag> =
-	SignatureBytes<PROOF_OF_POSSESSION_SERIALIZED_SIZE, (BlsTag, SubTag)>;
+pub type KeyProofs<SubTag> =
+	SignatureBytes<KEY_PROOFS_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
-impl<T: BlsBound> CryptoType for ProofOfPossession<T> {
+impl<T: BlsBound> CryptoType for KeyProofs<T> {
 	type Pair = Pair<T>;
 }
 
@@ -181,7 +181,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	type Seed = Seed;
 	type Public = Public<T>;
 	type Signature = Signature<T>;
-	type ProofOfPossession = ProofOfPossession<T>;
+	type KeyProofs = KeyProofs<T>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECRET_KEY_SERIALIZED_SIZE {
@@ -261,16 +261,13 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
-impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
-	#[cfg(feature = "full_crypto")]
-	/// Generate proof of possession for BLS12 curves.
+#[cfg(feature = "full_crypto")]
+impl<T: BlsBound> Pair<T> {
+	/// Generate a BLS proof of possession.
 	///
-	/// Signs on:
-	///  - owner as sort of back cert and proof of ownership to prevent front runner attack
-	///  - on its own public key with unique context to prevent rougue key attack on aggregation
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
-		let proof_of_ownership: [u8; SIGNATURE_SERIALIZED_SIZE] =
-			self.sign(statement_of_ownership(owner).as_slice()).to_raw();
+	/// This produces a signature with unique hash context that proves possession
+	/// of the private key, preventing rogue key attacks on aggregation.
+	pub fn generate_proof_of_possession(&mut self) -> Signature<T> {
 		let proof_of_possession: [u8; SIGNATURE_SERIALIZED_SIZE] =
 			<Keypair<T> as BlsProofOfPossessionGenerator<
 				T,
@@ -281,20 +278,36 @@ impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
 			.to_bytes()
 			.try_into()
 			.expect("NuggetBLSnCPPoP serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
-		let proof_of_ownership_and_possession: [u8; PROOF_OF_POSSESSION_SERIALIZED_SIZE] =
-			[proof_of_ownership, proof_of_possession]
-				.concat()
-				.try_into()
-				.expect("PROOF_OF_POSSESSION_SERIALIZED_SIZE = SIGNATURE_SERIALIZED_SIZE * 2");
-		Self::ProofOfPossession::unchecked_from(proof_of_ownership_and_possession)
+		Signature::unchecked_from(proof_of_possession)
 	}
 }
 
-impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
+impl<T: BlsBound> KeyProofGenerator for Pair<T> {
+	#[cfg(feature = "full_crypto")]
+	/// Generate key proofs for BLS12 curves.
+	///
+	/// Signs on:
+	///  - owner as sort of back cert and proof of ownership to prevent front runner attack
+	///  - on its own public key with unique context to prevent rougue key attack on aggregation
+	fn generate_key_proofs(&mut self, owner: &[u8]) -> Self::KeyProofs {
+		let proof_of_ownership: [u8; SIGNATURE_SERIALIZED_SIZE] =
+			self.sign(statement_of_ownership(owner).as_slice()).to_raw();
+		let proof_of_possession: [u8; SIGNATURE_SERIALIZED_SIZE] =
+			self.generate_proof_of_possession().to_raw();
+		let proof_of_ownership_and_possession: [u8; KEY_PROOFS_SERIALIZED_SIZE] =
+			[proof_of_ownership, proof_of_possession]
+				.concat()
+				.try_into()
+				.expect("KEY_PROOFS_SERIALIZED_SIZE = SIGNATURE_SERIALIZED_SIZE * 2");
+		Self::KeyProofs::unchecked_from(proof_of_ownership_and_possession)
+	}
+}
+
+impl<T: BlsBound> KeyProofVerifier for Pair<T> {
 	/// Verify both proof of ownership (back cert) and proof of possession of the private key
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		owner: &[u8],
-		proof_of_possession: &Self::ProofOfPossession,
+		key_proofs: &Self::KeyProofs,
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
 		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
@@ -303,7 +316,7 @@ impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
 			return false;
 		};
 
-		let Ok(proof_of_ownership) = proof_of_possession.0[0..SIGNATURE_SERIALIZED_SIZE].try_into()
+		let Ok(proof_of_ownership) = key_proofs.0[0..SIGNATURE_SERIALIZED_SIZE].try_into()
 		else {
 			return false;
 		};
@@ -317,7 +330,7 @@ impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
 		}
 
 		let Ok(proof_of_possession) =
-			NuggetBLSnCPPoP::<T>::from_bytes(&proof_of_possession.0[SIGNATURE_SERIALIZED_SIZE..])
+			NuggetBLSnCPPoP::<T>::from_bytes(&key_proofs.0[SIGNATURE_SERIALIZED_SIZE..])
 		else {
 			return false;
 		};
@@ -647,65 +660,65 @@ mod tests {
 		signature_serialization_doesnt_panic::<bls381::BlsEngine>();
 	}
 
-	fn must_generate_proof_of_possession<E: BlsBound>() {
+	fn must_generate_key_proofs<E: BlsBound>() {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let owner = b"owner";
 
-		pair.generate_proof_of_possession(owner);
+		pair.generate_key_proofs(owner);
 	}
 
 	#[test]
-	fn must_generate_proof_of_possession_for_bls377() {
-		must_generate_proof_of_possession::<bls377::BlsEngine>();
+	fn must_generate_key_proofs_for_bls377() {
+		must_generate_key_proofs::<bls377::BlsEngine>();
 	}
 
 	#[test]
-	fn must_generate_proof_of_possession_for_bls381() {
-		must_generate_proof_of_possession::<bls381::BlsEngine>();
+	fn must_generate_key_proofs_for_bls381() {
+		must_generate_key_proofs::<bls381::BlsEngine>();
 	}
 
-	fn good_proof_of_possession_must_verify<E: BlsBound>() {
+	fn good_key_proofs_must_verify<E: BlsBound>() {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let owner = b"owner";
-		let proof_of_possession = pair.generate_proof_of_possession(owner);
-		assert!(Pair::<E>::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		let key_proofs = pair.generate_key_proofs(owner);
+		assert!(Pair::<E>::verify_key_proofs(owner, &key_proofs, &pair.public()));
 	}
 
 	#[test]
-	fn good_proof_of_possession_must_verify_for_bls377() {
-		good_proof_of_possession_must_verify::<bls377::BlsEngine>();
+	fn good_key_proofs_must_verify_for_bls377() {
+		good_key_proofs_must_verify::<bls377::BlsEngine>();
 	}
 
 	#[test]
-	fn good_proof_of_possession_must_verify_for_bls381() {
-		good_proof_of_possession_must_verify::<bls381::BlsEngine>();
+	fn good_key_proofs_must_verify_for_bls381() {
+		good_key_proofs_must_verify::<bls381::BlsEngine>();
 	}
 
-	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key<E: BlsBound>() {
+	fn key_proofs_must_fail_to_verify_if_prover_does_not_possess_secret_key<E: BlsBound>() {
 		let owner = b"owner";
 		let not_owner = b"not owner";
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession(owner);
-		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		let key_proofs = pair.generate_key_proofs(owner);
+		assert!(Pair::verify_key_proofs(owner, &key_proofs, &pair.public()));
 		assert_eq!(
-			Pair::<E>::verify_proof_of_possession(
+			Pair::<E>::verify_key_proofs(
 				owner,
-				&proof_of_possession,
+				&key_proofs,
 				&other_pair.public()
 			),
 			false
 		);
-		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
+		assert!(!Pair::verify_key_proofs(not_owner, &key_proofs, &pair.public()));
 	}
 
 	#[test]
-	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls377() {
-		proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls377::BlsEngine>();
+	fn key_proofs_must_fail_to_verify_if_prover_does_not_possess_secret_key_for_bls377() {
+		key_proofs_must_fail_to_verify_if_prover_does_not_possess_secret_key::<bls377::BlsEngine>();
 	}
 
 	#[test]
-	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls381() {
-		proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls381::BlsEngine>();
+	fn key_proofs_must_fail_to_verify_if_prover_does_not_possess_secret_key_for_bls381() {
+		key_proofs_must_fail_to_verify_if_prover_does_not_possess_secret_key::<bls381::BlsEngine>();
 	}
 }

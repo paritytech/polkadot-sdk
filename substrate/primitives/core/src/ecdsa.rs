@@ -22,7 +22,7 @@ use crate::{
 		CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
 		SecretStringError, SignatureBytes,
 	},
-	proof_of_possession::NonAggregatable,
+	key_proofs::NonAggregatable,
 };
 
 #[cfg(not(feature = "std"))]
@@ -172,15 +172,15 @@ impl<PUBLIC: From<VerifyingKey>> GenericSignature<PUBLIC> {
 	}
 }
 
-/// Proof of Possession is the same as Signature.
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature.
 ///
 /// Uses blake2 during key recovery.
-pub type ProofOfPossession = Signature;
+pub type KeyProofs = Signature;
 
-/// Proof of Possession is the same as Signature.
+/// Key proofs consist of ownership proof (backcert) which is the same as Signature.
 ///
 /// Uses keccak during key recovery.
-pub type KeccakProofOfPossession = KeccakSignature;
+pub type KeccakKeyProofs = KeccakSignature;
 
 impl Signature {
 	/// Recover the public key from this signature and a message.
@@ -265,7 +265,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
-	type ProofOfPossession = ProofOfPossession;
+	type KeyProofs = KeyProofs;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		Self::from_seed_slice(seed_slice)
@@ -303,7 +303,7 @@ impl TraitPair for KeccakPair {
 	type Public = KeccakPublic;
 	type Seed = Seed;
 	type Signature = KeccakSignature;
-	type ProofOfPossession = KeccakProofOfPossession;
+	type KeyProofs = KeccakKeyProofs;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		Self::from_seed_slice(seed_slice)
@@ -547,7 +547,7 @@ mod test {
 			set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
 			Ss58Codec, DEV_PHRASE,
 		},
-		proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
+		key_proofs::{KeyProofGenerator, KeyProofVerifier},
 	};
 	use serde_json;
 
@@ -857,17 +857,17 @@ mod test {
 	}
 
 	#[test]
-	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+	fn good_key_proofs_should_work_bad_key_proofs_should_fail() {
 		let owner = b"owner";
 		let not_owner = b"not owner";
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession(owner);
-		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
+		let key_proofs = pair.generate_key_proofs(owner);
+		assert!(Pair::verify_key_proofs(owner, &key_proofs, &pair.public()));
 		assert_eq!(
-			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
+			Pair::verify_key_proofs(owner, &key_proofs, &other_pair.public()),
 			false
 		);
-		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
+		assert!(!Pair::verify_key_proofs(not_owner, &key_proofs, &pair.public()));
 	}
 }
