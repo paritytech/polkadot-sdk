@@ -249,6 +249,11 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
+
+	/// Block subscription sender side.
+	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
+	/// Log subscription sender side.
+	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
 	/// Whether archive mode is enabled
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
@@ -331,6 +336,8 @@ impl Client {
 			block_notifier: automine
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
+			block_subscription_tx: tokio::sync::broadcast::channel(256).0,
+			log_subscription_tx: tokio::sync::broadcast::channel(1000).0,
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 		};
@@ -464,6 +471,24 @@ impl Client {
 				},
 				_ => {},
 			}
+
+			// Broadcast the best blocks
+			if let SubscriptionType::BestBlocks = subscription_type &&
+				self.block_subscription_tx.receiver_count() > 0
+			{
+				let _ = self.block_subscription_tx.send(evm_block);
+			}
+
+			// Broadcast the logs, we require a finalized subscription for this so that all of the
+			// events we broadcast are finalized and not prone to reorgs.
+			if let SubscriptionType::FinalizedBlocks = subscription_type &&
+				self.log_subscription_tx.receiver_count() > 0
+			{
+				receipts.iter().flat_map(|receipt| receipt.logs.iter()).for_each(|log| {
+					let _ = self.log_subscription_tx.send(log.clone());
+				});
+			}
+
 			Ok(())
 		})
 		.await
@@ -919,6 +944,16 @@ impl Client {
 	/// Get the automine status from the node.
 	pub async fn get_automine(&self) -> bool {
 		get_automine(&self.rpc_client).await
+	}
+
+	/// Gets the block subscription rx side of the channel.
+	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Block> {
+		self.block_subscription_tx.subscribe()
+	}
+
+	/// Gets the log subscription rx side of the channel.
+	pub fn get_log_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Log> {
+		self.log_subscription_tx.subscribe()
 	}
 }
 
