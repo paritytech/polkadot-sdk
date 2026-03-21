@@ -38,10 +38,10 @@ pub use pallet::Pallet;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "runtime-benchmarks"))]
 pub mod mock;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "runtime-benchmarks"))]
 mod tests;
 
 /// Minimal pallet providing a `Pallet<T>` type for the FRAME benchmarking machinery.
