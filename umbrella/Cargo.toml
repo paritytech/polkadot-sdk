@@ -213,7 +213,6 @@ std = [
 	"sp-mmr-primitives?/std",
 	"sp-npos-elections?/std",
 	"sp-offchain?/std",
-	"sp-pusd?/std",
 	"sp-runtime-interface?/std",
 	"sp-runtime?/std",
 	"sp-session?/std",
@@ -378,7 +377,6 @@ runtime-benchmarks = [
 	"staging-xcm-executor?/runtime-benchmarks",
 	"staging-xcm?/runtime-benchmarks",
 	"xcm-runtime-apis?/runtime-benchmarks",
-	"sp-pusd?/runtime-benchmarks"
 ]
 try-runtime = [
 	"asset-test-utils?/try-runtime",
@@ -515,7 +513,6 @@ try-runtime = [
 	"polkadot-service?/try-runtime",
 	"sp-runtime?/try-runtime",
 	"staging-parachain-info?/try-runtime",
-	"sp-pusd?/try-runtime"
 ]
 serde = [
 	"bp-polkadot-core?/serde",
@@ -778,7 +775,6 @@ runtime-full = [
 	"sp-mmr-primitives",
 	"sp-npos-elections",
 	"sp-offchain",
-	"sp-pusd",
 	"sp-runtime",
 	"sp-runtime-interface",
 	"sp-runtime-interface-proc-macro",
@@ -2864,10 +2860,6 @@ default-features = false
 optional = true
 path = "../substrate/primitives/panic-handler"
 
-[dependencies.sp-pusd]
-default-features = false
-optional = true
-path = "../substrate/primitives/pusd"
 
 [dependencies.sp-rpc]
 default-features = false

@@ -23,7 +23,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-pusd = { workspace = true }
 sp-runtime = { workspace = true }
 xcm = { workspace = true }
 
@@ -41,7 +40,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-pusd/std",
 	"sp-runtime/std",
 	"xcm/std",
 ]
@@ -51,7 +49,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"sp-pusd/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
@@ -60,6 +57,5 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
-	"sp-pusd/try-runtime",
 	"sp-runtime/try-runtime",
 ]

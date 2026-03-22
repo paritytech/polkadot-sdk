@@ -1396,10 +1396,6 @@ pub use sp_offchain;
 #[cfg(feature = "sp-panic-handler")]
 pub use sp_panic_handler;
 
-/// pUSD primitives and traits.
-#[cfg(feature = "sp-pusd")]
-pub use sp_pusd;
-
 /// Substrate RPC primitives and utilities.
 #[cfg(feature = "sp-rpc")]
 pub use sp_rpc;

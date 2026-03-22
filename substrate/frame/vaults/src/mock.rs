@@ -171,7 +171,7 @@ impl AuctionsHandler<u64, u128> for MockAuctions {
 	fn start_auction(
 		_vault_owner: u64,
 		_collateral_amount: u128,
-		_debt: sp_pusd::DebtComponents<u128>,
+		_debt: crate::DebtComponents<u128>,
 		_keeper: u64,
 	) -> Result<u32, DispatchError> {
 		if FAIL_AUCTION_START.with(|v| *v.borrow()) {
@@ -284,8 +284,9 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureVaultsManagerMock {
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		match o.clone().into() {
 			Ok(RawOrigin::Root) => Ok(crate::VaultsManagerLevel::Full),
-			Ok(RawOrigin::Signed(who)) if who == EMERGENCY_ADMIN =>
-				Ok(crate::VaultsManagerLevel::Emergency),
+			Ok(RawOrigin::Signed(who)) if who == EMERGENCY_ADMIN => {
+				Ok(crate::VaultsManagerLevel::Emergency)
+			},
 			_ => Err(o),
 		}
 	}

@@ -178,7 +178,9 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 // Re-exports for external consumers
-pub use sp_pusd::{AuctionsHandler, CollateralManager, DebtComponents, PaymentBreakdown};
+pub use frame_support::traits::{
+	AuctionsHandler, CollateralManager, DebtComponents, PaymentBreakdown,
+};
 
 /// TODO: Update/import this trait from the Oracle as soon as it is implemented.
 /// Trait for providing timestamped asset prices via oracle.

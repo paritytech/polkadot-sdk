@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020-2025 Amforc AG.
+// Copyright (C) Amforc AG.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,30 +15,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Shared primitives for pUSD pallets.
-//!
-//! This crate provides common types and traits used by the vaults, auctions and PSM pallets.
-//!
-//! # Types
-//!
-//! - [`DebtComponents`]: Breakdown of debt (principal, interest, penalty) for liquidations
-//! - [`PaymentBreakdown`]: How a payment is distributed during auction takes
-//!
-//! # Traits
-//!
-//! - [`AuctionsHandler`]: Vaults → Auctions (start liquidation auctions)
-//! - [`CollateralManager`]: Auctions → Vaults (execute purchases, complete auctions)
-//! - [`VaultsInterface`]: PSM → Vaults (query debt ceiling)
+//! Traits and types for stablecoin inter-pallet communication.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
+use crate::pallet_prelude::{DispatchError, DispatchResult};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	pallet_prelude::{DispatchError, DispatchResult},
-	traits::tokens::Balance,
-};
 use scale_info::TypeInfo;
 use sp_runtime::{FixedPointOperand, FixedU128, Saturating};
+
+use super::Balance;
+
+/// Trait for the PSM to query the Vaults pallet for system-wide debt ceiling.
+///
+/// Implemented by the Vaults pallet, called by the PSM pallet when checking
+/// whether a mint would exceed the maximum pUSD issuance.
+pub trait VaultsInterface {
+	/// The balance type.
+	type Balance;
+
+	/// Get the maximum allowed pUSD issuance across the entire system.
+	fn get_maximum_issuance() -> Self::Balance;
+}
+
+/// Trait exposing the PSM pallet's reserved capacity to other pallets.
+///
+/// Implemented by the PSM pallet, used by the Vaults pallet to account for
+/// PSM-reserved debt ceiling when calculating available vault capacity.
+pub trait PsmInterface {
+	/// The balance type.
+	type Balance;
+
+	/// Get the amount of pUSD issuance capacity reserved by the PSM.
+	fn reserved_capacity() -> Self::Balance;
+}
+
+impl PsmInterface for () {
+	type Balance = u128;
+
+	fn reserved_capacity() -> Self::Balance {
+		0
+	}
+}
+
 /// Debt components for liquidation auctions.
 ///
 /// Represents the breakdown of debt that must be recovered during a liquidation auction.
@@ -178,9 +195,9 @@ pub trait CollateralManager<AccountId> {
 	///
 	/// - `vault_owner`: Original vault owner (receives excess collateral)
 	/// - `remaining_collateral`: Excess collateral to return to owner
-	/// - `remaining_debt`: Breakdown of unresolved debt (principal, interest, penalty).
-	///   `principal + interest` becomes bad debt; penalty is lost protocol revenue.
-	///   `CurrentLiquidationAmount` is decremented by `remaining_debt.total()`.
+	/// - `remaining_debt`: Breakdown of unresolved debt (principal, interest, penalty). `principal
+	///   + interest` becomes bad debt; penalty is lost protocol revenue. `CurrentLiquidationAmount`
+	///   is decremented by `remaining_debt.total()`.
 	/// - `keeper`: Account that triggered/restarted the auction
 	/// - `keeper_incentive`: pUSD amount to pay keeper (from IF, funded by penalty)
 	///

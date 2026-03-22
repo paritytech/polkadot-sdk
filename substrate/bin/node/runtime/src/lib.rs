@@ -3146,7 +3146,7 @@ impl pallet_vaults::AuctionsHandler<AccountId, Balance> for AuctionAdapter {
 	fn start_auction(
 		_vault_owner: AccountId,
 		_collateral_amount: Balance,
-		_debt: sp_pusd::DebtComponents<Balance>,
+		_debt: frame_support::traits::DebtComponents<Balance>,
 		_keeper: AccountId,
 	) -> Result<u32, frame_support::pallet_prelude::DispatchError> {
 		// During benchmarks, return success to allow liquidation benchmarks to complete
