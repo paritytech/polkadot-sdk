@@ -457,11 +457,14 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// (requiring them to implement `Clone`, `Eq`, `PartialEq`, `Debug`, `TypeInfo`, `Codec`, etc.)
 /// without requiring the user to manually specify them on the generic parameters.
 ///
-/// For pallet storage, you can of course still use `T: Config`:
+/// For pallet storage, you can of course still use generics:
 ///
 /// ```ignore
+/// # trait ABCD {
+/// #     type Balance;
+/// # }
 /// #[frame_support::stored]
-/// pub struct AccountData<T: Config> {
+/// pub struct AccountData<T: ABCD> {
 ///     pub free: T::Balance,
 ///     pub reserved: T::Balance,
 /// }

@@ -31,22 +31,34 @@ use syn::{
 };
 
 /// Parsed arguments for the `#[stored]` attribute.
-/// Currently no arguments are needed - codec uses its default field-bounding strategy.
-struct StoredArgs;
+#[derive(Default)]
+struct StoredArgs {
+	/// If true, do not skip type parameters in scale_info metadata.
+	no_skip_type_params: bool,
+}
 
 impl Parse for StoredArgs {
 	fn parse(input: ParseStream) -> Result<Self> {
-		// Allow empty attributes or no attributes at all
-		if input.is_empty() {
-			Ok(StoredArgs)
-		} else {
-			// Codec derives use their default strategy which bounds fields automatically
-			Err(Error::new(
-				input.span(),
-				"#[stored] does not accept arguments. Codec derives use their default \
-				field-bounding strategy.",
-			))
+		let mut args = StoredArgs::default();
+		while !input.is_empty() {
+			let arg: syn::Ident = input.parse()?;
+			if arg == "no_skip_type_params" {
+				args.no_skip_type_params = true;
+			} else {
+				return Err(Error::new(
+					arg.span(),
+					format!(
+						"Unknown argument for #[stored]: {}. Expected `no_skip_type_params`.",
+						arg
+					),
+				));
+			}
+
+			if !input.is_empty() {
+				input.parse::<syn::Token![,]>()?;
+			}
 		}
+		Ok(args)
 	}
 }
 
@@ -62,7 +74,7 @@ pub fn stored(
 }
 
 fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
-	let _args: StoredArgs = syn::parse2(attr)?;
+	let args: StoredArgs = syn::parse2(attr)?;
 	let mut input: syn::DeriveInput = syn::parse2(item)?;
 
 	// Get the frame_support crate path to use __private re-exports
@@ -120,6 +132,27 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 		},
 	};
 
+	// Collect all type parameters for scale_info skip_type_params.
+	// We skip all type parameters in TypeInfo metadata by default as they're rarely needed.
+	if !args.no_skip_type_params {
+		let all_type_params = input
+			.generics
+			.params
+			.iter()
+			.filter_map(|p| match p {
+				syn::GenericParam::Type(t) => Some(&t.ident),
+				_ => None,
+			})
+			.collect::<Vec<_>>();
+
+		if !all_type_params.is_empty() {
+			let scale_info_attr: syn::Attribute = syn::parse_quote! {
+				#[scale_info(skip_type_params(#(#all_type_params),*))]
+			};
+			input.attrs.insert(0, scale_info_attr);
+		}
+	}
+
 	// Generate derive_where with field-based bounds
 	// This ensures consistent bounding strategy: bounds are applied to field types, not type
 	// parameters. Codec derives use their default strategy which also bounds fields automatically.
@@ -158,7 +191,9 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	};
 	input.attrs.insert(0, codec_derive_attr);
 
-	Ok(quote! { #input })
+	Ok(quote! {
+		#input
+	})
 }
 
 #[cfg(test)]
@@ -174,12 +209,21 @@ mod tests {
 	}
 
 	#[test]
-	fn stored_rejects_arguments() {
+	fn stored_rejects_unknown_arguments() {
 		let input = quote! {
-			some_arg
+			unknown_arg
 		};
 		let result: Result<StoredArgs> = syn::parse2(input);
 		assert!(result.is_err());
+	}
+
+	#[test]
+	fn stored_accepts_no_skip_type_params() {
+		let input = quote! {
+			no_skip_type_params
+		};
+		let args: StoredArgs = syn::parse2(input).unwrap();
+		assert!(args.no_skip_type_params);
 	}
 
 	#[test]
