@@ -112,7 +112,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	// shared between all paras)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
 	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..5));
-	assert_para_throughput(&relay_client, 12, para_throughput).await?;
+	assert_para_throughput(&relay_client, 16, para_throughput).await?;
 	log::info!("All parachains producing blocks");
 
 	//  Timeout derivation (zombienet checks run sequentially; each timeout starts after the
