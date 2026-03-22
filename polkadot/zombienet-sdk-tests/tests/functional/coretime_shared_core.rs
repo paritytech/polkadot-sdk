@@ -108,7 +108,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
 	log::info!("Session boundaries passed");
 
-	// Check that all parachains produce at least 2/3 blocks within 12 RC blocks (since core is
+	// Check that all parachains produce at least 2/3 blocks within 16 RC blocks (since core is
 	// shared between all paras)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
 	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..5));
