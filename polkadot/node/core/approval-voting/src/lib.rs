@@ -847,46 +847,22 @@ impl CurrentlyCheckingSet {
 	}
 }
 
-async fn get_extended_session_info<'a, Sender>(
-	runtime_info: &'a mut RuntimeInfo,
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Option<&'a ExtendedSessionInfo>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	match runtime_info.get_session_info(sender, relay_parent).await {
-		Ok(extended_info) => Some(&extended_info),
-		Err(_) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"Can't obtain SessionInfo or ExecutorParams"
-			);
-			None
-		},
-	}
-}
-
 async fn get_extended_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a ExtendedSessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info_by_index(sender, relay_parent, session_index)
-		.await
-	{
+	match runtime_info.get_session_info_by_index(sender, block_hash, session_index).await {
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				session = session_index,
-				?relay_parent,
+				?block_hash,
 				"Can't obtain SessionInfo or ExecutorParams"
 			);
 			None
@@ -897,13 +873,13 @@ where
 async fn get_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a SessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	get_extended_session_info_by_index(runtime_info, sender, relay_parent, session_index)
+	get_extended_session_info_by_index(runtime_info, sender, block_hash, session_index)
 		.await
 		.map(|extended_info| &extended_info.session_info)
 }
@@ -1763,10 +1739,12 @@ fn get_core_indices_on_startup(
 ) -> CoreBitfield {
 	match &assignment {
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => core_bitfield.clone(),
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
-			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed"),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"),
+		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
+			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed")
+		},
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
+		},
 	}
 }
 
@@ -1779,8 +1757,9 @@ fn get_assignment_core_indices(
 	block_entry: &BlockEntry,
 ) -> Option<CoreBitfield> {
 	match &assignment {
-		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-			Some(core_bitfield.clone()),
+		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+			Some(core_bitfield.clone())
+		},
 		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => block_entry
 			.candidates()
 			.iter()
@@ -1788,8 +1767,9 @@ fn get_assignment_core_indices(
 			.map(|(core_index, _candidate_hash)| {
 				CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
 			}),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")),
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"))
+		},
 	}
 }
 
@@ -1868,7 +1848,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			match candidate_entry.approval_entry(&block_hash) {
 				Some(approval_entry) => {
 					match approval_entry.local_statements() {
-						(None, None) =>
+						(None, None) => {
 							if approval_entry
 								.our_assignment()
 								.map(|assignment| !assignment.triggered())
@@ -1880,7 +1860,8 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 									candidate_hash: *candidate_hash,
 									tick: state.clock.tick_now() + RESTART_WAKEUP_DELAY,
 								})
-							},
+							}
+						},
 						(None, Some(_)) => {}, // second is impossible case.
 						(Some(assignment), None) => {
 							let claimed_core_indices =
@@ -1918,14 +1899,24 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 									if !block_entry.candidate_is_pending_signature(*candidate_hash)
 									{
+										// Executor params are session-buffered, so we use
+										// block_hash (the including relay block) for the runtime
+										// API query — its state is guaranteed available. The
+										// session index comes from the candidate descriptor
+										// (relay_parent's session), falling back to the including
+										// block's session for V1 descriptors where relay_parent
+										// == scheduling_parent.
+										let session = candidate_entry
+											.candidate_receipt()
+											.descriptor()
+											.session_index()
+											.unwrap_or(block_entry.session());
 										let ExtendedSessionInfo { ref executor_params, .. } =
-											match get_extended_session_info(
+											match get_extended_session_info_by_index(
 												session_info_provider,
 												sender,
-												candidate_entry
-													.candidate_receipt()
-													.descriptor()
-													.relay_parent(),
+												block_hash,
+												session,
 											)
 											.await
 											{
@@ -2564,7 +2555,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			let mut s = String::with_capacity(bits.len());
 			for (i, bit) in bits.iter().enumerate().take(MAX_TRACING_WINDOW) {
 				s.push(if *bit { '1' } else { '0' });
-				if (target_number - i as u32) % 10 == 0 && i != bits.len() - 1 {
+				if (target_number - i as u32).is_multiple_of(10) && i != bits.len() - 1 {
 					s.push(' ');
 				}
 			}
@@ -2700,13 +2691,14 @@ where
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
 		Some(b) => b,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownBlock(
 					assignment.block_hash,
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let session_info = match get_session_info_by_index(
@@ -2718,13 +2710,14 @@ where
 	.await
 	{
 		Some(s) => s,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownSessionIndex(
 					block_entry.session(),
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let n_cores = session_info.n_cores as usize;
@@ -2755,25 +2748,27 @@ where
 		let (claimed_core_index, assigned_candidate_hash) =
 			match block_entry.candidate(candidate_index) {
 				Some((c, h)) => (*c, *h),
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidateIndex(
 							candidate_index as _,
 						)),
 						Vec::new(),
-					)), // no candidate at core.
+					))
+				}, // no candidate at core.
 			};
 
 		let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 			Some(c) => c,
-			None =>
+			None => {
 				return Ok((
 					AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 						candidate_index as _,
 						assigned_candidate_hash,
 					)),
 					Vec::new(),
-				)), // no candidate at core.
+				))
+			}, // no candidate at core.
 		};
 
 		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
@@ -2810,26 +2805,28 @@ where
 		{
 			let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 				Some(c) => c,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 							candidate_index as _,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
 				Some(a) => a,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
 							assignment.block_hash,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let is_duplicate_for_candidate = approval_entry.is_assigned(assignment.validator);
@@ -3377,16 +3374,23 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
-		let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
-			session_info_provider,
-			sender,
-			candidate_entry.candidate_receipt().descriptor().relay_parent(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(actions),
-		};
+		// Executor params are session-buffered, so we use relay_block (the including relay
+		// block) for the runtime API query — its state is guaranteed available. The session
+		// index comes from the candidate descriptor (relay_parent's session), falling back
+		// to the including block's session for V1 descriptors.
+		let session = candidate_receipt.descriptor.session_index().unwrap_or(block_entry.session());
+		let ExtendedSessionInfo { ref executor_params, .. } =
+			match get_extended_session_info_by_index(
+				session_info_provider,
+				sender,
+				relay_block,
+				session,
+			)
+			.await
+			{
+				Some(i) => i,
+				None => return Ok(actions),
+			};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 

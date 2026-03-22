@@ -271,8 +271,9 @@ async fn handle_from_pool(queue: &mut Queue, from_pool: pool::FromPool) -> Resul
 	use pool::FromPool;
 	match from_pool {
 		FromPool::Spawned(worker) => handle_worker_spawned(queue, worker).await?,
-		FromPool::Concluded { worker, rip, result } =>
-			handle_worker_concluded(queue, worker, rip, result).await?,
+		FromPool::Concluded { worker, rip, result } => {
+			handle_worker_concluded(queue, worker, rip, result).await?
+		},
 		FromPool::Rip(worker) => handle_worker_rip(queue, worker).await?,
 	}
 	Ok(())
@@ -502,7 +503,7 @@ mod tests {
 
 	async fn run_until<R>(
 		task: &mut (impl Future<Output = ()> + Unpin),
-		mut fut: (impl Future<Output = R> + Unpin),
+		mut fut: impl Future<Output = R> + Unpin,
 	) -> R {
 		let start = std::time::Instant::now();
 		let fut = &mut fut;

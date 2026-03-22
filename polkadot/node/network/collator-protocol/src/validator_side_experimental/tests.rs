@@ -46,10 +46,9 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, sender_receiver, TestSubsystemSender};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features::FeatureIndex, ApprovedPeerId, BlockNumber,
-	CandidateReceiptV2 as CandidateReceipt,
+	ApprovedPeerId, BlockNumber, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupRotationInfo, Hash,
-	HeadData, Header, Id as ParaId, MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption,
+	HeadData, Header, Id as ParaId, MutateDescriptorV2, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, SigningContext, UMPSignal, ValidatorId, ValidatorIndex,
 	UMP_SEPARATOR,
 };
@@ -109,7 +108,10 @@ fn dummy_candidate(
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
 
-	(ccr, Advertisement { peer_id, para_id, relay_parent, prospective_candidate })
+	(
+		ccr,
+		Advertisement { peer_id, para_id, scheduling_parent: relay_parent, prospective_candidate },
+	)
 }
 
 #[derive(Clone)]
@@ -126,7 +128,6 @@ struct SessionInfo {
 	validators: Vec<ValidatorId>,
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
-	v2_receipts: bool,
 	scheduling_lookahead: u32,
 	paras: Vec<ParaId>,
 }
@@ -230,7 +231,6 @@ impl Default for TestState {
 				validators,
 				validator_groups,
 				group_rotation_info,
-				v2_receipts: true,
 				scheduling_lookahead: 3,
 				paras: vec![100.into(), 200.into(), 600.into()],
 			},
@@ -329,12 +329,13 @@ impl TestState {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
-				None =>
+				None => {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
 						break None;
-					},
+					}
+				},
 			};
 
 			match msg {
@@ -353,29 +354,23 @@ impl TestState {
 					)))
 					.unwrap();
 				},
-				AllMessages::ProspectiveParachains(
-					ProspectiveParachainsMessage::GetMinimumRelayParents(rp, tx),
-				) => {
-					assert!(active_leaves.contains(&rp));
-					let rp_info = self.rp_info.get(&rp).unwrap();
-					let session_info = self.session_info.get(&rp_info.session_index).unwrap();
-					tx.send(
-						rp_info
-							.claim_queue
-							.get(&rp_info.assigned_core)
-							.unwrap()
-							.iter()
-							.map(|para| {
-								(
-									*para,
-									rp_info
-										.number
-										.saturating_sub(session_info.scheduling_lookahead - 1),
-								)
-							})
-							.collect(),
-					)
-					.unwrap();
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_rp,
+					RuntimeApiRequest::SchedulingLookahead(session_index, tx),
+				)) => {
+					let session_info = self.session_info.get(&session_index).unwrap();
+					tx.send(Ok(session_info.scheduling_lookahead)).unwrap();
+				},
+				AllMessages::ChainApi(ChainApiMessage::Ancestors { hash, k, response_channel }) => {
+					let rp_info = self.rp_info.get(&hash).unwrap();
+					let ancestors: Vec<Hash> = (1..=k as u32)
+						.map(|i| rp_info.number.saturating_sub(i))
+						.take_while(|n| *n > 0)
+						.filter_map(|n| {
+							self.rp_info.iter().find(|(_, info)| info.number == n).map(|(h, _)| *h)
+						})
+						.collect();
+					response_channel.send(Ok(ancestors)).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
@@ -405,19 +400,6 @@ impl TestState {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
-					RuntimeApiRequest::NodeFeatures(s_index, tx),
-				)) => {
-					let session_index = self.rp_info.get(&rp).unwrap().session_index;
-					assert_eq!(session_index, s_index);
-					let session_info = self.session_info.get(&session_index).unwrap();
-					let mut node_features = NodeFeatures::EMPTY;
-					node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
-					node_features
-						.set(FeatureIndex::CandidateReceiptV2 as usize, session_info.v2_receipts);
-					tx.send(Ok(node_features)).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					rp,
 					RuntimeApiRequest::ClaimQueue(tx),
 				)) => {
 					let rp_info = self.rp_info.get(&rp).unwrap();
@@ -430,12 +412,13 @@ impl TestState {
 						.collect()))
 						.unwrap();
 				},
-				other =>
+				other => {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
 						break Some(other);
-					},
+					}
+				},
 			};
 		};
 
@@ -492,12 +475,13 @@ impl TestState {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
-				None =>
+				None => {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
 						break None;
-					},
+					}
+				},
 			};
 
 			match msg {
@@ -539,12 +523,13 @@ impl TestState {
 						.collect();
 					tx.send(Ok(candidates)).unwrap();
 				},
-				other =>
+				other => {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
 						break Some(other);
-					},
+					}
+				},
 			};
 		};
 
@@ -590,7 +575,7 @@ impl TestState {
 			state.handle_advertisement(
 				&mut sender,
 				adv.peer_id,
-				adv.relay_parent,
+				adv.scheduling_parent,
 				adv.prospective_candidate
 			),
 			async move {
@@ -634,7 +619,7 @@ impl TestState {
 							let adv = advertisements.iter().find(|adv| {
 								if let Some(ProspectiveCandidate { candidate_hash, .. }) = adv.prospective_candidate {
 									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
-										req.payload.relay_parent == adv.relay_parent &&
+										req.payload.scheduling_parent == adv.scheduling_parent &&
 										req.payload.para_id == adv.para_id &&
 										req.payload.candidate_hash == candidate_hash
 								} else {
@@ -652,7 +637,7 @@ impl TestState {
 							let adv = advertisements.iter().find(|adv| {
 								adv.prospective_candidate.is_none() &&
 									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
-									req.payload.relay_parent == adv.relay_parent &&
+									req.payload.scheduling_parent == adv.scheduling_parent &&
 									req.payload.para_id == adv.para_id
 
 							}).copied().unwrap();
@@ -679,7 +664,7 @@ impl TestState {
 		if let Some(prospective_candidate) = adv.prospective_candidate {
 			let expected_req = CanSecondRequest {
 				candidate_para_id: adv.para_id,
-				candidate_relay_parent: adv.relay_parent,
+				candidate_scheduling_parent: adv.scheduling_parent,
 				candidate_hash: prospective_candidate.candidate_hash,
 				parent_head_data_hash: prospective_candidate.parent_head_data_hash,
 			};
@@ -722,7 +707,7 @@ impl TestState {
 					}, tx)
 				) => {
 					assert_eq!(para_id, adv.para_id);
-					assert_eq!(candidate_relay_parent, adv.relay_parent);
+					assert_eq!(candidate_relay_parent, adv.scheduling_parent);
 
 					assert!(
 						matches!(
@@ -750,7 +735,7 @@ impl TestState {
 					)
 				)) => {
 					assert_eq!(para_id, adv.para_id);
-					assert_eq!(rp, adv.relay_parent);
+					assert_eq!(rp, adv.scheduling_parent);
 					tx.send(Ok(pvd)).unwrap();
 				}
 			);
@@ -771,10 +756,11 @@ impl TestState {
 		assert_matches!(
 			msg,
 			AllMessages::CandidateBacking(
-				CandidateBackingMessage::Second(rp, receipt, pvd, pov)
+				CandidateBackingMessage::Second { scheduling_parent, candidate, pvd, pov }
 			) => {
-				assert_eq!(rp, receipt.descriptor.relay_parent());
-				assert_eq!(receipt, expected_receipt);
+				// TODO: This should use scheduling_parent(): https://github.com/paritytech/polkadot-sdk/issues/11084
+				assert_eq!(scheduling_parent, candidate.descriptor.relay_parent());
+				assert_eq!(candidate, expected_receipt);
 				assert_eq!(pvd, expected_pvd);
 				assert_eq!(pov, expected_pov);
 			}
@@ -846,6 +832,10 @@ impl TestState {
 								assert_eq!(statement, stmt);
 							}
 						);
+					},
+					CollationVersion::V3 => {
+						// TODO: https://github.com/paritytech/polkadot-sdk/issues/11084
+						panic!("CollationVersion::V3 is not yet supported in tests");
 					}
 				};
 			}
@@ -969,14 +959,10 @@ struct MockDb {
 }
 
 impl Default for MockDb {
+	/// Create an instance where all peers have a score that allows instant fetching.
 	fn default() -> Self {
-		let query_fn = |_peer_id, _para_id| None;
-		Self {
-			finalized: Default::default(),
-			witnessed_bumps: Default::default(),
-			witnessed_slash: Default::default(),
-			query_fn: Arc::new(Mutex::new(query_fn)),
-		}
+		let query_fn = |_peer_id, _para_id| Some(Score::new(VALID_INCLUDED_CANDIDATE_BUMP));
+		Self::new(Arc::new(Mutex::new(query_fn)))
 	}
 }
 
@@ -1730,9 +1716,7 @@ async fn finalized_block_notification() {
 	let mut expected_bumps = BTreeMap::new();
 	expected_bumps.insert(
 		ParaId::new(100),
-		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap())]
-			.into_iter()
-			.collect(),
+		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP))].into_iter().collect(),
 	);
 
 	futures::join!(test_state.handle_finalized_block(6), async {
@@ -1768,8 +1752,8 @@ async fn finalized_block_notification() {
 	expected_bumps.insert(
 		ParaId::new(100),
 		[
-			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
-			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
 		]
 		.into_iter()
 		.collect(),
@@ -1777,8 +1761,8 @@ async fn finalized_block_notification() {
 	expected_bumps.insert(
 		ParaId::new(200),
 		[
-			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
-			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP)),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
 		]
 		.into_iter()
 		.collect(),
@@ -1874,7 +1858,7 @@ async fn test_advertisement_rejections() {
 	let adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
-		relay_parent: active_leaf,
+		scheduling_parent: active_leaf,
 		prospective_candidate,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -1990,7 +1974,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2016,7 +2000,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate: if version == CollationVersion::V2 {
 				prospective_candidate
 			} else {
@@ -2049,7 +2033,7 @@ async fn test_collation_fetch_failure() {
 		let mut adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2062,7 +2046,7 @@ async fn test_collation_fetch_failure() {
 		test_state.assert_collation_request(adv).await;
 
 		// Modify the relay parent.
-		adv.relay_parent = get_hash(8);
+		adv.scheduling_parent = get_hash(8);
 		let res = Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov()));
 		state.handle_fetched_collation(&mut sender, (adv, res)).await;
 		state.try_launch_new_fetch_requests(&mut sender).await;
@@ -2085,7 +2069,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2119,7 +2103,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2147,7 +2131,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate: None,
 		};
 
@@ -2186,7 +2170,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2229,7 +2213,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2267,7 +2251,7 @@ async fn test_collation_fetch_failure() {
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
-			relay_parent: active_leaf,
+			scheduling_parent: active_leaf,
 			prospective_candidate,
 		};
 
@@ -2376,61 +2360,17 @@ async fn test_collation_response_out_of_view() {
 	assert!(db.witnessed_slash().is_none());
 }
 
-#[tokio::test]
-// Test that v2 candidates are rejected if the node feature is disabled.
-async fn test_v2_descriptor_without_feature_enabled() {
-	let mut test_state = TestState::default();
-	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-	// Clear the node feature.
-	test_state.session_info.get_mut(&leaf_info.session_index).unwrap().v2_receipts = false;
-
-	let db = MockDb::default();
-	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
-	let mut sender = test_state.sender.clone();
-
-	let peer_id = PeerId::random();
-
-	// Build a v2 candidate.
-	let (ccr, adv) = dummy_candidate(
-		active_leaf,
-		100.into(),
-		peer_id,
-		leaf_info.assigned_core,
-		leaf_info.session_index,
-		dummy_pvd().hash(),
-	);
-
-	let receipt = ccr.to_plain();
-
-	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
-	state.handle_declare(&mut sender, peer_id, 100.into()).await;
-
-	test_state.handle_advertisement(&mut state, adv).await;
-
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_collation_request(adv).await;
-
-	let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
-	state.handle_fetched_collation(&mut sender, (adv, res)).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
-	test_state.assert_no_messages().await;
-}
+// TODO(https://github.com/paritytech/polkadot-sdk/issues/10883?issue=paritytech%7Cpolkadot-sdk%7C11084): Add
+// test for V3 descriptor validation. The previous test_v2_descriptor_without_feature_enabled was
+// removed because V2 is now always enabled. The v3_enabled parameter has been removed from
+// descriptor methods.
 
 #[rstest]
-#[case(true)]
-#[case(false)]
 #[tokio::test]
-// Test that we still accept v1 candidates regardless of whether the v2 descriptor node feature is
-// enabled or not
-async fn v1_descriptor_compatibility(#[case] v2_receipts: bool) {
+// Test that we accept v1 candidates.
+async fn v1_descriptor_compatibility() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-
-	// Set the node feature.
-	test_state.session_info.get_mut(&leaf_info.session_index).unwrap().v2_receipts = v2_receipts;
 
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
@@ -2452,7 +2392,7 @@ async fn v1_descriptor_compatibility(#[case] v2_receipts: bool) {
 	let adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
-		relay_parent: active_leaf,
+		scheduling_parent: active_leaf,
 		prospective_candidate,
 	};
 
@@ -2604,7 +2544,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			Advertisement {
 				peer_id: first_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -2643,7 +2583,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			Advertisement {
 				peer_id: second_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -2842,7 +2782,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			Advertisement {
 				peer_id: first_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -2881,7 +2821,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			Advertisement {
 				peer_id: second_peer,
 				para_id,
-				relay_parent: active_leaf,
+				scheduling_parent: active_leaf,
 				prospective_candidate,
 			},
 		)
@@ -3134,7 +3074,7 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 
 	let db = MockDb::new(Arc::new(Mutex::new(move |peer_id, _para_id| {
 		if peer_id == first_peer {
-			Some(Score::new(100).unwrap())
+			Some(Score::new(100))
 		} else {
 			None
 		}

@@ -348,7 +348,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
-			Pre::Charge { fee, entity } =>
+			Pre::Charge { fee, entity } => {
 				if post_info.pays_fee == Pays::No {
 					Usages::<T>::mutate_exists(entity, |maybe_usage| {
 						if let Some(usage) = maybe_usage {
@@ -362,7 +362,8 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 					Ok(Weight::zero())
 				} else {
 					Ok(Weight::zero())
-				},
+				}
+			},
 			Pre::NoCharge { refund } => Ok(refund),
 		}
 	}

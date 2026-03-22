@@ -24,7 +24,6 @@ use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 mod basic;
 mod per_leaf;
 
-pub(crate) use basic::ClaimQueueState;
 pub(crate) use per_leaf::PerLeafClaimQueueState;
 
 /// Represents the state of a claim.
@@ -53,7 +52,9 @@ impl ClaimState {
 		match self {
 			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate)
 				if !known_candidates.contains(candidate) =>
-				ClaimState::Free,
+			{
+				ClaimState::Free
+			},
 			_ => self.clone(),
 		}
 	}
