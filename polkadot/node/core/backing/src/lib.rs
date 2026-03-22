@@ -2139,6 +2139,11 @@ async fn handle_second_message<Context>(
 			"Candidate backing was asked to second candidate with wrong PVD",
 		);
 
+		ctx.send_message(CollatorProtocolMessage::Invalid(
+			candidate.descriptor().scheduling_parent(),
+			candidate,
+		))
+		.await;
 		return Ok(());
 	}
 
@@ -2150,6 +2155,11 @@ async fn handle_second_message<Context>(
 			"Not seconding candidate: {}",
 			reason,
 		);
+		ctx.send_message(CollatorProtocolMessage::Invalid(
+			candidate.descriptor().scheduling_parent(),
+			candidate,
+		))
+		.await;
 		return Ok(());
 	}
 
