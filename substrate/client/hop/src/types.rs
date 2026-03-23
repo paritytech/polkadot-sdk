@@ -160,7 +160,7 @@ pub enum HopError {
 	#[error("I/O error: {0}")]
 	IoError(String),
 
-	#[error("Recipient already claimed")]
+	#[error("Recipient already acknowledged, data may have been deleted")]
 	AlreadyClaimed,
 }
 
