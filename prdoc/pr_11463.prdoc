@@ -1,0 +1,8 @@
+title: Report back when candidate is rejected.
+doc:
+- audience: Node Dev
+  description: We should tell the collator protocol when we reject a candidate, so
+    the collator can be punished accordingly.
+crates:
+- name: polkadot-node-core-backing
+  bump: major
