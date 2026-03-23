@@ -37,6 +37,20 @@ use std::{
 /// Defensive mechanism, corresponds to 12 cores at 6 second block time.
 const BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS: Duration = Duration::from_millis(500);
 
+/// Theoretically, the block production is capped at `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`.
+/// In practice, there might be slight deviations due to timing inaccuracies and delays.
+///
+/// This constant is taken into account while adjusting the authoring duration to fit into the slot.
+/// Therefore, it will only reduce the authoring duration if we are within the
+/// `BLOCK_PRODUCTION_ADJUSTMENT_MS` threshold of the next slot.
+///
+/// ### 12 cores 500ms blocks
+///
+/// For example, for 12 cores 500ms blocks: the next slot is scheduled in 490ms due to delays.
+/// In that case, we still want to attempt producing the block, as missing the slot would be worse
+/// than producing slightly too fast.
+const BLOCK_PRODUCTION_THRESHOLD_MS: Duration = Duration::from_millis(100);
+
 /// The amount of time the authoring duration of the last block production attempt
 /// should be reduced by to fit into the slot timing.
 const BLOCK_PRODUCTION_ADJUSTMENT_MS: Duration = Duration::from_millis(1000);
@@ -185,12 +199,16 @@ fn adjust_authoring_duration(
 	if different_authors && authoring_duration >= duration_until_deadline {
 		authoring_duration = duration_until_deadline;
 
-		// Ensure we are not going below the minimum block production interval.
-		// For 12+ cores at 500ms intervals with 1s buffer, the last 2 blocks
-		// in the slot are skipped:
-		// - Block 11: next slot change in 1.493s, deadline = 0.493s < 500ms → skip
-		// - Block 12: next slot change in 0.993s, deadline = 0 → skip
-		if authoring_duration < BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS {
+		// Ensure we are not going below the minimum interval within a reasonable threshold.
+		// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
+		// - Block 10: next slot change in 1.493s:
+		// 	 - After adjusting the deadline: 1.493s - 1s = 0.493s the block could be produced
+		//     without issues.
+		// - Block 11: next slot change in 0.993s - skipped by the deadline
+		// - Block 12: next slot change in 0.493s - skipped by the deadline
+		if authoring_duration <
+			BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
+		{
 			tracing::debug!(
 				target: LOG_TARGET,
 				?authoring_duration,
@@ -336,6 +354,12 @@ where
 			);
 			return Some(authoring_duration);
 		};
+
+		// Cap the remaining time at the slot duration. Arriving early (before the
+		// effective slot boundary) does not extend the slot. We never have more
+		// than one slot's worth of time to prduce blocks (6 seconds).
+		let next_slot_change =
+			(next_slot_change.0.min(slot_duration.as_duration()), next_slot_change.1);
 
 		if next_slot_change.0 == Duration::ZERO {
 			tracing::warn!(
@@ -570,13 +594,13 @@ mod tests {
 		Slot::from(1), // Effective slot
 		Some(Duration::from_millis(950)), // Expected
 	)]
-	#[case::blocks_2s_reduce_below_minimum_at_400ms(
+	#[case::blocks_2s_reduce_to_minimum(
 		Duration::from_millis(2000), // Authoring duration
 		(Duration::from_millis(1400), Slot::from(1)), // Next block
 		(Duration::from_millis(1400), Slot::from(2)), // Next slot change
 		true, // Different authors
 		Slot::from(1), // Effective slot
-		None, // Expected: deadline=400ms < 500ms minimum → skip
+		Some(Duration::from_millis(400)), // Expected
 	)]
 	#[case::blocks_2s_reduce_below_minimum(
 		Duration::from_millis(2000), // Authoring duration
@@ -696,10 +720,10 @@ mod tests {
 		true,                         // different_authors
 		Some(Duration::from_millis(2000)),
 	)]
-	// relay_parent_offset = 1, fresh relay parent: extended deadline.
+	// relay_parent_offset = 1, fresh relay parent: capped to slot duration.
 	// Wall clock at 31000ms, effective_slot=6.
-	// Next slot change: 42000-31000 = 11000ms, deadline = 10000ms.
-	// 2000ms < 10000ms → produce.
+	// Next slot change: 42000-31000 = 11000ms, capped to 6000ms, deadline = 5000ms.
+	// 2000ms < 5000ms → produce.
 	#[case::offset_1_fresh(
 		6000,
 		31000,
@@ -712,8 +736,8 @@ mod tests {
 	)]
 	// relay_parent_offset = 1 with wall clock near end of current slot.
 	// Wall clock at 35500ms (near slot 5 boundary at 36000ms), effective_slot=6.
-	// Next slot change: 42000-35500 = 6500ms, deadline = 5500ms.
-	// 2000ms < 5500ms → produce.
+	// Next slot change: 42000-35500 = 6500ms, capped to 6000ms, deadline = 5000ms.
+	// 2000ms < 5000ms → produce.
 	#[case::offset_1_near_boundary(
 		6000,
 		35500,
@@ -779,10 +803,10 @@ mod tests {
 		false,
 		Some(Duration::from_millis(2000)),
 	)]
-	// Large relay_parent_offset = 5, plenty of room.
+	// Large relay_parent_offset = 5, capped to slot duration.
 	// Wall clock at 31000ms, effective_slot=10.
-	// Next slot change: 66000-31000 = 35000ms, deadline = 34000ms.
-	// 2000ms < 34000ms → produce.
+	// Next slot change: 66000-31000 = 35000ms, capped to 6000ms, deadline = 5000ms.
+	// 2000ms < 5000ms → produce.
 	#[case::offset_5_large(
 		6000,
 		31000,
@@ -823,8 +847,8 @@ mod tests {
 	)]
 	// relay_parent_offset = 1 rescues from below-minimum case.
 	// Same wall clock at 34800ms, but effective_slot=6.
-	// Next slot change: 42000-34800 = 7200ms, deadline = 6200ms.
-	// 2000ms < 6200ms → produce.
+	// Next slot change: 42000-34800 = 7200ms, capped to 6000ms, deadline = 5000ms.
+	// 2000ms < 5000ms → produce.
 	#[case::offset_1_rescues_below_minimum(
 		6000,
 		34800,
@@ -862,6 +886,12 @@ mod tests {
 			effective_slot,
 		)
 		.expect("Should compute next slot change");
+
+		// Step 2b: Cap remaining time at slot duration (mirrors SlotTimer).
+		let next_slot_change = (
+			next_slot_change.0.min(slot_duration.as_duration()),
+			next_slot_change.1,
+		);
 
 		// Step 3: Call adjust_authoring_duration with computed values.
 		let result = adjust_authoring_duration(
@@ -941,7 +971,7 @@ mod tests {
 		}
 
 		// With offset=1: effective_slot=804, next_slot=805 at 4_830_000ms.
-		// remaining = 6491ms, deadline = 5491ms → correct APPROVE.
+		// remaining = 6491ms, capped to 6000ms, deadline = 5000ms → correct APPROVE.
 		{
 			let effective_slot = para_slot.saturating_add(Slot::from(1u64)); // offset=1
 			let next_slot_change = compute_time_until_next_slot_change(
@@ -952,6 +982,12 @@ mod tests {
 			)
 			.unwrap();
 			assert_eq!(next_slot_change.0.as_millis(), 6491);
+			// Cap at slot duration.
+			let next_slot_change = (
+				next_slot_change.0.min(slot_duration.as_duration()),
+				next_slot_change.1,
+			);
+			assert_eq!(next_slot_change.0.as_millis(), 6000);
 
 			let result = adjust_authoring_duration(
 				Duration::from_millis(500),
@@ -1015,6 +1051,187 @@ mod tests {
 				effective_slot,
 			);
 			assert_eq!(result, None, "offset=1 stale: correctly skipped");
+		}
+	}
+
+	/// Regression test reproducing the kusama yap-3392 log pattern.
+	///
+	/// Pre-fix behavior (no effective_slot, old 400ms threshold):
+	///   - First attempt at each relay parent: wrongful SKIP (490ms remaining, 1s buffer →
+	///     deadline=0)
+	///   - 11th block produced with deadline=492ms (passes old 400ms threshold)
+	///   - 12th block correctly skipped (deadline=0)
+	///
+	/// Post-fix behavior (effective_slot + 500ms threshold + slot duration cap):
+	///   - First attempt: APPROVE (effective_slot pushes deadline, capped to 6000ms)
+	///   - 10 blocks produced, last two correctly skipped (deadline < 500ms)
+	///
+	/// Actual kusama log values:
+	///   slot_duration=6000ms, 13 cores, relay_parent_offset=1
+	///   Slot 295637405 = para_slot from relay parent
+	///   First attempt: duration_until_next_slot=490.969359ms next_slot=Slot(295637406)
+	///   11th block: duration_until_next_slot=1.492010569s deadline=492.010569ms
+	///   12th attempt: duration_until_next_slot=991.923868ms deadline=0ns → skip
+	#[test]
+	fn test_kusama_yap_3392_block_production_pattern() {
+		sp_tracing::init_for_tests();
+
+		let slot_duration = SlotDuration::from_millis(6000);
+		// Slot 295637405 starts at 295637405 * 6000 = 1773824430000ms
+		// Slot 295637406 starts at 1773824436000ms
+		// Slot 295637407 starts at 1773824442000ms
+		let para_slot = Slot::from(295637405u64);
+
+		// Wall clock ~490ms before slot 295637406.
+		// In the old code: last_reported_slot = 295637405, next_slot = 295637406,
+		// duration_until_next_slot ≈ 491ms, deadline = 0 → wrongful skip.
+		let time_first_attempt = Duration::from_millis(1_773_824_435_509);
+		let next_block = (Duration::from_millis(491), Slot::from(295637406u64));
+
+		// --- Pre-fix (offset=0): wrongful SKIP on first attempt ---
+		{
+			let effective_slot = para_slot; // no offset
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_first_attempt,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			// ~491ms until slot 295637406
+			assert_eq!(next_slot_change.0.as_millis(), 491);
+			assert_eq!(next_slot_change.1, Slot::from(295637406u64));
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(2000),
+				next_block,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			assert_eq!(result, None, "Pre-fix: wrongful skip on first attempt");
+		}
+
+		// --- Post-fix (offset=1): first attempt correctly approved ---
+		{
+			let effective_slot = para_slot.saturating_add(Slot::from(1u64)); // 295637406
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_first_attempt,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			// ~6491ms until slot 295637407
+			assert_eq!(next_slot_change.0.as_millis(), 6491);
+			assert_eq!(next_slot_change.1, Slot::from(295637407u64));
+			// Cap at slot duration.
+			let next_slot_change = (
+				next_slot_change.0.min(slot_duration.as_duration()),
+				next_slot_change.1,
+			);
+			assert_eq!(next_slot_change.0.as_millis(), 6000);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(2000),
+				next_block,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			assert_eq!(
+				result,
+				Some(Duration::from_millis(491)),
+				"Post-fix: first attempt approved"
+			);
+		}
+
+		// --- 11th block attempt (with offset=1): ~1492ms until next slot ---
+		// Wall clock advanced ~5s from first attempt.
+		let time_11th = Duration::from_millis(1_773_824_440_508);
+		let next_block_11th = (Duration::from_millis(493), Slot::from(295637406u64));
+		{
+			let effective_slot = para_slot.saturating_add(Slot::from(1u64)); // 295637406
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_11th,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			// ~1492ms until slot 295637407
+			assert_eq!(next_slot_change.0.as_millis(), 1492);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(2000),
+				next_block_11th,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			// deadline = 1492 - 1000 = 492ms >= 400ms (minimum - threshold)
+			// → produced with the 100ms headroom.
+			assert_eq!(
+				result,
+				Some(Duration::from_millis(492)),
+				"11th block: deadline 492ms >= 400ms threshold → produce"
+			);
+		}
+
+		// --- 10th block attempt (with offset=1): ~1992ms until next slot ---
+		let time_10th = Duration::from_millis(1_773_824_440_008);
+		let next_block_10th = (Duration::from_millis(493), Slot::from(295637406u64));
+		{
+			let effective_slot = para_slot.saturating_add(Slot::from(1u64));
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_10th,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			// ~1992ms until slot 295637407
+			assert_eq!(next_slot_change.0.as_millis(), 1992);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(2000),
+				next_block_10th,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			// deadline = 1992 - 1000 = 992ms >= 500ms → produce.
+			assert_eq!(
+				result,
+				Some(Duration::from_millis(493)),
+				"10th block: deadline 992ms >= 500ms → produce"
+			);
+		}
+
+		// --- 12th block attempt (with offset=1): ~992ms until next slot ---
+		let time_12th = Duration::from_millis(1_773_824_441_008);
+		let next_block_12th = (Duration::from_millis(492), Slot::from(295637406u64));
+		{
+			let effective_slot = para_slot.saturating_add(Slot::from(1u64));
+			let next_slot_change = compute_time_until_next_slot_change(
+				slot_duration,
+				time_12th,
+				Duration::ZERO,
+				effective_slot,
+			)
+			.unwrap();
+			// ~992ms until slot 295637407
+			assert_eq!(next_slot_change.0.as_millis(), 992);
+
+			let result = adjust_authoring_duration(
+				Duration::from_millis(2000),
+				next_block_12th,
+				next_slot_change,
+				true,
+				effective_slot,
+			);
+			// deadline = 992 - 1000 = 0 → skip.
+			assert_eq!(result, None, "12th block: deadline 0 → skip");
 		}
 	}
 
