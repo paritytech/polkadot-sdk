@@ -32,7 +32,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
-use sp_runtime::{Permill, Saturating};
+use sp_runtime::{traits::Zero, Permill, Saturating};
 
 /// Offset for benchmark asset IDs, chosen to avoid collision with typical
 /// genesis asset IDs (e.g. stable asset ID = 1).
@@ -59,7 +59,9 @@ where
 	if !T::Fungibles::asset_exists(target_id) {
 		assert_ok!(T::Fungibles::create(target_id, admin.clone(), true, 1u32.into()));
 	}
-	let _ = T::StableAsset::create(admin, true, 1u32.into());
+	let min_balance: BalanceOf<T> = 1u32.into();
+	assert!(min_balance > BalanceOf::<T>::zero());
+	let _ = T::StableAsset::create(admin, true, min_balance);
 
 	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
 	for i in 0..n {
