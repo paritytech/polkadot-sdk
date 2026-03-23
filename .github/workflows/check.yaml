@@ -55,7 +55,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install zepter
-        run: cargo install zepter --locked
+        run: cargo install zepter@1.82.1 --locked
 
       - name: zepter run check
         run: zepter run check
