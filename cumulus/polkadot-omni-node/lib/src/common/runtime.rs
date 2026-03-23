@@ -179,19 +179,27 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	}
 }
 
-struct MetadataInspector(Metadata);
+struct MetadataInspector {
+	metadata: Metadata,
+	version: u32,
+}
 
 impl MetadataInspector {
 	fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
-		MetadataInspector::fetch_metadata(chain_spec).map(MetadataInspector)
+		let (metadata, version) = MetadataInspector::fetch_metadata(chain_spec)?;
+		Ok(MetadataInspector { metadata, version })
+	}
+
+	fn version(&self) -> u32 {
+		self.version
 	}
 
 	fn pallet_exists(&self, name: &str) -> bool {
-		self.0.pallet_by_name(name).is_some()
+		self.metadata.pallet_by_name(name).is_some()
 	}
 
 	fn block_number(&self) -> Option<BlockNumber> {
-		let pallet_metadata = self.0.pallet_by_name(DEFAULT_FRAME_SYSTEM_PALLET_NAME);
+		let pallet_metadata = self.metadata.pallet_by_name(DEFAULT_FRAME_SYSTEM_PALLET_NAME);
 		pallet_metadata
 			.and_then(|inner| inner.storage())
 			.and_then(|inner| inner.entry_by_name("Number"))
@@ -199,7 +207,7 @@ impl MetadataInspector {
 				StorageEntryType::Plain(ty_id) => Some(ty_id),
 				_ => None,
 			})
-			.and_then(|ty_id| self.0.types().resolve(*ty_id))
+			.and_then(|ty_id| self.metadata.types().resolve(*ty_id))
 			.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
 	}
 
@@ -208,7 +216,7 @@ impl MetadataInspector {
 			return None;
 		}
 
-		for portable_type in &self.0.types().types {
+		for portable_type in &self.metadata.types().types {
 			let path = &portable_type.ty.path;
 			let segments = &path.segments;
 
@@ -231,21 +239,32 @@ impl MetadataInspector {
 		None
 	}
 
-	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<Metadata, sc_cli::Error> {
+	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<(Metadata, u32), sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
 			.top
 			.remove(sp_storage::well_known_keys::CODE)
 			.ok_or("chain spec genesis does not contain code")?;
+		let executor = WasmExecutor::<ParachainHostFunctions>::builder()
+			.with_allow_missing_host_functions(true)
+			.build();
 		let opaque_metadata = fetch_latest_metadata_from_code_blob(
-			&WasmExecutor::<ParachainHostFunctions>::builder()
-				.with_allow_missing_host_functions(true)
-				.build(),
+			&executor,
 			sp_runtime::Cow::Borrowed(code_bytes.as_slice()),
 		)
 		.map_err(|err| err.to_string())?;
 
-		Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
+		let encoded = (*opaque_metadata).as_slice();
+		let metadata = Metadata::decode(&mut &encoded[..])
+			.map_err(|e| sc_cli::Error::Input(format!("failed to decode metadata: {e}").into()))?;
+
+		// Extract version from bytes.
+		// For Substrate metadata, the magic is 4 bytes (0x6174656d), followed by 
+		// the RuntimeMetadata enum. For modern versions (V14+), the variant 
+		// index in SCALE encoding corresponds to the version number.
+		let version = encoded.get(4).cloned().unwrap_or(0) as u32;
+
+		Ok((metadata, version))
 	}
 }
 
@@ -274,20 +293,23 @@ mod tests {
 
 	#[test]
 	fn test_pallet_exists() {
-		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		let metadata_inspector =
+			MetadataInspector { metadata: cumulus_test_runtime_metadata(), version: 14 };
 		assert!(metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME));
 		assert!(metadata_inspector.pallet_exists(DEFAULT_FRAME_SYSTEM_PALLET_NAME));
 	}
 
 	#[test]
 	fn test_runtime_block_number() {
-		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		let metadata_inspector =
+			MetadataInspector { metadata: cumulus_test_runtime_metadata(), version: 14 };
 		assert_eq!(metadata_inspector.block_number().unwrap(), BlockNumber::U32);
 	}
 
 	#[test]
 	fn test_aura_consensus_id() {
-		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		let metadata_inspector =
+			MetadataInspector { metadata: cumulus_test_runtime_metadata(), version: 14 };
 		// Verify that the function correctly detects sr25519 from metadata
 		let aura_id = metadata_inspector.aura_consensus_id();
 		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
@@ -316,6 +338,7 @@ mod tests {
 			.expect("invalid chain spec");
 
 		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
+		assert_eq!(inspector.version(), 15);
 		let aura_id = inspector.aura_consensus_id();
 		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
 	}
@@ -329,19 +352,21 @@ mod tests {
 			.expect("invalid chain spec");
 
 		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
+		assert_eq!(inspector.version(), 14);
 		let aura_id = inspector.aura_consensus_id();
 		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
 	}
 
 	#[test]
 	fn test_aura_consensus_id_asset_hub_polkadot() {
-		// Test with modern Asset Hub Polkadot metadata
+		// Test with Asset Hub Polkadot metadata
 		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 			.join("tests/chain-specs/asset-hub-polkadot.json");
 		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
 			.expect("invalid chain spec");
 
 		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
+		assert!(inspector.version() >= 14);
 		let aura_id = inspector.aura_consensus_id();
 
 		// Asset Hub Polkadot uses Ed25519 for Aura.
