@@ -4411,7 +4411,10 @@ fn version_acceptance_before_and_after_v3_activation_on_second() {
 				},
 			})
 			.await;
-		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(_, _))
+		);
 
 		// 2. V3 candidate: rejected (V3NotEnabled).
 		let v3_candidate = CommittedCandidateReceipt {
@@ -4443,7 +4446,10 @@ fn version_acceptance_before_and_after_v3_activation_on_second() {
 				},
 			})
 			.await;
-		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(_, _))
+		);
 
 		// --- Activate V3 ---
 		activate_v3_via_block_finalized(&mut virtual_overseer).await;
@@ -4461,7 +4467,10 @@ fn version_acceptance_before_and_after_v3_activation_on_second() {
 				},
 			})
 			.await;
-		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(_, _))
+		);
 
 		// 4. V3 candidate: NOW ACCEPTED — passes check_version_acceptance.
 		// It proceeds past the version check into the normal seconding flow.
