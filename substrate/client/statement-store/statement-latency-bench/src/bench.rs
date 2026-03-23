@@ -39,7 +39,7 @@ use jsonrpsee::{
 };
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
-use sp_core::{Bytes, ConstU32, blake2_256, bounded_vec::BoundedVec};
+use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use statement_latency_bench::{connect_to_endpoints, get_keypair};
 use std::{sync::Arc, time::Duration};
@@ -81,6 +81,65 @@ struct BenchArgs {
 	/// Statement expiry time in milliseconds (default: 10 minutes)
 	#[arg(long, default_value_t = 600_000)]
 	statement_expiry_ms: u64,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RoundStats {
+	round: usize,
+	send_duration_secs: f64,
+	receive_duration_secs: f64,
+	full_latency_secs: f64,
+	sent_count: u32,
+	received_count: u32,
+}
+
+struct Stats {
+	min: f64,
+	avg: f64,
+	max: f64,
+}
+
+fn parse_messages_pattern(pattern: &str) -> Result<Vec<(usize, usize)>, anyhow::Error> {
+	pattern
+		.split(',')
+		.map(|part| {
+			let part = part.trim();
+			let (count_str, size_str) = part
+				.split_once(':')
+				.ok_or_else(|| anyhow!("Invalid pattern '{part}'. Expected 'count:size'"))?;
+
+			let count = count_str
+				.parse::<usize>()
+				.with_context(|| format!("Invalid count '{count_str}' in pattern '{part}'"))?;
+			let size = size_str
+				.parse::<usize>()
+				.with_context(|| format!("Invalid size '{size_str}' in pattern '{part}'"))?;
+
+			Ok((count, size))
+		})
+		.collect()
+}
+
+fn messages_per_client(pattern: &[(usize, usize)]) -> usize {
+	pattern.iter().map(|(count, _)| count).sum()
+}
+
+fn calc_stats(values: impl Iterator<Item = f64>) -> Stats {
+	let values: Vec<_> = values.collect();
+	let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+	let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+	let avg = values.iter().sum::<f64>() / values.len() as f64;
+	Stats { min, avg, max }
+}
+
+fn is_leader(client_id: u32) -> bool {
+	client_id == 0
+}
+
+fn generate_topic(test_run_id: u64, client_id: u32, round: usize, msg_idx: u32) -> [u8; 32] {
+	let topic_str = format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
+	blake2_256(topic_str.as_bytes())
 }
 
 struct ClientConfig {
@@ -401,62 +460,4 @@ fn print_statistics(stats: &[RoundStats]) {
 		receive_stats.min, receive_stats.avg, receive_stats.max,
 		latency_stats.min, latency_stats.avg, latency_stats.max
 	);
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RoundStats {
-	round: usize,
-	send_duration_secs: f64,
-	receive_duration_secs: f64,
-	full_latency_secs: f64,
-	sent_count: u32,
-	received_count: u32,
-}
-
-struct Stats {
-	min: f64,
-	avg: f64,
-	max: f64,
-}
-
-fn parse_messages_pattern(pattern: &str) -> Result<Vec<(usize, usize)>, anyhow::Error> {
-	pattern
-		.split(',')
-		.map(|part| {
-			let part = part.trim();
-			let (count_str, size_str) = part
-				.split_once(':')
-				.ok_or_else(|| anyhow!("Invalid pattern '{part}'. Expected 'count:size'"))?;
-
-			let count = count_str
-				.parse::<usize>()
-				.with_context(|| format!("Invalid count '{count_str}' in pattern '{part}'"))?;
-			let size = size_str
-				.parse::<usize>()
-				.with_context(|| format!("Invalid size '{size_str}' in pattern '{part}'"))?;
-
-			Ok((count, size))
-		})
-		.collect()
-}
-
-fn messages_per_client(pattern: &[(usize, usize)]) -> usize {
-	pattern.iter().map(|(count, _)| count).sum()
-}
-
-fn calc_stats(values: impl Iterator<Item = f64>) -> Stats {
-	let values: Vec<_> = values.collect();
-	let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-	let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-	let avg = values.iter().sum::<f64>() / values.len() as f64;
-	Stats { min, avg, max }
-}
-
-fn is_leader(client_id: u32) -> bool {
-	client_id == 0
-}
-
-fn generate_topic(test_run_id: u64, client_id: u32, round: usize, msg_idx: u32) -> [u8; 32] {
-	let topic_str = format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
-	blake2_256(topic_str.as_bytes())
 }

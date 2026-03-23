@@ -20,20 +20,20 @@
 //! via `Sudo(batch_all(set_storage(...)))`. Run once before repeatedly invoking
 //! `statement-latency-bench`.
 
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use codec::Encode;
 use jsonrpsee::{core::client::ClientT, rpc_params, ws_client::WsClientBuilder};
 use log::{debug, info};
 use sp_core::Pair;
-use sp_statement_store::{StatementAllowance, statement_allowance_key};
-use statement_latency_bench::{CustomConfig, get_keypair};
+use sp_statement_store::{statement_allowance_key, StatementAllowance};
+use statement_latency_bench::{get_keypair, CustomConfig};
 use std::str::FromStr;
 use subxt::{
+	ext::scale_value::{value, Value},
 	OnlineClient,
-	ext::scale_value::{Value, value},
 };
-use subxt_signer::{SecretUri, sr25519::Keypair as SubxtKeypair};
+use subxt_signer::{sr25519::Keypair as SubxtKeypair, SecretUri};
 
 #[derive(Parser, Debug)]
 #[command(name = "setup-allowances")]

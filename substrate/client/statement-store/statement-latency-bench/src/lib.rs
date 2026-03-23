@@ -23,16 +23,16 @@ use anyhow::Context;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use log::debug;
 use scale_info::PortableRegistry;
-use sp_core::{Pair, sr25519};
+use sp_core::{sr25519, Pair};
 use std::sync::Arc;
 use subxt::{
 	config::{
-		ClientState, Config, TransactionExtension,
 		substrate::SubstrateConfig,
 		transaction_extensions::{
 			ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
 			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, VerifySignature,
 		},
+		ClientState, Config, TransactionExtension,
 	},
 	ext::frame_decode,
 };
