@@ -19,7 +19,6 @@ jobs:
     runs-on: [self-hosted, fireactions-heavy]
     env:
       RUSTFLAGS: -Cdebug-assertions=y
-      SKIP_WASM_BUILD: 1
 
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE

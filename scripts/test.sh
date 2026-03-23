@@ -2,10 +2,8 @@
 set -euo pipefail
 
 export RUSTFLAGS="${RUSTFLAGS:--Cdebug-assertions=y}"
-export SKIP_WASM_BUILD=1
 
 echo "RUSTFLAGS=${RUSTFLAGS}"
-echo "SKIP_WASM_BUILD=${SKIP_WASM_BUILD}"
 echo
 
 cargo nextest run --release --workspace --no-fail-fast \
