@@ -108,9 +108,9 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
 	log::info!("Session boundaries passed");
 
-	// Check that all parachains produce at least 2/3 blocks within 16 RC blocks (since core is
-	// shared between all paras)
-	log::info!("Checking parachain block production (all paras registered at genesis)");
+	// Check that all parachains produce at least 2/3 blocks within 16 RC blocks
+	// (since core 0 is shared between all paras)
+	log::info!("Checking parachain block production");
 	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..6));
 	assert_para_throughput(&relay_client, 16, para_throughput).await?;
 	log::info!("All parachains producing blocks");
@@ -133,7 +133,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	//  collator-2003 (30s): same batch as 2002, max 1 slot-cycle lag (24s) + margin.
 
 	log::info!("Checks parachains block production...");
-	let para_timeout = vec![(2000, 180), (2001, 30), (2002, 90), (2003, 30)];
+	let para_timeout = vec![(2000, 120), (2001, 30), (2002, 90), (2003, 30)];
 	for (para_id, timeout) in para_timeout {
 		let node = network.get_node(format!("collator-{para_id}"))?;
 		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED_METRIC, |v| v >= 6.0, timeout as u64)
