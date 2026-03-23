@@ -334,6 +334,22 @@ impl Client {
 				Ok(get_automine(&rpc_client).await)
 			},)?;
 
+		// Fall back to 0 when the hardcoded value exceeds the current best block (e.g. zombienet
+		// reusing a known chain ID) and backward sync is disabled.
+		if !is_archive {
+			if let Some(known) = known_first_evm_block_for_chain(chain_id) {
+				let best = block_provider.latest_block_number().await;
+				if known > best {
+					log::debug!(
+						target: LOG_TARGET,
+						"Hardcoded first EVM block {known} exceeds best block {best} \
+						 for chain {chain_id}, defaulting to 0"
+					);
+					receipt_provider.set_first_evm_block(0).await?;
+				}
+			}
+		}
+
 		let client = Self {
 			api,
 			rpc_client,
