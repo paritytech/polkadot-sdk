@@ -4234,8 +4234,11 @@ fn ambiguous_candidate_rejected_on_second() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		// The candidate should be silently rejected — no validation work issued.
-		assert_matches!(virtual_overseer.recv().timeout(Duration::from_secs(1)).await, None);
+		// The candidate should be rejected and reported as invalid to collator protocol.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(_, _))
+		);
 
 		virtual_overseer
 	});
