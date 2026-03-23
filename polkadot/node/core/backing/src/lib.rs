@@ -246,7 +246,7 @@ struct PerSchedulingParentState {
 struct PerCandidateState {
 	persisted_validation_data: PersistedValidationData,
 	seconded_locally: bool,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 }
 
 /// A cache for storing data per-session to reduce repeated
@@ -450,6 +450,17 @@ struct State {
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
 	keystore: KeystorePtr,
+	/// Monotonic flag: set to `true` once a **finalized** block is observed whose
+	/// session has the `CandidateReceiptV3` node feature enabled. Once set, never
+	/// unset. Used for V3 gating checks in backing — if V3 was never seen, reject
+	/// V3 candidates and candidates where old/new version detection disagrees.
+	///
+	/// Backing uses finalized blocks (rather than any active leaf) to ensure that
+	/// new backers do not start producing V3 candidates before a supermajority of
+	/// validators (including approval checkers) are aware of the feature. Approval
+	/// and dispute validation use active leaves instead, so they always transition
+	/// *before* backing does — the safe direction.
+	v3_ever_seen: bool,
 }
 
 impl State {
@@ -464,6 +475,7 @@ impl State {
 			per_session_cache: PerSessionCache::default(),
 			background_validation_tx,
 			keystore,
+			v3_ever_seen: false,
 		}
 	}
 }
@@ -521,7 +533,11 @@ async fn run_iteration<Context>(
 							state,
 						).await?;
 					}
-					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {}
+					FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, _number)) => {
+						if !state.v3_ever_seen {
+							check_v3_on_finalized(&mut *ctx, state, hash).await?;
+						}
+					}
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
 						handle_communication(&mut *ctx, state, msg, metrics).await?;
@@ -750,7 +766,8 @@ async fn request_candidate_validation(
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
-	let relay_parent = candidate_receipt.descriptor.relay_parent();
+	// PVF execution uses this for pruning obsolete jobs - we need the scheduling parent here:
+	let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -760,9 +777,9 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecKind::BackingSystemParas(relay_parent)
+				PvfExecKind::BackingSystemParas(scheduling_parent)
 			} else {
-				PvfExecKind::Backing(relay_parent)
+				PvfExecKind::Backing(scheduling_parent)
 			},
 			response_sender: tx,
 		})
@@ -1000,7 +1017,7 @@ async fn handle_active_leaves_update<Context>(
 	// are known.
 	state
 		.per_candidate
-		.retain(|_, pc| state.per_scheduling_parent.contains_key(&pc.relay_parent));
+		.retain(|_, pc| state.per_scheduling_parent.contains_key(&pc.scheduling_parent));
 
 	// Get relay parents which might be fresh but might be known already
 	// that are explicit or implicit from the new active leaf.
@@ -1055,6 +1072,39 @@ async fn handle_active_leaves_update<Context>(
 		if let Some(per) = per {
 			state.per_scheduling_parent.insert(maybe_new, per);
 		}
+	}
+
+	Ok(())
+}
+
+/// Check whether the `CandidateReceiptV3` node feature is enabled at the session
+/// of the given finalized block. Sets `state.v3_ever_seen` if so.
+#[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
+async fn check_v3_on_finalized<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	finalized_hash: Hash,
+) -> Result<(), Error> {
+	let session_index = request_session_index_for_child(finalized_hash, ctx.sender())
+		.await
+		.await
+		.map_err(runtime::Error::from)?
+		.map_err(runtime::Error::from)?;
+
+	let node_features = state
+		.per_session_cache
+		.node_features(session_index, finalized_hash, ctx.sender())
+		.await
+		.map_err(runtime::Error::from)?;
+
+	if FeatureIndex::CandidateReceiptV3.is_set(&node_features) {
+		gum::info!(
+			target: LOG_TARGET,
+			?session_index,
+			"CandidateReceiptV3 node feature detected in finalized block, \
+		 enabling V3 candidate support",
+		);
+		state.v3_ever_seen = true;
 	}
 
 	Ok(())
@@ -1260,14 +1310,18 @@ async fn seconding_sanity_check<Context>(
 	let mut leaves_for_seconding = Vec::new();
 	let mut responses = FuturesOrdered::<BoxFuture<'_, Result<_, oneshot::Canceled>>>::new();
 
-	let candidate_relay_parent = hypothetical_candidate.relay_parent();
+	// Scheduling context: the scheduling parent determines which leaves this candidate
+	// can be seconded under (it must be in the allowed ancestry).
+	let candidate_scheduling_parent = hypothetical_candidate.scheduling_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for head in implicit_view.leaves() {
-		// Check that the candidate relay parent is allowed for para, skip the
-		// leaf otherwise.
+		// Check that the candidate scheduling parent is allowed under this leaf.
 		let allowed_parents_for_para = implicit_view.known_allowed_relay_parents_under(head);
-		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
+		if !allowed_parents_for_para
+			.unwrap_or_default()
+			.contains(&candidate_scheduling_parent)
+		{
 			continue;
 		}
 
@@ -1339,13 +1393,13 @@ async fn handle_can_second_request<Context>(
 	request: CanSecondRequest,
 	tx: oneshot::Sender<bool>,
 ) {
-	let relay_parent = request.candidate_scheduling_parent;
-	let response = if state.per_scheduling_parent.get(&relay_parent).is_some() {
+	let scheduling_parent = request.candidate_scheduling_parent;
+	let response = if state.per_scheduling_parent.get(&scheduling_parent).is_some() {
 		let hypothetical_candidate = HypotheticalCandidate::Incomplete {
 			candidate_hash: request.candidate_hash,
 			candidate_para: request.candidate_para_id,
 			parent_head_data_hash: request.parent_head_data_hash,
-			candidate_relay_parent: relay_parent,
+			candidate_scheduling_parent: scheduling_parent,
 		};
 
 		let result =
@@ -1380,8 +1434,7 @@ async fn get_executor_params(
 	sp_state: &PerSchedulingParentState,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 ) -> Result<Arc<ExecutorParams>, Error> {
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-	let session = descriptor.session_index(v3_enabled).unwrap_or(sp_state.session_index);
+	let session = descriptor.session_index().unwrap_or(sp_state.session_index);
 	per_session_cache
 		.executor_params(session, sp_state.parent, sender)
 		.await
@@ -1457,14 +1510,13 @@ async fn handle_validated_candidate_command<Context>(
 							let candidate_hash = candidate.hash();
 							gum::debug!(
 								target: LOG_TARGET,
-								relay_parent = ?candidate.descriptor().relay_parent(),
+								scheduling_parent = ?candidate.descriptor().scheduling_parent(),
 								?candidate_hash,
 								"Attempted to second candidate but was rejected by prospective parachains",
 							);
 
-							// Ensure the collator is reported.
 							ctx.send_message(CollatorProtocolMessage::Invalid(
-								candidate.descriptor().relay_parent(),
+								candidate.descriptor().scheduling_parent(),
 								candidate,
 							))
 							.await;
@@ -1663,7 +1715,8 @@ async fn import_statement<Context>(
 					persisted_validation_data: pvd.clone(),
 					// This is set after importing when seconding locally.
 					seconded_locally: false,
-					relay_parent: candidate.descriptor.relay_parent(),
+					// Scheduling context: used for cleanup against per_scheduling_parent.
+					scheduling_parent: candidate.descriptor.scheduling_parent(),
 				},
 			);
 		}
@@ -1856,8 +1909,7 @@ async fn kick_off_validation_work<Context>(
 		candidate_hash,
 		pov_hash: attesting.pov_hash,
 	};
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-	let scheduling_parent = attesting.candidate.descriptor().scheduling_parent(v3_enabled);
+	let scheduling_parent = attesting.candidate.descriptor().scheduling_parent();
 
 	background_validate_and_make_available(
 		ctx,
@@ -1907,6 +1959,19 @@ async fn maybe_validate_and_import<Context>(
 			"Not importing statement because the sender is disabled"
 		);
 		return Ok(());
+	}
+
+	// Version consistency + V3 gating for Seconded statements (shared logic).
+	if let StatementWithPVD::Seconded(receipt, _) = statement.payload() {
+		if let Err(reason) = receipt.descriptor.check_version_acceptance(state.v3_ever_seen) {
+			gum::debug!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				"Not importing Seconded statement: {}",
+				reason,
+			);
+			return Ok(());
+		}
 	}
 
 	let res = import_statement(ctx, sp_state, &mut state.per_candidate, &statement).await;
@@ -2032,8 +2097,7 @@ async fn validate_and_second<Context>(
 	);
 
 	let bg_sender = ctx.sender().clone();
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features);
-	let scheduling_parent = candidate.descriptor.scheduling_parent(v3_enabled);
+	let scheduling_parent = candidate.descriptor.scheduling_parent();
 	background_validate_and_make_available(
 		ctx,
 		sp_state,
@@ -2067,7 +2131,6 @@ async fn handle_second_message<Context>(
 	let _timer = metrics.time_process_second();
 
 	let candidate_hash = candidate.hash();
-	let relay_parent = candidate.descriptor().relay_parent();
 
 	if candidate.descriptor().persisted_validation_data_hash() != persisted_validation_data.hash() {
 		gum::warn!(
@@ -2079,25 +2142,19 @@ async fn handle_second_message<Context>(
 		return Ok(());
 	}
 
-	// First, determine v3_enabled by checking any available relay parent state
-	// (we need this to extract scheduling_parent correctly)
-	// Note: We use the relay parent for node feature detection, while later we use the scheduling
-	// parent. This is fine because:
-	//
-	// - We assume the node feature gets enabled and not disabled again.
-	// - The scheduling parent is never older than the relay parent.
-	//
-	// Thus if the feature was enabled at the relay parent, it will also be enabled at the
-	// scheduling parent. If it was not, it does not matter because then we have scheduling_parent
-	// == relay_parent.
-	let v3_enabled = state
-		.per_scheduling_parent
-		.get(&relay_parent)
-		.map(|sp_state| FeatureIndex::CandidateReceiptV3.is_set(&sp_state.node_features))
-		.unwrap_or(false);
+	// Version consistency + V3 gating (shared logic from primitives).
+	if let Err(reason) = candidate.descriptor().check_version_acceptance(state.v3_ever_seen) {
+		gum::debug!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			"Not seconding candidate: {}",
+			reason,
+		);
+		return Ok(());
+	}
 
 	// The signing context should use scheduling_parent (for V1/V2, this equals relay_parent)
-	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+	let scheduling_parent = candidate.descriptor().scheduling_parent();
 
 	// Look up the PerSchedulingParentState using scheduling_parent - this is where we'll sign
 	let sp_state = match state.per_scheduling_parent.get_mut(&scheduling_parent) {

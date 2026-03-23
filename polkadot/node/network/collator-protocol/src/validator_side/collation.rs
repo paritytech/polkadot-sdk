@@ -86,12 +86,10 @@ pub struct FetchedCollation {
 
 impl FetchedCollation {
 	/// Create a new `FetchedCollation` from a candidate receipt.
-	///
-	/// Requires `v3_enabled` to correctly extract the scheduling parent from V3 descriptors.
-	pub fn new(receipt: &CandidateReceipt<Hash>, v3_enabled: bool) -> Self {
+	pub fn new(receipt: &CandidateReceipt<Hash>) -> Self {
 		let descriptor = receipt.descriptor();
 		Self {
-			scheduling_parent: descriptor.scheduling_parent(v3_enabled),
+			scheduling_parent: descriptor.scheduling_parent(),
 			para_id: descriptor.para_id(),
 			candidate_hash: receipt.hash(),
 		}
@@ -103,6 +101,8 @@ impl FetchedCollation {
 pub struct PendingCollation {
 	/// Candidate's scheduling parent
 	pub scheduling_parent: Hash,
+	/// Candidate's relay parent
+	pub relay_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
@@ -147,6 +147,7 @@ impl PendingCollation {
 	/// For V3 protocol advertisements, pass `Some(version)` to track the advertised version.
 	pub fn new(
 		scheduling_parent: Hash,
+		relay_parent: Hash,
 		para_id: ParaId,
 		peer_id: &PeerId,
 		prospective_candidate: ProspectiveCandidate,
@@ -154,6 +155,7 @@ impl PendingCollation {
 	) -> Self {
 		Self {
 			scheduling_parent,
+			relay_parent,
 			para_id,
 			peer_id: *peer_id,
 			prospective_candidate,
@@ -180,7 +182,6 @@ pub fn fetched_collation_sanity_check(
 	fetched: &CandidateReceipt,
 	persisted_validation_data: &PersistedValidationData,
 	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
-	v3_enabled: bool,
 ) -> Result<(), SecondingError> {
 	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
 		return Err(SecondingError::PersistedValidationDataMismatch);
@@ -190,8 +191,12 @@ pub fn fetched_collation_sanity_check(
 		return Err(SecondingError::CandidateHashMismatch);
 	}
 
-	if advertised.scheduling_parent != fetched.descriptor.scheduling_parent(v3_enabled) {
+	if advertised.scheduling_parent != fetched.descriptor.scheduling_parent() {
 		return Err(SecondingError::SchedulingParentMismatch);
+	}
+
+	if advertised.relay_parent != fetched.descriptor.relay_parent() {
+		return Err(SecondingError::RelayParentMismatch);
 	}
 
 	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
@@ -201,7 +206,7 @@ pub fn fetched_collation_sanity_check(
 	// For V3 protocol advertisements, verify the fetched descriptor version matches the advertised
 	// one.
 	if let Some(advertised_version) = &advertised.advertised_descriptor_version {
-		let fetched_version = fetched.descriptor.version(v3_enabled);
+		let fetched_version = fetched.descriptor.version();
 		if advertised_version != &fetched_version {
 			return Err(SecondingError::DescriptorVersionMismatch(
 				*advertised_version,

@@ -16,7 +16,10 @@
 
 use std::{
 	collections::BTreeMap,
-	sync::atomic::{AtomicUsize, Ordering},
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc, Mutex,
+	},
 };
 
 use super::*;
@@ -32,8 +35,8 @@ use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
 	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
 	CommittedCandidateReceiptError, CoreIndex, CoreSelector, GroupIndex, HeadData, Id as ParaId,
-	MutateDescriptorV2, OccupiedCoreAssumption, SessionInfo, UMPSignal, UpwardMessage, ValidatorId,
-	DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
+	MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption, SessionInfo, UMPSignal,
+	UpwardMessage, ValidatorId, DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
@@ -416,20 +419,35 @@ fn check_does_not_match() {
 	executor::block_on(test_fut);
 }
 
+#[derive(Clone)]
 struct MockValidateCandidateBackend {
+	inner: Arc<Mutex<MockValidateCandidateBackendInner>>,
+}
+
+struct MockValidateCandidateBackendInner {
 	result_list: Vec<Result<WasmValidationResult, ValidationError>>,
 	num_times_called: usize,
 }
 
 impl MockValidateCandidateBackend {
 	fn with_hardcoded_result(result: Result<WasmValidationResult, ValidationError>) -> Self {
-		Self { result_list: vec![result], num_times_called: 0 }
+		Self {
+			inner: Arc::new(Mutex::new(MockValidateCandidateBackendInner {
+				result_list: vec![result],
+				num_times_called: 0,
+			})),
+		}
 	}
 
 	fn with_hardcoded_result_list(
 		result_list: Vec<Result<WasmValidationResult, ValidationError>>,
 	) -> Self {
-		Self { result_list, num_times_called: 0 }
+		Self {
+			inner: Arc::new(Mutex::new(MockValidateCandidateBackendInner {
+				result_list,
+				num_times_called: 0,
+			})),
+		}
 	}
 }
 
@@ -443,8 +461,9 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
-		let result = self.result_list[self.num_times_called].clone();
-		self.num_times_called += 1;
+		let mut inner = self.inner.lock().unwrap();
+		let result = inner.result_list[inner.num_times_called].clone();
+		inner.num_times_called += 1;
 
 		result
 	}
@@ -543,8 +562,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 	let _ = cq.insert(CoreIndex(0), vec![1.into(), 2.into()].into());
 	let _ = cq.insert(CoreIndex(1), vec![1.into(), 1.into()].into());
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let v = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data.clone(),
 		validation_code,
@@ -553,9 +571,11 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-		Some(ClaimQueueSnapshot(cq)),
 		false,
-		VALIDATION_CODE_BOMB_LIMIT,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: Some(ClaimQueueSnapshot(cq)),
+		},
 	))
 	.unwrap();
 
@@ -629,37 +649,13 @@ fn invalid_session_or_ump_signals() {
 	let mut candidate_receipt =
 		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	// Session index specified in CandidateDescriptor does not match expected session.
-	for exec_kind in
-		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
-	{
-		let err = executor::block_on(validate_candidate_exhaustive(
-			1,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt.clone(),
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			exec_kind,
-			&Default::default(),
-			Default::default(),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
-
-		assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
-	}
-
 	candidate_receipt.descriptor.set_session_index(1);
 
 	// Candidate has no assignments but a core selector.
 	for exec_kind in
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
 	{
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let result = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -668,9 +664,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Some(Default::default()),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: Some(ClaimQueueSnapshot::default()),
+			},
 		))
 		.unwrap();
 		assert_matches!(
@@ -683,8 +681,7 @@ fn invalid_session_or_ump_signals() {
 
 	// Validation doesn't fail for approvals and disputes, core/session index is not checked.
 	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
-		let v = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let v = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -693,9 +690,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Default::default(),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: None,
+			},
 		))
 		.unwrap();
 
@@ -717,8 +716,7 @@ fn invalid_session_or_ump_signals() {
 	for exec_kind in
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
 	{
-		let v = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let v = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -727,9 +725,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: Some(ClaimQueueSnapshot(cq.clone())),
+			},
 		))
 		.unwrap();
 
@@ -758,14 +758,13 @@ fn invalid_session_or_ump_signals() {
 
 	perform_basic_checks(&descriptor, validation_data.max_pov_size, &pov, &validation_code.hash())
 		.unwrap();
-	assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V1);
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V1);
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	for exec_kind in
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
 	{
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let result = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -774,9 +773,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Some(Default::default()),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: Some(ClaimQueueSnapshot::default()),
+			},
 		))
 		.unwrap();
 		assert_matches!(
@@ -789,8 +790,7 @@ fn invalid_session_or_ump_signals() {
 
 	// Validation doesn't fail for approvals and disputes, ump signals are not checked.
 	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
-		let v = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let v = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -799,9 +799,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Default::default(),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: None,
+			},
 		))
 		.unwrap();
 
@@ -840,8 +842,7 @@ fn invalid_session_or_ump_signals() {
 	for exec_kind in
 		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
 	{
-		let v = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let v = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -850,9 +851,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: Some(ClaimQueueSnapshot(cq.clone())),
+			},
 		))
 		.unwrap();
 
@@ -868,8 +871,7 @@ fn invalid_session_or_ump_signals() {
 
 	// Validation also doesn't fail for approvals and disputes.
 	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
-		let v = executor::block_on(validate_candidate_exhaustive(
-			1,
+		let v = executor::block_on(validate_candidate(
 			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 			validation_data.clone(),
 			validation_code.clone(),
@@ -878,9 +880,11 @@ fn invalid_session_or_ump_signals() {
 			ExecutorParams::default(),
 			exec_kind,
 			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
+			false,
+			PreValidationOutput {
+				validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+				claim_queue: None,
+			},
 		))
 		.unwrap();
 
@@ -895,26 +899,28 @@ fn invalid_session_or_ump_signals() {
 	}
 }
 
+/// V3 UMP signal enforcement: backing requires UMP signals for V3 candidates,
+/// approval/dispute skips the check entirely.
+///
+/// Loops through all exec kinds × (with signals, without signals) and verifies:
+/// - Backing + signals → Valid
+/// - Backing + no signals → Invalid(NoUMPSignalWithV3Descriptor)
+/// - Approval/Dispute + signals → Valid (check skipped)
+/// - Approval/Dispute + no signals → Valid (check skipped)
 #[test]
-/// Tests V3 candidate descriptor validation:
-/// - V3 descriptor with UMP signals and v3_enabled=true is valid
-/// - V3 descriptor without UMP signals and v3_enabled=true is invalid (NoUMPSignalWithV3Descriptor)
-/// - V3 descriptor with v3_enabled=false is invalid (UnknownVersion)
-fn v3_descriptor_validation() {
+fn v3_ump_signal_enforcement() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	// Create a V3 descriptor with scheduling_parent different from relay_parent
 	let relay_parent = dummy_hash();
 	let scheduling_parent = Hash::repeat_byte(0x42);
 	let descriptor = make_valid_candidate_descriptor_v3(
 		ParaId::from(1_u32),
 		relay_parent,
 		CoreIndex(0),
-		1, // session_index matching expected
+		1,
 		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
@@ -923,13 +929,10 @@ fn v3_descriptor_validation() {
 		scheduling_parent,
 	);
 
-	// Verify it's detected as V3 when v3_enabled=true
-	assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V3);
-	// When v3_enabled=false, V3 descriptors (with non-zero scheduling_parent) are detected as V1
-	assert_eq!(descriptor.version(false), CandidateDescriptorVersion::V1);
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V3);
 
-	// Validation result WITH UMP signals (required for V3)
-	let mut validation_result_with_signals = WasmValidationResult {
+	// Validation result WITH UMP signals (required for V3 in backing)
+	let mut result_with_signals = WasmValidationResult {
 		head_data: head_data.clone(),
 		new_validation_code: None,
 		upward_messages: Default::default(),
@@ -937,22 +940,13 @@ fn v3_descriptor_validation() {
 		processed_downward_messages: 0,
 		hrmp_watermark: 0,
 	};
-	validation_result_with_signals.upward_messages.force_push(UMP_SEPARATOR);
-	validation_result_with_signals
+	result_with_signals.upward_messages.force_push(UMP_SEPARATOR);
+	result_with_signals
 		.upward_messages
 		.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
 
-	let commitments_with_signals = CandidateCommitments {
-		head_data: validation_result_with_signals.head_data.clone(),
-		upward_messages: validation_result_with_signals.upward_messages.clone(),
-		horizontal_messages: validation_result_with_signals.horizontal_messages.clone(),
-		new_validation_code: validation_result_with_signals.new_validation_code.clone(),
-		processed_downward_messages: validation_result_with_signals.processed_downward_messages,
-		hrmp_watermark: validation_result_with_signals.hrmp_watermark,
-	};
-
 	// Validation result WITHOUT UMP signals
-	let validation_result_no_signals = WasmValidationResult {
+	let result_no_signals = WasmValidationResult {
 		head_data: head_data.clone(),
 		new_validation_code: None,
 		upward_messages: Default::default(),
@@ -961,215 +955,73 @@ fn v3_descriptor_validation() {
 		hrmp_watermark: 0,
 	};
 
-	let commitments_no_signals = CandidateCommitments {
-		head_data: validation_result_no_signals.head_data.clone(),
-		upward_messages: validation_result_no_signals.upward_messages.clone(),
-		horizontal_messages: validation_result_no_signals.horizontal_messages.clone(),
-		new_validation_code: validation_result_no_signals.new_validation_code.clone(),
-		processed_downward_messages: validation_result_no_signals.processed_downward_messages,
-		hrmp_watermark: validation_result_no_signals.hrmp_watermark,
-	};
-
-	// Setup claim queue with para assigned to core 0
 	let mut cq = BTreeMap::new();
 	let _ = cq.insert(CoreIndex(0), vec![ParaId::from(1_u32)].into());
 
-	// Test 1: V3 descriptor + UMP signals + v3_enabled=true => Valid
-	{
+	let all_exec_kinds = [
+		PvfExecKind::Backing(dummy_hash()),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		PvfExecKind::Approval,
+		PvfExecKind::Dispute,
+	];
+
+	for has_signals in [true, false] {
+		let validation_result =
+			if has_signals { result_with_signals.clone() } else { result_no_signals.clone() };
+		let commitments = CandidateCommitments {
+			head_data: validation_result.head_data.clone(),
+			upward_messages: validation_result.upward_messages.clone(),
+			horizontal_messages: validation_result.horizontal_messages.clone(),
+			new_validation_code: validation_result.new_validation_code.clone(),
+			processed_downward_messages: validation_result.processed_downward_messages,
+			hrmp_watermark: validation_result.hrmp_watermark,
+		};
 		let candidate_receipt = CandidateReceipt {
 			descriptor: descriptor.clone(),
-			commitments_hash: commitments_with_signals.hash(),
+			commitments_hash: commitments.hash(),
 		};
 
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_with_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
+		for exec_kind in &all_exec_kinds {
+			let is_backing =
+				matches!(exec_kind, PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_));
 
-		assert_matches!(result, ValidationResult::Valid(_, _));
-	}
-
-	// Test 2: V3 descriptor + NO UMP signals + v3_enabled=true => Invalid
-	// (NoUMPSignalWithV3Descriptor)
-	{
-		let candidate_receipt = CandidateReceipt {
-			descriptor: descriptor.clone(),
-			commitments_hash: commitments_no_signals.hash(),
-		};
-
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_no_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true, // v3_enabled
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
-
-		assert_matches!(
-			result,
-			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-				CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor
-			))
-		);
-	}
-
-	// Test 3: V3 descriptor + v3_enabled=false => Invalid (UMPSignalWithV1Descriptor)
-	// When v3_enabled=false, a V3 descriptor (with non-zero scheduling_parent) is detected as V1
-	{
-		let candidate_receipt = CandidateReceipt {
-			descriptor: descriptor.clone(),
-			commitments_hash: commitments_with_signals.hash(),
-		};
-
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_with_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			false, // v3_enabled=false: V3 descriptor detected as V1
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
-
-		// V3 detected as V1 when v3_enabled=false, rejected because V1 forbids UMP signals
-		assert_matches!(
-			result,
-			ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
-				CommittedCandidateReceiptError::UMPSignalWithV1Descriptor
-			))
-		);
-	}
-
-	// Test 4: V3 descriptor with scheduling_session_offset > 0, mismatched expected
-	// scheduling session => InvalidSessionIndex
-	{
-		let mut desc = descriptor.clone();
-		// session_index=1, offset=1 => scheduling_session=2
-		desc.set_scheduling_session_offset(1);
-
-		let candidate_receipt = CandidateReceipt {
-			descriptor: desc,
-			commitments_hash: commitments_with_signals.hash(),
-		};
-
-		// Pass expected_scheduling_session_index=1, but descriptor claims 2
-		let result = executor::block_on(validate_candidate_exhaustive(
-			1,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_with_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true,
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
-
-		assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
-	}
-
-	// Test 5: V3 descriptor with scheduling_session_offset > 0, correct expected
-	// scheduling session => Valid
-	{
-		let mut desc = descriptor.clone();
-		// session_index=1, offset=1 => scheduling_session=2
-		desc.set_scheduling_session_offset(1);
-
-		let candidate_receipt = CandidateReceipt {
-			descriptor: desc,
-			commitments_hash: commitments_with_signals.hash(),
-		};
-
-		// Pass expected_scheduling_session_index=2 matching descriptor's claim
-		let result = executor::block_on(validate_candidate_exhaustive(
-			2,
-			MockValidateCandidateBackend::with_hardcoded_result(Ok(
-				validation_result_with_signals.clone()
-			)),
-			validation_data.clone(),
-			validation_code.clone(),
-			candidate_receipt,
-			Arc::new(pov.clone()),
-			ExecutorParams::default(),
-			PvfExecKind::Backing(dummy_hash()),
-			&Default::default(),
-			Some(ClaimQueueSnapshot(cq.clone())),
-			true,
-			VALIDATION_CODE_BOMB_LIMIT,
-		))
-		.unwrap();
-
-		assert_matches!(result, ValidationResult::Valid(_, _));
-	}
-
-	// Test 6: Scheduling session check is skipped for approvals/disputes
-	{
-		let mut desc = descriptor.clone();
-		// session_index=1, offset=1 => scheduling_session=2, but expected=1
-		desc.set_scheduling_session_offset(1);
-
-		let candidate_receipt = CandidateReceipt {
-			descriptor: desc,
-			commitments_hash: commitments_with_signals.hash(),
-		};
-
-		for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
-			let result = executor::block_on(validate_candidate_exhaustive(
-				1, // mismatched, but should be ignored for non-backing
-				MockValidateCandidateBackend::with_hardcoded_result(Ok(
-					validation_result_with_signals.clone(),
-				)),
+			let result = executor::block_on(validate_candidate(
+				MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 				validation_data.clone(),
 				validation_code.clone(),
 				candidate_receipt.clone(),
 				Arc::new(pov.clone()),
 				ExecutorParams::default(),
-				exec_kind,
+				*exec_kind,
 				&Default::default(),
-				Some(ClaimQueueSnapshot(cq.clone())),
-				true,
-				VALIDATION_CODE_BOMB_LIMIT,
+				false,
+				PreValidationOutput {
+					validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+					claim_queue: if is_backing {
+						Some(ClaimQueueSnapshot(cq.clone()))
+					} else {
+						None
+					},
+				},
 			))
 			.unwrap();
 
-			assert_matches!(result, ValidationResult::Valid(_, _));
+			match (is_backing, has_signals) {
+				// Backing without signals → V3 requires them.
+				(true, false) => assert_matches!(
+					result,
+					ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(
+						CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor
+					)),
+					"Backing must reject V3 without UMP signals ({exec_kind:?})"
+				),
+				// All other combinations → valid.
+				_ => assert_matches!(
+					result,
+					ValidationResult::Valid(_, _),
+					"Expected Valid for exec_kind={exec_kind:?} has_signals={has_signals}"
+				),
+			}
 		}
 	}
 }
@@ -1203,8 +1055,7 @@ fn candidate_validation_bad_return_is_invalid() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let v = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -1215,9 +1066,11 @@ fn candidate_validation_bad_return_is_invalid() {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	))
 	.unwrap();
 
@@ -1288,8 +1141,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let v = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Ok(validation_result),
@@ -1301,9 +1153,11 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		ExecutorParams::default(),
 		PvfExecKind::Approval,
 		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	))
 	.unwrap();
 
@@ -1333,8 +1187,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let v = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
@@ -1346,9 +1199,11 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		ExecutorParams::default(),
 		PvfExecKind::Approval,
 		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	))
 	.unwrap();
 
@@ -1455,8 +1310,7 @@ fn candidate_validation_retry_on_error_helper(
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
-	return executor::block_on(validate_candidate_exhaustive(
-		1,
+	return executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result_list(mock_errors),
 		validation_data,
 		validation_code,
@@ -1465,9 +1319,11 @@ fn candidate_validation_retry_on_error_helper(
 		ExecutorParams::default(),
 		exec_kind,
 		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	));
 }
 
@@ -1500,8 +1356,7 @@ fn candidate_validation_timeout_is_internal_error() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let v = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -1512,9 +1367,11 @@ fn candidate_validation_timeout_is_internal_error() {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)));
@@ -1553,8 +1410,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		hrmp_watermark: 12345,
 	};
 
-	let result = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let result = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
@@ -1563,67 +1419,16 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	))
 	.unwrap();
 
 	// Ensure `post validation` check on the commitments hash works as expected.
 	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch));
-}
-
-#[test]
-fn candidate_validation_code_mismatch_is_invalid() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		ValidationCode(vec![1; 16]).hash(),
-		dummy_hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	)
-	.into();
-
-	let check = perform_basic_checks(
-		&descriptor,
-		validation_data.max_pov_size,
-		&pov,
-		&validation_code.hash(),
-	);
-	assert_matches!(check, Err(InvalidCandidate::CodeHashMismatch));
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let pool = TaskExecutor::new();
-	let (_ctx, _ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
-		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
-			WasmInvalidCandidate::HardTimeout,
-		))),
-		validation_data,
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecKind::Backing(dummy_hash()),
-		&Default::default(),
-		Default::default(),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
-	))
-	.unwrap();
-
-	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::CodeHashMismatch));
 }
 
 #[test]
@@ -1670,8 +1475,7 @@ fn compressed_code_works() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
-	let v = executor::block_on(validate_candidate_exhaustive(
-		1,
+	let v = executor::block_on(validate_candidate(
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
@@ -1680,9 +1484,11 @@ fn compressed_code_works() {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-		Some(Default::default()),
-		true, // v3_enabled
-		VALIDATION_CODE_BOMB_LIMIT,
+		false,
+		PreValidationOutput {
+			validation_code_bomb_limit: VALIDATION_CODE_BOMB_LIMIT,
+			claim_queue: None,
+		},
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
@@ -1983,6 +1789,15 @@ async fn assert_new_active_leaf_messages(
 			let _ = response_channel.send(Ok((0..(lookahead_value - 1)).into_iter().map(|i| Hash::from_low_u64_be(i as u64)).collect()));
 		}
 	);
+
+	// Second SessionIndexForChild — from handle_active_leaves_update's own
+	// get_session_index call (separate from the one in update_active_leaves_validation_backend).
+	assert_matches!(
+		recv_handle.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+			let _ = tx.send(Ok(expected_session_index));
+		}
+	);
 }
 
 #[test]
@@ -1994,13 +1809,20 @@ fn maybe_prepare_validation_golden_path() {
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState::default();
+	let mut state = State::default();
 
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
 	let test_fut = async move {
 		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
 
 		assert_matches!(
 			ctx_handle.recv().await,
@@ -2068,7 +1890,7 @@ fn maybe_prepare_validation_golden_path() {
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
-	assert!(state.is_next_session_authority);
+	assert!(state.pvf_prep.is_next_session_authority);
 }
 
 #[test]
@@ -2080,11 +1902,7 @@ fn maybe_prepare_validation_checkes_authority_once_per_session() {
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState {
-		session_index: Some(1),
-		is_next_session_authority: false,
-		..Default::default()
-	};
+	let mut state = State { session_index: Some(1), ..Default::default() };
 
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
@@ -2096,7 +1914,7 @@ fn maybe_prepare_validation_checkes_authority_once_per_session() {
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
-	assert!(!state.is_next_session_authority);
+	assert!(!state.pvf_prep.is_next_session_authority);
 }
 
 #[test]
@@ -2108,10 +1926,15 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState {
+	let mut state = State {
 		session_index: Some(1),
-		is_next_session_authority: true,
-		already_prepared_code_hashes: HashSet::from_iter(vec![ValidationCode(vec![0; 16]).hash()]),
+		pvf_prep: PvfPrepState {
+			is_next_session_authority: true,
+			already_prepared_code_hashes: HashSet::from_iter(vec![
+				ValidationCode(vec![0; 16]).hash()
+			]),
+			..Default::default()
+		},
 		..Default::default()
 	};
 
@@ -2120,6 +1943,13 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 
 	let test_fut = async move {
 		assert_new_active_leaf_messages(&mut ctx_handle, 2).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
 
 		assert_matches!(
 			ctx_handle.recv().await,
@@ -2142,8 +1972,8 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert_eq!(state.session_index.unwrap(), 2);
-	assert!(!state.is_next_session_authority);
-	assert!(state.already_prepared_code_hashes.is_empty());
+	assert!(!state.pvf_prep.is_next_session_authority);
+	assert!(state.pvf_prep.already_prepared_code_hashes.is_empty());
 }
 
 #[test]
@@ -2155,7 +1985,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_and_not_a_va
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState { session_index: Some(1), ..Default::default() };
+	let mut state = State { session_index: Some(1), ..Default::default() };
 
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
@@ -2167,7 +1997,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_and_not_a_va
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
-	assert!(!state.is_next_session_authority);
+	assert!(!state.pvf_prep.is_next_session_authority);
 }
 
 #[test]
@@ -2179,9 +2009,9 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState {
+	let mut state = State {
 		session_index: Some(1),
-		is_next_session_authority: true,
+		pvf_prep: PvfPrepState { is_next_session_authority: true, ..Default::default() },
 		..Default::default()
 	};
 
@@ -2242,7 +2072,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
-	assert!(state.is_next_session_authority);
+	assert!(state.pvf_prep.is_next_session_authority);
 }
 
 #[test]
@@ -2254,13 +2084,20 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState::default();
+	let mut state = State::default();
 
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
 	let test_fut = async move {
 		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
 
 		assert_matches!(
 			ctx_handle.recv().await,
@@ -2283,7 +2120,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
-	assert!(!state.is_next_session_authority);
+	assert!(!state.pvf_prep.is_next_session_authority);
 }
 
 #[test]
@@ -2295,13 +2132,20 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState::default();
+	let mut state = State::default();
 
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
 	let test_fut = async move {
 		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
 
 		assert_matches!(
 			ctx_handle.recv().await,
@@ -2324,7 +2168,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
-	assert!(!state.is_next_session_authority);
+	assert!(!state.pvf_prep.is_next_session_authority);
 }
 
 #[test]
@@ -2336,13 +2180,23 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState { per_block_limit: 2, ..Default::default() };
+	let mut state = State {
+		pvf_prep: PvfPrepState { per_block_limit: 2, ..Default::default() },
+		..Default::default()
+	};
 
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
 	let test_fut = async move {
 		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
 
 		assert_matches!(
 			ctx_handle.recv().await,
@@ -2417,8 +2271,8 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
-	assert!(state.is_next_session_authority);
-	assert_eq!(state.already_prepared_code_hashes.len(), 2);
+	assert!(state.pvf_prep.is_next_session_authority);
+	assert_eq!(state.pvf_prep.already_prepared_code_hashes.len(), 2);
 }
 
 #[test]
@@ -2430,14 +2284,17 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 	let mut backend = MockHeadsUp::default();
 	let activated_hash = Hash::random();
 	let update = dummy_active_leaves_update(activated_hash);
-	let mut state = PrepareValidationState {
+	let mut state = State {
 		session_index: Some(1),
-		is_next_session_authority: true,
-		per_block_limit: 2,
-		already_prepared_code_hashes: HashSet::from_iter(vec![
-			ValidationCode(vec![0; 16]).hash(),
-			ValidationCode(vec![1; 16]).hash(),
-		]),
+		pvf_prep: PvfPrepState {
+			is_next_session_authority: true,
+			per_block_limit: 2,
+			already_prepared_code_hashes: HashSet::from_iter(vec![
+				ValidationCode(vec![0; 16]).hash(),
+				ValidationCode(vec![1; 16]).hash(),
+			]),
+		},
+		..Default::default()
 	};
 
 	let check_fut =
@@ -2502,6 +2359,936 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
-	assert!(state.is_next_session_authority);
-	assert_eq!(state.already_prepared_code_hashes.len(), 3);
+	assert!(state.pvf_prep.is_next_session_authority);
+	assert_eq!(state.pvf_prep.already_prepared_code_hashes.len(), 3);
+}
+
+/// Verify that a V3 descriptor is interpreted differently depending on `v3_ever_seen`.
+///
+/// Before V3 activation: old rules apply — V3 descriptors appear as V1, so
+/// `scheduling_parent` falls back to `relay_parent`.
+///
+/// After V3 activation: new rules apply — V3 descriptors are correctly identified,
+/// so `scheduling_parent` returns the real scheduling parent from the descriptor.
+///
+/// Verify that `handle_active_leaves_update` correctly detects V3 node features on
+/// session changes and sets `v3_ever_seen` accordingly.
+///
+/// Scenario:
+/// 1. First leaf at session 1, V3 OFF → `v3_ever_seen` stays false
+/// 2. Second leaf at session 2, V3 ON → `v3_ever_seen` becomes true
+/// 3. Third leaf at session 2 (same session) → no re-check (monotonic flag)
+#[test]
+fn v3_feature_detected_on_session_change() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let mut backend = MockHeadsUp::default();
+	let mut state = State::default();
+
+	// --- Leaf 1: session 1, V3 feature NOT enabled ---
+	let leaf1_hash = Hash::repeat_byte(0x01);
+	let update1 = dummy_active_leaves_update(leaf1_hash);
+
+	let check_fut = handle_active_leaves_update(
+		ctx.sender(),
+		keystore.clone(),
+		&mut backend,
+		update1,
+		&mut state,
+	);
+
+	let test_fut = async move {
+		// Standard leaf activation messages
+		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		// NodeFeatures request — return EMPTY (no V3)
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, tx),
+			)) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
+
+		// Authorities (PVF prep) — return empty so we skip PVF prep
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::Authorities(tx),
+			)) => {
+				let _ = tx.send(Ok(vec![]));
+			}
+		);
+
+		// SessionInfo (check_next_session_authority always fetches this)
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionInfo(idx, tx),
+			)) => {
+				assert_eq!(idx, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![]))));
+			}
+		);
+
+		ctx_handle
+	};
+
+	let (test_fut, check_fut) = (test_fut, check_fut);
+	let (mut ctx_handle, _) = executor::block_on(future::join(test_fut, check_fut));
+
+	assert_eq!(state.session_index, Some(1));
+	assert!(!state.v3_ever_seen, "V3 should not be detected yet");
+
+	// --- Leaf 2: session 2, V3 feature ENABLED ---
+	let leaf2_hash = Hash::repeat_byte(0x02);
+	let update2 = dummy_active_leaves_update(leaf2_hash);
+
+	let check_fut = handle_active_leaves_update(
+		ctx.sender(),
+		keystore.clone(),
+		&mut backend,
+		update2,
+		&mut state,
+	);
+
+	let test_fut = async move {
+		assert_new_active_leaf_messages(&mut ctx_handle, 2).await;
+
+		// NodeFeatures request — return V3 ENABLED
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, tx),
+			)) => {
+				let mut features = NodeFeatures::new();
+				features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+				features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+				let _ = tx.send(Ok(features));
+			}
+		);
+
+		// Authorities + SessionInfo for PVF prep
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::Authorities(tx),
+			)) => {
+				let _ = tx.send(Ok(vec![]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionInfo(idx, tx),
+			)) => {
+				assert_eq!(idx, 2);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![]))));
+			}
+		);
+
+		ctx_handle
+	};
+
+	let (mut ctx_handle, _) = executor::block_on(future::join(test_fut, check_fut));
+
+	assert_eq!(state.session_index, Some(2));
+	assert!(state.v3_ever_seen, "V3 should be detected now");
+
+	// --- Leaf 3: same session 2, no new session → no V3 re-check ---
+	let leaf3_hash = Hash::repeat_byte(0x03);
+	let update3 = dummy_active_leaves_update(leaf3_hash);
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update3, &mut state);
+
+	let test_fut = async move {
+		// Same session — only the standard leaf messages, no NodeFeatures query
+		assert_new_active_leaf_messages(&mut ctx_handle, 2).await;
+	};
+
+	executor::block_on(future::join(test_fut, check_fut));
+
+	assert_eq!(state.session_index, Some(2));
+	assert!(state.v3_ever_seen, "V3 flag is monotonic — stays true");
+}
+
+// ============================================================================
+// Subsystem-level tests: exercise handle_validation_message end-to-end.
+//
+// These test the real message handling path with mocked runtime API responses,
+// ensuring pre-validation, PVF execution, and post-validation are wired
+// correctly.
+// ============================================================================
+
+/// Helper: respond to the runtime API calls made by `fetch_bomb_limit` for a
+/// V2 descriptor (which has an embedded session index, so no SessionIndexForChild
+/// call is needed — only ValidationCodeBombLimit).
+async fn mock_fetch_bomb_limit_v2(
+	ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
+	expected_scheduling_parent: Hash,
+	session_index: SessionIndex,
+) {
+	assert_matches!(
+		ctx_handle.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
+		)) => {
+			assert_eq!(parent, expected_scheduling_parent);
+			assert_eq!(session, session_index);
+			let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+		}
+	);
+}
+
+/// Scheduling session check: backing rejects when the descriptor's session
+/// doesn't match the runtime; approval/dispute skips the check entirely.
+///
+/// Uses a V2 descriptor with a deliberately wrong session_index=100 while the
+/// runtime reports session=1. Loops through all exec kinds to verify backing
+/// rejects and approval/dispute accepts.
+#[test]
+fn pre_validation_scheduling_session_check() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+	let scheduling_parent = dummy_hash();
+
+	// V2 descriptor with wrong session_index=100 (runtime will report 1).
+	let descriptor = make_valid_candidate_descriptor_v2(
+		ParaId::from(1_u32),
+		scheduling_parent,
+		CoreIndex(1),
+		100,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+	);
+
+	let validation_result = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	let all_exec_kinds = [
+		PvfExecKind::Backing(dummy_hash()),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		PvfExecKind::Approval,
+		PvfExecKind::Dispute,
+	];
+
+	for exec_kind in all_exec_kinds {
+		let is_backing =
+			matches!(exec_kind, PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_));
+
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind,
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			// fetch_bomb_limit: V2 descriptor has embedded session_index=100.
+			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 100).await;
+
+			if is_backing {
+				// Backing: SessionIndexForChild returns 1 (mismatch with 100).
+				assert_matches!(
+					ctx_handle.recv().await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_parent,
+						RuntimeApiRequest::SessionIndexForChild(tx),
+					)) => {
+						let _ = tx.send(Ok(1));
+					}
+				);
+				// Rejects before any further calls.
+			}
+			// Approval/dispute: no session check, PVF runs directly.
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		let result = executor::block_on(response_rx).unwrap().unwrap();
+		if is_backing {
+			assert_matches!(
+				result,
+				ValidationResult::Invalid(InvalidCandidate::InvalidSchedulingSession)
+			);
+		} else {
+			assert_matches!(result, ValidationResult::Valid(_, _));
+		}
+	}
+}
+
+/// V3 scheduling session offset mismatch: backing rejects when the computed scheduling session
+/// (session_index + offset) doesn't match the runtime. Uses `v3_ever_seen=true` — backing only
+/// sends V3 candidates after V3 is confirmed enabled.
+#[test]
+fn pre_validation_v3_scheduling_offset_mismatch() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let validation_code = ValidationCode(vec![2; 16]);
+	let scheduling_parent = Hash::repeat_byte(0xAA);
+
+	// V3 descriptor: session_index=1, offset=1 → scheduling_session=2
+	let mut descriptor = make_valid_candidate_descriptor_v3(
+		ParaId::from(1_u32),
+		dummy_hash(), // relay_parent
+		CoreIndex(0),
+		1, // session_index
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		dummy_hash(),
+		dummy_hash(), // erasure_root
+		scheduling_parent,
+	);
+	descriptor.set_scheduling_session_offset(1);
+
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
+
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+	let mock_backend =
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
+			head_data: HeadData(vec![1]),
+			new_validation_code: None,
+			upward_messages: Default::default(),
+			horizontal_messages: Default::default(),
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		}));
+
+	let (response_tx, response_rx) = oneshot::channel();
+
+	let task = handle_validation_message(
+		ctx.sender().clone(),
+		mock_backend,
+		Metrics::default(),
+		true, // v3_ever_seen=true → V3 descriptor fields are trusted
+		CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data: validation_data.clone(),
+			validation_code: validation_code.clone(),
+			candidate_receipt: candidate_receipt.clone(),
+			pov: Arc::new(pov.clone()),
+			executor_params: ExecutorParams::default(),
+			exec_kind: PvfExecKind::Backing(dummy_hash()),
+			response_sender: response_tx,
+		},
+	);
+
+	let test_fut = async move {
+		// With v3_ever_seen=true, fetch_bomb_limit uses the real scheduling_parent
+		// and scheduling_session=2 (session_index=1 + offset=1).
+		mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 2).await;
+		// Backing: get_session_index at scheduling_parent returns 1,
+		// but descriptor claims scheduling_session=2.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				assert_eq!(parent, scheduling_parent);
+				let _ = tx.send(Ok(1));
+			}
+		);
+	};
+
+	executor::block_on(future::join(test_fut, task));
+
+	assert_matches!(
+		executor::block_on(response_rx).unwrap(),
+		Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSchedulingSession))
+	);
+}
+
+/// Basic checks (PoV hash, code hash, PoV size) are caught during pre-validation
+/// before PVF execution, regardless of exec kind.
+#[test]
+fn pre_validation_basic_checks() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	// Each case: (descriptor, pov_override, expected_error)
+	let cases: Vec<(_, Option<PoV>, _)> = vec![
+		// Wrong PoV hash
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				dummy_hash(),
+				Hash::repeat_byte(0xFF), // wrong
+				validation_code.hash(),
+				dummy_hash(),
+				dummy_hash(),
+			),
+			None,
+			InvalidCandidate::PoVHashMismatch,
+		),
+		// Wrong code hash
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				dummy_hash(),
+				pov.hash(),
+				ValidationCode(vec![0xFF; 16]).hash(), // wrong
+				dummy_hash(),
+				dummy_hash(),
+			),
+			None,
+			InvalidCandidate::CodeHashMismatch,
+		),
+		// PoV too large (max_pov_size=1024 but PoV is 2048 bytes)
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				dummy_hash(),
+				PoV { block_data: BlockData(vec![0; 2048]) }.hash(),
+				validation_code.hash(),
+				dummy_hash(),
+				dummy_hash(),
+			),
+			Some(PoV { block_data: BlockData(vec![0; 2048]) }),
+			InvalidCandidate::ParamsTooLarge(2048),
+		),
+	];
+
+	let all_exec_kinds = [
+		PvfExecKind::Backing(dummy_hash()),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		PvfExecKind::Approval,
+		PvfExecKind::Dispute,
+	];
+
+	for (descriptor, pov_override, expected_error) in &cases {
+		let test_pov = pov_override.as_ref().unwrap_or(&pov);
+
+		for exec_kind in &all_exec_kinds {
+			let candidate_receipt =
+				CandidateReceipt { descriptor: descriptor.clone(), commitments_hash: Hash::zero() };
+
+			let pool = TaskExecutor::new();
+			let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+			let mock_backend =
+				MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
+					head_data: HeadData(vec![1]),
+					new_validation_code: None,
+					upward_messages: Default::default(),
+					horizontal_messages: Default::default(),
+					processed_downward_messages: 0,
+					hrmp_watermark: 0,
+				}));
+
+			let (response_tx, response_rx) = oneshot::channel();
+
+			let task = handle_validation_message(
+				ctx.sender().clone(),
+				mock_backend,
+				Metrics::default(),
+				false,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data: validation_data.clone(),
+					validation_code: validation_code.clone(),
+					candidate_receipt,
+					pov: Arc::new(test_pov.clone()),
+					executor_params: ExecutorParams::default(),
+					exec_kind: *exec_kind,
+					response_sender: response_tx,
+				},
+			);
+
+			let test_fut = async move {
+				mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
+				// perform_basic_checks fails — no further calls
+			};
+
+			executor::block_on(future::join(test_fut, task));
+
+			assert_matches!(
+				executor::block_on(response_rx).unwrap(),
+				Ok(ValidationResult::Invalid(ref e)) => {
+					assert_eq!(
+						std::mem::discriminant(e),
+						std::mem::discriminant(expected_error),
+						"Expected {expected_error:?} for exec_kind {exec_kind:?}, got {e:?}"
+					);
+				}
+			);
+		}
+	}
+}
+
+/// Relay parent session check: for V2 candidates (scheduling_parent == relay_parent),
+/// the `check_relay_parent_session` utility takes the self-query path, verifying the
+/// session via `session_index_for_child` directly.
+///
+/// Case 1: Session mismatch → InvalidRelayParentSession.
+/// Case 2: Session matches → valid, proceeds to PVF execution.
+#[test]
+fn pre_validation_relay_parent_session_check() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+	let scheduling_parent = dummy_hash();
+
+	// V2 descriptor with session_index=1.
+	let descriptor = make_valid_candidate_descriptor_v2(
+		ParaId::from(1_u32),
+		scheduling_parent,
+		CoreIndex(1),
+		1,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+	);
+
+	let validation_result = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	// Case 1: Self-query session mismatch → InvalidRelayParentSession.
+	// The utility calls session_index_for_child which returns 99 (doesn't match
+	// descriptor's session_index=1).
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(dummy_hash()),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
+			// Scheduling session check: matches (session=1).
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
+			);
+			// check_relay_parent_session self-query: session_index_for_child returns 99
+			// (mismatch with descriptor's session_index=1).
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(99)); }
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidRelayParentSession))
+		);
+	}
+
+	// Case 2: Self-query session matches → valid, proceeds to PVF execution.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(dummy_hash()),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_fetch_bomb_limit_v2(&mut ctx_handle, scheduling_parent, 1).await;
+			// Scheduling session check: matches.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
+			);
+			// check_relay_parent_session self-query: session matches (session=1).
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => { let _ = tx.send(Ok(1)); }
+			);
+			// ClaimQueue: proceeds normally.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Valid(_, _))
+		);
+	}
+}
+
+/// Relay parent session check for V3 candidates (scheduling_parent != relay_parent):
+/// the `check_relay_parent_session` utility takes the ancestor-query path, calling
+/// the `AncestorRelayParentInfo` runtime API.
+///
+/// Case 1: AncestorRelayParentInfo returns None → InvalidRelayParentSession.
+/// Case 2: AncestorRelayParentInfo not supported → skipped, proceeds to valid.
+/// Case 3: AncestorRelayParentInfo returns Some → valid, proceeds.
+#[test]
+fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+	let relay_parent = dummy_hash();
+	let scheduling_parent = Hash::repeat_byte(0x42);
+
+	// V3 descriptor: scheduling_parent != relay_parent, session_index=1.
+	let descriptor = make_valid_candidate_descriptor_v3(
+		ParaId::from(1_u32),
+		relay_parent,
+		CoreIndex(1),
+		1,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+		scheduling_parent,
+	);
+
+	let validation_result = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	// Helper: mock the V3 bomb limit fetch flow (no SessionIndexForChild, goes
+	// straight to ValidationCodeBombLimit since V3 has session in descriptor).
+	async fn mock_fetch_bomb_limit_v3(
+		ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
+		expected_scheduling_parent: Hash,
+		session_index: SessionIndex,
+	) {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
+			)) => {
+				assert_eq!(parent, expected_scheduling_parent);
+				assert_eq!(session, session_index);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
+	}
+
+	// Helper: mock the V3 backing pre-validation flow up to (but not including)
+	// the relay parent session check.
+	async fn mock_v3_pre_checks(
+		ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
+		scheduling_parent: Hash,
+		session: SessionIndex,
+	) {
+		mock_fetch_bomb_limit_v3(ctx_handle, scheduling_parent, session).await;
+		// Scheduling session check: SessionIndexForChild at scheduling_parent.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_, RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => { let _ = tx.send(Ok(session)); }
+		);
+		// AncestorRelayParentInfo check for relay parent in session (v16+ API).
+		// This is only reached for V3 with v3_ever_seen=true, where
+		// session_index_for_candidate_validation returns Some.
+	}
+
+	// Case 1: AncestorRelayParentInfo returns None → InvalidRelayParentSession.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			true, // v3_ever_seen
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(scheduling_parent),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			// AncestorRelayParentInfo: relay parent NOT found.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					parent,
+					RuntimeApiRequest::AncestorRelayParentInfo(session, rp, tx),
+				)) => {
+					assert_eq!(parent, scheduling_parent);
+					assert_eq!(session, 1);
+					assert_eq!(rp, relay_parent);
+					let _ = tx.send(Ok(None));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidRelayParentSession))
+		);
+	}
+
+	// Case 2: AncestorRelayParentInfo not supported → skipped, proceeds past session check.
+	// (Candidate then fails UMP signal check since V3 requires signals — this proves
+	// the session check was skipped successfully.)
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			true,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(scheduling_parent),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			// AncestorRelayParentInfo: not supported → skipped.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AncestorRelayParentInfo(_, _, tx),
+				)) => {
+					let _ = tx.send(Err(RuntimeApiError::NotSupported {
+						runtime_api_name: "AncestorRelayParentInfo",
+					}));
+				}
+			);
+			// ClaimQueue: proceeds past session check.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		// V3 requires UMP signals which this candidate doesn't have — but the
+		// point is we got past the session check.
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(_)))
+		);
+	}
+
+	// Case 3: AncestorRelayParentInfo returns Some → proceeds past session check.
+	{
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+		let mock_backend =
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone()));
+
+		let (response_tx, response_rx) = oneshot::channel();
+
+		let task = handle_validation_message(
+			ctx.sender().clone(),
+			mock_backend,
+			Metrics::default(),
+			true,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt: candidate_receipt.clone(),
+				pov: Arc::new(pov.clone()),
+				executor_params: ExecutorParams::default(),
+				exec_kind: PvfExecKind::Backing(scheduling_parent),
+				response_sender: response_tx,
+			},
+		);
+
+		let test_fut = async move {
+			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			// AncestorRelayParentInfo: found.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::AncestorRelayParentInfo(_, _, tx),
+				)) => { let _ = tx.send(Ok(Some(Default::default()))); }
+			);
+			// ClaimQueue.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_, RuntimeApiRequest::ClaimQueue(tx),
+				)) => {
+					let mut cq = BTreeMap::new();
+					let _ = cq.insert(CoreIndex(1), vec![ParaId::from(1_u32)].into());
+					let _ = tx.send(Ok(cq));
+				}
+			);
+		};
+
+		executor::block_on(future::join(test_fut, task));
+
+		// Same as case 2 — V3 UMP signals missing, but we got past session check.
+		assert_matches!(
+			executor::block_on(response_rx).unwrap(),
+			Ok(ValidationResult::Invalid(InvalidCandidate::InvalidUMPSignals(_)))
+		);
+	}
 }

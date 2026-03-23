@@ -354,8 +354,10 @@ pub enum InvalidCandidate {
 	CodeHashMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
-	/// The candidate receipt contains an invalid session index.
-	InvalidSessionIndex,
+	/// The descriptor's scheduling session does not match the runtime.
+	InvalidSchedulingSession,
+	/// The relay parent is not recognized in the descriptor's claimed session.
+	InvalidRelayParentSession,
 	/// The candidate receipt invalid UMP signals.
 	InvalidUMPSignals(CommittedCandidateReceiptError),
 }

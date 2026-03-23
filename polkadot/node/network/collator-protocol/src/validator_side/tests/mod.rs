@@ -44,9 +44,8 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	node_features, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex,
-	GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData, ValidatorId,
-	ValidatorIndex,
+	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, GroupRotationInfo, HeadData,
+	PersistedValidationData, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_hash};
 
@@ -80,7 +79,6 @@ struct TestState {
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	scheduling_lookahead: u32,
-	node_features: NodeFeatures,
 	session_index: SessionIndex,
 	// Used by `update_view` to keep track of latest requested ancestor
 	last_known_block: Option<u32>,
@@ -125,10 +123,6 @@ impl Default for TestState {
 				.collect(),
 		);
 
-		let mut node_features = NodeFeatures::EMPTY;
-		node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
-		node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
-
 		Self {
 			chain_ids: Self::CHAIN_IDS.map(|id| ParaId::from(id)).to_vec(),
 			relay_parent,
@@ -138,7 +132,6 @@ impl Default for TestState {
 			group_rotation_info,
 			claim_queue,
 			scheduling_lookahead,
-			node_features,
 			session_index: 1,
 			last_known_block: None,
 		}
@@ -299,9 +292,13 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 }
 
 /// Assert that the next message is a `CandidateBacking(Second())`.
+///
+/// `expected_relay_parent` is the relay parent used for the PVD request (execution
+/// context). For V1/V2 this equals the scheduling parent; for V3 it may differ.
 async fn assert_candidate_backing_second(
 	virtual_overseer: &mut VirtualOverseer,
 	expected_scheduling_parent: Hash,
+	expected_relay_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
 ) -> CandidateReceipt {
@@ -465,6 +462,7 @@ async fn advertise_collation_v3(
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
 	candidate_descriptor_version: CandidateDescriptorVersion,
+	relay_parent: Hash,
 ) {
 	let wire_message =
 		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
@@ -472,6 +470,7 @@ async fn advertise_collation_v3(
 			candidate_hash,
 			parent_head_data_hash,
 			candidate_descriptor_version,
+			relay_parent,
 		});
 	overseer_send(
 		virtual_overseer,
@@ -815,6 +814,7 @@ fn fetches_next_collation() {
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
 			second,
+			second,
 			test_state.chain_ids[0],
 			&pov,
 		)
@@ -968,6 +968,7 @@ fn fetch_next_collation_on_invalid_collation() {
 
 		let receipt = assert_candidate_backing_second(
 			&mut virtual_overseer,
+			relay_parent,
 			relay_parent,
 			test_state.chain_ids[0],
 			&pov,
@@ -1518,6 +1519,7 @@ fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
 		// This triggers candidate backing.
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
+			relay_parent,
 			relay_parent,
 			test_state.chain_ids[0],
 			&pov,
