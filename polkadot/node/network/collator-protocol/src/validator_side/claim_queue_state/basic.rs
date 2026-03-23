@@ -178,7 +178,7 @@ impl ClaimQueueState {
 							?future_claim,
 							?expected_claim,
 							leaf=?hash,
-							"Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on group rotations."
+							"Claim queue has changed. Expected on group rotations."
 						);
 
 						// There is an inconsistency. Update our view with the one from the claim
