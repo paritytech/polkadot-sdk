@@ -1193,7 +1193,7 @@ mod tests {
 		let logs = provider
 			.logs(
 				Some(Filter {
-					from_block: Some(U256::from(0).into()),
+					from_block: Some(BlockTag::Earliest.into()),
 					address: Some(log1.address.into()),
 					..Default::default()
 				}),
@@ -1206,7 +1206,7 @@ mod tests {
 		let logs = provider
 			.logs(
 				Some(Filter {
-					from_block: Some(U256::from(0).into()),
+					from_block: Some(BlockTag::Earliest.into()),
 					address: Some(vec![log1.address, log2.address].into()),
 					..Default::default()
 				}),
@@ -1219,7 +1219,7 @@ mod tests {
 		let logs = provider
 			.logs(
 				Some(Filter {
-					from_block: Some(U256::from(0).into()),
+					from_block: Some(BlockTag::Earliest.into()),
 					topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
 					..Default::default()
 				}),
@@ -1232,7 +1232,7 @@ mod tests {
 		let logs = provider
 			.logs(
 				Some(Filter {
-					from_block: Some(U256::from(0).into()),
+					from_block: Some(BlockTag::Earliest.into()),
 					topics: Some(vec![
 						FilterTopic::Single(log1.topics[0]),
 						FilterTopic::Single(log1.topics[1]),
@@ -1248,7 +1248,7 @@ mod tests {
 		let logs = provider
 			.logs(
 				Some(Filter {
-					from_block: Some(U256::from(0).into()),
+					from_block: Some(BlockTag::Earliest.into()),
 					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
 					..Default::default()
 				}),
@@ -1261,8 +1261,8 @@ mod tests {
 		let logs = provider
 			.logs(
 				Some(Filter {
-					from_block: Some(log1.block_number.into()),
-					to_block: Some(log2.block_number.into()),
+					from_block: Some(BlockTag::Earliest.into()),
+					to_block: Some(BlockTag::Latest.into()),
 					block_hash: None,
 					address: Some(vec![log1.address, log2.address].into()),
 					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
