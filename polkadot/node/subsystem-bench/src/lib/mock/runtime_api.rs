@@ -350,6 +350,12 @@ impl MockRuntimeApi {
 						) => {
 							tx.send(Ok(vec![])).unwrap();
 						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::SchedulingLookahead(_session, tx),
+						) => {
+							tx.send(Ok(2)).unwrap();
+						},
 						// Long term TODO: implement more as needed.
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)
