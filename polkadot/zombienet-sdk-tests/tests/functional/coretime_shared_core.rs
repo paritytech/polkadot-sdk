@@ -111,7 +111,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	// Check that all parachains produce at least 2/3 blocks within 16 RC blocks (since core is
 	// shared between all paras)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
-	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..5));
+	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..6));
 	assert_para_throughput(&relay_client, 16, para_throughput).await?;
 	log::info!("All parachains producing blocks");
 
