@@ -248,9 +248,7 @@ impl IntoI64 for u32 {
 	const MAX: i64 = u32::MAX as i64;
 }
 
-impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount>
-	From<RIIntResult<R, E>> for i64
-{
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> From<RIIntResult<R, E>> for i64 {
 	fn from(result: RIIntResult<R, E>) -> Self {
 		match result {
 			RIIntResult::Ok(value) => value.into(),
@@ -266,8 +264,8 @@ impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount>
 	}
 }
 
-impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount>
-	TryFrom<i64> for RIIntResult<R, E>
+impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i64>
+	for RIIntResult<R, E>
 {
 	type Error = ();
 

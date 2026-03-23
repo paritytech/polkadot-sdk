@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Manages virtualization instances and implements the [`Virtualization`] trait.
+//! Manages virtualization instances. It is used by the host function **implementation**.
 
 use crate::{DestroyError, ExecError, Memory, MemoryError, MemoryT, Virt, VirtT};
 use sp_wasm_interface::{ExecAction, ExecOutcome, InstanceId, Virtualization};
@@ -66,13 +66,12 @@ impl Virtualization for VirtManager {
 		gas_left: i64,
 		action: ExecAction<'_>,
 	) -> sp_wasm_interface::Result<Result<ExecOutcome, u8>> {
-		let mut instance = match self.instances.remove(&instance_id) {
+		let instance = match self.instances.get_mut(&instance_id) {
 			Some(instance) => instance,
 			None => return Ok(Err(ExecError::InvalidInstance.into())),
 		};
 
 		let result = instance.virt.run(gas_left, action);
-		self.instances.insert(instance_id, instance);
 		Ok(result.map_err(|err| err.into()))
 	}
 

@@ -137,6 +137,7 @@ impl InstanceWrapper {
 		})?;
 
 		let memory = get_linear_memory(&instance, &mut store)?;
+
 		store.data_mut().memory = Some(memory);
 
 		Ok(InstanceWrapper { instance, store, _release_instance_handle })
