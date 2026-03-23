@@ -488,7 +488,7 @@ async fn connect_peer(
 	)
 	.await;
 
-	if version != CollationVersion::V1 {
+	if matches!(version, CollationVersion::V2 | CollationVersion::V3) {
 		overseer_send(
 			virtual_overseer,
 			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerViewChange(
@@ -583,63 +583,6 @@ fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
 			(receipt, pov)
 		},
 	}
-}
-
-// Test that connecting on v1 results in disconnect.
-#[test]
-fn v1_protocol_rejected() {
-	let test_state = TestState::default();
-	let local_peer_id = test_state.local_peer_id;
-	let collator_pair = test_state.collator_pair.clone();
-
-	test_harness(
-		local_peer_id,
-		collator_pair,
-		ReputationAggregator::new(|_| true),
-		|mut test_harness| async move {
-			let virtual_overseer = &mut test_harness.virtual_overseer;
-			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
-
-			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
-				.await;
-
-			update_view(
-				Some(test_state.current_group_validator_authority_ids()),
-				&test_state,
-				virtual_overseer,
-				vec![(test_state.scheduling_parent, 10)],
-				1,
-			)
-			.await;
-
-			distribute_collation(
-				virtual_overseer,
-				test_state.current_group_validator_authority_ids(),
-				&test_state,
-				test_state.scheduling_parent,
-				CoreIndex(0),
-			)
-			.await;
-
-			for (val, peer) in test_state
-				.current_group_validator_authority_ids()
-				.into_iter()
-				.zip(test_state.current_group_validator_peer_ids())
-			{
-				connect_peer(virtual_overseer, peer, CollationVersion::V1, Some(val.clone())).await;
-
-				assert_matches!(
-					overseer_recv(virtual_overseer).await,
-					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(bad_peers, peer_set)) => {
-						assert_eq!(peer_set, PeerSet::Collation);
-						assert_eq!(bad_peers, vec![peer]);
-					}
-				);
-			}
-
-			test_harness
-		},
-	);
 }
 
 #[test]
@@ -1355,7 +1298,7 @@ fn collators_reject_declare_messages() {
 				virtual_overseer,
 				CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 					peer,
-					CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
+					CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 						collator_pair2.public(),
 						ParaId::from(5),
 						collator_pair2.sign(b"garbage"),

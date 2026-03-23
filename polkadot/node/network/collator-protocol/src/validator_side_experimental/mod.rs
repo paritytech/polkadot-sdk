@@ -43,8 +43,6 @@ use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
 use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
 
-#[cfg(test)]
-use peer_manager::Db;
 use peer_manager::PeerManager;
 
 use state::State;
