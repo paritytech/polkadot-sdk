@@ -7,7 +7,7 @@ use sp_inherents::InherentIdentifier;
 use sp_runtime::{traits::ConstU32, BoundedVec};
 
 mod keystore;
-mod runtime_api;
+pub mod runtime_api;
 mod shielded_tx;
 
 pub use keystore::*;

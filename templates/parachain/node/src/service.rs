@@ -185,12 +185,15 @@ fn start_consensus(
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error> {
+	let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
+
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool,
 		prometheus_registry,
 		telemetry.clone(),
+		shield_keystore,
 	);
 
 	let proposer = Proposer::new(proposer_factory);

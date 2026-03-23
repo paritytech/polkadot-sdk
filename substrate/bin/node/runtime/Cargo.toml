@@ -31,6 +31,7 @@ node-primitives.workspace = true
 pallet-example-mbm.workspace = true
 pallet-example-tasks.workspace = true
 polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
+stp-shield.workspace = true
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
 [build-dependencies]
@@ -50,6 +51,7 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
+	"stp-shield/std",
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [

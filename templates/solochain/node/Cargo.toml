@@ -79,6 +79,7 @@ sp-timestamp.default-features = true
 sp-timestamp.workspace = true
 substrate-frame-rpc-system.default-features = true
 substrate-frame-rpc-system.workspace = true
+stc-shield.workspace = true
 
 [build-dependencies]
 substrate-build-script-utils.default-features = true

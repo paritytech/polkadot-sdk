@@ -9,6 +9,7 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use stc_shield::MemoryShieldKeystore;
 use std::{sync::Arc, time::Duration};
 
 pub(crate) type FullClient = sc_service::TFullClient<
@@ -238,12 +239,15 @@ pub fn new_full<
 	})?;
 
 	if role.is_authority() {
+		let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
+			shield_keystore,
 		);
 
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)?;

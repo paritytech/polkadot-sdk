@@ -5047,6 +5047,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version 40.0.0",
  "staging-parachain-info",
+ "stp-shield",
  "substrate-wasm-builder",
 ]
 
@@ -5120,6 +5121,7 @@ dependencies = [
  "sp-state-machine 0.46.0",
  "sp-timestamp",
  "sp-tracing 17.1.0",
+ "stc-shield",
  "substrate-test-client",
  "tokio",
  "tracing",
@@ -9027,6 +9029,7 @@ dependencies = [
  "serde_json",
  "sp-debug-derive 14.0.0",
  "static_assertions",
+ "stp-shield",
  "substrate-wasm-builder",
 ]
 
@@ -10264,6 +10267,7 @@ dependencies = [
  "jsonrpsee",
  "minimal-template-runtime",
  "polkadot-sdk 2506.0.0",
+ "stc-shield",
 ]
 
 [[package]]
@@ -10275,6 +10279,7 @@ dependencies = [
  "polkadot-sdk 2506.0.0",
  "scale-info",
  "serde_json",
+ "stp-shield",
 ]
 
 [[package]]
@@ -10777,6 +10782,7 @@ dependencies = [
  "sp-timestamp",
  "sp-tracing 17.1.0",
  "sp-trie 40.0.0",
+ "stc-shield",
  "tempfile",
 ]
 
@@ -14109,6 +14115,7 @@ dependencies = [
  "parachain-template-runtime",
  "polkadot-sdk 2506.0.0",
  "serde",
+ "stc-shield",
  "substrate-prometheus-endpoint",
 ]
 
@@ -14126,6 +14133,7 @@ dependencies = [
  "scale-info",
  "serde_json",
  "smallvec",
+ "stp-shield",
  "substrate-wasm-builder",
 ]
 
@@ -15847,6 +15855,8 @@ dependencies = [
  "sp-version 40.0.0",
  "sp-weights 32.0.0",
  "staging-chain-spec-builder",
+ "stc-shield",
+ "stp-shield",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
@@ -16780,6 +16790,8 @@ dependencies = [
  "sp-version 40.0.0",
  "sp-weights 32.0.0",
  "staging-xcm",
+ "stc-shield",
+ "stp-shield",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror 1.0.65",
@@ -19757,6 +19769,7 @@ dependencies = [
  "sp-keystore 0.43.0",
  "sp-runtime 42.0.0",
  "sp-timestamp",
+ "stc-shield",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
@@ -22528,6 +22541,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 42.0.0",
  "sp-timestamp",
+ "stc-shield",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
 ]
@@ -22569,6 +22583,7 @@ dependencies = [
  "sp-storage 22.0.0",
  "sp-transaction-pool",
  "sp-version 40.0.0",
+ "stp-shield",
  "substrate-wasm-builder",
 ]
 
@@ -24488,6 +24503,7 @@ dependencies = [
  "soketto 0.8.0",
  "sp-keyring",
  "staging-node-inspect",
+ "stc-shield",
  "substrate-cli-test-utils",
  "subxt-signer 0.41.0",
  "tempfile",

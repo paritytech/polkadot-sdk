@@ -196,12 +196,14 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		telemetry: telemetry.as_mut(),
 	})?;
 
+	let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 	let proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool.clone(),
 		prometheus_registry.as_ref(),
 		telemetry.as_ref().map(|x| x.handle()),
+		shield_keystore,
 	);
 
 	match consensus {

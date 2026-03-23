@@ -87,7 +87,6 @@ pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
 pub use extrinsic::{ExtrinsicBuilder, Transfer};
 
-
 const LOG_TARGET: &str = "substrate-test-runtime";
 
 // Include the WASM binary
@@ -836,13 +835,13 @@ impl_runtime_apis! {
 			vec![PresetId::from("foobar"), PresetId::from("staging")]
 		}
 	}
-	
+
 	impl stp_shield::ShieldApi<Block> for Runtime {
 		fn try_decode_shielded_tx(_uxt: <Block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
 			sp_io::storage::get(SHIELD_TEST_DECODE_KEY)
 				.and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())
 		}
-		
+
 		fn is_shielded_using_current_key(_key_hash: &[u8; 16]) -> bool {
 			sp_io::storage::get(SHIELD_TEST_CURRENT_KEY)
 				.and_then(|bytes| Decode::decode(&mut &bytes[..]).ok())

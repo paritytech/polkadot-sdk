@@ -152,6 +152,10 @@ sp-weights.default-features = true
 sp-weights.workspace = true
 substrate-frame-rpc-system.default-features = true
 substrate-frame-rpc-system.workspace = true
+stc-shield.default-features = true
+stc-shield.workspace = true
+stp-shield.default-features = true
+stp-shield.workspace = true
 substrate-state-trie-migration-rpc.default-features = true
 substrate-state-trie-migration-rpc.workspace = true
 subxt-metadata = { workspace = true, default-features = true }

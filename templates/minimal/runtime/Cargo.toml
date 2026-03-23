@@ -14,6 +14,7 @@ codec = { workspace = true }
 pallet-minimal-template.workspace = true
 polkadot-sdk = { workspace = true, features = ["pallet-balances", "pallet-sudo", "pallet-timestamp", "pallet-transaction-payment", "pallet-transaction-payment-rpc-runtime-api", "runtime"] }
 scale-info = { workspace = true }
+stp-shield.workspace = true
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 [build-dependencies]
@@ -27,4 +28,5 @@ std = [
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
+	"stp-shield/std",
 ]

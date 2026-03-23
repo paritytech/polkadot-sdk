@@ -591,12 +591,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	(with_startup_data)(&block_import, &babe_link);
 
 	if let sc_service::config::Role::Authority { .. } = &role {
+		let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
+			shield_keystore,
 		);
 
 		let client_clone = client.clone();
@@ -951,12 +953,14 @@ mod tests {
 					ChainEvent::NewBestBlock { hash: parent_header.hash(), tree_route: None },
 				));
 
+				let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 				let mut proposer_factory = sc_basic_authorship::ProposerFactory::new(
 					service.spawn_handle(),
 					service.client(),
 					service.transaction_pool(),
 					None,
 					None,
+					shield_keystore,
 				);
 
 				let mut digest = Digest::default();

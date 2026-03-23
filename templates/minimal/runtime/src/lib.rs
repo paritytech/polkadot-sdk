@@ -330,6 +330,20 @@ impl_runtime_apis! {
 			self::genesis_config_presets::preset_names()
 		}
 	}
+
+	impl stp_shield::runtime_api::ShieldApi<Block> for Runtime {
+		fn try_decode_shielded_tx(_uxt: <Block as polkadot_sdk::sp_runtime::traits::Block>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+			unimplemented!()
+		}
+
+		fn is_shielded_using_current_key(_key_hash: &[u8; 16]) -> bool {
+			unimplemented!()
+		}
+
+		fn try_unshield_tx(_dec_key_bytes: Vec<u8>, _shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as polkadot_sdk::sp_runtime::traits::Block>::Extrinsic> {
+			unimplemented!()
+		}
+	}
 }
 
 /// Some re-exports that the node side code needs to know. Some are useful in this context as well.

@@ -58,6 +58,7 @@ use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_beefy::ecdsa_crypto;
 use sp_runtime::traits::Block as BlockT;
+use stc_shield::MemoryShieldKeystore;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 /// Polkadot node service initialization parameters.
@@ -664,12 +665,15 @@ where
 		};
 
 		if role.is_authority() {
+			let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+
 			let proposer = sc_basic_authorship::ProposerFactory::new(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				telemetry.as_ref().map(|x| x.handle()),
+				shield_keystore,
 			);
 
 			let client_clone = client.clone();

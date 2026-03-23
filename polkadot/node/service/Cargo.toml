@@ -111,6 +111,9 @@ sp-version.default-features = true
 sp-version.workspace = true
 sp-weights.default-features = true
 sp-weights.workspace = true
+stc-shield.workspace = true
+stp-shield.default-features = true
+stp-shield.workspace = true
 
 # External Crates
 async-trait = { workspace = true }

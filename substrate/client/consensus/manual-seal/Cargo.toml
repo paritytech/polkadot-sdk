@@ -69,3 +69,4 @@ sc-basic-authorship = { default-features = true, workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
+stc-shield.workspace = true

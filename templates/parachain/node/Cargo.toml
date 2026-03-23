@@ -22,6 +22,8 @@ polkadot-sdk = { workspace = true, features = ["node"] }
 prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
+stc-shield.default-features = true
+stc-shield.workspace = true
 
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }

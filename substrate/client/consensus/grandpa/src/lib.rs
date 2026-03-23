@@ -150,8 +150,7 @@ pub use sp_consensus_grandpa::{
 	AuthorityId, AuthorityPair, CatchUp, Commit, CompactCommit, GrandpaApi, Message, Precommit,
 	Prevote, PrimaryPropose, ScheduledChange, SignedMessage,
 };
-use std::collections::HashSet;
-use std::marker::PhantomData;
+use std::{collections::HashSet, marker::PhantomData};
 
 #[cfg(test)]
 mod tests;
