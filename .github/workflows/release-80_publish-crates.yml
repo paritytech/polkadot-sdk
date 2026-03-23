@@ -256,6 +256,15 @@ jobs:
           cargo update --workspace --offline || cargo update --workspace
           echo "Cargo.lock updated"
 
+      - name: Verify workspace compiles
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+        env:
+          SKIP_WASM_BUILD: 1
+        run: |
+          echo "Checking that rewritten manifests compile (WASM build skipped)..."
+          cargo check --workspace --all-targets 2>&1
+          echo "Workspace compiles successfully"
+
       - name: Commit version bumps
         if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         shell: bash
@@ -306,7 +315,7 @@ jobs:
           PARALLEL_ARGS=""
           if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
             echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
-            PARALLEL_ARGS="-j $PUBLISH_JOBS"
+            PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
           fi
 
           if [ "$DRY_RUN" = true ]; then
@@ -342,6 +351,7 @@ jobs:
         if: failure()
         env:
           CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
           # Restore origin to the fork repo in case it was changed by the upstream push step
