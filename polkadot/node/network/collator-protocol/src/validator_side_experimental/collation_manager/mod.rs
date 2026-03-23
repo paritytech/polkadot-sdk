@@ -481,7 +481,6 @@ impl CollationManager {
 				// Sanity check of the candidate receipt version.
 				if let Err(err) = descriptor_version_sanity_check_with_params(
 					fetched_collation.candidate_receipt.descriptor(),
-					false, // v3_enabled - experimental module doesn't support V3 yet
 					per_rp.core_index,
 					per_rp.session_index,
 					CollationVersion::V2, // experimental module doesn't support V3 yet
