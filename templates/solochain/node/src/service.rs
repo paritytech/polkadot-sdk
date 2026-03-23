@@ -81,6 +81,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		&client,
 		select_chain.clone(),
 		telemetry.as_ref().map(|x| x.handle()),
+		None,
 	)?;
 
 	let cidp_client = client.clone();
@@ -166,7 +167,7 @@ pub fn new_full<
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
-		Vec::default(),
+		sc_consensus_grandpa::warp_proof::HardForks::new_hard_forked_authorities(vec![]),
 	));
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =

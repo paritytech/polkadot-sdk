@@ -248,6 +248,7 @@ pub fn new_partial(
 		&(client.clone() as Arc<_>),
 		select_chain.clone(),
 		telemetry.as_ref().map(|x| x.handle()),
+		None,
 	)?;
 	let justification_import = grandpa_block_import.clone();
 
@@ -514,7 +515,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		import_setup.1.shared_authority_set().clone(),
-		Vec::default(),
+		grandpa::warp_proof::HardForks::new_hard_forked_authorities(Vec::new()),
 	));
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
