@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -Cdebug-assertions=y
-      SUBSTRATE_ALLOW_TX_REPLACEMENT: 1
       SKIP_WASM_BUILD: 1
 
     steps:
