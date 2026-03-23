@@ -1,0 +1,18 @@
+title: Pallet Meta Tx into multiple runtimes
+doc:
+- audience: Runtime User
+  description: |-
+    Including pallet `meta-tx` into next westend parachains runtimes:
+    - asset hub
+    - coretime
+    - people
+    - collectives
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
