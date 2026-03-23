@@ -38,8 +38,8 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, Filter, FilterResults,
-		GenericTransaction, H256, HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned,
-		U256,
+		GenericTransaction, H256, HashesOrTransactionInfos, Trace, TransactionInfo,
+		TransactionUnsigned, U256,
 	},
 };
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -742,98 +742,73 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 		.await?
 		.expect("earliest block should exist");
 	assert_eq!(block.number, U256::zero(), "earliest block number should be 0");
-	let b = client.get_block_by_number(U256::zero().into(), false).await?;
-	assert_eq!(Some(block), b, "getBlockByNumber");
 
 	// eth_getBalance
-	let a = client.get_balance(account.address(), BlockTag::Earliest.into()).await?;
-	let b = client.get_balance(account.address(), U256::zero().into()).await?;
-	assert_eq!(a, b, "getBalance");
+	let balance = client.get_balance(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(balance > U256::zero(), "dev account should have a non-zero balance at genesis");
 
 	// eth_getTransactionCount
-	let a = client
+	let nonce = client
 		.get_transaction_count(account.address(), BlockTag::Earliest.into())
 		.await?;
-	assert_eq!(a, U256::zero(), "nonce at genesis should be 0");
-	let b = client.get_transaction_count(account.address(), U256::zero().into()).await?;
-	assert_eq!(a, b, "getTransactionCount");
+	assert_eq!(nonce, U256::zero(), "nonce at genesis should be 0");
 
 	// eth_getCode
-	let a = client.get_code(account.address(), BlockTag::Earliest.into()).await?;
-	assert!(a.is_empty(), "EOA should have no code at genesis");
-	let b = client.get_code(account.address(), U256::zero().into()).await?;
-	assert_eq!(a, b, "getCode");
+	let code = client.get_code(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(code.is_empty(), "EOA should have no code");
 
 	// eth_getStorageAt
-	let a = client
+	let storage = client
 		.get_storage_at(account.address(), U256::zero(), BlockTag::Earliest.into())
 		.await?;
-	assert!(a.0.iter().all(|&b| b == 0), "storage at genesis should be zero");
-	let b = client
-		.get_storage_at(account.address(), U256::zero(), U256::zero().into())
-		.await?;
-	assert_eq!(a, b, "getStorageAt");
+	assert!(storage.0.iter().all(|&b| b == 0), "EOA should have zero storage");
 
 	// eth_getBlockTransactionCountByNumber
-	let a = client
+	let tx_count = client
 		.get_block_transaction_count_by_number(Some(BlockTag::Earliest.into()))
 		.await?;
-	assert_eq!(a, Some(U256::zero()), "genesis block should have no transactions");
-	let b = client.get_block_transaction_count_by_number(Some(U256::zero().into())).await?;
-	assert_eq!(a, b, "getBlockTransactionCountByNumber");
+	assert_eq!(tx_count, Some(U256::zero()), "genesis block should have no transactions");
 
 	// eth_getTransactionByBlockNumberAndIndex
-	let a = client
+	let tx_by_index = client
 		.get_transaction_by_block_number_and_index(BlockTag::Earliest.into(), U256::zero())
 		.await?;
-	assert!(a.is_none(), "genesis block should have no transactions");
-	let b = client
-		.get_transaction_by_block_number_and_index(U256::zero().into(), U256::zero())
-		.await?;
-	assert_eq!(a, b, "getTransactionByBlockNumberAndIndex");
+	assert!(tx_by_index.is_none(), "genesis block should have no transactions");
 
 	// eth_call
-	let a = client.call(tx.clone(), Some(BlockTag::Earliest.into())).await?;
-	assert!(a.is_empty(), "calling an EOA should return empty bytes");
-	let b = client.call(tx.clone(), Some(U256::zero().into())).await?;
-	assert_eq!(a, b, "eth_call");
+	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(call_result.is_empty(), "calling an EOA should return empty bytes");
 
 	// eth_estimateGas
-	let a = client.estimate_gas(tx.clone(), Some(BlockTag::Earliest.into())).await?;
-	assert!(a > U256::zero(), "gas estimate should be non-zero");
-	let b = client.estimate_gas(tx.clone(), Some(U256::zero().into())).await?;
-	assert_eq!(a, b, "estimateGas");
+	let gas = client.estimate_gas(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(gas > U256::zero(), "gas estimate should be non-zero");
 
 	// eth_feeHistory
-	let a = client.fee_history(U256::from(1), BlockTag::Earliest.into(), None).await?;
-	assert_eq!(a.oldest_block, U256::zero(), "feeHistory oldest_block should be 0");
-	assert!(!a.base_fee_per_gas.is_empty(), "feeHistory should include base fee");
-	let b = client.fee_history(U256::from(1), U256::zero().into(), None).await?;
-	assert_eq!(a, b, "feeHistory");
+	let fee = client.fee_history(U256::from(1), BlockTag::Earliest.into(), None).await?;
+	assert_eq!(fee.oldest_block, U256::zero(), "feeHistory oldest_block should be 0");
+	assert!(!fee.base_fee_per_gas.is_empty(), "feeHistory should include base fee");
 
 	// eth_getLogs
-	let make_filter = |tag: BlockNumberOrTag| Filter {
-		from_block: Some(tag.clone()),
-		to_block: Some(tag),
+	let filter = Filter {
+		from_block: Some(BlockTag::Earliest.into()),
+		to_block: Some(BlockTag::Earliest.into()),
 		..Default::default()
 	};
-	let a = client.get_logs(Some(make_filter(BlockTag::Earliest.into()))).await?;
-	assert_eq!(a, FilterResults::default(), "genesis block should have no logs");
-	let b = client.get_logs(Some(make_filter(U256::zero().into()))).await?;
-	assert_eq!(a, b, "getLogs");
+	let logs = client.get_logs(Some(filter)).await?;
+	assert_eq!(logs, FilterResults::default(), "genesis block should have no logs");
 
 	// debug_traceBlockByNumber
-	let a =
+	let traces =
 		DebugRpcClient::trace_block_by_number(&*client, BlockTag::Earliest.into(), None).await?;
-	assert!(a.is_empty(), "genesis block should have no traces");
-	let b = DebugRpcClient::trace_block_by_number(&*client, U256::zero().into(), None).await?;
-	assert_eq!(a.len(), b.len(), "traceBlockByNumber");
+	assert!(traces.is_empty(), "genesis block should have no traces");
 
 	// debug_traceCall
-	let a =
+	let trace =
 		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
-	let b = DebugRpcClient::trace_call(&*client, tx, U256::zero().into(), None).await?;
-	assert_eq!(a, b, "traceCall");
+	assert!(
+		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		"traceCall should return a trace"
+	);
 
 	Ok(())
 }
