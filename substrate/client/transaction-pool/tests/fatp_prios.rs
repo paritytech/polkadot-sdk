@@ -22,7 +22,7 @@ pub mod fatp_common;
 
 use fatp_common::{invalid_hash, new_best_block_event, TestPoolBuilder, LOG_TARGET, SOURCE};
 use futures::{executor::block_on, FutureExt};
-use sc_transaction_pool::ChainApi;
+use sc_transaction_pool::{mock::EnvGuard, ChainApi};
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, LocalTransactionPool, MaintainedTransactionPool, TransactionPool,
 	TransactionStatus,
@@ -30,8 +30,10 @@ use sc_transaction_pool_api::{
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 use tracing::info;
+
 #[test]
 fn fatp_prio_ready_higher_evicts_lower() {
+	let _guard = EnvGuard::allow_tx_replacement();
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
@@ -61,6 +63,7 @@ fn fatp_prio_ready_higher_evicts_lower() {
 
 #[test]
 fn fatp_prio_watcher_ready_higher_evicts_lower() {
+	let _guard = EnvGuard::allow_tx_replacement();
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
@@ -98,6 +101,7 @@ fn fatp_prio_watcher_ready_higher_evicts_lower() {
 
 #[test]
 fn fatp_prio_watcher_future_higher_evicts_lower() {
+	let _guard = EnvGuard::allow_tx_replacement();
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
@@ -140,6 +144,7 @@ fn fatp_prio_watcher_future_higher_evicts_lower() {
 
 #[test]
 fn fatp_prio_watcher_ready_lower_prio_gets_dropped_from_all_views() {
+	let _guard = EnvGuard::allow_tx_replacement();
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
@@ -191,6 +196,7 @@ fn fatp_prio_watcher_ready_lower_prio_gets_dropped_from_all_views() {
 
 #[test]
 fn fatp_prio_watcher_future_lower_prio_gets_dropped_from_all_views() {
+	let _guard = EnvGuard::allow_tx_replacement();
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
