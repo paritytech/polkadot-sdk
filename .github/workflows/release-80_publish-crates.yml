@@ -259,6 +259,8 @@ jobs:
 
       - name: Verify workspace compiles
         if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+        env:
+          SKIP_WASM_BUILD: 1
         run: |
           echo "Checking that rewritten manifests compile..."
           cargo check --workspace --all-targets 2>&1
