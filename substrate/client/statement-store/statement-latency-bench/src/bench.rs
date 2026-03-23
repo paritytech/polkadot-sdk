@@ -48,7 +48,7 @@ use tokio::{sync::Barrier, time::timeout};
 #[derive(Parser, Debug)]
 #[command(name = "statement-latency-bench")]
 #[command(about = "Distributed statement store latency benchmark", long_about = None)]
-struct BenchArgs {
+struct Args {
 	/// Comma-separated list of RPC WebSocket endpoints (e.g., ws://node1:9944,ws://node2:9944)
 	#[arg(long, value_delimiter = ',', required = true)]
 	rpc_endpoints: Vec<String>,
@@ -82,7 +82,6 @@ struct BenchArgs {
 	#[arg(long, default_value_t = 600_000)]
 	statement_expiry_ms: u64,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RoundStats {
@@ -374,7 +373,7 @@ async fn main() -> Result<(), anyhow::Error> {
 	// Generate unique test run ID to avoid interference with old data
 	let test_run_id: u64 = rand::random();
 
-	let args = BenchArgs::parse();
+	let args = Args::parse();
 	let messages_pattern = parse_messages_pattern(&args.messages_pattern)?;
 
 	if args.rpc_endpoints.is_empty() {
@@ -424,7 +423,7 @@ async fn main() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-fn log_configuration(args: &BenchArgs, messages_pattern: &[(usize, usize)]) {
+fn log_configuration(args: &Args, messages_pattern: &[(usize, usize)]) {
 	let endpoints = args.rpc_endpoints.join(", ");
 	let pattern_str = messages_pattern
 		.iter()
