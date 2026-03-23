@@ -1872,9 +1872,7 @@ fn collation_v1_peer_is_rejected() {
 		while let Some(_) = virtual_overseer.recv().timeout(Duration::from_millis(100)).await {}
 		let _ = network_handle.next_network_actions(1).await;
 
-		// Now, manually send a NotificationStreamOpened with a V1 fallback name.
-		// In reality, the networking layer would never negotiate V1 because the
-		// protocol is not registered, but this tests the bridge's defense-in-depth.
+		// Manually do v1
 		let v1_fallback: ProtocolName = "/polkadot/collation/1".into();
 		network_handle
 			.collation_tx

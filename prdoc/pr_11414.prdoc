@@ -9,22 +9,19 @@ doc:
     description: |
       Collation protocol V1 has been removed from the node. Only V2 and V3 are supported.
 
-      - `CollationVersion` enum no longer includes V1; `CollationProtocols` and related types
-        now have only V2 and V3 variants.
       - The legacy notification protocol `/polkadot/collation/1` and the request-response protocol
         `CollationFetchingV1` (/polkadot/req_collation/1) are no longer registered or handled.
       - Collator and validator protocol logic, network bridge TX/RX, and the collator protocol
         subsystem only handle V2 and V3. Validators reject peers that open V1 notification streams.
-      - In the experimental collator protocol, `Advertisement` now always has a required
-        `prospective_candidate` field (V1 allowed it to be missing).
 
       Downstream client or collator implementations that depend on collation V1 will need to
-      use V2 or V3.
+      switch V2 or V3.
   - audience: Node Operator
     description: |
       This is a breaking network change. Nodes that only speak collation protocol V1 will no
       longer be able to connect to validators. 
-      Ensure your collators are upgraded to one of the supported LTS releases.
+      
+      PLEASE UPGRADE YOUR COLLATORS TO ONE OF THE SUPPORTED LTS RELEASES.
 
 crates:
   - name: polkadot-node-network-protocol
