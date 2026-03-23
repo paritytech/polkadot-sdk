@@ -292,9 +292,9 @@ where
 			// on-chain data.
 			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
-			let Ok(relay_slot) =
+			let Ok(Some(relay_slot)) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
-					.map(|babe_pre_digest| babe_pre_digest.slot())
+					.map(|babe_pre_digest| babe_pre_digest.map(|d| d.slot()))
 			else {
 				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
 				continue;
@@ -446,7 +446,8 @@ fn adjust_para_to_relay_parent_slot(
 	para_slot_duration: SlotDuration,
 ) -> Option<SlotInfo> {
 	let relay_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_header)
-		.map(|babe_pre_digest| babe_pre_digest.slot())
+		.transpose()
+		.map(|babe_pre_digest| babe_pre_digest.map(|d| d.slot()))?
 		.ok()?;
 	let new_slot = Slot::from_timestamp(
 		relay_slot
