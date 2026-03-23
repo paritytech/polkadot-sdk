@@ -245,7 +245,6 @@ impl MetadataInspector {
 		)
 		.map_err(|err| err.to_string())?;
 
-
 		Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
 	}
 }
@@ -333,5 +332,4 @@ mod tests {
 		let aura_id = inspector.aura_consensus_id();
 		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
 	}
-
 }
