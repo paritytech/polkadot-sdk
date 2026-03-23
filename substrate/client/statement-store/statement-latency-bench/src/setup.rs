@@ -149,7 +149,11 @@ async fn main() -> Result<(), anyhow::Error> {
 			.wait_for_finalized_success()
 			.await?;
 
-		info!("Batch {}/{} finalized", chunk_idx + 1, num_inner_calls.div_ceil(max_batch_calls),);
+		info!(
+			"Batch {}/{} finalized",
+			chunk_idx + 1,
+			num_inner_calls.div_ceil(args.max_batch_calls),
+		);
 	}
 
 	// Verify that allowances were actually written to storage.

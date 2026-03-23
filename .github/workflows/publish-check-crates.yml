@@ -23,7 +23,8 @@ jobs:
 
       - name: Install Rust
         run: |
-          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:[^-]+-([^-]+).*/\1/')
+          source .github/env
+          RUST_VERSION=$(echo "$IMAGE" | sed -E 's/.*ci-unified:[^-]+-([^-]+).*/\1/')
           rustup install $RUST_VERSION
           rustup default $RUST_VERSION
 

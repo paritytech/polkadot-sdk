@@ -26,20 +26,20 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use frame_support::traits::{GetStorageVersion, StorageVersion};
+use frame_support::{pallet_prelude::StorageVersion, traits::GetStorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, NodeFeatures, OccupiedCore, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScheduledCore, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateDescriptorVersion,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCore,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScheduledCore,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
 
@@ -91,10 +91,45 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 		.map(|core_idx| {
 			let core_idx = CoreIndex(core_idx as u32);
 			if let Some(pending_availability) = occupied_cores.get(&core_idx) {
-				// Use the same block number for determining the responsible group as what the
-				// backing subsystem would use when it calls validator_groups api.
-				let backing_group_allocation_time =
-					pending_availability.relay_parent_number() + One::one();
+				// Use the same block number for determining the responsible group as
+				// the backing subsystem would use when it calls validator_groups API.
+				// For V3 candidates, look up the scheduling parent block number from the
+				// relay parent tracker (because it may no longer be in the scheduling parent
+				// tracker, as pending availability candidates can have out of scope scheduling
+				// parents).
+				// For V1/V2, fall back to the relay parent number from the storage.
+				// This is a temporary fallback, because when this is rolled out, the relay parent
+				// tracker does not contain entries for all relay parents in the session. After v3
+				// receipt feature is enabled, we can remove this and always use the scheduling
+				// parent.
+				let scheduling_parent_number = if pending_availability
+					.candidate_descriptor()
+					.version() == CandidateDescriptorVersion::V3
+				{
+					let sp = pending_availability.candidate_descriptor().scheduling_parent();
+					// Workaround for issue #64.
+					let scheduling_parent_number = if shared::Pallet::<T>::on_chain_storage_version(
+					) == StorageVersion::new(1)
+					{
+						shared::migration::v1::AllowedRelayParents::<T>::get().get_number(sp)
+					} else {
+						let session_index = shared::CurrentSessionIndex::<T>::get();
+						shared::Pallet::<T>::get_relay_parent_info(session_index, sp)
+							.map(|info| info.number)
+					};
+
+					scheduling_parent_number.unwrap_or_else(|| {
+						log::warn!(
+							target: "runtime::polkadot-api",
+							"Could not determine the scheduling parent of this v3 candidate {:?}",
+							pending_availability.candidate_hash()
+						);
+						pending_availability.relay_parent_number()
+					})
+				} else {
+					pending_availability.relay_parent_number()
+				};
+				let backing_group_allocation_time = scheduling_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
 					next_up_on_available: claim_queue
 						.get(&core_idx)
@@ -425,27 +460,18 @@ pub fn backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<Constraints<BlockNumberFor<T>>> {
 	let config = configuration::ActiveConfig::<T>::get();
-	// Async backing is only expected to be enabled with a tracker capacity of 1.
-	// Subsequent configuration update gets applied on new session, which always
-	// clears the buffer.
-	//
-	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
 	let now = frame_system::Pallet::<T>::block_number();
 
-	// Use the right storage depending on version to ensure #64 doesn't cause issues with this
-	// migration.
+	// Workaround for issue #64.
 	let min_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
-		StorageVersion::new(0)
+		StorageVersion::new(1)
 	{
-		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+		shared::migration::v1::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
 			now,
 			config.scheduler_params.lookahead.saturating_sub(1),
 		)
 	} else {
-		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
-			now,
-			config.scheduler_params.lookahead.saturating_sub(1),
-		)
+		shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
 	};
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;

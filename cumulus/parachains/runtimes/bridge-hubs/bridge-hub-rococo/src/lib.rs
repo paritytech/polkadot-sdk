@@ -154,6 +154,7 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
