@@ -234,17 +234,6 @@ impl std::hash::Hash for Advertisement {
 	}
 }
 
-impl PartialEq for Advertisement {
-	fn eq(&self, other: &Self) -> bool {
-		self.scheduling_parent == other.scheduling_parent &&
-			self.para_id == other.para_id &&
-			self.peer_id == other.peer_id &&
-			self.prospective_candidate == other.prospective_candidate
-	}
-}
-
-impl Eq for Advertisement {}
-
 impl Advertisement {
 	pub fn candidate_hash(&self) -> Option<CandidateHash> {
 		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
