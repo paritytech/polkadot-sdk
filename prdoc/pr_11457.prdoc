@@ -10,4 +10,4 @@ doc:
     Fixes https://github.com/paritytech/polkadot-sdk/issues/11383
 crates:
 - name: pallet-revive-eth-rpc
-  bump: patch
+  bump: major
