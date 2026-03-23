@@ -665,7 +665,7 @@ async fn construct_and_distribute_receipt(
 
 		let ccr = CommittedCandidateReceiptV2 { descriptor, commitments: commitments.clone() };
 
-		ccr.parse_ump_signals(&transposed_claim_queue, scheduling_parent.is_some())
+		ccr.parse_ump_signals(&transposed_claim_queue)
 			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()
