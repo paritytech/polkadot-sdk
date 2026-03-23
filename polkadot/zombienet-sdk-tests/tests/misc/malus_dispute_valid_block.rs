@@ -52,7 +52,7 @@ async fn malus_dispute_valid_block_test() -> Result<(), anyhow::Error> {
 		),
 		(
 			"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}",
-			Box::new(|v| v >= 0.0),
+			Box::new(|v| v == 0.0),
 			90,
 		),
 	];
