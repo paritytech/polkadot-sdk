@@ -148,6 +148,15 @@ enum DbExtrinsic<B: BlockT> {
 	},
 	/// Complete extrinsic data.
 	Full(B::Extrinsic),
+	/// Extrinsic that renews multiple indexed data items within a single call.
+	/// Used by bulk-renewal inherents (e.g. `process_auto_renewals`) where one extrinsic
+	/// references multiple previously-stored data blobs.
+	MultiRenew {
+		/// Hashes of all renewed indexed data items.
+		hashes: Vec<DbHash>,
+		/// The full encoded extrinsic (used to reconstruct the block body).
+		header: Vec<u8>,
+	},
 }
 
 /// A reference tracking state.
@@ -684,6 +693,19 @@ impl<Block: BlockT> BlockchainDb<Block> {
 							DbExtrinsic::Full(ex) => {
 								body.push(ex);
 							},
+							DbExtrinsic::MultiRenew { header, .. } => {
+								// Multi-renewal extrinsic: header contains the full
+								// encoded extrinsic (no indexed data to join).
+								let ex =
+									Block::Extrinsic::decode(&mut &header[..]).map_err(
+										|err| {
+											sp_blockchain::Error::Backend(format!(
+												"Error decoding multi-renew extrinsic: {err}"
+											))
+										},
+									)?;
+								body.push(ex);
+							},
 						}
 					}
 					return Ok(Some(body));
@@ -804,15 +826,30 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 			Ok(index) => {
 				let mut transactions = Vec::new();
 				for ex in index.into_iter() {
-					if let DbExtrinsic::Indexed { hash, .. } = ex {
-						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
-							Some(t) => transactions.push(t),
-							None => {
-								return Err(sp_blockchain::Error::Backend(format!(
-									"Missing indexed transaction {hash:?}",
-								)))
-							},
-						}
+					match ex {
+						DbExtrinsic::Indexed { hash, .. } => {
+							match self.db.get(columns::TRANSACTION, hash.as_ref()) {
+								Some(t) => transactions.push(t),
+								None => {
+									return Err(sp_blockchain::Error::Backend(format!(
+										"Missing indexed transaction {hash:?}",
+									)))
+								},
+							}
+						},
+						DbExtrinsic::MultiRenew { hashes, .. } => {
+							for hash in hashes {
+								match self.db.get(columns::TRANSACTION, hash.as_ref()) {
+									Some(t) => transactions.push(t),
+									None => {
+										return Err(sp_blockchain::Error::Backend(format!(
+											"Missing indexed transaction {hash:?}",
+										)))
+									},
+								}
+							}
+						},
+						DbExtrinsic::Full(_) => {},
 					}
 				}
 				Ok(Some(transactions))
@@ -2143,8 +2180,16 @@ impl<Block: BlockT> Backend<Block> {
 			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
 				Ok(index) => {
 					for ex in index {
-						if let DbExtrinsic::Indexed { hash, .. } = ex {
-							transaction.release(columns::TRANSACTION, hash);
+						match ex {
+							DbExtrinsic::Indexed { hash, .. } => {
+								transaction.release(columns::TRANSACTION, hash);
+							},
+							DbExtrinsic::MultiRenew { hashes, .. } => {
+								for hash in hashes {
+									transaction.release(columns::TRANSACTION, hash);
+								}
+							},
+							DbExtrinsic::Full(_) => {},
 						}
 					}
 				},
@@ -2193,23 +2238,34 @@ fn apply_index_ops<Block: BlockT>(
 ) -> Vec<u8> {
 	let mut extrinsic_index: Vec<DbExtrinsic<Block>> = Vec::with_capacity(body.len());
 	let mut index_map = HashMap::new();
-	let mut renewed_map = HashMap::new();
+	let mut renewed_map: HashMap<u32, Vec<DbHash>> = HashMap::new();
 	for op in ops {
 		match op {
 			IndexOperation::Insert { extrinsic, hash, size } => {
 				index_map.insert(extrinsic, (hash, size));
 			},
 			IndexOperation::Renew { extrinsic, hash } => {
-				renewed_map.insert(extrinsic, DbHash::from_slice(hash.as_ref()));
+				renewed_map
+					.entry(extrinsic)
+					.or_default()
+					.push(DbHash::from_slice(hash.as_ref()));
 			},
 		}
 	}
 	for (index, extrinsic) in body.into_iter().enumerate() {
-		let db_extrinsic = if let Some(hash) = renewed_map.get(&(index as u32)) {
-			// Bump ref counter
-			let extrinsic = extrinsic.encode();
-			transaction.reference(columns::TRANSACTION, DbHash::from_slice(hash.as_ref()));
-			DbExtrinsic::Indexed { hash: *hash, header: extrinsic }
+		let db_extrinsic = if let Some(hashes) = renewed_map.get(&(index as u32)) {
+			let encoded = extrinsic.encode();
+			if hashes.len() == 1 {
+				// Single renewal: backwards-compatible Indexed variant
+				transaction.reference(columns::TRANSACTION, hashes[0]);
+				DbExtrinsic::Indexed { hash: hashes[0], header: encoded }
+			} else {
+				// Multi-renewal: bump ref counter for each hash
+				for hash in hashes {
+					transaction.reference(columns::TRANSACTION, *hash);
+				}
+				DbExtrinsic::MultiRenew { hashes: hashes.clone(), header: encoded }
+			}
 		} else {
 			match index_map.get(&(index as u32)) {
 				Some((hash, size)) => {
