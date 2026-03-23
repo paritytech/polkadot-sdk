@@ -124,6 +124,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.build_storage()
 	.unwrap();
 	let mut ext: sp_io::TestExternalities = t.into();
+	ext.register_extension(sp_keystore::KeystoreExt::new(
+		sp_keystore::testing::MemoryKeystore::new(),
+	));
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		// Set a reasonable timestamp for tests (e.g., 2024-01-01 00:00:00 UTC = 1704067200)

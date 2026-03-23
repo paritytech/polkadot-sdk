@@ -19,9 +19,11 @@
 
 pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
+
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo,
+	SyncLabel, TracerType, TransactionInfo,
+	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
@@ -31,13 +33,19 @@ use pallet_revive::{
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
 		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, decode_revert_reason,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
 	},
 };
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{ops::Range, sync::Arc, time::Duration};
+use std::{
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering},
+	},
+	time::Duration,
+};
 use storage_api::StorageApi;
 use subxt::{
 	Config, OnlineClient,
@@ -133,7 +141,7 @@ pub enum ClientError {
 	/// author_submitExtrinsic failed.
 	#[error("Invalid transaction: {0}")]
 	SubmitError(SubmitError),
-	/// Transcact call failed.
+	/// Transact call failed.
 	#[error("contract reverted: {0:?}")]
 	TransactError(EthTransactError),
 	/// A decimal conversion failed.
@@ -171,8 +179,27 @@ pub enum ClientError {
 	/// Transaction submission timeout.
 	#[error("Transaction submission timeout")]
 	Timeout,
+	/// All of the estimation methods `eth_estimate`, `eth_transact_with_config`, and
+	/// `eth_transact` were not found and therefore none of the estimation methods succeeded.
+	#[error("None of the estimation methods were found")]
+	NoEstimationMethodSucceeded,
+	/// Chain identity mismatch between stored genesis and connected node.
+	#[error("Genesis hash mismatch")]
+	ChainMismatch,
+	/// Stored sync boundary does not match the connected node.
+	#[error("Sync boundary mismatch")]
+	SyncBoundaryMismatch,
 }
+
+impl ClientError {
+	/// Errors that indicate a mismatch between the stored sync state and the connected node.
+	pub(crate) fn is_chain_validation_error(&self) -> bool {
+		matches!(self, Self::ChainMismatch | Self::SyncBoundaryMismatch)
+	}
+}
+
 const LOG_TARGET: &str = "eth-rpc::client";
+const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 
 const REVERT_CODE: i32 = 3;
 
@@ -205,7 +232,7 @@ impl From<ClientError> for ErrorObjectOwned {
 	}
 }
 
-/// A client connect to a node and maintains a cache of the last `CACHE_SIZE` blocks.
+/// A client that connects to a substrate node and provides Ethereum-compatible RPC functionality.
 #[derive(Clone)]
 pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
@@ -222,6 +249,15 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
+
+	/// Block subscription sender side.
+	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
+	/// Log subscription sender side.
+	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
+	/// Whether archive mode is enabled
+	is_archive: bool,
+	/// Whether historic backfill has completed. `false` if not started or in progress.
+	backfill_complete: Arc<AtomicBool>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -280,6 +316,7 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
+		is_archive: bool,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -299,9 +336,23 @@ impl Client {
 			block_notifier: automine
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
+			block_subscription_tx: tokio::sync::broadcast::channel(256).0,
+			log_subscription_tx: tokio::sync::broadcast::channel(1000).0,
+			is_archive,
+			backfill_complete: Arc::new(AtomicBool::new(false)),
 		};
 
 		Ok(client)
+	}
+
+	/// Mark historic backfill as complete.
+	pub(crate) fn mark_backfill_complete(&self) {
+		self.backfill_complete.store(true, Ordering::Release);
+	}
+
+	/// Whether archive sync is active and backfill has completed.
+	fn should_advance_head(&self) -> bool {
+		self.is_archive && self.backfill_complete.load(Ordering::Acquire)
 	}
 
 	/// Creates a block notifier instance.
@@ -314,41 +365,16 @@ impl Client {
 		self.block_notifier = notifier;
 	}
 
-	/// Subscribe to past blocks executing the callback for each block in `range`.
-	async fn subscribe_past_blocks<F, Fut>(
-		&self,
-		range: Range<SubstrateBlockNumber>,
-		callback: F,
-	) -> Result<(), ClientError>
-	where
-		F: Fn(Arc<SubstrateBlock>) -> Fut + Send + Sync,
-		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
-	{
-		let mut block = self
-			.block_provider
-			.block_by_number(range.end)
-			.await?
-			.ok_or(ClientError::BlockNotFound)?;
+	pub(crate) fn api(&self) -> &OnlineClient<SrcChainConfig> {
+		&self.api
+	}
 
-		loop {
-			let block_number = block.number();
-			log::trace!(target: "eth-rpc::subscription", "Processing past block #{block_number}");
+	pub(crate) fn receipt_provider(&self) -> &ReceiptProvider {
+		&self.receipt_provider
+	}
 
-			let parent_hash = block.header().parent_hash;
-			callback(block.clone()).await.inspect_err(|err| {
-				log::error!(target: "eth-rpc::subscription", "Failed to process past block #{block_number}: {err:?}");
-			})?;
-
-			if range.start < block_number {
-				block = self
-					.block_provider
-					.block_by_hash(&parent_hash)
-					.await?
-					.ok_or(ClientError::BlockNotFound)?;
-			} else {
-				return Ok(());
-			}
-		}
+	pub(crate) fn block_provider(&self) -> &SubxtBlockInfoProvider {
+		&self.block_provider
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
@@ -390,11 +416,11 @@ impl Client {
 			let _guard = self.subscription_lock.lock().await;
 
 			let block_number = block.number();
-			log::trace!(target: "eth-rpc::subscription", "⏳ Processing {subscription_type:?} block: {block_number}");
+			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
 			} else {
-				log::trace!(target: "eth-rpc::subscription", "✅ Processed {subscription_type:?} block: {block_number}");
+				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
 			}
 		}
 
@@ -410,7 +436,9 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
 			let hash = block.hash();
+			let block_number = block.number();
 			let evm_block = self.runtime_api(hash).eth_block().await?;
+
 			let (_, receipts): (Vec<_>, Vec<_>) = self
 				.receipt_provider
 				.insert_block_receipts(&block, &evm_block.hash)
@@ -421,40 +449,49 @@ impl Client {
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			// Only broadcast for best blocks to avoid duplicate notifications.
 			match (subscription_type, &self.block_notifier) {
+				(SubscriptionType::FinalizedBlocks, _) if self.should_advance_head() => {
+					// Track finalized block in sync_state
+					if let Err(err) = self
+						.receipt_provider
+						.advance_sync_label(
+							SyncLabel::Head,
+							SyncCheckpoint::new(block_number, hash),
+						)
+						.await
+					{
+						log::warn!(target: LOG_TARGET,
+							"Failed to update sync_label[{}]: {err:?}",
+						SyncLabel::Head);
+					}
+				},
+				// Only broadcast for best blocks to avoid duplicate notifications.
 				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
 					let _ = sender.send(hash);
 				},
 				_ => {},
 			}
+
+			// Broadcast the best blocks
+			if let SubscriptionType::BestBlocks = subscription_type &&
+				self.block_subscription_tx.receiver_count() > 0
+			{
+				let _ = self.block_subscription_tx.send(evm_block);
+			}
+
+			// Broadcast the logs, we require a finalized subscription for this so that all of the
+			// events we broadcast are finalized and not prone to reorgs.
+			if let SubscriptionType::FinalizedBlocks = subscription_type &&
+				self.log_subscription_tx.receiver_count() > 0
+			{
+				receipts.iter().flat_map(|receipt| receipt.logs.iter()).for_each(|log| {
+					let _ = self.log_subscription_tx.send(log.clone());
+				});
+			}
+
 			Ok(())
 		})
 		.await
-	}
-
-	/// Cache old blocks up to the given block number.
-	pub async fn subscribe_and_cache_blocks(
-		&self,
-		index_last_n_blocks: SubstrateBlockNumber,
-	) -> Result<(), ClientError> {
-		let last = self.latest_block().await.number().saturating_sub(1);
-		let range = last.saturating_sub(index_last_n_blocks)..last;
-		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
-
-		self.subscribe_past_blocks(range, |block| async move {
-			let ethereum_hash = self
-				.runtime_api(block.hash())
-				.eth_block_hash(pallet_revive::evm::U256::from(block.number()))
-				.await?
-				.ok_or(ClientError::EthereumBlockNotFound)?;
-			self.receipt_provider.insert_block_receipts(&block, &ethereum_hash).await?;
-			Ok(())
-		})
-		.await?;
-
-		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
-		Ok(())
 	}
 
 	/// Get the block hash for the given block number or tag.
@@ -821,6 +858,15 @@ impl Client {
 	) -> Option<Block> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
 
+		if self
+			.receipt_provider
+			.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(block.number())))
+		{
+			log::trace!(target: LOG_TARGET,
+				"Block #{} is before receipt floor, skipping", block.number());
+			return None;
+		}
+
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
@@ -898,6 +944,16 @@ impl Client {
 	/// Get the automine status from the node.
 	pub async fn get_automine(&self) -> bool {
 		get_automine(&self.rpc_client).await
+	}
+
+	/// Gets the block subscription rx side of the channel.
+	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Block> {
+		self.block_subscription_tx.subscribe()
+	}
+
+	/// Gets the log subscription rx side of the channel.
+	pub fn get_log_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Log> {
+		self.log_subscription_tx.subscribe()
 	}
 }
 

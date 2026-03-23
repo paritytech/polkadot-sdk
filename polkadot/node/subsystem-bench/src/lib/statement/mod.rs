@@ -376,7 +376,7 @@ pub async fn benchmark_statement_distribution(
 				.unwrap()
 				.hash();
 			let manifest = BackedCandidateManifest {
-				relay_parent: block_info.hash,
+				scheduling_parent: block_info.hash,
 				candidate_hash,
 				group_index: GroupIndex(group_index as u32),
 				para_id: Id::new(group_index as u32 + 1),
