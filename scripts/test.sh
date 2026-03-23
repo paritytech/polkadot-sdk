@@ -34,6 +34,7 @@ cargo nextest run --release --workspace --no-fail-fast \
 	--exclude 'penpal-*' \
 	--exclude 'people-*' \
 	--exclude 'polkadot-*' \
+	--exclude 'polkadot' \
 	--exclude 'relay-*' \
 	--exclude 'rococo-*' \
 	--exclude 'snowbridge-*' \
@@ -49,4 +50,15 @@ cargo nextest run --release --workspace --no-fail-fast \
 	--exclude 'xcm-*' \
 	--exclude 'yet-another-*' \
 	--exclude 'zombienet-*' \
+	--exclude 'pallet-example*' \
+	--exclude 'staging-node-cli' \
+	--exclude 'node-rpc' \
+	--exclude 'node-bench' \
+	--exclude 'node-testing' \
+	--exclude 'kitchensink-runtime' \
+	--exclude 'frame-benchmarking-cli' \
+	--exclude 'frame-omni-bencher' \
+	--exclude 'solochain-template-*' \
+	--exclude 'pallet-revive-eth-rpc' \
+	--exclude 'substrate-cli-test-utils' \
 	"$@"

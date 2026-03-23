@@ -99,4 +99,16 @@ jobs:
             --exclude 'westend-*' \
             --exclude 'xcm-*' \
             --exclude 'yet-another-*' \
-            --exclude 'zombienet-*'
+            --exclude 'zombienet-*' \
+            --exclude 'pallet-example*' \
+            --exclude 'staging-node-cli' \
+            --exclude 'node-rpc' \
+            --exclude 'node-bench' \
+            --exclude 'node-testing' \
+            --exclude 'kitchensink-runtime' \
+            --exclude 'polkadot' \
+            --exclude 'frame-benchmarking-cli' \
+            --exclude 'frame-omni-bencher' \
+            --exclude 'pallet-revive-eth-rpc' \
+            --exclude 'solochain-template-*' \
+            --exclude 'substrate-cli-test-utils'
