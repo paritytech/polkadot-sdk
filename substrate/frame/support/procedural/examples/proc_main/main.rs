@@ -214,6 +214,15 @@ pub mod frame_system {
 
 		pub type BlockNumberFor<T> = <HeaderFor<T> as sp_runtime::traits::Header>::Number;
 	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn check_dispatch_guard(
+			_origin: &T::RuntimeOrigin,
+			_call: &T::RuntimeCall,
+		) -> crate::dispatch::DispatchResultWithPostInfo {
+			Ok(().into())
+		}
+	}
 }
 
 type BlockNumber = u32;

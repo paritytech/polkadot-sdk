@@ -114,6 +114,15 @@ pub mod frame_system {
 		}
 	}
 
+	impl<T: Config> Pallet<T> {
+		pub fn check_dispatch_guard(
+			_origin: &T::RuntimeOrigin,
+			_call: &T::RuntimeCall,
+		) -> crate::dispatch::DispatchResultWithPostInfo {
+			Ok(().into())
+		}
+	}
+
 	#[pallet::storage]
 	#[deprecated]
 	#[allow(deprecated)]
