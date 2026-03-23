@@ -394,7 +394,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state, true)?;
+			op.set_block_data(header, Some(body), None, None, block_state)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -567,7 +567,6 @@ where
 		let status = self.backend.blockchain().status(hash)?;
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
-
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -595,11 +594,7 @@ where
 			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast => {
 				true
 			},
-			BlockOrigin::Genesis |
-			BlockOrigin::NetworkInitialSync |
-			BlockOrigin::File |
-			BlockOrigin::WarpSync |
-			BlockOrigin::GapSync => false,
+			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
 		};
 
 		let storage_changes = match storage_changes {
@@ -706,10 +701,6 @@ where
 			NewBlockState::Normal
 		};
 
-		// Warp sync imported blocks shall be stored in the DB, but they should not be registered
-		// as leaves.
-		let register_as_leaf = origin != BlockOrigin::WarpSync;
-
 		let tree_route = if is_new_best && info.best_hash != parent_hash && parent_exists {
 			let route_from_best =
 				sp_blockchain::tree_route(self.backend.blockchain(), info.best_hash, parent_hash)?;
@@ -732,7 +723,6 @@ where
 			indexed_body,
 			justifications,
 			leaf_state,
-			register_as_leaf,
 		)?;
 
 		operation.op.insert_aux(aux)?;
@@ -826,10 +816,10 @@ where
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
-			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::Unknown, _) => {
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent))
 			},
+			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::InChainPruned, StateAction::Execute) => {
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState))
 			},
