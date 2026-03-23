@@ -1,0 +1,8 @@
+name: Check
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
