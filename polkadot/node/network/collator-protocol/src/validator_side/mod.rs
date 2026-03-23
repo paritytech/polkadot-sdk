@@ -169,8 +169,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	node_features, CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId,
-	CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	SessionIndex, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	CoreIndex, Hash, HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use sp_consensus_babe::digests::CompatibleDigestItem;
 use sp_consensus_slots::SlotDuration;
@@ -256,11 +256,7 @@ const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
 struct CollatingPeerState {
 	collator_id: CollatorId,
 	para_id: ParaId,
-	/// Collations advertised by peer per relay parent.
-	///
-	/// V1 network protocol doesn't include candidate hash in
-	/// advertisements, we store an empty set in this case to occupy
-	/// a slot in map.
+	/// Collations advertised by peer per relay parent (candidate hashes from V2+ ads).
 	advertisements: HashMap<Hash, HashSet<CandidateHash>>,
 	last_active: Instant,
 }
@@ -346,7 +342,7 @@ impl PeerData {
 	fn insert_advertisement(
 		&mut self,
 		on_scheduling_parent: Hash,
-		candidate_hash: Option<CandidateHash>,
+		candidate_hash: CandidateHash,
 		implicit_view: &ImplicitView,
 		per_scheduling_parent: &PerSchedulingParent,
 		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
@@ -362,45 +358,30 @@ impl PeerData {
 					return Err(InsertAdvertisementError::OutOfOurView);
 				}
 
-				if let Some(candidate_hash) = candidate_hash {
-					if state
-						.advertisements
-						.get(&on_scheduling_parent)
-						.map_or(false, |candidates| candidates.contains(&candidate_hash))
-					{
-						return Err(InsertAdvertisementError::Duplicate);
-					}
-
-					let candidates = state.advertisements.entry(on_scheduling_parent).or_default();
-
-					// Spam protection: limit based on scheduling_lookahead (= claim queue length)
-					// Get lookahead from any leaf's claim queue length for our core
-					let max_ads = leaf_claim_queues
-						.values()
-						.next()
-						.and_then(|cq| cq.get(&per_scheduling_parent.current_core))
-						.map(|v| v.len())
-						.unwrap_or(0);
-
-					if candidates.len() > max_ads {
-						return Err(InsertAdvertisementError::PeerLimitReached);
-					}
-
-				candidates.insert(candidate_hash);
-			} else {
-				gum::error!(
-					target: LOG_TARGET,
-					"Programming error, `candidate_hash` can not be `None`.",
-				);
-
-				if state.advertisements.contains_key(&on_scheduling_parent) {
+				if state
+					.advertisements
+					.get(&on_scheduling_parent)
+					.map_or(false, |candidates| candidates.contains(&candidate_hash))
+				{
 					return Err(InsertAdvertisementError::Duplicate);
 				}
 
-				state
-					.advertisements
-					.insert(on_scheduling_parent, HashSet::from_iter(candidate_hash));
-			};
+				let candidates = state.advertisements.entry(on_scheduling_parent).or_default();
+
+				// Spam protection: limit based on scheduling_lookahead (= claim queue length)
+				// Get lookahead from any leaf's claim queue length for our core
+				let max_ads = leaf_claim_queues
+					.values()
+					.next()
+					.and_then(|cq| cq.get(&per_scheduling_parent.current_core))
+					.map(|v| v.len())
+					.unwrap_or(0);
+
+				if candidates.len() > max_ads {
+					return Err(InsertAdvertisementError::PeerLimitReached);
+				}
+
+				candidates.insert(candidate_hash);
 
 				state.last_active = Instant::now();
 				Ok((state.collator_id.clone(), state.para_id))
@@ -444,24 +425,16 @@ impl PeerData {
 	}
 
 	/// Whether the peer has advertised the given collation.
-	fn has_advertised(
-		&self,
-		relay_parent: &Hash,
-		maybe_candidate_hash: Option<CandidateHash>,
-	) -> bool {
+	fn has_advertised(&self, relay_parent: &Hash, candidate_hash: CandidateHash) -> bool {
 		let collating_state = match self.state {
 			PeerState::Connected(_) => return false,
 			PeerState::Collating(ref state) => state,
 		};
 
-		if let Some(ref candidate_hash) = maybe_candidate_hash {
-			collating_state
-				.advertisements
-				.get(relay_parent)
-				.map_or(false, |candidates| candidates.contains(candidate_hash))
-		} else {
-			collating_state.advertisements.contains_key(relay_parent)
-		}
+		collating_state
+			.advertisements
+			.get(relay_parent)
+			.map_or(false, |candidates| candidates.contains(&candidate_hash))
 	}
 
 	/// Whether the peer is now inactive according to the current instant and the eviction policy.
@@ -566,9 +539,8 @@ struct HeldOffAdvertisement {
 	peer_id: PeerId,
 	/// The public key which the collator has sent us with the `Declare` message.
 	collator_id: CollatorId,
-	/// The prospective candidate hash and its relay parent, if available. Will be none if collator
-	/// protocol v1 is used.
-	prospective_candidate: Option<(CandidateHash, Hash)>,
+	/// The prospective candidate hash and parent head-data hash from the advertisement.
+	prospective_candidate: ProspectiveCandidate,
 }
 
 /// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
@@ -854,7 +826,7 @@ async fn fetch_collation(
 	let PendingCollation {
 		scheduling_parent: relay_parent, peer_id, prospective_candidate, ..
 	} = pc;
-	let candidate_hash = prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+	let candidate_hash = prospective_candidate.candidate_hash();
 
 	let peer_data = state.peer_data.get(&peer_id).ok_or(FetchError::UnknownPeer)?;
 
@@ -866,7 +838,7 @@ async fn fetch_collation(
 		};
 		state
 			.collation_fetch_timeouts
-			.push(timeout(id.clone(), candidate_hash, relay_parent).boxed());
+			.push(timeout(id.clone(), Some(candidate_hash), relay_parent).boxed());
 
 		Ok(())
 	} else {
@@ -941,7 +913,11 @@ fn handle_peer_view_change(state: &mut State, peer_id: PeerId, view: View) {
 
 	peer_data.update_view(&state.implicit_view, state.leaf_claim_queues.keys(), view);
 	state.collation_requests_cancel_handles.retain(|pc, handle| {
-		let keep = pc.peer_id != peer_id || peer_data.has_advertised(&pc.scheduling_parent, None);
+		let keep = pc.peer_id != peer_id ||
+			peer_data.has_advertised(
+				&pc.scheduling_parent,
+				pc.prospective_candidate.candidate_hash(),
+			);
 		if !keep {
 			handle.cancel();
 		}
@@ -976,9 +952,9 @@ async fn request_collation(
 		.get_mut(&scheduling_parent)
 		.ok_or(FetchError::RelayParentOutOfView)?;
 
-	let (requests, response_recv) = match (peer_protocol_version, prospective_candidate) {
-		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) |
-		(CollationVersion::V3, Some(ProspectiveCandidate { candidate_hash, .. })) => {
+	let ProspectiveCandidate { candidate_hash, .. } = prospective_candidate;
+	let (requests, response_recv) = match peer_protocol_version {
+		CollationVersion::V2 | CollationVersion::V3 => {
 			let (req, response_recv) = OutgoingRequest::new(
 				Recipient::Peer(peer_id),
 				request_v2::CollationFetchingRequest { scheduling_parent, para_id, candidate_hash },
@@ -986,7 +962,6 @@ async fn request_collation(
 			let requests = Requests::CollationFetchingV2(req);
 			(requests, response_recv.boxed())
 		},
-		_ => return Err(FetchError::ProtocolMismatch),
 	};
 
 	let cancellation_token = CancellationToken::new();
@@ -1012,8 +987,7 @@ async fn request_collation(
 		"Requesting collation",
 	);
 
-	let maybe_candidate_hash =
-		prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+	let maybe_candidate_hash = Some(prospective_candidate.candidate_hash());
 	per_scheduling_parent.collations.status = CollationStatus::Fetching(para_id);
 	per_scheduling_parent
 		.collations
@@ -1042,7 +1016,10 @@ async fn process_incoming_peer_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	origin: PeerId,
-	msg: CollationProtocols<protocol_v2::CollatorProtocolMessage, protocol_v3::CollatorProtocolMessage>,
+	msg: CollationProtocols<
+		protocol_v2::CollatorProtocolMessage,
+		protocol_v3::CollatorProtocolMessage,
+	>,
 ) {
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
@@ -1165,7 +1142,7 @@ async fn process_incoming_peer_message<Context>(
 				state,
 				scheduling_parent,
 				origin,
-				Some((candidate_hash, parent_head_data_hash)),
+				ProspectiveCandidate { candidate_hash, parent_head_data_hash },
 			)
 			.await
 			{
@@ -1236,7 +1213,7 @@ fn hold_off_asset_hub_collation_if_needed(
 	peer_id: PeerId,
 	collator_id: &CollatorId,
 	scheduling_parent: Hash,
-	prospective_candidate: Option<(CandidateHash, Hash)>,
+	prospective_candidate: ProspectiveCandidate,
 ) -> bool {
 	// If we don't know the peer we should reject the advertisement but to avoid verbosity and
 	// copy-pasted logic we'll just return `false` and let the caller handle it.
@@ -1605,7 +1582,7 @@ async fn handle_advertisement<Sender>(
 	state: &mut State,
 	scheduling_parent: Hash,
 	peer_id: PeerId,
-	prospective_candidate: Option<(CandidateHash, Hash)>,
+	prospective_candidate: ProspectiveCandidate,
 ) -> std::result::Result<(), AdvertisementError>
 where
 	Sender: CollatorProtocolSenderTrait,
@@ -1622,7 +1599,7 @@ where
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
 	// Always insert advertisements that pass all the checks for spam protection.
-	let candidate_hash = prospective_candidate.map(|(hash, ..)| hash);
+	let candidate_hash = prospective_candidate.candidate_hash();
 	let (collator_id, para_id) = peer_data
 		.insert_advertisement(
 			scheduling_parent,
@@ -1651,7 +1628,7 @@ where
 		peer_id,
 		collator_id,
 		prospective_candidate,
-		None, // V1/V2 don't have advertised descriptor version
+		None, // V2: no advertised descriptor version in protocol
 	)
 	.await
 }
@@ -1711,7 +1688,7 @@ where
 	let (collator_id, para_id) = peer_data
 		.insert_advertisement(
 			scheduling_parent,
-			Some(candidate_hash),
+			candidate_hash,
 			&state.implicit_view,
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
@@ -1723,7 +1700,7 @@ where
 		peer_id,
 		&collator_id,
 		scheduling_parent,
-		Some((candidate_hash, parent_head_data_hash)),
+		ProspectiveCandidate { candidate_hash, parent_head_data_hash },
 	) {
 		return Ok(());
 	}
@@ -1735,7 +1712,7 @@ where
 		para_id,
 		peer_id,
 		collator_id,
-		Some((candidate_hash, parent_head_data_hash)),
+		ProspectiveCandidate { candidate_hash, parent_head_data_hash },
 		Some(candidate_descriptor_version),
 	)
 	.await
@@ -1748,7 +1725,7 @@ async fn process_advertisement<Sender>(
 	para_id: ParaId,
 	peer_id: PeerId,
 	collator_id: CollatorId,
-	prospective_candidate: Option<(CandidateHash, Hash)>,
+	prospective_candidate: ProspectiveCandidate,
 	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 ) -> std::result::Result<(), AdvertisementError>
 where
@@ -1759,17 +1736,20 @@ where
 	// can be queued even when capacity is temporarily full.
 	is_slot_available(&scheduling_parent, para_id, state)?;
 
-	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		// Check if backing subsystem allows to second this candidate.
-		//
-		// This is also only important when async backing or elastic scaling is enabled.
-		let can_second =
-			can_second(sender, para_id, scheduling_parent, candidate_hash, parent_head_data_hash)
-				.await;
+	// Check if backing subsystem allows to second this candidate.
+	//
+	// This is also only important when async backing or elastic scaling is enabled.
+	let can_second = can_second(
+		sender,
+		para_id,
+		scheduling_parent,
+		prospective_candidate.candidate_hash(),
+		prospective_candidate.parent_head_data_hash,
+	)
+	.await;
 
-		if !can_second {
-			return Err(AdvertisementError::BlockedByBacking);
-		}
+	if !can_second {
+		return Err(AdvertisementError::BlockedByBacking);
 	}
 
 	let result = enqueue_collation(
@@ -1807,7 +1787,7 @@ async fn enqueue_collation<Sender>(
 	para_id: ParaId,
 	peer_id: PeerId,
 	collator_id: CollatorId,
-	prospective_candidate: Option<(CandidateHash, Hash)>,
+	prospective_candidate: ProspectiveCandidate,
 	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 ) -> std::result::Result<(), FetchError>
 where
@@ -1835,11 +1815,6 @@ where
 			return Ok(());
 		},
 	};
-	let prospective_candidate =
-		prospective_candidate.map(|(candidate_hash, parent_head_data_hash)| ProspectiveCandidate {
-			candidate_hash,
-			parent_head_data_hash,
-		});
 
 	let collations = &mut per_scheduling_parent.collations;
 	let pending_collation = PendingCollation::new(
@@ -2255,8 +2230,7 @@ async fn process_msg<Context>(
 				.await;
 
 				// If async backing is enabled, make an attempt to fetch next collation.
-				let maybe_candidate_hash =
-					prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+				let maybe_candidate_hash = Some(prospective_candidate.candidate_hash());
 				dequeue_next_collation_and_fetch(
 					ctx,
 					state,
@@ -2425,7 +2399,7 @@ async fn run_inner<Context>(
 							modify_reputation(&mut state.reputation, ctx.sender(), pending_collation.peer_id, COST_REPORT_BAD).await;
 						}
 						let maybe_candidate_hash =
-						pending_collation.prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+							Some(pending_collation.prospective_candidate.candidate_hash());
 						dequeue_next_collation_and_fetch(
 							&mut ctx,
 							&mut state,
@@ -2437,7 +2411,7 @@ async fn run_inner<Context>(
 					Ok(false) => {
 						// No hard error occurred, but we can try fetching another collation.
 						let maybe_candidate_hash =
-						pending_collation.prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
+							Some(pending_collation.prospective_candidate.candidate_hash());
 						dequeue_next_collation_and_fetch(
 							&mut ctx,
 							&mut state,
@@ -2506,7 +2480,7 @@ async fn run_inner<Context>(
 						peer_id,
 						collator_id,
 						prospective_candidate,
-						None, // V1/V2 advertisement, no descriptor version
+						None, // V2 advertisement: no descriptor version in protocol
 					)
 					.await {
 						gum::debug!(
@@ -2561,27 +2535,6 @@ async fn dequeue_next_collation_and_fetch<Context>(
 			break;
 		}
 	}
-}
-
-pub async fn request_persisted_validation_data<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-	para_id: ParaId,
-) -> std::result::Result<Option<PersistedValidationData>, SecondingError>
-where
-	Sender: CollatorProtocolSenderTrait,
-{
-	// The core is guaranteed to be scheduled since we accepted the advertisement.
-	polkadot_node_subsystem_util::request_persisted_validation_data(
-		relay_parent,
-		para_id,
-		OccupiedCoreAssumption::Free,
-		sender,
-	)
-	.await
-	.await
-	.map_err(SecondingError::CancelledRuntimePersistedValidationData)?
-	.map_err(SecondingError::RuntimeApi)
 }
 
 pub async fn request_prospective_validation_data<Sender>(
@@ -2651,28 +2604,24 @@ async fn kick_off_seconding<Context>(
 		collation_event.pending_collation.commitments_hash =
 			Some(candidate_receipt.commitments_hash);
 
-		let (maybe_pvd, maybe_parent_head, maybe_parent_head_hash) = match (
-			collation_event.collator_protocol_version,
-			collation_event.pending_collation.prospective_candidate,
-		) {
-			(CollationVersion::V2, Some(ProspectiveCandidate { parent_head_data_hash, .. })) |
-			(CollationVersion::V3, Some(ProspectiveCandidate { parent_head_data_hash, .. })) => {
-				let pvd = request_prospective_validation_data(
-					ctx.sender(),
-					scheduling_parent,
-					parent_head_data_hash,
-					para_id,
-					maybe_parent_head_data.clone(),
-				)
-				.await?;
+		let ProspectiveCandidate { parent_head_data_hash, .. } =
+			collation_event.pending_collation.prospective_candidate;
 
-			(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
-		},
-		_ => {
-				// `handle_advertisement` checks for protocol mismatch.
-				return Ok(false);
-			},
-		};
+		let (maybe_pvd, maybe_parent_head, maybe_parent_head_hash) =
+			match collation_event.collator_protocol_version {
+				CollationVersion::V2 | CollationVersion::V3 => {
+					let pvd = request_prospective_validation_data(
+						ctx.sender(),
+						scheduling_parent,
+						parent_head_data_hash,
+						para_id,
+						maybe_parent_head_data.clone(),
+					)
+					.await?;
+
+					(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
+				},
+			};
 
 		let pvd = match (maybe_pvd, maybe_parent_head.clone(), maybe_parent_head_hash) {
 			(Some(pvd), _, _) => pvd,

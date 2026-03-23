@@ -399,7 +399,10 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
 	state: &mut State<PersistentDb>,
 	origin: PeerId,
-	msg: CollationProtocols<protocol_v2::CollatorProtocolMessage, protocol_v3::CollatorProtocolMessage>,
+	msg: CollationProtocols<
+		protocol_v2::CollatorProtocolMessage,
+		protocol_v3::CollatorProtocolMessage,
+	>,
 ) {
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
@@ -434,7 +437,7 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					ProspectiveCandidate { candidate_hash, parent_head_data_hash },
 				)
 				.await;
 		},

@@ -280,10 +280,8 @@ impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 }
 
 /// All supported versions of the collation protocol message.
-pub type VersionedCollationProtocol = CollationProtocols<
-	v2::CollationProtocol,
-	v3_collation::CollationProtocol,
->;
+pub type VersionedCollationProtocol =
+	CollationProtocols<v2::CollationProtocol, v3_collation::CollationProtocol>;
 
 impl From<v2::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v2: v2::CollationProtocol) -> Self {
@@ -454,10 +452,8 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 }
 
 /// Version-annotated messages used by the collator protocol subsystem.
-pub type CollatorProtocolMessage = CollationProtocols<
-	v2::CollatorProtocolMessage,
-	v3_collation::CollatorProtocolMessage,
->;
+pub type CollatorProtocolMessage =
+	CollationProtocols<v2::CollatorProtocolMessage, v3_collation::CollatorProtocolMessage>;
 impl_versioned_collation_full_protocol_from!(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,

@@ -217,18 +217,18 @@ impl<B: Backend> State<B> {
 		Ok(())
 	}
 
-	/// Handle a new advertisement.
+	/// Handle a new advertisement (V2+; includes [`ProspectiveCandidate`]).
 	pub async fn handle_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
 		relay_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
+		prospective_candidate: ProspectiveCandidate,
 	) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
-			?maybe_prospective_candidate,
+			?prospective_candidate,
 			?peer_id,
 			"Received advertisement",
 		);
@@ -238,7 +238,7 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?relay_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
+				?prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -249,20 +249,9 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
-				?maybe_prospective_candidate,
+				?prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
-			);
-			return;
-		};
-
-		// V2+ only: ignore advertisements without prospective candidate.
-		let Some(prospective_candidate) = maybe_prospective_candidate else {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?peer_id,
-				"Ignoring advertisement without prospective candidate (V2+ required)",
 			);
 			return;
 		};
@@ -288,7 +277,7 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
-					?maybe_prospective_candidate,
+					?prospective_candidate,
 					?peer_id,
 					?para_id,
 					?err,
@@ -299,7 +288,7 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
-					?maybe_prospective_candidate,
+					?prospective_candidate,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",

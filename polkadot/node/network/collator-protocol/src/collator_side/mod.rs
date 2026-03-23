@@ -1151,7 +1151,10 @@ async fn handle_incoming_peer_message<Context>(
 	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	origin: PeerId,
-	msg: CollationProtocols<protocol_v2::CollatorProtocolMessage, protocol_v3::CollatorProtocolMessage>,
+	msg: CollationProtocols<
+		protocol_v2::CollatorProtocolMessage,
+		protocol_v3::CollatorProtocolMessage,
+	>,
 ) -> Result<()> {
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;

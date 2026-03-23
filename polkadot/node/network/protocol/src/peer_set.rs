@@ -169,14 +169,14 @@ impl PeerSet {
 					None
 				}
 			},
-		PeerSet::Collation => {
-			if version == CollationVersion::V2.into() {
-				Some("collation/2")
-			} else if version == CollationVersion::V3.into() {
-				Some("collation/3")
-			} else {
-				None
-			}
+			PeerSet::Collation => {
+				if version == CollationVersion::V2.into() {
+					Some("collation/2")
+				} else if version == CollationVersion::V3.into() {
+					Some("collation/3")
+				} else {
+					None
+				}
 			},
 		}
 	}
@@ -328,18 +328,18 @@ impl PeerSetProtocolNames {
 						);
 					}
 				},
-			PeerSet::Collation => {
-				for version in CollationVersion::iter() {
-					Self::register_main_protocol(
-						&mut protocols,
-						&mut names,
-						protocol,
-						version.into(),
-						&genesis_hash,
-						fork_id,
-					);
-				}
-			},
+				PeerSet::Collation => {
+					for version in CollationVersion::iter() {
+						Self::register_main_protocol(
+							&mut protocols,
+							&mut names,
+							protocol,
+							version.into(),
+							&genesis_hash,
+							fork_id,
+						);
+					}
+				},
 			}
 		}
 		Self { protocols, names, genesis_hash, fork_id: fork_id.map(|fork_id| fork_id.into()) }
@@ -435,14 +435,14 @@ impl PeerSetProtocolNames {
 				// The validation protocol no longer supports protocol versions 1 and 2,
 				// and only version 3 is used. Therefore, fallback protocols remain empty.
 			},
-		PeerSet::Collation => {
-			fallbacks.push(Self::generate_name(
-				genesis_hash,
-				fork_id,
-				PeerSet::Collation,
-				CollationVersion::V2.into(),
-			));
-		},
+			PeerSet::Collation => {
+				fallbacks.push(Self::generate_name(
+					genesis_hash,
+					fork_id,
+					PeerSet::Collation,
+					CollationVersion::V2.into(),
+				));
+			},
 		};
 		fallbacks
 	}
@@ -529,15 +529,15 @@ mod tests {
 		let validation_legacy = "/polkadot/validation/1";
 		assert!(protocol_names.try_get_protocol(&validation_legacy.into()).is_none());
 
-	let collation_main =
-		"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/2";
-	assert_eq!(
-		protocol_names.try_get_protocol(&collation_main.into()),
-		Some((PeerSet::Collation, TestVersion(2).into())),
-	);
+		let collation_main =
+			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/2";
+		assert_eq!(
+			protocol_names.try_get_protocol(&collation_main.into()),
+			Some((PeerSet::Collation, TestVersion(2).into())),
+		);
 
-	let collation_legacy = "/polkadot/collation/1";
-	assert!(protocol_names.try_get_protocol(&collation_legacy.into()).is_none());
+		let collation_legacy = "/polkadot/collation/1";
+		assert!(protocol_names.try_get_protocol(&collation_legacy.into()).is_none());
 	}
 
 	#[test]

@@ -506,22 +506,22 @@ async fn handle_collation_message<AD>(
 			)
 			.await;
 
-		match CollationVersion::try_from(version)
-			.expect("try_get_protocol has already checked version is known; qed")
-		{
-			CollationVersion::V2 => send_collation_message_v2(
-				vec![peer],
-				WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(local_view),
-				metrics,
-				notification_sinks,
-			),
-			CollationVersion::V3 => send_collation_message_v3(
-				vec![peer],
-				WireMessage::<v3_collation::CollationProtocol>::ViewUpdate(local_view),
-				metrics,
-				notification_sinks,
-			),
-		}
+			match CollationVersion::try_from(version)
+				.expect("try_get_protocol has already checked version is known; qed")
+			{
+				CollationVersion::V2 => send_collation_message_v2(
+					vec![peer],
+					WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
+				CollationVersion::V3 => send_collation_message_v3(
+					vec![peer],
+					WireMessage::<v3_collation::CollationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
+			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
 			let (peer_set, version) = (PeerSet::Collation, PeerSet::Collation.get_main_version());
@@ -570,34 +570,35 @@ async fn handle_collation_message<AD>(
 				?peer,
 			);
 
-		let (events, reports) =
-			if expected_versions[PeerSet::Collation] == Some(CollationVersion::V2.into()) {
-				handle_peer_messages::<protocol_v2::CollationProtocol, _>(
-					peer,
-					PeerSet::Collation,
-					&mut shared.0.lock().collation_peers,
-					vec![notification.into()],
-					metrics,
-				)
-			} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V3.into()) {
-				handle_peer_messages::<v3_collation::CollationProtocol, _>(
-					peer,
-					PeerSet::Collation,
-					&mut shared.0.lock().collation_peers,
-					vec![notification.into()],
-					metrics,
-				)
-			} else {
-				gum::warn!(
-					target: LOG_TARGET,
-					version = ?expected_versions[PeerSet::Collation],
-					"Major logic bug. Peer somehow has unsupported collation protocol version."
-				);
+			let (events, reports) =
+				if expected_versions[PeerSet::Collation] == Some(CollationVersion::V2.into()) {
+					handle_peer_messages::<protocol_v2::CollationProtocol, _>(
+						peer,
+						PeerSet::Collation,
+						&mut shared.0.lock().collation_peers,
+						vec![notification.into()],
+						metrics,
+					)
+				} else if expected_versions[PeerSet::Collation] == Some(CollationVersion::V3.into())
+				{
+					handle_peer_messages::<v3_collation::CollationProtocol, _>(
+						peer,
+						PeerSet::Collation,
+						&mut shared.0.lock().collation_peers,
+						vec![notification.into()],
+						metrics,
+					)
+				} else {
+					gum::warn!(
+						target: LOG_TARGET,
+						version = ?expected_versions[PeerSet::Collation],
+						"Major logic bug. Peer somehow has unsupported collation protocol version."
+					);
 
-				never!("Only versions 2 and 3 are supported; peer set connection checked above; qed");
+					never!("Only versions 2 and 3 are supported; peer set connection checked above; qed");
 
-				(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
-			};
+					(Vec::new(), vec![UNCONNECTED_PEERSET_COST])
+				};
 
 			for report in reports {
 				network_service.report_peer(peer, report.into());

@@ -104,10 +104,10 @@ fn dummy_candidate(
 	ccr.descriptor.set_session_index(session);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
-	};
+	});
 
 	(
 		ccr,
@@ -587,9 +587,13 @@ impl TestState {
 				&mut sender,
 				adv.peer_id,
 				adv.scheduling_parent,
-				Some(adv.prospective_candidate),
+				adv.prospective_candidate
 			),
-			async move { self.assert_can_second_request(adv, true).await },
+			async move {
+				if adv.prospective_candidate.is_some() {
+					self.assert_can_second_request(adv, true).await
+				}
+			}
 		);
 	}
 
@@ -623,22 +627,37 @@ impl TestState {
 						Requests::CollationFetchingV2(req) => {
 							assert!(req.fallback_request.is_none());
 
-							let adv = advertisements
-								.iter()
-								.find(|adv| {
-									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id)
-										&& req.payload.scheduling_parent == adv.scheduling_parent
-										&& req.payload.para_id == adv.para_id
-										&& req.payload.candidate_hash == adv.prospective_candidate.candidate_hash
-								})
-								.copied()
-								.unwrap();
+							let adv = advertisements.iter().find(|adv| {
+								if let Some(ProspectiveCandidate { candidate_hash, .. }) = adv.prospective_candidate {
+									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
+										req.payload.scheduling_parent == adv.scheduling_parent &&
+										req.payload.para_id == adv.para_id &&
+										req.payload.candidate_hash == candidate_hash
+								} else {
+									false
+								}
+							}).copied().unwrap();
 
 							res.insert(adv, req.pending_response);
 
 							advertisements.remove(&adv);
 						},
-					_ => panic!("Unexpected request")
+						Requests::CollationFetchingV1(req) => {
+							assert!(req.fallback_request.is_none());
+
+							let adv = advertisements.iter().find(|adv| {
+								adv.prospective_candidate.is_none() &&
+									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
+									req.payload.scheduling_parent == adv.scheduling_parent &&
+									req.payload.para_id == adv.para_id
+
+							}).copied().unwrap();
+
+							res.insert(adv, req.pending_response);
+
+							advertisements.remove(&adv);
+						}
+						_ => panic!("Unexpected request")
 					}
 				}
 			}
@@ -653,20 +672,28 @@ impl TestState {
 			None => self.timeout_recv().await,
 		};
 
-		let expected_req = CanSecondRequest {
-			candidate_para_id: adv.para_id,
-			candidate_scheduling_parent: adv.scheduling_parent,
-			candidate_hash: adv.prospective_candidate.candidate_hash,
-			parent_head_data_hash: adv.prospective_candidate.parent_head_data_hash,
-		};
+		if let Some(prospective_candidate) = adv.prospective_candidate {
+			let expected_req = CanSecondRequest {
+				candidate_para_id: adv.para_id,
+				candidate_scheduling_parent: adv.scheduling_parent,
+				candidate_hash: prospective_candidate.candidate_hash,
+				parent_head_data_hash: prospective_candidate.parent_head_data_hash,
+			};
 
-		assert_matches!(
-			msg,
-			AllMessages::CandidateBacking(CandidateBackingMessage::CanSecond(req, tx)) => {
-				assert_eq!(expected_req, req);
-				tx.send(response).unwrap();
-			}
-		);
+			assert_matches!(
+				msg,
+				AllMessages::CandidateBacking(CandidateBackingMessage::CanSecond(req, tx)) => {
+					assert_eq!(
+						expected_req,
+						req
+					);
+
+					tx.send(response).unwrap();
+				}
+			);
+		} else {
+			panic!("Didn't expect to send CanSecond request for protocol v1 {:?}", msg);
+		}
 	}
 
 	async fn assert_pvd_request(
@@ -679,33 +706,51 @@ impl TestState {
 			None => self.timeout_recv().await,
 		};
 
-		let ProspectiveCandidate { parent_head_data_hash, .. } = adv.prospective_candidate;
-		assert_matches!(
-			msg,
-			AllMessages::ProspectiveParachains(
-				ProspectiveParachainsMessage::GetProspectiveValidationData(ProspectiveValidationDataRequest {
-					para_id,
-					candidate_relay_parent,
-					parent_head_data
-				}, tx)
-			) => {
-				assert_eq!(para_id, adv.para_id);
-				assert_eq!(candidate_relay_parent, adv.scheduling_parent);
+		if let Some(ProspectiveCandidate { parent_head_data_hash, .. }) = adv.prospective_candidate
+		{
+			assert_matches!(
+				msg,
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::GetProspectiveValidationData(ProspectiveValidationDataRequest {
+						para_id,
+						candidate_relay_parent,
+						parent_head_data
+					}, tx)
+				) => {
+					assert_eq!(para_id, adv.para_id);
+					assert_eq!(candidate_relay_parent, adv.scheduling_parent);
 
-				assert!(
-					matches!(
-						parent_head_data,
-						ParentHeadData::OnlyHash(head_data_hash) if head_data_hash == parent_head_data_hash
-					) ||
-					matches!(
-						parent_head_data,
-						ParentHeadData::WithData {head_data, ..} if head_data == pvd.as_ref().unwrap().parent_head
+					assert!(
+						matches!(
+							parent_head_data,
+							ParentHeadData::OnlyHash(head_data_hash) if head_data_hash == parent_head_data_hash
+						) ||
+						matches!(
+							parent_head_data,
+							ParentHeadData::WithData {head_data, ..} if head_data == pvd.as_ref().unwrap().parent_head
+						)
+					);
+
+					tx.send(pvd).unwrap();
+				}
+			);
+		} else {
+			assert_matches!(
+				msg,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					rp,
+					RuntimeApiRequest::PersistedValidationData(
+						para_id,
+						OccupiedCoreAssumption::Free,
+						tx
 					)
-				);
-
-				tx.send(pvd).unwrap();
-			}
-		);
+				)) => {
+					assert_eq!(para_id, adv.para_id);
+					assert_eq!(rp, adv.scheduling_parent);
+					tx.send(Ok(pvd)).unwrap();
+				}
+			);
+		}
 	}
 
 	async fn assert_seconding_kickoff(
@@ -772,8 +817,21 @@ impl TestState {
 			) => {
 				assert_eq!(peers, vec![peer_id]);
 
-			match version {
-				CollationVersion::V2 => {
+				match version {
+					CollationVersion::V1 => {
+						assert_matches!(
+							msg,
+							CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+								protocol_v1::CollatorProtocolMessage::CollationSeconded(
+									_rp,
+									stmt
+								),
+							)) => {
+								assert_eq!(statement, stmt);
+							}
+						);
+					},
+					CollationVersion::V2 => {
 						assert_matches!(
 							msg,
 							CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
@@ -1008,7 +1066,7 @@ async fn test_connection_flow() {
 	assert_eq!(state.connected_peers(), [first_peer].into_iter().collect());
 
 	// Reconnecting is a no-op. We should have first received a disconnect.
-	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V1).await;
 	test_state.assert_no_messages().await;
 	assert_eq!(state.connected_peers(), [first_peer].into_iter().collect());
 
@@ -1765,7 +1823,7 @@ async fn test_advertisement_rejections() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
 		.await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1779,7 +1837,7 @@ async fn test_advertisement_rejections() {
 
 	// Relay parent outside view.
 	state
-		.handle_advertisement(&mut sender, peer_id, get_hash(11), Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, get_hash(11), prospective_candidate)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1789,7 +1847,7 @@ async fn test_advertisement_rejections() {
 	// of this peer (which is 2).
 	for _ in 0..2 {
 		futures::join!(
-			state.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate)),
+			state.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate),
 			test_state.assert_can_second_request(adv, false)
 		);
 		state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1799,7 +1857,7 @@ async fn test_advertisement_rejections() {
 
 	// Here comes a valid advertisement, will be rejected because we reached the limit.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
 		.await;
 
 	// Let's add a new peerid then.
@@ -1819,7 +1877,7 @@ async fn test_advertisement_rejections() {
 
 	// Duplicate advertisement. Only one fetch request will be launched.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1829,7 +1887,7 @@ async fn test_advertisement_rejections() {
 
 	// We still detect the duplicate advertisement with a fetching collation.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1840,7 +1898,7 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1852,7 +1910,7 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, Some(prospective_candidate))
+		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	assert!(state.advertisements().is_empty());
@@ -1885,10 +1943,10 @@ async fn test_collation_fetch_failure() {
 	ccr.descriptor.set_session_index(leaf_info.session_index);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
-	};
+	});
 
 	// Different network errors.
 	for (err, maybe_slash) in [
@@ -1947,14 +2005,18 @@ async fn test_collation_fetch_failure() {
 
 	// Received paraid is different than the advertised one. Try for both network protocol
 	// versions. This implies a check on the candidate hash as well for v2 advertisements.
-	for version in [CollationVersion::V2] {
+	for version in [CollationVersion::V1, CollationVersion::V2] {
 		let peer_id = PeerId::random();
 
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
-			prospective_candidate,
+			prospective_candidate: if version == CollationVersion::V2 {
+				prospective_candidate
+			} else {
+				None
+			},
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2011,10 +2073,10 @@ async fn test_collation_fetch_failure() {
 		// Set a different core index.
 		receipt.descriptor.set_core_index(CoreIndex(5));
 
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
-		};
+		});
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
@@ -2045,10 +2107,10 @@ async fn test_collation_fetch_failure() {
 		// Set a different session index.
 		receipt.descriptor.set_session_index(5);
 
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
-		};
+		});
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
@@ -2071,7 +2133,9 @@ async fn test_collation_fetch_failure() {
 		test_state.assert_no_messages().await;
 	}
 
-	// PVD not found. V2 advertisement with unknown PVD may be blocked from seconding.
+	// PVD not found. Only check for v1 advertisement, which will end up querying the runtime.
+	// For v2 advertisement, an unknown PVD could just make the candidate end up being blocked from
+	// seconding (and we have other tests for it)
 	{
 		let peer_id = PeerId::random();
 
@@ -2079,13 +2143,10 @@ async fn test_collation_fetch_failure() {
 			peer_id,
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
-			prospective_candidate: ProspectiveCandidate {
-				candidate_hash: receipt.hash(),
-				parent_head_data_hash: dummy_pvd().parent_head.hash(),
-			},
+			prospective_candidate: None,
 		};
 
-		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
 		state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
 		test_state.handle_advertisement(&mut state, adv).await;
@@ -2112,10 +2173,10 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(10);
 
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
-		};
+		});
 
 		let adv = Advertisement {
 			peer_id,
@@ -2154,11 +2215,11 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(11);
 
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			// Randomly modify the parent head data hash in the advertisement.
 			parent_head_data_hash: get_hash(11),
-		};
+		});
 
 		let adv = Advertisement {
 			peer_id,
@@ -2193,10 +2254,10 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(12);
 
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
-		};
+		});
 
 		let adv = Advertisement {
 			peer_id,
@@ -2332,10 +2393,10 @@ async fn v1_descriptor_compatibility() {
 	ccr.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
-	};
+	});
 
 	let peer_id = PeerId::random();
 
@@ -2483,10 +2544,10 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
-		};
+		});
 
 		(
 			pvd,
@@ -2522,10 +2583,10 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
-		};
+		});
 
 		(
 			pvd,
@@ -2721,10 +2782,10 @@ async fn test_outdated_blocked_collations_are_pruned() {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
-		};
+		});
 
 		(
 			pvd,
@@ -2760,10 +2821,10 @@ async fn test_outdated_blocked_collations_are_pruned() {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
-		};
+		});
 
 		(
 			pvd,
@@ -3013,8 +3074,8 @@ async fn test_outdated_fetching_collations_are_pruned() {
 }
 
 #[tokio::test]
-// Test that a v2 advertisement cannot claim a future slot.
-async fn test_single_collation_per_rp_for_v2_advertisement() {
+// Test that a v1 advertisement cannot claim a future slot.
+async fn test_single_collation_per_rp_for_v1_advertisement() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
@@ -3034,7 +3095,7 @@ async fn test_single_collation_per_rp_for_v2_advertisement() {
 
 	// Make two v1 advertisements on the same RP. They will both try to claim the same slot, which
 	// is not possible. Only one will make it.
-	let (first_ccr, first_adv) = dummy_candidate(
+	let (first_ccr, mut first_adv) = dummy_candidate(
 		get_hash(10),
 		100.into(),
 		first_peer,
@@ -3043,7 +3104,7 @@ async fn test_single_collation_per_rp_for_v2_advertisement() {
 		dummy_pvd().hash(),
 	);
 
-	let (_, second_adv) = dummy_candidate(
+	let (_, mut second_adv) = dummy_candidate(
 		get_hash(10),
 		100.into(),
 		second_peer,
@@ -3052,11 +3113,14 @@ async fn test_single_collation_per_rp_for_v2_advertisement() {
 		Hash::from_low_u64_be(1),
 	);
 
-	// Two ads for same RP; only one fetch at a time.
-	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	// Make them v1 advertisements.
+	second_adv.prospective_candidate = None;
+	first_adv.prospective_candidate = None;
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V1).await;
 	state.handle_declare(&mut sender, first_peer, 100.into()).await;
 	state
-		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V1)
 		.await;
 	state.handle_declare(&mut sender, second_peer, 100.into()).await;
 
@@ -3075,12 +3139,12 @@ async fn test_single_collation_per_rp_for_v2_advertisement() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 	test_state
-		.second_collation(&mut state, first_peer, CollationVersion::V2, first_ccr)
+		.second_collation(&mut state, first_peer, CollationVersion::V1, first_ccr)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// Adding a third advertisement (different candidate) triggers another fetch.
+	// Still, adding a v2 advertisement would work.
 	let (_, third_adv) = dummy_candidate(
 		get_hash(10),
 		100.into(),

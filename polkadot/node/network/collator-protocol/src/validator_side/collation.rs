@@ -107,13 +107,12 @@ pub struct PendingCollation {
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
 	pub peer_id: PeerId,
-	/// Optional candidate hash and parent head-data hash if were
-	/// supplied in advertisement.
-	pub prospective_candidate: Option<ProspectiveCandidate>,
+	/// Candidate hash and parent head-data hash from the advertisement
+	pub prospective_candidate: ProspectiveCandidate,
 	/// Hash of the candidate's commitments.
 	pub commitments_hash: Option<Hash>,
 	/// Advertised candidate descriptor version (for V3 protocol).
-	/// None for V1/V2 protocols.
+	/// None for V2 protocol advertisements.
 	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
@@ -122,8 +121,7 @@ pub struct PendingCollation {
 // Purpose: Prevents concurrent fetch requests for the same collation from the same peer.
 // The hash identifies a unique (peer_id, candidate/scheduling_parent) pair.
 //
-// For V2/V3: Uses (peer_id, candidate_hash, parent_head_data_hash) from prospective_candidate
-// For V1: Uses (peer_id, scheduling_parent, para_id) as fallback when candidate_hash unavailable
+// Uses (peer_id, candidate_hash, parent_head_data_hash) from prospective_candidate.
 //
 // Note: This does NOT prevent fetching the same candidate from different peers sequentially.
 // Multiple peers can advertise the same candidate, and we may fetch from each peer in turn
@@ -145,13 +143,13 @@ impl std::hash::Hash for PendingCollation {
 impl PendingCollation {
 	/// Constructor for PendingCollation.
 	///
-	/// For V1/V2 protocol advertisements, pass `None` for `advertised_descriptor_version`.
+	/// For V2 protocol advertisements, pass `None` for `advertised_descriptor_version`.
 	/// For V3 protocol advertisements, pass `Some(version)` to track the advertised version.
 	pub fn new(
 		scheduling_parent: Hash,
 		para_id: ParaId,
 		peer_id: &PeerId,
-		prospective_candidate: Option<ProspectiveCandidate>,
+		prospective_candidate: ProspectiveCandidate,
 		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 	) -> Self {
 		Self {
@@ -188,10 +186,7 @@ pub fn fetched_collation_sanity_check(
 		return Err(SecondingError::PersistedValidationDataMismatch);
 	}
 
-	if advertised
-		.prospective_candidate
-		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
-	{
+	if advertised.prospective_candidate.candidate_hash() != fetched.hash() {
 		return Err(SecondingError::CandidateHashMismatch);
 	}
 

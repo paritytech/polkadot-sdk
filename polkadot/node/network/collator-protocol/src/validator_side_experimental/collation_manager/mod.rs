@@ -17,14 +17,13 @@
 use crate::{
 	validator_side::{
 		descriptor_version_sanity_check_with_params, error::SecondingError,
-		request_persisted_validation_data, request_prospective_validation_data, BlockedCollationId,
-		PerLeafClaimQueueState,
+		request_prospective_validation_data, BlockedCollationId, PerLeafClaimQueueState,
 	},
 	validator_side_experimental::{
 		common::{
-			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
-			Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
+			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse, Score,
+			SecondingRejectionInfo, FAILED_FETCH_SLASH, INSTANT_FETCH_REP_THRESHOLD,
+			MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
 	},
@@ -725,15 +724,13 @@ impl CollationManager {
 		let fetch_pvd_res = fetch_pvd(
 			sender,
 			&fetched_collation.candidate_receipt,
-			fetched_collation.maybe_parent_head_data_hash,
+			fetched_collation.parent_head_data_hash,
 			fetched_collation.maybe_parent_head_data.clone(),
 		)
 		.await;
 		let can_second = match fetch_pvd_res {
 			Ok(pvd) => {
-				// Mark this claim with the right candidate hash. This is a no-op if for
-				// protocol v2 but in case of v1, the claim was made on the relay parent but
-				// without a candidate hash.
+				// Mark this claim with the right candidate hash.
 				self.claim_queue_state.mark_pending_slot_with_candidate(
 					&relay_parent,
 					&para_id,
@@ -759,9 +756,7 @@ impl CollationManager {
 							.push(fetched_collation);
 					}
 
-					// Mark this claim with the right candidate hash. This is a no-op if for
-					// protocol v2 but in case of v1, the claim was made on the relay parent but
-					// without a candidate hash.
+					// Mark this claim with the right candidate hash.
 					self.claim_queue_state.mark_pending_slot_with_candidate(
 						&relay_parent,
 						&para_id,
@@ -842,9 +837,8 @@ struct FetchedCollation {
 	pub pov: PoV,
 	/// Optional parachain parent head data. This is needed for elastic scaling to work.
 	pub maybe_parent_head_data: Option<HeadData>,
-	/// Optional parent head data hash. This is needed for async backing to work (sent by v2
-	/// protocol).
-	pub maybe_parent_head_data_hash: Option<Hash>,
+	/// Parent head data hash from the advertisement (V2+; always present now that V1 is removed).
+	pub parent_head_data_hash: Hash,
 	/// The peer that sent this collation.
 	pub peer_id: PeerId,
 }
@@ -933,9 +927,8 @@ impl PerRelayParent {
 	) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
 		self.peer_advertisements.values().flat_map(|list| &list.advertisements).filter(
 			move |(adv, _adv_info)| {
-				let already_fetched = self
-					.fetched_collations
-					.contains_key(&adv.prospective_candidate.candidate_hash);
+				let already_fetched =
+					self.fetched_collations.contains_key(&adv.prospective_candidate.candidate_hash);
 				// Check that the declared paraid matches and it's not already fetched.
 				(adv.para_id == para_id) && !already_fetched
 			},
@@ -1035,43 +1028,29 @@ where
 async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
 	receipt: &CandidateReceipt,
-	maybe_parent_head_data_hash: Option<Hash>,
+	parent_head_data_hash: Hash,
 	maybe_parent_head_data: Option<HeadData>,
 ) -> std::result::Result<PersistedValidationData, SecondingError> {
 	let para_id = receipt.descriptor.para_id();
 
-	let pvd = match maybe_parent_head_data_hash {
-		Some(parent_head_data_hash) => {
-			let maybe_pvd = request_prospective_validation_data(
-				sender,
-				receipt.descriptor.relay_parent(),
-				parent_head_data_hash,
-				para_id,
-				maybe_parent_head_data.clone(),
-			)
-			.await?;
+	let maybe_pvd = request_prospective_validation_data(
+		sender,
+		receipt.descriptor.relay_parent(),
+		parent_head_data_hash,
+		para_id,
+		maybe_parent_head_data.clone(),
+	)
+	.await?;
 
-			let (expected_hash, pvd) = match (maybe_pvd, &maybe_parent_head_data) {
-				(Some(pvd), Some(parent_head)) => (parent_head.hash(), pvd),
-				(Some(pvd), None) => (pvd.parent_head.hash(), pvd),
-				(None, None) => return Err(SecondingError::BlockedOnParent(parent_head_data_hash)),
-				(None, _) => return Err(SecondingError::PersistedValidationDataNotFound),
-			};
-			if parent_head_data_hash != expected_hash {
-				return Err(SecondingError::ParentHeadDataMismatch);
-			}
-			pvd
-		},
-		None => {
-			let pvd = request_persisted_validation_data(
-				sender,
-				receipt.descriptor.relay_parent(),
-				para_id,
-			)
-			.await?;
-			pvd.ok_or(SecondingError::PersistedValidationDataNotFound)?
-		},
+	let (expected_hash, pvd) = match (maybe_pvd, &maybe_parent_head_data) {
+		(Some(pvd), Some(parent_head)) => (parent_head.hash(), pvd),
+		(Some(pvd), None) => (pvd.parent_head.hash(), pvd),
+		(None, None) => return Err(SecondingError::BlockedOnParent(parent_head_data_hash)),
+		(None, _) => return Err(SecondingError::PersistedValidationDataNotFound),
 	};
+	if parent_head_data_hash != expected_hash {
+		return Err(SecondingError::ParentHeadDataMismatch);
+	}
 
 	if pvd.hash() != receipt.descriptor.persisted_validation_data_hash() {
 		return Err(SecondingError::PersistedValidationDataMismatch);
@@ -1135,7 +1114,7 @@ fn process_collation_fetch_result(
 				pov,
 				peer_id: advertisement.peer_id,
 				maybe_parent_head_data: None,
-				maybe_parent_head_data_hash: Some(advertisement.prospective_candidate.parent_head_data_hash),
+				parent_head_data_hash: advertisement.prospective_candidate.parent_head_data_hash,
 			})
 		},
 		Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -1154,7 +1133,7 @@ fn process_collation_fetch_result(
 				pov,
 				peer_id: advertisement.peer_id,
 				maybe_parent_head_data: Some(parent_head_data),
-				maybe_parent_head_data_hash: Some(advertisement.prospective_candidate.parent_head_data_hash),
+				parent_head_data_hash: advertisement.prospective_candidate.parent_head_data_hash,
 			})
 		},
 	}

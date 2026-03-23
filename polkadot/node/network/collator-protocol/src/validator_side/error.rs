@@ -58,9 +58,6 @@ pub enum SecondingError {
 	#[error("Error while accessing Runtime API")]
 	RuntimeApi(#[from] RuntimeApiError),
 
-	#[error("Response receiver for persisted validation data request cancelled")]
-	CancelledRuntimePersistedValidationData(oneshot::Canceled),
-
 	#[error("Response receiver for prospective validation data request cancelled")]
 	CancelledProspectiveValidationData(oneshot::Canceled),
 
@@ -94,9 +91,6 @@ pub enum SecondingError {
 	#[error("Descriptor version mismatch: advertised {0:?}, fetched {1:?}")]
 	DescriptorVersionMismatch(CandidateDescriptorVersion, CandidateDescriptorVersion),
 
-	#[error("ParaId doesn't match the advertisement")]
-	ParaIdMismatch,
-
 	#[error("Collation seconding blocked on parent being seconded: {0}")]
 	BlockedOnParent(Hash),
 }
@@ -113,8 +107,7 @@ impl SecondingError {
 			InvalidCoreIndex(_, _) |
 			InvalidSessionIndex(_, _) |
 			InvalidReceiptVersion(_) |
-			DescriptorVersionMismatch(_, _) |
-			ParaIdMismatch => true,
+			DescriptorVersionMismatch(_, _) => true,
 			_ => false,
 		}
 	}
@@ -134,9 +127,6 @@ pub enum FetchError {
 
 	#[error("Relay parent went out of view")]
 	RelayParentOutOfView,
-
-	#[error("Peer's protocol doesn't match the advertisement")]
-	ProtocolMismatch,
 }
 
 /// Represents a `RelayParentHoldOffState` error
