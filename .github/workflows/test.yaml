@@ -16,7 +16,7 @@ env:
 jobs:
   test:
     name: cargo nextest
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, fireactions-heavy]
     env:
       RUSTFLAGS: -Cdebug-assertions=y
       SKIP_WASM_BUILD: 1
