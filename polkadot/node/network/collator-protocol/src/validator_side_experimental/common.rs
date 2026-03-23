@@ -209,7 +209,7 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
@@ -223,15 +223,6 @@ pub struct Advertisement {
 	/// Advertised candidate descriptor version (for V3 protocol).
 	/// None for V1/V2 protocols.
 	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
-}
-
-impl std::hash::Hash for Advertisement {
-	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		self.scheduling_parent.hash(state);
-		self.para_id.hash(state);
-		self.peer_id.hash(state);
-		self.prospective_candidate.hash(state);
-	}
 }
 
 impl Advertisement {
