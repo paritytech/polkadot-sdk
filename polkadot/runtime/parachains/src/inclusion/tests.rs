@@ -376,7 +376,7 @@ impl TestCandidateBuilder {
 			ccr.descriptor.set_scheduling_session_offset(offset);
 		}
 
-		let version = ccr.descriptor.version(true);
+		let version = ccr.descriptor.version();
 		if version == CandidateDescriptorVersion::V2 || version == CandidateDescriptorVersion::V3 {
 			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
@@ -1306,7 +1306,6 @@ fn candidate_checks() {
 				&allowed_scheduling_parents,
 				&BTreeMap::new(),
 				&group_validators,
-				false,
 			),
 			Ok(Default::default())
 		);
@@ -1394,7 +1393,6 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1415,7 +1413,6 @@ fn candidate_checks() {
 				.into_iter()
 				.collect(),
 				&group_validators,
-				false,
 			)
 			.unwrap();
 
@@ -1452,7 +1449,6 @@ fn candidate_checks() {
 					&allowed_scheduling_parents,
 					&vec![(chain_b, vec![(backed_b_3, CoreIndex(3))])].into_iter().collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1488,7 +1484,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::InsufficientBacking
 			);
@@ -1511,7 +1506,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::InvalidBacking
 			);
@@ -1571,7 +1565,6 @@ fn candidate_checks() {
 					.into_iter()
 					.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::DisallowedRelayParent
 			);
@@ -1611,7 +1604,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				)
 				.expect("candidate is accepted with bad collator signature");
 
@@ -1694,7 +1686,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::PrematureCodeUpgrade
 			);
@@ -1729,7 +1720,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::ValidationDataHashMismatch
 			);
@@ -1765,7 +1755,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::InvalidValidationCodeHash
 			);
@@ -1801,7 +1790,6 @@ fn candidate_checks() {
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false,
 				),
 				Error::<Test>::ParaHeadMismatch
 			);
@@ -1967,7 +1955,6 @@ fn backing_works() {
 			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2255,7 +2242,6 @@ fn backing_works_with_elastic_scaling_mvp() {
 			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2443,7 +2429,6 @@ fn can_include_candidate_with_ok_code_upgrade() {
 				.into_iter()
 				.collect::<BTreeMap<_, _>>(),
 			group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 
@@ -2668,7 +2653,6 @@ fn check_allowed_scheduling_parents() {
 			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
-			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
 	});
@@ -2873,7 +2857,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 					.into_iter()
 					.collect::<BTreeMap<_, _>>(),
 				&group_validators,
-				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
 
@@ -2922,7 +2905,9 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 }
 
 /// Test that verify_backed_candidate succeeds for a V3 candidate whose relay_parent
-/// is from a previous session, but fails if v3 descriptor feature is not enabled.
+/// is from a previous session.
+/// Note: rejection of V3 candidates when the feature is disabled is handled by
+/// `check_version_acceptance` in the sanitization pipeline, not by `verify_backed_candidate`.
 #[test]
 fn cross_session_relay_parent_v3() {
 	let chain_a = ParaId::from(1_u32);
@@ -2964,17 +2949,12 @@ fn cross_session_relay_parent_v3() {
 
 		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
 
-		// With v3_enabled=true, it should find the relay parent in session 4's DoubleMap.
+		// verify_backed_candidate uses version() which correctly identifies this as V3
+		// and looks up the relay parent in session 4's DoubleMap via session_index().
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head.clone(), true);
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
 		assert!(result.is_ok(), "V3 cross-session relay parent should succeed");
 		assert_eq!(result.unwrap(), old_relay_parent_number);
-
-		// With v3_enabled=false, the descriptor is seen as V1 (non-zero scheduling_parent).
-		// V1 uses current session (5), and relay parent is not in session 5.
-		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, false);
-		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
 
@@ -3010,7 +2990,7 @@ fn cross_session_relay_parent_pruned_session_fails() {
 		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
 
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, true);
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3056,7 +3036,7 @@ fn cross_session_relay_parent_wrong_session_index_fails() {
 
 		// Should fail: relay parent is in session 4 but descriptor says session 5.
 		let check_ctx = CandidateCheckContext::<Test>::new(None);
-		let result = check_ctx.verify_backed_candidate(&candidate, parent_head, true);
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
 		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
 	});
 }
@@ -3161,7 +3141,6 @@ fn cross_session_process_candidates_v3() {
 			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
-			true,
 		);
 
 		assert!(

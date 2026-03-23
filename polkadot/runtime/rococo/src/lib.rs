@@ -2171,11 +2171,11 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::max_relay_parent_session_age::<Runtime>()
 		}
 
-		fn allowed_relay_parent_info(
+		fn ancestor_relay_parent_info(
 			session_index: SessionIndex,
 			relay_parent: Hash,
 		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
-			parachains_staging_runtime_api_impl::allowed_relay_parent_info::<Runtime>(session_index, relay_parent)
+			parachains_staging_runtime_api_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 	}
 
