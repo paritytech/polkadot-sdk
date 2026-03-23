@@ -38,7 +38,10 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	ConsensusEngineId, Justifications, StateVersion,
 };
-use sp_state_machine::{backend::Backend as _, InMemoryBackend, OverlayedChanges, StateMachine};
+use sp_state_machine::{
+	backend::{Backend as _, TryPendingCode},
+	InMemoryBackend, OverlayedChanges, StateMachine,
+};
 use sp_storage::{ChildInfo, StorageKey};
 use std::{collections::HashSet, sync::Arc};
 use substrate_test_runtime::TestAPI;
@@ -72,7 +75,8 @@ fn construct_block(
 		digest: Digest { logs: vec![] },
 	};
 	let mut overlay = OverlayedChanges::default();
-	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(backend);
+	let backend_runtime_code =
+		sp_state_machine::backend::BackendRuntimeCode::new(backend, TryPendingCode::No);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
 	StateMachine::new(
@@ -168,7 +172,8 @@ fn construct_genesis_should_work_with_native() {
 
 	let backend = InMemoryBackend::from((storage, StateVersion::default()));
 	let b1data = block1(genesis_hash, &backend);
-	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
+	let backend_runtime_code =
+		sp_state_machine::backend::BackendRuntimeCode::new(&backend, TryPendingCode::No);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
 	let mut overlay = OverlayedChanges::default();
@@ -199,7 +204,8 @@ fn construct_genesis_should_work_with_wasm() {
 
 	let backend = InMemoryBackend::from((storage, StateVersion::default()));
 	let b1data = block1(genesis_hash, &backend);
-	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
+	let backend_runtime_code =
+		sp_state_machine::backend::BackendRuntimeCode::new(&backend, TryPendingCode::No);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
 	let mut overlay = OverlayedChanges::default();
@@ -344,7 +350,7 @@ fn block_builder_does_not_include_invalid() {
 		.is_err());
 
 	let block = builder.build().unwrap().block;
-	//transfer from Eve should not be included
+	// transfer from Eve should not be included
 	assert_eq!(block.extrinsics.len(), 1);
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 
@@ -424,8 +430,8 @@ fn uncles_with_multiple_forks() {
 	// block tree:
 	// G -> A1 -> A2 -> A3 -> A4 -> A5
 	//      A1 -> B2 -> B3 -> B4
-	//	          B2 -> C3
-	//	    A1 -> D2
+	// 	          B2 -> C3
+	// 	    A1 -> D2
 	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
@@ -1489,6 +1495,7 @@ fn doesnt_import_blocks_that_revert_finality() {
 				trie_cache_maximum_size: Some(1 << 20),
 				state_pruning: Some(PruningMode::ArchiveAll),
 				blocks_pruning: BlocksPruning::KeepAll,
+				pruning_filters: Default::default(),
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },
 				metrics_registry: None,
 			},
@@ -1770,6 +1777,7 @@ fn returns_status_for_pruned_blocks() {
 				trie_cache_maximum_size: Some(1 << 20),
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				pruning_filters: Default::default(),
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },
 				metrics_registry: None,
 			},

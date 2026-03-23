@@ -173,10 +173,11 @@ impl MockRuntimeApi {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 
@@ -323,10 +324,11 @@ impl MockRuntimeApi {
 						RuntimeApiMessage::Request(
 							_parent,
 							RuntimeApiRequest::ApprovalVotingParams(_, tx),
-						) =>
+						) => {
 							if let Err(err) = tx.send(Ok(ApprovalVotingParams::default())) {
 								gum::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
-							},
+							}
+						},
 						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ClaimQueue(tx)) => {
 							tx.send(Ok(self.state.claim_queue.clone())).unwrap();
 						},
@@ -347,6 +349,12 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::UnappliedSlashesV2(tx),
 						) => {
 							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::SchedulingLookahead(_session, tx),
+						) => {
+							tx.send(Ok(2)).unwrap();
 						},
 						// Long term TODO: implement more as needed.
 						message => {

@@ -230,8 +230,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(_era: EraIndex) {
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_era(_era: EraIndex) {
 		unimplemented!("method currently not used in testing")
 	}
 
@@ -366,8 +366,19 @@ impl DelegationInterface for DelegateMock {
 
 impl DelegateMock {
 	pub fn set_agent_balance(who: AccountId, delegated: Balance) {
+		Self::set_agent_balance_full(who, delegated, 0, 0);
+	}
+
+	/// Set the agent balance with explicit control over delegated, unclaimed_withdrawals, and
+	/// pending_slash. This is useful for simulating edge cases in tests.
+	pub fn set_agent_balance_full(
+		who: AccountId,
+		delegated: Balance,
+		unclaimed_withdrawals: Balance,
+		pending_slash: Balance,
+	) {
 		let mut agents = AgentBalanceMap::get();
-		agents.insert(who, (delegated, 0, 0));
+		agents.insert(who, (delegated, unclaimed_withdrawals, pending_slash));
 		AgentBalanceMap::set(&agents);
 	}
 

@@ -51,7 +51,7 @@ fn main() {
 /// It also changes the maximal number of elements per page dynamically, hence the `page_size`.
 fn drain_append_work(ops: Vec<Op>, page_size: u8) {
 	if page_size == 0 {
-		return
+		return;
 	}
 
 	TestExternalities::default().execute_with(|| {

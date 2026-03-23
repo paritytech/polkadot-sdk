@@ -16,25 +16,23 @@
 // limitations under the License.
 
 use crate::{
-	assert_refcount,
+	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
+	PristineCode, assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
 	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB},
+	test_utils::{ALICE, ALICE_ADDR, BOB, builder::Contract},
 	tests::{
-		builder,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test, builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
 	tracing::trace,
-	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
-	PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
+use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
 use test_case::test_case;
@@ -177,10 +175,11 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn eth_contract_too_large() {
-	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
-	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
-		.expect("usize value doesn't fit in u32");
-	let code = VmBinaryModule::evm_sized(contract_size).code;
+	// Create EVM init code that is one byte larger than the EIP-3860 limit.
+	// We take valid init code and pad it with STOP opcodes after the RETURN instruction
+	// (unreachable but makes the init code blob itself exceed MAX_INITCODE_SIZE).
+	let mut code = VmBinaryModule::evm_init_code_for_runtime_size(0).code;
+	code.resize(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1, revm::bytecode::opcode::STOP);
 
 	for (allow_unlimited_contract_size, debug_flag) in
 		[(true, false), (true, true), (false, false), (false, true)]
@@ -190,7 +189,10 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false, false)),
+			debug_settings: Some(
+				DebugSettings::default()
+					.set_allow_unlimited_contract_size(allow_unlimited_contract_size),
+			),
 			..Default::default()
 		};
 
@@ -218,10 +220,10 @@ fn eth_contract_too_large() {
 #[test]
 fn upload_evm_runtime_code_works() {
 	use crate::{
+		Pallet, TransactionMeter,
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
-		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -268,7 +270,7 @@ fn upload_and_remove_code_works_for_evm() {
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		// Upload the code.
-		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128));
 
 		// Ensure the contract was stored.
 		ensure_stored(code_hash);
@@ -289,7 +291,7 @@ fn upload_fails_if_evm_bytecode_disabled() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Upload should fail since support for EVM bytecode is disabled.
 		assert_err!(
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128),
 			<Error<Test>>::CodeRejected
 		);
 	});
@@ -357,8 +359,7 @@ fn prestate_diff_mode_tracing_works() {
 						"nonce": 2,
 						"code": "{{CONTRACT_CODE}}",
 						"storage": {
-							"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
-							"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_7}}"
 						}
 					},
 					"{{CHILD_ADDR}}": {
@@ -393,8 +394,7 @@ fn prestate_diff_mode_tracing_works() {
 							"nonce": 2,
 							"code": "{{CONTRACT_CODE}}",
 							"storage": {
-								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
-								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_7}}"
 							}
 						},
 						"{{CHILD_ADDR}}": {
@@ -414,7 +414,7 @@ fn prestate_diff_mode_tracing_works() {
 							"nonce": 2,
 							"code": "{{CONTRACT_CODE}}",
 							"storage": {
-								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_7}}"
 							}
 						},
 						"{{CHILD_ADDR}}": {
@@ -429,7 +429,7 @@ fn prestate_diff_mode_tracing_works() {
 					"post": {
 						"{{CONTRACT_ADDR}}": {
 							"storage": {
-								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000008"
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_8}}"
 							}
 						},
 						"{{CHILD_ADDR}}": {
@@ -457,8 +457,13 @@ fn prestate_diff_mode_tracing_works() {
 			let replace_placeholders = |json: &str| -> String {
 				let alice_balance_post = Pallet::<Test>::evm_balance(&ALICE_ADDR);
 
-				let mut child_addr_bytes = [0u8; 32];
-				child_addr_bytes[12..32].copy_from_slice(child_addr.as_bytes());
+				// Packed slot 0: [4 zero bytes][uint64 number BE][20-byte address]
+				let slot0_packed = |number: u64| -> String {
+					let mut slot = [0u8; 32];
+					slot[4..12].copy_from_slice(&number.to_be_bytes());
+					slot[12..32].copy_from_slice(child_addr.as_bytes());
+					format!("0x{}", hex::encode(slot))
+				};
 
 				json.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
 					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", contract_addr))
@@ -470,10 +475,8 @@ fn prestate_diff_mode_tracing_works() {
 						&format!("0x{}", hex::encode(&contract_runtime_code)),
 					)
 					.replace("{{CHILD_CODE}}", &format!("0x{}", hex::encode(&child_runtime_code)))
-					.replace(
-						"{{CHILD_ADDR_PADDED}}",
-						&format!("0x{}", hex::encode(child_addr_bytes)),
-					)
+					.replace("{{SLOT0_PACKED_7}}", &slot0_packed(7))
+					.replace("{{SLOT0_PACKED_8}}", &slot0_packed(8))
 			};
 
 			let mut tracer = PrestateTracer::<Test>::new(test_case.config.clone());
@@ -592,4 +595,234 @@ fn eth_substrate_call_tracks_weight_correctly() {
 			post_info.actual_weight.unwrap(),
 		);
 	});
+}
+
+/// Tests execution tracing for both EVM and PVM.
+///
+/// Each test case runs for both Solc (EVM) and Resolc (PVM) with separate expected traces.
+/// Expected traces are stored in `src/tests/json_trace/` directory.
+///
+/// Gas consistency is verified for consecutive steps:
+/// - For EVM: gas - gas_cost == next_step.gas (exact, every opcode is traced)
+/// - For PVM: gas - gas_cost >= next_step.gas (inequality, PVM instructions between syscalls
+///   consume additional gas that isn't individually traced)
+#[test]
+fn execution_tracing_works() {
+	use crate::{
+		evm::{Bytes, ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
+		tracing::trace,
+	};
+	use pallet_revive_fixtures::{Callee, Caller};
+
+	struct TestCase {
+		name: &'static str,
+		setup: Box<dyn Fn(FixtureType) -> ExecutionTrace>,
+		expected_evm_trace: &'static str,
+		expected_pvm_trace: &'static str,
+	}
+
+	let test_cases: Vec<TestCase> = vec![
+		TestCase {
+			name: "Fibonacci",
+			setup: Box::new(|fixture_type| {
+				let (code, _) = compile_module_with_type("Fibonacci", fixture_type).unwrap();
+				let Contract { addr, .. } =
+					builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+				let config = ExecutionTracerConfig {
+					enable_return_data: true,
+					limit: Some(5),
+					..Default::default()
+				};
+				let mut tracer = ExecutionTracer::new(config);
+				trace(&mut tracer, || {
+					builder::bare_call(addr)
+						.data(Fibonacci::fibCall { n: 3 }.abi_encode())
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			}),
+			expected_evm_trace: include_str!("json_trace/fibonacci_evm.json"),
+			expected_pvm_trace: include_str!("json_trace/fibonacci_pvm.json"),
+		},
+		TestCase {
+			name: "CALL",
+			setup: Box::new(|fixture_type| {
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
+
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
+
+				let config =
+					ExecutionTracerConfig { enable_return_data: true, ..Default::default() };
+				let mut tracer = ExecutionTracer::new(config);
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			}),
+			expected_evm_trace: include_str!("json_trace/call_evm.json"),
+			expected_pvm_trace: include_str!("json_trace/call_pvm.json"),
+		},
+		TestCase {
+			name: "DELEGATECALL",
+			setup: Box::new(|fixture_type| {
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
+
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
+
+				let config =
+					ExecutionTracerConfig { enable_return_data: true, ..Default::default() };
+				let mut tracer = ExecutionTracer::new(config);
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::delegateCall {
+								_callee: callee.0.into(),
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			}),
+			expected_evm_trace: include_str!("json_trace/delegatecall_evm.json"),
+			expected_pvm_trace: include_str!("json_trace/delegatecall_pvm.json"),
+		},
+	];
+
+	/// Normalizes trace by zeroing out all dynamic values for stable comparisons.
+	fn normalize_trace(trace: &ExecutionTrace) -> ExecutionTrace {
+		use frame_support::weights::Weight;
+
+		let mut normalized = trace.clone();
+		normalized.gas = 0;
+		normalized.weight_consumed = Weight::zero();
+		normalized.base_call_weight = Weight::zero();
+
+		for step in &mut normalized.struct_logs {
+			step.gas = 0;
+			step.gas_cost = 0;
+			step.weight_cost = Weight::zero();
+
+			match &mut step.kind {
+				ExecutionStepKind::EVMOpcode { stack, .. } => {
+					for val in stack.iter_mut() {
+						*val = Bytes::from(vec![0u8]);
+					}
+				},
+				ExecutionStepKind::PVMSyscall { op, args, returned, .. } => {
+					// Normalize call/delegate_call to their _evm variants so
+					// the test passes regardless of which resolc version
+					// compiled the fixtures (older emits call/delegate_call,
+					// newer emits call_evm/delegate_call_evm).
+					use crate::vm::pvm::env::lookup_syscall_index;
+					let call_idx = lookup_syscall_index("call").unwrap();
+					let call_evm_idx = lookup_syscall_index("call_evm").unwrap();
+					let delegate_idx = lookup_syscall_index("delegate_call").unwrap();
+					let delegate_evm_idx = lookup_syscall_index("delegate_call_evm").unwrap();
+					if *op == call_idx || *op == call_evm_idx {
+						*op = call_evm_idx;
+						// Clear args since the two variants have compatible
+						// behavior but different argument layouts.
+						args.clear();
+					} else if *op == delegate_idx || *op == delegate_evm_idx {
+						*op = delegate_evm_idx;
+						args.clear();
+					} else {
+						for val in args.iter_mut() {
+							*val = 0;
+						}
+					}
+					if returned.is_some() {
+						*returned = Some(0);
+					}
+				},
+			}
+		}
+		normalized
+	}
+
+	/// Verifies gas consistency for execution traces.
+	///
+	/// Gas equations:
+	/// - gasCost = opcode_cost only (excluding forwarded gas for call/create opcodes)
+	/// - For consecutive steps at the same depth:
+	///   - EVM: gas - gas_cost == next_step.gas (exact)
+	///   - PVM: gas - gas_cost >= next_step.gas (inequality, PVM instructions consume extra gas)
+	fn verify_gas_consistency(trace: &ExecutionTrace, is_evm: bool, name: &str) {
+		// Verify consecutive steps at the same depth
+		let same_depth_violations: Vec<_> = trace
+			.struct_logs
+			.iter()
+			.zip(trace.struct_logs.iter().skip(1))
+			.enumerate()
+			.filter(|(_, (curr, next))| curr.depth == next.depth)
+			.filter_map(|(i, (curr, next))| {
+				let expected = curr.gas.saturating_sub(curr.gas_cost);
+				let valid = if is_evm { expected == next.gas } else { next.gas <= expected };
+				(!valid).then_some((i, curr.depth, curr.gas, curr.gas_cost, expected, next.gas))
+			})
+			.collect();
+
+		assert!(
+			same_depth_violations.is_empty(),
+			"{name}: same-depth gas violations (step, depth, gas, gas_cost, expected, actual): {same_depth_violations:?}",
+		);
+	}
+
+	for test_case in test_cases {
+		for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+			ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+				let actual_trace = (test_case.setup)(fixture_type);
+				let is_evm = matches!(fixture_type, FixtureType::Solc | FixtureType::SolcRuntime);
+				let name = test_case.name;
+				let vm_type = if is_evm { "EVM" } else { "PVM" };
+
+				let expected_json_str = if is_evm {
+					test_case.expected_evm_trace
+				} else {
+					test_case.expected_pvm_trace
+				};
+				let expected: ExecutionTrace = serde_json::from_str(expected_json_str)
+					.unwrap_or_else(|e| {
+						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
+					});
+				// Normalize both traces for comparison (zeroes out dynamic values)
+				let normalized_actual = normalize_trace(&actual_trace);
+				let normalized_expected = normalize_trace(&expected);
+				assert_eq!(
+					normalized_actual, normalized_expected,
+					"{name} ({vm_type}): trace mismatch"
+				);
+
+				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
+			});
+		}
+	}
 }
