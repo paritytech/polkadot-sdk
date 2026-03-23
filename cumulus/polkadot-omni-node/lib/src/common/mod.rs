@@ -126,7 +126,7 @@ pub struct NodeExtraArgs {
 
 	/// Statement store and network handler configuration.
 	/// `None` disables the statement store.
-	pub statement_store_config: Option<sc_statement_store::Options>,
+	pub statement_store_config: Option<sc_statement_store::Config>,
 
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,

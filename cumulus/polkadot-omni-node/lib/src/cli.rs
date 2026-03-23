@@ -307,7 +307,7 @@ impl<Config: CliConfig> Cli<Config> {
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			statement_store_config: self.enable_statement_store.then_some(
-				sc_statement_store::Options {
+				sc_statement_store::Config {
 					max_total_statements: self.statement_store_max_total_statements,
 					max_total_size: self.statement_store_max_total_size,
 					purge_after_sec: self.statement_store_purge_after_sec,

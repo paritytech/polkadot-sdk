@@ -178,7 +178,7 @@ pub fn create_extrinsic(
 pub fn new_partial(
 	config: &Configuration,
 	mixnet_config: Option<&sc_mixnet::Config>,
-	statement_store_config: sc_statement_store::Options,
+	statement_store_config: sc_statement_store::Config,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
@@ -414,7 +414,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
-	statement_store_config: sc_statement_store::Options,
+	statement_store_config: sc_statement_store::Config,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<
 			Block,
@@ -843,7 +843,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	let statement_store_config = sc_statement_store::Options {
+	let statement_store_config = sc_statement_store::Config {
 		max_total_statements: cli.statement_store_max_total_statements,
 		max_total_size: cli.statement_store_max_total_size,
 		purge_after_sec: cli.statement_store_purge_after_sec,
