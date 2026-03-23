@@ -5,23 +5,23 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-log.workspace = true
-async-trait.workspace = true
 anyhow.workspace = true
+async-trait.workspace = true
 codec.workspace = true
 futures.workspace = true
 hex.workspace = true
+log.workspace = true
 
 # Crypto
-rand.workspace = true
 ml-kem = { workspace = true, features = ["zeroize"] }
+rand.workspace = true
 
 # Substrate
-sc-service.workspace = true
 sc-client-api.workspace = true
-sp-runtime.workspace = true
+sc-service.workspace = true
 sp-consensus.workspace = true
 sp-inherents.workspace = true
+sp-runtime.workspace = true
 
 # Subtensor
 stp-shield.workspace = true
@@ -32,14 +32,14 @@ workspace = true
 [features]
 default = ["std"]
 std = [
-    "anyhow/std",
-    "ml-kem/std",
-    "stp-shield/std",
-    "codec/std",
-    "futures/std",
-    "hex/std",
-    "log/std",
-    "rand/std",
-    "sp-runtime/std",
-    "sp-inherents/std",
+	"anyhow/std",
+	"codec/std",
+	"futures/std",
+	"hex/std",
+	"log/std",
+	"ml-kem/std",
+	"rand/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"stp-shield/std",
 ]

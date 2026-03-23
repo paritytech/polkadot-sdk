@@ -307,6 +307,7 @@ members = [
 	"substrate/client/runtime-utilities",
 	"substrate/client/service",
 	"substrate/client/service/test",
+	"substrate/client/shield",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
 	"substrate/client/storage-monitor",
@@ -318,7 +319,6 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
-	"substrate/client/shield",
 	"substrate/deprecated/hashing",
 	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
@@ -525,12 +525,12 @@ members = [
 	"substrate/primitives/runtime-interface/test-wasm",
 	"substrate/primitives/runtime-interface/test-wasm-deprecated",
 	"substrate/primitives/session",
+	"substrate/primitives/shield",
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
 	"substrate/primitives/statement-store",
 	"substrate/primitives/std",
 	"substrate/primitives/storage",
-	"substrate/primitives/shield",
 	"substrate/primitives/test-primitives",
 	"substrate/primitives/timestamp",
 	"substrate/primitives/tracing",
@@ -1470,10 +1470,10 @@ zombienet-orchestrator = { version = "0.3.0" }
 zombienet-sdk = { version = "0.3.0" }
 zstd = { version = "0.12.4", default-features = false }
 
-stp-shield = { path = "substrate/primitives/shield", default-features = false }
-stc-shield = { path = "substrate/client/shield", default-features = false }
-ml-kem = { version = "0.2.2", default-features = false }
 chacha20poly1305 = { version = "0.10", default-features = false }
+ml-kem = { version = "0.2.2", default-features = false }
+stc-shield = { path = "substrate/client/shield", default-features = false }
+stp-shield = { path = "substrate/primitives/shield", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
