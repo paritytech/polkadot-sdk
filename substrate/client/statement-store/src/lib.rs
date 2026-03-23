@@ -171,7 +171,7 @@ impl StatementsForAccount {
 pub const DEFAULT_NETWORK_WORKERS: usize = 1;
 
 /// Default maximum statements per second per peer before rate limiting kicks in.
-pub const DEFAULT_RATE_LIMIT: u32 = sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND;
+pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
 
 /// Statement store and network handler configuration.
 #[derive(Debug, Clone, Copy)]
@@ -188,6 +188,24 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
+}
+
+impl Config {
+	/// Validate the configuration, returning an error if any values are invalid.
+	pub fn validate(&self) -> Result<()> {
+		if self.max_total_statements == 0 {
+			return Err(Error::InvalidConfig(
+				"max_total_statements must be greater than zero".into(),
+			));
+		}
+		if self.max_total_size == 0 {
+			return Err(Error::InvalidConfig("max_total_size must be greater than zero".into()));
+		}
+		if self.network_workers == 0 {
+			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
+		}
+		Ok(())
+	}
 }
 
 impl Default for Config {
@@ -667,6 +685,8 @@ impl Store {
 		BE: Backend<Block> + 'static,
 		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
+		config.validate()?;
+
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
 
