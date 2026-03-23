@@ -8,7 +8,7 @@ use std::ops::Range;
 
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -108,7 +108,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
 	log::info!("Session boundaries passed");
 
-	// Check that all parachains produce at least 2/3 blocks within 16 RC blocks
+	// Check that all parachains produce at least 2..5 blocks within 16 RC blocks
 	// (since core 0 is shared between all paras)
 	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
 	//  time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
