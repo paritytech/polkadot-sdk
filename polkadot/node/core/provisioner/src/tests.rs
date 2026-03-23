@@ -564,7 +564,7 @@ mod select_candidates {
 		expected.sort_by_key(|c| c.candidate().descriptor.para_id());
 		let mut candidates_iter = expected.iter().map(|candidate| BackableCandidateRef {
 			candidate_hash: candidate.hash(),
-			scheduling_parent: candidate.descriptor().scheduling_parent(true),
+			scheduling_parent: candidate.descriptor().scheduling_parent(),
 		});
 
 		while let Some(from_job) = receiver.next().await {
@@ -602,7 +602,7 @@ mod select_candidates {
 										candidate_hash: candidate.hash(),
 										scheduling_parent: candidate
 											.descriptor()
-											.scheduling_parent(true),
+											.scheduling_parent(),
 									})
 									.collect(),
 							)
