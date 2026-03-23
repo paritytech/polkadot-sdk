@@ -23,7 +23,7 @@ use sp_core::{crypto::Pair, Encode};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashSet, VecDeque},
 	iter,
 	sync::Arc,
 	time::Duration,
@@ -31,14 +31,15 @@ use std::{
 
 use self::prospective_parachains::update_view;
 use polkadot_node_network_protocol::{
-	peer_set::CollationVersion,
+	peer_set::{CollationVersion, PeerSet, ProtocolVersion},
 	request_response::{Requests, ResponseSender},
 	ObservedRole,
+	PeerId,
 };
 use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_node_subsystem::messages::{
-	AllMessages, CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage,
-	ProspectiveParachainsMessage, ReportPeerMessage,
+	AllMessages, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
+	NetworkBridgeEvent, NetworkBridgeTxMessage, ProspectiveParachainsMessage, ReportPeerMessage,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
@@ -50,6 +51,11 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_hash};
 
 mod prospective_parachains;
+
+/// Collation wire protocol version 1.
+fn protocol_version_v1_for_test() -> ProtocolVersion {
+	unsafe { std::mem::transmute::<u32, ProtocolVersion>(1) }
+}
 
 const ACTIVITY_TIMEOUT: Duration = Duration::from_millis(500);
 const DECLARE_TIMEOUT: Duration = Duration::from_millis(25);
@@ -1224,6 +1230,41 @@ fn disconnect_if_wrong_declare() {
 		);
 
 		assert_collator_disconnect(&mut virtual_overseer, peer_b).await;
+
+		virtual_overseer
+	})
+}
+
+#[test]
+fn collation_v1_peer_is_rejected() {
+	let mut test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let relay_parent = test_state.relay_parent;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent, 0)]).await;
+
+		let peer = PeerId::random();
+
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerConnected(
+				peer,
+				ObservedRole::Full,
+				protocol_version_v1_for_test(),
+				None,
+			)),
+		)
+		.await;
+
+		test_helpers::Yield::new().await;
+
+		assert_matches!(
+			virtual_overseer.recv().now_or_never(),
+			None,
+			"V1 peer must not produce outgoing subsystem messages"
+		);
 
 		virtual_overseer
 	})
