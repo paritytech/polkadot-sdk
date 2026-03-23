@@ -209,7 +209,6 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
-/// V2+ protocol only; prospective candidate is always present.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
@@ -218,7 +217,7 @@ pub struct Advertisement {
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
 	pub peer_id: PeerId,
-	/// Candidate hash and parent head-data hash from the advertisement (V2+ required).
+	/// Candidate hash and parent head-data hash from the advertisement.
 	pub prospective_candidate: ProspectiveCandidate,
 }
 

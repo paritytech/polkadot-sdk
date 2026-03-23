@@ -59,6 +59,7 @@ use polkadot_primitives_test_helpers::{
 };
 use sc_network::{OutboundFailure, RequestFailure};
 use sp_keyring::Sr25519Keyring;
+use sc_network_types::multihash::Multihash;
 use sp_keystore::Keystore;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -70,14 +71,8 @@ use std::{
 const TIMEOUT: Duration = Duration::from_millis(100);
 
 fn peer_id(i: u8) -> PeerId {
-	// Deterministic identity multihash (code 0, 32-byte digest) — same shape as
-	// `Multihash::wrap(0x0, …)`.
-	let digest = [i; 32];
-	let mut mh = Vec::with_capacity(34);
-	mh.push(0x00);
-	mh.push(32);
-	mh.extend_from_slice(&digest);
-	PeerId::from_bytes(&mh).expect("valid 32-byte identity multihash builds a valid PeerId; qed")
+	let data = [i; 32];
+	PeerId::from_multihash(Multihash::wrap(0x0, &data).unwrap()).unwrap()
 }
 
 fn dummy_pvd() -> PersistedValidationData {
@@ -1953,8 +1948,7 @@ async fn test_collation_fetch_failure() {
 		test_state.assert_no_messages().await;
 	}
 
-	// Received paraid is different than the advertised one (V2 advertisement; candidate hash
-	// check).
+	// Received paraid is different than the advertised one.
 	{
 		let peer_id = PeerId::random();
 

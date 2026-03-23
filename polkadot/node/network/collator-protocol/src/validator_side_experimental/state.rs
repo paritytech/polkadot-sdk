@@ -217,7 +217,7 @@ impl<B: Backend> State<B> {
 		Ok(())
 	}
 
-	/// Handle a new advertisement (V2+; includes [`ProspectiveCandidate`]).
+	/// Handle a new advertisement.
 	pub async fn handle_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,

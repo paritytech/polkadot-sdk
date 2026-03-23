@@ -47,6 +47,7 @@ tokio = { features = ["macros"], workspace = true, default-features = true }
 codec = { features = ["std"], workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
