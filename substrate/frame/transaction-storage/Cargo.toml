@@ -46,7 +46,6 @@ std = [
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-transaction-storage-proof/std",
 	"tracing/std",
 ]
 runtime-benchmarks = [

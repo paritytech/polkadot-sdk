@@ -68,7 +68,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			..Default::default()
 		},
 		transaction_storage: pallet_transaction_storage::GenesisConfig::<Test> {
-			retention_period: 10,
+			storage_period: 10,
 			byte_fee: 2,
 			entry_fee: 200,
 		},
