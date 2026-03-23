@@ -1289,6 +1289,7 @@ where
 		// useful data.
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
+			entry.remove();
 			return;
 		};
 		let envelope_overhead = peer_data.protocol_version.envelope_overhead();
