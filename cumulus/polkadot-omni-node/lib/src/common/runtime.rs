@@ -181,6 +181,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 struct MetadataInspector {
 	metadata: Metadata,
+	#[allow(dead_code)]
 	version: u32,
 }
 
@@ -190,6 +191,7 @@ impl MetadataInspector {
 		Ok(MetadataInspector { metadata, version })
 	}
 
+	#[cfg(test)]
 	fn version(&self) -> u32 {
 		self.version
 	}
@@ -259,8 +261,8 @@ impl MetadataInspector {
 			.map_err(|e| sc_cli::Error::Input(format!("failed to decode metadata: {e}").into()))?;
 
 		// Extract version from bytes.
-		// For Substrate metadata, the magic is 4 bytes (0x6174656d), followed by 
-		// the RuntimeMetadata enum. For modern versions (V14+), the variant 
+		// For Substrate metadata, the magic is 4 bytes (0x6174656d), followed by
+		// the RuntimeMetadata enum. For modern versions (V14+), the variant
 		// index in SCALE encoding corresponds to the version number.
 		let version = encoded.get(4).cloned().unwrap_or(0) as u32;
 
