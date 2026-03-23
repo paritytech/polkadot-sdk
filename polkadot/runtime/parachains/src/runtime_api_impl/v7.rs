@@ -444,6 +444,7 @@ pub fn backing_state<T: initializer::Config>(
 		min_relay_parent_number,
 		max_pov_size: config.max_pov_size,
 		max_code_size: config.max_code_size,
+		max_head_data_size: 20480,
 		ump_remaining,
 		ump_remaining_bytes,
 		max_ump_num_per_candidate: config.max_upward_message_num_per_candidate,
