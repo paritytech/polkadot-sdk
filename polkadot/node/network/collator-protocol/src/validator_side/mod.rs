@@ -169,7 +169,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId, CoreIndex, Hash,
-	HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use sp_consensus_babe::digests::CompatibleDigestItem;
@@ -540,10 +540,10 @@ struct HeldOffAdvertisement {
 	peer_id: PeerId,
 	/// The public key which the collator has sent us with the `Declare` message.
 	collator_id: CollatorId,
-	/// The prospective candidate hash and its relay parent.
-	prospective_candidate: (CandidateHash, Hash),
+	/// The prospective candidate hash and parent head-data hash from the advertisement.
+	prospective_candidate: ProspectiveCandidate,
 	/// Advertised candidate descriptor version (for V3 protocol).
-	/// None for V1/V2 protocols.
+	/// None for V2 protocol.
 	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
@@ -1213,7 +1213,7 @@ fn hold_off_asset_hub_collation_if_needed(
 	peer_id: PeerId,
 	collator_id: &CollatorId,
 	scheduling_parent: Hash,
-	prospective_candidate: (CandidateHash, Hash),
+	prospective_candidate: ProspectiveCandidate,
 	relay_parent: Hash,
 	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 ) -> bool {
@@ -1717,7 +1717,7 @@ where
 		peer_id,
 		&collator_id,
 		scheduling_parent,
-		(candidate_hash, parent_head_data_hash),
+		ProspectiveCandidate { candidate_hash, parent_head_data_hash },
 		relay_parent,
 		Some(candidate_descriptor_version),
 	) {
@@ -2621,9 +2621,11 @@ async fn kick_off_seconding<Context>(
 		let (maybe_pvd, maybe_parent_head, maybe_parent_head_hash) =
 			match collation_event.collator_protocol_version {
 				CollationVersion::V2 | CollationVersion::V3 => {
+					// PVD includes relay_parent_number and relay_parent_storage_root, so use the
+					// candidate's execution-context relay parent (V3 may differ from scheduling_parent).
 					let pvd = request_prospective_validation_data(
 						ctx.sender(),
-						scheduling_parent,
+						candidate_receipt.descriptor().relay_parent(),
 						parent_head_data_hash,
 						para_id,
 						maybe_parent_head_data.clone(),

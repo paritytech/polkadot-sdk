@@ -49,8 +49,8 @@ use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	ApprovedPeerId, BlockNumber, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupRotationInfo, Hash,
-	HeadData, Header, Id as ParaId, MutateDescriptorV2, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SigningContext, UMPSignal, ValidatorId, ValidatorIndex,
+	HeadData, Header, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
+	SigningContext, UMPSignal, ValidatorId, ValidatorIndex,
 	UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{

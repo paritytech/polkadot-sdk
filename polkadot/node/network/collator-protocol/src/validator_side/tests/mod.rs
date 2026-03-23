@@ -310,7 +310,7 @@ async fn assert_candidate_backing_second(
 		AllMessages::ProspectiveParachains(
 			ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 		) => {
-			assert_eq!(expected_scheduling_parent, request.candidate_relay_parent);
+			assert_eq!(expected_relay_parent, request.candidate_relay_parent);
 			assert_eq!(expected_para_id, request.para_id);
 			tx.send(Some(pvd.clone())).unwrap();
 		}
@@ -631,6 +631,7 @@ fn fetch_one_collation_at_a_time_for_v2_advertisement() {
 			assert_candidate_backing_second(
 				&mut virtual_overseer,
 				test_state.relay_parent,
+				test_state.relay_parent,
 				test_state.chain_ids[0],
 				&pov,
 			)
@@ -822,6 +823,7 @@ fn fetches_next_collation() {
 
 		assert_candidate_backing_second(
 			&mut virtual_overseer,
+			second,
 			second,
 			test_state.chain_ids[0],
 			&pov,
