@@ -564,6 +564,8 @@ struct PerSchedulingParent {
 
 /// Information about a held off advertisement
 struct HeldOffAdvertisement {
+	/// The relay parent of the candidate.
+	relay_parent: Hash,
 	/// The scheduling parent it's based on.
 	scheduling_parent: Hash,
 	/// The peer id of the collator that has sent the advertisement.
@@ -573,6 +575,9 @@ struct HeldOffAdvertisement {
 	/// The prospective candidate hash and its relay parent, if available. Will be none if collator
 	/// protocol v1 is used.
 	prospective_candidate: Option<(CandidateHash, Hash)>,
+	/// Advertised candidate descriptor version (for V3 protocol).
+	/// None for V1/V2 protocols.
+	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 /// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
@@ -1224,6 +1229,7 @@ async fn process_incoming_peer_message<Context>(
 			candidate_hash,
 			parent_head_data_hash,
 			candidate_descriptor_version,
+			relay_parent,
 		}) => {
 			if let Err(err) = handle_advertisement_v3(
 				ctx.sender(),
@@ -1233,12 +1239,14 @@ async fn process_incoming_peer_message<Context>(
 				candidate_hash,
 				parent_head_data_hash,
 				candidate_descriptor_version,
+				relay_parent,
 			)
 			.await
 			{
 				gum::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
+					?relay_parent,
 					?scheduling_parent,
 					?candidate_hash,
 					?candidate_descriptor_version,
@@ -1274,6 +1282,8 @@ fn hold_off_asset_hub_collation_if_needed(
 	collator_id: &CollatorId,
 	scheduling_parent: Hash,
 	prospective_candidate: Option<(CandidateHash, Hash)>,
+	relay_parent: Hash,
+	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 ) -> bool {
 	// If we don't know the peer we should reject the advertisement but to avoid verbosity and
 	// copy-pasted logic we'll just return `false` and let the caller handle it.
@@ -1314,10 +1324,12 @@ fn hold_off_asset_hub_collation_if_needed(
 
 	let hold_off_outcome =
 		rp_state.ah_held_off_advertisements.hold_off_if_necessary(HeldOffAdvertisement {
+			relay_parent,
 			scheduling_parent,
 			peer_id,
 			collator_id,
 			prospective_candidate,
+			advertised_descriptor_version,
 		});
 
 	match hold_off_outcome {
@@ -1380,6 +1392,8 @@ enum AdvertisementError {
 	Invalid(InsertAdvertisementError),
 	/// Seconding not allowed by backing subsystem
 	BlockedByBacking,
+	/// For non-V3 descriptors, the relay parent must equal the scheduling parent.
+	RelayParentMismatch,
 }
 
 impl AdvertisementError {
@@ -1390,7 +1404,7 @@ impl AdvertisementError {
 			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
 				Some(COST_UNEXPECTED_MESSAGE)
 			},
-			SchedulingParentNotValid => Some(COST_INVALID_SCHEDULING_PARENT),
+			SchedulingParentNotValid | RelayParentMismatch => Some(COST_INVALID_SCHEDULING_PARENT),
 			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
 		}
 	}
@@ -1686,6 +1700,8 @@ where
 		&collator_id,
 		scheduling_parent,
 		prospective_candidate,
+		scheduling_parent, // For V1/V2, the relay parent is the same as the scheduling parent
+		None,              // V1/V2 don't have advertised descriptor version
 	) {
 		return Ok(());
 	}
@@ -1693,6 +1709,7 @@ where
 	process_advertisement(
 		sender,
 		state,
+		scheduling_parent,
 		scheduling_parent,
 		para_id,
 		peer_id,
@@ -1711,11 +1728,19 @@ async fn handle_advertisement_v3<Sender>(
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
 	candidate_descriptor_version: CandidateDescriptorVersion,
+	relay_parent: Hash,
 ) -> std::result::Result<(), AdvertisementError>
 where
 	Sender: CollatorProtocolSenderTrait,
 {
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
+
+	// For non-V3 descriptors, the relay parent must equal the scheduling parent.
+	if candidate_descriptor_version != CandidateDescriptorVersion::V3 &&
+		relay_parent != scheduling_parent
+	{
+		return Err(AdvertisementError::RelayParentMismatch);
+	}
 
 	// Fail fast if the scheduling parent is completely unknown.
 	let per_scheduling_parent = state
@@ -1771,6 +1796,8 @@ where
 		&collator_id,
 		scheduling_parent,
 		Some((candidate_hash, parent_head_data_hash)),
+		relay_parent,
+		Some(candidate_descriptor_version),
 	) {
 		return Ok(());
 	}
@@ -1778,6 +1805,7 @@ where
 	process_advertisement(
 		sender,
 		state,
+		relay_parent,
 		scheduling_parent,
 		para_id,
 		peer_id,
@@ -1791,6 +1819,7 @@ where
 async fn process_advertisement<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
+	relay_parent: Hash,
 	scheduling_parent: Hash,
 	para_id: ParaId,
 	peer_id: PeerId,
@@ -1822,6 +1851,7 @@ where
 	let result = enqueue_collation(
 		sender,
 		state,
+		relay_parent,
 		scheduling_parent,
 		para_id,
 		peer_id,
@@ -1850,6 +1880,7 @@ where
 async fn enqueue_collation<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
+	relay_parent: Hash,
 	scheduling_parent: Hash,
 	para_id: ParaId,
 	peer_id: PeerId,
@@ -1891,6 +1922,7 @@ where
 	let collations = &mut per_scheduling_parent.collations;
 	let pending_collation = PendingCollation::new(
 		scheduling_parent,
+		relay_parent,
 		para_id,
 		&peer_id,
 		prospective_candidate,
@@ -2523,7 +2555,7 @@ async fn run_inner<Context>(
 				};
 
 				for held_off_advertisement in held_off_advertisements {
-					let HeldOffAdvertisement{scheduling_parent, peer_id, collator_id, prospective_candidate} = held_off_advertisement;
+					let HeldOffAdvertisement{relay_parent, scheduling_parent, peer_id, collator_id, prospective_candidate, advertised_descriptor_version} = held_off_advertisement;
 					gum::debug!(
 						target: LOG_TARGET,
 						?scheduling_parent,
@@ -2535,12 +2567,13 @@ async fn run_inner<Context>(
 					if let Err(err) = process_advertisement(
 						ctx.sender(),
 						&mut state,
+						relay_parent,
 						scheduling_parent,
 						ASSET_HUB_PARA_ID,
 						peer_id,
 						collator_id,
 						prospective_candidate,
-						None, // V1/V2 advertisement, no descriptor version
+						advertised_descriptor_version
 					)
 					.await {
 						gum::debug!(

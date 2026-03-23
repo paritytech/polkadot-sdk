@@ -73,6 +73,9 @@ pub enum SecondingError {
 	#[error("Scheduling parent hash doesn't match the advertisement")]
 	SchedulingParentMismatch,
 
+	#[error("Relay parent hash doesn't match the advertisement")]
+	RelayParentMismatch,
+
 	#[error("Received duplicate collation from the peer")]
 	Duplicate,
 
@@ -106,6 +109,7 @@ impl SecondingError {
 			PersistedValidationDataMismatch |
 			CandidateHashMismatch |
 			SchedulingParentMismatch |
+			RelayParentMismatch |
 			ParentHeadDataMismatch |
 			InvalidCoreIndex(_, _) |
 			InvalidSessionIndex(_, _) |

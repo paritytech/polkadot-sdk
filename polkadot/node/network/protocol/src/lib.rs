@@ -600,7 +600,7 @@ pub mod v3_collation {
 		#[codec(index = 1)]
 		AdvertiseCollation {
 			/// Hash of the scheduling parent - used for validator assignment.
-			/// For V3 candidate descriptors, this must be an active leaf.
+			/// For non-v3 descriptors, this must be equal to the relay parent.
 			scheduling_parent: Hash,
 			/// Candidate hash.
 			candidate_hash: CandidateHash,
@@ -608,6 +608,8 @@ pub mod v3_collation {
 			parent_head_data_hash: Hash,
 			/// The version of the candidate descriptor.
 			candidate_descriptor_version: CandidateDescriptorVersion,
+			/// The relay parent of the candidate.
+			relay_parent: Hash,
 		},
 		/// A collation sent to a validator was seconded.
 		#[codec(index = 4)]
