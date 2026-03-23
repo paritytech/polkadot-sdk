@@ -262,13 +262,13 @@ pub struct Client {
 
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
-	let query = subxt_client::constants().revive().chain_id();
+	let query = subxt_client::constants().revive().chain_id().unvalidated();
 	api.constants().at(&query).map_err(|err| err.into())
 }
 
 /// Fetch the max block weight from the substrate chain.
 async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, ClientError> {
-	let query = subxt_client::constants().system().block_weights();
+	let query = subxt_client::constants().system().block_weights().unvalidated();
 	let weights = api.constants().at(&query)?;
 	let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
 	Ok(max_block.0)
@@ -546,7 +546,7 @@ impl Client {
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
 	) -> Result<StreamOfResults<TransactionStatus<SubstrateBlockHash>>, ClientError> {
-		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
+		let ext = self.api.tx().create_unsigned(&call.unvalidated()).map_err(ClientError::from)?;
 
 		let sub = self
 			.rpc_client
