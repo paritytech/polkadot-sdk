@@ -332,4 +332,19 @@ mod tests {
 		let aura_id = inspector.aura_consensus_id();
 		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
 	}
+
+	#[test]
+	fn test_aura_consensus_id_asset_hub_polkadot() {
+		// Test with modern Asset Hub Polkadot metadata
+		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join("tests/chain-specs/asset-hub-polkadot.json");
+		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
+			.expect("invalid chain spec");
+
+		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
+		let aura_id = inspector.aura_consensus_id();
+
+		// Asset Hub Polkadot uses Ed25519 for Aura.
+		assert_eq!(aura_id, Some(AuraConsensusId::Ed25519));
+	}
 }
