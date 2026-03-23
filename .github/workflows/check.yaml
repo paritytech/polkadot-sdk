@@ -6,3 +6,56 @@ concurrency:
 
 on:
   pull_request:
+
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt
+
+      - name: cargo +nightly fmt --check
+        run: cargo +nightly fmt --check
+
+  taplo:
+    name: taplo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install taplo
+        uses: taiki-e/install-action@v2
+        with:
+          tool: taplo-cli
+
+      - name: taplo fmt --check
+        run: taplo fmt --check --config .config/taplo.toml
+
+  zepter:
+    name: zepter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install zepter
+        run: cargo install zepter --locked
+
+      - name: zepter run check
+        run: zepter run check
