@@ -289,6 +289,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -857,6 +865,73 @@ pub mod pallet {
 			if !frame_system::Pallet::<T>::account_exists(&psm_account) {
 				frame_system::Pallet::<T>::inc_providers(&psm_account);
 			}
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			let psm_account = Self::account_id();
+
+			for (asset_id, debt) in PsmDebt::<T>::iter() {
+				let reserve = T::Fungibles::balance(asset_id, &psm_account);
+				ensure!(
+					reserve >= debt,
+					"PSM reserve < debt: external funds were extracted from PSM account"
+				);
+			}
+
+			for (asset_id, debt) in PsmDebt::<T>::iter() {
+				if !debt.is_zero() {
+					ensure!(
+						ExternalAssets::<T>::contains_key(asset_id),
+						"PsmDebt entry exists for non-approved asset"
+					);
+				}
+			}
+
+			for asset_id in MintingFee::<T>::iter_keys() {
+				if !ExternalAssets::<T>::contains_key(asset_id) {
+					log::warn!(
+						target: "runtime::psm",
+						"MintingFee entry exists for non-approved asset {:?} - may be intentional pre-configuration",
+						asset_id
+					);
+				}
+			}
+
+			for asset_id in RedemptionFee::<T>::iter_keys() {
+				if !ExternalAssets::<T>::contains_key(asset_id) {
+					log::warn!(
+						target: "runtime::psm",
+						"RedemptionFee entry exists for non-approved asset {:?} - may be intentional pre-configuration",
+						asset_id
+					);
+				}
+			}
+
+			for asset_id in AssetCeilingWeight::<T>::iter_keys() {
+				if !ExternalAssets::<T>::contains_key(asset_id) {
+					log::warn!(
+						target: "runtime::psm",
+						"AssetCeilingWeight entry exists for non-approved asset {:?} - may be intentional pre-configuration",
+						asset_id
+					);
+				}
+			}
+
+			ensure!(
+				frame_system::Pallet::<T>::account_exists(&psm_account),
+				"PSM account does not exist"
+			);
+
+			let count = ExternalAssets::<T>::iter_keys().count() as u32;
+			ensure!(
+				count <= T::MaxExternalAssets::get(),
+				"ExternalAssets count exceeds MaxExternalAssets"
+			);
+
+			Ok(())
 		}
 	}
 }

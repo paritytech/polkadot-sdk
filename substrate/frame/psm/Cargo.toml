@@ -25,6 +25,11 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
 
+# Optional: use for testing and/or fuzzing
+pallet-assets = { optional = true, workspace = true }
+pallet-balances = { optional = true, workspace = true }
+sp-io = { optional = true, workspace = true }
+
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -32,27 +37,31 @@ sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+fuzzing = ["pallet-assets", "pallet-balances", "sp-io"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-assets?/std",
+	"pallet-balances?/std",
 	"scale-info/std",
+	"sp-io?/std",
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
+	"pallet-assets?/runtime-benchmarks",
+	"pallet-balances?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
+	"pallet-assets?/try-runtime",
+	"pallet-balances?/try-runtime",
 	"sp-runtime/try-runtime",
 ]

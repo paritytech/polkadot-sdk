@@ -1517,3 +1517,47 @@ mod cycles {
 		});
 	}
 }
+
+mod try_state {
+	use super::*;
+
+	#[test]
+	fn try_state_passes_on_valid_state() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
+	#[test]
+	fn try_state_detects_reserve_deficit() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{
+				fungibles::Mutate,
+				tokens::{Fortitude, Precision, Preservation},
+			};
+
+			fund_external_asset(USDC_ASSET_ID, ALICE, 10_000 * PUSD_UNIT);
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * PUSD_UNIT));
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+
+			let psm = psm_account();
+			let reserve = Assets::balance(USDC_ASSET_ID, psm);
+			let _ = Assets::burn_from(
+				USDC_ASSET_ID,
+				&psm,
+				reserve,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+
+			let err = crate::Pallet::<Test>::do_try_state().expect_err("expected reserve deficit");
+			assert_eq!(
+				err,
+				DispatchError::Other(
+					"PSM reserve < debt: external funds were extracted from PSM account"
+				)
+			);
+		});
+	}
+}
