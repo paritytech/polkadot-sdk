@@ -1,0 +1,103 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix issue #11272 - Make candidate descriptor version detection self-contained
+
+doc:
+  - audience: Node Dev
+    description: |
+      Removes the `v3_enabled: bool` parameter from `CandidateDescriptorV2::version()` and all
+      accessor methods (`core_index`, `session_index`, `scheduling_parent`, `scheduling_session`),
+      making version detection self-contained. Previously, version detection depended on a node
+      feature lookup from the relay parent, which could produce mismatches between backers (who
+      derive the feature from a recent leaf) and approval checkers / dispute participants (who may
+      not be able to determine the feature from an old relay parent). This mismatch could lead to
+      disputes and backer slashing.
+
+      The fix moves version gating responsibility to two places:
+      - **Runtime**: `check_descriptor_version_and_signals()` rejects ambiguous candidates
+        (where old-style and new-style version detection disagree) and V3 candidates before the
+        feature is enabled.
+      - **Backing subsystem**: Adds defense-in-depth `check_version_acceptance()` checks at the
+        signing boundary, covering both the seconding path and the statement-import path.
+
+      Downstream consumers (dispute coordinator, dispute distribution, statement distribution,
+      collator protocol) no longer need to look up node features for version detection, since any
+      candidate that reaches them on-chain was already validated by the runtime.
+
+      Additional changes:
+      - **Candidate validation**: V3 feature detection is based on session changes via
+        `handle_active_leaves_update`. Uses `scheduling_parent_for_candidate_validation(v3_ever_seen)`
+        and `version_for_candidate_validation(v3_ever_seen)` to transition safely.
+      - **Dispute coordinator**: V3 feature detection on both first and subsequent leaves.
+        Uses `scheduling_parent_for_candidate_validation(v3_ever_seen)` in dispute participation
+        queue ordering (`CandidateComparator`), so V3 candidates are ordered by their scheduling
+        parent's block number rather than relay parent.
+      - **Prospective parachains**: Removes the `HypotheticalOrConcreteCandidate` trait. Splits
+        `check_potential` into a lightweight check (using only scheduling_parent, no relay_parent
+        needed) and a full constraint check (for concrete `CandidateEntry` with relay_parent).
+        `HypotheticalCandidate::Incomplete` no longer pretends to have a relay_parent.
+      - **Subsystem util**: Removes the `HypotheticalOrConcreteCandidate` trait definition and its
+        `HypotheticalCandidate` impl from the inclusion emulator.
+      - **Approval voting**: Fixes executor params fetching to use the candidate descriptor's
+        `session_index()` (the relay_parent's session) but use a recent block for the fetch itself.
+      - **Statement distribution**: Fixes remaining `relay_parent` → `scheduling_parent` variable
+        references in request dispatch and response handling.
+
+crates:
+  - name: polkadot-primitives
+    bump: major
+  - name: polkadot-primitives-test-helpers
+    bump: major
+  - name: polkadot-node-core-backing
+    bump: major
+  - name: polkadot-node-core-candidate-validation
+    bump: major
+  - name: polkadot-node-core-pvf
+    bump: patch
+  - name: polkadot-node-core-pvf-common
+    bump: major
+  - name: polkadot-node-core-prospective-parachains
+    bump: major
+  - name: polkadot-node-core-dispute-coordinator
+    bump: minor
+  - name: polkadot-node-core-provisioner
+    bump: patch
+  - name: polkadot-collator-protocol
+    bump: major
+  - name: polkadot-statement-distribution
+    bump: major
+  - name: polkadot-dispute-distribution
+    bump: major
+  - name: polkadot-node-primitives
+    bump: major
+  - name: polkadot-node-collation-generation
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-subsystem-util
+    bump: major
+  - name: polkadot-node-core-approval-voting
+    bump: major
+  - name: polkadot-node-core-runtime-api
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: polkadot-test-runtime
+    bump: major
+  - name: pallet-staking-async-rc-runtime
+    bump: major
+  - name: cumulus-relay-chain-minimal-node
+    bump: major
+  - name: cumulus-relay-chain-rpc-interface
+    bump: major
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-subsystem-bench
+    bump: patch
+  - name: polkadot-test-malus
+    bump: patch
