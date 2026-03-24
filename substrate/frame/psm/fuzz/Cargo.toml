@@ -1,0 +1,41 @@
+[package]
+name = "pallet-psm-fuzz"
+version = "0.0.0"
+publish = false
+license = "Apache-2.0"
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+frame-support = { path = "../../support", default-features = true }
+frame-system = { path = "../../system", default-features = true }
+pallet-assets = { path = "../../assets", default-features = true }
+pallet-balances = { path = "../../balances", default-features = true }
+sp-io = { path = "../../../primitives/io", default-features = true }
+sp-runtime = { path = "../../../primitives/runtime", default-features = true }
+
+[dependencies.pallet-psm]
+path = ".."
+features = ["fuzzing"]
+
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "fuzz_action_sequence"
+path = "fuzz_targets/fuzz_action_sequence.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_fee_arithmetic"
+path = "fuzz_targets/fuzz_fee_arithmetic.rs"
+test = false
+doc = false

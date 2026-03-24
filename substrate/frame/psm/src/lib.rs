@@ -72,8 +72,8 @@ pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(test)]
-mod mock;
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -868,7 +868,7 @@ pub mod pallet {
 		}
 	}
 
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(any(feature = "try-runtime", test, feature = "fuzzing"))]
 	impl<T: Config> Pallet<T> {
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			let psm_account = Self::account_id();

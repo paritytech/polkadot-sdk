@@ -582,6 +582,8 @@ members = [
 	"umbrella",
 ]
 
+exclude = ["substrate/frame/psm/fuzz"]
+
 default-members = [
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-parachain",
