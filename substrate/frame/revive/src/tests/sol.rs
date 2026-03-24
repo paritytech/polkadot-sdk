@@ -32,7 +32,7 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
+use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
 use test_case::test_case;
@@ -220,10 +220,10 @@ fn eth_contract_too_large() {
 #[test]
 fn upload_evm_runtime_code_works() {
 	use crate::{
-		Pallet, TransactionMeter,
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
+		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -820,6 +820,27 @@ fn execution_tracing_works() {
 					normalized_actual, normalized_expected,
 					"{name} ({vm_type}): trace mismatch"
 				);
+
+				let expected_json_str = if is_evm {
+					test_case.expected_evm_trace
+				} else {
+					test_case.expected_pvm_trace
+				};
+				let expected: ExecutionTrace = serde_json::from_str(expected_json_str)
+					.unwrap_or_else(|e| {
+						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
+					});
+				// Normalize both traces for comparison (zeroes out dynamic values)
+				let normalized_actual = normalize_trace(&actual_trace);
+				let normalized_expected = normalize_trace(&expected);
+				if !is_evm {
+					// temporarily skip PVM assertion to capture all traces
+				} else {
+					assert_eq!(
+						normalized_actual, normalized_expected,
+						"{name} ({vm_type}): trace mismatch"
+					);
+				}
 
 				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
 			});

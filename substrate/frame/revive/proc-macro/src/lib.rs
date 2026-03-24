@@ -444,11 +444,18 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 	});
 
 	quote! {
-		// Write gas from  polkavm into pallet-revive before entering the host function.
-		self.ext
+		crate::tracing::if_tracing(|tracer| {
+			tracer.enter_ecall("pvm_fuel", &[], self)
+		});
+
+		let __sync_result__ = self.ext
 			.frame_meter_mut()
 			.sync_from_executor(memory.gas())
-			.map_err(TrapReason::from)?;
+			.map_err(TrapReason::from);
+
+		crate::tracing::if_tracing(|tracer| tracer.exit_step(self, None));
+
+		__sync_result__?;
 
 		// This is the overhead to call an empty syscall that always needs to be charged.
 		self.charge_gas(crate::vm::RuntimeCosts::HostFn).map_err(TrapReason::from)?;
@@ -536,11 +543,11 @@ fn expand_func_list(def: &EnvDef) -> TokenStream2 {
 			#name.as_slice()
 		}
 	});
-	let len = docs.clone().count();
+	let len = docs.clone().count() + 1; // +1 for the synthetic "pvm_fuel" entry
 
 	quote! {
 		{
-			static FUNCS: [&[u8]; #len] = [#(#docs),*];
+			static FUNCS: [&[u8]; #len] = [#(#docs,)* b"pvm_fuel".as_slice()];
 			FUNCS.as_slice()
 		}
 	}
@@ -553,10 +560,12 @@ fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
 			#name_str => Some(#idx as u8)
 		}
 	});
+	let pvm_fuel_idx = def.host_funcs.len();
 
 	quote! {
 		match name {
 			#( #arms, )*
+			"pvm_fuel" => Some(#pvm_fuel_idx as u8),
 			_ => None,
 		}
 	}
