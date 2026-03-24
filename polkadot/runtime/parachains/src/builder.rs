@@ -699,11 +699,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 									relay_parent, // scheduling_parent
 								)
 							},
-							CandidateDescriptorVersionConfig::V1 => {
-								// V1 descriptor: fake collator identity in reserved1 so
-								// that the version detector sees non-zero bytes and
-								// identifies the descriptor as V1.
-								let mut descriptor = CandidateDescriptorV2::new(
+							CandidateDescriptorVersionConfig::V1 |
+							CandidateDescriptorVersionConfig::V2 => {
+								// V1 and V2 use the same constructor (new()).
+								// They differ in whether UMP signals are added to commitments
+								// and in the collator_id/collator_signature fields (real in V1,
+								// zeroed out in V2).
+								CandidateDescriptorV2::new(
 									para_id,
 									relay_parent,
 									core_idx,
@@ -713,21 +715,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 									Default::default(),
 									head_data.hash(),
 									validation_code_hash,
-								);
-								descriptor.set_reserved1([1u8; 24]);
-								descriptor
+								)
 							},
-							CandidateDescriptorVersionConfig::V2 => CandidateDescriptorV2::new(
-								para_id,
-								relay_parent,
-								core_idx,
-								self.target_session,
-								persisted_validation_data_hash,
-								pov_hash,
-								Default::default(),
-								head_data.hash(),
-								validation_code_hash,
-							),
 						};
 
 						let mut candidate = CommittedCandidateReceipt::<T::Hash> {

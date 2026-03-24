@@ -2472,8 +2472,6 @@ pub trait MutateDescriptorV2<H> {
 	fn set_core_index(&mut self, core_index: CoreIndex);
 	/// Set the session index of the descriptor.
 	fn set_session_index(&mut self, session_index: SessionIndex);
-	/// Set the reserved1 field of the descriptor.
-	fn set_reserved1(&mut self, reserved1: [u8; 24]);
 	/// Set the reserved2 field of the descriptor.
 	fn set_reserved2(&mut self, reserved2: [u8; 32]);
 	/// Set the scheduling parent of the descriptor.
@@ -2522,10 +2520,6 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_para_head(&mut self, para_head: Hash) {
 		self.para_head = para_head;
-	}
-
-	fn set_reserved1(&mut self, reserved1: [u8; 24]) {
-		self.reserved1 = reserved1;
 	}
 
 	fn set_reserved2(&mut self, reserved2: [u8; 32]) {

@@ -2714,6 +2714,17 @@ mod enter {
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
 
+			// Set non-zero collator/signature bytes so the V3 detection algorithm
+			// (checks reserved1[0..16]) identifies these as V1.
+			let candidate_modifier = |mut candidate: CommittedCandidateReceiptV2| {
+				let mut v1: CandidateDescriptor = candidate.descriptor.into();
+				v1.collator = junk_collator();
+				v1.signature = junk_collator_signature();
+				candidate.descriptor = v1.into();
+
+				candidate
+			};
+
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![],
@@ -2724,7 +2735,7 @@ mod enter {
 				unavailable_cores: vec![],
 				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
-				candidate_modifier: None,
+				candidate_modifier: Some(candidate_modifier),
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
