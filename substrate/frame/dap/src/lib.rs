@@ -244,7 +244,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// The DAP buffer account.
 		///
-		/// Collects: slashed funds, unclaimed rewards, and its explicit budget allocation share.
+		/// Collects any burn source wired to it (staking slashes, unclaimed rewards, etc.)
+		/// and its explicit budget allocation share.
 		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
@@ -254,7 +255,6 @@ pub mod pallet {
 			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
 		}
 
-		/// Reactivate funds on buffer outflow.
 		/// Core inflation drip logic, called from `on_initialize`.
 		// TODO(ank4n) needs to be properly benchmarked.
 		pub(crate) fn drip_inflation() -> Weight {
