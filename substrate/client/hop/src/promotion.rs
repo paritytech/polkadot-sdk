@@ -159,7 +159,12 @@ impl HopMaintenanceTask {
 
 			// Promote near-expiry entries if a promoter is available.
 			if let Some(ref promoter) = self.promoter {
-				let entries = self.hop_pool.get_promotable(current_block, self.buffer_blocks);
+				const PROMOTION_BATCH_SIZE: usize = 10;
+				let entries = self.hop_pool.get_promotable(
+					current_block,
+					self.buffer_blocks,
+					PROMOTION_BATCH_SIZE,
+				);
 				for (hash, data) in entries {
 					let size = data.len();
 					match promoter.promote(data) {

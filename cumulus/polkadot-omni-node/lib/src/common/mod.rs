@@ -135,21 +135,6 @@ pub struct NodeExtraArgs {
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 
-	/// If true then the HOP data pool will be enabled.
-	pub enable_hop: bool,
-
-	/// HOP maximum data pool size in MiB.
-	pub hop_max_pool_size_mb: u64,
-
-	/// HOP data retention period in blocks.
-	pub hop_retention_blocks: u32,
-
-	/// HOP promotion check interval in seconds.
-	pub hop_check_interval: u64,
-
-	/// How many blocks before expiry to start promoting entries to chain storage.
-	pub hop_buffer_blocks: u32,
-
-	/// Directory for HOP persistent data storage.
-	pub hop_data_dir: Option<PathBuf>,
+	/// HOP (Hand-Off Protocol) parameters.
+	pub hop: sc_hop::HopParams,
 }

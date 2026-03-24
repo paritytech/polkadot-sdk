@@ -231,23 +231,31 @@ impl HopDataPool {
 			return Err(HopError::DataTooLarge(data.len(), MAX_DATA_SIZE));
 		}
 
-		// Check pool capacity
-		let current_size = self.current_size.load(Ordering::Relaxed);
-		if current_size + data_len > self.max_size {
-			return Err(HopError::PoolFull(current_size, self.max_size));
+		// Eagerly reserve pool capacity. Roll back on any subsequent failure.
+		let prev_size = self.current_size.fetch_add(data_len, Ordering::Relaxed);
+		if prev_size + data_len > self.max_size {
+			self.current_size.fetch_sub(data_len, Ordering::Relaxed);
+			return Err(HopError::PoolFull(prev_size, self.max_size));
 		}
 
-		// Per-user quota enforcement
-		let usage_map = self.user_usage.read();
-		let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
-		let is_new_user = current_usage == 0;
-		let active_users =
-			if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
-		let per_user_limit = self.max_size / active_users.max(1);
-		drop(usage_map);
+		// Per-user quota enforcement (soft limit — the pool capacity above is the
+		// hard safety net; two concurrent inserts from the same user could both pass
+		// this check, but they cannot exceed max_size).
+		{
+			let usage_map = self.user_usage.read();
+			let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
+			let is_new_user = current_usage == 0;
+			let active_users =
+				if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
+			let per_user_limit = self.max_size / active_users.max(1);
 
-		if current_usage + data_len > per_user_limit {
-			return Err(HopError::UserQuotaExceeded { used: current_usage, limit: per_user_limit });
+			if current_usage + data_len > per_user_limit {
+				self.current_size.fetch_sub(data_len, Ordering::Relaxed);
+				return Err(HopError::UserQuotaExceeded {
+					used: current_usage,
+					limit: per_user_limit,
+				});
+			}
 		}
 
 		let hash = H256(blake2_256(&data));
@@ -256,6 +264,7 @@ impl HopDataPool {
 		{
 			let index = self.index.read();
 			if index.contains_key(&hash) {
+				self.current_size.fetch_sub(data_len, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
 			}
 		}
@@ -273,31 +282,32 @@ impl HopDataPool {
 
 		if let Err(e) = Self::write_atomic(&blob_path, &data) {
 			let _ = fs::remove_file(blob_path.with_extension("tmp"));
+			self.current_size.fetch_sub(data_len, Ordering::Relaxed);
 			return Err(e);
 		}
 
 		let meta_path = self.meta_path(&hash);
 		if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 			let _ = fs::remove_file(meta_path.with_extension("tmp"));
-			// Clean up the blob we already wrote.
 			let _ = fs::remove_file(&blob_path);
+			self.current_size.fetch_sub(data_len, Ordering::Relaxed);
 			return Err(e);
 		}
 
-		// Acquire write lock: double-check duplicate, insert meta, update counters.
+		// Acquire write lock: double-check duplicate, insert meta.
 		{
 			let mut index = self.index.write();
 			if index.contains_key(&hash) {
 				// Another thread inserted while we were writing to disk.
 				let _ = fs::remove_file(&blob_path);
 				let _ = fs::remove_file(&meta_path);
+				self.current_size.fetch_sub(data_len, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
 			}
 			index.insert(hash, meta);
 		}
 
-		// Update size counter and user usage.
-		self.current_size.fetch_add(data_len, Ordering::Relaxed);
+		// Update user usage (pool capacity already reserved above).
 		*self.user_usage.write().entry(sender_alias).or_insert(0) += data_len;
 
 		tracing::info!(
@@ -332,20 +342,22 @@ impl HopDataPool {
 	/// Returns the data if the signature matches an unclaimed recipient.
 	/// Removes the entry once all recipients have claimed.
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
-		let mut index = self.index.write();
-		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
+		// Phase 1: Read lock — clone data needed for verification.
+		let (recipients, claimed) = {
+			let index = self.index.read();
+			let meta = index.get(hash).ok_or(HopError::NotFound)?;
+			(meta.recipients.clone(), meta.claimed.clone())
+		};
 
-		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
+		// Phase 2: No lock — decode signature and verify against recipients.
 		let multi_sig =
 			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 
-		// Find which unclaimed recipient this signature matches
-		let recipient_index = meta
-			.recipients
+		let recipient_index = recipients
 			.iter()
 			.enumerate()
 			.find_map(|(i, signer)| {
-				if meta.claimed[i] {
+				if claimed[i] {
 					return None;
 				}
 				let account_id = signer.clone().into_account();
@@ -357,18 +369,26 @@ impl HopDataPool {
 			})
 			.ok_or(HopError::NotRecipient)?;
 
-		meta.claimed[recipient_index] = true;
-
-		// Read blob from disk.
+		// Phase 3: No lock — read blob from disk.
 		let data = fs::read(self.blob_path(hash))
 			.map_err(|e| HopError::IoError(format!("read blob: {}", e)))?;
+
+		// Phase 4: Write lock — re-verify and update atomically.
+		let mut index = self.index.write();
+		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
+
+		// Re-check: the recipient may have been claimed concurrently.
+		if meta.claimed[recipient_index] {
+			return Err(HopError::NotRecipient);
+		}
+
+		meta.claimed[recipient_index] = true;
 
 		// If all recipients have claimed, remove the entry entirely.
 		if meta.claimed.iter().all(|&c| c) {
 			let size = meta.size;
 			let alias = meta.sender_alias;
 			index.remove(hash);
-			// Release locks before disk I/O where possible, but counters first.
 			self.current_size.fetch_sub(size, Ordering::Relaxed);
 			let mut usage = self.user_usage.write();
 			if let Some(u) = usage.get_mut(&alias) {
@@ -466,29 +486,43 @@ impl HopDataPool {
 	/// Remove expired entries and release their user quotas.
 	/// Returns the total bytes freed.
 	pub fn cleanup_expired(&self, current_block: HopBlockNumber) -> u64 {
-		let mut index = self.index.write();
-		let expired: Vec<(HopHash, HopEntryMeta)> = index
-			.iter()
-			.filter(|(_, m)| current_block >= m.expires_at)
-			.map(|(h, m)| (*h, m.clone()))
-			.collect();
+		// Phase 1: Under index write lock — collect and remove expired entries.
+		let expired: Vec<(HopHash, HopEntryMeta)> = {
+			let mut index = self.index.write();
+			let expired_keys: Vec<HopHash> = index
+				.iter()
+				.filter(|(_, m)| current_block >= m.expires_at)
+				.map(|(h, _)| *h)
+				.collect();
 
-		let mut freed = 0u64;
-		for (hash, meta) in &expired {
-			index.remove(hash);
-			freed += meta.size;
+			expired_keys
+				.into_iter()
+				.filter_map(|hash| index.remove(&hash).map(|meta| (hash, meta)))
+				.collect()
+		};
+		// index write lock released here.
+
+		if expired.is_empty() {
+			return 0;
+		}
+
+		// Phase 2: Update counters and user usage (separate lock).
+		let freed: u64 = expired.iter().map(|(_, meta)| meta.size).sum();
+		self.current_size.fetch_sub(freed, Ordering::Relaxed);
+
+		{
 			let mut usage = self.user_usage.write();
-			if let Some(u) = usage.get_mut(&meta.sender_alias) {
-				*u = u.saturating_sub(meta.size);
-				if *u == 0 {
-					usage.remove(&meta.sender_alias);
+			for (_, meta) in &expired {
+				if let Some(u) = usage.get_mut(&meta.sender_alias) {
+					*u = u.saturating_sub(meta.size);
+					if *u == 0 {
+						usage.remove(&meta.sender_alias);
+					}
 				}
 			}
 		}
-		self.current_size.fetch_sub(freed, Ordering::Relaxed);
-		drop(index);
 
-		// Delete files from disk (best-effort).
+		// Phase 3: Delete files from disk (best-effort, no locks held).
 		for (hash, _) in &expired {
 			let _ = fs::remove_file(self.blob_path(hash));
 			let _ = fs::remove_file(self.meta_path(hash));
@@ -498,11 +532,13 @@ impl HopDataPool {
 	}
 
 	/// Return entries that are within `buffer_blocks` of expiry and not yet promoted.
-	/// Returns `(hash, blob_data)` pairs. Reads blobs from disk outside the lock.
+	/// Returns up to `limit` `(hash, blob_data)` pairs. Reads blobs from disk outside the lock.
+	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
 	pub fn get_promotable(
 		&self,
 		current_block: HopBlockNumber,
 		buffer_blocks: u32,
+		limit: usize,
 	) -> Vec<(HopHash, Vec<u8>)> {
 		let hashes: Vec<HopHash> = {
 			let index = self.index.read();
@@ -512,6 +548,7 @@ impl HopDataPool {
 					!meta.promoted && current_block.saturating_add(buffer_blocks) >= meta.expires_at
 				})
 				.map(|(h, _)| *h)
+				.take(limit)
 				.collect()
 		};
 
@@ -991,11 +1028,11 @@ mod tests {
 		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
 
 		// At block 50 with buffer=30 → 50+30=80 < 100 → not promotable
-		let promotable = pool.get_promotable(50, 30);
+		let promotable = pool.get_promotable(50, 30, usize::MAX);
 		assert!(promotable.is_empty());
 
 		// At block 80 with buffer=30 → 80+30=110 >= 100 → promotable
-		let promotable = pool.get_promotable(80, 30);
+		let promotable = pool.get_promotable(80, 30, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 		assert_eq!(promotable[0].0, hash);
 		assert_eq!(promotable[0].1, vec![1, 2, 3]);
@@ -1010,14 +1047,14 @@ mod tests {
 		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
 
 		// Entry is promotable
-		let promotable = pool.get_promotable(80, 30);
+		let promotable = pool.get_promotable(80, 30, usize::MAX);
 		assert_eq!(promotable.len(), 1);
 
 		// Mark promoted
 		pool.mark_promoted(&hash);
 
 		// Now excluded
-		let promotable = pool.get_promotable(80, 30);
+		let promotable = pool.get_promotable(80, 30, usize::MAX);
 		assert!(promotable.is_empty());
 	}
 
@@ -1036,7 +1073,7 @@ mod tests {
 		// Re-create pool — promoted state should be recovered
 		{
 			let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
-			let promotable = pool.get_promotable(80, 30);
+			let promotable = pool.get_promotable(80, 30, usize::MAX);
 			assert!(promotable.is_empty(), "promoted entry should not be promotable after restart");
 			assert!(pool.has(&hash), "entry should still exist");
 		}
