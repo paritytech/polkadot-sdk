@@ -309,8 +309,8 @@ pub mod pallet {
 				let amount = perbill.mul_floor(inflation);
 				if !amount.is_zero() {
 					if let Err(_) = T::Currency::mint_into(account, amount) {
-						defensive!("Inflation mint should not fail");
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
+						defensive!("Inflation mint should not fail");
 					} else {
 						total_minted = total_minted.saturating_add(amount);
 						if *account == buffer {
@@ -374,7 +374,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	}
 }
 
-/// DAP exposes it's buffer as a budget recipient so it can receive an explicit
+/// DAP exposes its buffer as a budget recipient so it can receive an explicit
 /// allocation share (in addition to the implicit remainder).
 impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
 	fn budget_key() -> BudgetKey {
