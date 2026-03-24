@@ -2076,6 +2076,167 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 	});
 }
 
+/// V3 advertisement with V3 feature disabled goes through the full fetch flow
+/// (advertisement → CanSecond → fetch → PVD → Second) and the collation is forwarded
+/// to CandidateBacking. When CandidateBacking reports it as invalid, the collator
+/// is reported with `COST_REPORT_BAD`.
+#[rstest]
+#[case(true)]
+#[case(false)]
+#[test]
+fn v3_feature_disabled_full_fetch_rejected(#[case] same_parents: bool) {
+	let mut test_state = TestState::default();
+	test_state.group_rotation_info.group_rotation_frequency = 100;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 2;
+		let head_b_parent = get_parent_hash(head_b);
+		let head_b_grandparent = get_parent_hash(head_b_parent);
+
+		let current_slot = Slot::from_timestamp(
+			sp_timestamp::Timestamp::current(),
+			sp_consensus_slots::SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+		);
+
+		update_view_with_slot(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_b, head_b_num)],
+			Some(current_slot),
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V3,
+		)
+		.await;
+
+		let (relay_parent, scheduling_parent) = if same_parents {
+			(head_b_parent, head_b_parent)
+		} else {
+			(head_b_grandparent, head_b_parent)
+		};
+
+		let mut committed_candidate =
+			dummy_committed_candidate_receipt_v3(relay_parent, scheduling_parent);
+		committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
+		committed_candidate
+			.descriptor
+			.set_persisted_validation_data_hash(dummy_pvd().hash());
+		committed_candidate.descriptor.set_core_index(CoreIndex(0));
+		committed_candidate.descriptor.set_session_index(test_state.session_index);
+		committed_candidate.descriptor.set_version(1);
+
+		let candidate: CandidateReceipt = committed_candidate.to_plain();
+		let candidate_hash = candidate.hash();
+		let parent_head_data_hash = Hash::zero();
+
+		advertise_collation_v3(
+			&mut virtual_overseer,
+			peer_a,
+			head_b_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			CandidateDescriptorVersion::V3,
+			relay_parent,
+		)
+		.await;
+
+		// No early rejection — advertisement passes through to process_advertisement.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b_parent,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// PVD request via ProspectiveParachains (V3 protocol path).
+		// The relay_parent comes from the descriptor, which is the actual relay_parent
+		// (not the scheduling_parent).
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
+			) => {
+				assert_eq!(relay_parent, request.candidate_relay_parent);
+				assert_eq!(test_state.chain_ids[0], request.para_id);
+				tx.send(Some(dummy_pvd())).unwrap();
+			}
+		);
+
+		// The collation is forwarded to CandidateBacking for seconding.
+		let candidate_receipt = assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+				scheduling_parent: received_relay_parent,
+				candidate: candidate_receipt,
+				pvd: received_pvd,
+				pov: incoming_pov,
+			}) => {
+				assert_eq!(head_b_parent, received_relay_parent);
+				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
+				assert_eq!(pov, incoming_pov);
+				assert_eq!(dummy_pvd(), received_pvd);
+				candidate_receipt
+			}
+		);
+
+		// CandidateBacking reports the candidate as invalid.
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::Invalid(head_b_parent, candidate_receipt),
+		)
+		.await;
+
+		// The collator is reported with COST_REPORT_BAD.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
+				ReportPeerMessage::Single(peer, rep),
+			)) => {
+				assert_eq!(peer, peer_a);
+				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
 /// V3 scheduling parent validation: when the leaf's slot equals the current slot
 /// (still in progress), the scheduling parent must be the leaf's parent.
 #[test]
