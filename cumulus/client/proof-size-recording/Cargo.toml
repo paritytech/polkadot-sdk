@@ -16,3 +16,4 @@ codec = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }

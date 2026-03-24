@@ -4504,6 +4504,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sp-blockchain 28.0.0",
  "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -23366,7 +23367,6 @@ name = "sp-block-builder"
 version = "26.0.0"
 dependencies = [
  "parity-scale-codec",
- "scale-info",
  "sp-api 26.0.0",
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",

@@ -146,7 +146,7 @@ where
 
 	let (blocks, proof) = block_data.into_inner();
 
-	validate_blocks::<B>(&blocks, &parent_header);
+	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -379,8 +379,7 @@ fn validate_validation_data(
 	);
 }
 
-/// Validates that the given blocks form a valid chain and have consistent BlockBundleInfo.
-fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
+fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header) {
 	let num_blocks = blocks.len();
 
 	// Check first block's parent matches the given parent_header
@@ -396,55 +395,59 @@ fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header
 
 	let mut first_block_has_bundle_info: Option<bool> = None;
 
-	blocks.iter().enumerate().fold(parent_header.hash(), |expected_parent, (block_index, block)| {
-		// Check chain validity
-		assert_eq!(
-			expected_parent,
-			*block.header().parent_hash(),
-			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
-			array_bytes::bytes2hex("0x", expected_parent.as_ref()),
-			array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
-		);
-
-		let encoded_header_size = block.header().encoded_size();
-		assert!(
-			encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
-			"Header size {encoded_header_size} exceeds MAX_HEAD_DATA_SIZE {MAX_HEAD_DATA_SIZE}",
-		);
-
-		// Validate BlockBundleInfo consistency
-		let bundle_info = CumulusDigestItem::find_block_bundle_info(block.header().digest());
-		match (first_block_has_bundle_info, &bundle_info) {
-			(None, info) => {
-				first_block_has_bundle_info = Some(info.is_some());
-			},
-			(Some(true), None) => {
-				panic!("All blocks must have BlockBundleInfo if the first block has it");
-			},
-			(Some(false), Some(_)) => {
-				panic!("No block should have BlockBundleInfo if the first block doesn't have it");
-			},
-			_ => {},
-		}
-
-		if let Some(ref info) = bundle_info {
+	blocks.iter().enumerate().fold(
+		parent_header.hash(),
+		|expected_parent, (block_index, block)| {
+			// Check chain validity
 			assert_eq!(
-				info.index as usize,
-				block_index,
-				"BlockBundleInfo index mismatch: expected {}, got {}",
-				block_index,
-				info.index
+				expected_parent,
+				*block.header().parent_hash(),
+				"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
+				array_bytes::bytes2hex("0x", expected_parent.as_ref()),
+				array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
 			);
 
-			if block_index + 1 == num_blocks && !CumulusDigestItem::is_last_block_in_core(block.header().digest()).unwrap_or(true) {
-				panic!(
-					"Last block in PoV must have maybe_last=true, `UseFullCore` digest, or `RuntimeEnvironmentUpdated` digest"
-				);
-			}
-		}
+			let encoded_header_size = block.header().encoded_size();
+			assert!(
+				encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
+				"Header size {encoded_header_size} exceeds MAX_HEAD_DATA_SIZE {MAX_HEAD_DATA_SIZE}",
+			);
 
-		block.header().hash()
-	});
+			// Validate BlockBundleInfo consistency
+			let bundle_info = CumulusDigestItem::find_block_bundle_info(block.header().digest());
+			match (first_block_has_bundle_info, &bundle_info) {
+				(None, info) => {
+					first_block_has_bundle_info = Some(info.is_some());
+				},
+				(Some(true), None) => {
+					panic!("All blocks in a bundled PoV must include `BlockBundleInfo`");
+				},
+				(Some(false), Some(_)) => {
+					panic!("A PoV without `BlockBundleInfo` may only contain a single block");
+				},
+				_ => {},
+			}
+
+			if let Some(ref info) = bundle_info {
+				assert_eq!(
+					info.index as usize, block_index,
+					"BlockBundleInfo index mismatch: expected {}, got {}",
+					block_index, info.index
+				);
+
+				if block_index + 1 == num_blocks &&
+					!CumulusDigestItem::is_last_block_in_core(block.header().digest())
+						.unwrap_or(true)
+				{
+					panic!(
+					"Last block in PoV must include the digest that marks it as the last block in the core"
+				);
+				}
+			}
+
+			block.header().hash()
+		},
+	);
 }
 
 /// Build a seed from the head data of the parachain block.

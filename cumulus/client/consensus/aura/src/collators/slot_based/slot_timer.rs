@@ -28,11 +28,12 @@ pub(crate) struct SlotInfo {
 	pub slot: Slot,
 }
 
-/// Information about a slot timing, including the relay chain slot duration and exact start timestamp.
+/// Information about a slot timing, including the relay chain slot duration and exact start
+/// timestamp.
 #[derive(Debug, Clone)]
 pub(crate) struct SlotTime {
 	/// The relay chain slot duration used for this timing
-	slot_duration: Duration,
+	relay_slot_duration: Duration,
 	/// The exact timestamp when this relay chain slot started
 	slot_start_timestamp: Timestamp,
 	/// Time offset to apply when calculating time remaining
@@ -42,11 +43,11 @@ pub(crate) struct SlotTime {
 impl SlotTime {
 	/// Create a new SlotTime
 	pub fn new(
-		slot_duration: Duration,
+		relay_slot_duration: Duration,
 		slot_start_timestamp: Timestamp,
 		time_offset: Duration,
 	) -> Self {
-		Self { slot_duration, slot_start_timestamp, time_offset }
+		Self { relay_slot_duration, slot_start_timestamp, time_offset }
 	}
 
 	/// Get the time remaining in this slot
@@ -58,7 +59,7 @@ impl SlotTime {
 	fn time_left_internal(&self, now: Duration) -> Duration {
 		let now = now.saturating_sub(self.time_offset);
 		let slot_end_time_millis =
-			self.slot_start_timestamp.as_millis() + self.slot_duration.as_millis() as u64;
+			self.slot_start_timestamp.as_millis() + self.relay_slot_duration.as_millis() as u64;
 		let slot_end_time = Duration::from_millis(slot_end_time_millis);
 
 		slot_end_time.saturating_sub(now)
@@ -68,7 +69,7 @@ impl SlotTime {
 	pub fn is_parachain_slot_ending(&self, parachain_slot_duration: Duration) -> bool {
 		let now = duration_now().saturating_sub(self.time_offset);
 		let next_relay_slot_start_time =
-			self.slot_start_timestamp.as_duration() + self.slot_duration;
+			self.slot_start_timestamp.as_duration() + self.relay_slot_duration;
 
 		// Calculate current parachain slot
 		let current_parachain_slot = now.as_millis() / parachain_slot_duration.as_millis();
@@ -130,7 +131,7 @@ impl SlotTimer {
 
 		// Calculate the current slot using the relay chain slot duration
 		let relay_slot_duration_for_slot = SlotDuration::from(self.relay_slot_duration);
-		let mut current_slot = Slot::from_timestamp(timestamp, relay_slot_duration_for_slot);
+		let mut next_slot = Slot::from_timestamp(timestamp, relay_slot_duration_for_slot);
 
 		// Calculate the actual slot start timestamp (may be different if we're catching up)
 		let mut slot_start_timestamp = timestamp;
@@ -138,16 +139,16 @@ impl SlotTimer {
 		match self.last_reported_slot {
 			// If we already reported a slot, we don't want to skip a slot. But we also don't want
 			// to go through all the slots if a node was halted for some reason.
-			Some(ls) if ls + 1 < current_slot && current_slot <= ls + 3 => {
-				current_slot = ls + 1u64;
+			Some(ls) if ls + 1 < next_slot && next_slot <= ls + 3 => {
+				next_slot = ls + 1u64;
 				// Calculate the timestamp for the adjusted slot
 				slot_start_timestamp =
-					current_slot.timestamp(relay_slot_duration_for_slot).ok_or(())?;
+					next_slot.timestamp(relay_slot_duration_for_slot).ok_or(())?;
 				// Don't sleep since we're catching up
 				tracing::debug!(
 					target: LOG_TARGET,
 					last_slot = ?ls,
-					current_slot = ?current_slot,
+					next_slot = ?next_slot,
 					"Catching up on skipped slot."
 				);
 			},
@@ -158,21 +159,25 @@ impl SlotTimer {
 					"Feeling sleepy 😴"
 				);
 
-				// Sleep based on relay chain timing
-				tokio::time::sleep(time_until_next_attempt).await;
+				// Wake up slightly before the next slot to avoid noisy "catching up" logs caused by
+				// scheduler jitter right at the slot boundary.
+				tokio::time::sleep(
+					time_until_next_attempt.saturating_sub(Duration::from_millis(2)),
+				)
+				.await;
 			},
 		}
 
 		tracing::debug!(
 			target: LOG_TARGET,
 			relay_slot_duration = ?self.relay_slot_duration,
-			?current_slot,
+			?next_slot,
 			?slot_start_timestamp,
 			"New block production slot."
 		);
 
 		// Update internal slot tracking
-		self.last_reported_slot = Some(current_slot);
+		self.last_reported_slot = Some(next_slot);
 
 		Ok(SlotTime::new(self.relay_slot_duration, slot_start_timestamp, self.time_offset))
 	}

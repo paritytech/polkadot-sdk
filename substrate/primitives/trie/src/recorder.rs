@@ -444,15 +444,6 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 					"Recording node",
 				);
 
-				if inner.ignored_nodes.is_ignored(&hash) {
-					tracing::trace!(
-						target: LOG_TARGET,
-						?hash,
-						"Ignoring node",
-					);
-					return;
-				}
-
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let node = encoded_node.into_owned();
 

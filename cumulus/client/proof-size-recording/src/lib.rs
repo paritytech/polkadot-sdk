@@ -24,6 +24,7 @@ use sc_client_api::{
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_runtime::traits::Block as BlockT;
+use sp_trie::proof_size_extension::RecordedProofSizeEstimations;
 use std::sync::Arc;
 
 const PROOF_SIZE_RECORDING_VERSION: &[u8] = b"cumulus_proof_size_recording_version";
@@ -66,13 +67,14 @@ pub fn prepare_proof_size_recording_transaction<H: Encode>(
 pub fn load_proof_size_recording<H: Encode, B: AuxStore>(
 	backend: &B,
 	block_hash: H,
-) -> ClientResult<Option<Vec<u32>>> {
+) -> ClientResult<Option<RecordedProofSizeEstimations>> {
 	let version = load_decode::<_, u32>(backend, PROOF_SIZE_RECORDING_VERSION)?;
 
 	match version {
 		None => Ok(None),
 		Some(PROOF_SIZE_RECORDING_CURRENT_VERSION) => {
-			load_decode(backend, proof_size_recording_key(block_hash).as_slice())
+			load_decode::<_, Vec<u32>>(backend, proof_size_recording_key(block_hash).as_slice())
+				.map(|recordings| recordings.map(Into::into))
 		},
 		Some(other) => Err(ClientError::Backend(format!(
 			"Unsupported proof size recording DB version: {:?}",

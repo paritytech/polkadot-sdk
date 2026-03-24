@@ -58,9 +58,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, BlockIdTo, Header},
 	SaturatedConversion, Saturating,
 };
-use sp_trie::proof_size_extension::{
-	ProofSizeExt, RecordedProofSizeEstimations, ReplayProofSizeProvider,
-};
+use sp_trie::proof_size_extension::{ProofSizeExt, ReplayProofSizeProvider};
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -632,20 +630,11 @@ where
 		let mut runtime_api = self.client.runtime_api();
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
 
-		// Try to load proof size recordings for this block
-		match load_proof_size_recording(&*self.client, orig_hash)? {
-			Some(recordings) => {
-				let recorded = RecordedProofSizeEstimations(
-					recordings.into_iter().map(|x| x as usize).collect(),
-				);
-				let replay_provider = ReplayProofSizeProvider::from_recorded(recorded);
-				runtime_api.register_extension(ProofSizeExt::new(replay_provider));
-			},
-			None => {
-				// No recordings found or error loading, fall back to default recorder
-				runtime_api.register_extension(ProofSizeExt::new(storage_proof_recorder.clone()));
-			},
-		}
+		let proof_size_ext = load_proof_size_recording(&*self.client, orig_hash)?.map_or_else(
+			|| ProofSizeExt::new(storage_proof_recorder.clone()),
+			|recordings| ProofSizeExt::new(ReplayProofSizeProvider::from(recordings)),
+		);
+		runtime_api.register_extension(proof_size_ext);
 
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
 

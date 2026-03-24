@@ -36,7 +36,7 @@ use polkadot_node_primitives::{
 use codec::Encode;
 use futures::channel::oneshot;
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
@@ -114,6 +114,11 @@ where
 	RA: ProvideRuntimeApi<Block>,
 	RA::Api: CollectCollationInfo<Block>,
 {
+	fn split_at_separator(messages: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+		let mut parts = messages.splitn(2, |m: &Vec<u8>| m.is_empty());
+		(parts.next().unwrap_or(&[]).to_vec(), parts.next().unwrap_or(&[]).to_vec())
+	}
+
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
@@ -243,7 +248,7 @@ where
 
 		let mut api_version = 0;
 		let mut upward_messages = Vec::new();
-		let mut upward_message_signals = Vec::<Vec<u8>>::with_capacity(4);
+		let mut upward_message_signals = HashSet::<Vec<u8>>::with_capacity(4);
 		let mut horizontal_messages = Vec::new();
 		let mut new_validation_code = None;
 		let mut processed_downward_messages = 0;
@@ -264,8 +269,6 @@ where
 				.ok()
 				.flatten()?;
 
-			// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
-			//
 			// We are always using the `api_version` of the parent block. The `api_version` can only
 			// change with a runtime upgrade and this is when we want to observe the old
 			// `api_version`. Because this old `api_version` is the one used to validate this
@@ -278,24 +281,20 @@ where
 				.ok()
 				.flatten()?;
 
-			let mut found_separator = false;
-			upward_messages.extend(collation_info.upward_messages.into_iter().filter_map(|m| {
-				// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
-				if m == UMP_SEPARATOR {
-					found_separator = true;
-					None
-				} else if found_separator {
-				if !upward_message_signals.contains(&m) {
-						upward_message_signals.push(m);
-					}
-					None
-				} else {
-					// No signal or separator
-					Some(m)
-				}
-			}));
+			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
+
+			upward_messages.extend(messages);
+			upward_message_signals.extend(signals.into_iter());
 			horizontal_messages.extend(collation_info.horizontal_messages);
-			new_validation_code = new_validation_code.take().or(collation_info.new_validation_code);
+			if let Some(new_code) = collation_info.new_validation_code {
+				if new_validation_code.replace(new_code).is_some() {
+					tracing::warn!(
+						target: LOG_TARGET,
+						block = ?block.hash(),
+						"Overwriting validation code from an earlier block in the bundle.",
+					);
+				}
+			}
 			processed_downward_messages += collation_info.processed_downward_messages;
 			hrmp_watermark = Some(collation_info.hrmp_watermark);
 			head_data = Some(collation_info.head_data);

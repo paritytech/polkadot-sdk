@@ -70,7 +70,7 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::Environment;
-use sp_core::{traits::SpawnEssentialNamed, Pair};
+use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -78,7 +78,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{fmt::Debug, marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
+use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -493,7 +493,7 @@ where
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ TargetBlockRate<Block>
 		+ GetParachainInfo<Block>,
-	AuraId: AuraIdT + Sync + Debug + Send,
+	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
@@ -525,7 +525,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
-	AuraId: AuraIdT + Sync + Debug + Send,
+	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	#[docify::export_content]
@@ -538,7 +538,6 @@ where
 					Block,
 					Arc<ParachainClient<Block, RuntimeApi>>,
 					ParachainClient<Block, RuntimeApi>,
-					<AuraId::BoundedPair as Pair>::Public,
 				>,
 			>,
 			CIDP,
@@ -575,14 +574,13 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
 			ParachainClient<Block, RuntimeApi>,
-			<AuraId::BoundedPair as Pair>::Public,
 		>,
 		SlotBasedBlockImportHandle<Block>,
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
-	AuraId: AuraIdT + Sync + Debug + Send,
+	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
@@ -593,7 +591,6 @@ where
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 				ParachainClient<Block, RuntimeApi>,
-				<AuraId::BoundedPair as Pair>::Public,
 			>,
 		>,
 		prometheus_registry: Option<&Registry>,
@@ -691,7 +688,6 @@ where
 		Block,
 		Arc<ParachainClient<Block, RuntimeApi>>,
 		ParachainClient<Block, RuntimeApi>,
-		<AuraId::BoundedPair as Pair>::Public,
 	>;
 	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 

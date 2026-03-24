@@ -16,7 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::LOG_TARGET;
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
@@ -33,10 +33,9 @@ use sp_api::{
 };
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::BlockOrigin;
-use sp_consensus_aura::AuraApi;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider};
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 /// The aux storage key used to store the ignored nodes for the given block hash.
 fn ignored_nodes_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -63,9 +62,9 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 ) -> ClientResult<Option<ProofRecorderIgnoredNodes<Block>>> {
 	match backend.get_aux(&ignored_nodes_key(block_hash))? {
 		None => Ok(None),
-		Some(t) => ProofRecorderIgnoredNodes::<Block>::decode(&mut &t[..]).map(Some).map_err(|e| {
-			ClientError::Backend(format!("Ignored nodes DB: decode error: {}", e))
-		}),
+		Some(t) => ProofRecorderIgnoredNodes::<Block>::decode(&mut &t[..])
+			.map(Some)
+			.map_err(|e| ClientError::Backend(format!("Failed to decode ignored nodes: {}", e))),
 	}
 }
 
@@ -86,7 +85,7 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 			if self.receiver.is_terminated() {
 				futures::pending!()
 			} else if let Some(res) = self.receiver.next().await {
-				return res
+				return res;
 			}
 		}
 	}
@@ -106,9 +105,25 @@ where
 			// Delete the ignored nodes for all stale blocks.
 			.map(|b| (ignored_nodes_key(b.hash), None))
 			// We can not delete the ignored nodes for the finalized block, because blocks can still
-			// be imported on top of this block. As blocks are only finalized as bundles on the
-			// relay chain, we should never need them, but better safe than sorry :)
-			.chain(std::iter::once((ignored_nodes_key(*notification.header.parent_hash()), None)))
+			// be imported on top of this block. However, once multiple blocks are finalized at
+			// once, blocks on the route to the finalized parent can no longer become parents
+			// either.
+			.chain(
+				notification
+					.tree_route
+					.iter()
+					.copied()
+					.map(|hash| (ignored_nodes_key(hash), None)),
+			)
+			// Include the old last finalized block as well.
+			.chain(
+				notification
+					.tree_route
+					.first()
+					.copied()
+					.into_iter()
+					.map(|hash| (ignored_nodes_key(hash), None)),
+			)
 			.collect()
 	};
 
@@ -116,23 +131,19 @@ where
 }
 
 /// Special block import for the slot based collator.
-pub struct SlotBasedBlockImport<Block: BlockT, BI, Client, AuthorityId> {
+pub struct SlotBasedBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
 	sender: TracingUnboundedSender<(Block, StorageProof)>,
-	_phantom: PhantomData<AuthorityId>,
 }
 
-impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Client, AuthorityId> {
+impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	/// Create a new instance.
 	///
 	/// The returned [`SlotBasedBlockImportHandle`] needs to be passed to the
 	/// [`Params`](super::Params), so that this block import instance can communicate with the
 	/// collation task. If the node is not running as a collator, just dropping the handle is fine.
-	pub fn new(
-		inner: BI,
-		client: Arc<Client>,
-	) -> (Self, SlotBasedBlockImportHandle<Block>)
+	pub fn new(inner: BI, client: Arc<Client>) -> (Self, SlotBasedBlockImportHandle<Block>)
 	where
 		Client: PreCommitActions<Block>,
 	{
@@ -140,10 +151,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 
 		register_ignored_nodes_cleanup(client.clone());
 
-		(
-			Self { sender, client, inner, _phantom: PhantomData },
-			SlotBasedBlockImportHandle { receiver },
-		)
+		(Self { sender, client, inner }, SlotBasedBlockImportHandle { receiver })
 	}
 
 	/// Get the [`ProofRecorderIgnoredNodes`] for `parent`.
@@ -195,6 +203,10 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 	/// We need to execute the block on this level here, because we are collecting the storage
 	/// proofs and combining them for blocks on the same core. So, blocks on the same core do not
 	/// need to include the same trie nodes multiple times and thus, not wasting storage proof size.
+	///
+	/// The proof must be recorded in exactly the same manner as during block building, because the
+	/// proof size is tracked via `ProofSizeExt` and affects runtime state. Without identical proof
+	/// recording, the computed state root would differ and block import would fail.
 	fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
@@ -207,17 +219,22 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			+ Send
 			+ Sync,
 		Client::StateBackend: Send,
-		Client::Api: Core<Block> + AuraApi<Block, AuthorityId>,
-		AuthorityId: Codec + Send + Sync + std::fmt::Debug,
+		Client::Api: Core<Block>,
 	{
 		let core_info = CumulusDigestItem::find_core_info(params.header.digest());
 		let bundle_info = CumulusDigestItem::find_block_bundle_info(params.header.digest());
 		let relay_block_identifier =
 			CumulusDigestItem::find_relay_block_identifier(params.header.digest());
 
-		let (Some(core_info), Some(bundle_info), Some(relay_block_identifier)) =
-			(core_info, bundle_info, relay_block_identifier)
-		else {
+		let Some(core_info) = core_info else {
+			return Err(sp_consensus::Error::ClientImport("Missing `CoreInfo` digest".into()));
+		};
+		let Some(relay_block_identifier) = relay_block_identifier else {
+			return Err(sp_consensus::Error::ClientImport(
+				"Missing `RelayBlockIdentifier` digest".into(),
+			));
+		};
+		let Some(bundle_info) = bundle_info else {
 			return Ok(());
 		};
 
@@ -232,6 +249,8 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 
 		let mut runtime_api = self.client.runtime_api();
 
+		// `record_proof_with_recorder` captures trie accesses, while `ProofSizeExt` replays the
+		// proof-size estimations in the same order they were observed during block building.
 		runtime_api.set_call_context(CallContext::Onchain);
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
@@ -295,22 +314,14 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 	}
 }
 
-impl<Block: BlockT, BI: Clone, Client, AuthorityId> Clone
-	for SlotBasedBlockImport<Block, BI, Client, AuthorityId>
-{
+impl<Block: BlockT, BI: Clone, Client> Clone for SlotBasedBlockImport<Block, BI, Client> {
 	fn clone(&self) -> Self {
-		Self {
-			inner: self.inner.clone(),
-			client: self.client.clone(),
-			sender: self.sender.clone(),
-			_phantom: PhantomData,
-		}
+		Self { inner: self.inner.clone(), client: self.client.clone(), sender: self.sender.clone() }
 	}
 }
 
 #[async_trait::async_trait]
-impl<Block, BI, Client, AuthorityId> BlockImport<Block>
-	for SlotBasedBlockImport<Block, BI, Client, AuthorityId>
+impl<Block, BI, Client> BlockImport<Block> for SlotBasedBlockImport<Block, BI, Client>
 where
 	Block: BlockT,
 	BI: BlockImport<Block> + Send + Sync,
@@ -318,8 +329,7 @@ where
 	Client:
 		ProvideRuntimeApi<Block> + CallApiAt<Block> + AuxStore + HeaderBackend<Block> + Send + Sync,
 	Client::StateBackend: Send,
-	Client::Api: Core<Block> + AuraApi<Block, AuthorityId>,
-	AuthorityId: Codec + Send + Sync + std::fmt::Debug,
+	Client::Api: Core<Block>,
 {
 	type Error = sp_consensus::Error;
 
