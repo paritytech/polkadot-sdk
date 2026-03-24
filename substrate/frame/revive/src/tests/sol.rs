@@ -821,27 +821,6 @@ fn execution_tracing_works() {
 					"{name} ({vm_type}): trace mismatch"
 				);
 
-				let expected_json_str = if is_evm {
-					test_case.expected_evm_trace
-				} else {
-					test_case.expected_pvm_trace
-				};
-				let expected: ExecutionTrace = serde_json::from_str(expected_json_str)
-					.unwrap_or_else(|e| {
-						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
-					});
-				// Normalize both traces for comparison (zeroes out dynamic values)
-				let normalized_actual = normalize_trace(&actual_trace);
-				let normalized_expected = normalize_trace(&expected);
-				if !is_evm {
-					// temporarily skip PVM assertion to capture all traces
-				} else {
-					assert_eq!(
-						normalized_actual, normalized_expected,
-						"{name} ({vm_type}): trace mismatch"
-					);
-				}
-
 				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
 			});
 		}
