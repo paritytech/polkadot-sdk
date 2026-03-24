@@ -697,8 +697,14 @@ where
 			time_left_for_block
 		};
 
-		// The time we will use to build the actual block.
-		let authoring_duration = block_time.min(adjusted_time_left);
+		// The first block on a core gets the full remaining core time so that the runtime's
+		// `FullCore` weight mode can actually be utilized. Subsequent blocks are capped at
+		// `block_time` because they only carry fractional weight.
+		let authoring_duration = if block_index == 0 {
+			slot_time_for_core.saturating_sub(core_start.elapsed())
+		} else {
+			block_time.min(adjusted_time_left)
+		};
 
 		tracing::trace!(
 			target: LOG_TARGET,
