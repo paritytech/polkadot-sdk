@@ -1229,7 +1229,7 @@ where
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
 	let bitswap_config = ipfs_server.then(|| {
-		let (handler, config) = Net::bitswap_server(client.clone());
+		let (handler, config) = Net::bitswap_server(client.clone(), metrics_registry);
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
 		config
