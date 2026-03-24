@@ -194,7 +194,6 @@ pub async fn assert_candidates_version(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	para_ids: &[ParaId],
 	expected_version: CandidateDescriptorVersion,
-	v3_enabled: bool,
 	expected_range: Range<u32>,
 	max_blocks: u32,
 ) -> Result<(), anyhow::Error> {

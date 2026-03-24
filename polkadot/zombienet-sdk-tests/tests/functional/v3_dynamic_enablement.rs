@@ -9,12 +9,13 @@
 //! relay chain continues to accept V2 candidates from the collator.
 //!
 //! The validator set contains both standard and experimental-collator-protocol validators.
+//! Para 2901 uses elastic scaling with 3 cores to verify throughput under dynamic enablement.
 
 use crate::utils::{
 	assert_candidates_version, assert_validator_backed_candidates, enable_node_features,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::assert_finality_lag;
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
 use zombienet_sdk::{
@@ -41,25 +42,45 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
+								// 2 extra cores beyond the 2 auto-registered for each para.
+								// Para 2901 uses elastic scaling and will be assigned cores
+								// 0 and 1.
+								"num_cores": 2,
 								"max_validators_per_core": 2,
 								"group_rotation_frequency": 4
 							}
 						}
 					}
 				}))
-				// Standard collator protocol validators (group 0).
+				// Standard collator protocol validators (groups 0, 1).
 				.with_validator(|node| node.with_name("validator-0"))
 				.with_validator(|node| node.with_name("validator-1"))
-				// Experimental collator protocol validators (group 1).
+				.with_validator(|node| node.with_name("validator-2"))
+				.with_validator(|node| node.with_name("validator-3"))
+				// Experimental collator protocol validators (groups 2, 3).
 				.with_validator(|node| {
-					node.with_name("validator-2").with_args(vec![
+					node.with_name("validator-4").with_args(vec![
 						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
 							.into(),
 						("--experimental-collator-protocol").into(),
 					])
 				})
 				.with_validator(|node| {
-					node.with_name("validator-3").with_args(vec![
+					node.with_name("validator-5").with_args(vec![
+						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
+							.into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
+				.with_validator(|node| {
+					node.with_name("validator-6").with_args(vec![
+						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
+							.into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
+				.with_validator(|node| {
+					node.with_name("validator-7").with_args(vec![
 						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
 							.into(),
 						("--experimental-collator-protocol").into(),
@@ -96,44 +117,37 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-2900")?;
 	let para_node_slot = network.get_node("collator-2901")?;
-	let experimental_validator_2 = network.get_node("validator-2")?;
-	let experimental_validator_3 = network.get_node("validator-3")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
+	// Assign 2 extra cores to para 2901 for elastic scaling (3 cores total).
+	assign_cores(&relay_client, 2901, vec![0, 1]).await?;
 
 	let para_ids = &[ParaId::from(2900), ParaId::from(2901)];
 
 	log::info!("checking V2 candidates with V3 disabled");
-	assert_candidates_version(
-		&relay_client,
-		para_ids,
-		CandidateDescriptorVersion::V2,
-		false, // v3 not enabled
-		10..21,
-		20,
-	)
-	.await?;
+	assert_candidates_version(&relay_client, para_ids, CandidateDescriptorVersion::V2, 10..21, 20)
+		.await?;
 
 	log::info!("Enabling V3");
 	enable_node_features(&relay_client, &[4]).await?;
 
 	log::info!("checking V2 candidates after V3 enabled");
-	assert_candidates_version(
-		&relay_client,
-		para_ids,
-		CandidateDescriptorVersion::V2,
-		true, // v3 now enabled
-		40..51,
-		50,
-	)
-	.await?;
+	assert_candidates_version(&relay_client, para_ids, CandidateDescriptorVersion::V2, 40..51, 50)
+		.await?;
 
 	assert_validator_backed_candidates(relay_node, 30).await?;
-	assert_validator_backed_candidates(experimental_validator_2, 30).await?;
-	assert_validator_backed_candidates(experimental_validator_3, 30).await?;
+	for i in 4..=7 {
+		let node = network.get_node(&format!("validator-{i}"))?;
+		assert_validator_backed_candidates(node, 30).await?;
+	}
+
+	// Verify elastic scaling throughput for para 2901 (3 cores).
+	// Expect ~2.6 candidates per relay block over 15 blocks = ~39, with 12.5% tolerance = 34..46.
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2901), 34..46)]).await?;
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
-	assert_finality_lag(&para_node_slot.wait_client().await?, 10).await?;
+	assert_finality_lag(&para_node_slot.wait_client().await?, 15).await?;
 
 	log::info!("V3 dynamic enablement test finished successfully");
 

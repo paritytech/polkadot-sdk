@@ -99,7 +99,6 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 		&relay_client,
 		&[ParaId::from(3000)],
 		CandidateDescriptorVersion::V2,
-		true,
 		40..51,
 		50,
 	)
