@@ -75,24 +75,11 @@ use frame_support::{
 };
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
+use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput, TryConvert};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-/// Converts a pallet origin to its sovereign account for use with `dispatch_as_signed`.
-pub trait ConvertOriginToAccount<Origin, AccountId> {
-	/// Convert `origin` to its sovereign account, or `None` if not supported.
-	fn convert_origin_to_account(origin: &Origin) -> Option<AccountId>;
-}
-
-/// No conversion: no pallet origin maps to an account. Use when `dispatch_as_signed` is unused.
-pub struct NoOriginConversion;
-impl<O, A> ConvertOriginToAccount<O, A> for NoOriginConversion {
-	fn convert_origin_to_account(_: &O) -> Option<A> {
-		None
-	}
-}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -125,10 +112,7 @@ pub mod pallet {
 			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
 		/// Converts pallet origins to sovereign accounts for [`Pallet::dispatch_as_signed`].
-		type ConvertOriginToAccount: ConvertOriginToAccount<
-			Self::PalletsOrigin,
-			<Self as frame_system::Config>::AccountId,
-		>;
+		type OriginToAccountId: TryConvert<Self::RuntimeOrigin, Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -630,10 +614,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
-			let runtime_pallets_origin = origin.into_caller();
-			let pallet_origin = T::PalletsOrigin::from(runtime_pallets_origin);
-			let who = T::ConvertOriginToAccount::convert_origin_to_account(&pallet_origin)
-				.ok_or(BadOrigin)?;
+			let who = T::OriginToAccountId::try_convert(origin).map_err(|_| BadOrigin)?;
 			call.dispatch(frame_system::RawOrigin::Signed(who).into()).map(|_| ()).map_err(|e| e.error)
 		}
 	}

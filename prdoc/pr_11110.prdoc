@@ -7,123 +7,50 @@ doc:
 
       Introduce a new `dispatch_as_signed` extrinsic in `pallet-utility` that converts a pallet origin (e.g. Treasurer) into its sovereign account and dispatches the given call using that account as a signed origin. Addresses the lack of a direct way to run general calls with a signed origin when initiated by a pallet origin.
 
-      Addresses issue #11099
-
-      ## Integration
-
-      Downstream runtimes using `pallet_utility` must add a new required `Config` type:
-
-      ```diff
-        impl pallet_utility::Config for Runtime {
-            type RuntimeEvent = RuntimeEvent;
-            type RuntimeCall = RuntimeCall;
-            type PalletsOrigin = OriginCaller;
-      +     type ConvertOriginToAccount = pallet_utility::NoOriginConversion;
-            type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
-        }
-      ```
-
-      - **Default:** `NoOriginConversion` — no pallet origin maps to an account; `dispatch_as_signed` will always return `BadOrigin`.
-      - **Custom:** Implement `ConvertOriginToAccount<PalletsOrigin, AccountId>` and map specific pallet origins (e.g. Treasurer, MediumSpender) to their sovereign accounts.
-
-      ## Review Notes
-
-      **Summary**
-
-      - New `ConvertOriginToAccount` trait: maps `PalletsOrigin` → `Option<AccountId>`.
-      - New extrinsic `dispatch_as_signed(origin, call)` that:
-        1. Converts the origin into `PalletsOrigin`
-        2. Uses `ConvertOriginToAccount` to obtain the sovereign account
-        3. Dispatches `call` with `RawOrigin::Signed(who)`
-
-      **Config**
-
-      - `type ConvertOriginToAccount`: implements `ConvertOriginToAccount<Self::PalletsOrigin, AccountId>`.
-      - `NoOriginConversion`: always returns `None`, keeping previous behavior when `dispatch_as_signed` is not used.
-
-      **Example (test runtime)**
-
-      The tests use a simple converter that maps `Signed` to its account:
-
-      ```rust
-      impl ConvertOriginToAccount<OriginCaller, u64> for TestConvertOriginToAccount {
-          fn convert_origin_to_account(origin: &OriginCaller) -> Option<u64> {
-              match origin {
-                  OriginCaller::system(frame_system::RawOrigin::Signed(who)) => Some(*who),
-                  _ => None,
-              }
-          }
-      }
-      ```
-
-      For a runtime with Treasury, a custom implementation would match the relevant `OriginCaller` variant(s) and return `pallet_treasury::PalletId::get().into_account_truncating()` for those origins.
-
-      **API**
-
-      ```rust
-      pub fn dispatch_as_signed(
-          origin: OriginFor<T>,
-          call: Box<<T as Config>::RuntimeCall>,
-      ) -> DispatchResult;
-      ```
-
-      **Tests**
-
-      - `dispatch_as_signed_works` — signed origin dispatches successfully.
-      - `dispatch_as_signed_bad_origin` — non-convertible origin (e.g. Root) returns `BadOrigin`.
-
-      **Files touched**
-
-      - `substrate/frame/utility/src/lib.rs` — trait, extrinsic, docs
-      - `substrate/frame/utility/src/weights.rs` — weight for `dispatch_as_signed`
-      - `substrate/frame/utility/src/benchmarking.rs` — benchmark
-      - `substrate/frame/utility/src/tests.rs` — unit tests
-      - All runtimes/mocks using `pallet_utility` — added `type ConvertOriginToAccount = NoOriginConversion`
-
 crates:
   - name: asset-hub-rococo-runtime
-    bump: major
+    bump: patch
   - name: asset-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: bridge-runtime-common
-    bump: major
+    bump: patch
   - name: collectives-westend-runtime
-    bump: major
+    bump: patch
   - name: coretime-rococo-runtime
-    bump: major
+    bump: patch
   - name: coretime-westend-runtime
-    bump: major
+    bump: patch
   - name: pallet-bridge-relayers
-    bump: major
+    bump: patch
   - name: pallet-contracts
-    bump: major
+    bump: patch
   - name: pallet-multi-asset-bounties
-    bump: major
+    bump: patch
   - name: pallet-proxy
-    bump: major
+    bump: patch
   - name: pallet-revive
-    bump: major
+    bump: patch
   - name: pallet-safe-mode
-    bump: major
+    bump: patch
   - name: pallet-treasury
-    bump: major
+    bump: patch
   - name: pallet-tx-pause
-    bump: major
+    bump: patch
   - name: pallet-utility
     bump: major
   - name: penpal-runtime
-    bump: major
+    bump: patch
   - name: people-rococo-runtime
-    bump: major
+    bump: patch
   - name: people-westend-runtime
-    bump: major
+    bump: patch
   - name: rococo-runtime
-    bump: major
+    bump: patch
   - name: westend-runtime
-    bump: major
+    bump: patch
   - name: yet-another-parachain-runtime
-    bump: major
+    bump: patch

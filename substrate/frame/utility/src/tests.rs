@@ -220,12 +220,13 @@ impl mock_democracy::Config for Test {
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
 
-pub struct TestConvertOriginToAccount;
-impl utility::ConvertOriginToAccount<OriginCaller, u64> for TestConvertOriginToAccount {
-	fn convert_origin_to_account(origin: &OriginCaller) -> Option<u64> {
-		match origin {
-			OriginCaller::system(frame_system::RawOrigin::Signed(who)) => Some(*who),
-			_ => None,
+pub struct TestOriginToAccountId;
+impl TryConvert<RuntimeOrigin, u64> for TestOriginToAccountId {
+	fn try_convert(o: RuntimeOrigin) -> Result<u64, RuntimeOrigin> {
+		match o.caller() {
+			OriginCaller::system(frame_system::RawOrigin::Signed(who)) => Ok(*who),
+			OriginCaller::Council(pallet_collective::RawOrigin::Members(_, _)) => Ok(100),
+			_ => Err(o),
 		}
 	}
 }
@@ -234,7 +235,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
-	type ConvertOriginToAccount = TestConvertOriginToAccount;
+	type OriginToAccountId = TestOriginToAccountId;
 	type WeightInfo = ();
 }
 
@@ -1075,14 +1076,25 @@ fn dispatch_as_signed_works() {
 #[test]
 fn dispatch_as_signed_bad_origin() {
 	new_test_ext().execute_with(|| {
-		// Root has no sovereign account in TestConvertOriginToAccount
+		// Root has no sovereign account in TestOriginToAccountId
 		assert_noop!(
-			Utility::dispatch_as_signed(
-				RuntimeOrigin::root(),
-				Box::new(call_transfer(2, 1))
-			),
+			Utility::dispatch_as_signed(RuntimeOrigin::root(), Box::new(call_transfer(2, 1))),
 			BadOrigin,
 		);
+	})
+}
+
+#[test]
+fn dispatch_as_signed_pallet_origin_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 100, 1000).unwrap();
+		// Council origin (Members(3, 4)) maps to account 100 in TestOriginToAccountId
+		assert_ok!(Utility::dispatch_as_signed(
+			pallet_collective::RawOrigin::Members(3, 4).into(),
+			Box::new(call_transfer(2, 500))
+		));
+		assert_eq!(Balances::free_balance(100), 500);
+		assert_eq!(Balances::free_balance(2), 510);
 	})
 }
 
