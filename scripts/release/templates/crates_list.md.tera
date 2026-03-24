@@ -1,5 +1,10 @@
 The following crates were updated to the corresponding versions:
 
+<details>
+  <summary>Click to see crates list</summary>
+
 - sp-transaction-storage-proof@40.1.0
 - pallet-transaction-storage@44.0.1
 - cumulus-pallet-parachain-system@0.25.1
+
+</details>
