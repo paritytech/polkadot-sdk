@@ -11,7 +11,7 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-	wait_for_nth_session_change,
+	wait_for_first_session_change,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -101,10 +101,10 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Core 0 assignment shared for all paras completed");
 
-	// Wait 2 sessions for registration/core assignment
-	log::info!("Waiting for 2 session boundaries");
+	// Wait 1 sessions for registration/core assignment
+	log::info!("Waiting for 1 session boundaries");
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
+	wait_for_first_session_change(&mut blocks_sub).await?;
 	log::info!("Session boundaries passed");
 
 	// Check that all parachains produce at least 2..5 blocks within 16 RC blocks
@@ -112,8 +112,8 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
 	//  time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
 	log::info!("Checking parachain block production");
-	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..6));
-	assert_para_throughput(&relay_client, 16, para_throughput).await?;
+	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 5..15));
+	assert_para_throughput(&relay_client, 40, para_throughput).await?;
 	log::info!("All parachains producing blocks");
 
 	log::info!("Test finished successfully");

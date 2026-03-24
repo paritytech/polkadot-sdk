@@ -85,13 +85,15 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 
 	unstable_node.resume().await?;
 
-	// Wait 1 sessions
+	// Wait at least 1 full sessions
 	log::info!("Waiting for at least 1 full session");
 	let relay_node = stable_validators
 		.first()
 		.ok_or(anyhow!("stable-validators should have one node"))?;
 	let relay_client = relay_node.wait_client().await?;
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	// in order to ensure to wait at least one full session
+	// we wait 2 session change events.
 	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
 	log::info!("Full session passed");
 
