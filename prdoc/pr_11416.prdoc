@@ -11,12 +11,12 @@ doc:
     - Add v3 multi-block migration to auto-map all existing accounts and release deposits for already-mapped accounts
 crates:
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: revive-dev-runtime
-  bump: patch
+  bump: major
 - name: pallet-revive
-  bump: patch
+  bump: major
 - name: penpal-runtime
-  bump: patch
+  bump: minor
 - name: kitchensink-runtime
-  bump: patch
+  bump: minor

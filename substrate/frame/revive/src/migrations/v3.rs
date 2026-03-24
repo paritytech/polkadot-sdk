@@ -72,7 +72,14 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			if let Some((account_id, _)) = iter.next() {
 				if T::AddressMapper::is_eth_derived(&account_id) {
 					// Eth-derived accounts are stateless mapped, nothing to do.
-				} else if T::AddressMapper::map_no_deposit(&account_id).is_err() {
+				} else {
+					let _ = T::AddressMapper::map_no_deposit(&account_id).inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to map account {account_id:?}: {err:?}",
+						);
+					});
+
 					let _ = T::Currency::release_all(
 						&HoldReason::AddressMapping.into(),
 						&account_id,
@@ -81,7 +88,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 					.inspect_err(|err| {
 						log::debug!(
 							target: LOG_TARGET,
-							"Failed to create mapping for {account_id:?}: {err:?}",
+							"Failed to release mapping deposit for {account_id:?}: {err:?}",
 						);
 					});
 				}

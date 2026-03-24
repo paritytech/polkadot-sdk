@@ -35,7 +35,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::crypto::UncheckedInto;
+use sp_core::{crypto::UncheckedInto, Get};
 use sp_mixnet::types::AuthorityId as MixnetId;
 
 pub use kitchensink_runtime::RuntimeGenesisConfig;
@@ -364,7 +364,11 @@ pub fn testnet_genesis_patch(
 			"key": root_key,
 		},
 		"revive": {
-			"mappedAccounts": endowed_accounts.iter().filter(|x| !<kitchensink_runtime::Runtime as pallet_revive::Config>::AddressMapper::is_mapped(x)).cloned().collect::<Vec<_>>()
+			"mappedAccounts": if <kitchensink_runtime::Runtime as pallet_revive::Config>::AutoMap::get() {
+				vec![]
+			} else {
+				endowed_accounts.iter().filter(|x| !<kitchensink_runtime::Runtime as pallet_revive::Config>::AddressMapper::is_eth_derived(x)).cloned().collect::<Vec<_>>()
+			}
 		}
 	})
 }

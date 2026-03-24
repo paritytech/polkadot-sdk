@@ -1547,7 +1547,6 @@ pub mod pallet {
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
-			ensure!(!T::AutoMap::get(), <Error<T>>::AutoMappingEnabled);
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
@@ -1563,6 +1562,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			ensure!(!T::AutoMap::get(), <Error<T>>::AutoMappingEnabled);
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::unmap(&origin)

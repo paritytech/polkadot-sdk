@@ -523,6 +523,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn map_account_dispatchable_blocked_when_auto_map_enabled() {
 		ExtBuilder::default().build().execute_with(|| {
 			AutoMapFlag::set(true);
@@ -536,6 +537,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn unmap_account_dispatchable_blocked_when_auto_map_enabled() {
 		ExtBuilder::default().build().execute_with(|| {
 			AutoMapFlag::set(true);
