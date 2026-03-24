@@ -10,4 +10,6 @@ doc:
 
 crates:
 - name: sc-network-statement
-  bump: major
+  bump: minor
+- name: sc-network
+  bump: minor
