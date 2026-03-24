@@ -83,8 +83,6 @@ pub enum Protocol {
 	/// Protocol for chunk fetching, used by availability distribution and availability recovery.
 	ChunkFetchingV1,
 	/// Protocol for fetching collations from collators.
-	CollationFetchingV1,
-	/// Protocol for fetching collations from collators when async backing is enabled.
 	CollationFetchingV2,
 	/// Protocol for fetching seconded PoVs from validators of the same group.
 	PoVFetchingV1,
@@ -203,17 +201,14 @@ impl Protocol {
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
 			),
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => {
-				N::request_response_config(
-					name,
-					legacy_names,
-					1_000,
-					POV_RESPONSE_SIZE,
-					// Taken from initial implementation in collator protocol:
-					POV_REQUEST_TIMEOUT_CONNECTED,
-					tx,
-				)
-			},
+			Protocol::CollationFetchingV2 => N::request_response_config(
+				name,
+				legacy_names,
+				1_000,
+				POV_RESPONSE_SIZE,
+				POV_REQUEST_TIMEOUT_CONNECTED,
+				tx,
+			),
 			Protocol::PoVFetchingV1 => N::request_response_config(
 				name,
 				legacy_names,
@@ -261,8 +256,7 @@ impl Protocol {
 			// assuming we can service requests relatively quickly, which would need to be measured
 			// as well.
 			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => 100,
-			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => 10,
+			Protocol::CollationFetchingV2 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
@@ -300,7 +294,6 @@ impl Protocol {
 	const fn get_legacy_name(self) -> Option<&'static str> {
 		match self {
 			Protocol::ChunkFetchingV1 => Some("/polkadot/req_chunk/1"),
-			Protocol::CollationFetchingV1 => Some("/polkadot/req_collation/1"),
 			Protocol::PoVFetchingV1 => Some("/polkadot/req_pov/1"),
 			Protocol::AvailableDataFetchingV1 => Some("/polkadot/req_available_data/1"),
 			Protocol::DisputeSendingV1 => Some("/polkadot/send_dispute/1"),
@@ -361,7 +354,6 @@ impl ReqProtocolNames {
 		let short_name = match protocol {
 			// V1:
 			Protocol::ChunkFetchingV1 => "/req_chunk/1",
-			Protocol::CollationFetchingV1 => "/req_collation/1",
 			Protocol::PoVFetchingV1 => "/req_pov/1",
 			Protocol::AvailableDataFetchingV1 => "/req_available_data/1",
 			Protocol::DisputeSendingV1 => "/send_dispute/1",

@@ -1,0 +1,36 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+# Rename this file to pr_<YOUR_PR_NUMBER>.prdoc when opening the PR (e.g. pr_12345.prdoc)
+
+title: Remove collation protocol version 1 (V1) support
+
+doc:
+  - audience: Node Dev
+    description: |
+      Collation protocol V1 has been removed from the node. Only V2 and V3 are supported.
+
+      - The legacy notification protocol `/polkadot/collation/1` and the request-response protocol
+        `CollationFetchingV1` (/polkadot/req_collation/1) are no longer registered or handled.
+      - Collator and validator protocol logic, network bridge TX/RX, and the collator protocol
+        subsystem only handle V2 and V3. Validators reject peers that open V1 notification streams.
+
+      Downstream client or collator implementations that depend on collation V1 will need to
+      switch V2 or V3.
+  - audience: Node Operator
+    description: |
+      This is a breaking network change. Nodes that only speak collation protocol V1 will no
+      longer be able to connect to validators. 
+      
+      PLEASE UPGRADE YOUR COLLATORS TO ONE OF THE SUPPORTED LTS RELEASES.
+
+crates:
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-network-bridge
+    bump: major
+  - name: polkadot-collator-protocol
+    bump: major
+  - name: polkadot-service
+    bump: major
+  - name: cumulus-relay-chain-minimal-node
+    bump: major

@@ -418,7 +418,7 @@ enum ChainSelectionMessage {
 Messages received by the [Collator Protocol subsystem](../node/collators/collator-protocol.md)
 
 This is a network protocol that receives messages of type
-[`CollatorProtocolV1Message`][CollatorProtocolV1NetworkMessage].
+[`CollatorProtocolV2Message`][CollatorProtocolV2NetworkMessage].
 
 ```rust
 enum CollatorProtocolMessage {
@@ -619,11 +619,11 @@ enum NetworkBridgeMessage {
     /// Send a message to one or more peers on the validation peerset.
     SendValidationMessage([PeerId], ValidationProtocolV1),
     /// Send a message to one or more peers on the collation peerset.
-    SendCollationMessage([PeerId], ValidationProtocolV1),
+    SendCollationMessage([PeerId], CollationProtocolV2),
     /// Send multiple validation messages.
     SendValidationMessages([([PeerId, ValidationProtocolV1])]),
     /// Send multiple collation messages.
-    SendCollationMessages([([PeerId, ValidationProtocolV1])]),
+    SendCollationMessages([([PeerId, CollationProtocolV2])]),
     /// Connect to peers who represent the given `validator_ids`.
     ///
     /// Also ask the network to stay connected to these peers at least
@@ -933,4 +933,4 @@ pub enum PvfCheckerMessage { }
 [BitfieldDistributionV1NetworkMessage]: network.md#bitfield-distribution-v1
 [PoVDistributionV1NetworkMessage]: network.md#pov-distribution-v1
 [StatementDistributionV1NetworkMessage]: network.md#statement-distribution-v1
-[CollatorProtocolV1NetworkMessage]: network.md#collator-protocol-v1
+[CollatorProtocolV2NetworkMessage]: network.md#collator-protocol-v2

@@ -51,11 +51,11 @@ enum WireMessage<M> {
 ```
 
 and instantiates this type twice, once using the [`ValidationProtocolV1`][VP1] message type, and once with the
-[`CollationProtocolV1`][CP1] message type.
+[`CollationProtocolV2`][CP2] message type.
 
 ```rust
 type ValidationV1Message = WireMessage<ValidationProtocolV1>;
-type CollationV1Message = WireMessage<CollationProtocolV1>;
+type CollationV2Message = WireMessage<CollationProtocolV2>;
 ```
 
 ### Startup
@@ -147,9 +147,9 @@ variant of a message to be sent via the overseer.
 - `BitfieldDistributionV1Message -> BitfieldDistributionMessage::NetworkBridgeUpdate`
 - `StatementDistributionV1Message -> StatementDistributionMessage::NetworkBridgeUpdate`
 
-### Collation V1
+### Collation V2
 
-- `CollatorProtocolV1Message -> CollatorProtocolMessage::NetworkBridgeUpdate`
+- `CollatorProtocolV2Message -> CollatorProtocolMessage::NetworkBridgeUpdate`
 
 [NBM]: ../../types/overseer-protocol.md#network-bridge-message
 [AppD]: ../../types/overseer-protocol.md#approval-distribution-message
@@ -158,4 +158,4 @@ variant of a message to be sent via the overseer.
 [CollP]: ../../types/overseer-protocol.md#collator-protocol-message
 
 [VP1]: ../../types/network.md#validation-v1
-[CP1]: ../../types/network.md#collation-v1
+[CP2]: ../../types/network.md#collation-v2

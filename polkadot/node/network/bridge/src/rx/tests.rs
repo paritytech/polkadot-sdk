@@ -636,7 +636,7 @@ fn send_our_view_upon_connection() {
 			)
 			.await;
 		network_handle
-			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V2.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -656,7 +656,7 @@ fn send_our_view_upon_connection() {
 			&NetworkAction::WriteNotification(
 				peer,
 				PeerSet::Collation,
-				WireMessage::<protocol_v1::CollationProtocol>::ViewUpdate(view.clone()).encode(),
+				WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(view.clone()).encode(),
 			),
 		);
 		virtual_overseer
@@ -692,7 +692,7 @@ fn sends_view_updates_to_peers() {
 		network_handle
 			.connect_peer(
 				peer_b,
-				CollationVersion::V1.into(),
+				CollationVersion::V2.into(),
 				PeerSet::Collation,
 				ObservedRole::Full,
 			)
@@ -760,7 +760,7 @@ fn do_not_send_view_update_until_synced() {
 		network_handle
 			.connect_peer(
 				peer_b,
-				CollationVersion::V1.into(),
+				CollationVersion::V2.into(),
 				PeerSet::Collation,
 				ObservedRole::Full,
 			)
@@ -1062,7 +1062,7 @@ fn peer_disconnect_from_just_one_peerset() {
 			)
 			.await;
 		network_handle
-			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V2.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -1094,7 +1094,7 @@ fn peer_disconnect_from_just_one_peerset() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					CollationVersion::V1.into(),
+					CollationVersion::V2.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1158,7 +1158,7 @@ fn relays_collation_protocol_messages() {
 		network_handle
 			.connect_peer(
 				peer_b,
-				CollationVersion::V1.into(),
+				CollationVersion::V2.into(),
 				PeerSet::Collation,
 				ObservedRole::Full,
 			)
@@ -1193,7 +1193,7 @@ fn relays_collation_protocol_messages() {
 				NetworkBridgeEvent::PeerConnected(
 					peer_b,
 					ObservedRole::Full,
-					CollationVersion::V1.into(),
+					CollationVersion::V2.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1207,14 +1207,14 @@ fn relays_collation_protocol_messages() {
 			.await;
 		}
 
-		let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
+		let collator_protocol_message = protocol_v2::CollatorProtocolMessage::Declare(
 			Sr25519Keyring::Alice.public().into(),
 			Default::default(),
 			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
 
-		let message_v1 =
-			protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
+		let message_v2 =
+			protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		// peer A gets reported for sending a collation message.
 		// NOTE: this is not possible since peer A cannot send
@@ -1224,7 +1224,7 @@ fn relays_collation_protocol_messages() {
 		// 	.peer_message(
 		// 		peer_a,
 		// 		PeerSet::Collation,
-		// 		WireMessage::ProtocolMessage(message_v1.clone()).encode(),
+		// 		WireMessage::ProtocolMessage(message_v2.clone()).encode(),
 		// 	)
 		// 	.await;
 
@@ -1240,7 +1240,7 @@ fn relays_collation_protocol_messages() {
 			.peer_message(
 				peer_b,
 				PeerSet::Collation,
-				WireMessage::ProtocolMessage(message_v1.clone()).encode(),
+				WireMessage::ProtocolMessage(message_v2.clone()).encode(),
 			)
 			.await;
 
@@ -1248,7 +1248,7 @@ fn relays_collation_protocol_messages() {
 			virtual_overseer.recv().await,
 			AllMessages::CollatorProtocol(
 				CollatorProtocolMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V1(m))
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V2(m))
 				)
 			) => {
 				assert_eq!(p, peer_b);
@@ -1275,7 +1275,7 @@ fn different_views_on_different_peer_sets() {
 			)
 			.await;
 		network_handle
-			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V2.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -1307,7 +1307,7 @@ fn different_views_on_different_peer_sets() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					CollationVersion::V1.into(),
+					CollationVersion::V2.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1336,7 +1336,7 @@ fn different_views_on_different_peer_sets() {
 			.peer_message(
 				peer,
 				PeerSet::Collation,
-				WireMessage::<protocol_v1::CollationProtocol>::ViewUpdate(view_b.clone()).encode(),
+				WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(view_b.clone()).encode(),
 			)
 			.await;
 
@@ -1498,9 +1498,9 @@ fn network_protocol_versioning_view_update() {
 		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
 		let peers = [
 			(peer_ids[0], PeerSet::Validation, ValidationVersion::V3.into()),
-			(peer_ids[1], PeerSet::Collation, CollationVersion::V1.into()),
+			(peer_ids[1], PeerSet::Collation, CollationVersion::V2.into()),
 			(peer_ids[2], PeerSet::Validation, ValidationVersion::V3.into()),
-			(peer_ids[3], PeerSet::Collation, CollationVersion::V2.into()),
+			(peer_ids[3], PeerSet::Collation, CollationVersion::V3.into()),
 		];
 
 		let head = Hash::repeat_byte(1);
@@ -1533,11 +1533,12 @@ fn network_protocol_versioning_view_update() {
 
 		for &(peer_id, peer_set, version) in &peers {
 			let wire_msg = match (version.into(), peer_set) {
-				(1, PeerSet::Collation) => {
-					WireMessage::<protocol_v1::CollationProtocol>::ViewUpdate(view.clone()).encode()
-				},
 				(2, PeerSet::Collation) => {
 					WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(view.clone()).encode()
+				},
+				(3, PeerSet::Collation) => {
+					WireMessage::<v3_collation::CollationProtocol>::ViewUpdate(view.clone())
+						.encode()
 				},
 				(3, PeerSet::Validation) => {
 					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone())
@@ -1568,7 +1569,7 @@ fn network_new_topology_update() {
 			(peer_ids[0], PeerSet::Validation, ValidationVersion::V3.into()),
 			(peer_ids[1], PeerSet::Validation, ValidationVersion::V3.into()),
 			(peer_ids[2], PeerSet::Validation, ValidationVersion::V3.into()),
-			(peer_ids[3], PeerSet::Collation, CollationVersion::V1.into()),
+			(peer_ids[3], PeerSet::Collation, CollationVersion::V2.into()),
 		];
 
 		let head = Hash::repeat_byte(1);
@@ -1682,7 +1683,7 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V2.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 		await_peer_connections(&shared, 0, 1).await;
 
@@ -1692,7 +1693,7 @@ fn network_protocol_versioning_subsystem_msg() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					CollationVersion::V1.into(),
+					CollationVersion::V2.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1708,14 +1709,14 @@ fn network_protocol_versioning_subsystem_msg() {
 			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 0);
 		}
 
-		let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
+		let collator_protocol_message = protocol_v2::CollatorProtocolMessage::Declare(
 			Sr25519Keyring::Alice.public().into(),
 			Default::default(),
 			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
 
 		let msg =
-			protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
+			protocol_v2::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		network_handle
 			.peer_message(
@@ -1729,7 +1730,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::CollatorProtocol(
 				CollatorProtocolMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V1(m))
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V2(m))
 				)
 			) => {
 				assert_eq!(p, peer);
@@ -1831,6 +1832,82 @@ fn assert_all_peer_set_versions_receive_view_updates(
 				version,
 			);
 		}
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn collation_v1_peer_is_rejected() {
+	let (oracle, handle) = make_sync_oracle(false);
+	test_harness(Box::new(oracle), |test_harness| async move {
+		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
+
+		let peer = PeerId::random();
+
+		// Activate a leaf so the bridge is ready.
+		let head = Hash::repeat_byte(1);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
+			)))
+			.await;
+
+		handle.await_mode_switch().await;
+
+		// First, connect a legitimate V2 peer to prove the bridge is working.
+		let legitimate_peer = PeerId::random();
+		network_handle
+			.connect_peer(
+				legitimate_peer,
+				CollationVersion::V2.into(),
+				PeerSet::Collation,
+				ObservedRole::Full,
+			)
+			.await;
+
+		await_peer_connections(&shared, 0, 1).await;
+
+		// Drain all messages generated by the legitimate peer connection.
+		while let Some(_) = virtual_overseer.recv().timeout(Duration::from_millis(100)).await {}
+		let _ = network_handle.next_network_actions(1).await;
+
+		// Manually do v1
+		let v1_fallback: ProtocolName = "/polkadot/collation/1".into();
+		network_handle
+			.collation_tx
+			.send(NotificationEvent::NotificationStreamOpened {
+				peer,
+				direction: Direction::Inbound,
+				handshake: Roles::FULL.encode(),
+				negotiated_fallback: Some(v1_fallback),
+			})
+			.await
+			.expect("subsystem concluded early");
+
+		// Give the bridge time to process the event.
+		futures_timer::Delay::new(std::time::Duration::from_millis(200)).await;
+
+		// The V1 peer must NOT have been added to the shared collation peers,
+		// because the fallback protocol name is unrecognized.
+		{
+			let shared_data = shared.0.lock();
+			assert!(
+				!shared_data.collation_peers.contains_key(&peer),
+				"Peer connecting with V1 collation protocol must be rejected"
+			);
+			assert_eq!(
+				shared_data.collation_peers.len(),
+				1,
+				"Only the legitimate V2 peer should be tracked"
+			);
+		}
+
+		// Verify no PeerConnected event was dispatched for the V1 peer.
+		assert!(
+			virtual_overseer.recv().timeout(Duration::from_millis(200)).await.is_none(),
+			"No subsystem messages should be generated for a rejected V1 peer"
+		);
 
 		virtual_overseer
 	});

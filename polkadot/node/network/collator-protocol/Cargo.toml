@@ -41,19 +41,16 @@ tokio-util = { workspace = true }
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 rstest = { workspace = true }
-sc-network-types = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 codec = { features = ["std"], workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 itertools = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
-
-[features]
-default = []

@@ -30,12 +30,6 @@ use std::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-/// The legacy collation protocol name. Only supported on version = 1.
-const LEGACY_COLLATION_PROTOCOL_V1: &str = "/polkadot/collation/1";
-
-/// The legacy protocol version. Is always 1 for collation.
-const LEGACY_COLLATION_PROTOCOL_VERSION_V1: u32 = 1;
-
 /// Max notification size is currently constant.
 pub const MAX_NOTIFICATION_SIZE: u64 = 100 * 1024;
 
@@ -176,9 +170,7 @@ impl PeerSet {
 				}
 			},
 			PeerSet::Collation => {
-				if version == CollationVersion::V1.into() {
-					Some("collation/1")
-				} else if version == CollationVersion::V2.into() {
+				if version == CollationVersion::V2.into() {
 					Some("collation/2")
 				} else if version == CollationVersion::V3.into() {
 					Some("collation/3")
@@ -258,8 +250,6 @@ pub enum ValidationVersion {
 /// Supported collation protocol versions. Only versions defined here must be used in the codebase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum CollationVersion {
-	/// The first version.
-	V1 = 1,
 	/// The second version.
 	V2 = 2,
 	/// The third version, adds explicit scheduling_parent field and candidate descriptor version.
@@ -349,7 +339,6 @@ impl PeerSetProtocolNames {
 							fork_id,
 						);
 					}
-					Self::register_legacy_collation_protocol(&mut protocols, protocol);
 				},
 			}
 		}
@@ -368,19 +357,6 @@ impl PeerSetProtocolNames {
 		let protocol_name = Self::generate_name(genesis_hash, fork_id, protocol, version);
 		names.insert((protocol, version), protocol_name.clone());
 		Self::insert_protocol_or_panic(protocols, protocol_name, protocol, version);
-	}
-
-	/// Helper function to register legacy collation protocol.
-	fn register_legacy_collation_protocol(
-		protocols: &mut HashMap<ProtocolName, (PeerSet, ProtocolVersion)>,
-		protocol: PeerSet,
-	) {
-		Self::insert_protocol_or_panic(
-			protocols,
-			LEGACY_COLLATION_PROTOCOL_V1.into(),
-			protocol,
-			ProtocolVersion(LEGACY_COLLATION_PROTOCOL_VERSION_V1),
-		)
 	}
 
 	/// Helper function to make sure no protocols have the same name.
@@ -460,15 +436,12 @@ impl PeerSetProtocolNames {
 				// and only version 3 is used. Therefore, fallback protocols remain empty.
 			},
 			PeerSet::Collation => {
-				// Collation V2 fallback so that V3 nodes can negotiate V2 with older peers
-				// instead of falling all the way back to the legacy V1 protocol.
 				fallbacks.push(Self::generate_name(
 					genesis_hash,
 					fork_id,
 					PeerSet::Collation,
 					CollationVersion::V2.into(),
 				));
-				fallbacks.push(LEGACY_COLLATION_PROTOCOL_V1.into());
 			},
 		};
 		fallbacks
@@ -557,17 +530,14 @@ mod tests {
 		assert!(protocol_names.try_get_protocol(&validation_legacy.into()).is_none());
 
 		let collation_main =
-			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/1";
+			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/2";
 		assert_eq!(
 			protocol_names.try_get_protocol(&collation_main.into()),
-			Some((PeerSet::Collation, TestVersion(1).into())),
+			Some((PeerSet::Collation, TestVersion(2).into())),
 		);
 
 		let collation_legacy = "/polkadot/collation/1";
-		assert_eq!(
-			protocol_names.try_get_protocol(&collation_legacy.into()),
-			Some((PeerSet::Collation, TestVersion(1).into())),
-		);
+		assert!(protocol_names.try_get_protocol(&collation_legacy.into()).is_none());
 	}
 
 	#[test]
@@ -665,6 +635,65 @@ mod tests {
 			PeerSet::Validation,
 			ValidationVersion::iter().map(Into::into),
 		);
+	}
+
+	#[test]
+	fn collation_version_v1_is_not_supported() {
+		use super::UnknownVersion;
+
+		let v1 = ProtocolVersion(1);
+		assert_eq!(CollationVersion::try_from(v1), Err(UnknownVersion));
+
+		assert_eq!(CollationVersion::try_from(ProtocolVersion(2)), Ok(CollationVersion::V2));
+		assert_eq!(CollationVersion::try_from(ProtocolVersion(3)), Ok(CollationVersion::V3));
+
+		let all_versions: Vec<_> = CollationVersion::iter().collect();
+		assert!(!all_versions.iter().any(|v| *v as u32 == 1), "V1 should not exist in the enum");
+		assert_eq!(all_versions, vec![CollationVersion::V2, CollationVersion::V3]);
+	}
+
+	#[test]
+	fn collation_v1_protocol_names_are_not_recognized() {
+		let genesis_hash = Hash::from([
+			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
+			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
+		]);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+
+		let legacy_v1 = "/polkadot/collation/1";
+		assert!(
+			protocol_names.try_get_protocol(&legacy_v1.into()).is_none(),
+			"Legacy collation/1 protocol name must not be recognized"
+		);
+
+		let genesis_v1 =
+			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/1";
+		assert!(
+			protocol_names.try_get_protocol(&genesis_v1.into()).is_none(),
+			"Genesis-hash-based collation/1 protocol name must not be recognized"
+		);
+	}
+
+	#[test]
+	fn collation_v1_not_in_fallback_names() {
+		let genesis_hash = Hash::from([
+			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
+			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
+		]);
+		let fallbacks =
+			PeerSetProtocolNames::get_fallback_names(PeerSet::Collation, &genesis_hash, None);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+
+		for fallback in &fallbacks {
+			let (_, version) = protocol_names
+				.try_get_protocol(fallback)
+				.expect("fallback name must be recognized");
+			assert_ne!(
+				version,
+				ProtocolVersion(1),
+				"V1 must not appear in collation fallback names"
+			);
+		}
 	}
 
 	#[test]

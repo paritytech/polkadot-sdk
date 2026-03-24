@@ -223,12 +223,12 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		relay_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
+		prospective_candidate: ProspectiveCandidate,
 	) {
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
-			?maybe_prospective_candidate,
+			?prospective_candidate,
 			?peer_id,
 			"Received advertisement",
 		);
@@ -238,7 +238,7 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?relay_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
+				?prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -249,7 +249,7 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
-				?maybe_prospective_candidate,
+				?prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
@@ -268,7 +268,7 @@ impl<B: Backend> State<B> {
 					peer_id,
 					para_id: *para_id,
 					scheduling_parent: relay_parent,
-					prospective_candidate: maybe_prospective_candidate,
+					prospective_candidate,
 				},
 			)
 			.await
@@ -277,7 +277,7 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
-					?maybe_prospective_candidate,
+					?prospective_candidate,
 					?peer_id,
 					?para_id,
 					?err,
@@ -288,7 +288,7 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
-					?maybe_prospective_candidate,
+					?prospective_candidate,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",

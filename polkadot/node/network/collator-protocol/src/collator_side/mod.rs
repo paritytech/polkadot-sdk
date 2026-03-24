@@ -34,8 +34,8 @@ use polkadot_node_network_protocol::{
 		incoming::{self, OutgoingResponse},
 		v2 as request_v2, IncomingRequestReceiver,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols, OurView,
-	PeerId, UnifiedReputationChange as Rep, View,
+	v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols, OurView, PeerId,
+	UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
@@ -683,13 +683,7 @@ async fn determine_our_validators<Context>(
 fn declare_message(
 	state: &mut State,
 	version: CollationVersion,
-) -> Option<
-	CollationProtocols<
-		protocol_v1::CollationProtocol,
-		protocol_v2::CollationProtocol,
-		protocol_v3::CollationProtocol,
-	>,
-> {
+) -> Option<CollationProtocols<protocol_v2::CollationProtocol, protocol_v3::CollationProtocol>> {
 	let para_id = state.collating_on?;
 	match version {
 		CollationVersion::V2 => {
@@ -715,10 +709,6 @@ fn declare_message(
 			Some(CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
 				wire_message,
 			)))
-		},
-		_ => {
-			gum::warn!(target: LOG_TARGET, ?version, "Attempting to declare with an unsupported collation version");
-			None
 		},
 	}
 }
@@ -922,7 +912,6 @@ async fn advertise_collation<Context>(
 
 		let message = match peer_version {
 			CollationVersion::V3 => {
-				// Send V3 protocol message with the actual descriptor version
 				CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
 					protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 						scheduling_parent,
@@ -933,8 +922,7 @@ async fn advertise_collation<Context>(
 					},
 				))
 			},
-			CollationVersion::V2 | CollationVersion::V1 => {
-				// Fall back to V2 protocol for older peers
+			CollationVersion::V2 => {
 				CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 					protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 						scheduling_parent,
@@ -1133,19 +1121,15 @@ async fn handle_incoming_peer_message<Context>(
 	state: &mut State,
 	origin: PeerId,
 	msg: CollationProtocols<
-		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
 	>,
 ) -> Result<()> {
-	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
 
 	match msg {
-		CollationProtocols::V1(V1::Declare(..)) |
-		CollationProtocols::V2(V2::Declare(..)) |
-		CollationProtocols::V3(V3::Declare(..)) => {
+		CollationProtocols::V2(V2::Declare(..)) | CollationProtocols::V3(V3::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1159,7 +1143,6 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V1(V1::AdvertiseCollation(_)) |
 		CollationProtocols::V2(V2::AdvertiseCollation { .. }) |
 		CollationProtocols::V3(V3::AdvertiseCollation { .. }) => {
 			gum::trace!(
@@ -1177,16 +1160,6 @@ async fn handle_incoming_peer_message<Context>(
 				PeerSet::Collation,
 			))
 			.await;
-		},
-		CollationProtocols::V1(V1::CollationSeconded(relay_parent, statement)) => {
-			// Impossible, we no longer accept connections on v1.
-			gum::warn!(
-				target: LOG_TARGET,
-				?statement,
-				?origin,
-				?relay_parent,
-				"Collation seconded message received on unsupported protocol version 1",
-			);
 		},
 		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement)) |
 		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) => {
@@ -1474,23 +1447,6 @@ async fn handle_network_msg<Context>(
 					return Ok(());
 				},
 			};
-			if version == CollationVersion::V1 {
-				gum::warn!(
-					target: LOG_TARGET,
-					?peer_id,
-					?observed_role,
-					"Unsupported protocol version v1"
-				);
-
-				// V1 no longer supported, we should disconnect.
-				ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
-					vec![peer_id],
-					PeerSet::Collation,
-				))
-				.await;
-				return Ok(());
-			}
-
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
 				view: View::default(),
 				// Unlikely that the collator is falling 10 blocks behind and if so, it probably is

@@ -39,7 +39,7 @@ Output:
 
 This network protocol uses the `Collation` peer-set of the [`NetworkBridge`][NB].
 
-It uses the [`CollatorProtocolV1Message`](../../types/network.md#collator-protocol) as its `WireMessage`
+It uses the [`CollatorProtocolV2Message`](../../types/network.md#collator-protocol) as its `WireMessage`
 
 Since this protocol functions both for validators and collators, it is easiest to go through the protocol actions for
 each of them separately.
@@ -146,7 +146,7 @@ we need to first check if we have already gathered a collation on that `ParaId` 
 select one of the advertisements and issue a request for it. If we've already issued a request, we shouldn't issue
 another one until the first has returned.
 
-When acting on an advertisement, we issue a `Requests::CollationFetchingV1`. However, we only request one collation at a
+When acting on an advertisement, we issue a `Requests::CollationFetchingV2`. However, we only request one collation at a
 time per relay parent. This reduces the bandwidth requirements and as we can second only one candidate per relay parent,
 the others are probably not required anyway. If the request times out, we need to note the collator as being unreliable
 and reduce its priority relative to other collators.
