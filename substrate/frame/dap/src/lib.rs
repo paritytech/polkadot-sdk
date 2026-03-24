@@ -148,20 +148,6 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
-		/// Funds withdrawn from DAP buffer (reactivated for governance voting).
-		BufferWithdrawn {
-			/// Destination account.
-			dest: T::AccountId,
-			/// Amount withdrawn.
-			amount: BalanceOf<T>,
-		},
-		/// Funds deposited into DAP buffer (deactivated from governance voting).
-		BufferDeposited {
-			/// Source account.
-			source: T::AccountId,
-			/// Amount deposited.
-			amount: BalanceOf<T>,
-		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
@@ -253,50 +239,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Withdraw funds from DAP buffer to `dest`, reactivating the withdrawn amount
-		/// so it participates in governance voting again.
-		///
-		/// Intended for governance (via referendum) to move accumulated buffer funds
-		/// to treasury or other accounts. Uses `Preservation::Preserve` to keep the
-		/// buffer account alive.
-		#[pallet::call_index(1)]
-		// TODO(ank4n): Benchmark
-		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
-		pub fn withdraw_buffer(
-			origin: OriginFor<T>,
-			dest: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			let buffer = Self::buffer_account();
-			let transferred =
-				T::Currency::transfer(&buffer, &dest, amount, Preservation::Preserve)?;
-			Self::reactivate_buffer_funds(transferred);
-			Self::deposit_event(Event::BufferWithdrawn { dest, amount: transferred });
-			Ok(())
-		}
-
-		/// Deposit funds from `source` into DAP buffer, deactivating the deposited amount
-		/// so it does not participate in governance voting.
-		///
-		/// Intended for governance to move excess funds (e.g. from treasury) back into
-		/// the buffer. Uses `Preservation::Preserve` to keep the source account alive.
-		#[pallet::call_index(2)]
-		// TODO(ank4n): Benchmark
-		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
-		pub fn deposit_buffer(
-			origin: OriginFor<T>,
-			source: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			let buffer = Self::buffer_account();
-			let transferred =
-				T::Currency::transfer(&source, &buffer, amount, Preservation::Preserve)?;
-			Self::deactivate_buffer_funds(transferred);
-			Self::deposit_event(Event::BufferDeposited { source, amount: transferred });
-			Ok(())
-		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -313,10 +255,6 @@ pub mod pallet {
 		}
 
 		/// Reactivate funds on buffer outflow.
-		pub(crate) fn reactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::Currency as Unbalanced<T::AccountId>>::reactivate(amount);
-		}
-
 		/// Core inflation drip logic, called from `on_initialize`.
 		// TODO(ank4n) needs to be properly benchmarked.
 		pub(crate) fn drip_inflation() -> Weight {

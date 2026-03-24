@@ -18,7 +18,6 @@
 //! Tests for the DAP pallet.
 
 mod budget;
-mod buffer_ops;
 mod drip;
 mod genesis;
 mod on_unbalanced;
