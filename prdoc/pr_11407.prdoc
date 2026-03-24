@@ -8,6 +8,8 @@ crates:
 - name: polkadot-omni-node-lib
   bump: major
 - name: sc-statement-store
-  bump: minor
+  bump: major
 - name: staging-node-cli
+  bump: major
+- name: sp-statement-store
   bump: major
