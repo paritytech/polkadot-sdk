@@ -181,14 +181,15 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 struct MetadataInspector {
 	metadata: Metadata,
-	#[allow(dead_code)]
 	version: u32,
 }
 
 impl MetadataInspector {
 	fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
 		let (metadata, version) = MetadataInspector::fetch_metadata(chain_spec)?;
-		Ok(MetadataInspector { metadata, version })
+		let inspector = MetadataInspector { metadata, version };
+		log::info!("Detected runtime metadata version: V{}", inspector.version);
+		Ok(inspector)
 	}
 
 	#[cfg(test)]
@@ -214,30 +215,74 @@ impl MetadataInspector {
 	}
 
 	fn aura_consensus_id(&self) -> Option<AuraConsensusId> {
-		if !self.pallet_exists(DEFAULT_AURA_PALLET_NAME) {
-			return None;
+		let pallet = self.metadata.pallet_by_name(DEFAULT_AURA_PALLET_NAME)?;
+
+		// 1. (Recommended) Try to find AuthorityId in the pallet's associated types.
+		if let Some((_, ty_id)) = pallet.associated_types().find(|(n, _)| *n == "AuthorityId") {
+			if let Some(id) = self.resolve_aura_id_from_type_id(ty_id) {
+				return Some(id);
+			}
 		}
 
-		for portable_type in &self.metadata.types().types {
-			let path = &portable_type.ty.path;
-			let segments = &path.segments;
-
-			// Check if the type is related to Aura consensus
-			if segments.iter().any(|s| s == "sp_consensus_aura") {
-				let is_authority_id = segments.iter().any(|s| s == "AuthorityId") ||
-					segments.iter().any(|s| s == "Public");
-
-				if is_authority_id {
-					if segments.iter().any(|s| s == "sr25519") {
-						return Some(AuraConsensusId::Sr25519);
-					}
-					if segments.iter().any(|s| s == "ed25519") {
-						return Some(AuraConsensusId::Ed25519);
+		// 2. (Robust Fallback) Check the "Authorities" storage item in the Aura pallet.
+		// Some chain specs might not expose all associated types clearly, but storage is usually
+		// present.
+		if let Some(storage) = pallet.storage() {
+			if let Some(entry) = storage.entry_by_name("Authorities") {
+				if let StorageEntryType::Plain(ty_id) = entry.entry_type() {
+					// The Authorities storage usually returns a Vec<AuthorityId>.
+					// We need to resolve the inner type if it's a collection.
+					if let Some(portable_type) = self.metadata.types().resolve(*ty_id) {
+						match &portable_type.type_def {
+							TypeDef::Sequence(seq) => {
+								if let Some(id) =
+									self.resolve_aura_id_from_type_id(seq.type_param.id)
+								{
+									return Some(id);
+								}
+							},
+							_ => {
+								if let Some(id) = self.resolve_aura_id_from_type_id(*ty_id) {
+									return Some(id);
+								}
+							},
+						}
 					}
 				}
 			}
 		}
 
+		// 3. (Last Resort) Iterate through all types in the metadata.
+		// Useful for older or non-standard runtimes where the above lookups might fail.
+		for portable_type in &self.metadata.types().types {
+			if let Some(id) = self.resolve_aura_id_from_type_id(portable_type.id) {
+				return Some(id);
+			}
+		}
+
+		None
+	}
+
+	/// Resolves whether a given type ID represents an Sr25519 or Ed25519 Aura ID.
+	fn resolve_aura_id_from_type_id(&self, type_id: u32) -> Option<AuraConsensusId> {
+		let portable_type = self.metadata.types().resolve(type_id)?;
+		let path = &portable_type.path;
+		let segments = &path.segments;
+
+		// Check if the type is related to Aura consensus
+		if segments.iter().any(|s| s == "sp_consensus_aura") {
+			let is_authority_id = segments.iter().any(|s| s == "AuthorityId") ||
+				segments.iter().any(|s| s == "Public");
+
+			if is_authority_id {
+				if segments.iter().any(|s| s == "sr25519") {
+					return Some(AuraConsensusId::Sr25519);
+				}
+				if segments.iter().any(|s| s == "ed25519") {
+					return Some(AuraConsensusId::Ed25519);
+				}
+			}
+		}
 		None
 	}
 
@@ -261,10 +306,16 @@ impl MetadataInspector {
 			.map_err(|e| sc_cli::Error::Input(format!("failed to decode metadata: {e}").into()))?;
 
 		// Extract version from bytes.
-		// For Substrate metadata, the magic is 4 bytes (0x6174656d), followed by
-		// the RuntimeMetadata enum. For modern versions (V14+), the variant
-		// index in SCALE encoding corresponds to the version number.
-		let version = encoded.get(4).cloned().unwrap_or(0) as u32;
+		// Substrate metadata SCALE encoding begins with a 4-byte magic string: "meta" (0x6174656d).
+		if encoded.len() < 5 || &encoded[0..4] != b"meta" {
+			log::warn!("Metadata magic bytes 'meta' not found or unexpected format.");
+			return Ok((metadata, 0));
+		}
+
+		// The magic bytes are immediately followed by the RuntimeMetadata enum.
+		// For all modern versions (V14 and V15), the SCALE variant index of this enum
+		// corresponds exactly to the metadata version number.
+		let version = u32::from(u8::decode(&mut &encoded[4..5]).unwrap_or(0));
 
 		Ok((metadata, version))
 	}
@@ -289,10 +340,11 @@ mod tests {
 			sp_runtime::Cow::Borrowed(cumulus_test_runtime::WASM_BINARY.unwrap()),
 		)
 		.unwrap();
-
 		let encoded = (*opaque_metadata).as_slice();
+
 		let metadata = subxt_metadata::Metadata::decode(&mut &encoded[..]).unwrap();
-		let version = encoded.get(4).cloned().unwrap_or(0) as u32;
+		let version =
+			if encoded.len() >= 5 && &encoded[0..4] == b"meta" { encoded[4] as u32 } else { 0 };
 
 		MetadataInspector { metadata, version }
 	}
