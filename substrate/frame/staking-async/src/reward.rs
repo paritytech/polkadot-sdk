@@ -48,7 +48,7 @@ impl<T: Config> EraRewardManager<T> {
 	///
 	/// # Returns
 	/// The account ID of the created pot.
-	pub fn create(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
+	pub(crate) fn create(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
 		let pot_account = T::EraPotAccountProvider::era_pot_account(era, pot_type);
 		frame_system::Pallet::<T>::inc_providers(&pot_account);
 		pot_account
@@ -70,7 +70,7 @@ impl<T: Config> EraRewardManager<T> {
 	///
 	/// # Returns
 	/// The allocation breakdown showing amounts transferred into each era pot.
-	pub fn snapshot_era_rewards(era: EraIndex) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
+	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
 		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 
@@ -151,7 +151,7 @@ impl<T: Config> EraRewardManager<T> {
 	/// 2. Decrements exactly one provider reference
 	///
 	/// The symmetric operation to [`Self::create`].
-	pub fn destroy(era: EraIndex, pot_type: EraPotType) {
+	pub(crate) fn destroy(era: EraIndex, pot_type: EraPotType) {
 		let pot_account = T::EraPotAccountProvider::era_pot_account(era, pot_type);
 
 		// Get remaining balance in pot
@@ -197,7 +197,7 @@ impl<T: Config> EraRewardManager<T> {
 	/// Checks if an era has a staker rewards pot by checking if the account has providers.
 	///
 	/// Returns true if the pot exists (has providers), false otherwise.
-	pub fn has_staker_rewards_pot(era: EraIndex) -> bool {
+	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
 		let staker_rewards_pot =
 			T::EraPotAccountProvider::era_pot_account(era, EraPotType::StakerRewards);
 		frame_system::Pallet::<T>::providers(&staker_rewards_pot) > 0
@@ -206,7 +206,7 @@ impl<T: Config> EraRewardManager<T> {
 	/// Cleans up all pot accounts for a given era.
 	///
 	/// Calls [`Self::destroy`] for both staker rewards and validator incentive pots.
-	pub fn cleanup_era(era: EraIndex) {
+	pub(crate) fn cleanup_era(era: EraIndex) {
 		Self::destroy(era, EraPotType::StakerRewards);
 		Self::destroy(era, EraPotType::ValidatorSelfStake);
 	}
