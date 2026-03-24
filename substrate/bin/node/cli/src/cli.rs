@@ -58,6 +58,14 @@ pub struct Cli {
 	#[arg(long, default_value_t = 50_000)]
 	pub statement_rate_limit: u32,
 
+	/// Advertise explicit topic affinity to V2 peers based on active subscriptions.
+	///
+	/// When enabled, the node builds a bloom filter from subscription topics and
+	/// sends it to peers, so they only forward relevant statements.
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long)]
+	pub statement_advertise_affinity: bool,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,

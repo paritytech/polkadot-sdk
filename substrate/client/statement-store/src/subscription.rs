@@ -72,6 +72,9 @@ pub enum MatcherMessage {
 	Subscribe(SubscriptionInfo),
 	/// Unsubscribe the subscription with the given ID.
 	Unsubscribe(SeqID),
+	/// Collect all topics from active subscriptions in this matcher.
+	/// The sender receives `(has_any_filter, topics)`.
+	CollectTopics(async_channel::Sender<(bool, HashSet<Topic>)>),
 }
 
 // Handle to manage all subscriptions.
@@ -81,6 +84,8 @@ pub struct SubscriptionsHandle {
 	id_sequence: AtomicU64,
 	//  Subscriptions matchers handlers.
 	matchers: SubscriptionsMatchersHandlers,
+	// Task spawner for background collection tasks.
+	task_spawner: Box<dyn SpawnNamed>,
 }
 
 impl SubscriptionsHandle {
@@ -116,6 +121,9 @@ impl SubscriptionsHandle {
 							Ok(MatcherMessage::Unsubscribe(seq_id)) => {
 								subscriptions.unsubscribe(seq_id);
 							},
+							Ok(MatcherMessage::CollectTopics(tx)) => {
+								let _ = tx.send_blocking(subscriptions.collect_topics());
+							},
 							Err(_) => {
 								// Expected when the subscription manager is dropped at shutdown.
 								log::error!(
@@ -132,6 +140,7 @@ impl SubscriptionsHandle {
 		SubscriptionsHandle {
 			id_sequence: AtomicU64::new(0),
 			matchers: SubscriptionsMatchersHandlers::new(subscriptions_matchers_senders),
+			task_spawner,
 		}
 	}
 
@@ -167,6 +176,51 @@ impl SubscriptionsHandle {
 
 	pub(crate) fn notify(&self, statement: Statement) {
 		self.matchers.send_all(MatcherMessage::NewStatement(statement));
+	}
+
+	/// Collect all topics from active subscriptions across all matcher tasks.
+	///
+	/// Returns a receiver that resolves to `(has_any_filter, union_of_topics)`.
+	/// Spawns a background task that sends `CollectTopics` to each matcher,
+	/// aggregates the results, and sends the final answer on the returned channel.
+	pub(crate) fn collect_subscription_topics(
+		&self,
+	) -> async_channel::Receiver<(bool, HashSet<Topic>)> {
+		let (result_tx, result_rx) = async_channel::bounded(1);
+		let matchers = self.matchers.clone();
+		self.task_spawner.spawn(
+			"statement-store-collect-topics",
+			Some("statement-store"),
+			Box::pin(async move {
+				let mut has_any = false;
+				let mut all_topics = HashSet::new();
+
+				let mut receivers = Vec::with_capacity(matchers.matchers.len());
+				for sender in &matchers.matchers {
+					let (tx, rx) = async_channel::bounded(1);
+					if sender.send(MatcherMessage::CollectTopics(tx)).await.is_err() {
+						continue;
+					}
+					receivers.push(rx);
+				}
+
+				for rx in receivers {
+					if let Ok((matcher_has_any, topics)) = rx.recv().await {
+						if matcher_has_any {
+							has_any = true;
+						}
+						all_topics.extend(topics);
+					}
+				}
+
+				if has_any {
+					all_topics.clear();
+				}
+
+				let _ = result_tx.send((has_any, all_topics)).await;
+			}),
+		);
+		result_rx
 	}
 }
 
@@ -350,6 +404,23 @@ impl SubscriptionsInfo {
 		for sub_id in needs_unsubscribing {
 			self.unsubscribe(sub_id);
 		}
+	}
+
+	/// Collect all topics from active subscriptions.
+	///
+	/// Returns `(has_any_filter, topics)`. If any subscription has the `Any` filter,
+	/// returns `(true, empty_set)`. Otherwise returns `(false, union_of_all_topics)`.
+	fn collect_topics(&self) -> (bool, HashSet<Topic>) {
+		if !self.subscriptions_any.is_empty() {
+			return (true, HashSet::new());
+		}
+		let all_topics: HashSet<Topic> = self
+			.subscriptions_match_all_by_topic
+			.keys()
+			.chain(self.subscriptions_match_any_by_topic.keys())
+			.cloned()
+			.collect();
+		(false, all_topics)
 	}
 
 	// Unsubscribe a subscription by its ID.
@@ -1177,5 +1248,94 @@ mod tests {
 			rx_match_any.try_recv().is_err(),
 			"MatchAny should not receive statement without topics"
 		);
+	}
+
+	#[test]
+	fn test_collect_topics_empty() {
+		let subscriptions = SubscriptionsInfo::new();
+		let (has_any, topics) = subscriptions.collect_topics();
+		assert!(!has_any);
+		assert!(topics.is_empty());
+	}
+
+	#[test]
+	fn test_collect_topics_with_match_all_and_match_any() {
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let topic1 = Topic::from([1u8; 32]);
+		let topic2 = Topic::from([2u8; 32]);
+		let topic3 = Topic::from([3u8; 32]);
+
+		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
+		subscriptions.subscribe(SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(
+				vec![topic1, topic2].into_iter().collect(),
+			),
+			seq_id: SeqID::from(1),
+			tx: tx1,
+		});
+
+		let (tx2, _rx2) = async_channel::bounded::<StatementEvent>(10);
+		subscriptions.subscribe(SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAny(
+				vec![topic2, topic3].into_iter().collect(),
+			),
+			seq_id: SeqID::from(2),
+			tx: tx2,
+		});
+
+		let (has_any, topics) = subscriptions.collect_topics();
+		assert!(!has_any);
+		assert_eq!(topics.len(), 3);
+		assert!(topics.contains(&topic1));
+		assert!(topics.contains(&topic2));
+		assert!(topics.contains(&topic3));
+	}
+
+	#[test]
+	fn test_collect_topics_with_any_filter() {
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let topic1 = Topic::from([1u8; 32]);
+
+		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
+		subscriptions.subscribe(SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::MatchAll(vec![topic1].into_iter().collect()),
+			seq_id: SeqID::from(1),
+			tx: tx1,
+		});
+
+		let (tx2, _rx2) = async_channel::bounded::<StatementEvent>(10);
+		subscriptions.subscribe(SubscriptionInfo {
+			topic_filter: OptimizedTopicFilter::Any,
+			seq_id: SeqID::from(2),
+			tx: tx2,
+		});
+
+		let (has_any, topics) = subscriptions.collect_topics();
+		assert!(has_any);
+		assert!(topics.is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_collect_subscription_topics_via_handle() {
+		let subscriptions_handle =
+			SubscriptionsHandle::new(Box::new(sp_core::testing::TaskExecutor::new()), 2);
+
+		let topic1 = Topic::from([8u8; 32]);
+		let topic2 = Topic::from([9u8; 32]);
+
+		// Subscribe with MatchAll filter.
+		let (_tx, _stream) = subscriptions_handle
+			.subscribe(OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()));
+
+		// Give subscription message time to be processed.
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+		let rx = subscriptions_handle.collect_subscription_topics();
+		let (has_any, topics) = rx.recv().await.expect("Should receive topics");
+		assert!(!has_any);
+		assert!(topics.contains(&topic1));
+		assert!(topics.contains(&topic2));
 	}
 }

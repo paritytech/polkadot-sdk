@@ -20690,6 +20690,7 @@ dependencies = [
  "governor",
  "log",
  "parity-scale-codec",
+ "rand 0.8.5",
  "sc-keystore",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
@@ -24223,6 +24224,7 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm",
+ "async-channel 1.9.0",
  "curve25519-dalek",
  "ed25519-dalek",
  "frame-support",

@@ -133,6 +133,9 @@ pub struct NodeExtraArgs {
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub statement_rate_limit: u32,
 
+	/// Advertise explicit topic affinity to V2 peers based on active subscriptions.
+	pub statement_advertise_affinity: bool,
+
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 }

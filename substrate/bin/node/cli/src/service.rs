@@ -415,6 +415,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	disable_hardware_benchmarks: bool,
 	statement_network_workers: usize,
 	statement_rate_limit: u32,
+	statement_advertise_affinity: bool,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<
 			Block,
@@ -798,6 +799,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_protocol_executor,
 		statement_network_workers,
 		statement_rate_limit,
+		statement_advertise_affinity,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
@@ -851,6 +853,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 				cli.no_hardware_benchmarks,
 				cli.statement_network_workers,
 				cli.statement_rate_limit,
+				cli.statement_advertise_affinity,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -863,6 +866,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 				cli.no_hardware_benchmarks,
 				cli.statement_network_workers,
 				cli.statement_rate_limit,
+				cli.statement_advertise_affinity,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;

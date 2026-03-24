@@ -32,9 +32,12 @@ use crate::config::*;
 
 use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-#[cfg(any(test, feature = "test-helpers"))]
-use futures::future::pending;
-use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
+use futures::{
+	channel::oneshot,
+	future::{pending, FusedFuture},
+	prelude::*,
+	stream::FuturesUnordered,
+};
 use governor::{
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
@@ -60,7 +63,7 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
+	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -154,6 +157,8 @@ const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+/// Interval for checking subscription topics to build own affinity filter.
+const AFFINITY_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -365,6 +370,7 @@ impl StatementHandlerPrototype {
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
 		mut num_submission_workers: usize,
 		statements_per_second: u32,
+		advertise_affinity: bool,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
@@ -441,6 +447,11 @@ impl StatementHandlerPrototype {
 			),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			advertise_affinity,
+			last_subscription_topics: HashSet::new(),
+			own_affinity_encoded: None,
+			pending_topics_rx: Box::pin(pending()),
+			affinity_check_timeout: Box::pin(tokio::time::sleep(AFFINITY_CHECK_INTERVAL).fuse()),
 		};
 
 		Ok(handler)
@@ -487,6 +498,21 @@ pub struct StatementHandler<
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
+	/// Whether to advertise affinity based on subscriptions.
+	advertise_affinity: bool,
+	/// Last subscription topics we advertised (for change detection).
+	last_subscription_topics: HashSet<Topic>,
+	/// Cached encoded affinity filter to send to newly connected V2 peers.
+	own_affinity_encoded: Option<Vec<u8>>,
+	/// In-flight topic collection future (awaits the receiver, or pends if none).
+	pending_topics_rx: Pin<
+		Box<
+			dyn FusedFuture<Output = Result<(bool, HashSet<Topic>), async_channel::RecvError>>
+				+ Send,
+		>,
+	>,
+	/// Timer for periodic affinity check.
+	affinity_check_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -687,6 +713,11 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			advertise_affinity: false,
+			last_subscription_topics: HashSet::new(),
+			own_affinity_encoded: None,
+			pending_topics_rx: Box::pin(pending()),
+			affinity_check_timeout: Box::pin(pending()),
 		}
 	}
 
@@ -744,6 +775,23 @@ where
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
+				},
+				_ = &mut self.affinity_check_timeout => {
+					if self.advertise_affinity {
+						let rx = self.statement_store.subscription_topics();
+						self.pending_topics_rx =
+							Box::pin(async move { rx.recv().await }.fuse());
+					}
+					self.affinity_check_timeout =
+						Box::pin(tokio::time::sleep(AFFINITY_CHECK_INTERVAL).fuse());
+				},
+				result = &mut self.pending_topics_rx => {
+					if let Ok((has_any, topics)) = result {
+						self.handle_subscription_topics_update(has_any, topics).await;
+					}
+					// On error (channel closed) or after handling, reset to pending.
+					// Will retry on next timer tick.
+					self.pending_topics_rx = Box::pin(pending());
 				},
 			}
 		}
@@ -886,6 +934,24 @@ where
 				self.metrics.as_ref().map(|metrics| {
 					metrics.peers_connected.set(self.peers.len() as u64);
 				});
+
+				// Send own affinity to V2 peers if we have one.
+				if protocol_version == PeerProtocolVersion::V2 {
+					if let Some(ref encoded) = self.own_affinity_encoded {
+						if let Err(e) = timeout(
+							SEND_TIMEOUT,
+							self.notification_service
+								.send_async_notification(&peer, encoded.clone().into()),
+						)
+						.await
+						{
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to send own affinity to new peer {peer}: {e:?}"
+							);
+						}
+					}
+				}
 
 				// Light V2 peers must set topic affinity before receiving statements.
 				// All other peers get initial sync immediately.
@@ -1246,6 +1312,50 @@ where
 			}
 			self.schedule_initial_sync_for_peer(peer_id);
 		}
+	}
+
+	/// Handle a subscription topics update from the statement store.
+	///
+	/// If topics changed, builds a new `AffinityFilter` bloom filter and sends it to all V2 peers.
+	/// If `has_any` is true or topics are empty, clears the cached affinity.
+	async fn handle_subscription_topics_update(&mut self, has_any: bool, topics: HashSet<Topic>) {
+		// Skip if topics haven't changed.
+		if topics == self.last_subscription_topics && !has_any {
+			return;
+		}
+		// If has_any (wildcard subscriber) or no topics, clear own affinity.
+		if has_any || topics.is_empty() {
+			self.last_subscription_topics = topics;
+			self.own_affinity_encoded = None;
+			return;
+		}
+
+		// Build bloom filter from topics.
+		let seed: u128 = rand::random();
+		let filter = AffinityFilter::from_topics(topics.iter().map(|t| t.as_ref()), seed);
+		let msg = StatementMessage::ExplicitTopicAffinity(filter);
+		let encoded = msg.encode();
+
+		// Send to all V2 peers.
+		for (peer_id, peer_data) in &self.peers {
+			if peer_data.protocol_version == PeerProtocolVersion::V2 {
+				if let Err(e) = timeout(
+					SEND_TIMEOUT,
+					self.notification_service
+						.send_async_notification(peer_id, encoded.clone().into()),
+				)
+				.await
+				{
+					log::debug!(
+						target: LOG_TARGET,
+						"Failed to send own affinity to peer {peer_id}: {e:?}"
+					);
+				}
+			}
+		}
+
+		self.last_subscription_topics = topics;
+		self.own_affinity_encoded = Some(encoded);
 	}
 
 	/// Record initial sync completion metrics for a peer being removed.
@@ -1741,6 +1851,12 @@ mod tests {
 		fn remove_by(&self, _who: [u8; 32]) -> sp_statement_store::Result<()> {
 			unimplemented!()
 		}
+
+		fn subscription_topics(&self) -> async_channel::Receiver<(bool, HashSet<Topic>)> {
+			let (tx, rx) = async_channel::bounded(1);
+			let _ = tx.send_blocking((false, HashSet::new()));
+			rx
+		}
 	}
 
 	fn build_handler() -> (
@@ -1798,6 +1914,11 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			advertise_affinity: false,
+			last_subscription_topics: HashSet::new(),
+			own_affinity_encoded: None,
+			pending_topics_rx: Box::pin(pending()),
+			affinity_check_timeout: Box::pin(futures::future::pending()),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
@@ -2006,6 +2127,11 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			advertise_affinity: false,
+			last_subscription_topics: HashSet::new(),
+			own_affinity_encoded: None,
+			pending_topics_rx: Box::pin(pending()),
+			affinity_check_timeout: Box::pin(futures::future::pending()),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2045,6 +2171,11 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			advertise_affinity: false,
+			last_subscription_topics: HashSet::new(),
+			own_affinity_encoded: None,
+			pending_topics_rx: Box::pin(pending()),
+			affinity_check_timeout: Box::pin(futures::future::pending()),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3476,6 +3607,11 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			advertise_affinity: false,
+			last_subscription_topics: HashSet::new(),
+			own_affinity_encoded: None,
+			pending_topics_rx: Box::pin(pending()),
+			affinity_check_timeout: Box::pin(futures::future::pending()),
 		};
 
 		// Add a statement so there's something to sync.

@@ -28,6 +28,7 @@ sp-externalities = { workspace = true }
 sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
 thiserror = { optional = true, workspace = true }
+async-channel = { optional = true, workspace = true }
 
 # ECIES dependencies
 aes-gcm = { optional = true, workspace = true }
@@ -43,6 +44,7 @@ default = ["std"]
 std = [
 	"aes-gcm",
 	"aes-gcm?/std",
+	"async-channel",
 	"codec/std",
 	"curve25519-dalek",
 	"ed25519-dalek",

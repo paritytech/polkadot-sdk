@@ -65,6 +65,7 @@ pub(crate) fn build_statement_store<
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
 	statement_network_workers: usize,
 	statement_rate_limit: u32,
+	statement_advertise_affinity: bool,
 ) -> sc_service::error::Result<Arc<Store>> {
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
@@ -89,6 +90,7 @@ pub(crate) fn build_statement_store<
 		statement_protocol_executor,
 		statement_network_workers,
 		statement_rate_limit,
+		statement_advertise_affinity,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

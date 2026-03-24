@@ -1432,6 +1432,10 @@ impl StatementStore for Store {
 	}
 
 	/// Remove all statements by an account.
+	fn subscription_topics(&self) -> async_channel::Receiver<(bool, HashSet<Topic>)> {
+		self.subscription_manager.collect_subscription_topics()
+	}
+
 	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
 		let mut index = self.index.write();
 		let mut evicted = Vec::new();

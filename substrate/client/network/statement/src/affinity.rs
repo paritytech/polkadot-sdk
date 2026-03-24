@@ -130,7 +130,6 @@ pub struct AffinityFilter {
 }
 
 impl AffinityFilter {
-	#[cfg(test)]
 	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
 			.hasher(PortableBuildHasher::seeded(seed))
@@ -139,9 +138,24 @@ impl AffinityFilter {
 	}
 
 	/// Insert a topic into the bloom filter.
-	#[cfg(test)]
 	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert(topic);
+	}
+
+	/// Build an affinity filter from a set of topics.
+	///
+	/// Creates a bloom filter with a 1% false positive rate, inserts all topics,
+	/// and uses the given seed for portable hashing.
+	pub(crate) fn from_topics<'a>(
+		topics: impl IntoIterator<Item = &'a [u8; 32]>,
+		seed: u128,
+	) -> Self {
+		let topics: Vec<&[u8; 32]> = topics.into_iter().collect();
+		let mut filter = Self::new(seed, 0.01, topics.len().max(1));
+		for topic in topics {
+			filter.insert(topic);
+		}
+		filter
 	}
 
 	/// Check if a topic is likely present in the bloom filter.

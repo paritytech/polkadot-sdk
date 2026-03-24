@@ -293,4 +293,11 @@ pub trait StatementStore: Send + Sync {
 
 	/// Remove all statements authored by `who`.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()>;
+
+	/// Collect all topics from active subscriptions.
+	///
+	/// Returns a receiver that resolves to `(has_any_filter, topics)`.
+	/// If `has_any_filter` is true, at least one subscription matches everything
+	/// (i.e. the node should not advertise a topic affinity filter).
+	fn subscription_topics(&self) -> async_channel::Receiver<(bool, HashSet<Topic>)>;
 }

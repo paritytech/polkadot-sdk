@@ -416,6 +416,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						statement_handler_proto,
 						node_extra_args.statement_network_workers,
 						node_extra_args.statement_rate_limit,
+						node_extra_args.statement_advertise_affinity,
 					)
 				})
 				.transpose()?;

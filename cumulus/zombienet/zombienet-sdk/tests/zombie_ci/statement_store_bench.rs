@@ -396,6 +396,17 @@ pub async fn spawn_network(
 	collators: &[&str],
 	participant_count: u32,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	spawn_network_with_extra_args(collators, participant_count, &Default::default()).await
+}
+
+/// Like `spawn_network` but allows adding extra CLI args to specific collators.
+///
+/// `extra_collator_args` is a map from collator name to a list of additional CLI args.
+pub async fn spawn_network_with_extra_args(
+	collators: &[&str],
+	participant_count: u32,
+	extra_collator_args: &std::collections::HashMap<&str, Vec<String>>,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(collators.len() >= 2);
 	let images = zombienet_sdk::environment::get_images_from_env();
 
@@ -407,8 +418,6 @@ pub async fn spawn_network(
 		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
 
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	// Headroom for the ~5,000 subscriptions that
-	// actually end up on each pooled conn (500 participants * 10 subscriptions each)
 	let max_subs_per_conn = PARTICIPANT_SIZE / RPC_POOL_SIZE as u32 * 16;
 
 	let config = NetworkConfigBuilder::new()
@@ -421,27 +430,38 @@ pub async fn spawn_network(
 				.with_validator(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
+			let default_args: Vec<String> = vec![
+				"--force-authoring".into(),
+				"--max-runtime-instances=32".into(),
+				"-linfo,statement-store=info,statement-gossip=info".into(),
+				"--enable-statement-store".into(),
+				format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000),
+				format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),
+			];
+
 			let p = p
 				.with_id(2400)
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"--force-authoring".into(),
-					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
-					"--enable-statement-store".into(),
-					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
-					format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}")
-						.as_str()
-						.into(),
-				])
-				// Have to set outside of the loop below, so that `p` has the right type.
-				.with_collator(|n| n.with_name(collators[0]));
+				.with_collator(|n| {
+					let mut args = default_args.clone();
+					if let Some(extra) = extra_collator_args.get(collators[0]) {
+						args.extend(extra.clone());
+					}
+					n.with_name(collators[0])
+						.with_args(args.iter().map(|s| s.as_str().into()).collect())
+				});
 
-			collators[1..]
-				.iter()
-				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
+			collators[1..].iter().fold(p, |acc, &name| {
+				let mut args = default_args.clone();
+				if let Some(extra) = extra_collator_args.get(name) {
+					args.extend(extra.clone());
+				}
+				acc.with_collator(|n| {
+					n.with_name(name).with_args(args.iter().map(|s| s.as_str().into()).collect())
+				})
+			})
 		})
 		.with_global_settings(|global_settings| {
 			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
