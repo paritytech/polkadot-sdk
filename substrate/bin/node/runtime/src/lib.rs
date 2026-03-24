@@ -3110,6 +3110,31 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PsmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
+	fn create_asset(asset_id: u32, owner: &AccountId, decimals: u8) {
+		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
+		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
+		{
+			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
+		}
+		let _ = Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			owner.clone().into(),
+			10u128.pow(18),
+		);
+		let _ = <Assets as MetadataMutate<AccountId>>::set(
+			asset_id,
+			owner,
+			b"Benchmark".to_vec(),
+			b"BNC".to_vec(),
+			decimals,
+		);
+	}
+}
+
 /// Configure the PSM (Peg Stability Module) pallet.
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
@@ -3118,10 +3143,12 @@ impl pallet_psm::Config for Runtime {
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
 	type StableAsset = PsmStableAsset;
-	type FeeHandler = ResolveTo<PsmInsuranceFundAccount, PsmStableAsset>;
+	type FeeDestination = PsmInsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
 	type MaxExternalAssets = ConstU32<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PsmBenchmarkHelper;
 }
 
 /// MMR helper types.

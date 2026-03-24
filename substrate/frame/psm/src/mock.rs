@@ -153,6 +153,27 @@ impl EnsureOrigin<RuntimeOrigin> for MockManagerOrigin {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PsmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
+	fn create_asset(asset_id: u32, owner: &u64, decimals: u8) {
+		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
+		if !<Assets as frame_support::traits::fungibles::Inspect<u64>>::asset_exists(asset_id) {
+			let _ = <Assets as Create<u64>>::create(asset_id, *owner, true, 1);
+		}
+		// Fund the owner's native balance so they can pay the metadata deposit.
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), *owner, INITIAL_BALANCE);
+		let _ = <Assets as MetadataMutate<u64>>::set(
+			asset_id,
+			owner,
+			b"Benchmark".to_vec(),
+			b"BNC".to_vec(),
+			decimals,
+		);
+	}
+}
+
 impl crate::Config for Test {
 	type Fungibles = Assets;
 	type AssetId = u32;
@@ -160,10 +181,12 @@ impl crate::Config for Test {
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
 	type StableAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;
-	type FeeHandler = ResolveTo<InsuranceFundAccount, Self::StableAsset>;
+	type FeeDestination = InsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;
 	type MaxExternalAssets = ConstU32<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PsmBenchmarkHelper;
 }
 
 pub fn new_test_ext() -> TestState {

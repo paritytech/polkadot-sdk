@@ -80,6 +80,17 @@ mod tests;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+/// Helper trait for benchmark setup.
+///
+/// Provides a way to create an external asset with the correct metadata (decimals)
+/// for benchmarks, abstracting over the deposit requirements of the underlying
+/// asset pallet.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper<AssetId, AccountId> {
+	/// Create an asset with metadata matching the stable asset's decimals.
+	fn create_asset(asset_id: AssetId, owner: &AccountId, decimals: u8);
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	pub use frame_support::traits::tokens::stable::{PsmInterface, VaultsInterface};
@@ -214,6 +225,10 @@ pub mod pallet {
 		/// Maximum number of approved external assets.
 		#[pallet::constant]
 		type MaxExternalAssets: Get<u32>;
+
+		/// Helper for benchmarks to create an external asset with correct metadata.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: crate::BenchmarkHelper<Self::AssetId, Self::AccountId>;
 	}
 
 	/// The in-code storage version.

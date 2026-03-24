@@ -23,7 +23,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
 	traits::{
-		fungible::Create as FungibleCreate,
+		fungible::{metadata::Inspect, Create as FungibleCreate, Inspect as FungibleInspect},
 		fungibles::{
 			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 		},
@@ -59,9 +59,9 @@ where
 	if !T::Fungibles::asset_exists(target_id) {
 		assert_ok!(T::Fungibles::create(target_id, admin.clone(), true, 1u32.into()));
 	}
-	let min_balance: BalanceOf<T> = 1u32.into();
-	assert!(min_balance > BalanceOf::<T>::zero());
-	let _ = T::StableAsset::create(admin, true, min_balance);
+	if T::StableAsset::minimum_balance().is_zero() {
+		let _ = T::StableAsset::create(admin, true, 1u32.into());
+	}
 
 	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
 	for i in 0..n {
@@ -182,21 +182,12 @@ mod benchmarks {
 		assert_eq!(crate::AssetCeilingWeight::<T>::get(asset_id), new_weight);
 		Ok(())
 	}
-
-	/// Linear in `n`. The number of already-registered assets, because
-	/// the extrinsic calls `ExternalAssets::iter_keys().count()`.
 	#[benchmark]
-	fn add_external_asset(
-		n: Linear<0, { T::MaxExternalAssets::get() - 1 }>,
-	) -> Result<(), BenchmarkError> {
-		let _ = crate::ExternalAssets::<T>::clear(u32::MAX, None);
+	fn add_external_asset() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let new_asset_id: T::AssetId = ASSET_ID_OFFSET.into();
 
-		for i in 0..n {
-			let id: T::AssetId = (ASSET_ID_OFFSET + i).into();
-			crate::ExternalAssets::<T>::insert(id, CircuitBreakerLevel::AllEnabled);
-		}
-
-		let new_asset_id: T::AssetId = (ASSET_ID_OFFSET + n).into();
+		T::BenchmarkHelper::create_asset(new_asset_id, &caller, T::StableAsset::decimals());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, new_asset_id);
