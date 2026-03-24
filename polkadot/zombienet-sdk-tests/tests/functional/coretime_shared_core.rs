@@ -107,7 +107,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	wait_for_first_session_change(&mut blocks_sub).await?;
 	log::info!("Session boundaries passed");
 
-	// Check that all parachains produce at least 2..5 blocks within 16 RC blocks
+	// Check that all parachains produce at least 5..15 blocks within 40 RC blocks
 	// (since core 0 is shared between all paras)
 	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
 	//  time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
