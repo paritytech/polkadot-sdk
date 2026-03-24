@@ -22,7 +22,7 @@ use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptorVersion,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Header, MutateDescriptorV2,
-	SigningContext, ValidatorId,
+	SigningContext, ValidatorId, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_committed_candidate_receipt_v3,
