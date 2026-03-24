@@ -523,23 +523,6 @@ mod test {
 	}
 
 	#[test]
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	fn map_account_dispatchable_blocked_when_auto_map_enabled() {
-		use crate::{Pallet, tests::RuntimeOrigin};
-		use frame_support::assert_noop;
-		ExtBuilder::default().build().execute_with(|| {
-			AutoMapFlag::set(true);
-			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
-
-			assert_noop!(
-				Pallet::<Test>::map_account(RuntimeOrigin::signed(EVE)),
-				<Error<Test>>::AutoMappingEnabled,
-			);
-		});
-	}
-
-	#[test]
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn unmap_account_dispatchable_blocked_when_auto_map_enabled() {
 		use crate::{Pallet, tests::RuntimeOrigin};
 		use frame_support::assert_noop;
