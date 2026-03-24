@@ -226,15 +226,9 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		let relay_block_identifier =
 			CumulusDigestItem::find_relay_block_identifier(params.header.digest());
 
-		let Some(core_info) = core_info else {
-			return Err(sp_consensus::Error::ClientImport("Missing `CoreInfo` digest".into()));
-		};
-		let Some(relay_block_identifier) = relay_block_identifier else {
-			return Err(sp_consensus::Error::ClientImport(
-				"Missing `RelayBlockIdentifier` digest".into(),
-			));
-		};
-		let Some(bundle_info) = bundle_info else {
+		let (Some(core_info), Some(bundle_info), Some(relay_block_identifier)) =
+			(core_info, bundle_info, relay_block_identifier)
+		else {
 			return Ok(());
 		};
 
