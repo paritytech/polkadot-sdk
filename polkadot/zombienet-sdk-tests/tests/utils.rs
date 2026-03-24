@@ -196,7 +196,6 @@ pub async fn assert_candidates_version(
 	expected_ranges: HashMap<ParaId, Range<u32>>,
 	max_blocks: u32,
 ) -> Result<(), anyhow::Error> {
-
 	assert_para_throughput_with(relay_client, max_blocks, expected_ranges, |receipt| {
 		let para_id = receipt.descriptor.para_id();
 		let version = receipt.descriptor.version();
