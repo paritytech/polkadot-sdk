@@ -855,8 +855,14 @@ where
 				} else {
 					PeerProtocolVersion::V2
 				};
-				let peer_role = self.network.peer_role(peer, handshake);
-				let is_light = peer_role.map_or(false, |role| role.is_light());
+				let Some(peer_role) = self.network.peer_role(peer, handshake) else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Peer {peer} connected but role could not be determined, ignoring"
+					);
+					return;
+				};
+				let is_light = peer_role.is_light();
 				log::debug!(
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
