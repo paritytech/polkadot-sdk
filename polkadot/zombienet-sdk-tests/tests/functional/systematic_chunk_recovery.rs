@@ -38,7 +38,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
-	let validator_nodes = network.relaychain().nodes();
+	let mut validator_nodes = network.relaychain().nodes();
 
 	// Check authority status
 	log::info!("Checking validator node roles");
@@ -54,6 +54,9 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	let para_throughput: [(ParaId, Range<u32>); 2] = PARAS.map(|id| (ParaId::from(id), 2..6));
 	assert_para_throughput(&alice_client, 5, para_throughput).await?;
 	log::info!("All parachains producing blocks");
+
+	// remove alice  and use the others validators for the rest of the checks.
+	validator_nodes.retain(|n| n.name() != "alice");
 
 	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v >= 30.0), 400),
