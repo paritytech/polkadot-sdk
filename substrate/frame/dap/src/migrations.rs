@@ -20,19 +20,11 @@
 use super::*;
 use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-/// Provides the initial `LastInflationTimestamp` for the v1 → v2 migration.
-///
-/// On existing chains, this should return the active era's start timestamp from staking
-/// so the first drip uses a reasonable elapsed time.
-pub trait LastInflationTimestampProvider {
-	fn last_inflation_timestamp() -> u64;
-}
-
 /// V1 to V2 migration: initializes `LastInflationTimestamp` and seeds `BudgetAllocation`.
 ///
 /// - `T`: DAP pallet config
-/// - `P`: Provides initial timestamp
-/// - `B`: Initial budget allocation map
+/// - `P`: `Get<u64>` providing the initial timestamp (e.g. active era start from staking)
+/// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation
 pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
@@ -44,8 +36,8 @@ pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 /// Inner (unversioned) migration logic. Use [`MigrateV1ToV2`] instead.
 pub struct InnerMigrateV1ToV2<T, P, B>(core::marker::PhantomData<(T, P, B)>);
 
-impl<T: Config, P: LastInflationTimestampProvider, B: Get<BudgetAllocationMap>>
-	UncheckedOnRuntimeUpgrade for InnerMigrateV1ToV2<T, P, B>
+impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgrade
+	for InnerMigrateV1ToV2<T, P, B>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let mut weight = T::DbWeight::get().reads(2);
@@ -53,7 +45,7 @@ impl<T: Config, P: LastInflationTimestampProvider, B: Get<BudgetAllocationMap>>
 		// Seed LastInflationTimestamp (idempotent).
 		let current_ts = LastInflationTimestamp::<T>::get();
 		if current_ts == 0 {
-			let ts = P::last_inflation_timestamp();
+			let ts = P::get();
 			LastInflationTimestamp::<T>::put(ts);
 			weight = weight.saturating_add(T::DbWeight::get().writes(1));
 			log::info!(target: LOG_TARGET, "Initialized LastInflationTimestamp to {ts}");

@@ -1550,8 +1550,8 @@ parameter_types! {
 
 /// Provides the initial `LastInflationTimestamp` for DAP migration.
 pub struct DapLastInflationTimestamp;
-impl pallet_dap::migrations::LastInflationTimestampProvider for DapLastInflationTimestamp {
-	fn last_inflation_timestamp() -> u64 {
+impl frame_support::traits::Get<u64> for DapLastInflationTimestamp {
+	fn get() -> u64 {
 		pallet_staking_async::ActiveEra::<Runtime>::get()
 			.and_then(|era| era.start)
 			.unwrap_or(0)
