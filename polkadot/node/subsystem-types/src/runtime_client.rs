@@ -371,8 +371,9 @@ pub trait RuntimeApiSubsystemClient {
 	/// Fetch the maximum relay parent session age allowed for parachain blocks.
 	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, ApiError>;
 
-	/// Fetch relay parent info for a given session index and relay parent hash.
-	async fn allowed_relay_parent_info(
+	/// Look up relay parent info for an **ancestor** block. A block is not in its
+	/// own `AllowedRelayParents`, so querying a block about itself returns `None`.
+	async fn ancestor_relay_parent_info(
 		&self,
 		at: Hash,
 		session_index: SessionIndex,
@@ -687,7 +688,7 @@ where
 		self.client.runtime_api().max_relay_parent_session_age(at)
 	}
 
-	async fn allowed_relay_parent_info(
+	async fn ancestor_relay_parent_info(
 		&self,
 		at: Hash,
 		session_index: SessionIndex,
@@ -695,7 +696,7 @@ where
 	) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, ApiError> {
 		self.client
 			.runtime_api()
-			.allowed_relay_parent_info(at, session_index, relay_parent)
+			.ancestor_relay_parent_info(at, session_index, relay_parent)
 	}
 }
 

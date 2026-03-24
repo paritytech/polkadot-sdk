@@ -319,6 +319,7 @@ pub trait EthExtra {
 		})?;
 
 		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction was: {tx:?}");
 		let call_info = tx.into_call::<Self::Config>(CreateCallMode::ExtrinsicExecution(
 			encoded_len as u32,
 			payload.to_vec(),
