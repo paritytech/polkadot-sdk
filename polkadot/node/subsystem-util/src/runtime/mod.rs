@@ -544,6 +544,7 @@ impl ClaimQueueSnapshot {
 		para_id: ParaId,
 	) -> impl Iterator<Item = CoreIndex> + '_ {
 		self.0.iter().filter_map(move |(core_index, ids)| {
+			println!("core_index {:?}, ids: {:?}", core_index, ids);
 			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
 		})
 	}

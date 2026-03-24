@@ -6,8 +6,8 @@
 //! This test verifies that parachains make progress with paritydb.
 
 use crate::utils::{
-	check_metrics, env_or_default, initialize_network, MetricCheckSetup,
-	APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
+	assert_nodes_are_validators, check_metrics, env_or_default, initialize_network,
+	MetricCheckSetup, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -49,12 +49,7 @@ async fn paritydb_test() -> Result<(), anyhow::Error> {
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for validator in &validator_nodes {
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {} role check failed: {e}", validator.name()))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	// Check that all parachains produce at least 5 blocks within 1 session and 5 blocks (RC)

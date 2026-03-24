@@ -6,9 +6,9 @@
 //! Integration test for malus node.
 
 use crate::utils::{
-	check_metrics, env_or_default, initialize_network, MetricCheckSetup,
-	BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
-	NODE_ROLES_METRIC,
+	assert_nodes_are_validators, check_metrics, env_or_default, initialize_network,
+	MetricCheckSetup, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	MALUS_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, NetworkNode};
@@ -26,12 +26,7 @@ async fn malus_dispute_valid_block_test() -> Result<(), anyhow::Error> {
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for validator in &validator_nodes {
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {} role check failed: {e}", validator.name()))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	let honest_validators: Vec<&NetworkNode> =
