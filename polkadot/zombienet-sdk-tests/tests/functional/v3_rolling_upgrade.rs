@@ -20,6 +20,7 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_finality_lag;
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
+use std::collections::HashMap;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
@@ -97,9 +98,8 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 
 	assert_candidates_version(
 		&relay_client,
-		&[ParaId::from(3000)],
 		CandidateDescriptorVersion::V2,
-		40..51,
+		HashMap::from([(ParaId::from(3000), 40..51)]),
 		50,
 	)
 	.await?;

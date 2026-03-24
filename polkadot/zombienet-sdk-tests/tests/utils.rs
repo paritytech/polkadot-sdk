@@ -192,13 +192,10 @@ pub async fn assert_validator_backed_candidates(
 /// `expected_range` after `max_blocks` relay chain blocks for each para ID.
 pub async fn assert_candidates_version(
 	relay_client: &OnlineClient<PolkadotConfig>,
-	para_ids: &[ParaId],
 	expected_version: CandidateDescriptorVersion,
-	expected_range: Range<u32>,
+	expected_ranges: HashMap<ParaId, Range<u32>>,
 	max_blocks: u32,
 ) -> Result<(), anyhow::Error> {
-	let expected_ranges: HashMap<ParaId, _> =
-		para_ids.iter().map(|&id| (id, expected_range.clone())).collect();
 
 	assert_para_throughput_with(relay_client, max_blocks, expected_ranges, |receipt| {
 		let para_id = receipt.descriptor.para_id();

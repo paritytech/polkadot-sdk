@@ -2715,11 +2715,8 @@ mod enter {
 			backed_and_concluding.insert(1, 1);
 
 			// Set non-zero collator/signature bytes so the V3 detection algorithm
-			// (checks reserved1[0..16]) identifies these as V1. Clear UMP signals
-			// since V1 candidates must not carry them.
+			// (checks reserved1[0..16]) identifies these as V1.
 			let candidate_modifier = |mut candidate: CommittedCandidateReceiptV2| {
-				candidate.commitments.upward_messages.clear();
-
 				let mut v1: CandidateDescriptor = candidate.descriptor.into();
 				v1.collator = junk_collator();
 				v1.signature = junk_collator_signature();
