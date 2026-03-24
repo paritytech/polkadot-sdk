@@ -646,14 +646,6 @@ bump = "major"
 reason = "changed"
 
 [[crate]]
-# substrate/primitives/transaction-storage-proof
-name = "sp-transaction-storage-proof"
-from = "39.0.0"
-to = "40.0.0"
-bump = "major"
-reason = "changed"
-
-[[crate]]
 # substrate/frame/system/rpc/runtime-api
 name = "frame-system-rpc-runtime-api"
 from = "39.0.0"
@@ -803,6 +795,14 @@ name = "sp-transaction-pool"
 from = "39.0.0"
 to = "40.0.0"
 bump = "major"
+reason = "changed"
+
+[[crate]]
+# substrate/primitives/transaction-storage-proof
+name = "sp-transaction-storage-proof"
+from = "40.0.0"
+to = "40.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -2030,9 +2030,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/transaction-storage
 name = "pallet-transaction-storage"
-from = "43.0.0"
-to = "44.0.0"
-bump = "major"
+from = "44.0.0"
+to = "44.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -2812,9 +2812,9 @@ reason = "changed"
 [[crate]]
 # cumulus/pallets/parachain-system
 name = "cumulus-pallet-parachain-system"
-from = "0.24.1"
-to = "0.25.0"
-bump = "major"
+from = "0.25.0"
+to = "0.25.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]

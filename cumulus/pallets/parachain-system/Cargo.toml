@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.25.0"
+version = "0.25.1"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
@@ -54,7 +54,7 @@ trie-standardmap = { workspace = true }
 
 
 # Substrate
-sc-consensus = { workspace = true, default-features = false }
+sc-consensus = { default-features = false, workspace = true }
 sp-api = { default-features = true, workspace = true }
 sp-consensus-slots = { default-features = true, workspace = true }
 sp-crypto-hashing = { default-features = true, workspace = true }
@@ -118,3 +118,13 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+# Enables `TransactionIndex` host functions for parachain validation
+# without requiring maintenance of a transaction index.
+# However, the host environment (polkadot-prepare/execute-worker) still expects these functions to exist,
+# so we provide a replacement no-op implementation gated by this feature.
+#
+# Used by: `validate_block::implementation::validate_block`.
+#
+# Note: The parachain collator software is expected to use/include `transaction_index::HostFunctions`.
+transaction-index = []
