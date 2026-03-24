@@ -28,7 +28,7 @@ use sp_runtime::{
 	MultiSignature, MultiSigner,
 };
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	fs,
 	path::{Path, PathBuf},
 	sync::{
@@ -71,6 +71,7 @@ impl HopDataPool {
 		let mut index = HashMap::new();
 		let mut user_usage: HashMap<Alias, u64> = HashMap::new();
 		let mut current_size = 0u64;
+		let mut known_stems = HashSet::new();
 
 		// Rebuild index from .meta files on disk.
 		for i in 0u8..=255 {
@@ -135,6 +136,7 @@ impl HopDataPool {
 
 				current_size += meta.size;
 				*user_usage.entry(meta.sender_alias).or_insert(0) += meta.size;
+				known_stems.insert(stem);
 				index.insert(hash, meta);
 			}
 		}
@@ -157,8 +159,7 @@ impl HopDataPool {
 					Some(s) => s.to_string(),
 					None => continue,
 				};
-				let meta_path = data_dir.join("meta").join(&shard).join(format!("{}.meta", stem));
-				if !meta_path.exists() {
+				if !known_stems.contains(&stem) {
 					tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
 					let _ = fs::remove_file(&path);
 				}
@@ -206,7 +207,19 @@ impl HopDataPool {
 		Ok(())
 	}
 
-	/// Insert data into the pool.
+	/// Rollback a previously reserved insert (capacity + user quota).
+	fn rollback_reservation(&self, data_len: u64, sender_alias: &Alias) {
+		self.current_size.fetch_sub(data_len, Ordering::Relaxed);
+		let mut usage = self.user_usage.write();
+		if let Some(u) = usage.get_mut(sender_alias) {
+			*u = u.saturating_sub(data_len);
+			if *u == 0 {
+				usage.remove(sender_alias);
+			}
+		}
+	}
+
+	/// Insert data into the pool, computing the hash internally.
 	///
 	/// Returns the hash of the data.
 	pub fn insert(
@@ -215,6 +228,24 @@ impl HopDataPool {
 		current_block: HopBlockNumber,
 		recipients: Vec<MultiSigner>,
 		sender_alias: Alias,
+	) -> Result<HopHash, HopError> {
+		let hash = H256(blake2_256(&data));
+		self.insert_prehashed(data, current_block, recipients, sender_alias, hash)
+	}
+
+	/// Insert data into the pool with a pre-computed hash.
+	///
+	/// Use this when the caller has already computed the content hash (e.g. for
+	/// personhood proof verification) to avoid hashing the data twice.
+	///
+	/// Returns the hash of the data.
+	pub fn insert_prehashed(
+		&self,
+		data: Vec<u8>,
+		current_block: HopBlockNumber,
+		recipients: Vec<MultiSigner>,
+		sender_alias: Alias,
+		hash: HopHash,
 	) -> Result<HopHash, HopError> {
 		// Validate recipients
 		if recipients.is_empty() {
@@ -231,31 +262,39 @@ impl HopDataPool {
 			return Err(HopError::DataTooLarge(data.len(), MAX_DATA_SIZE));
 		}
 
-		// Check pool capacity
-		let current_size = self.current_size.load(Ordering::Relaxed);
-		if current_size + data_len > self.max_size {
-			return Err(HopError::PoolFull(current_size, self.max_size));
+		// Optimistically reserve pool capacity (atomic, prevents TOCTOU race).
+		let prev = self.current_size.fetch_add(data_len, Ordering::Relaxed);
+		if prev + data_len > self.max_size {
+			self.current_size.fetch_sub(data_len, Ordering::Relaxed);
+			return Err(HopError::PoolFull(prev, self.max_size));
 		}
 
-		// Per-user quota enforcement
-		let usage_map = self.user_usage.read();
-		let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
-		let is_new_user = current_usage == 0;
-		let active_users =
-			if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
-		let per_user_limit = self.max_size / active_users.max(1);
-		drop(usage_map);
+		// Per-user quota: check and reserve atomically under write lock.
+		{
+			let mut usage_map = self.user_usage.write();
+			let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
+			let is_new_user = current_usage == 0;
+			let active_users =
+				if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
+			let per_user_limit = self.max_size / active_users.max(1);
 
-		if current_usage + data_len > per_user_limit {
-			return Err(HopError::UserQuotaExceeded { used: current_usage, limit: per_user_limit });
+			if current_usage + data_len > per_user_limit {
+				self.current_size.fetch_sub(data_len, Ordering::Relaxed);
+				return Err(HopError::UserQuotaExceeded {
+					used: current_usage,
+					limit: per_user_limit,
+				});
+			}
+
+			// Tentatively reserve user quota.
+			*usage_map.entry(sender_alias).or_insert(0) += data_len;
 		}
-
-		let hash = H256(blake2_256(&data));
 
 		// First duplicate check (read lock only).
 		{
 			let index = self.index.read();
 			if index.contains_key(&hash) {
+				self.rollback_reservation(data_len, &sender_alias);
 				return Err(HopError::DuplicateEntry);
 			}
 		}
@@ -273,6 +312,7 @@ impl HopDataPool {
 
 		if let Err(e) = Self::write_atomic(&blob_path, &data) {
 			let _ = fs::remove_file(blob_path.with_extension("tmp"));
+			self.rollback_reservation(data_len, &sender_alias);
 			return Err(e);
 		}
 
@@ -281,24 +321,22 @@ impl HopDataPool {
 			let _ = fs::remove_file(meta_path.with_extension("tmp"));
 			// Clean up the blob we already wrote.
 			let _ = fs::remove_file(&blob_path);
+			self.rollback_reservation(data_len, &sender_alias);
 			return Err(e);
 		}
 
-		// Acquire write lock: double-check duplicate, insert meta, update counters.
+		// Acquire write lock: double-check duplicate, insert meta.
 		{
 			let mut index = self.index.write();
 			if index.contains_key(&hash) {
 				// Another thread inserted while we were writing to disk.
 				let _ = fs::remove_file(&blob_path);
 				let _ = fs::remove_file(&meta_path);
+				self.rollback_reservation(data_len, &sender_alias);
 				return Err(HopError::DuplicateEntry);
 			}
 			index.insert(hash, meta);
 		}
-
-		// Update size counter and user usage.
-		self.current_size.fetch_add(data_len, Ordering::Relaxed);
-		*self.user_usage.write().entry(sender_alias).or_insert(0) += data_len;
 
 		tracing::info!(
 			target: "hop",
@@ -321,6 +359,10 @@ impl HopDataPool {
 
 		match fs::read(self.blob_path(hash)) {
 			Ok(data) => Some(data),
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+				tracing::warn!(target: "hop", hash = ?hex::encode(hash), "Blob not found on disk (possibly acked concurrently)");
+				None
+			},
 			Err(e) => {
 				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to read blob from disk");
 				None
@@ -371,9 +413,14 @@ impl HopDataPool {
 		let blob_path = self.blob_path(hash);
 		drop(index);
 
-		// Read blob from disk.
-		let data =
-			fs::read(blob_path).map_err(|e| HopError::IoError(format!("read blob: {}", e)))?;
+		// Read blob from disk (may be gone if concurrently acked and deleted).
+		let data = fs::read(&blob_path).map_err(|e| {
+			if e.kind() == std::io::ErrorKind::NotFound {
+				HopError::NotFound
+			} else {
+				HopError::IoError(format!("read blob: {}", e))
+			}
+		})?;
 
 		Ok(data)
 	}
@@ -383,13 +430,31 @@ impl HopDataPool {
 	///
 	/// Idempotent: acking a recipient that already ack'd returns `Ok(())`.
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
-		let mut index = self.index.write();
-		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-		let recipient_index = Self::find_recipient(meta, hash, signature)?;
+		// Phase 1: find recipient under read lock (crypto verification happens here).
+		let recipient_index = {
+			let index = self.index.read();
+			let meta = index.get(hash).ok_or(HopError::NotFound)?;
+			let idx = Self::find_recipient(meta, hash, signature)?;
 
-		// Idempotent: already ack'd is fine.
+			// Fast path: already ack'd (idempotent).
+			if meta.claimed[idx] {
+				return Ok(());
+			}
+			idx
+		};
+		// Read lock dropped — crypto work is done.
+
+		// Phase 2: acquire write lock, re-validate, and mutate.
+		let mut index = self.index.write();
+		let meta = match index.get_mut(hash) {
+			Some(m) => m,
+			None => return Err(HopError::NotFound), // Removed between phases.
+		};
+
+		// Re-check: another thread may have acked this recipient between phases.
+		// Recipients list is immutable after insertion, so the index is stable.
 		if meta.claimed[recipient_index] {
-			return Ok(());
+			return Ok(()); // Idempotent.
 		}
 
 		meta.claimed[recipient_index] = true;
@@ -399,7 +464,9 @@ impl HopDataPool {
 			let size = meta.size;
 			let alias = meta.sender_alias;
 			index.remove(hash);
-			// Release locks before disk I/O where possible, but counters first.
+			drop(index);
+
+			// Update counters after dropping index lock.
 			self.current_size.fetch_sub(size, Ordering::Relaxed);
 			let mut usage = self.user_usage.write();
 			if let Some(u) = usage.get_mut(&alias) {
@@ -409,7 +476,6 @@ impl HopDataPool {
 				}
 			}
 			drop(usage);
-			drop(index);
 
 			// Delete files from disk (best-effort; orphans cleaned on restart).
 			let _ = fs::remove_file(self.blob_path(hash));
@@ -497,29 +563,45 @@ impl HopDataPool {
 	/// Remove expired entries and release their user quotas.
 	/// Returns the total bytes freed.
 	pub fn cleanup_expired(&self, current_block: HopBlockNumber) -> u64 {
-		let mut index = self.index.write();
-		let expired: Vec<(HopHash, HopEntryMeta)> = index
-			.iter()
-			.filter(|(_, m)| current_block >= m.expires_at)
-			.map(|(h, m)| (*h, m.clone()))
-			.collect();
+		// Phase 1: collect and remove expired entries from the index.
+		let expired: Vec<(HopHash, HopEntryMeta)> = {
+			let mut index = self.index.write();
+			let expired: Vec<(HopHash, HopEntryMeta)> = index
+				.iter()
+				.filter(|(_, m)| current_block >= m.expires_at)
+				.map(|(h, m)| (*h, m.clone()))
+				.collect();
 
-		let mut freed = 0u64;
-		for (hash, meta) in &expired {
-			index.remove(hash);
-			freed += meta.size;
+			for (hash, _) in &expired {
+				index.remove(hash);
+			}
+			expired
+		};
+		// Index write lock dropped.
+
+		if expired.is_empty() {
+			return 0;
+		}
+
+		let freed: u64 = expired.iter().map(|(_, m)| m.size).sum();
+
+		// Phase 2: update user usage under a separate lock.
+		{
 			let mut usage = self.user_usage.write();
-			if let Some(u) = usage.get_mut(&meta.sender_alias) {
-				*u = u.saturating_sub(meta.size);
-				if *u == 0 {
-					usage.remove(&meta.sender_alias);
+			for (_, meta) in &expired {
+				if let Some(u) = usage.get_mut(&meta.sender_alias) {
+					*u = u.saturating_sub(meta.size);
+					if *u == 0 {
+						usage.remove(&meta.sender_alias);
+					}
 				}
 			}
 		}
-		self.current_size.fetch_sub(freed, Ordering::Relaxed);
-		drop(index);
+		// User usage write lock dropped.
 
-		// Delete files from disk (best-effort).
+		// Phase 3: update atomic counter and delete files (no locks held).
+		self.current_size.fetch_sub(freed, Ordering::Relaxed);
+
 		for (hash, _) in &expired {
 			let _ = fs::remove_file(self.blob_path(hash));
 			let _ = fs::remove_file(self.meta_path(hash));
@@ -1061,5 +1143,129 @@ mod tests {
 		assert_eq!(data, result2);
 		pool.ack(&hash, &ed_encoded).unwrap();
 		assert!(!pool.has(&hash)); // all acked
+	}
+
+	#[test]
+	fn test_concurrent_inserts_respect_capacity() {
+		use std::{sync::Barrier, thread};
+
+		let dir = TempDir::new().unwrap();
+		// Pool of 200 bytes.
+		let pool = Arc::new(HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+		let barrier = Arc::new(Barrier::new(10));
+
+		let handles: Vec<_> = (0..10u8)
+			.map(|i| {
+				let pool = pool.clone();
+				let signer = signer.clone();
+				let barrier = barrier.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					// Each thread tries to insert 50 bytes with unique data.
+					pool.insert(vec![i; 50], 0, vec![signer], ALIAS_A)
+				})
+			})
+			.collect();
+
+		let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+		let successes = results.iter().filter(|r| r.is_ok()).count();
+
+		// At most 4 inserts of 50 bytes each can fit in 200 bytes.
+		assert!(successes <= 4, "Got {} successes, max should be 4", successes);
+		assert!(pool.status().total_bytes <= 200);
+	}
+
+	#[test]
+	fn test_concurrent_inserts_respect_user_quota() {
+		use std::{sync::Barrier, thread};
+
+		let dir = TempDir::new().unwrap();
+		// Pool of 1000 bytes; two users each get 500.
+		let pool = Arc::new(HopDataPool::new(1000, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		// Pre-seed user B so that user A's quota is 500.
+		pool.insert(vec![255u8; 10], 0, vec![signer.clone()], ALIAS_B).unwrap();
+
+		let barrier = Arc::new(Barrier::new(10));
+
+		let handles: Vec<_> = (0..10u8)
+			.map(|i| {
+				let pool = pool.clone();
+				let signer = signer.clone();
+				let barrier = barrier.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					// Each thread: user A inserts 100 bytes.
+					pool.insert(vec![i; 100], 0, vec![signer], ALIAS_A)
+				})
+			})
+			.collect();
+
+		let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+		let successes = results.iter().filter(|r| r.is_ok()).count();
+
+		// User A's quota is 500 bytes; at most 5 inserts of 100 bytes.
+		assert!(successes <= 5, "Got {} successes, max should be 5", successes);
+
+		// Total pool usage should never exceed pool capacity.
+		assert!(pool.status().total_bytes <= 1000);
+	}
+
+	#[test]
+	fn test_concurrent_claim_and_ack() {
+		use std::{sync::Barrier, thread};
+
+		let pool = Arc::new({
+			let dir = TempDir::new().unwrap();
+			// Leak the TempDir so it outlives the test threads.
+			let path = dir.into_path();
+			HopDataPool::new(1024 * 1024, 100, path).unwrap()
+		});
+
+		// Create 5 recipients.
+		let pairs: Vec<_> = (1..=5u8)
+			.map(|i| {
+				let pair = ed25519::Pair::from_seed(&[i; 32]);
+				let signer = MultiSigner::Ed25519(pair.public());
+				(pair, signer)
+			})
+			.collect();
+
+		let signers: Vec<_> = pairs.iter().map(|(_, s)| s.clone()).collect();
+		let data = vec![42u8; 100];
+		let hash = pool.insert(data.clone(), 0, signers, ALIAS_A).unwrap();
+
+		let barrier = Arc::new(Barrier::new(5));
+
+		// Each recipient claims and acks concurrently.
+		let handles: Vec<_> = pairs
+			.into_iter()
+			.map(|(pair, _)| {
+				let pool = pool.clone();
+				let barrier = barrier.clone();
+				let data = data.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					let sig = pair.sign(hash.as_bytes());
+					let multi_sig = MultiSignature::Ed25519(sig);
+					let encoded = multi_sig.encode();
+
+					let claimed = pool.claim(&hash, &encoded).unwrap();
+					assert_eq!(data, claimed);
+
+					pool.ack(&hash, &encoded).unwrap();
+				})
+			})
+			.collect();
+
+		for h in handles {
+			h.join().unwrap();
+		}
+
+		// All recipients acked — entry should be gone.
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().total_bytes, 0);
 	}
 }

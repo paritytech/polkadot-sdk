@@ -283,9 +283,9 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 14400)]
 	pub hop_retention_blocks: u32,
 
-	/// HOP promotion check interval in seconds.
+	/// HOP expiry cleanup interval in seconds.
 	///
-	/// How often to check for expired entries that should be promoted to chain storage.
+	/// How often to check for and remove expired entries from the pool.
 	/// Only relevant when `--enable-hop` is used.
 	#[arg(long, default_value_t = 60)]
 	pub hop_check_interval: u64,

@@ -261,7 +261,7 @@ When running your node with HOP enabled:
 - **`HopDataPool`**: Core in-memory storage with thread-safe access
 - **`HopParams`**: CLI configuration parameters
 - **`HopRpcServer`**: RPC interface implementation
-- **`HopPoolEntry`**: Data structure for stored entries
+- **`HopEntryMeta`**: Metadata for stored entries
 - **`PoolStatus`**: Statistics and monitoring
 
 ### Thread Safety
