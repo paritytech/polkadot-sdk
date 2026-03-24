@@ -58,10 +58,12 @@ const BASE_ERROR: i32 = crate::error::base::STATE;
 impl From<Error> for ErrorObjectOwned {
 	fn from(e: Error) -> ErrorObjectOwned {
 		match e {
-			Error::InvalidBlockRange { .. } =>
-				ErrorObject::owned(BASE_ERROR + 1, e.to_string(), None::<()>),
-			Error::InvalidCount { .. } =>
-				ErrorObject::owned(BASE_ERROR + 2, e.to_string(), None::<()>),
+			Error::InvalidBlockRange { .. } => {
+				ErrorObject::owned(BASE_ERROR + 1, e.to_string(), None::<()>)
+			},
+			Error::InvalidCount { .. } => {
+				ErrorObject::owned(BASE_ERROR + 2, e.to_string(), None::<()>)
+			},
 			e => ErrorObject::owned(BASE_ERROR + 3, e.to_string(), None::<()>),
 		}
 	}

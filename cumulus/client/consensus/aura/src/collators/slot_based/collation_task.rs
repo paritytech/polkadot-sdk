@@ -182,6 +182,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
+				scheduling_parent: None,
 			}),
 			"SubmitCollation",
 		)

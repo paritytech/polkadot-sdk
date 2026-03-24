@@ -62,7 +62,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Perbill,
+	ApplyExtrinsicResult, Perbill, Percent,
 };
 
 #[cfg(feature = "std")]
@@ -130,7 +130,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_021_001,
+	spec_version: 1_021_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -227,7 +227,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
+	type DustRemoval = DapSatellite;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -243,12 +243,17 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to DAP satellite.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
 }
+
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -687,6 +692,15 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
+parameter_types! {
+	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+}
+
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -701,6 +715,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		DapSatellite: pallet_dap_satellite = 12,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -795,6 +810,7 @@ type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// unreleased
@@ -1233,15 +1249,15 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHubLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> Assets {
+				fn worst_case_holding(_depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// just concrete assets according to relay chain.
-					let assets: Vec<Asset> = vec![
-						Asset {
-							id: AssetId(WndLocation::get()),
-							fun: Fungible(1_000_000 * UNITS),
-						}
-					];
-					assets.into()
+					let mut holding = xcm_executor::AssetsInHolding::new();
+					holding.fungible.insert(
+						AssetId(WndLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding
 				}
 			}
 

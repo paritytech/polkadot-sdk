@@ -1660,3 +1660,70 @@ fn intake_idempotency() {
 		assert_eq!(Balances::free_balance(20), 50);
 	});
 }
+
+#[test]
+fn kick_member_works() {
+	EnvBuilder::new().execute(|| {
+		// Given: 20 is a regular member.
+		place_members([20]);
+		assert!(Members::<Test>::contains_key(20));
+
+		// When: a non-founder tries to kick → fails.
+		assert_noop!(Society::kick_member(Origin::signed(20), 20), Error::<Test>::NotFounder);
+
+		// When: founder kicks member 20.
+		assert_ok!(Society::kick_member(Origin::signed(10), 20));
+
+		// Then: member is fully removed, not suspended.
+		assert!(!Members::<Test>::contains_key(20));
+		assert!(!SuspendedMembers::<Test>::contains_key(20));
+
+		// Then: event is emitted.
+		System::assert_has_event(Event::<Test>::MemberKicked { member: 20 }.into());
+
+		// Then: kicking again fails — not a member anymore.
+		assert_noop!(Society::kick_member(Origin::signed(10), 20), Error::<Test>::NotMember);
+	});
+}
+
+#[test]
+fn kicked_member_cannot_claim_payout() {
+	EnvBuilder::new().execute(|| {
+		// Given: members 20 and 30 exist, and 30 has a pending payout of 100.
+		place_members([20, 30]);
+		// Simulate a reserved payout for member 30.
+		Society::bump_payout(&30, 1, 100);
+		let pot_after_reserve = Pot::<Test>::get();
+
+		// When: founder kicks member 30.
+		assert_ok!(Society::kick_member(Origin::signed(10), 30));
+
+		// Then: member is fully removed, not suspended.
+		assert!(!Members::<Test>::contains_key(30));
+		assert!(!SuspendedMembers::<Test>::contains_key(30));
+
+		// Then: payouts are cleared.
+		assert_eq!(
+			Payouts::<Test>::get(30),
+			PayoutRecord { paid: 0, payouts: vec![].try_into().unwrap() }
+		);
+
+		// Then: slashed amount (100) is returned to the pot.
+		assert_eq!(Pot::<Test>::get(), pot_after_reserve + 100);
+
+		// Then: kicked member cannot claim payout.
+		assert_noop!(Society::payout(Origin::signed(30)), Error::<Test>::NotMember);
+	});
+}
+
+#[test]
+fn founder_cannot_kick_head() {
+	EnvBuilder::new().execute(|| {
+		// Given: member 20 is the current Head.
+		place_members([20]);
+		Head::<Test>::put(20);
+
+		// When: founder tries to kick Head → fails.
+		assert_noop!(Society::kick_member(Origin::signed(10), 20), Error::<Test>::Head);
+	});
+}

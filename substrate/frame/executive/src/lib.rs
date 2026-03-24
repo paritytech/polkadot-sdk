@@ -195,12 +195,15 @@ pub enum ExecutiveError {
 impl core::fmt::Debug for ExecutiveError {
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
-			ExecutiveError::UnableToDecodeExtrinsic =>
-				write!(fmt, "The extrinsic could not be decoded correctly"),
-			ExecutiveError::InvalidInherentPosition(i) =>
-				write!(fmt, "Invalid inherent position for extrinsic at index {}", i),
-			ExecutiveError::OnlyInherentsAllowed =>
-				write!(fmt, "Only inherents are allowed in this block"),
+			ExecutiveError::UnableToDecodeExtrinsic => {
+				write!(fmt, "The extrinsic could not be decoded correctly")
+			},
+			ExecutiveError::InvalidInherentPosition(i) => {
+				write!(fmt, "Invalid inherent position for extrinsic at index {}", i)
+			},
+			ExecutiveError::OnlyInherentsAllowed => {
+				write!(fmt, "Only inherents are allowed in this block")
+			},
 			ExecutiveError::ApplyExtrinsic(e) => write!(
 				fmt,
 				"ExecuteBlockError applying extrinsic: {}",
@@ -719,6 +722,7 @@ where
 			let header = block.header();
 			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
+			<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 			Self::final_checks(&header);
 		}
 	}
@@ -796,6 +800,7 @@ where
 		let block_number = <frame_system::Pallet<System>>::block_number();
 		Self::on_idle_hook(block_number);
 		Self::on_finalize_hook(block_number);
+		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 		<frame_system::Pallet<System>>::finalize()
 	}
 

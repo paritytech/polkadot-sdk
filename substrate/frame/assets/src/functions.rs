@@ -208,7 +208,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Holder::balance_on_hold(id.clone(), who),
 				T::Freezer::frozen_balance(id.clone(), who),
 			) {
-				(None, None) =>
+				(None, None) => {
 					if rest < details.min_balance {
 						if keep_alive {
 							WouldDie
@@ -217,7 +217,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						}
 					} else {
 						Success
-					},
+					}
+				},
 				(maybe_held, maybe_frozen) => {
 					let frozen = maybe_frozen.unwrap_or_default();
 					let held = maybe_held.unwrap_or_default();
@@ -953,6 +954,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			amount,
 		});
 
+		Ok(())
+	}
+
+	/// Cancels an existing approval from `owner` to `delegate` for asset `id`.
+	///
+	/// Removes the approval entry and unreserves the deposit. Emits `ApprovalCancelled`.
+	pub fn do_cancel_approval(
+		id: &T::AssetId,
+		owner: &T::AccountId,
+		delegate: &T::AccountId,
+	) -> DispatchResult {
+		let mut asset_details = Asset::<T, I>::get(id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(asset_details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		let approval =
+			Approvals::<T, I>::take((id.clone(), owner, delegate)).ok_or(Error::<T, I>::Unknown)?;
+		T::Currency::unreserve(owner, approval.deposit);
+
+		asset_details.approvals.saturating_dec();
+		Asset::<T, I>::insert(id, asset_details);
+
+		Self::deposit_event(Event::ApprovalCancelled {
+			asset_id: id.clone(),
+			owner: owner.clone(),
+			delegate: delegate.clone(),
+		});
 		Ok(())
 	}
 
