@@ -203,7 +203,7 @@ pub async fn assert_candidates_version(
 
 	assert_para_throughput_with(relay_client, max_blocks, expected_ranges, |receipt| {
 		let para_id = receipt.descriptor.para_id();
-		let version = receipt.descriptor.version(v3_enabled);
+		let version = receipt.descriptor.version();
 		log::info!(
 			"Para {} candidate backed: version={:?}, \
 			 relay_parent={:?}, \
@@ -212,8 +212,8 @@ pub async fn assert_candidates_version(
 			para_id,
 			version,
 			receipt.descriptor.relay_parent(),
-			receipt.descriptor.session_index(v3_enabled),
-			receipt.descriptor.scheduling_parent(v3_enabled),
+			receipt.descriptor.session_index(),
+			receipt.descriptor.scheduling_parent(),
 		);
 
 		if version != expected_version {
@@ -225,15 +225,14 @@ pub async fn assert_candidates_version(
 		}
 
 		if expected_version == CandidateDescriptorVersion::V2 {
-			if receipt.descriptor.session_index(v3_enabled).is_none() {
+			if receipt.descriptor.session_index().is_none() {
 				return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
 			}
-			if receipt.descriptor.relay_parent() != receipt.descriptor.scheduling_parent(v3_enabled)
-			{
+			if receipt.descriptor.relay_parent() != receipt.descriptor.scheduling_parent() {
 				return Err(anyhow!(
 					"Para {para_id} V2 candidate has scheduling_parent={:?} \
 					 != relay_parent={:?}",
-					receipt.descriptor.scheduling_parent(v3_enabled),
+					receipt.descriptor.scheduling_parent(),
 					receipt.descriptor.relay_parent(),
 				));
 			}
