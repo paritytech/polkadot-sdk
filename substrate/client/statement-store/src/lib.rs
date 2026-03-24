@@ -189,16 +189,22 @@ impl Default for Options {
 	}
 }
 
+/// Index for read operations (topic/key-based filtering).
 #[derive(Default)]
-struct Index {
-	recent: HashSet<Hash>,
+struct ReadIndex {
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
+}
+
+/// Index for write operations (constraint checking, entries, accounts).
+#[derive(Default)]
+struct WriteIndex {
 	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
+	recent: HashSet<Hash>,
 	options: Options,
 	total_size: usize,
 }
@@ -240,7 +246,8 @@ where
 /// Statement store.
 pub struct Store {
 	db: parity_db::Db,
-	index: RwLock<Index>,
+	write_index: RwLock<WriteIndex>,
+	read_index: RwLock<ReadIndex>,
 	read_allowance_fn: Box<
 		dyn Fn(&AccountId, Option<BlockHash>) -> Result<Option<StatementAllowance>> + Send + Sync,
 	>,
@@ -257,18 +264,8 @@ enum IndexQuery {
 	Expired,
 }
 
-impl Index {
-	fn new(options: Options) -> Index {
-		Index { options, ..Default::default() }
-	}
-
-	fn insert_new(
-		&mut self,
-		hash: Hash,
-		account: AccountId,
-		statement: &Statement,
-		is_recent: bool,
-	) {
+impl ReadIndex {
+	fn insert(&mut self, hash: Hash, statement: &Statement) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -281,34 +278,29 @@ impl Index {
 		if nt > 0 || key.is_some() {
 			self.topics_and_keys.insert(hash, (all_topics, key));
 		}
-		let expiry = Expiry(statement.expiry());
-		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		if is_recent {
-			self.recent.insert(hash);
-		}
-		self.total_size += statement.data_len();
-		let account_info = self.accounts.entry(account).or_default();
-		account_info.data_size += statement.data_len();
-		if let Some(channel) = statement.channel() {
-			account_info.channels.insert(channel, ChannelEntry { hash, expiry });
-		}
-		account_info
-			.by_priority
-			.insert(PriorityKey { hash, expiry }, (statement.channel(), statement.data_len()));
 	}
 
-	fn query(&self, hash: &Hash) -> IndexQuery {
-		if self.entries.contains_key(hash) {
-			return IndexQuery::Exists;
+	fn remove(&mut self, hash: &Hash) {
+		if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
+			for t in topics.into_iter().flatten() {
+				if let std::collections::hash_map::Entry::Occupied(mut set) =
+					self.by_topic.entry(t)
+				{
+					set.get_mut().remove(hash);
+					if set.get().is_empty() {
+						set.remove_entry();
+					}
+				}
+			}
+			if let std::collections::hash_map::Entry::Occupied(mut set) =
+				self.by_dec_key.entry(key)
+			{
+				set.get_mut().remove(hash);
+				if set.get().is_empty() {
+					set.remove_entry();
+				}
+			}
 		}
-		if self.expired.contains_key(hash) {
-			return IndexQuery::Expired;
-		}
-		IndexQuery::Unknown
-	}
-
-	fn insert_expired(&mut self, hash: Hash, timestamp: u64) {
-		self.expired.insert(hash, timestamp);
 	}
 
 	fn iterate_with(
@@ -413,6 +405,51 @@ impl Index {
 		}
 		Ok(())
 	}
+}
+
+impl WriteIndex {
+	fn new(options: Options) -> WriteIndex {
+		WriteIndex { options, ..Default::default() }
+	}
+
+	fn insert_new(
+		&mut self,
+		read_index: &mut ReadIndex,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		is_recent: bool,
+	) {
+		read_index.insert(hash, statement);
+		let expiry = Expiry(statement.expiry());
+		self.entries.insert(hash, (account, expiry, statement.data_len()));
+		if is_recent {
+			self.recent.insert(hash);
+		}
+		self.total_size += statement.data_len();
+		let account_info = self.accounts.entry(account).or_default();
+		account_info.data_size += statement.data_len();
+		if let Some(channel) = statement.channel() {
+			account_info.channels.insert(channel, ChannelEntry { hash, expiry });
+		}
+		account_info
+			.by_priority
+			.insert(PriorityKey { hash, expiry }, (statement.channel(), statement.data_len()));
+	}
+
+	fn query(&self, hash: &Hash) -> IndexQuery {
+		if self.entries.contains_key(hash) {
+			return IndexQuery::Exists;
+		}
+		if self.expired.contains_key(hash) {
+			return IndexQuery::Expired;
+		}
+		IndexQuery::Unknown
+	}
+
+	fn insert_expired(&mut self, hash: Hash, timestamp: u64) {
+		self.expired.insert(hash, timestamp);
+	}
 
 	fn maintain(&mut self, current_time: u64) -> Vec<Hash> {
 		// Purge previously expired messages.
@@ -433,29 +470,15 @@ impl Index {
 		std::mem::take(&mut self.recent)
 	}
 
-	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
+	fn make_expired(
+		&mut self,
+		read_index: &mut ReadIndex,
+		hash: &Hash,
+		current_time: u64,
+	) -> bool {
 		if let Some((account, expiry, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
-			if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
-				for t in topics.into_iter().flatten() {
-					if let std::collections::hash_map::Entry::Occupied(mut set) =
-						self.by_topic.entry(t)
-					{
-						set.get_mut().remove(hash);
-						if set.get().is_empty() {
-							set.remove_entry();
-						}
-					}
-				}
-				if let std::collections::hash_map::Entry::Occupied(mut set) =
-					self.by_dec_key.entry(key)
-				{
-					set.get_mut().remove(hash);
-					if set.get().is_empty() {
-						set.remove_entry();
-					}
-				}
-			}
+			read_index.remove(hash);
 			let _ = self.recent.remove(hash);
 			self.expired.insert(*hash, current_time);
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
@@ -481,6 +504,7 @@ impl Index {
 
 	fn insert(
 		&mut self,
+		read_index: &mut ReadIndex,
 		hash: Hash,
 		statement: &Statement,
 		account: &AccountId,
@@ -590,9 +614,9 @@ impl Index {
 		}
 
 		for h in &evicted {
-			self.make_expired(h, current_time);
+			self.make_expired(read_index, h, current_time);
 		}
-		self.insert_new(hash, *account, statement, true);
+		self.insert_new(read_index, hash, *account, statement, true);
 		Ok(evicted)
 	}
 }
@@ -694,7 +718,8 @@ impl Store {
 
 		let store = Store {
 			db,
-			index: RwLock::new(Index::new(options)),
+			write_index: RwLock::new(WriteIndex::new(options)),
+			read_index: RwLock::new(ReadIndex::default()),
 			read_allowance_fn,
 			keystore,
 			time_override: None,
@@ -714,7 +739,8 @@ impl Store {
 	// iterating the index.
 	fn populate(&self) -> Result<()> {
 		{
-			let mut index = self.index.write();
+			let mut write_index = self.write_index.write();
+			let mut read_index = self.read_index.write();
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
@@ -726,7 +752,13 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement, false);
+							write_index.insert_new(
+								&mut read_index,
+								hash,
+								account_id,
+								&statement,
+								false,
+							);
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
@@ -749,7 +781,7 @@ impl Store {
 							"Statement loaded (expired): {:?}",
 							HexDisplay::from(&hash)
 						);
-						index.insert_expired(hash, timestamp);
+						write_index.insert_expired(hash, timestamp);
 					}
 					true
 				})
@@ -764,11 +796,11 @@ impl Store {
 		&self,
 		key: Option<DecryptionKey>,
 		topic_filter: &OptimizedTopicFilter,
-		index: &Index,
+		read_index: &ReadIndex,
 		result: &mut Vec<R>,
 		mut f: impl FnMut(Statement) -> Option<R>,
 	) -> Result<()> {
-		index.iterate_with(key, topic_filter, |hash| {
+		read_index.iterate_with(key, topic_filter, |hash| {
 			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 				Some(entry) => {
 					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
@@ -805,8 +837,8 @@ impl Store {
 		f: impl FnMut(Statement) -> Option<R>,
 	) -> Result<Vec<R>> {
 		let mut result = Vec::new();
-		let index = self.index.read();
-		self.collect_statements_locked(key, topic_filter, &index, &mut result, f)?;
+		let read_index = self.read_index.read();
+		self.collect_statements_locked(key, topic_filter, &read_index, &mut result, f)?;
 		Ok(result)
 	}
 
@@ -904,11 +936,12 @@ impl Store {
 		let current_time = self.timestamp();
 
 		let (to_evict, num_accounts_checked) = {
-			let index = self.index.upgradable_read();
-			if index.accounts_to_check_for_expiry_stmts.is_empty() {
-				let existing_accounts = index.accounts.keys().cloned().collect::<Vec<_>>();
-				let mut index = RwLockUpgradableReadGuard::upgrade(index);
-				index.accounts_to_check_for_expiry_stmts = existing_accounts;
+			let write_index = self.write_index.upgradable_read();
+			if write_index.accounts_to_check_for_expiry_stmts.is_empty() {
+				let existing_accounts =
+					write_index.accounts.keys().cloned().collect::<Vec<_>>();
+				let mut write_index = RwLockUpgradableReadGuard::upgrade(write_index);
+				write_index.accounts_to_check_for_expiry_stmts = existing_accounts;
 				return;
 			}
 
@@ -916,9 +949,9 @@ impl Store {
 			let mut num_accounts_checked = 0;
 			let start = Instant::now();
 
-			for account in index.accounts_to_check_for_expiry_stmts.iter().rev() {
+			for account in write_index.accounts_to_check_for_expiry_stmts.iter().rev() {
 				num_accounts_checked += 1;
-				if let Some(account_rec) = index.accounts.get(account) {
+				if let Some(account_rec) = write_index.accounts.get(account) {
 					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
 				}
 
@@ -953,12 +986,12 @@ impl Store {
 			}
 		}
 
-		let mut index = self.index.write();
-		let new_len = index
+		let mut write_index = self.write_index.write();
+		let new_len = write_index
 			.accounts_to_check_for_expiry_stmts
 			.len()
 			.saturating_sub(num_accounts_checked);
-		index.accounts_to_check_for_expiry_stmts.truncate(new_len);
+		write_index.accounts_to_check_for_expiry_stmts.truncate(new_len);
 
 		drop(_start_check_expiration_timer);
 
@@ -979,16 +1012,16 @@ impl Store {
 			capacity_statements,
 			capacity_bytes,
 		): (Vec<_>, usize, usize, usize, usize, usize, usize) = {
-			let mut index = self.index.write();
-			let deleted = index.maintain(self.timestamp());
+			let mut write_index = self.write_index.write();
+			let deleted = write_index.maintain(self.timestamp());
 			(
 				deleted,
-				index.entries.len(),
-				index.expired.len(),
-				index.total_size,
-				index.accounts.len(),
-				index.options.max_total_statements,
-				index.options.max_total_size,
+				write_index.entries.len(),
+				write_index.expired.len(),
+				write_index.total_size,
+				write_index.accounts.len(),
+				write_index.options.max_total_statements,
+				write_index.options.max_total_size,
 			)
 		};
 		let deleted: Vec<_> =
@@ -1095,9 +1128,9 @@ impl Store {
 impl StatementStore for Store {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let index = self.index.read();
-		let mut result = Vec::with_capacity(index.entries.len());
-		for hash in index.entries.keys().cloned() {
+		let write_index = self.write_index.read();
+		let mut result = Vec::with_capacity(write_index.entries.len());
+		for hash in write_index.entries.keys().cloned() {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -1111,8 +1144,8 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let mut index = self.index.write();
-		let recent = index.take_recent();
+		let mut write_index = self.write_index.write();
+		let recent = write_index.take_recent();
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
 			let Some(encoded) =
@@ -1159,11 +1192,11 @@ impl StatementStore for Store {
 	}
 
 	fn has_statement(&self, hash: &Hash) -> bool {
-		self.index.read().entries.contains_key(hash)
+		self.write_index.read().entries.contains_key(hash)
 	}
 
 	fn statement_hashes(&self) -> Vec<Hash> {
-		self.index.read().entries.keys().cloned().collect()
+		self.write_index.read().entries.keys().cloned().collect()
 	}
 
 	fn statements_by_hashes(
@@ -1290,7 +1323,7 @@ impl StatementStore for Store {
 			});
 		}
 
-		match self.index.read().query(&hash) {
+		match self.write_index.read().query(&hash) {
 			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::KnownExpired;
@@ -1373,18 +1406,25 @@ impl StatementStore for Store {
 		let current_time = self.timestamp();
 		let mut commit = Vec::new();
 		{
-			let mut index = self.index.write();
+			let mut write_index = self.write_index.write();
+			let mut read_index = self.read_index.write();
 
-			let evicted =
-				match index.insert(hash, &statement, &account_id, &validation, current_time) {
-					Ok(evicted) => evicted,
-					Err(reason) => {
-						self.metrics.report(|metrics| {
-							metrics.rejections.with_label_values(&[reason.label()]).inc();
-						});
-						return SubmitResult::Rejected(reason);
-					},
-				};
+			let evicted = match write_index.insert(
+				&mut read_index,
+				hash,
+				&statement,
+				&account_id,
+				&validation,
+				current_time,
+			) {
+				Ok(evicted) => evicted,
+				Err(reason) => {
+					self.metrics.report(|metrics| {
+						metrics.rejections.with_label_values(&[reason.label()]).inc();
+					});
+					return SubmitResult::Rejected(reason);
+				},
+			};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
 			for hash in evicted {
@@ -1401,7 +1441,7 @@ impl StatementStore for Store {
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 			self.subscription_manager.notify(statement);
-		} // Release index lock
+		} // Release index locks
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
@@ -1411,8 +1451,9 @@ impl StatementStore for Store {
 	fn remove(&self, hash: &Hash) -> Result<()> {
 		let current_time = self.timestamp();
 		{
-			let mut index = self.index.write();
-			if index.make_expired(hash, current_time) {
+			let mut write_index = self.write_index.write();
+			let mut read_index = self.read_index.write();
+			if write_index.make_expired(&mut read_index, hash, current_time) {
 				let commit = [
 					(col::STATEMENTS, hash.to_vec(), None),
 					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
@@ -1433,16 +1474,17 @@ impl StatementStore for Store {
 
 	/// Remove all statements by an account.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
-		let mut index = self.index.write();
+		let mut write_index = self.write_index.write();
+		let mut read_index = self.read_index.write();
 		let mut evicted = Vec::new();
-		if let Some(account_rec) = index.accounts.get(&who) {
+		if let Some(account_rec) = write_index.accounts.get(&who) {
 			evicted.extend(account_rec.by_priority.keys().map(|k| k.hash));
 		}
 
 		let current_time = self.timestamp();
 		let mut commit = Vec::new();
 		for hash in evicted {
-			index.make_expired(&hash, current_time);
+			write_index.make_expired(&mut read_index, &hash, current_time);
 			commit.push((col::STATEMENTS, hash.to_vec(), None));
 			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
 		}
@@ -1465,13 +1507,13 @@ impl StatementStoreSubscriptionApi for Store {
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Keep the index read lock until after we have subscribed to avoid missing statements.
+		// Keep the read index lock until after we have subscribed to avoid missing statements.
 		let mut existing_statements = Vec::new();
-		let index = self.index.read();
+		let read_index = self.read_index.read();
 		self.collect_statements_locked(
 			None,
 			&topic_filter,
-			&index,
+			&read_index,
 			&mut existing_statements,
 			|statement| Some(statement.encode()),
 		)?;
@@ -1861,7 +1903,7 @@ mod tests {
 	fn constraints() {
 		let (store, _temp) = test_store();
 
-		store.index.write().options.max_total_size = 3000;
+		store.write_index.write().options.max_total_size = 3000;
 		let source = StatementSource::Network;
 		let ok = SubmitResult::New;
 
@@ -1885,7 +1927,7 @@ mod tests {
 			store.submit(statement(1, 1, Some(2), 100), source),
 			SubmitResult::Rejected(_)
 		));
-		assert_eq!(store.index.read().expired.len(), 1);
+		assert_eq!(store.write_index.read().expired.len(), 1);
 
 		// Account 2 (limit = 2 msg, 1000 bytes)
 
@@ -1893,10 +1935,10 @@ mod tests {
 		assert_eq!(store.submit(statement(2, 2, None, 100), source), ok);
 		// Should evict priority 1
 		assert_eq!(store.submit(statement(2, 3, None, 500), source), ok);
-		assert_eq!(store.index.read().expired.len(), 2);
+		assert_eq!(store.write_index.read().expired.len(), 2);
 		// Should evict all
 		assert_eq!(store.submit(statement(2, 4, None, 1000), source), ok);
-		assert_eq!(store.index.read().expired.len(), 4);
+		assert_eq!(store.write_index.read().expired.len(), 4);
 
 		// Account 3 (limit = 3 msg, 1000 bytes)
 
@@ -1905,10 +1947,10 @@ mod tests {
 		assert_eq!(store.submit(statement(3, 4, Some(3), 300), source), ok);
 		// Should evict 2 and 3
 		assert_eq!(store.submit(statement(3, 5, None, 500), source), ok);
-		assert_eq!(store.index.read().expired.len(), 6);
+		assert_eq!(store.write_index.read().expired.len(), 6);
 
-		assert_eq!(store.index.read().total_size, 2400);
-		assert_eq!(store.index.read().entries.len(), 4);
+		assert_eq!(store.write_index.read().total_size, 2400);
+		assert_eq!(store.write_index.read().entries.len(), 4);
 
 		// Should be over the global size limit
 		assert!(matches!(
@@ -1916,7 +1958,7 @@ mod tests {
 			SubmitResult::Rejected(_)
 		));
 		// Should be over the global count limit
-		store.index.write().options.max_total_statements = 4;
+		store.write_index.write().options.max_total_statements = 4;
 		assert!(matches!(
 			store.submit(statement(1, 1, None, 100), source),
 			SubmitResult::Rejected(_)
@@ -1938,7 +1980,7 @@ mod tests {
 	#[test]
 	fn max_statement_size_for_gossiping() {
 		let (store, _temp) = test_store();
-		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+		store.write_index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
 
 		assert_eq!(
 			store.submit(
@@ -1965,13 +2007,13 @@ mod tests {
 		store.set_time(0);
 		statement.set_topic(0, topic(4));
 		store.submit(statement.clone(), StatementSource::Network);
-		assert_eq!(store.index.read().entries.len(), 1);
+		assert_eq!(store.write_index.read().entries.len(), 1);
 		store.remove(&statement.hash()).unwrap();
-		assert_eq!(store.index.read().entries.len(), 0);
-		assert_eq!(store.index.read().accounts.len(), 0);
+		assert_eq!(store.write_index.read().entries.len(), 0);
+		assert_eq!(store.write_index.read().accounts.len(), 0);
 		store.set_time(DEFAULT_PURGE_AFTER_SEC + 1);
 		store.maintain();
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.write_index.read().expired.len(), 0);
 		let keystore = store.keystore.clone();
 		drop(store);
 
@@ -1988,7 +2030,7 @@ mod tests {
 		)
 		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.write_index.read().expired.len(), 0);
 	}
 
 	#[test]
@@ -2251,17 +2293,18 @@ mod tests {
 
 		// --- Pre-conditions: everything is indexed as expected.
 		{
-			let idx = store.index.read();
-			assert_eq!(idx.entries.len(), 5, "all 5 should be present");
-			assert!(idx.accounts.contains_key(&account(4)));
-			assert!(idx.accounts.contains_key(&account(3)));
-			assert_eq!(idx.total_size, 100 + 150 + 50 + 100 + 100);
+			let widx = store.write_index.read();
+			assert_eq!(widx.entries.len(), 5, "all 5 should be present");
+			assert!(widx.accounts.contains_key(&account(4)));
+			assert!(widx.accounts.contains_key(&account(3)));
+			assert_eq!(widx.total_size, 100 + 150 + 50 + 100 + 100);
 
 			// Topic and key sets contain both A & B entries.
-			let set_t = idx.by_topic.get(&t42).expect("topic set exists");
+			let ridx = store.read_index.read();
+			let set_t = ridx.by_topic.get(&t42).expect("topic set exists");
 			assert!(set_t.contains(&h_a1) && set_t.contains(&h_b2));
 
-			let set_k = idx.by_dec_key.get(&Some(k7)).expect("key set exists");
+			let set_k = ridx.by_dec_key.get(&Some(k7)).expect("key set exists");
 			assert!(set_k.contains(&h_a2) && set_k.contains(&h_b2));
 		}
 
@@ -2280,29 +2323,30 @@ mod tests {
 				assert!(store.statement(&h).unwrap().is_some(), "B's statement should remain");
 			}
 
-			let idx = store.index.read();
+			let widx = store.write_index.read();
 
 			// Account map updated.
-			assert!(!idx.accounts.contains_key(&account(4)), "Account A must be gone");
-			assert!(idx.accounts.contains_key(&account(3)), "Account B must remain");
+			assert!(!widx.accounts.contains_key(&account(4)), "Account A must be gone");
+			assert!(widx.accounts.contains_key(&account(3)), "Account B must remain");
 
 			// Removed statements are marked expired.
-			assert!(idx.expired.contains_key(&h_a1));
-			assert!(idx.expired.contains_key(&h_a2));
-			assert!(idx.expired.contains_key(&h_a3));
-			assert_eq!(idx.expired.len(), 3);
+			assert!(widx.expired.contains_key(&h_a1));
+			assert!(widx.expired.contains_key(&h_a2));
+			assert!(widx.expired.contains_key(&h_a3));
+			assert_eq!(widx.expired.len(), 3);
 
 			// Entry count & total_size reflect only B's data.
-			assert_eq!(idx.entries.len(), 2);
-			assert_eq!(idx.total_size, 100 + 100);
+			assert_eq!(widx.entries.len(), 2);
+			assert_eq!(widx.total_size, 100 + 100);
 
 			// Topic index: only B2 remains for topic 42.
-			let set_t = idx.by_topic.get(&t42).expect("topic set exists");
+			let ridx = store.read_index.read();
+			let set_t = ridx.by_topic.get(&t42).expect("topic set exists");
 			assert!(set_t.contains(&h_b2));
 			assert!(!set_t.contains(&h_a1));
 
 			// Decryption-key index: only B2 remains for key 7.
-			let set_k = idx.by_dec_key.get(&Some(k7)).expect("key set exists");
+			let set_k = ridx.by_dec_key.get(&Some(k7)).expect("key set exists");
 			assert!(set_k.contains(&h_b2));
 			assert!(!set_k.contains(&h_a2));
 		}
@@ -2311,10 +2355,10 @@ mod tests {
 		store.remove_by(account(4)).expect("second remove_by should be a no-op");
 
 		// --- Purge: advance time beyond TTL and run maintenance; expired entries disappear.
-		let purge_after = store.index.read().options.purge_after_sec;
+		let purge_after = store.write_index.read().options.purge_after_sec;
 		store.set_time(purge_after + 1);
 		store.maintain();
-		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
+		assert_eq!(store.write_index.read().expired.len(), 0, "expired entries should be purged");
 
 		// --- Reuse: Account A can submit again after purge.
 		let s_new = statement(4, 40, None, 10);
@@ -2338,21 +2382,21 @@ mod tests {
 		}
 
 		// Initially, accounts_to_check_for_expiry_stmts is empty
-		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
+		assert!(store.write_index.read().accounts_to_check_for_expiry_stmts.is_empty());
 
 		// First call to check_expiration should populate the list
 		store.enforce_limits();
 
 		// Now accounts_to_check_for_expiry_stmts should contain all 3 accounts
-		let accounts = store.index.read().accounts_to_check_for_expiry_stmts.clone();
+		let accounts = store.write_index.read().accounts_to_check_for_expiry_stmts.clone();
 		assert_eq!(accounts.len(), 3, "Should have 3 accounts to check");
 		assert!(accounts.contains(&account(1)));
 		assert!(accounts.contains(&account(2)));
 		assert!(accounts.contains(&account(3)));
 
 		// No statements should have been expired since they're all valid
-		assert_eq!(store.index.read().expired.len(), 0);
-		assert_eq!(store.index.read().entries.len(), 3);
+		assert_eq!(store.write_index.read().expired.len(), 0);
+		assert_eq!(store.write_index.read().entries.len(), 3);
 	}
 
 	#[test]
@@ -2377,11 +2421,11 @@ mod tests {
 		store.submit(valid_stmt, StatementSource::Network);
 
 		// Verify both statements are in the store
-		assert_eq!(store.index.read().entries.len(), 2);
+		assert_eq!(store.write_index.read().entries.len(), 2);
 
 		// First check_expiration populates the account list
 		store.enforce_limits();
-		assert!(!store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
+		assert!(!store.write_index.read().accounts_to_check_for_expiry_stmts.is_empty());
 
 		// Advance time past the expiry of the first statement
 		store.set_time(1000);
@@ -2390,7 +2434,7 @@ mod tests {
 		store.enforce_limits();
 
 		// Check the expired statement is now in the expired list
-		let index = store.index.read();
+		let index = store.write_index.read();
 		assert!(index.expired.contains_key(&expired_hash), "Expired statement should be marked");
 		assert!(
 			!index.entries.contains_key(&expired_hash),
@@ -2426,7 +2470,7 @@ mod tests {
 		// First call populates the list
 		store.enforce_limits();
 		assert_eq!(
-			store.index.read().accounts_to_check_for_expiry_stmts.len(),
+			store.write_index.read().accounts_to_check_for_expiry_stmts.len(),
 			3,
 			"Should have 3 accounts to check"
 		);
@@ -2439,13 +2483,13 @@ mod tests {
 
 		// The list should now be empty (all accounts checked and removed)
 		assert!(
-			store.index.read().accounts_to_check_for_expiry_stmts.is_empty(),
+			store.write_index.read().accounts_to_check_for_expiry_stmts.is_empty(),
 			"All accounts should have been checked and removed after expiration"
 		);
 
 		// All statements should have been expired
-		assert_eq!(store.index.read().expired.len(), 3);
-		assert_eq!(store.index.read().entries.len(), 0);
+		assert_eq!(store.write_index.read().expired.len(), 3);
+		assert_eq!(store.write_index.read().entries.len(), 0);
 	}
 
 	#[test]
@@ -2463,20 +2507,20 @@ mod tests {
 
 		// First call populates the list
 		store.enforce_limits();
-		assert_eq!(store.index.read().accounts_to_check_for_expiry_stmts.len(), 5);
+		assert_eq!(store.write_index.read().accounts_to_check_for_expiry_stmts.len(), 5);
 
 		// Second call checks accounts and truncates the list (even though nothing expires)
 		store.enforce_limits();
 
 		// The list should now be empty - accounts are removed after being checked
 		assert!(
-			store.index.read().accounts_to_check_for_expiry_stmts.is_empty(),
+			store.write_index.read().accounts_to_check_for_expiry_stmts.is_empty(),
 			"List should be empty after all accounts have been checked"
 		);
 
 		// No statements should have been expired
-		assert_eq!(store.index.read().expired.len(), 0);
-		assert_eq!(store.index.read().entries.len(), 5);
+		assert_eq!(store.write_index.read().expired.len(), 0);
+		assert_eq!(store.write_index.read().entries.len(), 5);
 	}
 
 	#[test]
@@ -2502,7 +2546,7 @@ mod tests {
 		store.submit(stmt3, StatementSource::Network);
 
 		// Verify all statements are in the store
-		assert_eq!(store.index.read().entries.len(), 3);
+		assert_eq!(store.write_index.read().entries.len(), 3);
 
 		// First check_expiration populates the account list
 		store.enforce_limits();
@@ -2512,7 +2556,7 @@ mod tests {
 		store.enforce_limits();
 
 		{
-			let index = store.index.read();
+			let index = store.write_index.read();
 			assert!(index.expired.contains_key(&hash1), "stmt1 should be expired");
 			assert!(!index.expired.contains_key(&hash2), "stmt2 should not be expired yet");
 			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
@@ -2527,7 +2571,7 @@ mod tests {
 		store.enforce_limits();
 
 		{
-			let index = store.index.read();
+			let index = store.write_index.read();
 			assert!(index.expired.contains_key(&hash1));
 			assert!(index.expired.contains_key(&hash2), "stmt2 should be expired");
 			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
@@ -2540,7 +2584,7 @@ mod tests {
 		store.enforce_limits();
 
 		{
-			let index = store.index.read();
+			let index = store.write_index.read();
 			assert!(index.expired.contains_key(&hash1));
 			assert!(index.expired.contains_key(&hash2));
 			assert!(index.expired.contains_key(&hash3), "stmt3 should be expired");
@@ -2566,7 +2610,7 @@ mod tests {
 		store.enforce_limits();
 
 		// Statement should still be there
-		let index = store.index.read();
+		let index = store.write_index.read();
 		assert!(index.entries.contains_key(&hash));
 		assert!(!index.expired.contains_key(&hash));
 		assert_eq!(index.entries.len(), 1);
@@ -2586,7 +2630,7 @@ mod tests {
 
 		// Verify account exists before expiration
 		{
-			let index = store.index.read();
+			let index = store.write_index.read();
 			assert!(index.accounts.contains_key(&account(1)));
 			assert_eq!(index.total_size, 100);
 		}
@@ -2598,7 +2642,7 @@ mod tests {
 
 		// Verify account is removed after its only statement expires
 		{
-			let index = store.index.read();
+			let index = store.write_index.read();
 			assert!(
 				!index.accounts.contains_key(&account(1)),
 				"Account should be removed when all its statements expire"
@@ -2623,9 +2667,9 @@ mod tests {
 
 		// Verify indexes are populated
 		{
-			let index = store.index.read();
-			assert!(index.by_topic.get(&topic(42)).map_or(false, |s| s.contains(&hash)));
-			assert!(index.by_dec_key.get(&Some(dec_key(7))).map_or(false, |s| s.contains(&hash)));
+			let ridx = store.read_index.read();
+			assert!(ridx.by_topic.get(&topic(42)).map_or(false, |s| s.contains(&hash)));
+			assert!(ridx.by_dec_key.get(&Some(dec_key(7))).map_or(false, |s| s.contains(&hash)));
 		}
 
 		// Populate and then expire
@@ -2635,18 +2679,18 @@ mod tests {
 
 		// Verify indexes are cleared
 		{
-			let index = store.index.read();
+			let ridx = store.read_index.read();
 			// Topic set should be empty or removed
 			assert!(
-				index.by_topic.get(&topic(42)).map_or(true, |s| s.is_empty()),
+				ridx.by_topic.get(&topic(42)).map_or(true, |s| s.is_empty()),
 				"Topic index should be cleared"
 			);
 			// Key set should be empty or removed
 			assert!(
-				index.by_dec_key.get(&Some(dec_key(7))).map_or(true, |s| s.is_empty()),
+				ridx.by_dec_key.get(&Some(dec_key(7))).map_or(true, |s| s.is_empty()),
 				"Decryption key index should be cleared"
 			);
-			assert!(index.expired.contains_key(&hash));
+			assert!(store.write_index.read().expired.contains_key(&hash));
 		}
 	}
 
@@ -2661,9 +2705,9 @@ mod tests {
 		// Second call should also work (empty repopulation)
 		store.enforce_limits();
 
-		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
-		assert_eq!(store.index.read().entries.len(), 0);
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert!(store.write_index.read().accounts_to_check_for_expiry_stmts.is_empty());
+		assert_eq!(store.write_index.read().entries.len(), 0);
+		assert_eq!(store.write_index.read().expired.len(), 0);
 	}
 
 	#[test]
@@ -2680,7 +2724,7 @@ mod tests {
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
-		assert_eq!(store.index.read().entries.len(), 1);
+		assert_eq!(store.write_index.read().entries.len(), 1);
 
 		// Populate the accounts list
 		store.enforce_limits();
@@ -2692,7 +2736,7 @@ mod tests {
 		// Statement SHOULD be expired because check_expiration now compares
 		// Expiry(2000 << 32) against Expiry(1001 << 32 | 1), and
 		// (2000 << 32) > (1001 << 32 | 1)
-		let index = store.index.read();
+		let index = store.write_index.read();
 		assert!(
 			!index.entries.contains_key(&hash),
 			"Statement should be removed from entries after expiration"
@@ -2725,7 +2769,7 @@ mod tests {
 
 		// Verify in-memory state is updated correctly
 		{
-			let index = store.index.read();
+			let index = store.write_index.read();
 			assert!(
 				!index.entries.contains_key(&hash),
 				"Statement should be removed from in-memory entries"
@@ -2767,15 +2811,16 @@ mod tests {
 
 		// Directly insert into index, bypassing `submit`'s allowance check
 		{
-			let mut index = store.index.write();
+			let mut write_index = store.write_index.write();
+			let mut read_index = store.read_index.write();
 			for s in [&s1, &s2, &s3, &s4, &s5] {
-				index.insert_new(s.hash(), account(4), s, false);
+				write_index.insert_new(&mut read_index, s.hash(), account(4), s, false);
 			}
 		}
 
 		// Verify initial state - all 5 should be present
-		assert_eq!(store.index.read().entries.len(), 5);
-		assert_eq!(store.index.read().total_size, 500);
+		assert_eq!(store.write_index.read().entries.len(), 5);
+		assert_eq!(store.write_index.read().total_size, 500);
 
 		// Run check_expiration which handles both expiration and allowance enforcement
 		// First call populates the accounts list, second call processes them
@@ -2784,7 +2829,7 @@ mod tests {
 		store.enforce_limits();
 
 		// Should evict the lowest priority statement (s1)
-		let index = store.index.read();
+		let index = store.write_index.read();
 		assert_eq!(index.entries.len(), 4, "Should have 4 statements after eviction");
 		assert!(!index.entries.contains_key(&h1), "Lowest priority should be evicted");
 		assert!(index.entries.contains_key(&h5), "Highest priority should remain");
@@ -2808,19 +2853,20 @@ mod tests {
 
 		// Directly insert statements for account with no allowance
 		{
-			let mut index = store.index.write();
-			index.insert_new(h1, account(0), &s1, false);
-			index.insert_new(h2, account(0), &s2, false);
+			let mut write_index = store.write_index.write();
+			let mut read_index = store.read_index.write();
+			write_index.insert_new(&mut read_index, h1, account(0), &s1, false);
+			write_index.insert_new(&mut read_index, h2, account(0), &s2, false);
 		}
 
-		assert_eq!(store.index.read().entries.len(), 2);
+		assert_eq!(store.write_index.read().entries.len(), 2);
 
 		// Run check_expiration - should evict ALL statements since no allowance exists
 		// First call populates the accounts list, second call processes them
 		store.enforce_limits();
 		store.enforce_limits();
 
-		let index = store.index.read();
+		let index = store.write_index.read();
 		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
 		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
 		assert!(index.expired.contains_key(&h1));
@@ -2843,19 +2889,20 @@ mod tests {
 
 		// Directly insert both statements (total 1200 bytes > 1000 limit)
 		{
-			let mut index = store.index.write();
-			index.insert_new(h1, account(2), &s1, false);
-			index.insert_new(h2, account(2), &s2, false);
+			let mut write_index = store.write_index.write();
+			let mut read_index = store.read_index.write();
+			write_index.insert_new(&mut read_index, h1, account(2), &s1, false);
+			write_index.insert_new(&mut read_index, h2, account(2), &s2, false);
 		}
 
-		assert_eq!(store.index.read().total_size, 1200);
+		assert_eq!(store.write_index.read().total_size, 1200);
 
 		// Run check_expiration - should evict s1 to get under 1000 bytes
 		// First call populates the accounts list, second call processes them
 		store.enforce_limits();
 		store.enforce_limits();
 
-		let index = store.index.read();
+		let index = store.write_index.read();
 		assert_eq!(index.entries.len(), 1);
 		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
 		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
