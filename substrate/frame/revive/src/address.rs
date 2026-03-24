@@ -313,12 +313,12 @@ impl<T: Config> OnKilledAccount<T::AccountId> for AutoMapper<T> {
 mod test {
 	use super::*;
 	use crate::{
-		AddressMapper, Error, Pallet,
+		AddressMapper, Error,
 		test_utils::*,
-		tests::{AutoMapFlag, ExtBuilder, RuntimeOrigin, Test},
+		tests::{AutoMapFlag, ExtBuilder, Test},
 	};
 	use frame_support::{
-		assert_err, assert_noop,
+		assert_err,
 		traits::fungible::{InspectHold, Mutate},
 	};
 	use pretty_assertions::assert_eq;
@@ -525,6 +525,8 @@ mod test {
 	#[test]
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn map_account_dispatchable_blocked_when_auto_map_enabled() {
+		use crate::{Pallet, tests::RuntimeOrigin};
+		use frame_support::assert_noop;
 		ExtBuilder::default().build().execute_with(|| {
 			AutoMapFlag::set(true);
 			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
@@ -539,6 +541,8 @@ mod test {
 	#[test]
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn unmap_account_dispatchable_blocked_when_auto_map_enabled() {
+		use crate::{Pallet, tests::RuntimeOrigin};
+		use frame_support::assert_noop;
 		ExtBuilder::default().build().execute_with(|| {
 			AutoMapFlag::set(true);
 
