@@ -343,7 +343,9 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-	/// Drip inflation every 60 seconds.
+	/// Drip inflation every 60 seconds. Must be smaller than era length.
+	/// When adding DAP to other runtimes, copy the `inflation_cadence_smaller_than_era_length`
+	/// test from this runtime.
 	pub const InflationCadence: u64 = 60_000;
 	/// Safety ceiling on elapsed time per drip: 10 minutes.
 	/// Prevents over-minting if blocks are delayed or chain stalls.

@@ -2898,6 +2898,19 @@ fn ensure_key_ss58() {
 }
 
 #[test]
+fn inflation_cadence_smaller_than_era_length() {
+	use crate::staking::{RelaySessionDuration, SessionsPerEra};
+	let era_length_ms = SessionsPerEra::get() as u64 *
+		RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
+	let cadence = <Runtime as pallet_dap::Config>::InflationCadence::get();
+	assert!(
+		cadence < era_length_ms,
+		"InflationCadence ({cadence}ms) must be smaller than era length ({era_length_ms}ms)"
+	);
+}
+
+#[test]
 fn ensure_epmb_weights_sane() {
 	use sp_io::TestExternalities;
 	use sp_runtime::Percent;
