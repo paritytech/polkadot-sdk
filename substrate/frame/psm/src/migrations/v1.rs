@@ -33,7 +33,9 @@
 //!
 //! Where `PsmInitialConfig` implements [`InitialPsmConfig`].
 
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::collections::btree_map::BTreeMap;
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::{Get, StorageVersion, Weight},
 	traits::{GetStorageVersion, UncheckedOnRuntimeUpgrade},
@@ -63,13 +65,12 @@ pub trait InitialPsmConfig<T: Config> {
 	/// Max PSM debt as a fraction of MaximumIssuance.
 	fn max_psm_debt_of_total() -> Permill;
 
-	/// Approved external stablecoin asset IDs.
-	fn external_asset_ids() -> Vec<T::AssetId>;
-
 	/// Per-asset configuration:
 	/// - minting fee
 	/// - redemption fee
 	/// - asset ceiling weight
+	///
+	/// Keys also define the set of approved external assets.
 	fn asset_configs() -> BTreeMap<T::AssetId, (Permill, Permill, Permill)>;
 }
 
@@ -101,22 +102,19 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for MigrateToV
 			"Running MigrateToV1: initializing PSM pallet parameters"
 		);
 
-		let external_asset_ids = I::external_asset_ids();
 		let asset_configs = I::asset_configs();
 
 		MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
 
-		for asset_id in &external_asset_ids {
-			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
-		}
-
 		for (asset_id, (minting_fee, redemption_fee, max_asset_debt_ratio)) in &asset_configs {
+			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			MintingFee::<T>::insert(asset_id, minting_fee);
 			RedemptionFee::<T>::insert(asset_id, redemption_fee);
 			AssetCeilingWeight::<T>::insert(asset_id, max_asset_debt_ratio);
 		}
 
-		Pallet::<T>::ensure_psm_account_exists();
+		Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
+		Pallet::<T>::ensure_account_exists(&T::FeeDestination::get());
 
 		StorageVersion::new(1).put::<Pallet<T>>();
 
@@ -125,9 +123,8 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for MigrateToV
 			"MigrateToV1 complete"
 		);
 
-		let writes = 3u64
-			.saturating_add(external_asset_ids.len() as u64)
-			.saturating_add((asset_configs.len() as u64).saturating_mul(3));
+		// 1 read + (MaxPsmDebtOfTotal + StorageVersion + 2 accounts) + 4 writes per asset
+		let writes = 4u64.saturating_add((asset_configs.len() as u64).saturating_mul(4));
 		T::DbWeight::get().reads_writes(1, writes)
 	}
 
@@ -148,14 +145,11 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for MigrateToV
 			"MaxPsmDebtOfTotal mismatch after migration"
 		);
 
-		for asset_id in I::external_asset_ids() {
+		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in I::asset_configs() {
 			ensure!(
 				ExternalAssets::<T>::get(asset_id) == Some(CircuitBreakerLevel::AllEnabled),
 				"External asset missing or not AllEnabled after migration"
 			);
-		}
-
-		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in I::asset_configs() {
 			ensure!(
 				MintingFee::<T>::get(asset_id) == minting_fee,
 				"MintingFee mismatch after migration"
@@ -192,10 +186,6 @@ mod tests {
 			Permill::from_percent(25)
 		}
 
-		fn external_asset_ids() -> Vec<u32> {
-			vec![USDC_ASSET_ID, USDT_ASSET_ID, 77]
-		}
-
 		fn asset_configs() -> BTreeMap<u32, (Permill, Permill, Permill)> {
 			[
 				(
@@ -228,7 +218,6 @@ mod tests {
 			MaxPsmDebtOfTotal::<Test>::kill();
 			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
 			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
-			ExternalAssets::<Test>::remove(77);
 			MintingFee::<Test>::remove(USDC_ASSET_ID);
 			MintingFee::<Test>::remove(USDT_ASSET_ID);
 			RedemptionFee::<Test>::remove(USDC_ASSET_ID);
@@ -240,16 +229,13 @@ mod tests {
 
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
 
-			for asset_id in TestPsmConfig::external_asset_ids() {
+			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
+				TestPsmConfig::asset_configs()
+			{
 				assert_eq!(
 					ExternalAssets::<Test>::get(asset_id),
 					Some(CircuitBreakerLevel::AllEnabled)
 				);
-			}
-
-			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
-				TestPsmConfig::asset_configs()
-			{
 				assert_eq!(MintingFee::<Test>::get(asset_id), minting_fee);
 				assert_eq!(RedemptionFee::<Test>::get(asset_id), redemption_fee);
 				assert_eq!(AssetCeilingWeight::<Test>::get(asset_id), ceiling_weight);
