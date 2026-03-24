@@ -5,8 +5,8 @@
 //! be stopped and resumed.
 
 use crate::utils::{
-	check_metrics, env_or_default, initialize_network, MetricCheckSetup, INTEGRATION_IMAGE_ENV,
-	NODE_ROLES_METRIC,
+	assert_nodes_are_validators, check_metrics, env_or_default, initialize_network,
+	MetricCheckSetup, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use futures::future::try_join_all;
@@ -29,11 +29,13 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 	let network = initialize_network(config).await?;
 
 	let validator_nodes = network.relaychain().nodes();
-	// let _ = tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+
+	// Check authority status
+	log::info!("Checking validator node roles");
+	assert_nodes_are_validators(&validator_nodes).await?;
+	log::info!("All validators confirmed as authorities");
 
 	let metric_checks: Vec<MetricCheckSetup> = vec![
-		// All nodes are validators
-		(NODE_ROLES_METRIC, Box::new(|v| v == 4.0), 0),
 		// BEEFY sanity checks.
 		("substrate_beefy_validator_set_id", Box::new(|v| v == 0.0), 0),
 		// Verify voting happens and 1st mandatory block is finalized within 1st session.

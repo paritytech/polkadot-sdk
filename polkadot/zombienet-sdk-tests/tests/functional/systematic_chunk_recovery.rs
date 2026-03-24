@@ -6,12 +6,12 @@
 //! chunk mapping feature and check systematic chunk recovery.
 
 use crate::utils::{
-	check_log_lines, check_metrics, env_or_default, initialize_network, MetricCheckSetup,
-	APPROVAL_CHECKING_FINALITY_LAG_METRIC, APPROVAL_NO_SHOWS_TOTAL_METRIC,
-	AVAILABILITY_RECOVERY_RECOVERIES_FINISHED, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
-	DATA_RECOVERY_CHUNKS_PATTERN, DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN,
+	assert_nodes_are_validators, check_log_lines, check_metrics, env_or_default,
+	initialize_network, MetricCheckSetup, APPROVAL_CHECKING_FINALITY_LAG_METRIC,
+	APPROVAL_NO_SHOWS_TOTAL_METRIC, AVAILABILITY_RECOVERY_RECOVERIES_FINISHED,
+	BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, DATA_RECOVERY_CHUNKS_PATTERN,
+	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN,
 	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_NOT_POSSIBLE_PATTERN, INTEGRATION_IMAGE_ENV,
-	NODE_ROLES_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -38,20 +38,11 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
+	let mut validator_nodes = network.relaychain().nodes();
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	let validators: Vec<String> = (0..3).map(|i| format!("validator-{i}")).collect();
-	let validators_names =
-		[vec!["alice"], validators.iter().map(|x| x.as_str()).collect()].concat();
-
-	for name in validators_names {
-		let validator = network.get_node(name)?;
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {name} role check failed: {e}"))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	// Get a relay client for parachain throughput checks
@@ -64,10 +55,8 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(&alice_client, 5, para_throughput).await?;
 	log::info!("All parachains producing blocks");
 
-	let mut validator_nodes = vec![];
-	for name in validators {
-		validator_nodes.push(network.get_node(name)?);
-	}
+	// remove alice  and use the others validators for the rest of the checks.
+	validator_nodes.retain(|n| n.name() != "alice");
 
 	let metric_checks: Vec<MetricCheckSetup> = vec![
 		(BLOCK_HEIGHT_FINALIZED_METRIC, Box::new(|v| v >= 30.0), 400),
