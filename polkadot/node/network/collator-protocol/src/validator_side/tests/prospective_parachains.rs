@@ -2084,7 +2084,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain() {
 #[case(true)]
 #[case(false)]
 #[test]
-fn v3_feature_disabled_full_fetch_rejected(#[case] same_parents: bool) {
+fn v3_feature_disabled_rejected_when_seconding(#[case] same_parents: bool) {
 	let mut test_state = TestState::default();
 	test_state.group_rotation_info.group_rotation_frequency = 100;
 
