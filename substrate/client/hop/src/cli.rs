@@ -32,7 +32,7 @@
 //! }
 //! ```
 
-use crate::types::{DEFAULT_MAX_POOL_SIZE, DEFAULT_RETENTION_BLOCKS};
+use crate::types::{DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_RETENTION_BLOCKS};
 use clap::Parser;
 
 /// HOP (Hand-Off Protocol) configuration parameters
@@ -43,14 +43,14 @@ pub struct HopParams {
 	pub enable_hop: bool,
 
 	/// HOP maximum data pool size in MiB
-	#[arg(long, default_value = "10240")]
+	#[arg(long, default_value_t = DEFAULT_MAX_POOL_SIZE_MIB)]
 	pub hop_max_pool_size: u64,
 
 	/// HOP data retention period in blocks (24h = 14400 blocks at 6s per block)
-	#[arg(long, default_value = "14400")]
+	#[arg(long, default_value_t = DEFAULT_RETENTION_BLOCKS)]
 	pub hop_retention_blocks: u32,
 
-	/// HOP promotion check interval in seconds
+	/// HOP expiry cleanup interval in seconds
 	#[arg(long, default_value = "60")]
 	pub hop_check_interval: u64,
 
@@ -65,9 +65,9 @@ impl Default for HopParams {
 	fn default() -> Self {
 		Self {
 			enable_hop: false,
-			hop_max_pool_size: (DEFAULT_MAX_POOL_SIZE / (1024 * 1024)), // Convert to MiB
-			hop_retention_blocks: DEFAULT_RETENTION_BLOCKS,             // 24 hours
-			hop_check_interval: 60,                                     // 1 minute
+			hop_max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
+			hop_retention_blocks: DEFAULT_RETENTION_BLOCKS,
+			hop_check_interval: 60,
 			hop_data_dir: None,
 		}
 	}
