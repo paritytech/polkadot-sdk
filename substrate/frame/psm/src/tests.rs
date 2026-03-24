@@ -737,6 +737,27 @@ mod governance {
 	}
 
 	#[test]
+	fn add_external_asset_fails_decimals_mismatch() {
+		new_test_ext().execute_with(|| {
+			let new_asset = 99u32;
+			// Create asset with wrong decimals (8 instead of 6)
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				new_asset,
+				b"Bad Decimals".to_vec(),
+				b"BAD".to_vec(),
+				8
+			));
+
+			assert_noop!(
+				Psm::add_external_asset(RuntimeOrigin::root(), new_asset),
+				Error::<Test>::DecimalsMismatch
+			);
+		});
+	}
+
+	#[test]
 	fn add_external_asset_unauthorized() {
 		new_test_ext().execute_with(|| {
 			assert_noop!(

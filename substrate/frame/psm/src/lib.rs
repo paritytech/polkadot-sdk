@@ -101,11 +101,14 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			fungible::{
-				Balanced as FungibleBalanced, Credit as FungibleCredit, Inspect as FungibleInspect,
+				metadata::Inspect as FungibleMetadataInspect, Inspect as FungibleInspect,
 				Mutate as FungibleMutate,
 			},
-			fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-			tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation},
+			fungibles::{
+				metadata::Inspect as FungiblesMetadataInspect, Inspect as FungiblesInspect,
+				Mutate as FungiblesMutate,
+			},
+			tokens::{Fortitude, Precision, Preservation},
 		},
 		DefaultNoBound, PalletId,
 	};
@@ -183,7 +186,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Fungibles implementation for both pUSD and external stablecoins.
-		type Fungibles: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId>;
+		type Fungibles: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId>
+			+ FungiblesMetadataInspect<Self::AccountId>;
 
 		/// Asset identifier type.
 		type AssetId: Parameter + Member + Copy + MaybeSerializeDeserialize + MaxEncodedLen + Ord;
@@ -365,6 +369,8 @@ pub mod pallet {
 		InsufficientPrivilege,
 		/// Maximum number of approved external assets reached.
 		TooManyAssets,
+		/// External asset decimals do not match the stable asset decimals.
+		DecimalsMismatch,
 	}
 
 	#[pallet::call]
@@ -757,6 +763,10 @@ pub mod pallet {
 			ensure!(!ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetAlreadyApproved);
 			let count = ExternalAssets::<T>::iter_keys().count() as u32;
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);
+			ensure!(
+				T::Fungibles::decimals(asset_id) == T::StableAsset::decimals(),
+				Error::<T>::DecimalsMismatch
+			);
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			Self::deposit_event(Event::ExternalAssetAdded { asset_id });
 			Ok(())
