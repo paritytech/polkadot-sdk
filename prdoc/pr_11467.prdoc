@@ -9,4 +9,4 @@ crates:
 - name: cumulus-pallet-parachain-system
   bump: patch
 - name: sp-transaction-storage-proof
-  bump: patch
+  bump: minor
