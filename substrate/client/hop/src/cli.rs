@@ -54,6 +54,13 @@ pub struct HopParams {
 	#[arg(long, default_value = "60")]
 	pub hop_check_interval: u64,
 
+	/// How many blocks before expiry to start promoting entries to chain storage.
+	///
+	/// At 6 seconds per block, 1200 blocks is approximately 2 hours.
+	/// Only relevant when `--enable-hop` is used.
+	#[arg(long, default_value = "1200")]
+	pub hop_buffer_blocks: u32,
+
 	/// Directory for HOP persistent data storage.
 	///
 	/// If not specified, defaults to `<chain-data-dir>/hop`.
@@ -68,6 +75,7 @@ impl Default for HopParams {
 			hop_max_pool_size: (DEFAULT_MAX_POOL_SIZE / (1024 * 1024)), // Convert to MiB
 			hop_retention_blocks: DEFAULT_RETENTION_BLOCKS,             // 24 hours
 			hop_check_interval: 60,                                     // 1 minute
+			hop_buffer_blocks: 1200,                                    // ~2 hours
 			hop_data_dir: None,
 		}
 	}

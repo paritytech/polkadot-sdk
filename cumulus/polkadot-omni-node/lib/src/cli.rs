@@ -290,6 +290,13 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 60)]
 	pub hop_check_interval: u64,
 
+	/// How many blocks before expiry to start promoting entries to chain storage.
+	///
+	/// At 6 seconds per block, 1200 blocks is approximately 2 hours.
+	/// Only relevant when `--enable-hop` is used.
+	#[arg(long, default_value_t = 1200)]
+	pub hop_buffer_blocks: u32,
+
 	/// Directory for HOP persistent data storage.
 	///
 	/// If not specified, defaults to `<chain-data-dir>/hop`.
@@ -355,6 +362,7 @@ impl<Config: CliConfig> Cli<Config> {
 			hop_max_pool_size_mb: self.hop_max_pool_size,
 			hop_retention_blocks: self.hop_retention_blocks,
 			hop_check_interval: self.hop_check_interval,
+			hop_buffer_blocks: self.hop_buffer_blocks,
 			hop_data_dir: self.hop_data_dir.clone(),
 		}
 	}

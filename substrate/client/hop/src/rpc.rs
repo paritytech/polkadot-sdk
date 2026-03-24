@@ -21,6 +21,7 @@ use crate::{
 	primitives::HopHash,
 	types::{Alias, HopError, PoolStatus, SubmitResult, HOP_CONTEXT},
 };
+use codec::Decode;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
@@ -28,7 +29,6 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use codec::Decode;
 use sp_core::{hashing::blake2_256, Bytes, H256};
 use sp_runtime::{traits::Block as BlockT, MultiSigner, SaturatedConversion};
 use std::{marker::PhantomData, sync::Arc};
@@ -129,9 +129,8 @@ where
 		let recipient_keys: Vec<MultiSigner> = recipients
 			.into_iter()
 			.map(|r| {
-				MultiSigner::decode(&mut &r.0[..]).map_err(|_| {
-					ErrorObjectOwned::from(HopError::InvalidRecipientKey)
-				})
+				MultiSigner::decode(&mut &r.0[..])
+					.map_err(|_| ErrorObjectOwned::from(HopError::InvalidRecipientKey))
 			})
 			.collect::<RpcResult<Vec<_>>>()?;
 

@@ -252,6 +252,16 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl sp_hop::HopPromotionApi<$block> for $runtime {
+				fn create_promotion_extrinsic(_: Vec<u8>) -> <$block as BlockT>::Extrinsic {
+					unimplemented!()
+				}
+
+				fn max_promotion_size() -> u32 {
+					unimplemented!()
+				}
+			}
 		}
 	};
 }

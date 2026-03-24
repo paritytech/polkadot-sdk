@@ -58,11 +58,7 @@ impl HopDataPool {
 	///
 	/// Creates shard directories under `data_dir` and rebuilds the in-memory index
 	/// from existing `.meta` files on disk (recovery after restart).
-	pub fn new(
-		max_size: u64,
-		retention_blocks: u32,
-		data_dir: PathBuf,
-	) -> Result<Self, HopError> {
+	pub fn new(max_size: u64, retention_blocks: u32, data_dir: PathBuf) -> Result<Self, HopError> {
 		// Create shard directories (256 each for blobs/ and meta/).
 		for i in 0u8..=255 {
 			let shard = format!("{:02x}", i);
@@ -245,19 +241,13 @@ impl HopDataPool {
 		let usage_map = self.user_usage.read();
 		let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
 		let is_new_user = current_usage == 0;
-		let active_users = if is_new_user {
-			usage_map.len() as u64 + 1
-		} else {
-			usage_map.len() as u64
-		};
+		let active_users =
+			if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
 		let per_user_limit = self.max_size / active_users.max(1);
 		drop(usage_map);
 
 		if current_usage + data_len > per_user_limit {
-			return Err(HopError::UserQuotaExceeded {
-				used: current_usage,
-				limit: per_user_limit,
-			});
+			return Err(HopError::UserQuotaExceeded { used: current_usage, limit: per_user_limit });
 		}
 
 		let hash = H256(blake2_256(&data));
@@ -346,8 +336,8 @@ impl HopDataPool {
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
 
 		// SCALE-decode the signature as MultiSignature (supports ed25519, sr25519, ecdsa)
-		let multi_sig = MultiSignature::decode(&mut &signature[..])
-			.map_err(|_| HopError::InvalidSignature)?;
+		let multi_sig =
+			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 
 		// Find which unclaimed recipient this signature matches
 		let recipient_index = meta
@@ -505,6 +495,62 @@ impl HopDataPool {
 		}
 
 		freed
+	}
+
+	/// Return entries that are within `buffer_blocks` of expiry and not yet promoted.
+	/// Returns `(hash, blob_data)` pairs. Reads blobs from disk outside the lock.
+	pub fn get_promotable(
+		&self,
+		current_block: HopBlockNumber,
+		buffer_blocks: u32,
+	) -> Vec<(HopHash, Vec<u8>)> {
+		let hashes: Vec<HopHash> = {
+			let index = self.index.read();
+			index
+				.iter()
+				.filter(|(_, meta)| {
+					!meta.promoted && current_block.saturating_add(buffer_blocks) >= meta.expires_at
+				})
+				.map(|(h, _)| *h)
+				.collect()
+		};
+
+		let mut result = Vec::new();
+		for hash in hashes {
+			match fs::read(self.blob_path(&hash)) {
+				Ok(data) => result.push((hash, data)),
+				Err(e) => {
+					tracing::warn!(
+						target: "hop",
+						hash = ?hex::encode(hash),
+						error = %e,
+						"Failed to read blob for promotion, skipping"
+					);
+				},
+			}
+		}
+		result
+	}
+
+	/// Mark an entry as promoted to permanent on-chain storage.
+	/// Persists the updated metadata to disk.
+	pub fn mark_promoted(&self, hash: &HopHash) {
+		let mut index = self.index.write();
+		if let Some(meta) = index.get_mut(hash) {
+			meta.promoted = true;
+			let meta_bytes = meta.encode();
+			let meta_path = self.meta_path(hash);
+			drop(index);
+
+			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
+				tracing::error!(
+					target: "hop",
+					hash = ?hex::encode(hash),
+					error = %e,
+					"Failed to persist promoted state"
+				);
+			}
+		}
 	}
 }
 
@@ -918,8 +964,7 @@ mod tests {
 		let sr_signer = MultiSigner::Sr25519(sr_pair.public());
 
 		let data = vec![42, 43, 44];
-		let hash =
-			pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], ALIAS_A).unwrap();
 
 		// sr25519 recipient claims first
 		let sr_sig = sr_pair.sign(hash.as_bytes());
@@ -934,5 +979,84 @@ mod tests {
 		let result2 = pool.claim(&hash, &ed_multi.encode()).unwrap();
 		assert_eq!(data, result2);
 		assert!(!pool.has(&hash)); // all claimed
+	}
+
+	#[test]
+	fn test_get_promotable_within_buffer() {
+		let dir = TempDir::new().unwrap();
+		// retention=100 blocks, so entries added at block 0 expire at block 100
+		let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
+		let (_, signer) = test_recipient();
+
+		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
+
+		// At block 50 with buffer=30 → 50+30=80 < 100 → not promotable
+		let promotable = pool.get_promotable(50, 30);
+		assert!(promotable.is_empty());
+
+		// At block 80 with buffer=30 → 80+30=110 >= 100 → promotable
+		let promotable = pool.get_promotable(80, 30);
+		assert_eq!(promotable.len(), 1);
+		assert_eq!(promotable[0].0, hash);
+		assert_eq!(promotable[0].1, vec![1, 2, 3]);
+	}
+
+	#[test]
+	fn test_get_promotable_excludes_promoted() {
+		let dir = TempDir::new().unwrap();
+		let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
+		let (_, signer) = test_recipient();
+
+		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
+
+		// Entry is promotable
+		let promotable = pool.get_promotable(80, 30);
+		assert_eq!(promotable.len(), 1);
+
+		// Mark promoted
+		pool.mark_promoted(&hash);
+
+		// Now excluded
+		let promotable = pool.get_promotable(80, 30);
+		assert!(promotable.is_empty());
+	}
+
+	#[test]
+	fn test_mark_promoted_persists_across_restart() {
+		let dir = TempDir::new().unwrap();
+		let (_, signer) = test_recipient();
+
+		let hash;
+		{
+			let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
+			hash = pool.insert(vec![42u8; 10], 0, vec![signer], ALIAS_A).unwrap();
+			pool.mark_promoted(&hash);
+		}
+
+		// Re-create pool — promoted state should be recovered
+		{
+			let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
+			let promotable = pool.get_promotable(80, 30);
+			assert!(promotable.is_empty(), "promoted entry should not be promotable after restart");
+			assert!(pool.has(&hash), "entry should still exist");
+		}
+	}
+
+	#[test]
+	fn test_cleanup_expired_removes_promoted() {
+		let dir = TempDir::new().unwrap();
+		let pool = HopDataPool::new(1024 * 1024, 10, dir.path().to_path_buf()).unwrap();
+		let (_, signer) = test_recipient();
+
+		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
+		pool.mark_promoted(&hash);
+
+		// Entry is promoted but still in pool
+		assert!(pool.has(&hash));
+
+		// Cleanup at block 10 — entry has expired, should be removed even though promoted
+		let freed = pool.cleanup_expired(10);
+		assert!(freed > 0);
+		assert!(!pool.has(&hash));
 	}
 }

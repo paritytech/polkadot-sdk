@@ -36,6 +36,7 @@ use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
+use sp_hop::HopPromotionApi;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumber, Header as HeaderT, NumberFor},
 	OpaqueExtrinsic,
@@ -76,6 +77,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetParachainInfo<Block>
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
+	+ HopPromotionApi<Block>
 	+ Sized
 {
 }
@@ -91,6 +93,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
+		+ HopPromotionApi<Block>
 {
 }
 
@@ -143,6 +146,9 @@ pub struct NodeExtraArgs {
 
 	/// HOP promotion check interval in seconds.
 	pub hop_check_interval: u64,
+
+	/// How many blocks before expiry to start promoting entries to chain storage.
+	pub hop_buffer_blocks: u32,
 
 	/// Directory for HOP persistent data storage.
 	pub hop_data_dir: Option<PathBuf>,
