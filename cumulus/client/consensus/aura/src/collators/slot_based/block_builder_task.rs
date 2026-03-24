@@ -211,12 +211,8 @@ where
 			};
 
 			let best_hash = para_client.info().best_hash;
-			// let mut runtime_api = para_client.runtime_api();
-			// runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
 			let relay_parent_offset =
 				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
-
-			tracing::info!(LOG_TARGET, "relay_parent_offset {:?}", relay_parent_offset);
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
@@ -621,12 +617,6 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	para_parent: &H,
 	relay_parent_offset: u32,
 ) -> Result<Option<Core>, ()> {
-	let c = &relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_parent.hash())
-		.await?
-		.claim_queue;
-	tracing::info!(target: LOG_TARGET, "claim_queue {:?}", c);
-
 	let cores_at_offset = &relay_chain_data_cache
 		.get_mut_relay_chain_data(relay_parent.hash())
 		.await?
@@ -634,7 +624,6 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 		.iter_claims_at_depth_for_para(relay_parent_offset as usize, para_id)
 		.collect::<Vec<_>>();
 
-	tracing::info!(target: LOG_TARGET, "cores_at_offset {:?}", cores_at_offset);
 	let is_new_relay_parent = if para_parent.number().is_zero() {
 		true
 	} else {
@@ -648,9 +637,7 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 		}
 	};
 
-	tracing::info!(target: LOG_TARGET, "is_new_relay_parent {}",is_new_relay_parent);
 	let core_info = CumulusDigestItem::find_core_info(para_parent.digest());
-	tracing::info!(target: LOG_TARGET, "core_info {:?}",core_info);
 
 	// If we are using a new relay parent, we can start over from the start.
 	let (selector, core_index) = if is_new_relay_parent {
@@ -668,7 +655,6 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 			.await?
 			.last_claimed_core_selector;
 
-		tracing::info!(target: LOG_TARGET, "last_claimed_core_selector {:?}",last_claimed_core_selector);
 		let selector = last_claimed_core_selector.map_or(0, |cs| cs.0 as usize) + 1;
 		let Some(core_index) = cores_at_offset.get(selector) else { return Ok(None) };
 
