@@ -32,7 +32,7 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
+use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
 use test_case::test_case;
@@ -220,10 +220,10 @@ fn eth_contract_too_large() {
 #[test]
 fn upload_evm_runtime_code_works() {
 	use crate::{
+		Pallet, TransactionMeter,
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
-		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
