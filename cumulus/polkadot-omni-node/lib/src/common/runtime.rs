@@ -281,7 +281,7 @@ mod tests {
 	use sc_executor::WasmExecutor;
 	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 
-	fn cumulus_test_runtime_metadata() -> subxt_metadata::Metadata {
+	fn cumulus_test_runtime_metadata() -> MetadataInspector {
 		let opaque_metadata = fetch_latest_metadata_from_code_blob(
 			&WasmExecutor::<ParachainHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
@@ -290,28 +290,32 @@ mod tests {
 		)
 		.unwrap();
 
-		subxt_metadata::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap()
+		let encoded = (*opaque_metadata).as_slice();
+		let metadata = subxt_metadata::Metadata::decode(&mut &encoded[..]).unwrap();
+		let version = encoded.get(4).cloned().unwrap_or(0) as u32;
+
+		MetadataInspector { metadata, version }
 	}
 
 	#[test]
 	fn test_pallet_exists() {
-		let metadata_inspector =
-			MetadataInspector { metadata: cumulus_test_runtime_metadata(), version: 14 };
+		let metadata_inspector = cumulus_test_runtime_metadata();
+		assert!(metadata_inspector.version() >= 14);
 		assert!(metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME));
 		assert!(metadata_inspector.pallet_exists(DEFAULT_FRAME_SYSTEM_PALLET_NAME));
 	}
 
 	#[test]
 	fn test_runtime_block_number() {
-		let metadata_inspector =
-			MetadataInspector { metadata: cumulus_test_runtime_metadata(), version: 14 };
+		let metadata_inspector = cumulus_test_runtime_metadata();
+		assert!(metadata_inspector.version() >= 14);
 		assert_eq!(metadata_inspector.block_number().unwrap(), BlockNumber::U32);
 	}
 
 	#[test]
 	fn test_aura_consensus_id() {
-		let metadata_inspector =
-			MetadataInspector { metadata: cumulus_test_runtime_metadata(), version: 14 };
+		let metadata_inspector = cumulus_test_runtime_metadata();
+		assert!(metadata_inspector.version() >= 14);
 		// Verify that the function correctly detects sr25519 from metadata
 		let aura_id = metadata_inspector.aura_consensus_id();
 		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
