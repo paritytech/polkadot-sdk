@@ -33,13 +33,13 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	ApprovedPeerId, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
-	CandidateDescriptorV2, CandidateHash, ClaimQueueOffset, MutateDescriptorV2,
+	CandidateDescriptorV2, CandidateHash, ClaimQueueOffset,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, CoreIndex,
 	CoreSelector, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData, Id as ParaId,
 	IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
-	PersistedValidationData, SessionIndex, SigningContext, UMPSignal, UncheckedSigned,
-	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
-	UMP_SEPARATOR,
+	MutateDescriptorV2, PersistedValidationData, SessionIndex, SigningContext, UMPSignal,
+	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidityAttestation, UMP_SEPARATOR,
 };
 use sp_core::H256;
 use sp_runtime::{
@@ -717,19 +717,17 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								descriptor.set_reserved1([1u8; 24]);
 								descriptor
 							},
-							CandidateDescriptorVersionConfig::V2 => {
-								CandidateDescriptorV2::new(
-									para_id,
-									relay_parent,
-									core_idx,
-									self.target_session,
-									persisted_validation_data_hash,
-									pov_hash,
-									Default::default(),
-									head_data.hash(),
-									validation_code_hash,
-								)
-							},
+							CandidateDescriptorVersionConfig::V2 => CandidateDescriptorV2::new(
+								para_id,
+								relay_parent,
+								core_idx,
+								self.target_session,
+								persisted_validation_data_hash,
+								pov_hash,
+								Default::default(),
+								head_data.hash(),
+								validation_code_hash,
+							),
 						};
 
 						let mut candidate = CommittedCandidateReceipt::<T::Hash> {
