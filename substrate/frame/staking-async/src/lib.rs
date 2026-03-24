@@ -272,8 +272,10 @@ where
 ///
 /// Generates simple sequential account IDs for predictable testing.
 /// Base 100_000: era 0 → 100000, 100001; era 1 → 100010, 100011, etc.
+#[cfg(feature = "std")]
 pub struct SequentialTest;
 
+#[cfg(feature = "std")]
 impl<AccountId> EraPotAccountProvider<AccountId> for SequentialTest
 where
 	AccountId: From<u64>,
@@ -287,6 +289,7 @@ where
 	}
 }
 
+#[cfg(feature = "std")]
 impl<AccountId> GeneralPotAccountProvider<AccountId> for SequentialTest
 where
 	AccountId: From<u64>,
