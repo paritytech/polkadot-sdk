@@ -235,8 +235,8 @@ impl HopDataPool {
 
 	/// Insert data into the pool with a pre-computed hash.
 	///
-	/// Use this when the caller has already computed the content hash (e.g. for
-	/// personhood proof verification) to avoid hashing the data twice.
+	/// Use this when the caller has already computed the content hash to avoid
+	/// hashing the data twice.
 	///
 	/// Returns the hash of the data.
 	pub fn insert_prehashed(
@@ -399,13 +399,13 @@ impl HopDataPool {
 	/// This does NOT mark the recipient as claimed — call `ack` after receiving the data
 	/// to confirm receipt.
 	///
-	/// Returns `AlreadyClaimed` if the recipient has already ack'd (data may be deleted).
+	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
 		let index = self.index.read();
 		let meta = index.get(hash).ok_or(HopError::NotFound)?;
 		let recipient_index = Self::find_recipient(meta, hash, signature)?;
 
-		// If this recipient already ack'd, the data may be gone.
+		// If this recipient already acked, the data may be gone.
 		if meta.claimed[recipient_index] {
 			return Err(HopError::AlreadyClaimed);
 		}
@@ -426,9 +426,9 @@ impl HopDataPool {
 	}
 
 	/// Acknowledge receipt of claimed data. Marks the recipient as claimed and triggers
-	/// cleanup when all recipients have ack'd.
+	/// cleanup when all recipients have acked.
 	///
-	/// Idempotent: acking a recipient that already ack'd returns `Ok(())`.
+	/// Idempotent: acking a recipient that already acked returns `Ok(())`.
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
 		// Phase 1: find recipient under read lock (crypto verification happens here).
 		let recipient_index = {
@@ -436,7 +436,7 @@ impl HopDataPool {
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
 			let idx = Self::find_recipient(meta, hash, signature)?;
 
-			// Fast path: already ack'd (idempotent).
+			// Fast path: already acked (idempotent).
 			if meta.claimed[idx] {
 				return Ok(());
 			}
