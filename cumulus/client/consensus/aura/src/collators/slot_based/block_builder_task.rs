@@ -190,13 +190,38 @@ where
 
 		// Tracker helper to ensure we do not build an extra block at slot boundaries
 		// with edge-cases of importing blocks after the `slot_timer` ticks.
+		//
+		// The following scenarios are degrading block confidence (happening on the same instance):
+		//
+		//                 [ wall slot | para slot | next wall slot]
+		// opportunity 1:  [ 803       |       803 |         490ms ]
+		// 	  - The wall slot is behind the para slot deduced by the relay block
+		// 	  - The next slot 804 arrives in 490ms leaving no room for the 1s authoring duration
+		//    - collator must skip the building the first block for this relay block
+		//
+		// 	opportunity 2-10: [ 804       |       803 |         6s ]
+		//    - This is the proper case where we have sufficient time to build and build 10 blocks
+		//
+		//  opportunity 11-12: [ 804      |       803 |         990ms-500ms ]
+		//   - At this point we skip building the last 2 blocks to give room for the 1s authoring
+		//     duration before the next slot arrives.
+		//
+		//  opportunity 13:    [ 805      |       803 |         6s ]
+		//   - The new relay block was not imported soon enough, therefore we detect the same relay
+		//     parent that we just skipped. Since the import of a new block is usually ~15ms after
+		//     the wall slot ticks.
+		//   - We don't want to build on this relay parent and instead skip until the next relay
+		//     block arrives.
 		struct ParentTracker {
 			/// Hash of the relay block.
 			hash: Option<H256>,
 			/// True if the collator built a block for the current relay parent, false otherwise.
+			///
+			/// This state is needed, otherwise the opportunity 1 might mark the block as
+			/// terminated wrongfully.
 			has_built: bool,
 			/// True if the collator adjusted the slot timer and decided there is no time to build
-			/// a block, false otherwise.
+			/// a block, false otherwise. This is set to true on opportunity 11.
 			has_terminated: bool,
 		}
 
