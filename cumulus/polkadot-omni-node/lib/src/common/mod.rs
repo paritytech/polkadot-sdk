@@ -141,7 +141,7 @@ pub struct NodeExtraArgs {
 	/// HOP data retention period in blocks.
 	pub hop_retention_blocks: u32,
 
-	/// HOP promotion check interval in seconds.
+	/// HOP expiry cleanup interval in seconds.
 	pub hop_check_interval: u64,
 
 	/// Directory for HOP persistent data storage.

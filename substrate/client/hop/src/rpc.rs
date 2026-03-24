@@ -27,7 +27,6 @@ use jsonrpsee::{
 	proc_macros::rpc,
 	types::ErrorObjectOwned,
 };
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
 use sp_runtime::{traits::Block as BlockT, MultiSigner, SaturatedConversion};
@@ -43,8 +42,14 @@ pub trait PersonhoodVerifier: Send + Sync + 'static {
 	fn verify(&self, proof: &[u8], context: &[u8], msg: &[u8]) -> Result<Alias, HopError>;
 }
 
-/// No-op verifier that accepts any proof and returns a zero alias.
-/// Use this when personhood verification is not needed.
+/// No-op verifier that accepts any proof and returns a zero alias (`[0u8; 32]`).
+///
+/// **WARNING:** When using `NoopVerifier`, all submissions share the same alias,
+/// making per-user quota enforcement ineffective — every submitter appears to be
+/// the same "user" and they collectively share a single quota bucket.
+///
+/// Use this only for development/testing or when personhood verification is not
+/// available. Production deployments should implement a real [`PersonhoodVerifier`].
 pub struct NoopVerifier;
 
 impl PersonhoodVerifier for NoopVerifier {
@@ -135,7 +140,7 @@ impl<C, Block, V: PersonhoodVerifier> HopRpcServer<C, Block, V> {
 impl<C, Block, V> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block, V>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + Send + Sync + 'static,
 	V: PersonhoodVerifier,
 {
 	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult> {
@@ -154,7 +159,8 @@ where
 
 		// We need the current block number to know when the timeout is reached.
 		let current_block = self.client.info().best_number.saturated_into::<u32>();
-		let _hash = self.pool.insert(data.0, current_block, recipient_keys, alias)?;
+		let _hash =
+			self.pool.insert_prehashed(data.0, current_block, recipient_keys, alias, hash)?;
 		let pool_status = self.pool.status();
 		Ok(SubmitResult { pool_status })
 	}
