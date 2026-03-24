@@ -715,8 +715,15 @@ where
 	fn cleanup_peer_state(&mut self, peer: PeerId, record_initial_sync_completion: bool) {
 		self.peers.remove(&peer);
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+			self.metrics.as_ref().map(|metrics| {
+				metrics.initial_sync_peers_active.dec();
+			});
 			if record_initial_sync_completion {
-				self.record_initial_sync_completion(pending.started_at);
+				self.metrics.as_ref().map(|metrics| {
+					metrics
+						.initial_sync_duration_seconds
+						.observe(pending.started_at.elapsed().as_secs_f64());
+				});
 			}
 		}
 		self.initial_sync_peer_queue.retain(|p| *p != peer);
@@ -823,7 +830,7 @@ where
 						"{peer}: Disconnecting peer that sent statements while major syncing or offline"
 					);
 					self.network.disconnect_peer(peer, self.protocol_name.clone());
-					self.cleanup_peer_state(peer, true);
+					self.cleanup_peer_state(peer, false);
 					return;
 				}
 
@@ -2432,6 +2439,48 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn major_sync_disconnect_does_not_record_initial_sync_completion() {
+		let (mut handler, statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+		handler.metrics.as_ref().unwrap().initial_sync_peers_active.inc();
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"major-sync-no-completion".to_vec());
+		let bytes_received = statement.encode();
+		statement_store.statements.lock().unwrap().insert([9u8; 32], statement);
+
+		handler.sync.set_major_syncing(true);
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: bytes_received,
+			})
+			.await;
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
+		assert_eq!(
+			handler
+				.metrics
+				.as_ref()
+				.unwrap()
+				.initial_sync_duration_seconds
+				.get_sample_count(),
+			0,
+			"A major-sync disconnect should not be recorded as a completed initial sync"
+		);
+	}
+
+	#[tokio::test]
 	async fn test_peer_disconnected_on_flooding() {
 		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
 			build_handler();
@@ -2474,6 +2523,34 @@ mod tests {
 			!handler.initial_sync_peer_queue.contains(&peer_id),
 			"Peer should be removed from initial_sync_peer_queue"
 		);
+	}
+
+	#[tokio::test]
+	async fn flooding_cleanup_decrements_initial_sync_active_metric() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+		let registry = Registry::new();
+		handler.metrics = Some(Metrics::register(&registry).unwrap());
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		handler.pending_initial_syncs.insert(
+			peer_id,
+			PendingInitialSync { hashes: vec![[7u8; 32]], started_at: Instant::now() },
+		);
+		handler.initial_sync_peer_queue.push_back(peer_id);
+		handler.metrics.as_ref().unwrap().initial_sync_peers_active.inc();
+
+		let mut flood_statements = Vec::new();
+		for i in 0..600_000 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![i as u8, (i >> 8) as u8, (i >> 16) as u8]);
+			flood_statements.push(statement);
+		}
+
+		handler.on_statements(peer_id, flood_statements);
+
+		assert!(network.get_disconnected_peers().contains(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().initial_sync_peers_active.get(), 0);
 	}
 
 	#[tokio::test]
