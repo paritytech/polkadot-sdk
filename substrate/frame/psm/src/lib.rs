@@ -51,7 +51,7 @@
 //! * **Redemption Fee ([`RedemptionFee`])**: Deducted from external stablecoin output during
 //!   redemption
 //!
-//! Fees are collected in pUSD and handled by [`Config::FeeHandler`].
+//! Fees are collected in pUSD and transferred to [`Config::FeeDestination`].
 //!
 //! ### Example
 //!
@@ -210,13 +210,13 @@ pub mod pallet {
 		/// Typically `ItemOf<Asset, StablecoinAssetId, AccountId>`.
 		/// Must use the same `Balance` type as `Asset`.
 		type StableAsset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
-			+ FungibleBalanced<Self::AccountId>;
+			+ FungibleMetadataInspect<Self::AccountId>;
 
-		/// Handler for pUSD fee credits collected during minting and redemption.
+		/// Account that receives pUSD fees from minting and redemption.
 		///
-		/// Use `ResolveTo<Account, StableAsset>` for simple single-account deposit,
-		/// or implement custom `OnUnbalanced` logic for fee splitting.
-		type FeeHandler: OnUnbalanced<FungibleCredit<Self::AccountId, Self::StableAsset>>;
+		/// Must exist before any swap; initialized at genesis and migration
+		/// via [`Pallet::ensure_account_exists`].
+		type FeeDestination: Get<Self::AccountId>;
 
 		/// PalletId for deriving the PSM account.
 		#[pallet::constant]
@@ -304,7 +304,8 @@ pub mod pallet {
 				RedemptionFee::<T>::insert(asset_id, redemption_fee);
 				AssetCeilingWeight::<T>::insert(asset_id, max_asset_debt_ratio);
 			}
-			Pallet::<T>::ensure_psm_account_exists();
+			Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
+			Pallet::<T>::ensure_account_exists(&T::FeeDestination::get());
 		}
 	}
 
@@ -386,7 +387,7 @@ pub mod pallet {
 		/// Transfers `external_amount` of the specified external stablecoin from the caller
 		/// to the PSM account, then mints pUSD to the caller minus the minting fee.
 		/// The fee is calculated using ceiling rounding (`mul_ceil`), ensuring the
-		/// protocol never undercharges. The fee is passed to [`Config::FeeHandler`].
+		/// protocol never undercharges. The fee is transferred to [`Config::FeeDestination`].
 		///
 		/// ## Parameters
 		///
@@ -421,7 +422,10 @@ pub mod pallet {
 
 			ensure!(external_amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
-			// Check system-wide issuance cap
+			let fee = MintingFee::<T>::get(asset_id).mul_ceil(external_amount);
+			let pusd_to_user = external_amount.saturating_sub(fee);
+
+			// Total new issuance = pusd_to_user + fee = external_amount.
 			let current_total_issuance = T::StableAsset::total_issuance();
 			let max_issuance = T::VaultsInterface::get_maximum_issuance();
 			ensure!(
@@ -452,15 +456,9 @@ pub mod pallet {
 				external_amount,
 				Preservation::Expendable,
 			)?;
-
-			let fee = MintingFee::<T>::get(asset_id).mul_ceil(external_amount);
-			let pusd_to_user = external_amount.saturating_sub(fee);
-
 			T::StableAsset::mint_into(&who, pusd_to_user)?;
-
 			if !fee.is_zero() {
-				let fee_credit = T::StableAsset::issue(fee);
-				T::FeeHandler::on_unbalanced(fee_credit);
+				T::StableAsset::mint_into(&T::FeeDestination::get(), fee)?;
 			}
 
 			PsmDebt::<T>::insert(asset_id, new_debt);
@@ -484,10 +482,10 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// Burns `pusd_amount` pUSD from the caller minus fee (passed to [`Config::FeeHandler`]),
-		/// then transfers the resulting amount in external stablecoin from PSM to the caller.
-		/// The fee is calculated using ceiling rounding (`mul_ceil`), ensuring the
-		/// protocol never undercharges.
+		/// Burns `pusd_amount` pUSD from the caller minus fee (transferred to
+		/// [`Config::FeeDestination`]), then transfers the resulting amount in external
+		/// stablecoin from PSM to the caller. The fee is calculated using ceiling rounding
+		/// (`mul_ceil`), ensuring the protocol never undercharges.
 		///
 		/// ## Parameters
 		///
@@ -532,25 +530,21 @@ pub mod pallet {
 			let reserve = Self::get_reserve(asset_id);
 			ensure!(reserve >= external_to_user, Error::<T>::InsufficientReserve);
 
-			let pusd_to_burn = external_to_user;
-
+			// Burn the redeemed portion, then transfer fee to destination.
 			T::StableAsset::burn_from(
 				&who,
-				pusd_to_burn,
+				external_to_user,
 				Preservation::Expendable,
 				Precision::Exact,
 				Fortitude::Polite,
 			)?;
-
 			if !fee.is_zero() {
-				let fee_credit = T::StableAsset::withdraw(
+				T::StableAsset::transfer(
 					&who,
+					&T::FeeDestination::get(),
 					fee,
-					Precision::Exact,
 					Preservation::Expendable,
-					Fortitude::Polite,
 				)?;
-				T::FeeHandler::on_unbalanced(fee_credit);
 			}
 
 			let psm_account = Self::account_id();
@@ -876,11 +870,10 @@ pub mod pallet {
 			T::Fungibles::balance(asset_id, &Self::account_id())
 		}
 
-		/// Ensure PSM account exists by incrementing its provider count.
-		pub(crate) fn ensure_psm_account_exists() {
-			let psm_account = Self::account_id();
-			if !frame_system::Pallet::<T>::account_exists(&psm_account) {
-				frame_system::Pallet::<T>::inc_providers(&psm_account);
+		/// Ensure an account exists by incrementing its provider count if needed.
+		pub(crate) fn ensure_account_exists(account: &T::AccountId) {
+			if !frame_system::Pallet::<T>::account_exists(account) {
+				frame_system::Pallet::<T>::inc_providers(account);
 			}
 		}
 	}

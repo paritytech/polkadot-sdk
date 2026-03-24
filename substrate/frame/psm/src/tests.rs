@@ -34,7 +34,7 @@ mod mint {
 
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount));
 
-			let fee = Permill::from_percent(1).mul_floor(mint_amount);
+			let fee = Permill::from_percent(1).mul_ceil(mint_amount);
 			let pusd_to_user = mint_amount - fee;
 
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before - mint_amount);
@@ -76,7 +76,7 @@ mod mint {
 			set_minting_fee(USDC_ASSET_ID, Permill::from_percent(5));
 
 			let mint_amount = 1000 * PUSD_UNIT;
-			let fee = Permill::from_percent(5).mul_floor(mint_amount);
+			let fee = Permill::from_percent(5).mul_ceil(mint_amount);
 			let pusd_to_user = mint_amount - fee;
 
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount));
@@ -293,7 +293,7 @@ mod redeem {
 
 			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, redeem_amount));
 
-			let fee = Permill::from_percent(1).mul_floor(redeem_amount);
+			let fee = Permill::from_percent(1).mul_ceil(redeem_amount);
 			let external_to_user = redeem_amount - fee;
 
 			assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), alice_pusd_before - redeem_amount);
@@ -342,7 +342,7 @@ mod redeem {
 			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(5));
 
 			let redeem_amount = 1000 * PUSD_UNIT;
-			let fee = Permill::from_percent(5).mul_floor(redeem_amount);
+			let fee = Permill::from_percent(5).mul_ceil(redeem_amount);
 			let external_to_user = redeem_amount - fee;
 			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
 
@@ -724,6 +724,7 @@ mod governance {
 	fn add_external_asset_works() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
 			assert!(!Psm::is_approved_asset(&new_asset));
 
 			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), new_asset));
@@ -782,13 +783,15 @@ mod governance {
 		new_test_ext().execute_with(|| {
 			use frame_support::traits::Get;
 			let max: u32 = <Test as crate::Config>::MaxExternalAssets::get();
-			let existing = crate::ExternalAssets::<Test>::iter_keys().count() as u32;
+			let existing = crate::ExternalAssets::<Test>::count();
 			// Fill up to the limit.
 			for i in 0..(max - existing) {
 				let asset_id = 1000 + i;
+				create_asset_with_metadata(asset_id);
 				assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), asset_id));
 			}
 			// One more should fail.
+			create_asset_with_metadata(9999);
 			assert_noop!(
 				Psm::add_external_asset(RuntimeOrigin::root(), 9999),
 				Error::<Test>::TooManyAssets
@@ -1098,6 +1101,7 @@ mod ceiling_redistribution {
 		new_test_ext().execute_with(|| {
 			// Add a third asset
 			let dai_asset_id = 4u32;
+			create_asset_with_metadata(dai_asset_id);
 			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), dai_asset_id));
 
 			// Setup: USDC 50%, USDT 25%, DAI 25%

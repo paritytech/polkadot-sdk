@@ -18,10 +18,7 @@
 use crate::VaultsInterface;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{
-		tokens::imbalance::ResolveTo, AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64,
-		EnsureOrigin,
-	},
+	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64, EnsureOrigin},
 	weights::constants::RocksDbWeight,
 	PalletId,
 };
@@ -283,6 +280,18 @@ pub fn fund_external_asset(asset_id: u32, account: u64, amount: u128) {
 pub fn fund_pusd(account: u64, amount: u128) {
 	use frame_support::traits::fungibles::Mutate;
 	let _ = Assets::mint_into(PUSD_ASSET_ID, &account, amount);
+}
+
+pub fn create_asset_with_metadata(asset_id: u32) {
+	use frame_support::assert_ok;
+	assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), asset_id, ALICE, 1));
+	assert_ok!(Assets::set_metadata(
+		RuntimeOrigin::signed(ALICE),
+		asset_id,
+		b"Test Asset".to_vec(),
+		b"TST".to_vec(),
+		6
+	));
 }
 
 pub fn get_asset_balance(asset_id: u32, account: u64) -> u128 {
