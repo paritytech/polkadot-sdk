@@ -11583,7 +11583,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "k256",
  "log",
  "pallet-assets",
  "pallet-balances",
@@ -11594,6 +11593,7 @@ dependencies = [
  "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "test-case",
@@ -13348,6 +13348,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "derive_more 0.99.17",
  "env_logger 0.11.3",
  "futures",
  "git2",
@@ -13379,8 +13380,10 @@ dependencies = [
  "substrate-prometheus-endpoint 0.17.0",
  "subxt 0.44.2",
  "subxt-signer 0.44.2",
+ "tempfile",
  "thiserror 1.0.65",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
