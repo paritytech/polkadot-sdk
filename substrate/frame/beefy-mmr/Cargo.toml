@@ -69,6 +69,10 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+bls-experimental = [
+	"sp-consensus-beefy/bls-experimental",
+	"sp-core/bls-experimental",
+]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

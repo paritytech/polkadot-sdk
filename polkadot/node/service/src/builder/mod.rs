@@ -758,7 +758,7 @@ where
 				is_authority: role.is_authority(),
 			};
 
-			let gadget = sc_consensus_beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
+			let gadget = sc_consensus_beefy::start_beefy_gadget(beefy_params);
 
 			// BEEFY is part of consensus, if it fails we'll bring the node down with it to make
 			// sure it is noticed.

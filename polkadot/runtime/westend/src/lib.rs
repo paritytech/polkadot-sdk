@@ -30,7 +30,6 @@ use alloc::{
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
-	crypto::ecdsa::ECDSAExt,
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
@@ -467,23 +466,9 @@ impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 	}
 }
 
-/// Convert BEEFY (ECDSA, BLS12-381) paired public keys into Ethereum addresses.
-/// Extracts the ECDSA component (first 33 bytes) and converts it to an Ethereum address.
-pub struct BeefyEcdsaBlsToEthereum;
-impl sp_runtime::traits::Convert<BeefyId, Vec<u8>> for BeefyEcdsaBlsToEthereum {
-	fn convert(beefy_id: BeefyId) -> Vec<u8> {
-		let slice = sp_core::crypto::ByteArray::as_slice(&beefy_id);
-		let ecdsa_bytes: [u8; 33] = slice[..33].try_into().unwrap_or([0u8; 33]);
-		sp_core::ecdsa::Public::from_raw(ecdsa_bytes)
-			.to_eth_address()
-			.map(|v| v.to_vec())
-			.unwrap_or_default()
-	}
-}
-
 impl pallet_beefy_mmr::Config for Runtime {
 	type LeafVersion = LeafVersion;
-	type BeefyAuthorityToMerkleLeaf = BeefyEcdsaBlsToEthereum;
+	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaBls381ToEthereum;
 	type LeafExtra = H256;
 	type BeefyDataProvider = ParaHeadsRootProvider;
 	type WeightInfo = weights::pallet_beefy_mmr::WeightInfo<Runtime>;
