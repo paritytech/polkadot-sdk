@@ -523,6 +523,7 @@ mod test {
 	}
 
 	#[test]
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn unmap_account_dispatchable_blocked_when_auto_map_enabled() {
 		use crate::{Pallet, tests::RuntimeOrigin};
 		use frame_support::assert_noop;
