@@ -16247,7 +16247,6 @@ dependencies = [
  "sp-storage 22.0.0",
  "sp-timestamp",
  "sp-transaction-pool",
- "sp-transaction-storage-proof",
  "sp-version",
  "sp-weights",
  "staging-chain-spec-builder",
@@ -23908,12 +23907,8 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
-<<<<<<< HEAD
- "sp-core 39.0.0",
-=======
  "sp-api",
- "sp-core 28.0.0",
->>>>>>> b2bcb74b (Bulletin as parachain missing features (#10662))
+ "sp-core 39.0.0",
  "sp-inherents",
  "sp-runtime",
  "sp-trie",
