@@ -459,7 +459,7 @@ impl HopDataPool {
 
 		meta.claimed[recipient_index] = true;
 
-		// If all recipients have ack'd, remove the entry entirely.
+		// If all recipients have acked, remove the entry entirely.
 		if meta.claimed.iter().all(|&c| c) {
 			let size = meta.size;
 			let alias = meta.sender_alias;

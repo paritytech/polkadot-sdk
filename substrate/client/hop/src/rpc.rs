@@ -86,7 +86,7 @@ pub trait HopApi<BlockHash> {
 	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
 	///
 	/// # Returns
-	/// The data if the signature matches a recipient that hasn't yet ack'd
+	/// The data if the signature matches a recipient that hasn't yet acked
 	#[method(name = "hop_claim")]
 	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
 
