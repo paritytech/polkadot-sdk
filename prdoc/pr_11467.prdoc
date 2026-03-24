@@ -8,5 +8,7 @@ doc:
 crates:
 - name: cumulus-pallet-parachain-system
   bump: patch
+- name: pallet-transaction-storage
+  bump: patch
 - name: sp-transaction-storage-proof
   bump: minor
