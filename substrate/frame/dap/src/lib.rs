@@ -297,6 +297,9 @@ pub mod pallet {
 
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
+			if budget.is_empty() {
+				defensive!("BudgetAllocation is empty — no inflation will be distributed");
+			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
 

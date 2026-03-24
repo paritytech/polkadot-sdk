@@ -97,18 +97,14 @@ fn drip_fires_after_cadence_reached() {
 }
 
 #[test]
+#[should_panic(expected = "BudgetAllocation is empty")]
 fn no_drip_when_budget_not_set() {
 	new_test_ext(true).execute_with(|| {
 		System::set_block_number(1);
 
-		// GIVEN: no budget set (default empty map, all perbills are zero)
-		let issuance_before = Balances::total_issuance();
-
-		// WHEN: drip fires (60s elapsed → inflation = 100)
+		// GIVEN: no budget set (default empty map)
+		// WHEN: drip fires — triggers defensive panic since empty budget is unexpected.
 		advance_time_and_drip(60_000);
-
-		// THEN: nothing is minted because no recipient has an allocation
-		assert_eq!(Balances::total_issuance(), issuance_before);
 	});
 }
 
