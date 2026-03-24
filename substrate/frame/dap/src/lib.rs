@@ -238,7 +238,6 @@ pub mod pallet {
 
 			Ok(())
 		}
-
 	}
 
 	impl<T: Config> Pallet<T> {

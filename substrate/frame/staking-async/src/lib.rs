@@ -215,7 +215,7 @@ use sp_runtime::{
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{EraPayout, Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
 // public exports
