@@ -271,7 +271,7 @@ pub mod pallet {
 	/// Key existence indicates the asset is approved; the value is the circuit breaker level.
 	#[pallet::storage]
 	pub(crate) type ExternalAssets<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AssetId, CircuitBreakerLevel, OptionQuery>;
+		CountedStorageMap<_, Blake2_128Concat, T::AssetId, CircuitBreakerLevel, OptionQuery>;
 
 	/// Genesis configuration for the PSM pallet.
 	#[pallet::genesis_config]
@@ -756,12 +756,12 @@ pub mod pallet {
 		///
 		/// - [`Event::ExternalAssetAdded`]: Emitted on successful addition
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::add_external_asset(T::MaxExternalAssets::get()))]
+		#[pallet::weight(T::WeightInfo::add_external_asset())]
 		pub fn add_external_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 			ensure!(!ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetAlreadyApproved);
-			let count = ExternalAssets::<T>::iter_keys().count() as u32;
+			let count = ExternalAssets::<T>::count();
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);
 			ensure!(
 				T::Fungibles::decimals(asset_id) == T::StableAsset::decimals(),
