@@ -41,9 +41,8 @@ pub fn relay_alice_account_key() -> alloc::vec::Vec<u8> {
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use alloc::{vec, vec::Vec};
-	use cumulus_primitives_core::CumulusDigestItem;
+	use cumulus_primitives_core::{CumulusDigestItem, ParaId, XcmpMessageSource};
 	use cumulus_primitives_storage_weight_reclaim::get_proof_size;
-	use cumulus_primitives_core::{ParaId, XcmpMessageSource};
 	use frame_support::{
 		dispatch::DispatchInfo,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
