@@ -38,7 +38,10 @@ use connected::ConnectedPeers;
 pub use db::Db;
 pub use persistence::PersistenceError;
 pub use persistent_db::PersistentDb;
-use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
+use polkadot_node_network_protocol::{
+	peer_set::{CollationVersion, PeerSet},
+	PeerId,
+};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
 	CollatorProtocolSenderTrait, RuntimeApiError,
@@ -412,6 +415,10 @@ impl<B: Backend> PeerManager<B> {
 		sender
 			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
+	}
+
+	pub fn get_peer_protocol_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
+		self.connected.get_version(peer_id)
 	}
 }
 
