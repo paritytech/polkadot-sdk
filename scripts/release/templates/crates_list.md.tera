@@ -1,7 +1,5 @@
 The following crates were updated to the corresponding versions:
 
-- frame-system-rpc-runtime-api@40.1.0
 - sp-transaction-storage-proof@40.1.0
-- frame-support@44.0.1
 - pallet-transaction-storage@44.0.1
 - cumulus-pallet-parachain-system@0.25.1

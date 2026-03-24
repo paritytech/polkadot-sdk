@@ -1,6 +1,6 @@
 [package]
 name = "sp-transaction-storage-proof"
-version = "40.0.0"
+version = "40.1.0"
 authors.workspace = true
 description = "Transaction storage proof primitives"
 edition.workspace = true
@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = { optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
+sp-api.workspace = true
 sp-core = { optional = true, workspace = true }
 sp-inherents.workspace = true
 sp-runtime.workspace = true

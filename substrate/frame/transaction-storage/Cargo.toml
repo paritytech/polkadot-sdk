@@ -1,6 +1,6 @@
 [package]
 name = "pallet-transaction-storage"
-version = "44.0.0"
+version = "44.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -31,7 +31,7 @@ sp-transaction-storage-proof.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
-sp-transaction-storage-proof = { default-features = true, workspace = true }
+sp-transaction-storage-proof = { default-features = true, path = "../../primitives/transaction-storage-proof" }
 
 [features]
 default = ["std"]
