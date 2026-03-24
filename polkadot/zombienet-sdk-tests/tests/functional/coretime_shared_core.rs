@@ -4,7 +4,6 @@
 //! Setup a network with 4 validators and 4 parachains. Then assign core 0
 //! to be shared by all paras and check the block production in each one.
 
-use std::ops::Range;
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
 	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
@@ -16,6 +15,7 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use std::ops::Range;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx},
 	subxt_signer::sr25519::dev,
