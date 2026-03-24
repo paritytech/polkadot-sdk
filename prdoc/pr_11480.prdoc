@@ -1,0 +1,18 @@
+title: 'Refactor statement store index locking: stage 1'
+doc:
+- audience: Node Dev
+  description: |-
+    Implements stage 1 changes from #10910.
+
+    The single `Index` struct with one `RwLock` was split into two independent structures with separate locks:
+
+    `ReadIndex` (topic/key-based filtering):
+    - `by_topic` - topic to statement hash mapping
+    - `by_dec_key` - decryption key to statement hash mapping
+    - `topics_and_keys` - reverse mapping for cleanup
+
+    `WriteIndex` (constraint checking, entries, accounts):
+    - `entries`, `expired`, `accounts`, `accounts_to_check_for_expiry_stmts`, `recent`, `options`, `total_size`
+crates:
+- name: sc-statement-store
+  bump: patch
