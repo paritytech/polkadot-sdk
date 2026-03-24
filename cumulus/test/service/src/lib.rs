@@ -169,7 +169,7 @@ pub type Service = PartialComponents<
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
 	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
-	ParachainBlockImport,
+	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -248,7 +248,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: block_import,
+		other: (block_import, block_import_handle),
 	};
 
 	Ok(params)
@@ -333,7 +333,7 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other;
+	let (block_import, block_import_handle) = params.other;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),

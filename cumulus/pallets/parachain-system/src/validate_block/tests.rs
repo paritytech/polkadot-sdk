@@ -20,7 +20,7 @@ use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
 	BlockBundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector,
-	ParachainBlockData, PersistedValidationData,
+	CumulusDigestItem, ParaId, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
@@ -995,4 +995,220 @@ fn only_send_ump_signal_on_single_block_with_use_full_core() {
 		"Single block with UseFullCore should have UMP_SEPARATOR, got: {:?}",
 		collation_info.upward_messages
 	);
+}
+
+#[test]
+fn validate_block_with_max_ump_messages_and_4_blocks_per_pov() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 4;
+	let max_per_candidate = 100;
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.max_upward_message_num_per_candidate = max_per_candidate;
+	sproof_builder.host_config.max_upward_message_size = 256;
+	sproof_builder.host_config.max_upward_queue_count = blocks_per_pov * max_per_candidate;
+	sproof_builder.host_config.max_upward_queue_size = blocks_per_pov * max_per_candidate;
+	sproof_builder.relay_dispatch_queue_remaining_capacity =
+		Some((blocks_per_pov * max_per_candidate, blocks_per_pov * max_per_candidate));
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::send_n_upward_messages { n: max_per_candidate },
+				Some(i),
+			)]
+		},
+		|i| {
+			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+				.to_digest_item()]
+		},
+	);
+
+	let header = block.blocks().last().unwrap().header().clone();
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
+	assert_eq!(header, res_header);
+
+	let ump_count = result.upward_messages.iter().take_while(|m| **m != UMP_SEPARATOR).count();
+	assert_eq!(ump_count, max_per_candidate as usize);
+}
+
+#[test]
+fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 4;
+	let max_per_candidate = 100;
+	let recipient = ParaId::from(300);
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.hrmp_max_message_num_per_candidate = max_per_candidate;
+	sproof_builder.para_id = ParaId::from(100);
+
+	let channel = sproof_builder.upsert_outbound_channel(recipient);
+	channel.max_capacity = blocks_per_pov;
+	channel.max_total_size = blocks_per_pov * max_per_candidate * 256;
+	channel.max_message_size = 256;
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::queue_hrmp_messages { n: max_per_candidate, recipient },
+				Some(i),
+			)]
+		},
+		|i| {
+			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+				.to_digest_item()]
+		},
+	);
+
+	let header = block.blocks().last().unwrap().header().clone();
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
+	assert_eq!(header, res_header);
+
+	assert_eq!(result.horizontal_messages.len(), max_per_candidate as usize);
+}
+
+#[test]
+fn validate_block_with_ump_size_constraint_and_4_blocks_per_pov() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 4;
+	let msg_size = 500;
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.max_upward_message_num_per_candidate = 100;
+	sproof_builder.host_config.max_upward_message_size = 1000;
+	sproof_builder.host_config.max_upward_queue_count = 100;
+	sproof_builder.host_config.max_upward_queue_size = 100_000;
+	// Only 1500 bytes of remaining size: enough for 3 x 500-byte messages but not 4.
+	sproof_builder.relay_dispatch_queue_remaining_capacity = Some((100, 1500));
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::send_upward_message_of_size { size: msg_size },
+				Some(i),
+			)]
+		},
+		|i| {
+			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+				.to_digest_item()]
+		},
+	);
+
+	let header = block.blocks().last().unwrap().header().clone();
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
+	assert_eq!(header, res_header);
+
+	// Only 3 of 4 messages should be sent. The 4th is deferred because
+	// 3 x 500 = 1500 bytes exhausts the remaining size budget.
+	let ump_count = result.upward_messages.iter().take_while(|m| **m != UMP_SEPARATOR).count();
+	assert_eq!(ump_count, 3);
+}
+
+#[test]
+fn validate_block_with_ump_capacity_constraint_and_4_blocks_per_pov() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 4;
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.max_upward_message_num_per_candidate = 100;
+	sproof_builder.host_config.max_upward_message_size = 1000;
+	sproof_builder.host_config.max_upward_queue_count = 100;
+	sproof_builder.host_config.max_upward_queue_size = 100_000;
+	// Only 3 messages remaining in the relay dispatch queue.
+	sproof_builder.relay_dispatch_queue_remaining_capacity = Some((3, 100_000));
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::send_upward_message_of_size { size: 100 },
+				Some(i),
+			)]
+		},
+		|i| {
+			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+				.to_digest_item()]
+		},
+	);
+
+	let header = block.blocks().last().unwrap().header().clone();
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	let res_header = Header::decode(&mut &result.head_data.0[..]).expect("Decodes `Header`.");
+	assert_eq!(header, res_header);
+
+	// Only 3 of 4 messages should be sent. The 4th is deferred because
+	// the relay dispatch queue remaining count (3) is exhausted.
+	let ump_count = result.upward_messages.iter().take_while(|m| **m != UMP_SEPARATOR).count();
+	assert_eq!(ump_count, 3);
 }

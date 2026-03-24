@@ -112,6 +112,21 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::parachain-system";
 
+/// Tracks cumulative UMP and HRMP message counts sent across blocks within a single PoV.
+#[derive(Encode, Decode, Clone, Debug, TypeInfo, Default)]
+pub struct PoVMessages {
+	/// Relay parent storage root of the current PoV.
+	pub relay_storage_root_or_hash: relay_chain::Hash,
+	/// The core selector of the current Pov.
+	pub core_selector: u8,
+	/// The bundle index of the current PoV. `None` when `BundleInfo` digest is absent.
+	pub bundle_index: u8,
+	/// Cumulative count of UMP messages sent in this PoV.
+	pub ump_msg_count: u32,
+	/// Cumulative count of HRMP outbound messages sent in this PoV.
+	pub hrmp_outbound_count: u32,
+}
+
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -169,7 +184,9 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 		previous: RelayChainBlockNumber,
 	) {
 		if current < previous {
-			panic!("Relay chain block number needs to monotonically increase between Parachain blocks!")
+			panic!(
+				"Relay chain block number needs to monotonically increase between Parachain blocks!"
+			)
 		}
 	}
 }
@@ -315,6 +332,29 @@ pub mod pallet {
 			// unincluded segment.
 			Self::adjust_egress_bandwidth_limits();
 
+			let current_core_selector =
+				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+					.map_or(0, |ci| ci.selector.0);
+
+			let current_bundle_index =
+				CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
+					.map_or(0, |bi| bi.index);
+
+			let mut pov_tracker = PoVMessagesTracker::<T>::get()
+				.filter(|tracker| {
+					// If the relay parent changes, this is for sure a different `PoV`.
+					tracker.relay_storage_root_or_hash == vfp.relay_parent_storage_root &&
+					// A different core selector also means we are on a different `PoV`.
+					tracker.core_selector == current_core_selector &&
+					// The bundle index needs to increase, or we are in a different `PoV`.
+					current_bundle_index > tracker.bundle_index
+				})
+				.unwrap_or_default();
+
+			pov_tracker.bundle_index = current_bundle_index;
+			pov_tracker.core_selector = current_core_selector;
+			pov_tracker.relay_storage_root_or_hash = vfp.relay_parent_storage_root;
+
 			let (ump_msg_count, ump_total_bytes) = <PendingUpwardMessages<T>>::mutate(|up| {
 				let (available_capacity, available_size) = match RelevantMessagingState::<T>::get()
 				{
@@ -332,8 +372,12 @@ pub mod pallet {
 					},
 				};
 
-				let available_capacity =
-					cmp::min(available_capacity, host_config.max_upward_message_num_per_candidate);
+				let available_capacity = cmp::min(
+					available_capacity,
+					host_config
+						.max_upward_message_num_per_candidate
+						.saturating_sub(pov_tracker.ump_msg_count),
+				);
 
 				// Count the number of messages we can possibly fit in the given constraints, i.e.
 				// available_capacity and available_size.
@@ -361,6 +405,8 @@ pub mod pallet {
 
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
+
+				pov_tracker.ump_msg_count = pov_tracker.ump_msg_count.saturating_add(num);
 
 				let digest = frame_system::Pallet::<T>::digest();
 
@@ -410,6 +456,9 @@ pub mod pallet {
 				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
 				as usize;
 
+			let maximum_channels =
+				maximum_channels.saturating_sub(pov_tracker.hrmp_outbound_count as usize);
+
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
 			// been adjusted above to reflect the correct limits in all channels.
@@ -418,6 +467,10 @@ pub mod pallet {
 					.into_iter()
 					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
 					.collect::<Vec<_>>();
+
+			pov_tracker.hrmp_outbound_count =
+				pov_tracker.hrmp_outbound_count.saturating_add(outbound_messages.len() as u32);
+			PoVMessagesTracker::<T>::put(pov_tracker);
 
 			// Update the unincluded segment length; capacity checks were done previously in
 			// `set_validation_data`, so this can be done unconditionally.
@@ -457,6 +510,7 @@ pub mod pallet {
 				// Check in `on_initialize` guarantees there's space for this block.
 				UnincludedSegment::<T>::append(ancestor);
 			}
+
 			HrmpOutboundMessages::<T>::put(outbound_messages);
 		}
 
@@ -993,6 +1047,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
+	/// Tracks cumulative `UMP` and `HRMP` messages sent across blocks in the current `PoV`.
+	///
+	/// Across different candidates/PoVs the budgets are tracked by [`AggregatedUnincludedSegment`].
+	#[pallet::storage]
+	pub type PoVMessagesTracker<T: Config> = StorageValue<_, PoVMessages, OptionQuery>;
+
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
 		type Call = Call<T>;
@@ -1496,24 +1556,17 @@ impl<T: Config> Pallet<T> {
 	// Reads: 2
 	// Writes: 1
 	fn adjust_egress_bandwidth_limits() {
-		let unincluded_segment = match AggregatedUnincludedSegment::<T>::get() {
-			None => return,
-			Some(s) => s,
-		};
+		let Some(unincluded_segment) = AggregatedUnincludedSegment::<T>::get() else { return };
 
 		<RelevantMessagingState<T>>::mutate(|messaging_state| {
-			let messaging_state = match messaging_state {
-				None => return,
-				Some(s) => s,
-			};
+			let Some(messaging_state) = messaging_state else { return };
 
 			let used_bandwidth = unincluded_segment.used_bandwidth();
 
 			let channels = &mut messaging_state.egress_channels;
 			for (para_id, used) in used_bandwidth.hrmp_outgoing.iter() {
-				let i = match channels.binary_search_by_key(para_id, |item| item.0) {
-					Ok(i) => i,
-					Err(_) => continue, // indicates channel closed.
+				let Ok(i) = channels.binary_search_by_key(para_id, |item| item.0) else {
+					continue; // indicates channel closed.
 				};
 
 				let c = &mut channels[i].1;

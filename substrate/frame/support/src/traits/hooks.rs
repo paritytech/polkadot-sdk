@@ -135,6 +135,10 @@ impl_for_tuples_attr! {
 			let mut weight = Weight::zero();
 			let len = on_idle_functions.len();
 
+			if len == 0 {
+				return Weight::zero()
+			}
+
 			let start_index = n % (len as u32).into();
 			let start_index = start_index.try_into().ok().expect(
 				"`start_index % len` always fits into `usize`, because `len` can be in maximum `usize::MAX`; qed"
