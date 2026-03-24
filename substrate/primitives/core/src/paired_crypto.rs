@@ -123,9 +123,7 @@ pub mod ecdsa_bls377 {
 		{
 			let msg_hash = H::hash(message).into();
 
-			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
-				return false;
-			};
+			let Ok(left_pub) = Pair::left_public(public) else { return false };
 			let Ok(left_sig) = sig.0[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
 				return false;
 			};
@@ -133,9 +131,7 @@ pub mod ecdsa_bls377 {
 				return false;
 			}
 
-			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
-				return false;
-			};
+			let Ok(right_pub) = Pair::right_public(public) else { return false };
 			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
 				return false;
 			};
@@ -241,9 +237,7 @@ pub mod ecdsa_bls381 {
 		{
 			let msg_hash = H::hash(message).into();
 
-			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
-				return false;
-			};
+			let Ok(left_pub) = Pair::left_public(public) else { return false };
 			let Ok(left_sig) = sig.0[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
 				return false;
 			};
@@ -251,9 +245,7 @@ pub mod ecdsa_bls381 {
 				return false;
 			}
 
-			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
-				return false;
-			};
+			let Ok(right_pub) = Pair::right_public(public) else { return false };
 			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
 				return false;
 			};
@@ -323,6 +315,33 @@ pub struct Pair<
 	left: LeftPair,
 	right: RightPair,
 	_phantom: PhantomData<fn() -> SubTag>,
+}
+
+impl<
+		LeftPair: PairT,
+		RightPair: PairT,
+		const PUBLIC_KEY_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		const POP_LEN: usize,
+		SubTag: PairedCryptoSubTagBound,
+	> Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+where
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
+	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
+{
+	/// Extract the left component's public key from a paired public key.
+	pub fn left_public(
+		public: &Public<PUBLIC_KEY_LEN, SubTag>,
+	) -> Result<LeftPair::Public, ()> {
+		public.0[..LeftPair::Public::LEN].try_into().map_err(|_| ())
+	}
+
+	/// Extract the right component's public key from a paired public key.
+	pub fn right_public(
+		public: &Public<PUBLIC_KEY_LEN, SubTag>,
+	) -> Result<RightPair::Public, ()> {
+		public.0[LeftPair::Public::LEN..].try_into().map_err(|_| ())
+	}
 }
 
 /// Implementation of Clone for PairedCrypto
@@ -416,13 +435,13 @@ where
 		message: Msg,
 		public: &Self::Public,
 	) -> bool {
-		let Ok(left_pub) = public.0[..LeftPair::Public::LEN].try_into() else { return false };
+		let Ok(left_pub) = Self::left_public(public) else { return false };
 		let Ok(left_sig) = sig.0[0..LeftPair::Signature::LEN].try_into() else { return false };
 		if !LeftPair::verify(&left_sig, message.as_ref(), &left_pub) {
 			return false;
 		}
 
-		let Ok(right_pub) = public.0[LeftPair::Public::LEN..].try_into() else { return false };
+		let Ok(right_pub) = Self::right_public(public) else { return false };
 		let Ok(right_sig) = sig.0[LeftPair::Signature::LEN..].try_into() else { return false };
 		RightPair::verify(&right_sig, message.as_ref(), &right_pub)
 	}
@@ -493,7 +512,7 @@ where
 		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
-		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
+		let Ok(left_pub) = Self::left_public(allegedly_possessed_pubkey) else {
 			return false;
 		};
 		let Ok(left_proof_of_possession) =
@@ -506,7 +525,7 @@ where
 			return false;
 		}
 
-		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
+		let Ok(right_pub) = Self::right_public(allegedly_possessed_pubkey) else {
 			return false;
 		};
 		let Ok(right_proof_of_possession) =

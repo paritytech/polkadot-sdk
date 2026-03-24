@@ -106,12 +106,15 @@ impl Convert<sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId, Vec<u8>>
 	for BeefyEcdsaBls381ToEthereum
 {
 	fn convert(beefy_id: sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId) -> Vec<u8> {
-		let slice = sp_core::crypto::ByteArray::as_slice(&beefy_id);
-		let ecdsa_bytes: [u8; 33] = slice[..33].try_into().unwrap_or([0u8; 33]);
-		let ecdsa_id = sp_consensus_beefy::ecdsa_crypto::AuthorityId::from(
-			sp_core::ecdsa::Public::from_raw(ecdsa_bytes),
-		);
-		BeefyEcdsaToEthereum::convert(ecdsa_id)
+		sp_core::paired_crypto::ecdsa_bls381::Pair::left_public(&beefy_id.into())
+			.map(|ecdsa_public| {
+				let ecdsa_id = sp_consensus_beefy::ecdsa_crypto::AuthorityId::from(ecdsa_public);
+				BeefyEcdsaToEthereum::convert(ecdsa_id)
+			})
+			.map_err(|_| {
+				log::debug!(target: "runtime::beefy", "Failed to extract ECDSA key from paired (ECDSA,BLS12-381)  BEEFY PublicKey!");
+			})
+			.unwrap_or_default()
 	}
 }
 
