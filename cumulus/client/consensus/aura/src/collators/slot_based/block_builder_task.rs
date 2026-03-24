@@ -687,7 +687,7 @@ where
 		// adjust the authoring duration on the last block.
 		//
 		// TODO: Remove when transaction streaming is implemented
-		let adjusted_time_left = if is_last_block_in_core &&
+		let adjusted_time_left = if is_last_block_in_core && is_last_core_in_parachain_slot &&
 			blocks_per_core == 1 &&
 			total_number_of_blocks <= 3 &&
 			total_number_of_blocks >= 2
