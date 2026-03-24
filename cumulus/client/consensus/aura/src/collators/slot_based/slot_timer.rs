@@ -241,7 +241,7 @@ mod tests {
 		#[case] expected_duration: u128,
 	) {
 		let slot_time = SlotTime {
-			slot_duration: Duration::from_millis(para_slot_millis),
+			relay_slot_duration: Duration::from_millis(para_slot_millis),
 			time_offset: Duration::from_millis(offset_millis),
 			slot_start_timestamp: Timestamp::new(
 				Duration::from_millis(para_slot_millis).as_millis() as u64 * *last_reported_slot,
