@@ -30,14 +30,14 @@ use crate::{
 };
 use alloy_core::sol_types::SolValue;
 use frame_benchmarking::v2::*;
-use frame_support::traits::{Currency, VestingSchedule};
+use frame_support::traits::{VestingSchedule, fungible::Mutate};
 use pallet_revive::{
 	AddressMapper,
 	precompiles::{Precompile, U256},
 };
 use sp_runtime::traits::Zero;
 
-type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;
+type FungibleOf<T> = <T as pallet_revive::Config>::Currency;
 
 /// Add a single vesting schedule to `who`.
 ///
@@ -85,7 +85,8 @@ mod benchmarks {
 		let caller_account = call_setup.contract().caller.clone();
 
 		let locked: VestingBalance<T> = 10_000u32.into();
-		CurrencyOf::<T>::make_free_balance_be(&caller_account, locked * 10u32.into());
+		let balance: <T as pallet_revive::Config>::Balance = (locked * 10u32.into()).into();
+		FungibleOf::<T>::set_balance(&caller_account, balance);
 		add_vesting_schedule::<T>(&caller_account, locked);
 
 		let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
@@ -110,7 +111,8 @@ mod benchmarks {
 		let target_addr = pallet_revive::precompiles::H160::from_low_u64_be(0xBEEF);
 		let target_account = T::AddressMapper::to_account_id(&target_addr);
 		let locked: VestingBalance<T> = 10_000u32.into();
-		CurrencyOf::<T>::make_free_balance_be(&target_account, locked * 10u32.into());
+		let balance: <T as pallet_revive::Config>::Balance = (locked * 10u32.into()).into();
+		FungibleOf::<T>::set_balance(&target_account, balance);
 		add_vesting_schedule::<T>(&target_account, locked);
 
 		let input = IVesting::IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall {
