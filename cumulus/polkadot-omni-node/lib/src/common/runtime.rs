@@ -236,23 +236,8 @@ impl MetadataInspector {
 		if let Some(storage) = pallet.storage() {
 			if let Some(entry) = storage.entry_by_name("Authorities") {
 				if let StorageEntryType::Plain(ty_id) = entry.entry_type() {
-					// The Authorities storage usually returns a Vec<AuthorityId>.
-					// We need to resolve the inner type if it's a collection.
-					if let Some(portable_type) = self.metadata.types().resolve(*ty_id) {
-						match &portable_type.type_def {
-							TypeDef::Sequence(seq) => {
-								if let Some(id) =
-									self.resolve_aura_id_from_type_id(seq.type_param.id)
-								{
-									return Some(id);
-								}
-							},
-							_ => {
-								if let Some(id) = self.resolve_aura_id_from_type_id(*ty_id) {
-									return Some(id);
-								}
-							},
-						}
+					if let Some(id) = self.resolve_aura_id_from_type_id(*ty_id) {
+						return Some(id);
 					}
 				}
 			}
@@ -267,21 +252,61 @@ impl MetadataInspector {
 		let segments = &portable_type.path.segments;
 
 		// Check if the type path contains sr25519 or ed25519.
-		// Since this is called from an Aura context (AuthorityId associated type or Authorities
-		// storage), we look for the signature of the algorithm in the type path.
-		let is_sr25519 = segments.iter().any(|s| s == "sr25519");
-		let is_ed25519 = segments.iter().any(|s| s == "ed25519");
-
-		// We also want to ensure it's a public key type, but in the case of Aura ID,
-		// it might be nested quite deeply or have various names (Public, AuthorityId, app_sr25519).
-		if is_sr25519 {
+		if segments.iter().any(|s| s.to_lowercase().contains("sr25519")) {
 			return Some(AuraConsensusId::Sr25519);
 		}
-		if is_ed25519 {
+		if segments.iter().any(|s| s.to_lowercase().contains("ed25519")) {
 			return Some(AuraConsensusId::Ed25519);
 		}
 
+		// If it's a wrapper, we traverse it without complex recursion for now to keep it clean.
+		match &portable_type.type_def {
+			TypeDef::Composite(composite) => {
+				for field in &composite.fields {
+					// We use format and parse here as a final fallback only if we really can't get
+					// the ID. But we should be able to get it if we use the right types.
+					// For now, let's just use the name if possible.
+					if let Some(resolved) = self.resolve_aura_id_from_type_id_opaque(&field.ty) {
+						return Some(resolved);
+					}
+				}
+			},
+			TypeDef::Sequence(seq) => {
+				if let Some(resolved) = self.resolve_aura_id_from_type_id_opaque(&seq.type_param) {
+					return Some(resolved);
+				}
+			},
+			_ => {},
+		}
+
 		None
+	}
+
+	/// Fallback helper to resolve from an opaque symbol.
+	fn resolve_aura_id_from_type_id_opaque<T: std::fmt::Debug>(
+		&self,
+		symbol: &T,
+	) -> Option<AuraConsensusId> {
+		let debug_str = format!("{:?}", symbol);
+		// Parse the ID out of "UntrackedSymbol { id: 183, ... }" or similar
+		let id = debug_str
+			.split("id: ")
+			.nth(1)
+			.and_then(|s| s.split(',').next())
+			.and_then(|s| s.trim().parse::<u32>().ok())
+			.or_else(|| {
+				debug_str
+					.split('(')
+					.nth(1)
+					.and_then(|s| s.split(',').next())
+					.and_then(|s| s.trim().parse::<u32>().ok())
+			});
+
+		if let Some(id) = id {
+			self.resolve_aura_id_from_type_id(id)
+		} else {
+			None
+		}
 	}
 
 	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<(Metadata, u32), sc_cli::Error> {
@@ -313,8 +338,8 @@ impl MetadataInspector {
 		// Transform into subxt-metadata.
 		// subxt-metadata doesn't directly implement TryFrom<RuntimeMetadata>, so we decode it again
 		// as subxt-metadata. This is "cleaner" because we use a robust metadata versioning check
-		// first.
-		let encoded = prefixed.1.encode();
+		// first. We encode the full `RuntimeMetadataPrefixed` to include the magic number.
+		let encoded = prefixed.encode();
 		let metadata = Metadata::decode(&mut &encoded[..]).map_err(|e| {
 			sc_cli::Error::Input(format!("failed to decode subxt metadata: {e}").into())
 		})?;
@@ -329,7 +354,6 @@ mod tests {
 		AuraConsensusId, BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
 		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
 	};
-	use codec::Decode;
 	use cumulus_client_service::ParachainHostFunctions;
 	use sc_executor::WasmExecutor;
 	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
