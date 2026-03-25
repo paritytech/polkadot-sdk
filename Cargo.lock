@@ -21281,6 +21281,7 @@ dependencies = [
 name = "sc-statement-store"
 version = "10.0.0"
 dependencies = [
+ "anyhow",
  "async-channel 1.9.0",
  "criterion",
  "futures",
@@ -21292,6 +21293,7 @@ dependencies = [
  "sc-keystore",
  "sc-network-statement",
  "sc-utils 14.0.0",
+ "scale-info",
  "sp-api 26.0.0",
  "sp-blockchain 28.0.0",
  "sp-core 28.0.0",
@@ -21300,6 +21302,8 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint 0.17.0",
+ "subxt 0.50.0",
+ "subxt-signer 0.50.0",
  "tempfile",
  "tokio",
 ]
@@ -22517,7 +22521,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "724ab10d6485cccb4bab080ce436c0b361295274aec7847d7ba84ab1a79a5132"
 dependencies = [
  "arrayvec 0.7.6",
- "async-lock 3.4.0",
+ "async-lock",
  "atomic-take",
  "base64 0.22.1",
  "bip39",
@@ -22643,7 +22647,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8b4d4971f06f2471f4e57a662dbe8047fa0cc020957764a6211f3fad371f7bd"
 dependencies = [
  "async-channel 2.3.0",
- "async-lock 3.4.0",
+ "async-lock",
  "base64 0.22.1",
  "blake2-rfc",
  "bs58",
@@ -25187,7 +25191,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "rand 0.8.5",
- "scale-info",
+ "sc-statement-store",
  "serde",
  "sp-core 28.0.0",
  "sp-statement-store",

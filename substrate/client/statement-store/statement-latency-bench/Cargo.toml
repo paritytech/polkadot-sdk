@@ -7,10 +7,6 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
-[lib]
-name = "statement_latency_bench"
-path = "src/lib.rs"
-
 [[bin]]
 name = "setup-allowances"
 path = "src/setup.rs"
@@ -27,7 +23,7 @@ env_logger = { workspace = true }
 jsonrpsee = { workspace = true, features = ["client-ws-transport-tls", "ws-client"] }
 log = { workspace = true }
 rand = { workspace = true }
-scale-info = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true, features = ["test-helpers"] }
 serde = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }

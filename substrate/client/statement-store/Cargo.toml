@@ -12,6 +12,9 @@ readme = "README.md"
 [lints]
 workspace = true
 
+[features]
+test-helpers = ["subxt", "scale-info", "anyhow", "subxt-signer"]
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -33,6 +36,10 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
+anyhow = { workspace = true, optional = true }
+scale-info = { workspace = true, default-features = true, optional = true }
+subxt = { version = "0.50", features = ["jsonrpsee", "native"], optional = true }
+subxt-signer = { version = "0.50", optional = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]

@@ -41,7 +41,8 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
-use statement_latency_bench::{connect_to_endpoints, get_keypair};
+use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use sc_statement_store::test_utils::get_keypair;
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 
@@ -362,6 +363,24 @@ async fn wait_for_sync_time() {
 
 	tokio::time::sleep(Duration::from_secs(wait_secs)).await;
 	info!("Sync time reached, starting benchmark");
+}
+
+async fn connect_to_endpoints(
+	endpoints: &[String],
+) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
+	let mut clients = Vec::with_capacity(endpoints.len());
+
+	for endpoint in endpoints {
+		let client = WsClientBuilder::default()
+			.max_concurrent_requests(10000)
+			.build(endpoint)
+			.await
+			.with_context(|| format!("Failed to connect to {endpoint}"))?;
+		clients.push(Arc::new(client));
+		debug!("Connected to {}", endpoint);
+	}
+
+	Ok(clients)
 }
 
 #[tokio::main]

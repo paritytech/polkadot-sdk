@@ -16,15 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Shared types, helpers, subxt config, and extension definitions used by both the
-//! `setup-allowances` and `statement-latency-bench` binaries.
+//! Custom subxt configuration for the statement-store runtime
+//!
+//! The runtime uses `VerifyMultiSignature` instead of the standard
+//! `VerifySignature` transaction extension, and includes a `RestrictOrigins`
+//! extension that encodes as a bool (`false` = 0x00 to disable origin
+//! restrictions). These non-standard extensions cannot be auto-defaulted by
+//! frame-decode, so this module provides a `CustomConfig` that handles them
+//! explicitly.
 
-use anyhow::Context;
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
-use log::debug;
 use scale_info::PortableRegistry;
-use sp_core::{sr25519, Pair};
-use std::sync::Arc;
 use subxt::{
 	config::{
 		substrate::SubstrateConfig,
@@ -88,7 +89,7 @@ impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
 	}
 }
 
-/// Custom transaction extension for `RestrictOrigins`.
+/// Custom transaction extension for `RestrictOrigins`
 ///
 /// This extension encodes as `false` (0x00) to disable origin restrictions
 /// It is a `bool` in the runtime (not `Option<T>`), so frame-decode cannot
@@ -131,6 +132,10 @@ impl<T: Config> TransactionExtension<T> for RestrictOrigins {
 	}
 }
 
+/// Custom subxt `Config`
+///
+/// Registers the non-standard `VerifyMultiSignature` and `RestrictOrigins`
+/// transaction extensions so that subxt can correctly encode extrinsics
 #[derive(Debug, Clone)]
 pub struct CustomConfig(SubstrateConfig);
 
@@ -182,28 +187,4 @@ impl Config for CustomConfig {
 	) {
 		self.0.set_metadata_for_spec_version(spec_version, metadata)
 	}
-}
-
-/// Generate a deterministic keypair for a given client index.
-pub fn get_keypair(idx: u32) -> sr25519::Pair {
-	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None)
-		.expect("Derivation path is always valid; qed")
-}
-
-pub async fn connect_to_endpoints(
-	endpoints: &[String],
-) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
-	let mut clients = Vec::with_capacity(endpoints.len());
-
-	for endpoint in endpoints {
-		let client = WsClientBuilder::default()
-			.max_concurrent_requests(10000)
-			.build(endpoint)
-			.await
-			.with_context(|| format!("Failed to connect to {endpoint}"))?;
-		clients.push(Arc::new(client));
-		debug!("Connected to {}", endpoint);
-	}
-
-	Ok(clients)
 }

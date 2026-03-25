@@ -50,6 +50,11 @@
 mod metrics;
 mod subscription;
 
+#[cfg(any(test, feature = "test-helpers"))]
+pub mod subxt_client;
+#[cfg(any(test, feature = "test-helpers"))]
+pub mod test_utils;
+
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
