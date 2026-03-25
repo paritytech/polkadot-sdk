@@ -1398,7 +1398,7 @@ impl pallet_meta_tx::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
-	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+	type Extension = weights::pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
 impl pallet_verify_signature::Config for Runtime {
@@ -1454,6 +1454,8 @@ construct_runtime!(
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
 		Indices: pallet_indices = 43,
+		MetaTx: pallet_meta_tx = 44,
+		VerifySignature: pallet_verify_signature = 45,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1510,9 +1512,6 @@ construct_runtime!(
 
 		AhOps: pallet_ah_ops = 254,
 
-		// Meta transactions.
-		MetaTx: pallet_meta_tx = 103,
-		VerifySignature: pallet_verify_signature = 104,
 	}
 );
 

@@ -719,7 +719,7 @@ impl pallet_meta_tx::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
-	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+	type Extension = weights::pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
 impl pallet_verify_signature::Config for Runtime {
@@ -766,6 +766,8 @@ construct_runtime!(
 		Preimage: pallet_preimage = 43,
 		Scheduler: pallet_scheduler = 44,
 		AssetRate: pallet_asset_rate = 45,
+		MetaTx: pallet_meta_tx = 46,
+		VerifySignature: pallet_verify_signature = 47,
 
 		// The main stage.
 
@@ -801,10 +803,6 @@ construct_runtime!(
 		SecretaryCollective: pallet_ranked_collective::<Instance3> = 90,
 		// pub type SecretarySalaryInstance = pallet_salary::Instance3;
 		SecretarySalary: pallet_salary::<Instance3> = 91,
-
-		// Meta transactions.
-		MetaTx: pallet_meta_tx = 103,
-		VerifySignature: pallet_verify_signature = 104,
 	}
 );
 

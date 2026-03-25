@@ -624,7 +624,7 @@ impl pallet_meta_tx::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
-	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+	type Extension = weights::pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
 impl pallet_verify_signature::Config for Runtime {
@@ -668,6 +668,8 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
+		MetaTx: pallet_meta_tx = 43,
+		VerifySignature: pallet_verify_signature = 44,
 
 		// The main stage.
 		Identity: pallet_identity = 50,
@@ -677,10 +679,6 @@ construct_runtime!(
 
 		// To migrate deposits
 		IdentityMigrator: identity_migrator = 248,
-
-		// Meta transactions.
-		MetaTx: pallet_meta_tx = 103,
-		VerifySignature: pallet_verify_signature = 104,
 	}
 );
 
