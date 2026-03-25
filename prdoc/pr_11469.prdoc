@@ -1,12 +1,12 @@
-title: Pallet Meta Tx into multiple runtimes
+title: 'Westend: Support Meta Transactions'
 doc:
 - audience: Runtime User
   description: |-
-    Including pallet `meta-tx` into next westend parachains runtimes:
-    - asset hub
-    - coretime
-    - people
-    - collectives
+    Support **Meta Transactions** via `meta-tx` pallet for next **Westend** runtimes:
+    - Asset Hub
+    - Coretime
+    - People
+    - Collectives
 crates:
 - name: asset-hub-westend-runtime
   bump: major
