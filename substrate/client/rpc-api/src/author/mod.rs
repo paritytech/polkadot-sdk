@@ -64,6 +64,18 @@ pub trait AuthorApi<Hash, BlockHash> {
 	#[method(name = "author_rotateKeysWithOwner", with_extensions)]
 	fn rotate_keys_with_owner(&self, owner: Bytes) -> Result<GeneratedSessionKeys, Error>;
 
+	/// Generate an ownership proof for existing session keys without rotating them.
+	///
+	/// `keys` are the SCALE-encoded public session keys (same format as returned by
+	/// `author_rotateKeys`). `owner` is the owner identifier (e.g. SCALE-encoded account id)
+	/// that each private key will sign over.
+	///
+	/// Returns the SCALE-encoded ownership proof on success, suitable for use with `set_keys`
+	/// on Asset Hub. Returns an error if the keys cannot be decoded or the private keys are
+	/// not present in the local keystore.
+	#[method(name = "author_generateOwnershipProof", with_extensions)]
+	fn generate_ownership_proof(&self, keys: Bytes, owner: Bytes) -> Result<Bytes, Error>;
+
 	/// Checks if the keystore has private keys for the given session public keys.
 	///
 	/// `session_keys` is the SCALE encoded session keys object from the runtime.

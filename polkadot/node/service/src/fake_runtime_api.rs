@@ -395,6 +395,10 @@ sp_api::impl_runtime_apis! {
 		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
 			unimplemented!()
 		}
+
+		fn generate_ownership_proof(_keys: Vec<u8>, _owner: Vec<u8>) -> Result<Vec<u8>, sp_session::OwnershipProofCreationError> {
+			unimplemented!()
+		}
 	}
 
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {

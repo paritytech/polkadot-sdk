@@ -3782,6 +3782,16 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
+
+		fn generate_ownership_proof(keys: Vec<u8>, owner: Vec<u8>) -> Result<Vec<u8>, sp_session::OwnershipProofCreationError> {
+			use codec::Encode;
+			let mut sk = SessionKeys::decode(&mut &keys[..])
+				.map_err(|_| sp_session::OwnershipProofCreationError::InvalidKeys)?;
+			let proof = sk
+				.create_ownership_proof(&owner)
+				.map_err(|_| sp_session::OwnershipProofCreationError::ProofCreationFailed)?;
+			Ok(proof.encode())
+		}
 	}
 
 	impl pallet_asset_rewards::AssetRewards<Block, Balance> for Runtime {

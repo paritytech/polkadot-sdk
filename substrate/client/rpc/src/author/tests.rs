@@ -328,3 +328,64 @@ async fn author_has_key() {
 	};
 	assert!(!has_bob_ed);
 }
+
+#[tokio::test]
+async fn author_should_generate_ownership_proof_for_existing_keys() {
+	use sp_runtime::traits::OpaqueKeys;
+
+	// GIVEN: keys generated via rotateKeysWithOwner
+	let setup = TestSetup::default();
+	let api = setup.to_rpc();
+	let owner: Bytes = vec![1u8, 2, 3, 4].into();
+	let generated: GeneratedSessionKeys =
+		api.call("author_rotateKeysWithOwner", [owner.clone()]).await.unwrap();
+
+	// WHEN: generating an ownership proof for those existing keys via
+	// author_generateOwnershipProof.
+	let proof: Bytes = api
+		.call("author_generateOwnershipProof", (generated.keys.clone(), owner.clone()))
+		.await
+		.unwrap();
+
+	// THEN: the proof passes ownership validation against the session keys.
+	let session_keys =
+		SessionKeys::decode(&mut &generated.keys[..]).expect("SessionKeys decode successfully");
+	assert!(
+		session_keys.ownership_proof_is_valid(&owner, &proof),
+		"Generated proof should be valid"
+	);
+}
+
+#[tokio::test]
+async fn author_generate_ownership_proof_fails_with_invalid_keys() {
+	// GIVEN: an RPC endpoint with no matching keys in the keystore.
+	let api = TestSetup::into_rpc();
+	let dummy_keys: Bytes = vec![1u8, 2, 3].into();
+	let owner: Bytes = vec![1u8, 2, 3, 4].into();
+
+	// WHEN: generating an ownership proof for dummy keys.
+	// THEN: returns an error.
+	assert_matches!(
+		api.call::<_, Bytes>("author_generateOwnershipProof", (dummy_keys, owner)).await,
+		Err(RpcError::JsonRpc(err)) if err.message().contains("Session keys are not encoded correctly")
+	);
+}
+
+#[tokio::test]
+async fn author_generate_ownership_proof_fails_with_missing_private_keys() {
+	// GIVEN: keys generated in a different keystore
+	let setup1 = TestSetup::default();
+	let api1 = setup1.to_rpc();
+
+	let setup2 = TestSetup::default();
+	let api2 = setup2.to_rpc();
+	let foreign_keys: Bytes = api2.call("author_rotateKeys", EmptyParams::new()).await.unwrap();
+	let owner: Bytes = vec![1u8, 2, 3, 4].into();
+
+	// WHEN: trying to generate a proof with keys whose private keys are not in this keystore.
+	// THEN: returns a "private keys not found" error.
+	assert_matches!(
+		api1.call::<_, Bytes>("author_generateOwnershipProof", (foreign_keys, owner)).await,
+		Err(RpcError::JsonRpc(err)) if err.message().contains("private keys not found")
+	);
+}

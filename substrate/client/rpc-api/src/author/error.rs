@@ -51,6 +51,14 @@ pub enum Error {
 	/// `SessionKeys` runtime api missing.
 	#[error("`SessionKeys` runtime api not present in the runtime")]
 	MissingSessionKeysApi,
+	/// Runtime does not support generating ownership proofs (requires SessionKeys API >= v3).
+	#[error(
+		"Runtime does not support generating ownership proofs (requires SessionKeys API >= v3)"
+	)]
+	UnsupportedOwnershipProof,
+	/// Ownership proof creation failed because private keys are not in the keystore.
+	#[error("Ownership proof creation failed: private keys not found in keystore")]
+	OwnershipProofCreationFailed,
 	/// Call to an unsafe RPC was denied.
 	#[error(transparent)]
 	UnsafeRpcCalled(#[from] crate::policy::UnsafeRpcError),

@@ -757,6 +757,16 @@ impl_runtime_apis! {
 		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
+
+		fn generate_ownership_proof(keys: Vec<u8>, owner: Vec<u8>) -> Result<Vec<u8>, sp_session::OwnershipProofCreationError> {
+			use codec::Encode;
+			let mut sk = SessionKeys::decode(&mut &keys[..])
+				.map_err(|_| sp_session::OwnershipProofCreationError::InvalidKeys)?;
+			let proof = sk
+				.create_ownership_proof(&owner)
+				.map_err(|_| sp_session::OwnershipProofCreationError::ProofCreationFailed)?;
+			Ok(proof.encode())
+		}
 	}
 
 	impl sp_consensus_grandpa::GrandpaApi<Block> for Runtime {

@@ -167,6 +167,40 @@ where
 		self.rotate_keys_impl(owner.0)
 	}
 
+	fn generate_ownership_proof(
+		&self,
+		ext: &Extensions,
+		keys: Bytes,
+		owner: Bytes,
+	) -> Result<Bytes> {
+		check_if_safe(ext)?;
+
+		let best_block_hash = self.client.info().best_hash;
+		let mut runtime_api = self.client.runtime_api();
+
+		runtime_api.register_extension(KeystoreExt::from(self.keystore.clone()));
+
+		let version = runtime_api
+			.api_version::<dyn SessionKeys<P::Block>>(best_block_hash)
+			.map_err(|api_err| Error::Client(Box::new(api_err)))?
+			.ok_or_else(|| Error::MissingSessionKeysApi)?;
+
+		if version < 3 {
+			return Err(Error::UnsupportedOwnershipProof);
+		}
+
+		runtime_api
+			.generate_ownership_proof(best_block_hash, keys.to_vec(), owner.to_vec())
+			.map_err(|api_err| Error::Client(Box::new(api_err)))?
+			.map(Into::into)
+			.map_err(|e| match e {
+				sp_session::OwnershipProofCreationError::InvalidKeys => Error::InvalidSessionKeys,
+				sp_session::OwnershipProofCreationError::ProofCreationFailed => {
+					Error::OwnershipProofCreationFailed
+				},
+			})
+	}
+
 	fn has_session_keys(&self, ext: &Extensions, session_keys: Bytes) -> Result<bool> {
 		check_if_safe(ext)?;
 

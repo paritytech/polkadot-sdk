@@ -134,6 +134,10 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
+				fn generate_ownership_proof(_keys: Vec<u8>, _owner: Vec<u8>) -> Result<Vec<u8>, sp_session::OwnershipProofCreationError> {
+					unimplemented!()
+				}
+
 			}
 
 			impl

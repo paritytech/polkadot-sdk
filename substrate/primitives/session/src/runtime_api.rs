@@ -35,9 +35,18 @@ impl<K: Encode, P: Encode> From<GeneratedSessionKeys<K, P>> for OpaqueGeneratedS
 	}
 }
 
+/// Error type for ownership proof creation.
+#[derive(Debug, Encode, Decode, scale_info::TypeInfo)]
+pub enum OwnershipProofCreationError {
+	/// The session keys could not be decoded.
+	InvalidKeys,
+	/// The ownership proof could not be created (e.g. private keys missing from keystore).
+	ProofCreationFailed,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Session keys runtime api.
-	#[api_version(2)]
+	#[api_version(3)]
 	pub trait SessionKeys {
 		/// Generate a set of session keys with optionally using the given seed.
 		/// The keys should be stored within the keystore exposed via runtime
@@ -55,5 +64,15 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Returns the list of public raw public keys + key type.
 		fn decode_session_keys(encoded: Vec<u8>) -> Option<Vec<(Vec<u8>, KeyTypeId)>>;
+
+		/// Generate an ownership proof for existing session keys.
+		///
+		/// `keys` are the SCALE-encoded public session keys.
+		/// `owner` is the owner identifier (e.g. SCALE-encoded account id) that will be signed
+		/// by the private keys associated with each session key.
+		///
+		/// Returns the SCALE-encoded proof on success, or an error if the keys cannot be
+		/// decoded or the private keys are not in the keystore.
+		fn generate_ownership_proof(keys: Vec<u8>, owner: Vec<u8>) -> Result<Vec<u8>, OwnershipProofCreationError>;
 	}
 }
