@@ -25,9 +25,9 @@ use clap::Parser;
 use codec::Encode;
 use jsonrpsee::{core::client::ClientT, rpc_params, ws_client::WsClientBuilder};
 use log::{debug, info};
+use sc_statement_store::{subxt_client::CustomConfig, test_utils::get_keypair};
 use sp_core::Pair;
 use sp_statement_store::{statement_allowance_key, StatementAllowance};
-use sc_statement_store::{subxt_client::CustomConfig, test_utils::get_keypair};
 use std::str::FromStr;
 use subxt::{
 	ext::scale_value::{value, Value},

@@ -19,9 +19,7 @@
 //! Test utilities for the statement store
 
 use sp_core::{sr25519, Encode, Pair};
-use sp_statement_store::{
-	statement_allowance_key, Channel, StatementAllowance, Topic,
-};
+use sp_statement_store::{statement_allowance_key, Channel, StatementAllowance, Topic};
 use subxt::{
 	config::{Config, DefaultExtrinsicParamsBuilder, TransactionExtensions},
 	dynamic::Value,
@@ -62,9 +60,7 @@ pub fn create_test_statement(
 }
 
 /// Creates storage items for custom per-participant allowances
-pub fn create_allowance_items(
-	allowances: &[(u32, StatementAllowance)],
-) -> Vec<(Vec<u8>, Vec<u8>)> {
+pub fn create_allowance_items(allowances: &[(u32, StatementAllowance)]) -> Vec<(Vec<u8>, Vec<u8>)> {
 	let mut items = Vec::with_capacity(allowances.len());
 	for (idx, allowance) in allowances {
 		let keypair = get_keypair(*idx);

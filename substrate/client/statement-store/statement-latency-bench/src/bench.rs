@@ -36,13 +36,13 @@ use codec::Encode;
 use jsonrpsee::{
 	core::client::{ClientT, Subscription, SubscriptionClientT},
 	rpc_params,
+	ws_client::{WsClient, WsClientBuilder},
 };
 use log::{debug, info, warn};
+use sc_statement_store::test_utils::get_keypair;
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
-use sc_statement_store::test_utils::get_keypair;
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 
@@ -365,9 +365,7 @@ async fn wait_for_sync_time() {
 	info!("Sync time reached, starting benchmark");
 }
 
-async fn connect_to_endpoints(
-	endpoints: &[String],
-) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
+async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
 	let mut clients = Vec::with_capacity(endpoints.len());
 
 	for endpoint in endpoints {
