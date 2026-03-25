@@ -314,7 +314,7 @@ mod benchmarks {
 			T::ScheduleOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(schedule_origin as SystemOrigin<T>, bucket, 0);
+		_(RawOrigin::Root, (bucket, 0u32));
 
 		ensure!(
 			s == 1 || Lookup::<T>::get(u32_to_name(0)).is_none(),
@@ -545,7 +545,7 @@ mod benchmarks {
 				task: address,
 				id: None,
 				retries: r as u8,
-				strategy: RetryStrategy::Periodic(One::one()),
+				strategy: RetryStrategy::Periodic(bucket_resolution),
 			}
 			.into(),
 		);
@@ -583,7 +583,7 @@ mod benchmarks {
 				task: address,
 				id: Some(name),
 				retries: r as u8,
-				strategy: RetryStrategy::Periodic(One::one()),
+				strategy: RetryStrategy::Periodic(bucket_resolution),
 			}
 			.into(),
 		);

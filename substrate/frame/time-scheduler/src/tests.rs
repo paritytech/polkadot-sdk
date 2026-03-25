@@ -860,7 +860,7 @@ fn cancel_removes_retry_entry() {
 
 		// Even though 42 is being retried, the tasks scheduled for retries are not named
 		assert_eq!(Lookup::<Test>::iter().count(), 0);
-		assert!(Scheduler::cancel(root().into(), 6, 0).is_ok());
+		assert!(Scheduler::cancel(root().into(), (6, 0)).is_ok());
 
 		// 20 is removed, 42 still fails
 		run_to_time(360_000);
@@ -871,7 +871,7 @@ fn cancel_removes_retry_entry() {
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		assert!(logger::log().is_empty());
 
-		assert!(Scheduler::cancel(root().into(), 7, 0).is_ok());
+		assert!(Scheduler::cancel(root().into(), (7, 0)).is_ok());
 
 		// Both tasks are canceled, everything is removed now
 		run_to_time(420_000);
@@ -1189,7 +1189,7 @@ fn root_calls_works() {
 		assert!(logger::log().is_empty());
 
 		assert_ok!(Scheduler::cancel_named(RuntimeOrigin::root(), [1u8; 32]));
-		assert_ok!(Scheduler::cancel(RuntimeOrigin::root(), 4, 1));
+		assert_ok!(Scheduler::cancel(RuntimeOrigin::root(), (4, 1)));
 
 		// Scheduled calls are made NONE, so should not effect state
 		run_to_time(600_000);
@@ -1234,7 +1234,7 @@ fn should_use_origin() {
 			frame_system::RawOrigin::Signed(1).into(),
 			[1u8; 32]
 		));
-		assert_ok!(Scheduler::cancel(frame_system::RawOrigin::Signed(1).into(), 4, 1));
+		assert_ok!(Scheduler::cancel(frame_system::RawOrigin::Signed(1).into(), (4, 1)));
 
 		// Scheduled calls are made NONE, so should not effect state
 		run_to_time(600_000);
@@ -1318,7 +1318,7 @@ fn should_check_origin_for_cancel() {
 			BadOrigin
 		);
 		assert_noop!(
-			Scheduler::cancel(frame_system::RawOrigin::Signed(2).into(), 4, 1),
+			Scheduler::cancel(frame_system::RawOrigin::Signed(2).into(), (4, 1)),
 			BadOrigin
 		);
 		// Root cannot cancel tasks scheduled by account 1 either
@@ -1326,7 +1326,7 @@ fn should_check_origin_for_cancel() {
 			Scheduler::cancel_named(frame_system::RawOrigin::Root.into(), [1u8; 32]),
 			BadOrigin
 		);
-		assert_noop!(Scheduler::cancel(frame_system::RawOrigin::Root.into(), 4, 1), BadOrigin);
+		assert_noop!(Scheduler::cancel(frame_system::RawOrigin::Root.into(), (4, 1)), BadOrigin);
 
 		// Tasks should still execute at minute 5
 		run_to_time(300_000);
@@ -3502,4 +3502,3 @@ fn on_initialize_weight_is_correct() {
 		BucketResolution::set(&60_000);
 	});
 }
-

@@ -386,10 +386,11 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Scheduled some task.
-		Scheduled { when: BucketFor<T>, index: u32 },
+		/// Scheduled some task. `task` is the address `(bucket, index)` for future cancellation.
+		/// `when` is the effective dispatch timestamp (start of the bucket window).
+		Scheduled { task: TaskAddress<BucketFor<T>>, when: TimeFor<T> },
 		/// Canceled some task.
-		Canceled { when: BucketFor<T>, index: u32 },
+		Canceled { task: TaskAddress<BucketFor<T>> },
 		/// Dispatched some task.
 		Dispatched { task: TaskAddress<BucketFor<T>>, id: Option<TaskName>, result: DispatchResult },
 		/// Set a retry configuration for some task.
@@ -397,7 +398,7 @@ pub mod pallet {
 			task: TaskAddress<BucketFor<T>>,
 			id: Option<TaskName>,
 			retries: u8,
-			strategy: RetryStrategy<BucketFor<T>>,
+			strategy: RetryStrategy<TimeFor<T>>,
 		},
 		/// Cancel a retry configuration for some task.
 		RetryCancelled { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
@@ -498,10 +499,10 @@ pub mod pallet {
 		/// Cancel an anonymously scheduled task.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerBucket::get()))]
-		pub fn cancel(origin: OriginFor<T>, when: TimeFor<T>, index: u32) -> DispatchResult {
+		pub fn cancel(origin: OriginFor<T>, task: TaskAddress<BucketFor<T>>) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			Self::do_cancel(Some(origin.caller().clone()), (when, index))?;
+			Self::do_cancel(Some(origin.caller().clone()), task)?;
 			Ok(())
 		}
 
@@ -629,12 +630,7 @@ pub mod pallet {
 					strategy: bucket_strategy,
 				},
 			);
-			Self::deposit_event(Event::RetrySet {
-				task,
-				id: None,
-				retries,
-				strategy: bucket_strategy,
-			});
+			Self::deposit_event(Event::RetrySet { task, id: None, retries, strategy });
 			Ok(())
 		}
 
@@ -673,7 +669,7 @@ pub mod pallet {
 				task: (bucket, index),
 				id: Some(id),
 				retries,
-				strategy: bucket_strategy,
+				strategy,
 			});
 			Ok(())
 		}
@@ -725,15 +721,19 @@ impl<T: Config> Pallet<T> {
 		Ok(when)
 	}
 
-	/// Place a task in the agenda and update lookup if named.
+	/// Place a task in the agenda by timestamp. Emits `Scheduled` with the original `when`.
 	fn place_task(
 		when: TimeFor<T>,
 		what: ScheduledOf<T>,
 	) -> Result<TaskAddress<BucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
 		let bucket = Self::timestamp_to_bucket(when);
-		Self::place_task_in_bucket(bucket, what)
+		let address = Self::place_task_in_bucket(bucket, what)?;
+		Self::deposit_event(Event::Scheduled { task: address, when });
+		Ok(address)
 	}
 
+	/// Place a task directly into a bucket. Does not emit `Scheduled`; callers are responsible
+	/// for emitting events with appropriate timing context.
 	fn place_task_in_bucket(
 		bucket: BucketFor<T>,
 		what: ScheduledOf<T>,
@@ -744,7 +744,6 @@ impl<T: Config> Pallet<T> {
 		if let Some(name) = maybe_name {
 			Lookup::<T>::insert(name, address)
 		}
-		Self::deposit_event(Event::Scheduled { when: bucket, index });
 		Ok(address)
 	}
 
@@ -854,7 +853,7 @@ impl<T: Config> Pallet<T> {
 			}
 			Retries::<T>::remove((bucket, index));
 			Self::cleanup_agenda(bucket);
-			Self::deposit_event(Event::Canceled { when: bucket, index });
+			Self::deposit_event(Event::Canceled { task: (bucket, index) });
 			Ok(())
 		} else {
 			Err(Error::<T>::NotFound.into())
@@ -880,7 +879,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		Self::cleanup_agenda(bucket);
-		Self::deposit_event(Event::Canceled { when: bucket, index });
+		Self::deposit_event(Event::Canceled { task: (bucket, index) });
 
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
@@ -953,7 +952,7 @@ impl<T: Config> Pallet<T> {
 					Ok(())
 				})?;
 				Self::cleanup_agenda(bucket);
-				Self::deposit_event(Event::Canceled { when: bucket, index });
+				Self::deposit_event(Event::Canceled { task: (bucket, index) });
 				Ok(())
 			} else {
 				Err(Error::<T>::NotFound.into())
@@ -981,7 +980,7 @@ impl<T: Config> Pallet<T> {
 			task.take().ok_or(Error::<T>::NotFound)
 		})?;
 		Self::cleanup_agenda(bucket);
-		Self::deposit_event(Event::Canceled { when: bucket, index });
+		Self::deposit_event(Event::Canceled { task: (bucket, index) });
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
 
@@ -1330,9 +1329,14 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
+		let resolution: TimeFor<T> = T::BucketResolution::get().into();
 		match Self::place_task_in_bucket(target_bucket, task.as_retry()) {
 			Ok(address) => {
 				Retries::<T>::insert(address, new_retry_config);
+				Self::deposit_event(Event::Scheduled {
+					task: address,
+					when: target_bucket.saturating_mul(resolution),
+				});
 			},
 			Err((_, task)) => match strategy {
 				// SameBucket targets the bucket the task just executed in, which is
@@ -1344,6 +1348,10 @@ impl<T: Config> Pallet<T> {
 					match Self::place_task_in_bucket(next_bucket, task) {
 						Ok(address) => {
 							Retries::<T>::insert(address, new_retry_config);
+							Self::deposit_event(Event::Scheduled {
+								task: address,
+								when: next_bucket.saturating_mul(resolution),
+							});
 						},
 						Err((_, task)) => {
 							// TODO: Leave task in storage somewhere for it to
