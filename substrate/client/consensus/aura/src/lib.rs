@@ -190,6 +190,16 @@ where
 	BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 	Error: std::error::Error + Send + From<ConsensusError> + 'static,
 {
+	if force_authoring {
+		log::warn!(
+			target: LOG_TARGET,
+			"⚠️  Force-authoring is ENABLED. This node will produce blocks in every slot \
+			regardless of whether it is the designated author. In multi-validator networks, \
+			this causes competing forks and prevents GRANDPA finality. \
+			Only use --force-authoring on single-validator dev chains.",
+		);
+	}
+
 	let worker = build_aura_worker::<P, _, _, _, _, _, _, _, _>(BuildAuraWorkerParams {
 		client,
 		block_import,
