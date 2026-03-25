@@ -1271,7 +1271,11 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 		hypothetically!({
 			let page1 = bounded_vec![(
 				alice,
-				Exposure { total: 1000 + 250, own: 1000, others: vec![IndividualExposure { who: 101, value: 250 }] },
+				Exposure {
+					total: 1000 + 250,
+					own: 1000,
+					others: vec![IndividualExposure { who: 101, value: 250 }]
+				},
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
 
@@ -1281,7 +1285,11 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 
 			let page2 = bounded_vec![(
 				alice,
-				Exposure { total: 250, own: 0, others: vec![IndividualExposure { who: 102, value: 250 }] },
+				Exposure {
+					total: 250,
+					own: 0,
+					others: vec![IndividualExposure { who: 102, value: 250 }]
+				},
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
 
@@ -1294,7 +1302,11 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 		hypothetically!({
 			let page1 = bounded_vec![(
 				alice,
-				Exposure { total: 250, own: 0, others: vec![IndividualExposure { who: 101, value: 250 }] },
+				Exposure {
+					total: 250,
+					own: 0,
+					others: vec![IndividualExposure { who: 101, value: 250 }]
+				},
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
 
@@ -1303,7 +1315,11 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 
 			let page2 = bounded_vec![(
 				alice,
-				Exposure { total: 1000 + 250, own: 1000, others: vec![IndividualExposure { who: 102, value: 250 }] },
+				Exposure {
+					total: 1000 + 250,
+					own: 1000,
+					others: vec![IndividualExposure { who: 102, value: 250 }]
+				},
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
 
