@@ -14,48 +14,81 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{utils, MAX_XCM_DECODE_DEPTH, RECURSION_LIMIT};
+use crate::{MAX_XCM_DECODE_DEPTH, RECURSION_LIMIT};
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use core::any::TypeId;
 use sp_runtime::Saturating;
 
-pub(crate) const DECODE_MAX_DEPTH_MSG: &str = "Maximum recursion depth reached when decoding";
+pub(crate) const DECODE_MAX_DEPTH_MSG: &str =
+	"Depth limit exceeded while decoding DoubleEncoded object";
+pub(crate) const DECODE_RECURSION_LIMIT_MSG: &str =
+	"Recursion limit exceeded while decoding DoubleEncoded object";
 
-environmental::environmental!(nesting_count: u8);
+environmental::environmental!(nesting_count: u32);
 
+fn descend_ref_and_check_depth(
+	depth: &mut u32,
+	depth_limit: u32,
+	err_msg: &'static str,
+) -> Result<(), codec::Error> {
+	depth.saturating_inc();
+	if *depth > depth_limit {
+		return Err(err_msg.into());
+	}
+	Ok(())
+}
+
+/// `Input` implementation used for recursively decoding nested `DoubleEncoded` structures.
+///
+/// One instance of this input corresponds to one `DoubleEncoded` structure being decoded.
+/// For nested `DoubleEncoded` structures, the decoding logic will create an equal number of
+/// `NestedInput`s chained through the `downstream_input` field. For example:
+/// ```
+/// NestedInput {
+/// 	downstream_input: NestedInput {
+/// 		downstream_input: NestedInput { downstream_input: ... }
+/// 	}
+/// }
+/// ```
+///
+/// Has the following behaviors:
+/// - propagates the memory allocation notifications to the downstream input. This way the
+///   downstream input will have a full picture of the entire heap memory used by the top-level
+///   decoded object, including the double encoded structures nested within it
+/// - doesn't propagate the depth related notifications to the downstream input: acts as if the
+///   double encoded structure doesn't add depth to the top-level decoded object
+/// - keeps track of and limits the decoding depth of the `DoubleEncoded` structure currently
+///   decoded.
 struct NestedInput<'a> {
-	main_input: Box<&'a mut dyn codec::Input>,
-	opaque: &'a [u8],
+	downstream_input: Box<&'a mut dyn codec::Input>,
+	encoded: &'a [u8],
+	depth: u32,
 }
 
 impl<'a> codec::Input for NestedInput<'a> {
 	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-		self.opaque.remaining_len()
+		self.encoded.remaining_len()
 	}
 
 	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-		self.opaque.read(into)
+		self.encoded.read(into)
 	}
 
 	fn read_byte(&mut self) -> Result<u8, codec::Error> {
-		self.opaque.read_byte()
+		self.encoded.read_byte()
 	}
 
 	fn descend_ref(&mut self) -> Result<(), codec::Error> {
-		// We don't want to keep track of the depth here.
-		// We check the `RECURSION_LIMIT` in the decoding function.
-		Ok(())
+		descend_ref_and_check_depth(&mut self.depth, MAX_XCM_DECODE_DEPTH, DECODE_MAX_DEPTH_MSG)
 	}
 
 	fn ascend_ref(&mut self) {
-		// We don't want to keep track of the depth here.
-		// We check the `RECURSION_LIMIT` in the decoding function.
+		self.depth.saturating_dec();
 	}
 
 	fn on_before_alloc_mem(&mut self, size: usize) -> Result<(), codec::Error> {
-		// We forward the heap memory usage info to the main input.
-		self.main_input.on_before_alloc_mem(size)
+		self.downstream_input.on_before_alloc_mem(size)
 	}
 }
 
@@ -86,21 +119,26 @@ where
 		}
 
 		// If it's a local call, we also decode the inner double encoded object,
-		// in order to make sure that its heap memory and depth are accounted for.
+		// in order to make sure that its heap memory is accounted for.
 		nesting_count::using_once(&mut 0, || {
-			let nesting_limit_exceeded = nesting_count::with(|count| {
-				count.saturating_inc();
-				*count > RECURSION_LIMIT
+			nesting_count::with(|count| {
+				descend_ref_and_check_depth(
+					count,
+					RECURSION_LIMIT as u32,
+					DECODE_RECURSION_LIMIT_MSG,
+				)
 			})
-			.unwrap_or(true);
-			if nesting_limit_exceeded {
-				return Err(DECODE_MAX_DEPTH_MSG.into());
-			}
+			.unwrap_or(Err("Could not access nesting_count env variable".into()))?;
 
-			let mut nested_input =
-				NestedInput { main_input: Box::new(input), opaque: &obj.encoded[..] };
+			let mut nested_input = NestedInput {
+				downstream_input: Box::new(input),
+				encoded: &obj.encoded[..],
+				depth: 0,
+			};
 			obj.decoded = Some(T::decode(&mut nested_input)?);
-			utils::ensure_all_decoded(nested_input.opaque)?;
+			// We need to also make sure that we consumed all the input data, but we can't use
+			// `decode_all()` initially, because it only accepts a byte slice as input.
+			<() as codec::DecodeAll>::decode_all(&mut nested_input.encoded)?;
 
 			let _ = nesting_count::with(|count| {
 				count.saturating_dec();

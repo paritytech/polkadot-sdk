@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
+use crate::{double_encoded::DECODE_RECURSION_LIMIT_MSG, *};
 use alloc::vec;
 use codec::MemTrackingInput;
 
@@ -314,30 +314,63 @@ fn ensure_decode_tracks_nested_transacts_mem() {
 }
 
 #[test]
-fn ensure_decode_checks_recursion_limit() {
-	use crate::{double_encoded::DECODE_MAX_DEPTH_MSG, latest::*};
+fn ensure_decode_checks_transacts_recursion_and_depth() {
+	use crate::{
+		double_encoded::DECODE_MAX_DEPTH_MSG,
+		latest::{Instruction, Xcm},
+	};
 
-	fn nest_xcm(xcm: VersionedXcm<TestCall>) -> VersionedXcm<TestCall> {
-		VersionedXcm::V5(Xcm(vec![
+	fn nest_xcm_in_transact(xcm: Xcm<TestCall>) -> Xcm<TestCall> {
+		Xcm(vec![
 			// Add some more transacts on the same level
 			new_transact(TestCall::Empty),
 			new_transact(TestCall::Empty),
 			new_transact(TestCall::Empty),
+			// Add one more recursion level
+			new_transact(TestCall::new_xcm(VersionedXcm::V5(xcm))),
+		])
+	}
+
+	fn nest_xcm_in_error_handler(xcm: Xcm<TestCall>) -> Xcm<TestCall> {
+		Xcm(vec![
 			// Add one more nesting level
-			new_transact(TestCall::new_xcm(xcm)),
-		]))
+			Instruction::SetErrorHandler(xcm),
+		])
 	}
 
-	let mut xcm = VersionedXcm::V5(Xcm(vec![new_transact(TestCall::Empty)]));
-	for _ in 1..RECURSION_LIMIT {
-		xcm = nest_xcm(xcm);
-		let encoded_xcm = xcm.encode();
-		assert_eq!(VersionedXcm::decode(&mut &encoded_xcm[..]), Ok(xcm.clone()));
+	fn encode_and_decode(
+		xcm: Xcm<TestCall>,
+	) -> (VersionedXcm<TestCall>, Result<VersionedXcm<TestCall>, codec::Error>) {
+		let transact_xcm = VersionedXcm::V5(nest_xcm_in_transact(xcm));
+		let encoded_xcm = transact_xcm.encode();
+		(transact_xcm, VersionedXcm::decode(&mut &encoded_xcm[..]))
 	}
 
-	xcm = nest_xcm(xcm);
-	let encoded_xcm = xcm.encode();
-	let res = VersionedXcm::<TestCall>::decode(&mut &encoded_xcm[..]);
+	// We start with a simple XCM with depth level = 2.
+	let mut xcm = Xcm(vec![]);
+	// We add recursion levels and depth levels.
+	for _recursion_lvl in 1..=RECURSION_LIMIT {
+		// The depth should be tracked only in the context of the current recursion level.
+		// The depth of the upper recursion levels shouldn't be taken into account in this check.
+		for _depth in 2..MAX_XCM_DECODE_DEPTH {
+			xcm = nest_xcm_in_error_handler(xcm);
+			let (transact_xcm, res) = encode_and_decode(xcm.clone());
+			assert_eq!(res.as_ref(), Ok(&transact_xcm));
+		}
+
+		// An error should be thrown when we exceed the depth limit inside the current recursion
+		// level.
+		let err_xcm = nest_xcm_in_error_handler(xcm.clone());
+		let (_, res) = encode_and_decode(err_xcm);
+		assert!(res.is_err());
+		assert!(res.err().unwrap().to_string().contains(DECODE_MAX_DEPTH_MSG));
+
+		// Add 1 more recursion level
+		xcm = nest_xcm_in_transact(xcm);
+	}
+
+	// An error should be thrown when we exceed the recursion limit.
+	let (_, res) = encode_and_decode(xcm);
 	assert!(res.is_err());
-	assert!(res.err().unwrap().to_string().contains(DECODE_MAX_DEPTH_MSG))
+	assert!(res.err().unwrap().to_string().contains(DECODE_RECURSION_LIMIT_MSG));
 }
