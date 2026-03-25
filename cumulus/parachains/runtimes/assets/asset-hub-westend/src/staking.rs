@@ -294,7 +294,8 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
 	type MaxPruningItems = MaxPruningItems;
-	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	/// Vest validator incentive rewards over 2 days (in relay chain blocks).
 	type VestingDuration = ConstU32<{ 2 * RC_DAYS }>;
 	/// Relay chain session length in RC blocks (1 hour on Westend).
