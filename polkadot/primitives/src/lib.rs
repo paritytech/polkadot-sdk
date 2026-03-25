@@ -42,6 +42,7 @@ pub use v9::{
 	executor_params, metric_definitions, node_features, skip_ump_signals, slashing,
 	supermajority_threshold, transpose_claim_queue, well_known_keys, AbridgedHostConfiguration,
 	AbridgedHrmpChannel, AccountId, AccountIndex, AccountPublic, ApprovalVote,
+	ExecutorHostFunction,
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, ApprovedPeerId, AssignmentId,
 	AsyncBackingParams, AuthorityDiscoveryId, AvailabilityBitfield, BackedCandidate, Balance,
 	BlakeTwo256, Block, BlockId, BlockNumber, CandidateCommitments, CandidateDescriptorV2,
