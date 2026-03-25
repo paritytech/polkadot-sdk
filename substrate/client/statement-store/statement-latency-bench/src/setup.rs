@@ -132,9 +132,8 @@ async fn main() -> Result<(), anyhow::Error> {
 		num_inner_calls, args.num_clients, args.max_batch_calls
 	);
 
-	let sudo_account_id = <SubxtKeypair as subxt::transactions::Signer<CustomConfig>>::account_id(
-		&sudo_key,
-	);
+	let sudo_account_id =
+		<SubxtKeypair as subxt::transactions::Signer<CustomConfig>>::account_id(&sudo_key);
 	let mut nonce = get_account_nonce(&client, &sudo_account_id).await?;
 
 	for (chunk_idx, chunk) in storage_calls.chunks(args.max_batch_calls).enumerate() {
