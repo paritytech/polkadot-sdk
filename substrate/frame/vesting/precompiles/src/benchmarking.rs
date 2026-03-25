@@ -30,7 +30,7 @@ use crate::{
 };
 use alloy_core::sol_types::SolValue;
 use frame_benchmarking::v2::*;
-use frame_support::traits::{VestingSchedule, fungible::Mutate};
+use frame_support::traits::{Get, VestingSchedule, fungible::Mutate};
 use pallet_revive::{
 	AddressMapper,
 	precompiles::{Precompile, U256},
@@ -39,19 +39,24 @@ use sp_runtime::traits::Zero;
 
 type FungibleOf<T> = <T as pallet_revive::Config>::Currency;
 
-/// Add a single vesting schedule to `who`.
+/// Set up a vesting schedule for `who`.
 ///
-/// The schedule locks `locked` tokens over 20 blocks starting at block 0, so at block 0
-/// everything is still locked.
-fn add_vesting_schedule<T: Config>(who: &T::AccountId, locked: VestingBalance<T>)
+/// Uses `MinVestedTransfer` as the locked amount to satisfy runtime constraints,
+/// and funds the account with enough balance to cover the lock.
+fn setup_vesting<T: Config>(who: &T::AccountId) -> VestingBalance<T>
 where
 	VestingBalance<T>: Into<U256>,
 	VestingBalance<T>: From<<T as pallet_revive::Config>::Balance>,
 	<T as pallet_revive::Config>::Balance: From<VestingBalance<T>>,
 {
+	let locked = T::MinVestedTransfer::get();
+	// Fund the account with 10x the locked amount.
+	let fund_amount: U256 = (locked * 10u32.into()).into();
+	let balance = fund_amount.try_into().ok().expect("balance fits");
+	FungibleOf::<T>::set_balance(who, balance);
+
 	let per_block = locked / 20u32.into();
 	let starting_block = Zero::zero();
-
 	<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::add_vesting_schedule(
 		who,
 		locked,
@@ -59,6 +64,8 @@ where
 		starting_block,
 	)
 	.expect("adding vesting schedule should succeed");
+
+	locked
 }
 
 #[benchmarks(
@@ -84,11 +91,7 @@ mod benchmarks {
 		let mut call_setup = pallet_revive::call_builder::CallSetup::<T>::default();
 		let caller_account = call_setup.contract().caller.clone();
 
-		let locked: VestingBalance<T> = 10_000u32.into();
-		let vesting_bal: U256 = (locked * 10u32.into()).into();
-		let balance = vesting_bal.try_into().ok().expect("balance fits");
-		FungibleOf::<T>::set_balance(&caller_account, balance);
-		add_vesting_schedule::<T>(&caller_account, locked);
+		setup_vesting::<T>(&caller_account);
 
 		let input = IVesting::IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {});
 		let address = precompile_address::<T>();
@@ -111,11 +114,7 @@ mod benchmarks {
 
 		let target_addr = pallet_revive::precompiles::H160::from_low_u64_be(0xBEEF);
 		let target_account = T::AddressMapper::to_account_id(&target_addr);
-		let locked: VestingBalance<T> = 10_000u32.into();
-		let vesting_bal: U256 = (locked * 10u32.into()).into();
-		let balance = vesting_bal.try_into().ok().expect("balance fits");
-		FungibleOf::<T>::set_balance(&target_account, balance);
-		add_vesting_schedule::<T>(&target_account, locked);
+		setup_vesting::<T>(&target_account);
 
 		let input = IVesting::IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall {
 			target: alloy_core::primitives::Address::from_slice(target_addr.as_bytes()),
