@@ -856,9 +856,10 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
+	/// Total staker reward budget for each era in `[active_era - HistoryDepth, active_era]`.
 	///
-	/// Eras that haven't finished yet or has been removed doesn't have reward.
+	/// This covers both validator and nominator rewards (not just validator despite the legacy
+	/// storage name which is kept for backward compatibility).
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 

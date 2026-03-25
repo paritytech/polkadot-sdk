@@ -363,11 +363,11 @@ impl<T: Config> Eras<T> {
 		};
 	}
 
-	pub(crate) fn set_validators_reward(era: EraIndex, amount: BalanceOf<T>) {
+	pub(crate) fn set_stakers_reward(era: EraIndex, amount: BalanceOf<T>) {
 		ErasValidatorReward::<T>::insert(era, amount);
 	}
 
-	pub(crate) fn get_validators_reward(era: EraIndex) -> Option<BalanceOf<T>> {
+	pub(crate) fn get_stakers_reward(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasValidatorReward::<T>::get(era)
 	}
 
@@ -844,7 +844,7 @@ impl<T: Config> Rotator<T> {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
 		}
 
-		Eras::<T>::set_validators_reward(ending_era.index, allocation.staker_rewards);
+		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
 
 		Eras::<T>::set_validator_incentive_allocation(
 			ending_era.index,

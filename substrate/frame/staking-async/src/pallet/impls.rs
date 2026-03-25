@@ -357,7 +357,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// Note: if era has no reward to be claimed, era may be future.
-		let era_payout = Eras::<T>::get_validators_reward(era).ok_or_else(|| {
+		let era_payout = Eras::<T>::get_stakers_reward(era).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
