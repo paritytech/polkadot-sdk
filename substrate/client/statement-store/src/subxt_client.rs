@@ -38,6 +38,7 @@ use subxt::{
 	ext::frame_decode,
 };
 
+/// Wrapper around `VerifySignature` that matches the runtime's `VerifyMultiSignature` name
 pub struct VerifyMultiSignature<T: Config>(VerifySignature<T>);
 
 impl<T: Config> frame_decode::extrinsics::TransactionExtension<PortableRegistry>

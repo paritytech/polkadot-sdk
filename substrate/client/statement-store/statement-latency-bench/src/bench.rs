@@ -365,22 +365,6 @@ async fn wait_for_sync_time() {
 	info!("Sync time reached, starting benchmark");
 }
 
-async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
-	let mut clients = Vec::with_capacity(endpoints.len());
-
-	for endpoint in endpoints {
-		let client = WsClientBuilder::default()
-			.max_concurrent_requests(10000)
-			.build(endpoint)
-			.await
-			.with_context(|| format!("Failed to connect to {endpoint}"))?;
-		clients.push(Arc::new(client));
-		debug!("Connected to {}", endpoint);
-	}
-
-	Ok(clients)
-}
-
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -448,6 +432,22 @@ fn log_configuration(args: &Args, messages_pattern: &[(usize, usize)]) {
 		.collect::<Vec<_>>()
 		.join(", ");
 	info!("Starting Statement Store Latency Benchmark: endpoints=[{endpoints}] clients={} rounds={} interval={}ms pattern=[{pattern_str}]", args.num_clients, args.num_rounds, args.interval_ms);
+}
+
+async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
+	let mut clients = Vec::with_capacity(endpoints.len());
+
+	for endpoint in endpoints {
+		let client = WsClientBuilder::default()
+			.max_concurrent_requests(10000)
+			.build(endpoint)
+			.await
+			.with_context(|| format!("Failed to connect to {endpoint}"))?;
+		clients.push(Arc::new(client));
+		debug!("Connected to {}", endpoint);
+	}
+
+	Ok(clients)
 }
 
 async fn collect_results(
