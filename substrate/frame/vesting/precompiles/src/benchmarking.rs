@@ -25,7 +25,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{
-	Vesting, VestingBalance,
+	IVesting, Vesting, VestingBalance,
 	pallet::{Config, Pallet},
 };
 use alloy_core::sol_types::SolValue;
@@ -35,7 +35,6 @@ use pallet_revive::{
 	AddressMapper,
 	precompiles::{Precompile, U256},
 };
-use crate::IVesting;
 use sp_runtime::traits::Zero;
 
 type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;

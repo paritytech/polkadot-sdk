@@ -22,16 +22,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use frame_support::{
-	dispatch::GetDispatchInfo,
-	traits::VestingSchedule,
-};
-use weights::WeightInfo as _;
+use frame_support::{dispatch::GetDispatchInfo, traits::VestingSchedule};
 use pallet_revive::{
 	Config,
 	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
 };
 use sp_runtime::traits::StaticLookup;
+use weights::WeightInfo as _;
 
 alloy_core::sol!("IVesting.sol");
 
@@ -175,10 +172,9 @@ where
 					})?
 					.clone();
 
-				env.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::Precompile(
-						<T as pallet::Config>::WeightInfo::vesting_balance(),
-					))?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
+					<T as pallet::Config>::WeightInfo::vesting_balance(),
+				))?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
@@ -191,10 +187,9 @@ where
 			IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall { target }) => {
 				let account_id = env.to_account_id(&H160::from_slice(target.as_slice()));
 
-				env.frame_meter_mut()
-					.charge_weight_token(RuntimeCosts::Precompile(
-						<T as pallet::Config>::WeightInfo::vesting_balance_of(),
-					))?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
+					<T as pallet::Config>::WeightInfo::vesting_balance_of(),
+				))?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(

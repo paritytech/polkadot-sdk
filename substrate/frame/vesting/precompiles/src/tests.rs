@@ -17,14 +17,13 @@
 
 //! Unit tests for the vesting precompile.
 
-use crate::{Vesting, VestingBalance, mock::*};
+use crate::{IVesting, Vesting, VestingBalance, mock::*};
 use alloy_core::sol_types::SolValue;
 use frame_support::traits::{Currency, VestingSchedule};
 use pallet_revive::{
 	AddressMapper,
 	precompiles::{Error, Precompile, U256},
 };
-use crate::IVesting;
 
 type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;
 
