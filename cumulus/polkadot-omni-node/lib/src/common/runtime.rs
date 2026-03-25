@@ -258,7 +258,6 @@ impl MetadataInspector {
 			}
 		}
 
-
 		None
 	}
 
@@ -268,8 +267,8 @@ impl MetadataInspector {
 		let segments = &portable_type.path.segments;
 
 		// Check if the type path contains sr25519 or ed25519.
-		// Since this is called from an Aura context (AuthorityId associated type or Authorities storage),
-		// we look for the signature of the algorithm in the type path.
+		// Since this is called from an Aura context (AuthorityId associated type or Authorities
+		// storage), we look for the signature of the algorithm in the type path.
 		let is_sr25519 = segments.iter().any(|s| s == "sr25519");
 		let is_ed25519 = segments.iter().any(|s| s == "ed25519");
 
@@ -305,17 +304,20 @@ impl MetadataInspector {
 	}
 
 	fn fetch_metadata_from_bytes(mut encoded: &[u8]) -> Result<(Metadata, u32), sc_cli::Error> {
-		let prefixed = RuntimeMetadataPrefixed::decode(&mut encoded)
-			.map_err(|e| sc_cli::Error::Input(format!("failed to decode prefixed metadata: {e}").into()))?;
+		let prefixed = RuntimeMetadataPrefixed::decode(&mut encoded).map_err(|e| {
+			sc_cli::Error::Input(format!("failed to decode prefixed metadata: {e}").into())
+		})?;
 
 		let version = prefixed.1.version();
 
 		// Transform into subxt-metadata.
 		// subxt-metadata doesn't directly implement TryFrom<RuntimeMetadata>, so we decode it again
-		// as subxt-metadata. This is "cleaner" because we use a robust metadata versioning check first.
+		// as subxt-metadata. This is "cleaner" because we use a robust metadata versioning check
+		// first.
 		let encoded = prefixed.1.encode();
-		let metadata = Metadata::decode(&mut &encoded[..])
-			.map_err(|e| sc_cli::Error::Input(format!("failed to decode subxt metadata: {e}").into()))?;
+		let metadata = Metadata::decode(&mut &encoded[..]).map_err(|e| {
+			sc_cli::Error::Input(format!("failed to decode subxt metadata: {e}").into())
+		})?;
 
 		Ok((metadata, version))
 	}
@@ -341,7 +343,8 @@ mod tests {
 		)
 		.unwrap();
 		let mut encoded = (*opaque_metadata).as_slice();
-		let (metadata, version) = MetadataInspector::fetch_metadata_from_bytes(&mut encoded).unwrap();
+		let (metadata, version) =
+			MetadataInspector::fetch_metadata_from_bytes(&mut encoded).unwrap();
 		MetadataInspector { metadata, version }
 	}
 
