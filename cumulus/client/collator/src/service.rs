@@ -36,7 +36,7 @@ use polkadot_node_primitives::{
 use codec::Encode;
 use futures::channel::oneshot;
 use parking_lot::Mutex;
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
@@ -248,7 +248,7 @@ where
 
 		let mut api_version = 0;
 		let mut upward_messages = Vec::new();
-		let mut upward_message_signals = HashSet::<Vec<u8>>::with_capacity(4);
+		let mut upward_message_signals = Vec::<Vec<u8>>::with_capacity(4);
 		let mut horizontal_messages = Vec::new();
 		let mut new_validation_code = None;
 		let mut processed_downward_messages = 0;
@@ -284,7 +284,11 @@ where
 			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
 
 			upward_messages.extend(messages);
-			upward_message_signals.extend(signals.into_iter());
+			signals.into_iter().for_each(|s| {
+				if upward_message_signals.iter().all(|existing| *existing != s) {
+					upward_message_signals.push(s);
+				}
+			});
 			horizontal_messages.extend(collation_info.horizontal_messages);
 			if let Some(new_code) = collation_info.new_validation_code {
 				if new_validation_code.replace(new_code).is_some() {

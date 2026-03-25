@@ -10,7 +10,7 @@ crates:
 - name: frame-support
   bump: patch
 - name: sp-trie
-  bump: patch
+  bump: minor
 - name: frame-system
   bump: patch
 - name: sc-block-builder
@@ -20,7 +20,7 @@ crates:
 - name: sc-consensus
   bump: patch
 - name: sp-consensus-slots
-  bump: patch
+  bump: minor
 - name: cumulus-primitives-core
   bump: major
 - name: cumulus-pallet-parachain-system
@@ -32,7 +32,7 @@ crates:
 - name: cumulus-client-consensus-common
   bump: major
 - name: polkadot-node-subsystem-util
-  bump: patch
+  bump: minor
 - name: sc-basic-authorship
   bump: patch
 - name: cumulus-client-consensus-aura
@@ -52,4 +52,4 @@ crates:
 - name: penpal-runtime
   bump: patch
 - name: polkadot-sdk
-  bump: patch
+  bump: minor
