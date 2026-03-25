@@ -37,7 +37,7 @@ use pallet_revive::{
 	},
 	AccountId32Mapper,
 };
-use pallet_revive_precompile_vesting::Vesting as VestingPrecompile;
+use pallet_vesting_precompile::Vesting as VestingPrecompile;
 use pallet_transaction_payment::{ConstFeeMultiplier, FeeDetails, Multiplier, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{

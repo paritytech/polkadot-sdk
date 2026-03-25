@@ -1,12 +1,12 @@
 [package]
-name = "pallet-revive-precompile-vesting"
+name = "pallet-vesting-precompile"
 version = "0.1.0"
 authors.workspace = true
 edition = "2024"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Vesting precompile for pallet-revive."
+description = "Vesting precompile exposing pallet-vesting to EVM contracts via pallet-revive."
 
 [lints]
 workspace = true

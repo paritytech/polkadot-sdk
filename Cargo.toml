@@ -422,7 +422,6 @@ members = [
 	"substrate/frame/revive/dev-node/node",
 	"substrate/frame/revive/dev-node/runtime",
 	"substrate/frame/revive/fixtures",
-	"substrate/frame/revive/precompiles",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
 	"substrate/frame/revive/uapi",
@@ -480,6 +479,7 @@ members = [
 	"substrate/frame/utility",
 	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
+	"substrate/frame/vesting/precompiles",
 	"substrate/frame/whitelist",
 	"substrate/primitives/api",
 	"substrate/primitives/api/proc-macro",
@@ -1047,7 +1047,6 @@ pallet-remark = { default-features = false, path = "substrate/frame/remark" }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-eth-rpc = { path = "substrate/frame/revive/rpc", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
-pallet-revive-precompile-vesting = { path = "substrate/frame/revive/precompiles", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
 pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-revive-ui-tests = { path = "substrate/frame/revive/ui-tests", default-features = false }
@@ -1093,6 +1092,7 @@ pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
+pallet-vesting-precompile = { path = "substrate/frame/vesting/precompiles", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }

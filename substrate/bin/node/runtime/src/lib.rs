@@ -89,7 +89,7 @@ use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
-use pallet_revive_precompile_vesting::Vesting as VestingPrecompile;
+use pallet_vesting_precompile::Vesting as VestingPrecompile;
 use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};

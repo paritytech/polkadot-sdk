@@ -11,7 +11,7 @@ edition.workspace = true
 [dependencies]
 array-bytes = { workspace = true }
 codec = { workspace = true }
-pallet-revive-precompile-vesting = { workspace = true }
+pallet-vesting-precompile = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
 	"pallet-balances",
 	"pallet-revive",
@@ -37,7 +37,7 @@ polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-
 default = ["std"]
 std = [
 	"codec/std",
-	"pallet-revive-precompile-vesting/std",
+	"pallet-vesting-precompile/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",

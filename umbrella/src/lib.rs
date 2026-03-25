@@ -644,10 +644,6 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
-/// Vesting precompile for pallet-revive.
-#[cfg(feature = "pallet-revive-precompile-vesting")]
-pub use pallet_revive_precompile_vesting;
-
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
@@ -790,6 +786,10 @@ pub use pallet_verify_signature;
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
+
+/// Vesting precompile exposing pallet-vesting to EVM contracts via pallet-revive.
+#[cfg(feature = "pallet-vesting-precompile")]
+pub use pallet_vesting_precompile;
 
 /// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]

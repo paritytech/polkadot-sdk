@@ -134,7 +134,6 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
-	"pallet-revive-precompile-vesting?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
@@ -167,6 +166,7 @@ std = [
 	"pallet-utility?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting?/std",
+	"pallet-vesting-precompile?/std",
 	"pallet-whitelist?/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router?/std",
@@ -326,7 +326,6 @@ runtime-benchmarks = [
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
-	"pallet-revive-precompile-vesting?/runtime-benchmarks",
 	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
@@ -352,6 +351,7 @@ runtime-benchmarks = [
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
+	"pallet-vesting-precompile?/runtime-benchmarks",
 	"pallet-whitelist?/runtime-benchmarks",
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router?/runtime-benchmarks",
@@ -471,7 +471,6 @@ try-runtime = [
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
-	"pallet-revive-precompile-vesting?/try-runtime",
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
@@ -499,6 +498,7 @@ try-runtime = [
 	"pallet-utility?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting?/try-runtime",
+	"pallet-vesting-precompile?/try-runtime",
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
@@ -694,7 +694,6 @@ runtime-full = [
 	"pallet-referenda",
 	"pallet-remark",
 	"pallet-revive",
-	"pallet-revive-precompile-vesting",
 	"pallet-revive-proc-macro",
 	"pallet-revive-uapi",
 	"pallet-root-offences",
@@ -729,6 +728,7 @@ runtime-full = [
 	"pallet-utility",
 	"pallet-verify-signature",
 	"pallet-vesting",
+	"pallet-vesting-precompile",
 	"pallet-whitelist",
 	"pallet-xcm",
 	"pallet-xcm-benchmarks",
@@ -1675,11 +1675,6 @@ default-features = false
 optional = true
 path = "../substrate/frame/revive"
 
-[dependencies.pallet-revive-precompile-vesting]
-default-features = false
-optional = true
-path = "../substrate/frame/revive/precompiles"
-
 [dependencies.pallet-revive-proc-macro]
 default-features = false
 optional = true
@@ -1849,6 +1844,11 @@ path = "../substrate/frame/verify-signature"
 default-features = false
 optional = true
 path = "../substrate/frame/vesting"
+
+[dependencies.pallet-vesting-precompile]
+default-features = false
+optional = true
+path = "../substrate/frame/vesting/precompiles"
 
 [dependencies.pallet-whitelist]
 default-features = false
