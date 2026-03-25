@@ -428,10 +428,8 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		make_all_reward_payment(2);
 
 		// THEN: Pot is depleted and total matches expected
-		let pot_account = <Test as Config>::EraPots::era_pot_account(
-			2,
-			EraPotType::ValidatorSelfStake,
-		);
+		let pot_account =
+			<Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
 		let remaining = Balances::free_balance(&pot_account);
 		assert_eq!(remaining, 0, "Pot should be empty, has {}", remaining);
 

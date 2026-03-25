@@ -287,10 +287,8 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		// Verify eras 79-81 staker pots were funded with expected amount.
 		let expected_per_era = validator_payout_for(time_per_era());
 		for era in 79..=81 {
-			let staker_pot = <Test as Config>::EraPots::era_pot_account(
-				era,
-				EraPotType::StakerRewards,
-			);
+			let staker_pot =
+				<Test as Config>::EraPots::era_pot_account(era, EraPotType::StakerRewards);
 			assert_eq!(
 				Balances::balance(&staker_pot),
 				expected_per_era,
@@ -538,8 +536,7 @@ fn era_pot_cleanup_after_history_depth() {
 		let _ = staking_events_since_last_call();
 
 		// Verify era-1 staker pot was funded with expected amount.
-		let staker_pot_1 =
-			<Test as Config>::EraPots::era_pot_account(1, EraPotType::StakerRewards);
+		let staker_pot_1 = <Test as Config>::EraPots::era_pot_account(1, EraPotType::StakerRewards);
 		let expected_per_era = validator_payout_for(time_per_era());
 		assert_eq!(Balances::balance(&staker_pot_1), expected_per_era);
 
@@ -555,14 +552,10 @@ fn era_pot_cleanup_after_history_depth() {
 		// Verify rewards were allocated for the eras we advanced through.
 
 		// THEN: Verify era-1 pots have been cleaned up
-		let staker_pot = <Test as Config>::EraPots::era_pot_account(
-			cleanup_era,
-			EraPotType::StakerRewards,
-		);
-		let validator_pot = <Test as Config>::EraPots::era_pot_account(
-			cleanup_era,
-			EraPotType::ValidatorSelfStake,
-		);
+		let staker_pot =
+			<Test as Config>::EraPots::era_pot_account(cleanup_era, EraPotType::StakerRewards);
+		let validator_pot =
+			<Test as Config>::EraPots::era_pot_account(cleanup_era, EraPotType::ValidatorSelfStake);
 
 		assert_eq!(Balances::balance(&staker_pot), 0, "Staker pot should have zero balance");
 		assert_eq!(Balances::balance(&validator_pot), 0, "Validator pot should have zero balance");

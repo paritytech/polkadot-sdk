@@ -200,8 +200,7 @@ impl<T: Config> EraRewardManager<T> {
 	///
 	/// Returns true if the pot exists (has providers), false otherwise.
 	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
-		let staker_rewards_pot =
-			T::EraPots::era_pot_account(era, EraPotType::StakerRewards);
+		let staker_rewards_pot = T::EraPots::era_pot_account(era, EraPotType::StakerRewards);
 		frame_system::Pallet::<T>::providers(&staker_rewards_pot) > 0
 	}
 
