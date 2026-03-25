@@ -239,13 +239,15 @@ pub mod pallet {
 				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
 			}
 
-			// Validate sum == 100%. Use deconstruct() to avoid saturating_add capping at
-			// one().
-			let total_parts: u32 = new_allocations
+			// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed Perbills.
+			let total_parts: u64 = new_allocations
 				.values()
-				.map(|p| p.deconstruct())
-				.fold(0u32, |acc, p| acc.saturating_add(p));
-			ensure!(total_parts == Perbill::one().deconstruct(), Error::<T>::BudgetNotExact);
+				.map(|p| p.deconstruct() as u64)
+				.sum();
+			ensure!(
+				total_parts == Perbill::one().deconstruct() as u64,
+				Error::<T>::BudgetNotExact
+			);
 
 			BudgetAllocation::<T>::put(new_allocations.clone());
 			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
