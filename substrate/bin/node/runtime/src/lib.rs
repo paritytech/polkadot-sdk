@@ -1574,6 +1574,10 @@ impl pallet_revive::Config for Runtime {
 	type OnBurn = ();
 }
 
+impl pallet_vesting_precompile::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompile::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -2896,6 +2900,9 @@ mod runtime {
 
 	#[runtime::pallet_index(92)]
 	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(93)]
+	pub type VestingPrecompiles = pallet_vesting_precompile::pallet::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3174,6 +3181,7 @@ mod benches {
 		[pallet_mmr, Mmr]
 		[pallet_multi_asset_bounties, MultiAssetBounties]
 		[pallet_assets_precompiles, AssetsPrecompiles]
+		[pallet_vesting_precompile, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]

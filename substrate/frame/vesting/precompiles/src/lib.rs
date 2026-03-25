@@ -28,7 +28,6 @@ use pallet_revive::{
 	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
 };
 use sp_runtime::traits::StaticLookup;
-use weights::WeightInfo as _;
 
 alloy_core::sol!("IVesting.sol");
 
