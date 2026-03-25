@@ -22,25 +22,32 @@
 #![recursion_limit = "256"]
 
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
 use futures::{
+	channel::oneshot,
 	stream::{FusedStream, StreamExt},
 	FutureExt, TryFutureExt,
 };
 
+use polkadot_node_subsystem::CollatorProtocolSenderTrait;
 use polkadot_node_subsystem_util::{database::Database, reputation::ReputationAggregator};
+use sp_consensus_babe::digests::CompatibleDigestItem;
+use sp_core::H256;
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
 	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
-use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, SpawnedSubsystem};
-use polkadot_primitives::CollatorPair;
+use polkadot_node_subsystem::{
+	errors::SubsystemError, messages::ChainApiMessage, overseer, DummySubsystem, SpawnedSubsystem,
+};
+use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
+use sp_consensus_slots::SlotDuration;
 pub use validator_side_experimental::ReputationConfig;
 
 mod collator_side;
@@ -205,4 +212,49 @@ fn tick_stream(period: Duration) -> impl FusedStream<Item = ()> {
 		Some(((), wait_until_next_tick(next_check, period).await))
 	})
 	.fuse()
+}
+
+/// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
+/// Stores the leaf's BABE slot and parent hash so the validator can determine whether
+/// the scheduling parent corresponds to the last finished relay chain slot.
+struct LeafSchedulingInfo {
+	/// The parent hash of the leaf block.
+	parent_hash: Hash,
+	/// The BABE slot of the leaf block.
+	slot: sp_consensus_slots::Slot,
+}
+
+pub(crate) async fn extract_leaf_scheduling_info<Sender: CollatorProtocolSenderTrait>(
+	sender: &mut Sender,
+	leaf: H256,
+) -> Option<LeafSchedulingInfo> {
+	// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
+	// Without this info, V3 advertisements referencing this leaf will be rejected.
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(leaf, tx)).await;
+	let header = rx.await.ok().and_then(|r| r.ok().flatten());
+	header.and_then(|header| {
+		let slot = header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())?.slot();
+		Some(LeafSchedulingInfo { parent_hash: header.parent_hash, slot })
+	})
+}
+
+pub(crate) fn is_scheduling_parent_valid(
+	scheduling_parent: &Hash,
+	leaf_scheduling_info: &HashMap<Hash, LeafSchedulingInfo>,
+) -> bool {
+	let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
+	let current_slot =
+		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {
+		// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
+		// the previous slot.
+		*current_slot == *info.slot + 1
+	} else {
+		// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
+		// any leaf whose slot is still in progress.
+		leaf_scheduling_info
+			.iter()
+			.any(|(_, info)| *current_slot == *info.slot && *scheduling_parent == info.parent_hash)
+	}
 }
