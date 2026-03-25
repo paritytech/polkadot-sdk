@@ -46,7 +46,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const DapPalletId: PalletId = crate::DAP_BUFFER_PALLET_ID;
 	pub const ExistentialDeposit: u64 = 10;
 }
 

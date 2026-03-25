@@ -236,6 +236,47 @@ fn verify_failure_path() {
 	});
 }
 
+// Check the burn failure path - when `burn_from` fails, `send` is never called,
+// no funds are restored, and `LastTransferBlock` is still updated.
+#[test]
+fn verify_burn_failure_path() {
+	new_test_ext(true).execute_with(|| {
+		reset_send_count();
+		reset_last_sent_amount();
+		System::set_block_number(1);
+
+		// Configure the burn to fail.
+		BURN_FAIL.with(|f| *f.borrow_mut() = true);
+
+		let funds = 50;
+		let sat = get_satellite_account();
+
+		fund_satellite_account(funds);
+
+		let balance_before = Balances::free_balance(sat);
+		let total_before = Balances::total_issuance();
+
+		DapSatellitePallet::on_idle(7, Weight::from_all(u64::MAX));
+
+		// `send` was never reached — burn failed before that.
+		assert_eq!(get_send_count(), 0);
+		assert_eq!(get_last_sent_amount(), None);
+
+		// `LastTransferBlock` is updated even on burn failure.
+		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
+
+		// Satellite balance is unchanged — nothing was burned or restored.
+		assert_eq!(Balances::free_balance(sat), balance_before);
+		assert_eq!(Balances::total_issuance(), total_before);
+
+		// The same `SendFailed` event is emitted regardless of which internal step failed.
+		System::assert_has_event(Event::<Test>::SendFailed { amount: funds }.into());
+
+		// Reset the failure flag for other tests.
+		BURN_FAIL.with(|f| *f.borrow_mut() = false);
+	});
+}
+
 // Verify that `on_idle` exits immediately and consumes no weight when the budget
 // is too small for even the first storage read (LastTransferBlock).
 #[test]

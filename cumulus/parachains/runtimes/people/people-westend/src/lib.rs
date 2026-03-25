@@ -606,7 +606,7 @@ parameter_types! {
 		use sp_runtime::traits::AccountIdConversion;
 		Junction::AccountId32 {
 			network: None,
-			id: PalletId(*b"dap/buff").into_account_truncating(),
+			id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
 		}
 		.into()
 	};

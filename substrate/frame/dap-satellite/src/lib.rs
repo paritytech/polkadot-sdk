@@ -17,11 +17,11 @@
 
 //! # DAP Satellite Pallet
 //!
-//! Intercepts native token burns (transaction fees, dust removal, coretime revenue) on
-//! non-AssetHub chains and redirects them into a local buffer account for eventual transfer
-//! to the central DAP on AssetHub.
+//! Intercepts native token burns (transaction fees, dust removal, coretime revenue) on system
+//! parachains that do not have a central DAP and redirects them into a local buffer account for
+//! eventual transfer to the central DAP.
 //!
-//! Do NOT use on AssetHub (use `pallet-dap`).
+//! Important: The system chain(s) that employ a central DAP must use `pallet-dap`instead!
 //!
 //! ## Usage
 //!
@@ -41,8 +41,8 @@
 //!
 //! ## Total Issuance
 //!
-//! Satellite funds are burnt when sent via XCM (reducing `total_issuance` there) and the same
-//! funds are minted in the AssetHub DAP buffer when the XCM message is received.
+//! Satellite funds are burnt upon sending (reducing `total_issuance` there) and the same
+//! funds are minted in the central DAP when the sent message is received.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -65,19 +65,24 @@ use sp_runtime::{Percent, Saturating};
 
 pub use pallet::*;
 
-/// Trait for dispatching the XCM transfer to the DAP buffer on AssetHub.
+/// The [`PalletId`] of the central DAP account.
+///
+/// Must match [`pallet_dap::DAP_BUFFER_PALLET_ID`].
+pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
+
+/// Trait for dispatching the transfer to the central DAP.
 ///
 /// The pallet burns tokens from the satellite account before calling [`SendToDap::send`].
-/// Implementations should construct and dispatch the appropriate XCM message for `amount`
+/// Implementations should construct and dispatch the appropriate message for `amount`
 /// tokens. On error, the pallet restores the burned tokens via `mint_into`.
 pub trait SendToDap<Balance> {
 	/// The error type returned when sending fails. Must implement [`core::fmt::Debug`] so the
 	/// pallet can log the failure reason.
 	type Error: core::fmt::Debug;
 
-	/// Send `amount` (already burned from the satellite account) to the DAP buffer via XCM.
+	/// Send `amount` (already burned from the satellite account) to the central DAP.
 	///
-	/// Returns `Ok(())` if the message was successfully enqueued, `Err(Self::Error)` otherwise.
+	/// Returns `Ok(())` if the message was successfully sent, `Err(Self::Error)` otherwise.
 	fn send(amount: Balance) -> Result<(), Self::Error>;
 }
 
@@ -95,7 +100,7 @@ pub mod pallet {
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
-		frame_support::traits::StorageVersion::new(1);
+		frame_support::traits::StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -112,13 +117,13 @@ pub mod pallet {
 		/// The pallet ID used to derive the satellite account.
 		type PalletId: Get<PalletId>;
 
-		/// The implementation responsible for sending accumulated funds to the DAP buffer
-		/// on AssetHub via XCM. All XCM construction and dispatch logic lives here,
-		/// keeping this pallet free of XCM dependencies.
+		/// The implementation responsible for sending accumulated funds to the central DAP.
+		/// Message construction and dispatch logic lives here, keeping this pallet free of
+		/// message-related dependencies.
 		type SendToDap: super::SendToDap<BalanceOf<Self>>;
 
-		/// Minimum number of blocks between successive XCM transfers to AssetHub.
-		/// Acts as a rate limiter to avoid sending too many XCM messages.
+		/// Minimum number of blocks between successive transfers to the central DAP.
+		/// Acts as a rate limiter to avoid sending too many messages.
 		#[pallet::constant]
 		type TransferPeriod: Get<BlockNumberFor<Self>>;
 
@@ -132,14 +137,14 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Successfully sent funds to the AssetHub DAP buffer via XCM.
+		/// Successfully sent funds to the central DAP.
 		SendSucceeded { amount: BalanceOf<T> },
-		/// Failed to send funds via XCM. They will remain in the satellite account
+		/// Failed to send funds. They will remain in the satellite account
 		/// and sending will be retried after the next `TransferPeriod`.
 		SendFailed { amount: BalanceOf<T> },
 	}
 
-	/// The block at which the last XCM transfer to the AssetHub DAP was made. This is set to
+	/// The block at which the last funds transfer to the central DAP was made. This is set to
 	/// `None` if no transfer has been dispatched yet. Use `OptionQuery` to distinguish between
 	/// "never transferred" (None) and "transferred at block 0" (Some(0)).
 	#[pallet::storage]
@@ -182,7 +187,7 @@ pub mod pallet {
 			}
 			LastTransferBlock::<T>::put(block);
 
-			// Attempt the transfer to the central DAP buffer.
+			// Attempt the transfer to the central DAP.
 			match Self::do_send_to_central_dap(available_funds) {
 				Ok(()) => {
 					Self::deposit_event(Event::SendSucceeded { amount: available_funds });
@@ -209,14 +214,14 @@ pub mod pallet {
 	enum DoSendError {
 		/// Failed to burn tokens from the satellite account before sending.
 		BurnFailed,
-		/// The [`Config::SendToDap`] implementation failed to dispatch the XCM.
+		/// The [`Config::SendToDap`] implementation failed to send the message.
 		SendFailed,
 	}
 
 	impl<T: Config> Pallet<T> {
 		/// Get the satellite account derived from the pallet ID.
 		///
-		/// This account accumulates funds locally before they are sent to AssetHub.
+		/// This account accumulates funds locally before they are sent to the central DAP.
 		pub fn satellite_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
@@ -242,7 +247,7 @@ pub mod pallet {
 			T::SendToDap::send(amount).map_err(|e| {
 				log::warn!(
 					target: LOG_TARGET,
-					"DAP satellite XCM send of {:?} failed: {:?}",
+					"Failed to send funds (amount of {:?}) to DAP: {:?}",
 					amount,
 					e,
 				);
@@ -257,100 +262,8 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		/// Create the satellite account with a provider reference and fund it with ED.
-		///
-		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains). Safe to call multiple times - will early exit if account
-		/// already exists with sufficient balance.
-		pub fn create_satellite_account() {
-			let satellite = Self::satellite_account();
-			let ed = T::Currency::minimum_balance();
-
-			if frame_system::Pallet::<T>::providers(&satellite) > 0 &&
-				T::Currency::balance(&satellite) >= ed
-			{
-				log::debug!(
-					target: LOG_TARGET,
-					"DAP satellite account already initialized: {satellite:?}"
-				);
-				return;
-			}
-
-			// Ensure the account exists by incrementing its provider count.
-			frame_system::Pallet::<T>::inc_providers(&satellite);
-
-			// Fund the account with ED so it can receive deposits of any amount.
-			// Without this, deposits smaller than ED would fail.
-			log::info!(
-				target: LOG_TARGET,
-				"Attempting to mint ED ({ed:?}) into DAP satellite: {satellite:?}"
-			);
-
-			match T::Currency::mint_into(&satellite, ed) {
-				Ok(_) => {
-					log::info!(
-						target: LOG_TARGET,
-						"🛰️ Created DAP satellite account: {satellite:?}"
-					);
-				},
-				Err(e) => {
-					frame_support::defensive!("Failed to mint ED into DAP satellite: {:?}", e);
-				},
-			}
-		}
 	}
 
-	/// Genesis config for the DAP Satellite pallet.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		_phantom: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			// Create and fund the satellite account at genesis.
-			Pallet::<T>::create_satellite_account();
-		}
-	}
-}
-
-/// Migrations for the DAP Satellite pallet.
-pub mod migrations {
-	use super::*;
-
-	/// Version 1 migration.
-	pub mod v1 {
-		use super::*;
-
-		mod inner {
-			use super::*;
-			use frame_support::traits::UncheckedOnRuntimeUpgrade;
-
-			/// Inner migration that creates the satellite account.
-			pub struct InitSatelliteAccountInner<T>(core::marker::PhantomData<T>);
-
-			impl<T: Config> UncheckedOnRuntimeUpgrade for InitSatelliteAccountInner<T> {
-				fn on_runtime_upgrade() -> Weight {
-					Pallet::<T>::create_satellite_account();
-					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-					T::DbWeight::get().reads_writes(3, 3)
-				}
-			}
-		}
-
-		/// Migration to create the DAP satellite account (version 0 → 1).
-		pub type InitSatelliteAccount<T> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			inner::InitSatelliteAccountInner<T>,
-			Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
-	}
 }
 
 /// Type alias for credit (negative imbalance - funds that were removed).
@@ -412,8 +325,8 @@ where
 
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 ///
-/// Use this on system chains (not AssetHub) or Relay Chain to collect imbalances
-/// (e.g. coretime revenue, tx fees, dust removal) that would otherwise be burned.
+/// Use this on system chains that don't have a central DAP along with the Relay Chain to collect
+/// imbalances (e.g. coretime revenue, tx fees, dust removal) that would otherwise be burned.
 ///
 /// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
 /// for the old `Currency` trait is not provided because there are no active consumers: all pallets
@@ -441,7 +354,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	}
 }
 
-/// Implements [`SendToDap`] for a runtime via XCM teleport to AssetHub.
+/// Implements [`SendToDap`] for a runtime in order to allow transfers to the central DAP.
 ///
 /// Generates a `SendToDapError` enum and the `SendToDap<Balance>` impl for the given `$runtime`.
 ///
@@ -450,7 +363,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 /// - `$runtime`: The runtime type (e.g. `Runtime`).
 /// - `$asset_transactor`: Type implementing `xcm_executor::traits::TransactAsset`.
 /// - `$xcm_router`: Type implementing `xcm::prelude::SendXcm`.
-/// - `$dest`: Expression returning the [`xcm::prelude::Location`] of AssetHub.
+/// - `$dest`: Expression returning the [`xcm::prelude::Location`] of the central DAP.
 /// - `$native_asset`: Expression returning the [`xcm::prelude::Location`] of the native token.
 ///
 /// # Requirements:
@@ -458,18 +371,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 /// The following must be in scope at the call site:
 /// - `Balance`: the chain's native balance type.
 /// - `DapBufferLocation`: a `parameter_types!`-generated type whose `get()` returns the
-///   [`xcm::prelude::InteriorLocation`] of the DAP buffer account on AssetHub.
-///
-/// # Example:
-///
-/// ```ignore
-/// pallet_dap_satellite::impl_send_to_dap_via_xcm!(
-///     Runtime,
-///     xcm_config::FungibleTransactor,
-///     xcm_config::XcmRouter,
-///     testnet_parachains_constants::westend::locations::AssetHubLocation::get(),
-///     xcm_config::TokenRelayLocation::get(),
-/// );
+///   [`xcm::prelude::InteriorLocation`] of the central DAP account.
 /// ```
 #[macro_export]
 macro_rules! impl_send_to_dap_via_xcm {

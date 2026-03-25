@@ -1752,7 +1752,7 @@ parameter_types! {
 	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
 	pub DapBufferLocation: InteriorLocation = Junction::AccountId32 {
 		network: None,
-		id: PalletId(*b"dap/buff").into_account_truncating(),
+		id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
 	}
 	.into();
 	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
