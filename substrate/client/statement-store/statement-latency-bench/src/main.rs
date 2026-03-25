@@ -61,6 +61,78 @@ use subxt::{
 use subxt_signer::{sr25519::Keypair as SubxtKeypair, SecretUri};
 use tokio::{sync::Barrier, time::timeout};
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum Scenario {
+	/// Use custom CLI arguments (backward-compatible default)
+	Custom,
+	/// Sustained peak rate (~125 stmts/sec) for throughput validation
+	Throughput,
+	/// High-volume test pushing 1M statements for capacity stress
+	Volume,
+	/// Viral burst: 120K statements with periodic spikes
+	Burst,
+	/// Full event simulation with mixed message sizes and workloads
+	Event,
+	/// Near-limit capacity test pushing ~3.8M statements (95% of 4M max)
+	CapacityMax,
+}
+
+struct ScenarioParams {
+	num_clients: u32,
+	messages_pattern: String,
+	num_rounds: usize,
+	interval_ms: u64,
+	receive_timeout_ms: u64,
+	statement_expiry_ms: u64,
+}
+
+/// Returns preset parameters for a given scenario, or None for Custom.
+fn resolve_scenario(scenario: &Scenario) -> Option<ScenarioParams> {
+	match scenario {
+		Scenario::Custom => None,
+		Scenario::Throughput => Some(ScenarioParams {
+			num_clients: 500,
+			messages_pattern: "1:384".to_string(),
+			num_rounds: 30,
+			interval_ms: 4_000,
+			receive_timeout_ms: 10_000,
+			statement_expiry_ms: 600_000,
+		}),
+		Scenario::Volume => Some(ScenarioParams {
+			num_clients: 2000,
+			messages_pattern: "50:192".to_string(),
+			num_rounds: 10,
+			interval_ms: 30_000,
+			receive_timeout_ms: 30_000,
+			statement_expiry_ms: 1_800_000,
+		}),
+		Scenario::Burst => Some(ScenarioParams {
+			num_clients: 200,
+			messages_pattern: "5:1024".to_string(),
+			num_rounds: 120,
+			interval_ms: 8_000,
+			receive_timeout_ms: 15_000,
+			statement_expiry_ms: 600_000,
+		}),
+		Scenario::Event => Some(ScenarioParams {
+			num_clients: 1000,
+			messages_pattern: "3:384,1:1024,1:128".to_string(),
+			num_rounds: 120,
+			interval_ms: 40_000,
+			receive_timeout_ms: 30_000,
+			statement_expiry_ms: 3_600_000,
+		}),
+		Scenario::CapacityMax => Some(ScenarioParams {
+			num_clients: 2000,
+			messages_pattern: "100:192".to_string(),
+			num_rounds: 19,
+			interval_ms: 30_000,
+			receive_timeout_ms: 60_000,
+			statement_expiry_ms: 1_800_000,
+		}),
+	}
+}
+
 pub struct VerifyMultiSignature<T: Config>(VerifySignatureDetails<T>);
 
 impl<T: Config> ExtrinsicParams<T> for VerifyMultiSignature<T> {
@@ -250,6 +322,31 @@ struct Args {
 	/// Number of accounts per allowance-setting transaction (default: 100).
 	#[arg(long, default_value = "100")]
 	allowance_batch_size: u32,
+
+	/// Predefined scenario profile (overrides num-clients, messages-pattern, etc.)
+	#[arg(long, value_enum, default_value = "custom")]
+	scenario: Scenario,
+
+	/// Path to write JSON benchmark report.
+	#[arg(long)]
+	report_json: Option<String>,
+
+	/// Maximum acceptable full latency in seconds. Exceeding this fails the benchmark
+	#[arg(long)]
+	max_latency_secs: Option<f64>,
+
+	/// Minimum acceptable success rate (0.0 to 1.0). Below this fails the benchmark
+	#[arg(long)]
+	min_success_rate: Option<f64>,
+
+	/// Minimum acceptable throughput in statements per second
+	#[arg(long)]
+	min_throughput: Option<f64>,
+
+	/// Delay in seconds before starting the benchmark. Allows expired statements to be cleaned
+	/// up.
+	#[arg(long, default_value_t = 0)]
+	warmup_delay_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -300,6 +397,166 @@ fn calc_stats(values: impl Iterator<Item = f64>) -> Stats {
 	let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 	let avg = values.iter().sum::<f64>() / values.len() as f64;
 	Stats { min, avg, max }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BenchmarkReport {
+	scenario: String,
+	started_at: String,
+	total_duration_secs: f64,
+	num_clients: u32,
+	num_rounds: usize,
+	total_sent: u64,
+	total_received: u64,
+	total_bytes_sent: u64,
+	success_rate: f64,
+	throughput_stmts_per_sec: f64,
+	throughput_bytes_per_sec: f64,
+	send_latency: Stats,
+	receive_latency: Stats,
+	full_latency: Stats,
+	rounds: Vec<RoundReport>,
+	passed: bool,
+	failures: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RoundReport {
+	round: usize,
+	total_sent: u64,
+	total_received: u64,
+	send_duration_secs: Stats,
+	receive_duration_secs: Stats,
+	full_latency_secs: Stats,
+	throughput_stmts_per_sec: f64,
+}
+
+/// Builds a BenchmarkReport from collected per-client RoundStats
+fn generate_report(
+	scenario_name: &str,
+	started_at: &str,
+	total_duration_secs: f64,
+	num_clients: u32,
+	num_rounds: usize,
+	messages_pattern: &[(usize, usize)],
+	all_round_stats: &[RoundStats],
+) -> BenchmarkReport {
+	let total_sent: u64 = all_round_stats.iter().map(|s| s.sent_count as u64).sum();
+	let total_received: u64 = all_round_stats.iter().map(|s| s.received_count as u64).sum();
+
+	// Calculate total bytes sent based on message pattern sizes.
+	let bytes_per_client: u64 =
+		messages_pattern.iter().map(|(count, size)| (*count as u64) * (*size as u64)).sum();
+	let total_bytes_sent = bytes_per_client * num_clients as u64 * num_rounds as u64;
+
+	let success_rate = if total_sent > 0 { total_received as f64 / total_sent as f64 } else { 0.0 };
+	let throughput_stmts = if total_duration_secs > 0.0 {
+		total_sent as f64 / total_duration_secs
+	} else {
+		0.0
+	};
+	let throughput_bytes = if total_duration_secs > 0.0 {
+		total_bytes_sent as f64 / total_duration_secs
+	} else {
+		0.0
+	};
+
+	// Aggregate per-round stats across all clients
+	let mut round_reports = Vec::new();
+	for round_num in 1..=num_rounds {
+		let round_data: Vec<&RoundStats> =
+			all_round_stats.iter().filter(|s| s.round == round_num).collect();
+		if round_data.is_empty() {
+			continue;
+		}
+
+		let round_sent: u64 = round_data.iter().map(|s| s.sent_count as u64).sum();
+		let round_received: u64 = round_data.iter().map(|s| s.received_count as u64).sum();
+
+		// Round throughput: total statements sent in this round / max full latency across clients.
+		let max_full_latency = round_data
+			.iter()
+			.map(|s| s.full_latency_secs)
+			.fold(0.0_f64, f64::max);
+
+		let round_throughput =
+			if max_full_latency > 0.0 { round_sent as f64 / max_full_latency } else { 0.0 };
+
+		round_reports.push(RoundReport {
+			round: round_num,
+			total_sent: round_sent,
+			total_received: round_received,
+			send_duration_secs: calc_stats(round_data.iter().map(|s| s.send_duration_secs)),
+			receive_duration_secs: calc_stats(round_data.iter().map(|s| s.receive_duration_secs)),
+			full_latency_secs: calc_stats(round_data.iter().map(|s| s.full_latency_secs)),
+			throughput_stmts_per_sec: round_throughput,
+		});
+	}
+
+	BenchmarkReport {
+		scenario: scenario_name.to_string(),
+		started_at: started_at.to_string(),
+		total_duration_secs,
+		num_clients,
+		num_rounds,
+		total_sent,
+		total_received,
+		total_bytes_sent,
+		success_rate,
+		throughput_stmts_per_sec: throughput_stmts,
+		throughput_bytes_per_sec: throughput_bytes,
+		send_latency: calc_stats(all_round_stats.iter().map(|s| s.send_duration_secs)),
+		receive_latency: calc_stats(all_round_stats.iter().map(|s| s.receive_duration_secs)),
+		full_latency: calc_stats(all_round_stats.iter().map(|s| s.full_latency_secs)),
+		rounds: round_reports,
+		passed: true,
+		failures: Vec::new(),
+	}
+}
+
+fn check_thresholds(
+	report: &mut BenchmarkReport,
+	max_latency_secs: Option<f64>,
+	min_success_rate: Option<f64>,
+	min_throughput: Option<f64>,
+) {
+	if let Some(max_lat) = max_latency_secs {
+		if report.full_latency.max > max_lat {
+			report.passed = false;
+			report.failures.push(format!(
+				"full latency {:.3}s exceeds max {:.3}s",
+				report.full_latency.max, max_lat
+			));
+		}
+	}
+
+	if let Some(min_sr) = min_success_rate {
+		if report.success_rate < min_sr {
+			report.passed = false;
+			report.failures.push(format!(
+				"success rate {:.4} below min {:.4}",
+				report.success_rate, min_sr
+			));
+		}
+	}
+
+	if let Some(min_tp) = min_throughput {
+		if report.throughput_stmts_per_sec < min_tp {
+			report.passed = false;
+			report.failures.push(format!(
+				"throughput {:.1} stmts/sec below min {:.1}",
+				report.throughput_stmts_per_sec, min_tp
+			));
+		}
+	}
+}
+
+fn write_json_report(report: &BenchmarkReport, path: &str) -> Result<(), anyhow::Error> {
+	let json = serde_json::to_string_pretty(report)
+		.with_context(|| "Failed to serialize benchmark report")?;
+	std::fs::write(path, json).with_context(|| format!("Failed to write report to {path}"))?;
+	info!("Benchmark report written to {path}");
+	Ok(())
 }
 
 fn is_leader(client_id: u32) -> bool {
@@ -674,11 +931,27 @@ async fn main() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	// Generate unique test run ID to avoid interference with old data
+	// Generate unique test run ID to avoid interference with old data.
 	let test_run_id: u64 = rand::random();
 
 	let args = Args::parse();
-	let messages_pattern = parse_messages_pattern(&args.messages_pattern)?;
+
+	// Resolve effective parameters: scenario presets override CLI args
+	let scenario_params = resolve_scenario(&args.scenario);
+	let scenario_name = format!("{:?}", args.scenario).to_lowercase();
+
+	let eff_num_clients = scenario_params.as_ref().map_or(args.num_clients, |p| p.num_clients);
+	let eff_messages_pattern_str = scenario_params
+		.as_ref()
+		.map_or(args.messages_pattern.clone(), |p| p.messages_pattern.clone());
+	let eff_num_rounds = scenario_params.as_ref().map_or(args.num_rounds, |p| p.num_rounds);
+	let eff_interval_ms = scenario_params.as_ref().map_or(args.interval_ms, |p| p.interval_ms);
+	let eff_receive_timeout_ms =
+		scenario_params.as_ref().map_or(args.receive_timeout_ms, |p| p.receive_timeout_ms);
+	let eff_statement_expiry_ms =
+		scenario_params.as_ref().map_or(args.statement_expiry_ms, |p| p.statement_expiry_ms);
+
+	let messages_pattern = parse_messages_pattern(&eff_messages_pattern_str)?;
 
 	if args.rpc_endpoints.is_empty() {
 		return Err(anyhow!(
@@ -686,10 +959,24 @@ async fn main() -> Result<(), anyhow::Error> {
 		));
 	}
 
-	log_configuration(&args, &messages_pattern);
+	log_effective_configuration(
+		&scenario_name,
+		&args.rpc_endpoints,
+		eff_num_clients,
+		eff_num_rounds,
+		eff_interval_ms,
+		&messages_pattern,
+	);
 
 	if !args.skip_sync {
 		wait_for_sync_time().await;
+	}
+
+	// Warmup delay: sleep to allow enforce_limits() to clear expired statements.
+	if args.warmup_delay_secs > 0 {
+		info!("Warmup delay: sleeping {}s before starting benchmark", args.warmup_delay_secs);
+		tokio::time::sleep(Duration::from_secs(args.warmup_delay_secs)).await;
+		info!("Warmup delay complete, proceeding with benchmark");
 	}
 
 	let rpc_clients = connect_to_endpoints(&args.rpc_endpoints).await?;
@@ -699,53 +986,147 @@ async fn main() -> Result<(), anyhow::Error> {
 			&args.rpc_endpoints[0],
 			&rpc_clients[0],
 			sudo_seed,
-			args.num_clients,
+			eff_num_clients,
 			args.allowance_batch_size,
 		)
 		.await?;
 	}
 
-	info!("Spawning {} client tasks... {}", args.num_clients, test_run_id);
-	let sync_start = std::time::Instant::now();
-	let barrier = Arc::new(Barrier::new(args.num_clients as usize));
+	let started_at = chrono_now_iso8601();
 
-	let handles: Vec<_> = (0..args.num_clients)
+	info!("Spawning {} client tasks... {}", eff_num_clients, test_run_id);
+	let benchmark_start = std::time::Instant::now();
+	let barrier = Arc::new(Barrier::new(eff_num_clients as usize));
+
+	let handles: Vec<_> = (0..eff_num_clients)
 		.map(|client_id| {
 			let config = ClientConfig {
 				client_id,
-				neighbour_id: (client_id + 1) % args.num_clients,
-				num_clients: args.num_clients,
-				num_rounds: args.num_rounds,
+				neighbour_id: (client_id + 1) % eff_num_clients,
+				num_clients: eff_num_clients,
+				num_rounds: eff_num_rounds,
 				test_run_id,
 				messages_pattern: messages_pattern.clone(),
-				receive_timeout_ms: args.receive_timeout_ms,
-				interval_ms: args.interval_ms,
-				statement_expiry_ms: args.statement_expiry_ms,
+				receive_timeout_ms: eff_receive_timeout_ms,
+				interval_ms: eff_interval_ms,
+				statement_expiry_ms: eff_statement_expiry_ms,
 			};
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);
 			let barrier = Arc::clone(&barrier);
 
-			tokio::spawn(run_client(config, rpc_client, barrier, sync_start))
+			tokio::spawn(run_client(config, rpc_client, barrier, benchmark_start))
 		})
 		.collect();
 
 	debug!("Waiting for all clients to complete...");
 
 	let all_round_stats = collect_results(handles).await?;
+	let total_duration_secs = benchmark_start.elapsed().as_secs_f64();
+
+	// Print backward-compatible statistics
 	print_statistics(&all_round_stats);
+
+	// Generate structured report.
+	let mut report = generate_report(
+		&scenario_name,
+		&started_at,
+		total_duration_secs,
+		eff_num_clients,
+		eff_num_rounds,
+		&messages_pattern,
+		&all_round_stats,
+	);
+
+	// Print throughput summary
+	info!(
+		"Throughput: {:.1} stmts/sec, {:.1} bytes/sec, success_rate={:.4}, duration={:.1}s",
+		report.throughput_stmts_per_sec,
+		report.throughput_bytes_per_sec,
+		report.success_rate,
+		report.total_duration_secs
+	);
+
+	// Evaluate pass/fail thresholds
+	check_thresholds(
+		&mut report,
+		args.max_latency_secs,
+		args.min_success_rate,
+		args.min_throughput,
+	);
+
+	if report.passed {
+		info!("Benchmark PASSED");
+	} else {
+		for failure in &report.failures {
+			warn!("Threshold violation: {failure}");
+		}
+		warn!("Benchmark FAILED");
+	}
+
+	// Write JSON report if requested.
+	if let Some(ref path) = args.report_json {
+		write_json_report(&report, path)?;
+	}
+
+	if !report.passed {
+		return Err(anyhow!("Benchmark failed threshold checks: {:?}", report.failures));
+	}
 
 	Ok(())
 }
 
-fn log_configuration(args: &Args, messages_pattern: &[(usize, usize)]) {
-	let endpoints = args.rpc_endpoints.join(", ");
+fn chrono_now_iso8601() -> String {
+	let duration = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap_or_default();
+	let secs = duration.as_secs();
+	let days = secs / 86400;
+	let day_secs = secs % 86400;
+	let hours = day_secs / 3600;
+	let minutes = (day_secs % 3600) / 60;
+	let seconds = day_secs % 60;
+
+	// Calculate year/month/day from days since epoch (1970-01-01)
+	let (year, month, day) = days_to_ymd(days);
+	format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
+}
+
+/// Converts days since Unix epoch to (year, month, day)
+fn days_to_ymd(days: u64) -> (u64, u64, u64) {
+	// Algorithm from http://howardhinnant.github.io/date_algorithms.html
+	let z = days + 719468;
+	let era = z / 146097;
+	let doe = z - era * 146097;
+	let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+	let y = yoe + era * 400;
+	let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+	let mp = (5 * doy + 2) / 153;
+	let d = doy - (153 * mp + 2) / 5 + 1;
+	let m = if mp < 10 { mp + 3 } else { mp - 9 };
+	let y = if m <= 2 { y + 1 } else { y };
+	(y, m, d)
+}
+
+fn log_effective_configuration(
+	scenario_name: &str,
+	rpc_endpoints: &[String],
+	num_clients: u32,
+	num_rounds: usize,
+	interval_ms: u64,
+	messages_pattern: &[(usize, usize)],
+) {
+	let endpoints = rpc_endpoints.join(", ");
 	let pattern_str = messages_pattern
 		.iter()
 		.map(|(count, size)| format!("{count}x{size}B"))
 		.collect::<Vec<_>>()
 		.join(", ");
-	info!("Starting Statement Store Latency Benchmark: endpoints=[{endpoints}] clients={} rounds={} interval={}ms pattern=[{pattern_str}]", args.num_clients, args.num_rounds, args.interval_ms);
+	let msgs_per_client = messages_per_client(messages_pattern);
+	let total_stmts = num_clients as u64 * msgs_per_client as u64 * num_rounds as u64;
+	info!(
+		"Starting Statement Store Latency Benchmark: scenario={scenario_name} endpoints=[{endpoints}] clients={num_clients} rounds={num_rounds} interval={interval_ms}ms pattern=[{pattern_str}] total_stmts={total_stmts}"
+	);
 }
 
 async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
@@ -790,4 +1171,154 @@ fn print_statistics(stats: &[RoundStats]) {
 		receive_stats.min, receive_stats.avg, receive_stats.max,
 		latency_stats.min, latency_stats.avg, latency_stats.max
 	);
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn make_round_stats(round: usize, sent: u32, received: u32, full_latency: f64) -> RoundStats {
+		RoundStats {
+			round,
+			sent_count: sent,
+			received_count: received,
+			send_duration_secs: full_latency * 0.3,
+			receive_duration_secs: full_latency * 0.7,
+			full_latency_secs: full_latency,
+		}
+	}
+
+	#[test]
+	fn test_parse_scenario_params() {
+		// Custom returns None (uses CLI args).
+		assert!(resolve_scenario(&Scenario::Custom).is_none());
+
+		// Non-custom scenarios return Some with expected values.
+		let throughput = resolve_scenario(&Scenario::Throughput).unwrap();
+		assert_eq!(throughput.num_clients, 500);
+		assert_eq!(throughput.messages_pattern, "1:384");
+		assert_eq!(throughput.num_rounds, 30);
+		assert_eq!(throughput.interval_ms, 4_000);
+
+		let volume = resolve_scenario(&Scenario::Volume).unwrap();
+		assert_eq!(volume.num_clients, 2000);
+		assert_eq!(volume.messages_pattern, "50:192");
+		assert_eq!(volume.num_rounds, 10);
+		assert_eq!(volume.statement_expiry_ms, 1_800_000);
+
+		let burst = resolve_scenario(&Scenario::Burst).unwrap();
+		assert_eq!(burst.num_clients, 200);
+		assert_eq!(burst.messages_pattern, "5:1024");
+		assert_eq!(burst.num_rounds, 120);
+
+		let event = resolve_scenario(&Scenario::Event).unwrap();
+		assert_eq!(event.num_clients, 1000);
+		assert_eq!(event.messages_pattern, "3:384,1:1024,1:128");
+		assert_eq!(event.num_rounds, 120);
+		assert_eq!(event.statement_expiry_ms, 3_600_000);
+
+		let cap_max = resolve_scenario(&Scenario::CapacityMax).unwrap();
+		assert_eq!(cap_max.num_clients, 2000);
+		assert_eq!(cap_max.messages_pattern, "100:192");
+		assert_eq!(cap_max.num_rounds, 19);
+	}
+
+	#[test]
+	fn test_generate_report() {
+		// Simulate 10 clients x 5 msgs(512B) x 2 rounds.
+		let pattern = vec![(5, 512)];
+		let mut stats = Vec::new();
+		for round in 1..=2 {
+			for _ in 0..10 {
+				stats.push(make_round_stats(round, 5, 5, 2.0));
+			}
+		}
+
+		let report = generate_report("test", "2025-01-01T00:00:00Z", 10.0, 10, 2, &pattern, &stats);
+
+		// 10 clients * 5 msgs * 2 rounds = 100 total sent.
+		assert_eq!(report.total_sent, 100);
+		assert_eq!(report.total_received, 100);
+		assert_eq!(report.total_bytes_sent, 10 * 5 * 512 * 2);
+		assert!((report.success_rate - 1.0).abs() < 1e-6);
+		assert!((report.throughput_stmts_per_sec - 10.0).abs() < 1e-6);
+		assert_eq!(report.rounds.len(), 2);
+		assert!(report.passed);
+		assert!(report.failures.is_empty());
+	}
+
+	#[test]
+	fn test_check_thresholds_pass() {
+		let pattern = vec![(5, 512)];
+		let stats: Vec<RoundStats> = (0..10).map(|_| make_round_stats(1, 5, 5, 2.0)).collect();
+
+		let mut report =
+			generate_report("test", "2025-01-01T00:00:00Z", 10.0, 10, 1, &pattern, &stats);
+
+		check_thresholds(&mut report, Some(5.0), Some(0.99), Some(1.0));
+		assert!(report.passed);
+		assert!(report.failures.is_empty());
+	}
+
+	#[test]
+	fn test_check_thresholds_fail_latency() {
+		let pattern = vec![(5, 512)];
+		let stats: Vec<RoundStats> = (0..10).map(|_| make_round_stats(1, 5, 5, 10.0)).collect();
+
+		let mut report =
+			generate_report("test", "2025-01-01T00:00:00Z", 10.0, 10, 1, &pattern, &stats);
+
+		// Max latency is 5s but actual max is 10s.
+		check_thresholds(&mut report, Some(5.0), None, None);
+		assert!(!report.passed);
+		assert_eq!(report.failures.len(), 1);
+		assert!(report.failures[0].contains("latency"));
+	}
+
+	#[test]
+	fn test_check_thresholds_fail_success_rate() {
+		let pattern = vec![(5, 512)];
+		// Only 3 out of 5 received.
+		let stats: Vec<RoundStats> = (0..10).map(|_| make_round_stats(1, 5, 3, 2.0)).collect();
+
+		let mut report =
+			generate_report("test", "2025-01-01T00:00:00Z", 10.0, 10, 1, &pattern, &stats);
+
+		check_thresholds(&mut report, None, Some(0.99), None);
+		assert!(!report.passed);
+		assert_eq!(report.failures.len(), 1);
+		assert!(report.failures[0].contains("success rate"));
+	}
+
+	#[test]
+	fn test_check_thresholds_fail_throughput() {
+		let pattern = vec![(5, 512)];
+		let stats: Vec<RoundStats> = (0..10).map(|_| make_round_stats(1, 5, 5, 2.0)).collect();
+
+		// 50 stmts in 10s = 5 stmts/sec. Require 100.
+		let mut report =
+			generate_report("test", "2025-01-01T00:00:00Z", 10.0, 10, 1, &pattern, &stats);
+
+		check_thresholds(&mut report, None, None, Some(100.0));
+		assert!(!report.passed);
+		assert_eq!(report.failures.len(), 1);
+		assert!(report.failures[0].contains("throughput"));
+	}
+
+	#[test]
+	fn test_backward_compat_custom_scenario() {
+		// Custom scenario returns None, so CLI args are used unchanged.
+		let params = resolve_scenario(&Scenario::Custom);
+		assert!(params.is_none());
+	}
+
+	#[test]
+	fn test_days_to_ymd() {
+		// 1970-01-01 = day 0.
+		assert_eq!(days_to_ymd(0), (1970, 1, 1));
+		// 2025-01-01 = day 20089.
+		assert_eq!(days_to_ymd(20089), (2025, 1, 1));
+		// 2000-02-29 (leap year) = day 11016.
+		assert_eq!(days_to_ymd(11016), (2000, 2, 29));
+	}
 }
