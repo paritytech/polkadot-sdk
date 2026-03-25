@@ -21,7 +21,10 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
-	deps::{sp_io::hashing::blake2_256, sp_runtime::traits::TrailingZeroInput},
+	deps::{
+		sp_io::hashing::blake2_256,
+		sp_runtime::traits::{One, TrailingZeroInput},
+	},
 	traits::BlockNumberProvider,
 };
 use frame_support::{
@@ -81,7 +84,9 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	pub threshold: u16,
 }
 
-impl<BlockNumber: Clone, Balance, Friends> RecoveryConfig<BlockNumber, Balance, Friends> {
+impl<BlockNumber: Clone + Ord + One, Balance, Friends>
+	RecoveryConfig<BlockNumber, Balance, Friends>
+{
 	/// Convert to a V1 `FriendGroup`.
 	pub fn into_v1_friend_group<AccountId>(
 		self,
@@ -93,7 +98,8 @@ impl<BlockNumber: Clone, Balance, Friends> RecoveryConfig<BlockNumber, Balance, 
 			inheritor,
 			inheritance_delay: self.delay_period.clone(),
 			inheritance_order: 0,
-			cancel_delay: self.delay_period, // kinda random
+			// At least one block delay to prevent mempool frontrunning
+			cancel_delay: self.delay_period.max(One::one()),
 		}
 	}
 }

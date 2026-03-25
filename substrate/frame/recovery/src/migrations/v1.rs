@@ -379,6 +379,18 @@ mod tests {
 			);
 			Balances::reserve(&BOB, config_deposit).unwrap();
 
+			// EVE has a zero delay period - should be clamped to 1
+			v0::Recoverable::<T>::insert(
+				EVE,
+				v0::RecoveryConfig {
+					delay_period: 0u64,
+					deposit: config_deposit,
+					friends: friends(&[ALICE, BOB]),
+					threshold: 1,
+				},
+			);
+			Balances::reserve(&EVE, config_deposit).unwrap();
+
 			// 2. Active recovery: CHARLIE trying to recover ALICE
 			v0::ActiveRecoveries::<T>::insert(
 				ALICE,
@@ -396,12 +408,13 @@ mod tests {
 			frame_system::Pallet::<T>::inc_consumers(&DAVE).unwrap();
 
 			// === Verify v0 state before migration ===
-			assert_eq!(v0::Recoverable::<T>::iter().count(), 2);
+			assert_eq!(v0::Recoverable::<T>::iter().count(), 3);
 			assert_eq!(v0::ActiveRecoveries::<T>::iter().count(), 1);
 			assert_eq!(v0::Proxy::<T>::iter().count(), 1);
 			assert_eq!(Balances::reserved_balance(ALICE), config_deposit);
 			assert_eq!(Balances::reserved_balance(BOB), config_deposit);
 			assert_eq!(Balances::reserved_balance(CHARLIE), recovery_deposit);
+			assert_eq!(Balances::reserved_balance(EVE), config_deposit);
 			assert_eq!(frame_system::Pallet::<T>::consumers(&DAVE), 1);
 
 			// === Run migration ===
@@ -414,8 +427,8 @@ mod tests {
 
 			// === Verify v1 storage is populated ===
 
-			// FriendGroups should have entries for ALICE and BOB
-			assert_eq!(pallet::FriendGroups::<T>::iter().count(), 2);
+			// FriendGroups should have entries for ALICE, BOB, and EVE
+			assert_eq!(pallet::FriendGroups::<T>::iter().count(), 3);
 
 			// Check ALICE's migrated FriendGroups
 			let (alice_groups, _ticket) = pallet::FriendGroups::<T>::get(ALICE).unwrap();
@@ -437,6 +450,13 @@ mod tests {
 			let bob_fg = &bob_groups[0];
 			assert_eq!(bob_fg.friends_needed, 1);
 			assert_eq!(bob_fg.inheritance_delay, 5);
+
+			// Check EVE's migrated FriendGroups - cancel_delay clamped from 0 to 1
+			let (eve_groups, _ticket) = pallet::FriendGroups::<T>::get(EVE).unwrap();
+			assert_eq!(eve_groups.len(), 1);
+			let eve_fg = &eve_groups[0];
+			assert_eq!(eve_fg.inheritance_delay, 0);
+			assert_eq!(eve_fg.cancel_delay, 1);
 
 			// Inheritor should have entry for EVE (lost) -> DAVE (inheritor)
 			assert_eq!(pallet::Inheritor::<T>::iter().count(), 1);
