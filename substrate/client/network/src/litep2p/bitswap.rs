@@ -31,7 +31,7 @@ use sp_runtime::traits::Block as BlockT;
 use std::{future::Future, pin::Pin, sync::Arc};
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::ipfs::bitswap";
+const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
 pub struct BitswapServer<Block: BlockT> {
 	/// Bitswap handle.

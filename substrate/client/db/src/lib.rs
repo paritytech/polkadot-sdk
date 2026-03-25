@@ -702,14 +702,13 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		&self,
 		hash: Block::Hash,
 	) -> ClientResult<Option<impl Iterator<Item = DbHash>>> {
-		let body = match read_db(
+		let Some(body) = match read_db(
 			&*self.db,
 			columns::KEY_LOOKUP,
 			columns::BODY_INDEX,
 			BlockId::<Block>::Hash(hash),
-		)? {
-			Some(body) => body,
-			None => return Ok(None),
+		)? else {
+			return Ok(None)
 		};
 		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
 			Ok(index) => Ok(Some(index.into_iter().flat_map(|ex| match ex {

@@ -680,10 +680,14 @@ pub struct NetworkConfiguration {
 	/// `kademlia_replication_factor` peers to consider record successfully put.
 	pub kademlia_replication_factor: NonZeroUsize,
 
-	/// Enable publishing of indexed transactions to IPFS.
+	/// Enable serving indexed transaction data using IPFS Bitswap protocol.
 	pub ipfs_server: bool,
 
-	/// List of IPFS bootstrap nodes.
+	/// List of IPFS bootstrap nodes to register in IPFS DHT as a provider of indexed transaction
+	/// data.
+	///
+	/// If IPFS bootstrap nodes are not provided, this node will only handle direct Bitswap
+	/// requests from peers that already know its address.
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
 	/// Networking backend used for P2P communication.
