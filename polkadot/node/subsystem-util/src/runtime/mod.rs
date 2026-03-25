@@ -537,7 +537,8 @@ impl ClaimQueueSnapshot {
 		self.0.iter()
 	}
 
-	/// Find the earliest cores for the given `para_id` starting from the given `claim_queue_offset`.
+	/// Find the earliest cores for the given `para_id` starting from the given
+	/// `claim_queue_offset`.
 	///
 	/// It is not guaranteed that at the given `claim_queue_offset` cores are available for
 	/// the `para_id`. Thus, the claim queue offset for the core indices is returned as well.
