@@ -60,6 +60,7 @@ export class OnchainGame {
   private opponentHits = 0;
   private winner: Player | null = null;
   private message = "";
+  private messageLockedUntil = 0;
 
   private onStateChangeCallback: StateChangeCallback | null = null;
   private onMessageCallback: MessageCallback | null = null;
@@ -126,10 +127,15 @@ export class OnchainGame {
     this.onStateChangeCallback?.(this.getState());
   }
 
-  private setMessage(msg: string): void {
+  private setMessage(msg: string, lockMs = 0): void {
     this.message = msg;
+    this.messageLockedUntil = lockMs > 0 ? Date.now() + lockMs : 0;
     this.onMessageCallback?.(msg);
     this.notifyStateChange();
+  }
+
+  private canOverwriteMessage(): boolean {
+    return Date.now() >= this.messageLockedUntil;
   }
 
   private setPhase(phase: OnchainPhase): void {
@@ -410,6 +416,12 @@ export class OnchainGame {
     if (this.pendingAttack !== null) return false;
     if (this.isAttacking) return false;
     if (this.lastAttackRound >= this.currentRound) return false;
+
+    const targetCell = this.opponentBoard.getCell(pos);
+    if (targetCell && (targetCell.state === "hit" || targetCell.state === "miss")) {
+      this.setMessage("You already attacked that cell.", 2500);
+      return false;
+    }
 
     this.isAttacking = true;
     this.lastAttackRound = this.currentRound;
@@ -815,7 +827,9 @@ export class OnchainGame {
             }
           }
         } else if (this.isOurTurn) {
-          this.setMessage("Waiting for opponent to reveal...");
+          if (this.canOverwriteMessage()) {
+            this.setMessage("Waiting for opponent to reveal...");
+          }
         }
       } else {
         this.pendingRevealTx = null;
@@ -824,7 +838,9 @@ export class OnchainGame {
         if (this.isAttacking) {
           // attack in flight
         } else if (this.isOurTurn && this.lastAttackRound < this.currentRound) {
-          this.setMessage("Your turn - click enemy waters to attack!");
+          if (this.canOverwriteMessage()) {
+            this.setMessage("Your turn - click enemy waters to attack!");
+          }
         } else if (this.isOurTurn) {
           const timeSinceAttack = Date.now() - (this._lastAttackTime || 0);
           if (timeSinceAttack > 5000 && this._lastAttackPos) {
@@ -833,10 +849,14 @@ export class OnchainGame {
             this.lastAttackRound = -1;
             this.attack(this._lastAttackPos);
           } else {
-            this.setMessage("Waiting for chain confirmation...");
+            if (this.canOverwriteMessage()) {
+              this.setMessage("Waiting for chain confirmation...");
+            }
           }
         } else {
-          this.setMessage("Opponent's turn...");
+          if (this.canOverwriteMessage()) {
+            this.setMessage("Opponent's turn...");
+          }
         }
       }
 

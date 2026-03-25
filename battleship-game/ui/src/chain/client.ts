@@ -3,6 +3,7 @@ import { getSmProvider } from "polkadot-api/sm-provider";
 import { firstValueFrom } from "rxjs";
 import { start, type Client as SmoldotClient, type Chain } from "smoldot";
 import { relayChainSpec, parachainSpec } from "./chainSpecs.ts";
+import { getStatementStore } from "./statementStore.ts";
 
 let smoldotInstance: SmoldotClient | null = null;
 let relayChainInstance: Chain | null = null;
@@ -116,6 +117,12 @@ export async function getChainClient(): Promise<PolkadotClient> {
 						potentialRelayChains: [relayChainInstance!],
 					}),
 				);
+
+				statementChainInstance = await smoldot.addChain({
+					chainSpec: parachainSpec,
+					potentialRelayChains: [relayChainInstance!],
+				});
+				getStatementStore(statementChainInstance);
 
 				console.log("Creating PAPI client with smoldot provider...");
 				clientInstance = createClient(smProvider);

@@ -1,4 +1,4 @@
-import { getClient, getStatementChain, createStatementChain, disconnectClient } from "./client.js";
+import { getClient, getStatementChain, disconnectClient } from "./client.js";
 import { BattleshipClient } from "./battleship.js";
 import { BattleshipBot } from "./bot.js";
 import { createRandomAccount } from "./accounts.js";
@@ -14,6 +14,7 @@ async function main() {
     console.log("=".repeat(60));
     const client = await getClient();
     const battleshipClient = await BattleshipClient.create(client);
+    const statementChain = await getStatementChain();
     const bots = [];
     for (let i = 0; i < instanceCount; i++) {
         const account = createRandomAccount();
@@ -22,25 +23,16 @@ async function main() {
         console.log(`[${label}] Requesting funds...`);
         await battleshipClient.requestFunds(account.address);
         console.log(`[${label}] Waiting for funds...`);
-        const funded = await battleshipClient.waitForFunds(account.address, 60_000);
+        const funded = await battleshipClient.waitForFunds(account.address, 120_000);
         if (!funded) {
             console.error(`[${label}] Faucet tx was not finalized in time`);
             process.exit(1);
         }
         console.log(`[${label}] Account funded`);
         let statementStore;
-        try {
-            // First instance uses getStatementChain, others create new chains
-            const stmtChain = i === 0
-                ? await getStatementChain()
-                : await createStatementChain();
-            if (stmtChain) {
-                statementStore = new StatementStoreClient(stmtChain);
-                console.log(`[${label}] Statement store initialized`);
-            }
-        }
-        catch (e) {
-            console.warn(`[${label}] Failed to initialize statement store:`, e);
+        if (statementChain) {
+            statementStore = new StatementStoreClient(statementChain);
+            console.log(`[${label}] Statement store initialized`);
         }
         const bot = new BattleshipBot(battleshipClient, account, statementStore);
         bots.push(bot);

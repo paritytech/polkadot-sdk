@@ -7,7 +7,7 @@ import { getChainClient } from "./chain/client.ts";
 import { BattleshipClient, resetLocalNonce } from "./chain/battleship.ts";
 import { getStatementChain } from "./chain/client.ts";
 import { getStatementStore, type StatementStoreClient, type GameAnnouncement, type GameCreatedNotification } from "./chain/statementStore.ts";
-import type { Position } from "./types/index.ts";
+import type { Player, Position } from "./types/index.ts";
 
 type Screen = "username-screen" | "loading" | "game-lobby" | "game";
 
@@ -34,6 +34,28 @@ class BattleshipApp {
   private buttonAbortController: AbortController | null = null;
   private username = "";
   private opponentName = "";
+  private fireworksCanvas: HTMLCanvasElement | null = null;
+  private fireworksCtx: CanvasRenderingContext2D | null = null;
+  private fireworksParticles: Array<{ x: number; y: number; vx: number; vy: number; life: number; color: string }> = [];
+  private fireworksRaf: number | null = null;
+  private lastFireworkBurst = 0;
+
+  private async waitForExistingFunds(address: string, attempts: number, delayMs: number): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      await this.loadDevBalance(address);
+      if (this.currentBalance > 0n) return true;
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+    return false;
+  }
+
+  private getTestDelayBeforeLobbyMs(): number {
+    const value = new URLSearchParams(window.location.search).get("testDelayBeforeLobbyMs");
+    const parsed = value ? Number(value) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
 
   constructor() {
     this.walletManager = getWalletManager();
@@ -81,20 +103,31 @@ class BattleshipApp {
       await getChainClient();
     }
 
-    this.setLoadingStatus("Requesting funds");
-    const client = await getChainClient();
-    const battleshipClient = await BattleshipClient.create(client);
-    try {
-      await battleshipClient.requestFunds(account.address);
-    } catch (e) {
-      console.error("Faucet request failed:", e);
+    const preLobbyDelayMs = this.getTestDelayBeforeLobbyMs();
+    if (preLobbyDelayMs > 0) {
+      this.setLoadingStatus(`Delaying lobby for test (${preLobbyDelayMs}ms)`);
+      await new Promise((r) => setTimeout(r, preLobbyDelayMs));
     }
 
-    this.setLoadingStatus("Waiting for funds");
-    for (let i = 0; i < 30; i++) {
-      await this.loadDevBalance(account.address);
-      if (this.currentBalance > 0n) break;
-      await new Promise((r) => setTimeout(r, 2000));
+    const client = await getChainClient();
+    const battleshipClient = await BattleshipClient.create(client);
+    this.setLoadingStatus("Checking funds");
+    const alreadyFunded = await this.waitForExistingFunds(account.address, 3, 1000);
+
+    if (!alreadyFunded) {
+      this.setLoadingStatus("Requesting funds");
+      try {
+        await battleshipClient.requestFunds(account.address);
+      } catch (e) {
+        console.error("Faucet request failed:", e);
+      }
+
+      this.setLoadingStatus("Waiting for funds");
+      for (let i = 0; i < 30; i++) {
+        await this.loadDevBalance(account.address);
+        if (this.currentBalance > 0n) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
     }
 
     if (this.currentBalance === 0n) {
@@ -109,19 +142,6 @@ class BattleshipApp {
         if (this.currentBalance > 0n) break;
         await new Promise((r) => setTimeout(r, 2000));
       }
-    }
-
-    // Initialize statement store for game discovery
-    try {
-      const stmtChain = await getStatementChain();
-      if (stmtChain) {
-        this.statementStore = getStatementStore(stmtChain);
-        console.log("[init] Statement store initialized");
-      } else {
-        console.warn("[init] Statement store not available (proxy mode?)");
-      }
-    } catch (e) {
-      console.warn("[init] Failed to initialize statement store:", e);
     }
 
     this.onAccountReady();
@@ -161,6 +181,18 @@ class BattleshipApp {
   }
 
   private async onAccountReady(): Promise<void> {
+    try {
+      const stmtChain = await getStatementChain();
+      if (stmtChain) {
+        this.statementStore = getStatementStore(stmtChain);
+        console.log("[onAccountReady] Statement store initialized");
+      } else {
+        console.warn("[onAccountReady] Statement store not available (proxy mode?)");
+      }
+    } catch (e) {
+      console.warn("[onAccountReady] Failed to initialize statement store:", e);
+    }
+
     this.showScreen("game-lobby");
     this.setupLobby();
     await this.checkExistingGame();
@@ -310,10 +342,12 @@ class BattleshipApp {
         }
       }
 
-      gamesList.querySelectorAll(".game-card").forEach((el) => el.remove());
+      gamesList.querySelectorAll(".game-card:not(.waiting-card)").forEach((el) => el.remove());
+
+      const hasWaitingCard = !!gamesList.querySelector(".waiting-card");
 
       if (filteredGames.length === 0) {
-        if (noGamesMsg) noGamesMsg.style.display = "block";
+        if (noGamesMsg) noGamesMsg.style.display = hasWaitingCard ? "none" : "block";
         return;
       }
 
@@ -878,8 +912,116 @@ class BattleshipApp {
     }
   }
 
-  private handleGameEnd(winner: string | null, reason: string): void {
+  private ensureFireworksCanvas(): void {
+    if (this.fireworksCanvas && this.fireworksCtx) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "fixed";
+    canvas.style.inset = "0";
+    canvas.style.width = "100vw";
+    canvas.style.height = "100vh";
+    canvas.style.pointerEvents = "none";
+    canvas.style.zIndex = "9999";
+    canvas.style.display = "none";
+    document.body.appendChild(canvas);
+
+    this.fireworksCanvas = canvas;
+    this.fireworksCtx = canvas.getContext("2d");
+    this.resizeFireworksCanvas();
+    window.addEventListener("resize", () => this.resizeFireworksCanvas());
+  }
+
+  private resizeFireworksCanvas(): void {
+    if (!this.fireworksCanvas) return;
+    this.fireworksCanvas.width = window.innerWidth;
+    this.fireworksCanvas.height = window.innerHeight;
+  }
+
+  private spawnFireworkBurst(): void {
+    if (!this.fireworksCanvas) return;
+
+    const cx = 80 + Math.random() * (this.fireworksCanvas.width - 160);
+    const cy = 80 + Math.random() * Math.max(120, this.fireworksCanvas.height * 0.45);
+    const colors = ["#ff6b6b", "#ffd93d", "#6bcBff", "#b892ff", "#7dffb3"];
+
+    for (let i = 0; i < 28; i++) {
+      const angle = (Math.PI * 2 * i) / 28 + Math.random() * 0.2;
+      const speed = 1.5 + Math.random() * 4;
+      this.fireworksParticles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.5,
+        life: 40 + Math.random() * 20,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+  }
+
+  private startVictoryFireworks(): void {
+    this.ensureFireworksCanvas();
+    if (!this.fireworksCanvas || !this.fireworksCtx) return;
+
+    this.fireworksCanvas.style.display = "block";
+    this.fireworksParticles = [];
+    this.lastFireworkBurst = 0;
+
+    if (this.fireworksRaf !== null) {
+      cancelAnimationFrame(this.fireworksRaf);
+    }
+
+    const tick = (time: number) => {
+      if (!this.fireworksCanvas || !this.fireworksCtx) return;
+
+      if (time - this.lastFireworkBurst > 220) {
+        this.spawnFireworkBurst();
+        this.lastFireworkBurst = time;
+      }
+
+      const ctx = this.fireworksCtx;
+      ctx.clearRect(0, 0, this.fireworksCanvas.width, this.fireworksCanvas.height);
+
+      this.fireworksParticles = this.fireworksParticles.filter((particle) => particle.life > 0);
+      for (const particle of this.fireworksParticles) {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += 0.04;
+        particle.vx *= 0.99;
+        particle.life -= 1;
+
+        ctx.globalAlpha = Math.max(0, particle.life / 60);
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      this.fireworksRaf = requestAnimationFrame(tick);
+    };
+
+    this.fireworksRaf = requestAnimationFrame(tick);
+
+    window.setTimeout(() => this.stopVictoryFireworks(), 2600);
+  }
+
+  private stopVictoryFireworks(): void {
+    if (this.fireworksRaf !== null) {
+      cancelAnimationFrame(this.fireworksRaf);
+      this.fireworksRaf = null;
+    }
+    this.fireworksParticles = [];
+    if (this.fireworksCanvas && this.fireworksCtx) {
+      this.fireworksCtx.clearRect(0, 0, this.fireworksCanvas.width, this.fireworksCanvas.height);
+      this.fireworksCanvas.style.display = "none";
+    }
+  }
+
+  private handleGameEnd(winner: Player | null, reason: string): void {
     console.log(`Game ended: winner=${winner}, reason=${reason}`);
+    if (winner === "player") {
+      this.startVictoryFireworks();
+    }
     setTimeout(() => {
       this.returnToLobby();
     }, 3000);
@@ -887,6 +1029,7 @@ class BattleshipApp {
 
   private returnToLobby(): void {
     console.log('[returnToLobby] Cleaning up and returning to lobby');
+    this.stopVictoryFireworks();
     if (this.game) {
       this.game.reset();
       this.game = null;

@@ -412,7 +412,7 @@ export class BattleshipClient {
 		const start = Date.now();
 		while (Date.now() - start < timeoutMs) {
 			try {
-				const acct = await this.api.query.System.Account.getValue(address, { at: "finalized" });
+				const acct = await this.api.query.System.Account.getValue(address, { at: "best" });
 				const free = acct?.data?.free ?? 0n;
 				if (free > 0n) {
 					console.log(`[waitForFunds] Account funded (free=${free}) at finalized block`);

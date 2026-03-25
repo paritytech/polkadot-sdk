@@ -16,8 +16,14 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         launchOptions: {
-          executablePath: process.env.PLAYWRIGHT_LAUNCH_OPTIONS_EXECUTABLE_PATH,
+          executablePath: process.env.PLAYWRIGHT_LAUNCH_OPTIONS_EXECUTABLE_PATH || undefined,
         },
+      },
+    },
+    {
+      name: "firefox",
+      use: {
+        browserName: "firefox",
       },
     },
   ],

@@ -1,7 +1,7 @@
 import { resetLocalNonce } from "./battleship.js";
 import { placeShipsRandomly, selectAttackTarget } from "./game.js";
 import { buildMerkleTree } from "./merkle.js";
-import { subscribeToBestBlocks } from "./client.js";
+import { getClient } from "./client.js";
 import { GRID_SIZE } from "./types.js";
 export class BattleshipBot {
     client;
@@ -13,6 +13,7 @@ export class BattleshipBot {
     processingJoinRequest = false;
     botName;
     lastAnnounceTime = 0;
+    cleanup = null;
     constructor(client, account, statementStore) {
         this.client = client;
         this.account = account;
@@ -65,39 +66,35 @@ export class BattleshipBot {
     }
     async run() {
         console.log(`[Bot] Starting as "${this.botName}" with address ${this.account.address}`);
-        let pendingTick = true;
-        let wakeLoop = null;
-        const requestTick = () => {
-            pendingTick = true;
-            if (wakeLoop) {
-                const wake = wakeLoop;
-                wakeLoop = null;
-                wake();
-            }
-        };
-        const unsubscribe = await subscribeToBestBlocks(requestTick);
-        try {
-            while (true) {
-                if (!pendingTick) {
-                    await new Promise((resolve) => {
-                        wakeLoop = resolve;
-                    });
-                }
-                pendingTick = false;
-                try {
-                    if (this.games.size === 0) {
-                        await this.findOrCreateGame();
+        const client = await getClient();
+        const bestBlocks$ = client.bestBlocks$;
+        return new Promise((_, reject) => {
+            let processing = false;
+            const subscription = bestBlocks$.subscribe({
+                next: async () => {
+                    if (processing)
+                        return;
+                    processing = true;
+                    try {
+                        if (this.games.size === 0) {
+                            await this.findOrCreateGame();
+                        }
+                        await this.playActiveGames();
                     }
-                    await this.playActiveGames();
-                }
-                catch (e) {
-                    console.error("[Bot] Error in main loop:", e);
-                }
-            }
-        }
-        finally {
-            unsubscribe();
-        }
+                    catch (e) {
+                        console.error("[Bot] Error in main loop:", e);
+                    }
+                    finally {
+                        processing = false;
+                    }
+                },
+                error: (err) => {
+                    console.error("[Bot] bestBlocks$ error:", err);
+                    reject(err);
+                },
+            });
+            this.cleanup = () => subscription.unsubscribe();
+        });
     }
     async findOrCreateGame() {
         // Check if we're already in a game on-chain (resume after restart)

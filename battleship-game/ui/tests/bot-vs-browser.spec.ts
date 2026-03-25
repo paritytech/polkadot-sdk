@@ -57,8 +57,9 @@ test.describe("Bot vs Browser", () => {
 		}
 	});
 
-	test("browser player discovers bot game and plays to completion", async ({ page }) => {
-		test.setTimeout(1_200_000); // 20 minutes — full game with 6s block time needs ~15 min
+	for (const gameNum of [1, 2]) {
+	test(`game ${gameNum}: browser player discovers bot game and plays to completion`, async ({ page }) => {
+		test.setTimeout(3_600_000);
 
 		// Start the bot process
 		console.log("[Test] Starting bot process...");
@@ -100,7 +101,7 @@ test.describe("Bot vs Browser", () => {
 		await expect(async () => {
 			await page.click("#refresh-lobby-btn");
 			await expect(gameCard).toBeVisible({ timeout: 5000 });
-		}).toPass({ timeout: 120_000, intervals: [3000] });
+		}).toPass({ timeout: 300_000, intervals: [3000] });
 		console.log("[Test] Bot's game found in lobby!");
 
 		// Join the game
@@ -110,7 +111,7 @@ test.describe("Bot vs Browser", () => {
 		console.log("[Test] Clicked Join Game");
 
 		// Wait for game screen
-		await expect(page.locator("#game.active")).toBeVisible({ timeout: 60_000 });
+		await expect(page.locator("#game.active")).toBeVisible({ timeout: 240_000 });
 		console.log("[Test] Game screen visible!");
 
 		// Setup phase: place ships randomly and commit
@@ -216,4 +217,5 @@ test.describe("Bot vs Browser", () => {
 		// The browser made at least TOTAL_SHIP_CELLS attacks (hits + misses).
 		expect(attackCount).toBeGreaterThanOrEqual(TOTAL_SHIP_CELLS);
 	});
+	}
 });

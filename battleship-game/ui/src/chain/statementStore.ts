@@ -252,7 +252,11 @@ export class StatementStoreClient {
 
       try {
         const parsed = JSON.parse(msg);
-        console.log("[StatementStore] RPC msg:", parsed.id != null ? `response id=${parsed.id}` : parsed.method || "notification", parsed.params?.statement ? "has statement" : "");
+        console.log(
+          "[StatementStore] RPC msg:",
+          parsed.id != null ? `response id=${parsed.id}` : parsed.method || "notification",
+          parsed.params?.statement ? "has statement" : "",
+        );
 
         if (parsed.id != null) {
           const pending = this.pendingRequests.get(String(parsed.id));
