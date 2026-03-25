@@ -597,7 +597,8 @@ mod tests {
 		let scheduling_parent =
 			if headers.is_empty() { relay_parent } else { BlakeTwo256::hash_of(&headers[0]) };
 
-		let extension = ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
+		let extension =
+			ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		let expected = SchedulingValidationResult {
 			internal_scheduling_parent: relay_parent,
@@ -665,8 +666,10 @@ mod tests {
 		// Use an unrelated hash as relay_parent to simulate a resubmission
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
-		let ext =
-			ValidationParamsExtension::V3 { relay_parent: older_relay_parent, scheduling_parent };
+		let ext = ValidationParamsExtension::V3 {
+			relay_parent: older_relay_parent,
+			scheduling_parent,
+		};
 		let proof = SchedulingProof {
 			header_chain: headers,
 			signed_scheduling_info: Some(SignedSchedulingInfo {
@@ -689,8 +692,10 @@ mod tests {
 		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
-		let ext =
-			ValidationParamsExtension::V3 { relay_parent: older_relay_parent, scheduling_parent };
+		let ext = ValidationParamsExtension::V3 {
+			relay_parent: older_relay_parent,
+			scheduling_parent,
+		};
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 
 		// Should panic because resubmission requires signed_scheduling_info

@@ -76,7 +76,6 @@ pub struct MemoryOptimizedValidationParams {
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 	/// V3+ extension containing relay_parent and scheduling_parent hashes.
 	/// None for V1/V2 candidates (no trailing bytes).
-	/// Some(V3{...}) for V3 candidates.
 	pub extension: polkadot_parachain_primitives::primitives::TrailingOption<
 		polkadot_parachain_primitives::primitives::ValidationParamsExtension,
 	>,

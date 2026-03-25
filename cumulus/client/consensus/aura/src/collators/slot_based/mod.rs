@@ -263,10 +263,8 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 struct CollatorMessage<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block.
 	pub relay_parent: RelayHash,
-	/// The hash of the relay chain block used for scheduling (V3 only).
-	/// For V3 candidates, this is the fresh relay chain tip used for backing group selection.
-	/// For V1/V2 candidates, this is None.
-	pub scheduling_parent: Option<RelayHash>,
+	/// V3 scheduling proof. None for V1/V2 candidates.
+	pub scheduling_proof: Option<SchedulingProof>,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
 	/// The parachain block candidate.
@@ -277,6 +275,4 @@ struct CollatorMessage<Block: BlockT> {
 	pub core_index: CoreIndex,
 	/// Maximum pov size. Currently needed only for exporting PoV.
 	pub max_pov_size: u32,
-	/// Optional scheduling proof for V3 candidates.
-	pub scheduling_proof: Option<SchedulingProof>,
 }

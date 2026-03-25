@@ -23,7 +23,7 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{
 	ApprovedPeerId, CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader,
 };
-use sp_runtime::traits::AppVerify;
+use sp_runtime::traits::{AppVerify, BlakeTwo256, Hash as HashT};
 
 /// Payload signed by a collator for resubmission.
 ///
@@ -124,4 +124,14 @@ pub struct SchedulingProof {
 	///   Signature is verified against the eligible author for the slot at
 	///   `internal_scheduling_parent`.
 	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
+}
+
+impl SchedulingProof {
+	/// Derive the scheduling parent hash from the header chain.
+	///
+	/// Returns `Some(hash)` if the header chain is non-empty (hash of the first/newest header),
+	/// or `None` if the chain is empty (scheduling_parent == relay_parent).
+	pub fn scheduling_parent(&self) -> Option<polkadot_primitives::Hash> {
+		self.header_chain.first().map(BlakeTwo256::hash_of)
+	}
 }

@@ -122,7 +122,6 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 ) {
 	let CollatorMessage {
 		scheduling_proof,
-		scheduling_parent,
 		parent_header,
 		parachain_candidate,
 		validation_code_hash,
@@ -133,6 +132,8 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 	let hash = parachain_candidate.block.header().hash();
 	let number = *parachain_candidate.block.header().number();
+	// Derive scheduling_parent from the proof's header chain.
+	let scheduling_parent = scheduling_proof.as_ref().and_then(|p| p.scheduling_parent());
 	let (collation, block_data) = if let Some(scheduling_proof) = scheduling_proof {
 		// V3 candidate with scheduling proof
 		match collator_service.build_collation_v3(

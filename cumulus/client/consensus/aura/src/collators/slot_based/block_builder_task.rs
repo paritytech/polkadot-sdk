@@ -534,17 +534,14 @@ where
 				}
 			});
 
-			let scheduling_parent = scheduling_proof.is_some().then_some(descendants_start);
-
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
-				scheduling_parent,
+				scheduling_proof,
 				parent_header: parent_header.clone(),
 				parachain_candidate: candidate.into(),
 				validation_code_hash,
 				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,
-				scheduling_proof,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 				return;
