@@ -200,6 +200,20 @@ pub mod pallet {
 				"MaxElapsedPerDrip must be greater than IssuanceCadence, \
 				 otherwise every drip would be clamped below the cadence threshold."
 			);
+
+			// Ensure BudgetRecipients have no duplicate keys.
+			let mut keys: Vec<_> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+			keys.sort();
+			assert!(
+				keys.windows(2).all(|w| w[0] != w[1]),
+				"Duplicate BudgetRecipient key detected"
+			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -334,6 +348,45 @@ pub mod pallet {
 			// N mints + 1 write (timestamp)
 			let recipient_count = recipients.len() as u64;
 			T::DbWeight::get().reads_writes(4 + recipient_count, 1 + recipient_count)
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	impl<T: Config> Pallet<T> {
+		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::check_budget_allocation()
+		}
+
+		/// Checks that `BudgetAllocation` is consistent:
+		/// - Every key in `BudgetAllocation` must be a registered recipient.
+		/// - Allocation percentages must sum to exactly 100%.
+		fn check_budget_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
+			let allocation = BudgetAllocation::<T>::get();
+
+			ensure!(!allocation.is_empty(), "BudgetAllocation is empty");
+
+			let registered: Vec<BudgetKey> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+
+			// Every allocation key must be a registered recipient.
+			for key in allocation.keys() {
+				ensure!(
+					registered.contains(key),
+					"BudgetAllocation contains key not in BudgetRecipients"
+				);
+			}
+
+			// Allocation must sum to exactly 100%.
+			let total_parts: u32 = allocation
+				.values()
+				.map(|p| p.deconstruct())
+				.fold(0u32, |acc, p| acc.saturating_add(p));
+			ensure!(
+				total_parts == Perbill::one().deconstruct(),
+				"BudgetAllocation does not sum to 100%"
+			);
+
+			Ok(())
 		}
 	}
 }
