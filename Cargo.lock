@@ -14421,6 +14421,7 @@ name = "pallet-vesting-precompile"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",
