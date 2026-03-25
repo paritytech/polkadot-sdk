@@ -697,13 +697,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 								// Multi-renewal extrinsic: header contains the full
 								// encoded extrinsic (no indexed data to join).
 								let ex =
-									Block::Extrinsic::decode(&mut &header[..]).map_err(
-										|err| {
-											sp_blockchain::Error::Backend(format!(
-												"Error decoding multi-renew extrinsic: {err}"
-											))
-										},
-									)?;
+									Block::Extrinsic::decode(&mut &header[..]).map_err(|err| {
+										sp_blockchain::Error::Backend(format!(
+											"Error decoding multi-renew extrinsic: {err}"
+										))
+									})?;
 								body.push(ex);
 							},
 						}
@@ -4553,14 +4551,8 @@ pub(crate) mod tests {
 				});
 			} else if i < 5 {
 				// Blocks 1-4: Renew BOTH items in a single extrinsic (multi-renew)
-				index.push(IndexOperation::Renew {
-					extrinsic: 0,
-					hash: x1_hash.as_ref().to_vec(),
-				});
-				index.push(IndexOperation::Renew {
-					extrinsic: 0,
-					hash: x2_hash.as_ref().to_vec(),
-				});
+				index.push(IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() });
+				index.push(IndexOperation::Renew { extrinsic: 0, hash: x2_hash.as_ref().to_vec() });
 			}
 			// Blocks 5+: stop renewing
 
@@ -4700,29 +4692,16 @@ pub(crate) mod tests {
 				]
 			} else if i == 1 {
 				// Block 1: Multi-renew both in one extrinsic
-				index.push(IndexOperation::Renew {
-					extrinsic: 0,
-					hash: x1_hash.as_ref().to_vec(),
-				});
-				index.push(IndexOperation::Renew {
-					extrinsic: 0,
-					hash: x2_hash.as_ref().to_vec(),
-				});
+				index.push(IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() });
+				index.push(IndexOperation::Renew { extrinsic: 0, hash: x2_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(10.into(), ())]
 			} else {
 				// Blocks 2+: empty, just advancing
 				vec![UncheckedXt::new_transaction(i.into(), ())]
 			};
-			let hash = insert_block(
-				&backend,
-				i,
-				prev_hash,
-				None,
-				Default::default(),
-				body,
-				Some(index),
-			)
-			.unwrap();
+			let hash =
+				insert_block(&backend, i, prev_hash, None, Default::default(), body, Some(index))
+					.unwrap();
 			blocks.push(hash);
 			prev_hash = hash;
 		}
@@ -4846,10 +4825,7 @@ pub(crate) mod tests {
 			None,
 			Default::default(),
 			vec![UncheckedXt::new_transaction(1.into(), ())],
-			Some(vec![IndexOperation::Renew {
-				extrinsic: 0,
-				hash: x1_hash.as_ref().to_vec(),
-			}]),
+			Some(vec![IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() }]),
 		)
 		.unwrap();
 
@@ -4868,7 +4844,7 @@ pub(crate) mod tests {
 		assert_eq!(&indexed[0][..], &x1[1..]);
 	}
 
-		#[test]
+	#[test]
 	fn remove_leaf_block_works() {
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
