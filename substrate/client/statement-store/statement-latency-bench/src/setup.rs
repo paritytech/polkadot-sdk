@@ -22,10 +22,14 @@
 
 use anyhow::{anyhow, Context};
 use clap::Parser;
-use codec::Encode;
 use jsonrpsee::{core::client::ClientT, rpc_params, ws_client::WsClientBuilder};
 use log::{debug, info};
-use sc_statement_store::{subxt_client::CustomConfig, test_utils::get_keypair};
+use sc_statement_store::{
+	subxt_client::CustomConfig,
+	test_utils::{
+		create_uniform_allowance_items, get_account_nonce, get_keypair, submit_extrinsic,
+	},
+};
 use sp_core::Pair;
 use sp_statement_store::{statement_allowance_key, StatementAllowance};
 use std::str::FromStr;
@@ -102,30 +106,22 @@ async fn main() -> Result<(), anyhow::Error> {
 	let sudo_key =
 		SubxtKeypair::from_uri(&uri).map_err(|e| anyhow!("Failed to derive sudo keypair: {e}"))?;
 
-	let allowance_value =
-		StatementAllowance::new(args.allowance_max_count, args.allowance_max_size).encode();
+	let allowance = StatementAllowance::new(args.allowance_max_count, args.allowance_max_size);
+	let raw_items = create_uniform_allowance_items(args.num_clients, allowance);
 
-	let storage_calls: Vec<Value> = (0..args.num_clients)
-		.step_by(args.allowance_batch_size as usize)
-		.map(|chunk_start| {
-			let chunk_end =
-				std::cmp::min(chunk_start + args.allowance_batch_size, args.num_clients);
-
-			let items: Vec<Value> = (chunk_start..chunk_end)
-				.map(|i| {
-					let pub_key = get_keypair(i).public();
-					let storage_key = statement_allowance_key(pub_key.as_ref() as &[u8]);
-
-					let hex_key: String = storage_key.iter().map(|b| format!("{b:02x}")).collect();
-					debug!("Account {i}: pubkey={pub_key} storage_key=0x{hex_key}");
-
+	// Group raw storage items into set_storage calls, one per allowance_batch_size chunk
+	let storage_calls: Vec<Value> = raw_items
+		.chunks(args.allowance_batch_size as usize)
+		.map(|chunk| {
+			let items: Vec<Value> = chunk
+				.iter()
+				.map(|(key, val)| {
 					Value::unnamed_composite([
-						Value::from_bytes(storage_key),
-						Value::from_bytes(allowance_value.clone()),
+						Value::from_bytes(key.clone()),
+						Value::from_bytes(val.clone()),
 					])
 				})
 				.collect();
-
 			value! { System(set_storage { items: items }) }
 		})
 		.collect();
@@ -136,18 +132,18 @@ async fn main() -> Result<(), anyhow::Error> {
 		num_inner_calls, args.num_clients, args.max_batch_calls
 	);
 
+	let sudo_account_id = <SubxtKeypair as subxt::transactions::Signer<CustomConfig>>::account_id(
+		&sudo_key,
+	);
+	let mut nonce = get_account_nonce(&client, &sudo_account_id).await?;
+
 	for (chunk_idx, chunk) in storage_calls.chunks(args.max_batch_calls).enumerate() {
 		let chunk_calls: Vec<Value> = chunk.to_vec();
 		let batch_call = value! { Utility(batch_all { calls: chunk_calls }) };
 		let tx = subxt::tx::dynamic("Sudo", "sudo", vec![batch_call]);
 
-		client
-			.tx()
-			.await?
-			.sign_and_submit_then_watch_default(&tx, &sudo_key)
-			.await?
-			.wait_for_finalized_success()
-			.await?;
+		submit_extrinsic(&client, &tx, &sudo_key, nonce).await?;
+		nonce += 1;
 
 		info!(
 			"Batch {}/{} finalized",
