@@ -118,7 +118,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 use sp_version::RuntimeVersion;
 
@@ -126,6 +126,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEnc
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
+	defensive,
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
@@ -285,16 +286,7 @@ where
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
 #[derive(
-	Clone,
-	Copy,
-	Eq,
-	PartialEq,
-	Default,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
+	Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
 )]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.
@@ -672,7 +664,7 @@ pub mod pallet {
 
 		/// The migrator that is used to run Multi-Block-Migrations.
 		///
-		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// Can be set to `pallet_migrations` or an alternative implementation of the interface.
 		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
 		type MultiBlockMigrator: MultiStepMigrator;
 
@@ -820,13 +812,13 @@ pub mod pallet {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
 			if let Err(err) = task.run() {
 				Self::deposit_event(Event::TaskFailed { task, err });
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			// Emit a success event, if your design includes events for this pallet.
@@ -887,8 +879,9 @@ pub mod pallet {
 
 			match Self::can_set_code(&code, res.check_version) {
 				CanSetCodeResult::Ok => {},
-				CanSetCodeResult::MultiBlockMigrationsOngoing =>
-					return Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+				CanSetCodeResult::MultiBlockMigrationsOngoing => {
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+				},
 				CanSetCodeResult::InvalidVersion(error) => {
 					// The upgrade is invalid and there is no benefit in trying to apply this again.
 					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
@@ -897,7 +890,7 @@ pub mod pallet {
 					});
 
 					// Not the fault of the caller of call.
-					return Ok(Pays::No.into())
+					return Ok(Pays::No.into());
 				},
 			};
 			T::OnSetCode::set_code(code)?;
@@ -1005,10 +998,12 @@ pub mod pallet {
 	#[pallet::getter(fn block_weight)]
 	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
-	/// Total length (in bytes) for all extrinsics put together, for the current block.
+	/// Total size (in bytes) of the current block.
+	///
+	/// Tracks the size of the header and all extrinsics.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
+	pub type BlockSize<T: Config> = StorageValue<_, u32>;
 
 	/// Map of block numbers to block hashes.
 	#[pallet::storage]
@@ -1082,6 +1077,10 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
 
+	/// Number of blocks till the pending code upgrade is applied.
+	#[pallet::storage]
+	pub(super) type BlocksTillUpgrade<T: Config> = StorageValue<_, u8>;
+
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
 	pub(super) type UpgradedToU32RefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -1146,7 +1145,7 @@ pub mod pallet {
 							provides: vec![res.code_hash.encode()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: true,
-						})
+						});
 					}
 				}
 			}
@@ -1168,7 +1167,7 @@ pub mod pallet {
 							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: false,
-						})
+						});
 					}
 				}
 			}
@@ -1185,7 +1184,7 @@ pub type Key = Vec<u8>;
 pub type KeyValue = (Vec<u8>, Vec<u8>);
 
 /// A phase of a block's execution.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub enum Phase {
 	/// Applying an extrinsic.
@@ -1203,7 +1202,7 @@ impl Default for Phase {
 }
 
 /// Record of an event happening.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub struct EventRecord<E: Parameter + Member, T> {
 	/// The phase of the block it happened in.
@@ -1232,7 +1231,7 @@ type EventIndex = u32;
 pub type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
 	/// The number of transactions this account has sent.
 	pub nonce: Nonce,
@@ -1252,7 +1251,7 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
@@ -1510,14 +1509,14 @@ where
 }
 
 /// Reference status; can be either referenced or unreferenced.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum RefStatus {
 	Referenced,
 	Unreferenced,
 }
 
 /// Some resultant status relevant to incrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum IncRefStatus {
 	/// Account was created.
 	Created,
@@ -1526,7 +1525,7 @@ pub enum IncRefStatus {
 }
 
 /// Some resultant status relevant to decrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum DecRefStatus {
 	/// Account was destroyed.
 	Reaped,
@@ -1549,8 +1548,9 @@ impl<T: Config> CanSetCodeResult<T> {
 	pub fn into_result(self) -> Result<(), DispatchError> {
 		match self {
 			Self::Ok => Ok(()),
-			Self::MultiBlockMigrationsOngoing =>
-				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+			Self::MultiBlockMigrationsOngoing => {
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			},
 			Self::InvalidVersion(err) => Err(err.into()),
 		}
 	}
@@ -1585,15 +1585,50 @@ impl<T: Config> Pallet<T> {
 		Account::<T>::contains_key(who)
 	}
 
-	/// Write code to the storage and emit related events and digest items.
+	/// Write code to the storage and emit related events and digest items. Writes either directly
+	/// to the `:code` storage or to the `:pending_code` storage depending on the system version.
 	///
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
 	pub fn update_code_in_storage(code: &[u8]) {
-		storage::unhashed::put_raw(well_known_keys::CODE, code);
+		match T::Version::get().system_version {
+			0..=2 => {
+				storage::unhashed::put_raw(well_known_keys::CODE, code);
+			},
+			_ => {
+				BlocksTillUpgrade::<T>::put(2u8);
+				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+			},
+		}
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
+	}
+
+	/// Replace code with pending code if scheduled to enact in this block and in that case emit
+	/// related events and digest items.
+	///
+	/// This method is expected to be called in `on_finalize`.
+	pub fn maybe_apply_pending_code_upgrade() {
+		let Some(remaining) = BlocksTillUpgrade::<T>::get() else { return };
+
+		let remaining = remaining.saturating_sub(1);
+
+		if remaining > 0 {
+			BlocksTillUpgrade::<T>::put(remaining);
+			return;
+		}
+
+		BlocksTillUpgrade::<T>::kill();
+
+		let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
+			// should never happen
+			defensive!("BlocksTillUpgrade is set but no pending code found");
+			return;
+		};
+
+		storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
+		storage::unhashed::kill(well_known_keys::PENDING_CODE);
 	}
 
 	/// Whether all inherents have been applied.
@@ -1856,7 +1891,7 @@ impl<T: Config> Pallet<T> {
 
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
-			return
+			return;
 		}
 
 		let phase = ExecutionPhase::<T>::get().unwrap_or_default();
@@ -1892,8 +1927,14 @@ impl<T: Config> Pallet<T> {
 		ExtrinsicCount::<T>::get().unwrap_or_default()
 	}
 
-	pub fn all_extrinsics_len() -> u32 {
-		AllExtrinsicsLen::<T>::get().unwrap_or_default()
+	/// Gets the total size (in bytes) of the current block.
+	pub fn block_size() -> u32 {
+		BlockSize::<T>::get().unwrap_or_default()
+	}
+
+	/// Returns the current active execution phase.
+	pub fn execution_phase() -> Option<Phase> {
+		ExecutionPhase::<T>::get()
 	}
 
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
@@ -1938,6 +1979,27 @@ impl<T: Config> Pallet<T> {
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
+
+		// Account for digest size and empty header overhead in block length.
+		// This ensures block limits consider the full block size, not just extrinsics.
+		let digest_size = digest.encoded_size();
+		let empty_header = <<T as Config>::Block as traits::Block>::Header::new(
+			*number,
+			Default::default(),
+			Default::default(),
+			*parent_hash,
+			Default::default(),
+		);
+		let empty_header_size = empty_header.encoded_size();
+		let overhead = digest_size.saturating_add(empty_header_size) as u32;
+		BlockSize::<T>::put(overhead);
+
+		// Ensure inherent digests don't exceed the configured max header size
+		let max_total_header = T::BlockLength::get().max_header_size();
+		assert!(
+			overhead <= max_total_header as u32,
+			"Header size ({overhead}) exceeds max header size limit ({max_total_header})"
+		);
 	}
 
 	/// Initialize [`INTRABLOCK_ENTROPY`](well_known_keys::INTRABLOCK_ENTROPY).
@@ -1954,22 +2016,22 @@ impl<T: Config> Pallet<T> {
 	pub fn resource_usage_report() {
 		log::debug!(
 			target: LOG_TARGET,
-			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
+			"[{:?}] {} extrinsics, block size: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
 			 {} (ref_time: {}%, proof_size: {}%) op weight {} (ref_time {}%, proof_size {}%) / \
 			  mandatory weight {} (ref_time: {}%, proof_size: {}%)",
 			Self::block_number(),
 			Self::extrinsic_count(),
-			Self::all_extrinsics_len(),
+			Self::block_size(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Normal)
 			).deconstruct(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Operational)
 			).deconstruct(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Mandatory)
 			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Normal),
@@ -2007,7 +2069,7 @@ impl<T: Config> Pallet<T> {
 	pub fn finalize() -> HeaderFor<T> {
 		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
-		AllExtrinsicsLen::<T>::kill();
+		BlockSize::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
 		InherentsApplied::<T>::kill();
 
@@ -2048,8 +2110,14 @@ impl<T: Config> Pallet<T> {
 		HeaderFor::<T>::new(number, extrinsics_root, storage_root, parent_hash, digest)
 	}
 
-	/// Deposits a log and ensures it matches the block's log data.
+	/// Deposits a log (digest) in the block's header.
+	///
+	/// Digests should not be directly controllable by external users as they increase the size of
+	/// the header.
 	pub fn deposit_log(item: generic::DigestItem) {
+		BlockSize::<T>::mutate(|len| {
+			*len = Some(len.unwrap_or(0).saturating_add(item.encoded_size() as u32));
+		});
 		<Digest<T>>::append(item);
 	}
 
@@ -2166,7 +2234,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Sets the index of extrinsic that is currently executing.
-	#[cfg(any(feature = "std", test))]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_extrinsic_index(extrinsic_index: u32) {
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &extrinsic_index)
 	}
@@ -2184,7 +2252,7 @@ impl<T: Config> Pallet<T> {
 		BlockWeight::<T>::mutate(|current_weight| {
 			current_weight.set(weight, DispatchClass::Normal)
 		});
-		AllExtrinsicsLen::<T>::put(len as u32);
+		BlockSize::<T>::put(len as u32);
 	}
 
 	/// Reset events.
@@ -2299,7 +2367,7 @@ impl<T: Config> Pallet<T> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
+			Pallet::<T>::block_size(),
 		);
 
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
@@ -2341,7 +2409,7 @@ impl<T: Config> Pallet<T> {
 	/// - `check_version`: Should the runtime version be checked?
 	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return CanSetCodeResult::MultiBlockMigrationsOngoing
+			return CanSetCodeResult::MultiBlockMigrationsOngoing;
 		}
 
 		if check_version {
@@ -2349,7 +2417,7 @@ impl<T: Config> Pallet<T> {
 			let Some(new_version) = sp_io::misc::runtime_version(code)
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
 			else {
-				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion);
 			};
 
 			cfg_if::cfg_if! {

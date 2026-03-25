@@ -362,7 +362,7 @@ async fn reconnect_after_disconnect() {
 			service1_state == ServiceState::FirstConnec &&
 				service2_state == ServiceState::ConnectedAgain
 		{
-			break
+			break;
 		}
 	}
 

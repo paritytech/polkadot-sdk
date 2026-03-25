@@ -830,7 +830,7 @@ pub mod pallet {
 			if let Some((ext_proposal, _)) = NextExternal::<T>::get() {
 				ensure!(proposal_hash == ext_proposal.hash(), Error::<T>::ProposalMissing);
 			} else {
-				return Err(Error::<T>::NoProposal.into())
+				return Err(Error::<T>::NoProposal.into());
 			}
 
 			let mut existing_vetoers =
@@ -1557,7 +1557,7 @@ impl<T: Config> Pallet<T> {
 			Self::transfer_metadata(MetadataOwner::External, MetadataOwner::Referendum(ref_index));
 			Ok(())
 		} else {
-			return Err(Error::<T>::NoneWaiting.into())
+			return Err(Error::<T>::NoneWaiting.into());
 		}
 	}
 
@@ -1590,7 +1590,7 @@ impl<T: Config> Pallet<T> {
 			}
 			Ok(())
 		} else {
-			return Err(Error::<T>::NoneWaiting.into())
+			return Err(Error::<T>::NoneWaiting.into());
 		}
 	}
 

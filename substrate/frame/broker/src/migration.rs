@@ -132,7 +132,7 @@ mod v3 {
 	use super::*;
 	use codec::MaxEncodedLen;
 	use frame_support::{
-		pallet_prelude::{OptionQuery, RuntimeDebug, TypeInfo},
+		pallet_prelude::{Debug, OptionQuery, TypeInfo},
 		storage_alias,
 	};
 	use frame_system::Pallet as System;
@@ -169,7 +169,7 @@ mod v3 {
 		ConfigRecord<frame_system::pallet_prelude::BlockNumberFor<T>, RelayBlockNumberOf<T>>;
 
 	// types added here for v4 migration
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct ConfigRecord<BlockNumber, RelayBlockNumber> {
 		/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 		/// `Coretime::assign` API used to inform the Relay-chain.
@@ -198,7 +198,7 @@ mod v3 {
 		SaleInfoRecord<BalanceOf<T>, frame_system::pallet_prelude::BlockNumberFor<T>>;
 
 	/// The status of a Bulk Coretime Sale.
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct SaleInfoRecord<Balance, BlockNumber> {
 		/// The relay block number at which the sale will/did start.
 		pub sale_start: BlockNumber,

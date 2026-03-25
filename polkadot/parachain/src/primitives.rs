@@ -23,7 +23,7 @@ use bounded_collections::{BoundedVec, ConstU32};
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_core::{bytes, RuntimeDebug, TypeId};
+use sp_core::{bytes, TypeId};
 use sp_runtime::traits::Hash as _;
 use sp_weights::Weight;
 
@@ -154,7 +154,7 @@ impl core::fmt::LowerHex for ValidationCodeHash {
 /// Parachain block data.
 ///
 /// Contains everything required to validate para-block, may contain block and witness data.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -277,9 +277,7 @@ impl core::ops::Sub<u32> for Id {
 	}
 }
 
-#[derive(
-	Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo)]
 pub struct Sibling(pub Id);
 
 impl From<Id> for Sibling {
@@ -330,16 +328,7 @@ impl IsSystem for Sibling {
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
+	Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {
@@ -381,17 +370,7 @@ impl DmpMessageHandler for () {
 
 /// The aggregate XCMP message format.
 #[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	TypeInfo,
-	RuntimeDebug,
-	MaxEncodedLen,
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, Debug, MaxEncodedLen,
 )]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.
@@ -423,6 +402,89 @@ impl XcmpMessageHandler for () {
 	) -> Weight {
 		for _ in iter {}
 		Weight::zero()
+	}
+}
+
+/// Extension to ValidationParams for V3+ candidates.
+/// Versioned enum where the variant index serves as the version number.
+///
+/// When introducing a new candidate descriptor version, add a new variant here.
+/// PVFs that don't understand the new variant will fail to decode, which is
+/// expected - parachains must upgrade their PVF to use new features.
+#[derive(Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum ValidationParamsExtension {
+	/// V3 extension - contains relay_parent and scheduling_parent hashes.
+	#[codec(index = 3)]
+	V3 {
+		/// The relay parent block hash.
+		relay_parent: Hash,
+		/// The scheduling parent block hash (may differ from relay_parent in V3).
+		scheduling_parent: Hash,
+	},
+	// Future versions would add new variants:
+	// #[codec(index = 4)]
+	// V4 {
+	//     relay_parent: Hash,
+	//     scheduling_parent: Hash,
+	//     new_field: SomeType,
+	// },
+}
+
+/// A wrapper that decodes `T` if bytes remain after prior fields, or returns
+/// `None` if at EOF. Unlike `Option<T>`, this does NOT expect a 0x00/0x01
+/// discriminant byte - it simply checks whether there is remaining input.
+///
+/// This is used to guarantee no breakage for existing chains with v1/v2
+/// descriptors. For v1/v2, no extension bytes are sent at all, and
+/// TrailingOption gracefully returns None instead of failing to decode.
+///
+/// # ⚠️ DANGER - Do Not Use This as a General-Purpose Utility! ⚠️
+///
+/// **CRITICAL ASSUMPTIONS:**
+/// - The type containing `TrailingOption<T>` MUST be the final/top-level struct being decoded
+/// - There MUST NOT be any fields after the `TrailingOption<T>` field
+/// - There MUST NOT be any legitimate trailing data except `T`
+///
+/// **Why this is dangerous:**
+/// `TrailingOption` greedily consumes ALL remaining bytes and attempts to decode them as `T`.
+/// If your struct is embedded in a larger message, or if you add fields after it,
+/// `TrailingOption` will incorrectly steal bytes belonging to those fields.
+///
+/// **Current safe usage:**
+/// - `ValidationParams` is encoded as a complete standalone message
+/// - `ValidationParamsExtension` is manually appended as trailing bytes
+/// - The PVF receives this as the entire input (no wrapper struct)
+///
+/// If you're considering using this elsewhere, you probably want `Option<T>` instead.
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct TrailingOption<T>(pub Option<T>);
+
+impl<T: Decode> Decode for TrailingOption<T> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		// Check if input is exhausted - return None instead of failing
+		if input.remaining_len()? == Some(0) {
+			return Ok(TrailingOption(None));
+		}
+		// Bytes remain - decode T (the ValidationParamsExtension enum)
+		Ok(TrailingOption(Some(T::decode(input)?)))
+	}
+}
+
+impl<T: Encode> Encode for TrailingOption<T> {
+	fn encode(&self) -> Vec<u8> {
+		match &self.0 {
+			Some(inner) => inner.encode(),
+			None => Vec::new(), // Encode nothing for None
+		}
+	}
+}
+
+impl<T> TrailingOption<T> {
+	/// Extract the inner `Option<T>`.
+	pub fn into_inner(self) -> Option<T> {
+		self.0
 	}
 }
 

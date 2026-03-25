@@ -20,7 +20,7 @@ use crate::validator_side_experimental::{
 };
 use async_trait::async_trait;
 use polkadot_node_network_protocol::PeerId;
-use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{BlockNumber, Id as ParaId};
 use std::{
 	collections::{btree_map, hash_map, BTreeMap, BTreeSet, HashMap},
 	time::{SystemTime, UNIX_EPOCH},
@@ -31,24 +31,24 @@ use std::{
 pub struct Db {
 	db: BTreeMap<ParaId, HashMap<PeerId, ScoreEntry>>,
 	last_finalized: Option<BlockNumber>,
-	stored_limit_per_para: u8,
+	stored_limit_per_para: u16,
 }
 
 impl Db {
 	/// Create a new instance of the in-memory DB.
 	///
 	/// `stored_limit_per_para` is the maximum number of reputations that can be stored per para.
-	pub async fn new(stored_limit_per_para: u8) -> Self {
+	pub async fn new(stored_limit_per_para: u16) -> Self {
 		Self { db: BTreeMap::new(), last_finalized: None, stored_limit_per_para }
 	}
 }
 
-type Timestamp = u128;
+pub(crate) type Timestamp = u128;
 
-#[derive(Clone, Debug)]
-struct ScoreEntry {
-	score: Score,
-	last_bumped: Timestamp,
+#[derive(Clone, Copy, Debug, codec::Encode, codec::Decode)]
+pub(crate) struct ScoreEntry {
+	pub(crate) score: Score,
+	pub(crate) last_bumped: Timestamp,
 }
 
 #[async_trait]
@@ -91,11 +91,22 @@ impl Backend for Db {
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
 		if self.last_finalized.unwrap_or(0) >= leaf_number {
-			return vec![]
+			return vec![];
 		}
 
 		self.last_finalized = Some(leaf_number);
 		self.bump_reputations(bumps, decay_value)
+	}
+
+	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+		let mut max_scores = HashMap::with_capacity(paras.len());
+		for para in paras {
+			if let Some(per_para) = self.db.get(&para) {
+				let max_score = per_para.values().map(|e| e.score).max().unwrap_or(Score::new(0));
+				max_scores.insert(para, max_score);
+			}
+		}
+		max_scores
 	}
 }
 
@@ -113,7 +124,7 @@ impl Db {
 
 			for (peer_id, bump) in bumps_per_para.iter() {
 				if u16::from(*bump) == 0 {
-					continue
+					continue;
 				}
 
 				self.db
@@ -210,8 +221,39 @@ impl Db {
 		}
 	}
 
+	/// Get the last finalized block number (for persistence).
+	pub(crate) fn get_last_finalized(&self) -> Option<BlockNumber> {
+		self.last_finalized
+	}
+
+	/// Set the last finalized block number (for loading from disk).
+	pub(crate) fn set_last_finalized(&mut self, last_finalized: Option<BlockNumber>) {
+		self.last_finalized = last_finalized;
+	}
+
+	/// Get reputations for a specific para (for persistence).
+	pub(crate) fn get_para_reputations(&self, para_id: &ParaId) -> HashMap<PeerId, ScoreEntry> {
+		self.db.get(para_id).cloned().unwrap_or_default()
+	}
+
+	/// Set reputations for a specific para (for loading from disk).
+	pub(crate) fn set_para_reputations(
+		&mut self,
+		para_id: ParaId,
+		reputations: HashMap<PeerId, ScoreEntry>,
+	) {
+		self.db.insert(para_id, reputations);
+	}
+
+	/// Get all reputations (for persistence).
+	pub(crate) fn all_reputations(
+		&self,
+	) -> impl Iterator<Item = (&ParaId, &HashMap<PeerId, ScoreEntry>)> {
+		self.db.iter()
+	}
+
 	#[cfg(test)]
-	fn len(&self) -> usize {
+	pub(crate) fn len(&self) -> usize {
 		self.db.len()
 	}
 }
@@ -238,18 +280,12 @@ mod tests {
 		assert_eq!(db.query(&PeerId::random(), &ParaId::from(1000)).await, None);
 
 		// Test empty update with decay.
-		assert!(db
-			.process_bumps(11, Default::default(), Some(Score::new(1).unwrap()))
-			.await
-			.is_empty());
+		assert!(db.process_bumps(11, Default::default(), Some(Score::new(1))).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
 		// Test empty update with a leaf number smaller than the latest one.
-		assert!(db
-			.process_bumps(5, Default::default(), Some(Score::new(1).unwrap()))
-			.await
-			.is_empty());
+		assert!(db.process_bumps(5, Default::default(), Some(Score::new(1))).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(11));
 		assert_eq!(db.len(), 0);
 
@@ -257,13 +293,10 @@ mod tests {
 		assert!(db
 			.process_bumps(
 				12,
-				[(
-					ParaId::from(100),
-					[(PeerId::random(), Score::new(0).unwrap())].into_iter().collect()
-				)]
-				.into_iter()
-				.collect(),
-				Some(Score::new(1).unwrap())
+				[(ParaId::from(100), [(PeerId::random(), Score::new(0))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				Some(Score::new(1))
 			)
 			.await
 			.is_empty());
@@ -276,10 +309,10 @@ mod tests {
 		assert!(db
 			.process_bumps(
 				12,
-				[(first_para_id, [(first_peer_id, Score::new(10).unwrap())].into_iter().collect())]
+				[(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1).unwrap())
+				Some(Score::new(1))
 			)
 			.await
 			.is_empty());
@@ -291,25 +324,22 @@ mod tests {
 		assert_eq!(
 			db.process_bumps(
 				13,
-				[(first_para_id, [(first_peer_id, Score::new(10).unwrap())].into_iter().collect())]
+				[(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1).unwrap())
+				Some(Score::new(1))
 			)
 			.await,
 			vec![ReputationUpdate {
 				peer_id: first_peer_id,
 				para_id: first_para_id,
 				kind: ReputationUpdateKind::Bump,
-				value: Score::new(10).unwrap()
+				value: Score::new(10)
 			}]
 		);
 		assert_eq!(db.processed_finalized_block_number().await, Some(13));
 		assert_eq!(db.len(), 1);
-		assert_eq!(
-			db.query(&first_peer_id, &first_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
 		// Query a non-existant peer_id for this para.
 		assert_eq!(db.query(&PeerId::random(), &first_para_id).await, None);
 		// Query this peer's rep for a different para.
@@ -319,19 +349,16 @@ mod tests {
 		assert!(db
 			.process_bumps(
 				10,
-				[(first_para_id, [(first_peer_id, Score::new(10).unwrap())].into_iter().collect())]
+				[(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(1).unwrap())
+				Some(Score::new(1))
 			)
 			.await
 			.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(13));
 		assert_eq!(db.len(), 1);
-		assert_eq!(
-			db.query(&first_peer_id, &first_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
 
 		let second_para_id = ParaId::from(200);
 		let second_peer_id = PeerId::random();
@@ -340,14 +367,8 @@ mod tests {
 			db.process_bumps(
 				14,
 				[
-					(
-						first_para_id,
-						[(second_peer_id, Score::new(10).unwrap())].into_iter().collect()
-					),
-					(
-						second_para_id,
-						[(first_peer_id, Score::new(5).unwrap())].into_iter().collect()
-					)
+					(first_para_id, [(second_peer_id, Score::new(10))].into_iter().collect()),
+					(second_para_id, [(first_peer_id, Score::new(5))].into_iter().collect())
 				]
 				.into_iter()
 				.collect(),
@@ -359,68 +380,41 @@ mod tests {
 					peer_id: second_peer_id,
 					para_id: first_para_id,
 					kind: ReputationUpdateKind::Bump,
-					value: Score::new(10).unwrap()
+					value: Score::new(10)
 				},
 				ReputationUpdate {
 					peer_id: first_peer_id,
 					para_id: second_para_id,
 					kind: ReputationUpdateKind::Bump,
-					value: Score::new(5).unwrap()
+					value: Score::new(5)
 				}
 			]
 		);
 		assert_eq!(db.len(), 2);
 		assert_eq!(db.processed_finalized_block_number().await, Some(14));
-		assert_eq!(
-			db.query(&first_peer_id, &first_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
-		assert_eq!(
-			db.query(&second_peer_id, &first_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
-		assert_eq!(
-			db.query(&first_peer_id, &second_para_id).await.unwrap(),
-			Score::new(5).unwrap()
-		);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&second_peer_id, &first_para_id).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&first_peer_id, &second_para_id).await.unwrap(), Score::new(5));
 
 		// Empty update with decay has no effect.
-		assert!(db
-			.process_bumps(15, Default::default(), Some(Score::new(1).unwrap()))
-			.await
-			.is_empty());
+		assert!(db.process_bumps(15, Default::default(), Some(Score::new(1))).await.is_empty());
 		assert_eq!(db.processed_finalized_block_number().await, Some(15));
 		assert_eq!(db.len(), 2);
-		assert_eq!(
-			db.query(&first_peer_id, &first_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
-		assert_eq!(
-			db.query(&second_peer_id, &first_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
-		assert_eq!(
-			db.query(&first_peer_id, &second_para_id).await.unwrap(),
-			Score::new(5).unwrap()
-		);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&second_peer_id, &first_para_id).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&first_peer_id, &second_para_id).await.unwrap(), Score::new(5));
 
 		// Test a subsequent update with decay.
 		assert_eq!(
 			db.process_bumps(
 				16,
 				[
-					(
-						first_para_id,
-						[(first_peer_id, Score::new(10).unwrap())].into_iter().collect()
-					),
-					(
-						second_para_id,
-						[(second_peer_id, Score::new(10).unwrap())].into_iter().collect()
-					),
+					(first_para_id, [(first_peer_id, Score::new(10))].into_iter().collect()),
+					(second_para_id, [(second_peer_id, Score::new(10))].into_iter().collect()),
 				]
 				.into_iter()
 				.collect(),
-				Some(Score::new(1).unwrap())
+				Some(Score::new(1))
 			)
 			.await,
 			vec![
@@ -428,58 +422,43 @@ mod tests {
 					peer_id: first_peer_id,
 					para_id: first_para_id,
 					kind: ReputationUpdateKind::Bump,
-					value: Score::new(10).unwrap()
+					value: Score::new(10)
 				},
 				ReputationUpdate {
 					peer_id: second_peer_id,
 					para_id: first_para_id,
 					kind: ReputationUpdateKind::Slash,
-					value: Score::new(1).unwrap()
+					value: Score::new(1)
 				},
 				ReputationUpdate {
 					peer_id: second_peer_id,
 					para_id: second_para_id,
 					kind: ReputationUpdateKind::Bump,
-					value: Score::new(10).unwrap()
+					value: Score::new(10)
 				},
 				ReputationUpdate {
 					peer_id: first_peer_id,
 					para_id: second_para_id,
 					kind: ReputationUpdateKind::Slash,
-					value: Score::new(1).unwrap()
+					value: Score::new(1)
 				},
 			]
 		);
 		assert_eq!(db.processed_finalized_block_number().await, Some(16));
 		assert_eq!(db.len(), 2);
-		assert_eq!(
-			db.query(&first_peer_id, &first_para_id).await.unwrap(),
-			Score::new(20).unwrap()
-		);
-		assert_eq!(
-			db.query(&second_peer_id, &first_para_id).await.unwrap(),
-			Score::new(9).unwrap()
-		);
-		assert_eq!(
-			db.query(&first_peer_id, &second_para_id).await.unwrap(),
-			Score::new(4).unwrap()
-		);
-		assert_eq!(
-			db.query(&second_peer_id, &second_para_id).await.unwrap(),
-			Score::new(10).unwrap()
-		);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(20));
+		assert_eq!(db.query(&second_peer_id, &first_para_id).await.unwrap(), Score::new(9));
+		assert_eq!(db.query(&first_peer_id, &second_para_id).await.unwrap(), Score::new(4));
+		assert_eq!(db.query(&second_peer_id, &second_para_id).await.unwrap(), Score::new(10));
 
 		// Test a decay that makes the reputation go to 0 (The peer's entry will be removed)
 		assert_eq!(
 			db.process_bumps(
 				17,
-				[(
-					second_para_id,
-					[(second_peer_id, Score::new(10).unwrap())].into_iter().collect()
-				),]
-				.into_iter()
-				.collect(),
-				Some(Score::new(5).unwrap())
+				[(second_para_id, [(second_peer_id, Score::new(10))].into_iter().collect()),]
+					.into_iter()
+					.collect(),
+				Some(Score::new(5))
 			)
 			.await,
 			vec![
@@ -487,31 +466,22 @@ mod tests {
 					peer_id: second_peer_id,
 					para_id: second_para_id,
 					kind: ReputationUpdateKind::Bump,
-					value: Score::new(10).unwrap()
+					value: Score::new(10)
 				},
 				ReputationUpdate {
 					peer_id: first_peer_id,
 					para_id: second_para_id,
 					kind: ReputationUpdateKind::Slash,
-					value: Score::new(4).unwrap()
+					value: Score::new(4)
 				}
 			]
 		);
 		assert_eq!(db.processed_finalized_block_number().await, Some(17));
 		assert_eq!(db.len(), 2);
-		assert_eq!(
-			db.query(&first_peer_id, &first_para_id).await.unwrap(),
-			Score::new(20).unwrap()
-		);
-		assert_eq!(
-			db.query(&second_peer_id, &first_para_id).await.unwrap(),
-			Score::new(9).unwrap()
-		);
+		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(20));
+		assert_eq!(db.query(&second_peer_id, &first_para_id).await.unwrap(), Score::new(9));
 		assert_eq!(db.query(&first_peer_id, &second_para_id).await, None);
-		assert_eq!(
-			db.query(&second_peer_id, &second_para_id).await.unwrap(),
-			Score::new(20).unwrap()
-		);
+		assert_eq!(db.query(&second_peer_id, &second_para_id).await.unwrap(), Score::new(20));
 
 		// Test an update which ends up pruning least recently used entries. The per-para limit is
 		// 10.
@@ -524,7 +494,7 @@ mod tests {
 				1,
 				[(
 					first_para_id,
-					peer_ids.iter().map(|peer_id| (*peer_id, Score::new(10).unwrap())).collect()
+					peer_ids.iter().map(|peer_id| (*peer_id, Score::new(10))).collect()
 				)]
 				.into_iter()
 				.collect(),
@@ -537,7 +507,7 @@ mod tests {
 		assert_eq!(db.len(), 1);
 
 		for peer_id in peer_ids.iter() {
-			assert_eq!(db.query(peer_id, &first_para_id).await.unwrap(), Score::new(10).unwrap());
+			assert_eq!(db.query(peer_id, &first_para_id).await.unwrap(), Score::new(10));
 		}
 
 		// Now sleep for one second and then bump the reputations of all peers except for the one
@@ -552,14 +522,12 @@ mod tests {
 					peer_ids
 						.iter()
 						.enumerate()
-						.filter_map(
-							|(i, peer_id)| (i != 4).then_some((*peer_id, Score::new(10).unwrap()))
-						)
+						.filter_map(|(i, peer_id)| (i != 4).then_some((*peer_id, Score::new(10))))
 						.collect()
 				)]
 				.into_iter()
 				.collect(),
-				Some(Score::new(5).unwrap()),
+				Some(Score::new(5)),
 			)
 			.await
 			.len(),
@@ -568,15 +536,9 @@ mod tests {
 
 		for (i, peer_id) in peer_ids.iter().enumerate() {
 			if i == 4 {
-				assert_eq!(
-					db.query(peer_id, &first_para_id).await.unwrap(),
-					Score::new(5).unwrap()
-				);
+				assert_eq!(db.query(peer_id, &first_para_id).await.unwrap(), Score::new(5));
 			} else {
-				assert_eq!(
-					db.query(peer_id, &first_para_id).await.unwrap(),
-					Score::new(20).unwrap()
-				);
+				assert_eq!(db.query(peer_id, &first_para_id).await.unwrap(), Score::new(20));
 			}
 		}
 
@@ -586,10 +548,10 @@ mod tests {
 		assert_eq!(
 			db.process_bumps(
 				3,
-				[(first_para_id, [(new_peer, Score::new(10).unwrap())].into_iter().collect())]
+				[(first_para_id, [(new_peer, Score::new(10))].into_iter().collect())]
 					.into_iter()
 					.collect(),
-				Some(Score::new(5).unwrap()),
+				Some(Score::new(5)),
 			)
 			.await
 			.len(),
@@ -599,13 +561,10 @@ mod tests {
 			if i == 4 {
 				assert_eq!(db.query(peer_id, &first_para_id).await, None);
 			} else {
-				assert_eq!(
-					db.query(peer_id, &first_para_id).await.unwrap(),
-					Score::new(15).unwrap()
-				);
+				assert_eq!(db.query(peer_id, &first_para_id).await.unwrap(), Score::new(15));
 			}
 		}
-		assert_eq!(db.query(&new_peer, &first_para_id).await.unwrap(), Score::new(10).unwrap());
+		assert_eq!(db.query(&new_peer, &first_para_id).await.unwrap(), Score::new(10));
 
 		// Now try adding yet another peer. The decay would naturally evict the new peer so no need
 		// to evict the least recently bumped.
@@ -613,13 +572,10 @@ mod tests {
 		assert_eq!(
 			db.process_bumps(
 				4,
-				[(
-					first_para_id,
-					[(yet_another_peer, Score::new(10).unwrap())].into_iter().collect()
-				)]
-				.into_iter()
-				.collect(),
-				Some(Score::new(10).unwrap()),
+				[(first_para_id, [(yet_another_peer, Score::new(10))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				Some(Score::new(10)),
 			)
 			.await
 			.len(),
@@ -629,17 +585,11 @@ mod tests {
 			if i == 4 {
 				assert_eq!(db.query(peer_id, &first_para_id).await, None);
 			} else {
-				assert_eq!(
-					db.query(peer_id, &first_para_id).await.unwrap(),
-					Score::new(5).unwrap()
-				);
+				assert_eq!(db.query(peer_id, &first_para_id).await.unwrap(), Score::new(5));
 			}
 		}
 		assert_eq!(db.query(&new_peer, &first_para_id).await, None);
-		assert_eq!(
-			db.query(&yet_another_peer, &first_para_id).await,
-			Some(Score::new(10).unwrap())
-		);
+		assert_eq!(db.query(&yet_another_peer, &first_para_id).await, Some(Score::new(10)));
 	}
 
 	#[tokio::test]
@@ -649,7 +599,7 @@ mod tests {
 
 		// Test slash on empty DB
 		let peer_id = PeerId::random();
-		db.slash(&peer_id, &ParaId::from(100), Score::new(50).unwrap()).await;
+		db.slash(&peer_id, &ParaId::from(100), Score::new(50)).await;
 		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await, None);
 
 		// Test slash on non-existent para
@@ -658,42 +608,33 @@ mod tests {
 			db.process_bumps(
 				1,
 				[
-					(ParaId::from(100), [(peer_id, Score::new(10).unwrap())].into_iter().collect()),
-					(
-						ParaId::from(200),
-						[(another_peer_id, Score::new(12).unwrap())].into_iter().collect()
-					),
-					(ParaId::from(300), [(peer_id, Score::new(15).unwrap())].into_iter().collect())
+					(ParaId::from(100), [(peer_id, Score::new(10))].into_iter().collect()),
+					(ParaId::from(200), [(another_peer_id, Score::new(12))].into_iter().collect()),
+					(ParaId::from(300), [(peer_id, Score::new(15))].into_iter().collect())
 				]
 				.into_iter()
 				.collect(),
-				Some(Score::new(10).unwrap()),
+				Some(Score::new(10)),
 			)
 			.await
 			.len(),
 			3
 		);
-		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(10).unwrap());
-		assert_eq!(
-			db.query(&another_peer_id, &ParaId::from(200)).await.unwrap(),
-			Score::new(12).unwrap()
-		);
-		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15).unwrap());
+		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&another_peer_id, &ParaId::from(200)).await.unwrap(), Score::new(12));
+		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15));
 
-		db.slash(&peer_id, &ParaId::from(200), Score::new(4).unwrap()).await;
-		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(10).unwrap());
-		assert_eq!(
-			db.query(&another_peer_id, &ParaId::from(200)).await.unwrap(),
-			Score::new(12).unwrap()
-		);
-		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15).unwrap());
+		db.slash(&peer_id, &ParaId::from(200), Score::new(4)).await;
+		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&another_peer_id, &ParaId::from(200)).await.unwrap(), Score::new(12));
+		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15));
 
 		// Test regular slash
-		db.slash(&peer_id, &ParaId::from(100), Score::new(4).unwrap()).await;
-		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(6).unwrap());
+		db.slash(&peer_id, &ParaId::from(100), Score::new(4)).await;
+		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(6));
 
 		// Test slash which removes the entry altogether
-		db.slash(&peer_id, &ParaId::from(100), Score::new(8).unwrap()).await;
+		db.slash(&peer_id, &ParaId::from(100), Score::new(8)).await;
 		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await, None);
 		assert_eq!(db.len(), 2);
 	}
@@ -717,16 +658,13 @@ mod tests {
 			db.process_bumps(
 				1,
 				[
-					(ParaId::from(100), [(peer_id, Score::new(10).unwrap())].into_iter().collect()),
-					(
-						ParaId::from(200),
-						[(another_peer_id, Score::new(12).unwrap())].into_iter().collect()
-					),
-					(ParaId::from(300), [(peer_id, Score::new(15).unwrap())].into_iter().collect())
+					(ParaId::from(100), [(peer_id, Score::new(10))].into_iter().collect()),
+					(ParaId::from(200), [(another_peer_id, Score::new(12))].into_iter().collect()),
+					(ParaId::from(300), [(peer_id, Score::new(15))].into_iter().collect())
 				]
 				.into_iter()
 				.collect(),
-				Some(Score::new(10).unwrap()),
+				Some(Score::new(10)),
 			)
 			.await
 			.len(),
@@ -743,19 +681,16 @@ mod tests {
 		.await;
 		assert_eq!(db.len(), 3);
 
-		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(10).unwrap());
-		assert_eq!(
-			db.query(&another_peer_id, &ParaId::from(200)).await.unwrap(),
-			Score::new(12).unwrap()
-		);
-		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15).unwrap());
+		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await.unwrap(), Score::new(10));
+		assert_eq!(db.query(&another_peer_id, &ParaId::from(200)).await.unwrap(), Score::new(12));
+		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15));
 
 		// Prunes multiple paras.
 		db.prune_paras([ParaId::from(300)].into_iter().collect()).await;
 		assert_eq!(db.len(), 1);
 		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await, None);
 		assert_eq!(db.query(&another_peer_id, &ParaId::from(200)).await, None);
-		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15).unwrap());
+		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await.unwrap(), Score::new(15));
 
 		// Prunes all paras.
 		db.prune_paras(BTreeSet::new()).await;

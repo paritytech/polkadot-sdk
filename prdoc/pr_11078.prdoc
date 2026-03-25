@@ -1,0 +1,21 @@
+title: 'net: Strip previous p2p prefix before concatenating addresses'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR ensures that a `MultiaddrWithPeerId` will always remain valid after a concatenating process.
+
+    The litep2p code will concatanate the provided multiaddr-with-peerID regardless if the address already contains a `p2p/..` prefix:
+
+    https://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/src/litep2p/service.rs#L427-L434
+
+
+    This then can lead to addresses for reserved peers to never be dialed by the network backend as they are considered invalid.
+
+    This has been discovered by running the networking benchmarks:
+    https://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/benches/notifications_protocol.rs#L143-L148
+
+    Part of the cleanups for:
+    - https://github.com/paritytech/polkadot-sdk/issues/10425
+crates:
+- name: sc-network
+  bump: patch

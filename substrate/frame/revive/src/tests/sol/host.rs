@@ -17,16 +17,17 @@
 
 //! The pallet-revive shared VM integration test suite.
 use crate::{
+	Code, Config, Error, H256, Key, System, U256,
 	address::AddressMapper,
-	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, test_utils::get_contract, ExtBuilder, RuntimeEvent, Test},
-	Code, Config, Error, Key, System, H256, U256,
+	metering::TransactionLimits,
+	test_utils::{ALICE, BOB, BOB_ADDR, builder::Contract},
+	tests::{ExtBuilder, RuntimeEvent, Test, builder, test_utils, test_utils::get_contract},
 };
 use frame_support::assert_err_ignore_postinfo;
 
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::traits::{fungible::Mutate, Get};
-use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType, Host};
+use frame_support::traits::{Get, fungible::Mutate};
+use pallet_revive_fixtures::{Caller, FixtureType, Host, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use test_case::test_case;
 
@@ -40,8 +41,8 @@ fn convert_to_free_balance(total_balance: u128) -> U256 {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn balance_works(fixture_type: FixtureType) {
-	let bobs_balance = 123_456_789_000u64;
-	let expected_balance = convert_to_free_balance(bobs_balance as u128);
+	let bobs_balance = 123_456_789_000u128;
+	let expected_balance = convert_to_free_balance(bobs_balance);
 	let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -471,7 +472,10 @@ fn logs_work(fixture_type: FixtureType) {
 		initialize_block(2);
 
 		let result = builder::bare_call(addr)
-			.gas_limit(crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024))
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: crate::Weight::from_parts(100_000_000_000_000, 50 * 1024 * 1024),
+				deposit_limit: Default::default(),
+			})
 			.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");

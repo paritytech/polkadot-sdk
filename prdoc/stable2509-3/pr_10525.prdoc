@@ -1,0 +1,30 @@
+title: 'fix(rpc-spec-v2): best block not announced immediately after initialised'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Fixes https://github.com/polkadot-api/polkadot-api/issues/1244
+
+    The current chainHead_v1 implementation is [not spec-compliant](https://paritytech.github.io/json-rpc-interface-spec/api/chainHead_v1_follow.html), as it states:
+
+    > - Generates an `initialized` notification
+    > - Generates one `newBlock` notification for each non-finalized block
+    > - Then a `bestBlockChanged` notification
+    > - When a new block arrives, generates a `newBlock` notification
+    > - When the node finalizes a block, generates a `finalized` notification
+
+    And the current implemention only emits the `bestBlockChanged` notification after initialized iif the best block is different from the finalized block.
+
+    PAPI recently is using this part of the spec as an assumption. Most chains are unaffected, but those that produce blocks on-demand (e.g. manual-seal) then have polkadot-api hanging until there's a higher block different than the finalized one.
+
+    ## Integration
+
+    This PR doesn't change any of the APIs of the node. Upgrade should be automatic.
+
+    ## Review Notes
+
+    This PR removes that condition so that the `bestBlockChanged` notification is always emited. All tests are updated to this new behaviour
+crates:
+- name: sc-rpc-spec-v2
+  bump: major

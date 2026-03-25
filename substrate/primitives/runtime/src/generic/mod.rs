@@ -34,7 +34,8 @@ pub use self::{
 	era::{Era, Phase},
 	header::Header,
 	unchecked_extrinsic::{
-		ExtensionVersion, Preamble, SignedPayload, UncheckedExtrinsic, EXTRINSIC_FORMAT_VERSION,
+		CallAndMaybeEncoded, ExtensionVersion, Preamble, SignedPayload, UncheckedExtrinsic,
+		EXTRINSIC_FORMAT_VERSION,
 	},
 };
 pub use unchecked_extrinsic::UncheckedSignaturePayload;

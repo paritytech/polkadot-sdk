@@ -132,7 +132,7 @@ fn reserve_transfer() {
 			Box::new(Parachain(1).into()),
 			Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
 			Box::new((Here, withdraw_amount).into()),
-			Box::new(Here.into()),
+			0,
 			Unlimited,
 		));
 		assert_eq!(
@@ -179,7 +179,7 @@ fn reserve_transfer_with_error() {
 				invalid_dest,
 				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
 				Box::new((Here, withdraw_amount).into()),
-				Box::new(Here.into()),
+				0,
 				Unlimited,
 			);
 

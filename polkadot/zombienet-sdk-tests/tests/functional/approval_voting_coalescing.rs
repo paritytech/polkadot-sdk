@@ -39,9 +39,10 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 					}
 				}
 			}))
-			.with_node(|node| node.with_name("validator-0"));
+			.with_validator(|node| node.with_name("validator-0"));
 
-		(1..12).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+		(1..12)
+			.fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
 	});
 
 	for para_id in 2000..2008 {
@@ -88,9 +89,7 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 			(ParaId::from(2005), 11..35),
 			(ParaId::from(2006), 11..35),
 			(ParaId::from(2007), 11..35),
-		]
-		.into_iter()
-		.collect(),
+		],
 	)
 	.await?;
 

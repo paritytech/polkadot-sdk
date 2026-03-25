@@ -9,7 +9,10 @@ use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::assign_cores;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 const PARA_ID_1: u32 = 2100;
 const PARA_ID_2: u32 = 2000;
@@ -37,7 +40,8 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-single-core is up");
 	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
-	assign_cores(alice, PARA_ID_1, vec![0, 1]).await?;
+	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
+	assign_cores(&alice_client, PARA_ID_1, vec![0, 1]).await?;
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());
@@ -103,12 +107,12 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the right
 				// type.
-				.with_node(|node| node.with_name("alice").with_args(vec![]));
+				.with_validator(|node| node.with_name("alice").with_args(vec![]));
 
 			(0..5).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lruntime=debug,parachain=trace").into(),
 					])

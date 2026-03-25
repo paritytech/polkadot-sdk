@@ -22,7 +22,7 @@ use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 use crate::{
 	mock::{Test as T, *},
 	mock_helpers::{MockedMigrationKind::*, *},
-	Cursor, Event, FailedMigrationHandling, MigrationCursor,
+	Cursor, Event, FailedMigrationHandling, MbmIsOngoing, MbmProgress, MigrationCursor,
 };
 
 #[docify::export]
@@ -88,7 +88,7 @@ fn simple_multiple_works() {
 
 #[test]
 #[cfg_attr(feature = "try-runtime", should_panic)]
-fn failing_migration_sets_cursor_to_stuck() {
+fn failing_migration_keep_stuck_works() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::KeepStuck);
 		MockedMigrations::set(vec![(FailAfter, 2)]);
@@ -109,11 +109,46 @@ fn failing_migration_sets_cursor_to_stuck() {
 		]);
 
 		// Check that the handler was called correctly.
-		assert_eq!(UpgradesStarted::take(), 1);
-		assert_eq!(UpgradesCompleted::take(), 0);
-		assert_eq!(UpgradesFailed::take(), vec![Some(0)]);
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
 
 		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck), "Must stuck the chain");
+	});
+}
+
+#[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
+fn failing_migration_faulty_ignore_handler() {
+	test_closure(|| {
+		FailedUpgradeResponse::set(FailedMigrationHandling::Ignore);
+		MockedMigrations::set(vec![(FailAfter, 2)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(6);
+
+		// Failed migrations are not recorded in `Historical`.
+		assert!(historic().is_empty());
+		// Check that we got all events.
+		assert_events(vec![
+			Event::UpgradeStarted { migrations: 1 },
+			Event::MigrationAdvanced { index: 0, took: 1 },
+			Event::MigrationAdvanced { index: 0, took: 2 },
+			Event::MigrationFailed { index: 0, took: 3 },
+			Event::UpgradeFailed,
+			// A handler returning `Ignore` and not setting the cursor will cause it to loop:
+			Event::MigrationFailed { index: 0, took: 4 },
+			Event::UpgradeFailed,
+			Event::MigrationFailed { index: 0, took: 5 },
+			Event::UpgradeFailed,
+		]);
+
+		// Crash handler was called 3 times:
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 3));
+		// Handler did not modify the cursor
+		assert!(
+			matches!(Cursor::<T>::get(), Some(MigrationCursor::Active { .. })),
+			"Must stuck the chain"
+		);
 	});
 }
 
@@ -140,9 +175,7 @@ fn failing_migration_force_unstuck_works() {
 		]);
 
 		// Check that the handler was called correctly.
-		assert_eq!(UpgradesStarted::take(), 1);
-		assert_eq!(UpgradesCompleted::take(), 0);
-		assert_eq!(UpgradesFailed::take(), vec![Some(0)]);
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
 
 		assert!(Cursor::<T>::get().is_none(), "Must unstuck the chain");
 	});
@@ -452,5 +485,196 @@ fn try_runtime_no_migrations() {
 		run_to_block(10);
 
 		assert_eq!(System::events().len(), 0);
+	});
+}
+
+#[test]
+fn view_function_ongoing_status_works() {
+	test_closure(|| {
+		MockedMigrations::set(vec![(SucceedAfter, 2), (SucceedAfter, 3), (SucceedAfter, 5)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(2);
+
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 0,
+				total_migrations: 3,
+				current_migration_steps: 1,
+				current_migration_max_steps: Some(2),
+			})
+		);
+
+		run_to_block(3);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 0,
+				total_migrations: 3,
+				current_migration_steps: 2,
+				current_migration_max_steps: Some(2),
+			})
+		);
+
+		run_to_block(4);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 1,
+				total_migrations: 3,
+				current_migration_steps: 0,
+				current_migration_max_steps: Some(3),
+			})
+		);
+
+		run_to_block(5);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 1,
+				total_migrations: 3,
+				current_migration_steps: 1,
+				current_migration_max_steps: Some(3),
+			})
+		);
+
+		run_to_block(6);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 1,
+				total_migrations: 3,
+				current_migration_steps: 2,
+				current_migration_max_steps: Some(3),
+			})
+		);
+
+		run_to_block(7);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 2,
+				total_migrations: 3,
+				current_migration_steps: 0,
+				current_migration_max_steps: Some(5),
+			})
+		);
+	});
+}
+
+#[test]
+#[cfg(feature = "try-runtime")]
+#[should_panic]
+fn migration_steps_on_failure_works() {
+	test_closure(|| {
+		MockedMigrations::set(vec![(SucceedAfter, 1), (FailAfter, 3), (SucceedAfter, 10)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 0,
+				total_migrations: 3,
+				current_migration_steps: 0,
+				current_migration_max_steps: Some(1),
+			})
+		);
+		run_to_block(2);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Yes);
+		assert_eq!(
+			Migrations::progress(),
+			Some(MbmProgress {
+				current_migration: 0,
+				total_migrations: 3,
+				current_migration_steps: 1,
+				current_migration_max_steps: Some(1),
+			})
+		);
+
+		run_to_block(6);
+		assert_eq!(Migrations::ongoing_status(), MbmIsOngoing::Stuck);
+		assert_eq!(Migrations::progress(), None);
+
+		assert_eq!(historic(), vec![mocked_id(SucceedAfter, 1),]);
+		// Check that we got all events.
+		assert_events(vec![
+			Event::UpgradeStarted { migrations: 3 },
+			Event::MigrationAdvanced { index: 0, took: 1 },
+			Event::MigrationCompleted { index: 0, took: 2 },
+			Event::MigrationAdvanced { index: 1, took: 0 },
+			Event::MigrationAdvanced { index: 1, took: 1 },
+			Event::MigrationAdvanced { index: 1, took: 2 },
+			Event::MigrationFailed { index: 1, took: 3 },
+			Event::UpgradeFailed,
+		]);
+
+		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
+
+		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck), "Must stuck the chain");
+	});
+}
+
+#[test]
+fn view_function_status_detailed() {
+	test_closure(|| {
+		// Set up multiple migrations
+		MockedMigrations::set(vec![(SucceedAfter, 2), (SucceedAfter, 1)]);
+
+		System::set_block_number(1);
+		// Check status before upgrade
+		let prev_status = Migrations::status();
+		assert_eq!(prev_status.ongoing, MbmIsOngoing::No);
+		assert!(prev_status.progress.is_none());
+		assert_eq!(prev_status.prefixes, Vec::<Vec<u8>>::new());
+
+		Migrations::on_runtime_upgrade();
+
+		let status = Migrations::status();
+		let progress = status.progress.unwrap();
+		assert_eq!(progress.current_migration, 0);
+		assert_eq!(progress.total_migrations, 2);
+		assert_eq!(progress.current_migration_steps, 0);
+		assert_eq!(progress.current_migration_max_steps, Some(2));
+		assert_eq!(status.prefixes, vec![mocked_id(SucceedAfter, 2).into_inner()]);
+
+		// After first step
+		run_to_block(2);
+		let status = Migrations::status();
+		let progress = status.progress.unwrap();
+		assert_eq!(progress.current_migration_steps, 1);
+		assert_eq!(status.prefixes, vec![mocked_id(SucceedAfter, 2).into_inner()]);
+
+		// After second step (migration 0 completes)
+		run_to_block(3);
+		let status = Migrations::status();
+		let progress = status.progress.unwrap();
+		assert_eq!(progress.current_migration, 0);
+		assert_eq!(progress.current_migration_steps, 2);
+		assert_eq!(progress.current_migration_max_steps, Some(2));
+		assert_eq!(status.prefixes, vec![mocked_id(SucceedAfter, 2).into_inner()]);
+
+		run_to_block(4);
+		let status = Migrations::status();
+		let progress = status.progress.unwrap();
+		assert_eq!(progress.current_migration, 1);
+		assert_eq!(progress.current_migration_steps, 0);
+		assert_eq!(progress.current_migration_max_steps, Some(1));
+		assert_eq!(status.prefixes, vec![mocked_id(SucceedAfter, 1).into_inner()]);
+
+		// After third step (migration 1 completes)
+		run_to_block(5);
+		let status = Migrations::status();
+		assert_eq!(status.ongoing, MbmIsOngoing::No);
+		assert!(status.progress.is_none());
 	});
 }

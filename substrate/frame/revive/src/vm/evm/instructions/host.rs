@@ -15,18 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	gas::Token,
-	limits,
+	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256, limits,
+	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
-		evm::{
-			instructions::utility::IntoAddress, interpreter::Halt, util::as_usize_or_halt,
-			Interpreter,
-		},
 		Ext,
+		evm::{
+			Interpreter, instructions::utility::IntoAddress, interpreter::Halt,
+			util::as_usize_or_halt,
+		},
 	},
-	DispatchError, Error, Key, RuntimeCosts, LOG_TARGET, U256,
 };
 use core::ops::ControlFlow;
 
@@ -152,7 +151,7 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::ContractTrapped.into());
 	};
 
-	interpreter.ext.gas_meter_mut().adjust_gas(
+	interpreter.ext.frame_meter_mut().adjust_weight(
 		charged_amount,
 		adjust_cost(value_to_store.unwrap_or_default().len() as u32, write_outcome.old_len()),
 	);

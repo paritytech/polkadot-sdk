@@ -29,7 +29,7 @@ use pallet_revive::{
 		},
 		H160,
 	},
-	ExecConfig, U256,
+	ExecConfig, TransactionLimits, U256,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::traits::AccountIdConversion;
@@ -75,10 +75,12 @@ fn test_xcm_send_precompile_works() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert!(result.result.is_ok());
 		let sent_message = Xcm(Some(DescendOrigin(sender.clone().try_into().unwrap()))
@@ -124,10 +126,12 @@ fn test_xcm_send_precompile_to_parachain() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert!(result.result.is_ok());
@@ -173,10 +177,12 @@ fn test_xcm_send_precompile_fails() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -223,10 +229,12 @@ fn send_fails_on_old_location_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -250,10 +258,12 @@ fn send_fails_on_old_location_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -300,10 +310,12 @@ fn send_fails_on_old_xcm_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -328,10 +340,12 @@ fn send_fails_on_old_xcm_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -371,10 +385,12 @@ fn test_xcm_execute_precompile_works() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -393,10 +409,12 @@ fn test_xcm_execute_precompile_works() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert!(result.result.is_ok());
@@ -432,10 +450,12 @@ fn test_xcm_execute_precompile_different_beneficiary() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -454,10 +474,12 @@ fn test_xcm_execute_precompile_different_beneficiary() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let return_value = match result.result {
@@ -501,10 +523,12 @@ fn test_xcm_execute_precompile_fails() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -523,10 +547,12 @@ fn test_xcm_execute_precompile_fails() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		let return_value = match result.result {
 			Ok(value) => value,
@@ -569,10 +595,12 @@ fn execute_fails_on_old_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let weight_result = match xcm_weight_results.result {
@@ -598,10 +626,12 @@ fn execute_fails_on_old_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let return_value = match result.result {
@@ -625,10 +655,12 @@ fn execute_fails_on_old_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let return_value = match result.result {
@@ -674,10 +706,12 @@ fn weight_fails_on_old_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let result = match xcm_weight_results.result {
@@ -698,10 +732,12 @@ fn weight_fails_on_old_version() {
 			RuntimeOrigin::signed(ALICE),
 			xcm_precompile_addr,
 			U256::zero(),
-			Weight::MAX,
-			u128::MAX,
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
 			encoded_weight_call,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let result = match xcm_weight_results.result {

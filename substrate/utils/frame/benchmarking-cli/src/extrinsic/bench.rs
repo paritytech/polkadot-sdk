@@ -177,7 +177,7 @@ where
 					num_ext += 1;
 				}
 				if num_ext == 0 {
-					return Err("A Block must hold at least one extrinsic".into())
+					return Err("A Block must hold at least one extrinsic".into());
 				}
 				info!("Extrinsics per block: {}", num_ext);
 				Some(num_ext)

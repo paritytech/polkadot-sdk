@@ -17,14 +17,30 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
+use codec::Encode;
+
 /// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
+
+/// Generates the storage key for Alice's account on the relay chain.
+pub fn relay_alice_account_key() -> alloc::vec::Vec<u8> {
+	use sp_keyring::Sr25519Keyring;
+
+	let alice = Sr25519Keyring::Alice.to_account_id();
+
+	let mut key = sp_io::hashing::twox_128(b"System").to_vec();
+	key.extend_from_slice(&sp_io::hashing::twox_128(b"Account"));
+	key.extend_from_slice(&sp_io::hashing::blake2_128(&alice.encode()));
+	key.extend_from_slice(&alice.encode());
+	key
+}
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use alloc::vec;
+	use cumulus_primitives_core::{ParaId, XcmpMessageSource};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -37,6 +53,22 @@ pub mod pallet {
 	/// A simple storage map for testing purposes.
 	#[pallet::storage]
 	pub type TestMap<T: Config> = StorageMap<_, Twox64Concat, u32, (), ValueQuery>;
+
+	/// Pending outbound HRMP messages queued by test extrinsics.
+	#[pallet::storage]
+	pub type PendingOutboundHrmpMessages<T: Config> =
+		StorageValue<_, alloc::vec::Vec<(ParaId, alloc::vec::Vec<u8>)>, ValueQuery>;
+
+	impl<T: Config> XcmpMessageSource for Pallet<T> {
+		fn take_outbound_messages(
+			maximum_channels: usize,
+		) -> alloc::vec::Vec<(ParaId, alloc::vec::Vec<u8>)> {
+			PendingOutboundHrmpMessages::<T>::mutate(|messages| {
+				let to_take = messages.len().min(maximum_channels);
+				messages.drain(..to_take).collect()
+			})
+		}
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -105,6 +137,34 @@ pub mod pallet {
 			TestMap::<T>::remove(key);
 			Ok(())
 		}
+
+		/// Directly sets `n` small UMP messages in `PendingUpwardMessages`.
+		#[pallet::weight(0)]
+		pub fn send_n_upward_messages(_: OriginFor<T>, n: u32) -> DispatchResult {
+			let messages: alloc::vec::Vec<_> = (0..n).map(|i| vec![(i % 256) as u8]).collect();
+			cumulus_pallet_parachain_system::PendingUpwardMessages::<T>::put(messages);
+			Ok(())
+		}
+
+		/// Sends a UMP message of specific size (in bytes).
+		#[pallet::weight(0)]
+		pub fn send_upward_message_of_size(_: OriginFor<T>, size: u32) -> DispatchResult {
+			let message = alloc::vec![0u8; size as usize];
+			cumulus_pallet_parachain_system::Pallet::<T>::send_upward_message(message)
+				.map_err(|_| "Failed to send upward message")?;
+			Ok(())
+		}
+
+		/// Queues `n` small HRMP messages to `recipient`.
+		#[pallet::weight(0)]
+		pub fn queue_hrmp_messages(_: OriginFor<T>, n: u32, recipient: ParaId) -> DispatchResult {
+			PendingOutboundHrmpMessages::<T>::mutate(|messages| {
+				for i in 0..n {
+					messages.push((recipient, vec![(i % 256) as u8]));
+				}
+			});
+			Ok(())
+		}
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -119,5 +179,32 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 		}
+	}
+}
+
+impl<T: Config> cumulus_pallet_parachain_system::OnSystemEvent for Pallet<T> {
+	fn on_validation_data(_data: &cumulus_primitives_core::PersistedValidationData) {
+		// Nothing to do here for tests
+	}
+
+	fn on_validation_code_applied() {
+		// Nothing to do here for tests
+	}
+
+	fn on_relay_state_proof(
+		relay_state_proof: &cumulus_pallet_parachain_system::relay_state_snapshot::RelayChainStateProof,
+	) -> frame_support::weights::Weight {
+		use crate::{Balance, Nonce};
+		use frame_system::AccountInfo;
+		use pallet_balances::AccountData;
+
+		let alice_key = crate::test_pallet::relay_alice_account_key();
+
+		// Verify that Alice's account is included in the relay proof.
+		relay_state_proof
+			.read_optional_entry::<AccountInfo<Nonce, AccountData<Balance>>>(&alice_key)
+			.expect("Invalid relay chain state proof");
+
+		frame_support::weights::Weight::zero()
 	}
 }

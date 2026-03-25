@@ -29,22 +29,26 @@ jobs:
 
       steps:
         - name: Checkout
-          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
         - name: Download amd64 artifacts
-          uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+          uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
           with:
             name: ${{ inputs.package }}_${{ inputs.target }}
             path: release-artifacts/${{ inputs.target }}/${{ inputs.package }}
 
         - name: Configure AWS Credentials
-          uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+          uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
           with:
             aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
             aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
             aws-region: ${{ env.AWS_REGION }}
 
         - name: Upload ${{ inputs.package }} artifacts to s3
+          env:
+            PACKAGE: ${{ inputs.package }}
+            RELEASE_TAG: ${{ inputs.release_tag }}
+            TARGET: ${{ inputs.target }}
           run: |
             . ./.github/scripts/release/release_lib.sh
-            upload_s3_release ${{ inputs.package }} ${{ inputs.release_tag }} ${{ inputs.target }}
+            upload_s3_release "$PACKAGE" "$RELEASE_TAG" "$TARGET"

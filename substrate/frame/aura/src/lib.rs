@@ -113,7 +113,8 @@ pub mod pallet {
 		type AllowMultipleBlocksPerSlot: Get<bool>;
 
 		/// The slot duration Aura should run with, expressed in milliseconds.
-		/// The effective value of this type should not change while the chain is running.
+		///
+		/// The effective value of this type can be changed with a runtime upgrade.
 		///
 		/// For backwards compatibility either use [`MinimumPeriodTimesTwo`] or a const.
 		#[pallet::constant]
@@ -125,6 +126,43 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			use pallet_timestamp::Pallet as Timestamp;
+
+			let new_slot_duration = T::SlotDuration::get();
+
+			let current_timestamp = Timestamp::<T>::get();
+			let old_slot = CurrentSlot::<T>::get();
+
+			let new_slot = current_timestamp / new_slot_duration;
+			let new_slot = Slot::from(new_slot.saturated_into::<u64>());
+
+			if old_slot != new_slot {
+				CurrentSlot::<T>::put(new_slot);
+				log::info!(
+					target: LOG_TARGET,
+					"Migrated CurrentSlot from {} to {} (timestamp: {:?}, new_slot_duration: {:?})",
+					u64::from(old_slot),
+					u64::from(new_slot),
+					current_timestamp,
+					new_slot_duration
+				);
+				T::DbWeight::get().reads_writes(2, 1)
+			} else {
+				log::debug!(
+					target: LOG_TARGET,
+					"CurrentSlot is already correct ({}), no migration needed",
+					u64::from(old_slot)
+				);
+				T::DbWeight::get().reads(2)
+			}
+		}
+
+		fn integrity_test() {
+			let slot_duration = T::SlotDuration::get();
+			assert!(!slot_duration.is_zero(), "Aura slot duration cannot be zero.");
+		}
+
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			if let Some(new_slot) = Self::current_slot_from_digests() {
 				let current_slot = CurrentSlot::<T>::get();
@@ -198,7 +236,7 @@ impl<T: Config> Pallet<T> {
 		if new.is_empty() {
 			log::warn!(target: LOG_TARGET, "Ignoring empty authority change.");
 
-			return
+			return;
 		}
 
 		<Authorities<T>>::put(&new);
@@ -235,7 +273,7 @@ impl<T: Config> Pallet<T> {
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 		for (id, mut data) in pre_runtime_digests {
 			if id == AURA_ENGINE_ID {
-				return Slot::decode(&mut data).ok()
+				return Slot::decode(&mut data).ok();
 			}
 		}
 
@@ -264,6 +302,10 @@ impl<T: Config> Pallet<T> {
 	/// * The current authority cannot be disabled.
 	/// * The number of authorities must be less than or equal to `T::MaxAuthorities`. This however,
 	///   is guarded by the type system.
+	///
+	/// ## Timestamp Consistency
+	///
+	/// The timestamp divided by the slot duration must equal the current slot (after genesis).
 	#[cfg(any(test, feature = "try-runtime"))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// We don't have any guarantee that we are already after `on_initialize` and thus we have to
@@ -292,6 +334,19 @@ impl<T: Config> Pallet<T> {
 			!T::DisabledValidators::is_disabled(authority_index as u32),
 			"Current validator is disabled and should not be attempting to author blocks.",
 		);
+
+		// Check that the timestamp is consistent with the current slot.
+		let timestamp = pallet_timestamp::Pallet::<T>::get();
+
+		if !timestamp.is_zero() {
+			let slot_duration = Self::slot_duration();
+
+			let timestamp_slot = Slot::from((timestamp / slot_duration).saturated_into::<u64>());
+			frame_support::ensure!(
+				current_slot == timestamp_slot,
+				"Timestamp slot must match CurrentSlot.",
+			);
+		}
 
 		Ok(())
 	}
@@ -353,7 +408,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 			if id == AURA_ENGINE_ID {
 				let slot = Slot::decode(&mut data).ok()?;
 				let author_index = *slot % Self::authorities_len() as u64;
-				return Some(author_index as u32)
+				return Some(author_index as u32);
 			}
 		}
 

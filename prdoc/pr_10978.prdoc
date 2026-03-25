@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Omni-node supports polkadot-asset-hub
+
+doc:
+  - audience: Node Operator
+    description: |
+      The `polkadot-omni-node` binary now supports polkadot-asset-hub. Other system chains where already supported, but PAH uses Ed25519, which makes it a special case.
+      
+crates:
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
