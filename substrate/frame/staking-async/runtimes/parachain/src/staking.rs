@@ -386,9 +386,9 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 ///
 /// Returns the total inflation for the given elapsed time. The split between stakers,
 /// validator incentive, and buffer is handled by the DAP budget allocation map.
-pub struct PolkadotInflationCurve;
-impl sp_staking::InflationCurve<Balance> for PolkadotInflationCurve {
-	fn inflation(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+pub struct PolkadotIssuanceCurve;
+impl sp_staking::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
 		let relative_period =
 			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
@@ -495,7 +495,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 parameter_types! {
 	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
 	/// Drip inflation every 60 seconds.
-	pub const InflationCadence: u64 = 60_000;
+	pub const IssuanceCadence: u64 = 60_000;
 	/// Safety ceiling on elapsed time per drip: 10 minutes.
 	/// Prevents over-minting if blocks are delayed or chain stalls.
 	pub const MaxElapsedPerDrip: u64 = 600_000;
@@ -504,7 +504,7 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type InflationCurve = PolkadotInflationCurve;
+	type IssuanceCurve = PolkadotIssuanceCurve;
 	type BudgetRecipients = (
 		Dap,
 		pallet_staking_async::StakerRewardRecipient<pallet_staking_async::Seed<StakingPalletId>>,
@@ -513,7 +513,7 @@ impl pallet_dap::Config for Runtime {
 		>,
 	);
 	type Time = Timestamp;
-	type InflationCadence = InflationCadence;
+	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 }

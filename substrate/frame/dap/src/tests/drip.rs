@@ -28,7 +28,7 @@ use sp_runtime::BuildStorage;
 fn advance_time_and_drip(elapsed_ms: u64) {
 	let now = MockTime::get();
 	MockTime::set(now + elapsed_ms);
-	Dap::drip_inflation();
+	Dap::drip_issuance();
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn drip_distributes_according_to_budget() {
 		let incentive_before = Balances::balance(&incentive_pot);
 		let buffer_before = Balances::balance(&buffer);
 
-		// WHEN: 60 seconds elapse → TestInflationCurve returns 100
+		// WHEN: 60 seconds elapse → TestIssuanceCurve returns 100
 		advance_time_and_drip(60_000);
 
 		// THEN: 60% of 100 = 60 to stakers, 25% = 25 to incentive, 15% = 15 to buffer
@@ -91,7 +91,7 @@ fn drip_fires_after_cadence_reached() {
 		assert_eq!(Balances::balance(&buffer), buffer_before);
 
 		advance_time_and_drip(30_000);
-		// 60s elapsed total → TestInflationCurve returns 100. All to buffer.
+		// 60s elapsed total → TestIssuanceCurve returns 100. All to buffer.
 		assert_eq!(Balances::balance(&buffer) - buffer_before, 100);
 	});
 }
@@ -121,8 +121,8 @@ fn elapsed_ceiling_is_applied() {
 		let buffer_before = Balances::balance(&buffer);
 
 		// WHEN: 20 minutes pass but MaxElapsedPerDrip = 600_000ms (10 minutes)
-		// Without clamping: 1_200_000ms → TestInflationCurve returns 2000
-		// With clamping: 600_000ms → TestInflationCurve returns 1000
+		// Without clamping: 1_200_000ms → TestIssuanceCurve returns 2000
+		// With clamping: 600_000ms → TestIssuanceCurve returns 1000
 		advance_time_and_drip(1_200_000);
 
 		// THEN: inflation based on clamped elapsed (1000, not 2000)
@@ -141,7 +141,7 @@ fn elapsed_ceiling_is_applied() {
 
 #[test]
 fn first_block_initializes_timestamp_without_dripping() {
-	// Test that when LastInflationTimestamp is 0 (genesis), it initializes without dripping.
+	// Test that when LastIssuanceTimestamp is 0 (genesis), it initializes without dripping.
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 100)], ..Default::default() }
 		.assimilate_storage(&mut t)
@@ -149,14 +149,14 @@ fn first_block_initializes_timestamp_without_dripping() {
 	let mut ext: sp_io::TestExternalities = t.into();
 
 	ext.execute_with(|| {
-		// LastInflationTimestamp defaults to 0 (not initialized)
-		assert_eq!(crate::LastInflationTimestamp::<Test>::get(), 0);
+		// LastIssuanceTimestamp defaults to 0 (not initialized)
+		assert_eq!(crate::LastIssuanceTimestamp::<Test>::get(), 0);
 
 		MockTime::set(1_000_000);
-		Dap::drip_inflation();
+		Dap::drip_issuance();
 
 		// Timestamp should be set but no inflation minted.
-		assert_eq!(crate::LastInflationTimestamp::<Test>::get(), 1_000_000);
+		assert_eq!(crate::LastIssuanceTimestamp::<Test>::get(), 1_000_000);
 		// Total issuance unchanged (only the initial 100 balance).
 		assert_eq!(Balances::total_issuance(), 100);
 	});
@@ -174,7 +174,7 @@ fn drip_emits_inflation_dripped_event() {
 		advance_time_and_drip(60_000);
 
 		System::assert_has_event(
-			Event::<Test>::InflationDripped { total_minted: 100, elapsed_millis: 60_000 }.into(),
+			Event::<Test>::IssuanceMinted { total_minted: 100, elapsed_millis: 60_000 }.into(),
 		);
 	});
 }

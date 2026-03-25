@@ -786,17 +786,17 @@ pub const MAX_BUDGET_KEY_LEN: u32 = 32;
 /// by a unique key. Keys are bounded to [`MAX_BUDGET_KEY_LEN`] bytes.
 pub type BudgetKey = BoundedVec<u8, sp_core::ConstU32<MAX_BUDGET_KEY_LEN>>;
 
-/// Computes inflation for a given time period.
+/// Computes new token issuance for a given time period.
 ///
 /// Unlike [`EraPayout`], this trait does not depend on staking state (`total_staked`).
-/// Inflation is purely a function of total issuance and elapsed time.
-pub trait InflationCurve<Balance> {
+/// Issuance is purely a function of total supply and elapsed time.
+pub trait IssuanceCurve<Balance> {
 	/// Compute how much new tokens to mint for the given period.
 	///
 	/// # Parameters
 	/// - `total_issuance`: Current total token supply
-	/// - `elapsed_millis`: Time elapsed since last inflation drip, in milliseconds
-	fn inflation(total_issuance: Balance, elapsed_millis: u64) -> Balance;
+	/// - `elapsed_millis`: Time elapsed since last issuance drip, in milliseconds
+	fn issue(total_issuance: Balance, elapsed_millis: u64) -> Balance;
 }
 
 /// A recipient of inflation budget.

@@ -17,13 +17,13 @@
 
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
-//! Generic inflation drip and distribution engine.
+//! Generic issuance drip and distribution engine.
 //!
 //! ## Key Responsibilities:
 //!
-//! - **Inflation Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
-//!   based on an [`InflationCurve`].
-//! - **Budget Distribution**: Distributes minted inflation across registered
+//! - **Issuance Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
+//!   based on an [`IssuanceCurve`].
+//! - **Budget Distribution**: Distributes minted issuance across registered
 //!   [`sp_staking::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
 //! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
@@ -55,7 +55,7 @@ use frame_support::{
 	PalletId,
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
-use sp_staking::{BudgetKey, BudgetRecipientList, InflationCurve};
+use sp_staking::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
 
@@ -96,8 +96,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// Inflation curve: computes how much to mint given total issuance and elapsed time.
-		type InflationCurve: InflationCurve<BalanceOf<Self>>;
+		/// Issuance curve: computes how much to mint given total issuance and elapsed time.
+		type IssuanceCurve: IssuanceCurve<BalanceOf<Self>>;
 
 		/// Registered budget recipients. Each element provides a unique key and pot account.
 		///
@@ -112,14 +112,14 @@ pub mod pallet {
 		/// `Moment` must represent milliseconds.
 		type Time: Time;
 
-		/// Minimum elapsed time (ms) between inflation drips.
+		/// Minimum elapsed time (ms) between issuance drips.
 		///
 		/// - `0` = drip every block
 		/// - `60_000` = drip every minute (Recommended)
 		///
 		/// Should be small relative to era length.
 		#[pallet::constant]
-		type InflationCadence: Get<u64>;
+		type IssuanceCadence: Get<u64>;
 
 		/// Safety ceiling: maximum elapsed time (ms) considered in a single drip.
 		///
@@ -137,7 +137,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Inflation dripped and distributed to budget recipients.
-		InflationDripped {
+		IssuanceMinted {
 			/// Total amount minted in this drip.
 			total_minted: BalanceOf<T>,
 			/// Elapsed time (ms) since last drip.
@@ -155,7 +155,7 @@ pub mod pallet {
 	/// Defensive/unexpected errors/events.
 	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
 	pub enum UnexpectedKind {
-		/// Failed to mint inflation.
+		/// Failed to mint issuance.
 		MintFailed,
 		/// Elapsed time was clamped at the safety ceiling.
 		ElapsedClamped {
@@ -173,12 +173,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
-	/// Timestamp (ms) of the last inflation drip.
+	/// Timestamp (ms) of the last issuance drip.
 	///
 	/// On existing chains, this must be seeded via
 	/// [`migrations::MigrateV1ToV2`] to prevent incorrect minting on the first drip.
 	#[pallet::storage]
-	pub type LastInflationTimestamp<T> = StorageValue<_, u64, ValueQuery>;
+	pub type LastIssuanceTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -191,13 +191,13 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			Self::drip_inflation()
+			Self::drip_issuance()
 		}
 
 		fn integrity_test() {
 			assert!(
-				T::MaxElapsedPerDrip::get() > T::InflationCadence::get(),
-				"MaxElapsedPerDrip must be greater than InflationCadence, \
+				T::MaxElapsedPerDrip::get() > T::IssuanceCadence::get(),
+				"MaxElapsedPerDrip must be greater than IssuanceCadence, \
 				 otherwise every drip would be clamped below the cadence threshold."
 			);
 		}
@@ -254,15 +254,15 @@ pub mod pallet {
 			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
 		}
 
-		/// Core inflation drip logic, called from `on_initialize`.
+		/// Core issuance drip logic, called from `on_initialize`.
 		// TODO(ank4n) needs to be properly benchmarked.
-		pub(crate) fn drip_inflation() -> Weight {
+		pub(crate) fn drip_issuance() -> Weight {
 			let now_moment = T::Time::now();
 			let now: u64 = now_moment.saturated_into();
-			let last = LastInflationTimestamp::<T>::get();
+			let last = LastIssuanceTimestamp::<T>::get();
 			let mut elapsed = now.saturating_sub(last);
 
-			let cadence = T::InflationCadence::get();
+			let cadence = T::IssuanceCadence::get();
 			if cadence > 0 && elapsed < cadence {
 				// Not time yet — cheap early return.
 				return T::DbWeight::get().reads(2);
@@ -272,7 +272,7 @@ pub mod pallet {
 			// For existing chains, use `migrations::MigrateV1ToV2` to seed this
 			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
-				LastInflationTimestamp::<T>::put(now);
+				LastIssuanceTimestamp::<T>::put(now);
 				return T::DbWeight::get().reads_writes(2, 1);
 			}
 
@@ -287,17 +287,17 @@ pub mod pallet {
 			}
 
 			let total_issuance = T::Currency::total_issuance();
-			let inflation = T::InflationCurve::inflation(total_issuance, elapsed);
+			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
-			if inflation.is_zero() {
-				LastInflationTimestamp::<T>::put(now);
+			if issuance.is_zero() {
+				LastIssuanceTimestamp::<T>::put(now);
 				return T::DbWeight::get().reads_writes(3, 1);
 			}
 
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			if budget.is_empty() {
-				defensive!("BudgetAllocation is empty — no inflation will be distributed");
+				defensive!("BudgetAllocation is empty — no issuance will be distributed");
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
@@ -305,11 +305,11 @@ pub mod pallet {
 			let buffer = Self::buffer_account();
 			for (key, account) in &recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
-				let amount = perbill.mul_floor(inflation);
+				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
 					if let Err(_) = T::Currency::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
-						defensive!("Inflation mint should not fail");
+						defensive!("Issuance mint should not fail");
 					} else {
 						total_minted = total_minted.saturating_add(amount);
 						if *account == buffer {
@@ -321,13 +321,13 @@ pub mod pallet {
 
 			// Rounding dust from Perbill::mul_floor is not minted.
 
-			LastInflationTimestamp::<T>::put(now);
+			LastIssuanceTimestamp::<T>::put(now);
 
-			Self::deposit_event(Event::InflationDripped { total_minted, elapsed_millis: elapsed });
+			Self::deposit_event(Event::IssuanceMinted { total_minted, elapsed_millis: elapsed });
 
 			log::debug!(
 				target: LOG_TARGET,
-				"Inflation drip: total={inflation:?}, elapsed={elapsed}ms"
+				"Issuance drip: total={issuance:?}, elapsed={elapsed}ms"
 			);
 
 			// Weight: 2 reads (time + last) + 1 read (issuance) + 1 read (budget) +

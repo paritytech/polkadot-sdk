@@ -51,14 +51,14 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
 	pub const ExistentialDeposit: u64 = 10;
-	pub const InflationCadence: u64 = 60_000; // 60 seconds
+	pub const IssuanceCadence: u64 = 60_000; // 60 seconds
 	pub const MaxElapsedPerDrip: u64 = 600_000; // 10 minutes
 }
 
 /// Returns 100 per 60_000ms elapsed (proportional).
-pub struct TestInflationCurve;
-impl sp_staking::InflationCurve<u64> for TestInflationCurve {
-	fn inflation(_total_issuance: u64, elapsed_millis: u64) -> u64 {
+pub struct TestIssuanceCurve;
+impl sp_staking::IssuanceCurve<u64> for TestIssuanceCurve {
+	fn issue(_total_issuance: u64, elapsed_millis: u64) -> u64 {
 		// 100 per minute (60_000ms)
 		(100u128 * elapsed_millis as u128 / 60_000u128) as u64
 	}
@@ -112,10 +112,10 @@ impl sp_staking::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient 
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type InflationCurve = TestInflationCurve;
+	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);
 	type Time = MockTime;
-	type InflationCadence = InflationCadence;
+	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
 }
@@ -137,8 +137,8 @@ pub fn new_test_ext(fund_buffer: bool) -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		// Initialize time to simulate "genesis already happened".
 		MockTime::set(1_000_000);
-		// Initialize LastInflationTimestamp so drip doesn't skip first call.
-		crate::LastInflationTimestamp::<Test>::put(1_000_000);
+		// Initialize LastIssuanceTimestamp so drip doesn't skip first call.
+		crate::LastIssuanceTimestamp::<Test>::put(1_000_000);
 	});
 
 	ext

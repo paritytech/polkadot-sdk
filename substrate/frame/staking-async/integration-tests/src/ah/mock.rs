@@ -523,9 +523,9 @@ parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 }
 
-pub struct TestInflationCurve;
-impl sp_staking::InflationCurve<Balance> for TestInflationCurve {
-	fn inflation(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+pub struct TestIssuanceCurve;
+impl sp_staking::IssuanceCurve<Balance> for TestIssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		// 1 token per millisecond elapsed
 		if elapsed_millis == 0 {
 			10_000
@@ -581,21 +581,21 @@ pub fn default_budget() -> pallet_dap::BudgetAllocationMap {
 }
 
 parameter_types! {
-	pub const TestInflationCadence: u64 = 0; // drip every block
+	pub const TestIssuanceCadence: u64 = 0; // drip every block
 	pub const TestMaxElapsedPerDrip: u64 = 600_000; // 10 minutes
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type InflationCurve = TestInflationCurve;
+	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (
 		Dap,
 		pallet_staking_async::StakerRewardRecipient<SequentialTest>,
 		pallet_staking_async::ValidatorIncentiveRecipient<SequentialTest>,
 	);
 	type Time = MockTime;
-	type InflationCadence = TestInflationCadence;
+	type IssuanceCadence = TestIssuanceCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
 }
@@ -933,8 +933,8 @@ impl ExtBuilder {
 		state.execute_with(|| {
 			// Set budget allocation: 50% staker rewards, 50% buffer (must sum to 100%).
 			pallet_dap::BudgetAllocation::<Runtime>::put(default_budget());
-			// Initialize DAP's LastInflationTimestamp.
-			pallet_dap::LastInflationTimestamp::<Runtime>::put(
+			// Initialize DAP's LastIssuanceTimestamp.
+			pallet_dap::LastIssuanceTimestamp::<Runtime>::put(
 				<MockTime as frame_support::traits::Time>::now(),
 			);
 			// Disable legacy minting from era 0.

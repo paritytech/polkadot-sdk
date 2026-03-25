@@ -39,7 +39,7 @@ use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
-	currency_to_vote::SaturatingCurrencyToVote, BudgetRecipient, InflationCurve, OnStakingUpdate,
+	currency_to_vote::SaturatingCurrencyToVote, BudgetRecipient, IssuanceCurve, OnStakingUpdate,
 	SessionIndex, StakingAccount,
 };
 use std::collections::BTreeMap;
@@ -117,7 +117,7 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-	pub const TestInflationCadence: u64 = 0; // drip every block
+	pub const TestIssuanceCadence: u64 = 0; // drip every block
 	pub const TestMaxElapsedPerDrip: u64 = 600_000; // 10 minutes
 }
 
@@ -141,11 +141,11 @@ pub fn general_incentive_pot() -> AccountId {
 impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type InflationCurve = OneTokenPerMillisecond;
+	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients =
 		(Dap, StakerRewardRecipient<SequentialTest>, ValidatorIncentiveRecipient<SequentialTest>);
 	type Time = MockTime;
-	type InflationCadence = TestInflationCadence;
+	type IssuanceCadence = TestIssuanceCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
 }
@@ -454,8 +454,8 @@ parameter_types! {
 }
 
 pub struct OneTokenPerMillisecond;
-impl InflationCurve<Balance> for OneTokenPerMillisecond {
-	fn inflation(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+impl IssuanceCurve<Balance> for OneTokenPerMillisecond {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		// Return 1 token per millisecond elapsed
 		elapsed_millis as Balance
 	}
@@ -785,8 +785,8 @@ impl ExtBuilder {
 			crate::DisableLegacyMintingEra::<Test>::put(0);
 			// Set budget allocation: 50% stakers, 50% buffer (must sum to 100%).
 			pallet_dap::BudgetAllocation::<Test>::put(default_budget());
-			// Initialize DAP's LastInflationTimestamp
-			pallet_dap::LastInflationTimestamp::<Test>::put(INIT_TIMESTAMP);
+			// Initialize DAP's LastIssuanceTimestamp
+			pallet_dap::LastIssuanceTimestamp::<Test>::put(INIT_TIMESTAMP);
 			// Fund general pot accounts with ED so they stay alive across era snapshots.
 			let ed = ExistentialDeposit::get();
 			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
@@ -860,7 +860,7 @@ pub(crate) fn bond_virtual_nominator(
 
 pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 	let total_inflation =
-		OneTokenPerMillisecond::inflation(pallet_balances::TotalIssuance::<Test>::get(), duration);
+		OneTokenPerMillisecond::issuance(pallet_balances::TotalIssuance::<Test>::get(), duration);
 	// Apply budget allocation to get staker portion
 	let budget = pallet_dap::BudgetAllocation::<Test>::get();
 	let staker_pct = budget.get(&staker_reward_key()).copied().unwrap_or(Perbill::zero());
@@ -870,7 +870,7 @@ pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 }
 
 pub(crate) fn total_payout_for(duration: u64) -> Balance {
-	OneTokenPerMillisecond::inflation(pallet_balances::TotalIssuance::<Test>::get(), duration)
+	OneTokenPerMillisecond::issuance(pallet_balances::TotalIssuance::<Test>::get(), duration)
 }
 
 /// Time it takes to finish a session.

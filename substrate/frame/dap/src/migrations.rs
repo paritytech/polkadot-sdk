@@ -20,7 +20,7 @@
 use super::*;
 use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-/// V1 to V2 migration: initializes `LastInflationTimestamp` and seeds `BudgetAllocation`.
+/// V1 to V2 migration: initializes `LastIssuanceTimestamp` and seeds `BudgetAllocation`.
 ///
 /// - `T`: DAP pallet config
 /// - `P`: `Get<u64>` providing the initial timestamp (e.g. active era start from staking)
@@ -42,13 +42,13 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let mut weight = T::DbWeight::get().reads(2);
 
-		// Seed LastInflationTimestamp (idempotent).
-		let current_ts = LastInflationTimestamp::<T>::get();
+		// Seed LastIssuanceTimestamp (idempotent).
+		let current_ts = LastIssuanceTimestamp::<T>::get();
 		if current_ts == 0 {
 			let ts = P::get();
-			LastInflationTimestamp::<T>::put(ts);
+			LastIssuanceTimestamp::<T>::put(ts);
 			weight = weight.saturating_add(T::DbWeight::get().writes(1));
-			log::info!(target: LOG_TARGET, "Initialized LastInflationTimestamp to {ts}");
+			log::info!(target: LOG_TARGET, "Initialized LastIssuanceTimestamp to {ts}");
 		}
 
 		// Seed BudgetAllocation (idempotent).
@@ -65,8 +65,8 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		frame_support::ensure!(
-			LastInflationTimestamp::<T>::get() == 0 || BudgetAllocation::<T>::get().is_empty(),
-			"Migration not needed: both LastInflationTimestamp and BudgetAllocation already set"
+			LastIssuanceTimestamp::<T>::get() == 0 || BudgetAllocation::<T>::get().is_empty(),
+			"Migration not needed: both LastIssuanceTimestamp and BudgetAllocation already set"
 		);
 		Ok(alloc::vec::Vec::new())
 	}
@@ -74,8 +74,8 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		frame_support::ensure!(
-			LastInflationTimestamp::<T>::get() != 0,
-			"LastInflationTimestamp should be non-zero after migration"
+			LastIssuanceTimestamp::<T>::get() != 0,
+			"LastIssuanceTimestamp should be non-zero after migration"
 		);
 
 		let budget = BudgetAllocation::<T>::get();

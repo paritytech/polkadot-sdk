@@ -1548,9 +1548,9 @@ parameter_types! {
 	);
 }
 
-/// Provides the initial `LastInflationTimestamp` for DAP migration.
-pub struct DapLastInflationTimestamp;
-impl frame_support::traits::Get<u64> for DapLastInflationTimestamp {
+/// Provides the initial `LastIssuanceTimestamp` for DAP migration.
+pub struct DapLastIssuanceTimestamp;
+impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
 	fn get() -> u64 {
 		pallet_staking_async::ActiveEra::<Runtime>::get()
 			.and_then(|era| era.start)
@@ -1619,7 +1619,7 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
-	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastInflationTimestamp, DefaultDapBudget>,
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2898,15 +2898,15 @@ fn ensure_key_ss58() {
 }
 
 #[test]
-fn inflation_cadence_smaller_than_era_length() {
+fn issuance_cadence_smaller_than_era_length() {
 	use crate::staking::{RelaySessionDuration, SessionsPerEra};
 	let era_length_ms = SessionsPerEra::get() as u64 *
 		RelaySessionDuration::get() as u64 *
 		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
-	let cadence = <Runtime as pallet_dap::Config>::InflationCadence::get();
+	let cadence = <Runtime as pallet_dap::Config>::IssuanceCadence::get();
 	assert!(
 		cadence < era_length_ms,
-		"InflationCadence ({cadence}ms) must be smaller than era length ({era_length_ms}ms)"
+		"IssuanceCadence ({cadence}ms) must be smaller than era length ({era_length_ms}ms)"
 	);
 }
 
