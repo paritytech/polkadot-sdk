@@ -87,8 +87,8 @@ pub trait WeightInfo {
 	fn schedule_retry_periodic(s: u32, ) -> Weight;
 	fn schedule_retry_same_bucket(s: u32, ) -> Weight;
 	fn schedule_retry_exponential_backoff(s: u32, ) -> Weight;
-	fn set_retry() -> Weight;
-	fn set_retry_named() -> Weight;
+	fn set_retry(r: u32) -> Weight;
+	fn set_retry_named(r: u32) -> Weight;
 	fn cancel_retry() -> Weight;
 	fn cancel_retry_named() -> Weight;
 }
@@ -300,7 +300,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	fn set_retry() -> Weight {
+	fn set_retry(_r: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `90629`
 		//  Estimated: `110487`
@@ -315,7 +315,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	fn set_retry_named() -> Weight {
+	fn set_retry_named(_r: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `91672`
 		//  Estimated: `110487`
@@ -560,7 +560,7 @@ impl WeightInfo for () {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	fn set_retry() -> Weight {
+	fn set_retry(_r: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `90629`
 		//  Estimated: `110487`
@@ -575,7 +575,7 @@ impl WeightInfo for () {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	fn set_retry_named() -> Weight {
+	fn set_retry_named(_r: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `91672`
 		//  Estimated: `110487`
