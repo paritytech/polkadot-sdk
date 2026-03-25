@@ -1863,7 +1863,7 @@ fn v3_descriptor(#[case] crafted_unknown: bool, #[case] collation_version: Colla
 	let mut test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
 
