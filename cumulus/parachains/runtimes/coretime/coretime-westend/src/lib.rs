@@ -716,7 +716,7 @@ construct_runtime!(
 		Proxy: pallet_proxy = 42,
 		MetaTx: pallet_meta_tx = 43,
 		VerifySignature: pallet_verify_signature = 44,
-		
+
 		// The main stage.
 		Broker: pallet_broker = 50,
 
