@@ -154,7 +154,7 @@
 
 - job-name: "zombienet-polkadot-functional-async-backing-6-seconds-rate"
   test-filter: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
-  runner-type: "default"
+  runner-type: "large"
 
 
 # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
