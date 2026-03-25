@@ -63,6 +63,7 @@ fn add_vesting_schedules<T: Config>(
 		assert_ok!(Pallet::<T>::do_vested_transfer(&source, target, schedule));
 
 		// Top up to guarantee we can always transfer another schedule.
+		// some comment to trigger ci.
 		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 	}
 
