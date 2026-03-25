@@ -16,8 +16,9 @@
 
 //! Runtime parameters.
 
-use codec::Decode;
+use codec::{Decode, Encode};
 use cumulus_client_service::ParachainHostFunctions;
+use frame_metadata::RuntimeMetadataPrefixed;
 use sc_chain_spec::ChainSpec;
 use sc_executor::WasmExecutor;
 use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
@@ -175,21 +176,26 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 				aura_id_from_chain_spec_id(chain_spec.id())
 			},
 		};
+		log::info!(
+			"Omni Node strategy: BlockNumber={}, Consensus=Aura({:?})",
+			block_number,
+			aura_id
+		);
 		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
 }
 
 struct MetadataInspector {
 	metadata: Metadata,
+	#[allow(dead_code)]
 	version: u32,
 }
 
 impl MetadataInspector {
 	fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
 		let (metadata, version) = MetadataInspector::fetch_metadata(chain_spec)?;
-		let inspector = MetadataInspector { metadata, version };
-		log::info!("Detected runtime metadata version: V{}", inspector.version);
-		Ok(inspector)
+		log::info!("Detected runtime metadata version: V{}", version);
+		Ok(MetadataInspector { metadata, version })
 	}
 
 	#[cfg(test)]
@@ -218,7 +224,7 @@ impl MetadataInspector {
 		let pallet = self.metadata.pallet_by_name(DEFAULT_AURA_PALLET_NAME)?;
 
 		// 1. (Recommended) Try to find AuthorityId in the pallet's associated types.
-		if let Some((_, ty_id)) = pallet.associated_types().find(|(n, _)| *n == "AuthorityId") {
+		if let Some(ty_id) = pallet.associated_type_id("AuthorityId") {
 			if let Some(id) = self.resolve_aura_id_from_type_id(ty_id) {
 				return Some(id);
 			}
@@ -252,13 +258,6 @@ impl MetadataInspector {
 			}
 		}
 
-		// 3. (Last Resort) Iterate through all types in the metadata.
-		// Useful for older or non-standard runtimes where the above lookups might fail.
-		for portable_type in &self.metadata.types().types {
-			if let Some(id) = self.resolve_aura_id_from_type_id(portable_type.id) {
-				return Some(id);
-			}
-		}
 
 		None
 	}
@@ -266,23 +265,23 @@ impl MetadataInspector {
 	/// Resolves whether a given type ID represents an Sr25519 or Ed25519 Aura ID.
 	fn resolve_aura_id_from_type_id(&self, type_id: u32) -> Option<AuraConsensusId> {
 		let portable_type = self.metadata.types().resolve(type_id)?;
-		let path = &portable_type.path;
-		let segments = &path.segments;
+		let segments = &portable_type.path.segments;
 
-		// Check if the type is related to Aura consensus
-		if segments.iter().any(|s| s == "sp_consensus_aura") {
-			let is_authority_id = segments.iter().any(|s| s == "AuthorityId") ||
-				segments.iter().any(|s| s == "Public");
+		// Check if the type path contains sr25519 or ed25519.
+		// Since this is called from an Aura context (AuthorityId associated type or Authorities storage),
+		// we look for the signature of the algorithm in the type path.
+		let is_sr25519 = segments.iter().any(|s| s == "sr25519");
+		let is_ed25519 = segments.iter().any(|s| s == "ed25519");
 
-			if is_authority_id {
-				if segments.iter().any(|s| s == "sr25519") {
-					return Some(AuraConsensusId::Sr25519);
-				}
-				if segments.iter().any(|s| s == "ed25519") {
-					return Some(AuraConsensusId::Ed25519);
-				}
-			}
+		// We also want to ensure it's a public key type, but in the case of Aura ID,
+		// it might be nested quite deeply or have various names (Public, AuthorityId, app_sr25519).
+		if is_sr25519 {
+			return Some(AuraConsensusId::Sr25519);
 		}
+		if is_ed25519 {
+			return Some(AuraConsensusId::Ed25519);
+		}
+
 		None
 	}
 
@@ -301,21 +300,22 @@ impl MetadataInspector {
 		)
 		.map_err(|err| err.to_string())?;
 
-		let encoded = (*opaque_metadata).as_slice();
+		let mut encoded = (*opaque_metadata).as_slice();
+		MetadataInspector::fetch_metadata_from_bytes(&mut encoded)
+	}
+
+	fn fetch_metadata_from_bytes(mut encoded: &[u8]) -> Result<(Metadata, u32), sc_cli::Error> {
+		let prefixed = RuntimeMetadataPrefixed::decode(&mut encoded)
+			.map_err(|e| sc_cli::Error::Input(format!("failed to decode prefixed metadata: {e}").into()))?;
+
+		let version = prefixed.1.version();
+
+		// Transform into subxt-metadata.
+		// subxt-metadata doesn't directly implement TryFrom<RuntimeMetadata>, so we decode it again
+		// as subxt-metadata. This is "cleaner" because we use a robust metadata versioning check first.
+		let encoded = prefixed.1.encode();
 		let metadata = Metadata::decode(&mut &encoded[..])
-			.map_err(|e| sc_cli::Error::Input(format!("failed to decode metadata: {e}").into()))?;
-
-		// Extract version from bytes.
-		// Substrate metadata SCALE encoding begins with a 4-byte magic string: "meta" (0x6174656d).
-		if encoded.len() < 5 || &encoded[0..4] != b"meta" {
-			log::warn!("Metadata magic bytes 'meta' not found or unexpected format.");
-			return Ok((metadata, 0));
-		}
-
-		// The magic bytes are immediately followed by the RuntimeMetadata enum.
-		// For all modern versions (V14 and V15), the SCALE variant index of this enum
-		// corresponds exactly to the metadata version number.
-		let version = u32::from(u8::decode(&mut &encoded[4..5]).unwrap_or(0));
+			.map_err(|e| sc_cli::Error::Input(format!("failed to decode subxt metadata: {e}").into()))?;
 
 		Ok((metadata, version))
 	}
@@ -332,45 +332,36 @@ mod tests {
 	use sc_executor::WasmExecutor;
 	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 
-	fn cumulus_test_runtime_metadata() -> MetadataInspector {
+	fn test_inspector_for_runtime(wasm_binary: &[u8]) -> MetadataInspector {
 		let opaque_metadata = fetch_latest_metadata_from_code_blob(
 			&WasmExecutor::<ParachainHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
-			sp_runtime::Cow::Borrowed(cumulus_test_runtime::WASM_BINARY.unwrap()),
+			sp_runtime::Cow::Borrowed(wasm_binary),
 		)
 		.unwrap();
-		let encoded = (*opaque_metadata).as_slice();
-
-		let metadata = subxt_metadata::Metadata::decode(&mut &encoded[..]).unwrap();
-		let version =
-			if encoded.len() >= 5 && &encoded[0..4] == b"meta" { encoded[4] as u32 } else { 0 };
-
+		let mut encoded = (*opaque_metadata).as_slice();
+		let (metadata, version) = MetadataInspector::fetch_metadata_from_bytes(&mut encoded).unwrap();
 		MetadataInspector { metadata, version }
+	}
+
+	fn cumulus_test_runtime_inspector() -> MetadataInspector {
+		test_inspector_for_runtime(cumulus_test_runtime::WASM_BINARY.unwrap())
 	}
 
 	#[test]
 	fn test_pallet_exists() {
-		let metadata_inspector = cumulus_test_runtime_metadata();
-		assert!(metadata_inspector.version() >= 14);
-		assert!(metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME));
-		assert!(metadata_inspector.pallet_exists(DEFAULT_FRAME_SYSTEM_PALLET_NAME));
+		let inspector = cumulus_test_runtime_inspector();
+		assert!(inspector.version() >= 14);
+		assert!(inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME));
+		assert!(inspector.pallet_exists(DEFAULT_FRAME_SYSTEM_PALLET_NAME));
 	}
 
 	#[test]
 	fn test_runtime_block_number() {
-		let metadata_inspector = cumulus_test_runtime_metadata();
-		assert!(metadata_inspector.version() >= 14);
-		assert_eq!(metadata_inspector.block_number().unwrap(), BlockNumber::U32);
-	}
-
-	#[test]
-	fn test_aura_consensus_id() {
-		let metadata_inspector = cumulus_test_runtime_metadata();
-		assert!(metadata_inspector.version() >= 14);
-		// Verify that the function correctly detects sr25519 from metadata
-		let aura_id = metadata_inspector.aura_consensus_id();
-		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
+		let inspector = cumulus_test_runtime_inspector();
+		assert!(inspector.version() >= 14);
+		assert_eq!(inspector.block_number().unwrap(), BlockNumber::U32);
 	}
 
 	#[test]

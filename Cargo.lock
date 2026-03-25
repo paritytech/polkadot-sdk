@@ -16061,6 +16061,7 @@ dependencies = [
  "docify",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-metadata 23.0.1",
  "frame-support",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",

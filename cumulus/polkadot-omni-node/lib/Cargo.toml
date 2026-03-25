@@ -27,6 +27,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local
+frame-metadata = { workspace = true, default-features = true }
 jsonrpsee = { features = ["server"], workspace = true }
 parachains-common-types = { workspace = true, default-features = true }
 scale-info = { workspace = true }
