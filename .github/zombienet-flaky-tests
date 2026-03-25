@@ -2,7 +2,6 @@ zombienet-polkadot-coretime-revenue:8944
 zombienet-polkadot-elastic-scaling-slot-based-12cores:8945
 zombienet-polkadot-disputes-slashing:8946
 zombienet-polkadot-functional-spam-statement-distribution-requests:8947
-zombienet-polkadot-misc-0001-parachains-paritydb:8951
 zombienet-polkadot-functional-duplicate-collations:8950
 zombienet-substrate-0002-validators-warp-sync:8871
 zombienet-cumulus-0009-elastic_scaling_pov_recovery:8986

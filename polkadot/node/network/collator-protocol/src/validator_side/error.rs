@@ -42,9 +42,6 @@ pub enum Error {
 	#[error("Response receiver for claim queue request cancelled")]
 	CancelledClaimQueue(oneshot::Canceled),
 
-	#[error("Response receiver for node features request cancelled")]
-	CancelledNodeFeatures(oneshot::Canceled),
-
 	#[error("No state for the relay parent")]
 	RelayParentStateNotFound,
 
@@ -75,6 +72,9 @@ pub enum SecondingError {
 
 	#[error("Scheduling parent hash doesn't match the advertisement")]
 	SchedulingParentMismatch,
+
+	#[error("Relay parent hash doesn't match the advertisement")]
+	RelayParentMismatch,
 
 	#[error("Received duplicate collation from the peer")]
 	Duplicate,
@@ -109,6 +109,7 @@ impl SecondingError {
 			PersistedValidationDataMismatch |
 			CandidateHashMismatch |
 			SchedulingParentMismatch |
+			RelayParentMismatch |
 			ParentHeadDataMismatch |
 			InvalidCoreIndex(_, _) |
 			InvalidSessionIndex(_, _) |
