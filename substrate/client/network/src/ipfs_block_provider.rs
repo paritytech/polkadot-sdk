@@ -71,13 +71,13 @@ impl HasMultihashCode for BlakeTwo256 {
 
 fn try_from_multihash<H: Hash + HasMultihashCode>(multihash: &Multihash) -> Option<H::Output> {
 	if multihash.code() != H::MULTIHASH_CODE {
-		return None
+		return None;
 	}
 	let mut hash = H::Output::default();
 	let src = multihash.digest();
 	let dst = hash.as_mut();
 	if src.len() != dst.len() {
-		return None
+		return None;
 	}
 	dst.copy_from_slice(src);
 	Some(hash)
@@ -165,7 +165,7 @@ where
 		this.fetched_to = this.fetched_to.max(pruned_to); // Don't try to fetch pruned blocks!
 		while let (only_block, Some(block)) = (this.blocks.len() == 1, this.blocks.front_mut()) {
 			if block.number >= pruned_to {
-				break // Not pruned
+				break; // Not pruned
 			}
 
 			// Discard any transaction hashes that we didn't even add yet
@@ -185,7 +185,7 @@ where
 							// TODO: don't assume hash is BLAKE2b, use `Multihash` instead.
 							return Poll::Ready(Some(Change::Removed(to_multihash::<BlakeTwo256>(
 								&hash,
-							))))
+							))));
 						},
 					},
 					// This should not be possible!
@@ -240,7 +240,7 @@ where
 					Entry::Vacant(entry) => {
 						entry.insert(0);
 						// TODO: don't assume hash is BLAKE2b, use `Multihash` instead.
-						return Poll::Ready(Some(Change::Added(to_multihash::<BlakeTwo256>(&hash))))
+						return Poll::Ready(Some(Change::Added(to_multihash::<BlakeTwo256>(&hash))));
 					},
 				}
 			}
@@ -249,7 +249,7 @@ where
 			// nothing to do.
 			debug_assert!(this.fetched_to <= this.finalized_to);
 			if this.fetched_to == this.finalized_to {
-				return Poll::Pending
+				return Poll::Pending;
 			}
 		}
 	}

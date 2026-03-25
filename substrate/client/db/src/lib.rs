@@ -707,16 +707,18 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			columns::KEY_LOOKUP,
 			columns::BODY_INDEX,
 			BlockId::<Block>::Hash(hash),
-		)? else {
-			return Ok(None)
+		)?
+		else {
+			return Ok(None);
 		};
 		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
 			Ok(index) => Ok(Some(index.into_iter().flat_map(|ex| match ex {
 				DbExtrinsic::Indexed { hash, .. } => Some(hash),
 				_ => None,
 			}))),
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
+			},
 		}
 	}
 }
