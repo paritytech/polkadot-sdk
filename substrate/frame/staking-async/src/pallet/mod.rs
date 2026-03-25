@@ -507,7 +507,7 @@ pub mod pallet {
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
-			type StakerRewardCalculator = crate::reward::DefaultStakerRewardCalculator;
+			type StakerRewardCalculator = crate::reward::DefaultStakerRewardCalculator<TestDefaultConfig>;
 			type WeightInfo = ();
 		}
 	}

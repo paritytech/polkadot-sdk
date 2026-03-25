@@ -139,12 +139,8 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
 
 	// Set per-validator weight and era totals so incentive payout is exercised.
-	let validator_weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(
-		validator_bond,
-		OptimumSelfStake::<T>::get(),
-		HardCapSelfStake::<T>::get(),
-		SelfStakeSlopeFactor::<T>::get(),
-	);
+	let validator_weight =
+		T::StakerRewardCalculator::calculate_validator_incentive_weight(validator_bond);
 	ErasValidatorIncentive::<T>::insert(planned_era, &v_stash, validator_weight);
 	Eras::<T>::add_total_validator_weight(planned_era, validator_weight);
 	Eras::<T>::set_validator_incentive_allocation(planned_era, allocation.validator_incentive);

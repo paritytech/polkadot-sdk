@@ -1111,12 +1111,8 @@ impl<T: Config> EraElectionPlanner<T> {
 			total_backers += exposure.others.len() as u32;
 
 			// calculate and accumulate validator self-stake weight for incentive distribution.
-			let validator_weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(
-				exposure.own,
-				OptimumSelfStake::<T>::get(),
-				HardCapSelfStake::<T>::get(),
-				SelfStakeSlopeFactor::<T>::get(),
-			);
+			let validator_weight =
+				T::StakerRewardCalculator::calculate_validator_incentive_weight(exposure.own);
 			total_validator_weight_page =
 				total_validator_weight_page.saturating_add(validator_weight);
 

@@ -854,23 +854,10 @@ pub struct StakerRewardResult<Balance> {
 pub trait StakerRewardCalculator<AccountId, Balance> {
 	/// Calculate the reward weight for a validator's self-stake.
 	///
-	/// Used for distributing validator self-stake incentive rewards proportionally
-	/// based on the sqrt-based piecewise curve.
-	///
-	/// # Arguments
-	/// * `self_stake` - The validator's self-stake amount
-	/// * `optimum` - The optimum self-stake threshold
-	/// * `cap` - The hard cap on effective self-stake
-	/// * `slope_factor` - The slope factor controlling discouragement rate (0-1)
-	///
-	/// # Returns
-	/// The weight to be used for distributing rewards proportionally.
-	fn calculate_validator_incentive_weight(
-		self_stake: Balance,
-		optimum: Balance,
-		cap: Balance,
-		slope_factor: Perbill,
-	) -> Balance;
+	/// Used for distributing validator self-stake incentive rewards proportionally.
+	/// The implementation defines the curve shape and reads any parameters it needs
+	/// (e.g. optimum, cap, slope) from its own configuration.
+	fn calculate_validator_incentive_weight(self_stake: Balance) -> Balance;
 
 	/// Calculate how staking rewards are distributed between validator and nominators.
 	///

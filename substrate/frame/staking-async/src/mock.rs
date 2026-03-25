@@ -520,7 +520,7 @@ impl Config for Test {
 	type MaxPruningItems = MaxPruningItems;
 	type RcClientInterface = session_mock::Session;
 	type Filter = MockedRestrictList;
-	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator;
+	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
 	type VestingDuration = VestingDurationBlocks;
 	type BlocksPerSession = BlocksPerSession;
 	type ValidatorIncentivePayout = ImmediateIncentivePayout<Balances>;
