@@ -162,3 +162,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 trybuild = []
+debug = []

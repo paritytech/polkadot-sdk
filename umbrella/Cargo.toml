@@ -556,6 +556,9 @@ experimental = [
 	"frame-system?/experimental",
 	"polkadot-sdk-frame?/experimental",
 ]
+debug = [
+	"pallet-revive?/debug",
+]
 with-tracing = [
 	"frame-executive?/with-tracing",
 	"sp-io?/with-tracing",
