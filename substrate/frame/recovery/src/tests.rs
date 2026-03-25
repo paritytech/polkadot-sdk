@@ -164,6 +164,26 @@ fn set_friend_groups_zero_friends_needed_fails() {
 	});
 }
 
+/// Setting a friend group with `cancel_delay` of zero fails.
+#[test]
+fn set_friend_groups_zero_cancel_delay_fails() {
+	new_test_ext().execute_with(|| {
+		let fg = FriendGroupOf::<T> {
+			friends: friends([BOB, CHARLIE, DAVE]),
+			friends_needed: 2,
+			inheritor: FERDIE,
+			inheritance_delay: 10,
+			inheritance_order: 0,
+			cancel_delay: 0,
+		};
+
+		assert_noop!(
+			Recovery::set_friend_groups(signed(ALICE), vec![fg]),
+			Error::<T>::NoCancelDelay
+		);
+	});
+}
+
 /// Setting a friend group with unsorted friends fails.
 #[test]
 fn set_friend_groups_unsorted_friends_fails() {

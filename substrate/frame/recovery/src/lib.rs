@@ -465,6 +465,8 @@ pub mod pallet {
 		LostAccountInFriendGroup,
 		/// The account was already recovered by a group with lower or equal inheritance order.
 		LowerOrderRecovered,
+		/// Cancel delay must be at least 1.
+		NoCancelDelay,
 		/// This account does not have any friend groups.
 		NoFriendGroups,
 		/// The friend group has no friends.
@@ -1002,6 +1004,8 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::TooManyFriendsNeeded
 			);
 			ensure!(friend_group.friends_needed > 0, Error::<T>::NoFriendsNeeded);
+			// prevent mempool frontrunning by requiring at least 1 block
+			ensure!(!friend_group.cancel_delay.is_zero(), Error::<T>::NoCancelDelay);
 		}
 
 		for i in 0..friend_groups.len() {
