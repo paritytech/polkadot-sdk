@@ -97,7 +97,9 @@ impl pallet_revive::Config for Test {
 	type Precompiles = (crate::Vesting<Self>,);
 }
 
-impl crate::pallet::Config for Test {}
+impl crate::pallet::Config for Test {
+	type WeightInfo = ();
+}
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {

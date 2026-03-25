@@ -22,7 +22,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-revive = { workspace = true }
-pallet-revive-fixtures = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-vesting = { workspace = true }
 scale-info = { workspace = true }
@@ -39,7 +38,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"pallet-vesting/std",

@@ -24,8 +24,9 @@ use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{
 	dispatch::GetDispatchInfo,
-	traits::{Get, VestingSchedule},
+	traits::VestingSchedule,
 };
+use weights::WeightInfo as _;
 use pallet_revive::{
 	Config,
 	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
@@ -35,6 +36,7 @@ use sp_runtime::traits::StaticLookup;
 alloy_core::sol!("IVesting.sol");
 
 pub use pallet::Pallet;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -52,6 +54,8 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + pallet_revive::Config + pallet_vesting::Config
 	{
+		/// Weight information for the precompile operations.
+		type WeightInfo: crate::weights::WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -108,7 +112,7 @@ where
 					})?
 					.clone();
 
-				// Determine and charge the dispatch weight before calling.
+				// Charge the pallet's own benchmarked dispatch weight.
 				let dispatch_weight =
 					pallet_vesting::Call::<T>::vest {}.get_dispatch_info().call_weight;
 				env.frame_meter_mut()
@@ -171,25 +175,15 @@ where
 					})?
 					.clone();
 
-				// Charge upfront for the worst case: Vesting map read + free_balance read.
-				// If no schedule exists only the Vesting map is read; refund the unused read.
-				let charged = env.frame_meter_mut().charge_weight_token(
-					RuntimeCosts::Precompile(<T as frame_system::Config>::DbWeight::get().reads(2)),
-				)?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(
+						<T as pallet::Config>::WeightInfo::vesting_balance(),
+					))?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
 						&account_id,
 					);
-
-				if maybe_locked.is_none() {
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::Precompile(
-							<T as frame_system::Config>::DbWeight::get().reads(1),
-						),
-					);
-				}
 
 				let locked = maybe_locked.unwrap_or_default();
 				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
@@ -197,25 +191,15 @@ where
 			IVestingCalls::vestingBalanceOf(IVesting::vestingBalanceOfCall { target }) => {
 				let account_id = env.to_account_id(&H160::from_slice(target.as_slice()));
 
-				// Same worst-case weight as vestingBalance(): Vesting map read + free_balance read.
-				// Refund one read if no schedule exists (only the map was accessed).
-				let charged = env.frame_meter_mut().charge_weight_token(
-					RuntimeCosts::Precompile(<T as frame_system::Config>::DbWeight::get().reads(2)),
-				)?;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(
+						<T as pallet::Config>::WeightInfo::vesting_balance_of(),
+					))?;
 
 				let maybe_locked =
 					<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::vesting_balance(
 						&account_id,
 					);
-
-				if maybe_locked.is_none() {
-					env.frame_meter_mut().adjust_weight(
-						charged,
-						RuntimeCosts::Precompile(
-							<T as frame_system::Config>::DbWeight::get().reads(1),
-						),
-					);
-				}
 
 				let locked = maybe_locked.unwrap_or_default();
 				Ok(U256::from(locked.into()).to_big_endian().abi_encode())
