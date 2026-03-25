@@ -38,7 +38,10 @@ use connected::ConnectedPeers;
 pub use db::Db;
 pub use persistence::PersistenceError;
 pub use persistent_db::PersistentDb;
-use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
+use polkadot_node_network_protocol::{
+	peer_set::{CollationVersion, PeerSet},
+	PeerId,
+};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
 	CollatorProtocolSenderTrait, RuntimeApiError,
@@ -413,6 +416,10 @@ impl<B: Backend> PeerManager<B> {
 			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
 	}
+
+	pub fn get_peer_protocol_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
+		self.connected.get_version(peer_id)
+	}
 }
 
 impl PeerManager<PersistentDb> {
@@ -517,7 +524,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 				// Only v2+ receipts can contain UMP signals.
 				// Assuming node feature set here is fine, misinterpretations are harmless in this
 				// context:
-				let has_ump_signals = match receipt.descriptor.version(true) {
+				let has_ump_signals = match receipt.descriptor.version() {
 					CandidateDescriptorVersion::V1 => false,
 					_ => true,
 				};
