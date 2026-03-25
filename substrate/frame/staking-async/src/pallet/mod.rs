@@ -583,12 +583,12 @@ pub mod pallet {
 		}
 	}
 
-	/// Custom bound for [`OffenceQueueEras`] which is equal to `2 * Config::BondingDuration`.
+	/// Custom bound for [`OffenceQueueEras`] which is equal to `Config::BondingDuration + 10`.
 	pub struct OffenceQueueErasBound<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<u32> for OffenceQueueErasBound<T> {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
-			bonding_duration.saturating_add(bonding_duration)
+			bonding_duration.saturating_add(10) // adding 10 eras so the system has time to process offences
 		}
 	}
 
@@ -810,7 +810,7 @@ pub mod pallet {
 	/// - When a new offence is added to `OffenceQueue`, its era is **inserted in sorted order**
 	/// if not already present.
 	/// - When all offences for an era are processed, it is **removed** from this list.
-	/// - The maximum length of this vector is bounded by `2 * BondingDuration`.
+	/// - The maximum length of this vector is bounded by `BondingDuration + 10`.
 	///
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
