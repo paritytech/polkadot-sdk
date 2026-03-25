@@ -92,7 +92,7 @@ frame_support::construct_runtime!(
 		Contracts: pallet_revive,
 		Proxy: pallet_proxy,
 		TransactionPayment: pallet_transaction_payment,
-		Dummy: pallet_dummy,
+		Dummy: pallet_dummy
 	}
 );
 
