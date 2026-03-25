@@ -3784,7 +3784,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn generate_ownership_proof(keys: Vec<u8>, owner: Vec<u8>) -> Result<Vec<u8>, sp_session::OwnershipProofCreationError> {
-			use codec::Encode;
+			use codec::{Decode, Encode};
 			let mut sk = SessionKeys::decode(&mut &keys[..])
 				.map_err(|_| sp_session::OwnershipProofCreationError::InvalidKeys)?;
 			let proof = sk
