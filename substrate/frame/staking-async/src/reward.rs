@@ -70,7 +70,9 @@ impl<T: Config> EraRewardManager<T> {
 	///
 	/// # Returns
 	/// The allocation breakdown showing amounts transferred into each era pot.
-	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
+	pub(crate) fn snapshot_era_rewards(
+		era: EraIndex,
+	) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
 		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 

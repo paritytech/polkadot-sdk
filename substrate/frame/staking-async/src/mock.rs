@@ -860,7 +860,7 @@ pub(crate) fn bond_virtual_nominator(
 
 pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 	let total_inflation =
-		OneTokenPerMillisecond::issuance(pallet_balances::TotalIssuance::<Test>::get(), duration);
+		OneTokenPerMillisecond::issue(pallet_balances::TotalIssuance::<Test>::get(), duration);
 	// Apply budget allocation to get staker portion
 	let budget = pallet_dap::BudgetAllocation::<Test>::get();
 	let staker_pct = budget.get(&staker_reward_key()).copied().unwrap_or(Perbill::zero());
@@ -870,7 +870,7 @@ pub(crate) fn validator_payout_for(duration: u64) -> Balance {
 }
 
 pub(crate) fn total_payout_for(duration: u64) -> Balance {
-	OneTokenPerMillisecond::issuance(pallet_balances::TotalIssuance::<Test>::get(), duration)
+	OneTokenPerMillisecond::issue(pallet_balances::TotalIssuance::<Test>::get(), duration)
 }
 
 /// Time it takes to finish a session.
