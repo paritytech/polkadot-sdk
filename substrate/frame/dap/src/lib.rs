@@ -240,14 +240,8 @@ pub mod pallet {
 			}
 
 			// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed Perbills.
-			let total_parts: u64 = new_allocations
-				.values()
-				.map(|p| p.deconstruct() as u64)
-				.sum();
-			ensure!(
-				total_parts == Perbill::one().deconstruct() as u64,
-				Error::<T>::BudgetNotExact
-			);
+			let total_parts: u64 = new_allocations.values().map(|p| p.deconstruct() as u64).sum();
+			ensure!(total_parts == Perbill::one().deconstruct() as u64, Error::<T>::BudgetNotExact);
 
 			BudgetAllocation::<T>::put(new_allocations.clone());
 			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
