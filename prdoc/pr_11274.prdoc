@@ -1,0 +1,28 @@
+title: 'Statement store: Latency bench cli sudo'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Extend the statement-latency-bench CLI tool to automatically set up per-account statement allowances via sudo extrinsics
+
+    Added subxt-based sudo call to system.set_storage that writes :statement_allowance: keys for each benchmark account
+
+    Updated the grafana dashboard and Metrics.md
+crates:
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: sp-statement-store
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: sc-utils
+  bump: major
+- name: people-westend-runtime
+  bump: major
