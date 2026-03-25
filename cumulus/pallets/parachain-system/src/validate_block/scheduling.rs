@@ -8,6 +8,7 @@
 //! and verifies relay_parent is at or before internal_scheduling_parent.
 
 use cumulus_primitives_core::SchedulingProof;
+use polkadot_parachain_primitives::primitives::ValidationParamsExtension;
 use sp_runtime::traits::{BlakeTwo256, Hash as HashT, Header as HeaderT};
 
 /// Hash type for relay chain.
@@ -42,6 +43,57 @@ pub struct SchedulingValidationResult {
     pub internal_scheduling_parent: RelayHash,
     /// Whether this is a resubmission (relay_parent != internal_scheduling_parent).
     pub is_resubmission: bool,
+}
+
+/// Validate V3 scheduling based on runtime config and candidate extension.
+///
+/// Returns `None` for V1/V2 candidates, `Some(result)` for valid V3.
+/// Panics on config/extension mismatches or validation failures.
+pub fn validate_v3_scheduling(
+    v3_enabled: bool,
+    extension: &Option<ValidationParamsExtension>,
+    scheduling_proof: Option<&SchedulingProof>,
+    expected_header_chain_length: u32,
+) -> Option<SchedulingValidationResult> {
+    match (v3_enabled, extension) {
+        (false, None) => {
+            // V3 disabled and no extension: normal V1/V2 path
+            None
+        },
+        (false, Some(_)) => {
+            // V3 disabled but extension present: this should not happen
+            // The relay chain should not send V3 candidates to parachains that have not enabled it
+            panic!(
+                "V3 extension present but SchedulingV3Enabled is false. \
+                Ensure collators and runtime are in sync."
+            );
+        },
+        (true, None) => {
+            // V3 enabled but no extension: candidates must be V3
+            panic!(
+                "SchedulingV3Enabled is true but no V3 extension present. \
+                Collators must provide V3 candidates when V3 is enabled."
+            );
+        },
+        (
+            true,
+            Some(ValidationParamsExtension::V3 { relay_parent, scheduling_parent }),
+        ) => {
+            // V3 enabled and extension present: validate scheduling
+            let scheduling_proof = scheduling_proof
+                .expect("V3 candidates require ParachainBlockData::V2 with scheduling_proof");
+
+            match validate_scheduling(
+                scheduling_proof,
+                *relay_parent,
+                *scheduling_parent,
+                expected_header_chain_length,
+            ) {
+                Ok(result) => Some(result),
+                Err(e) => panic!("V3 scheduling validation failed: {:?}", e),
+            }
+        },
+    }
 }
 
 /// Validate scheduling proof from the POV.
@@ -379,7 +431,7 @@ mod tests {
 
         let signed_info = SignedSchedulingInfo {
             core_selector: CoreSelector(0),
-
+            peer_id: Default::default(),
             signature: dummy_signature(),
         };
 
@@ -422,7 +474,7 @@ mod tests {
 
         let signed_info = SignedSchedulingInfo {
             core_selector: CoreSelector(0),
-
+            peer_id: Default::default(),
             signature: dummy_signature(),
         };
 
@@ -476,7 +528,7 @@ mod tests {
 
         let signed_info = SignedSchedulingInfo {
             core_selector: CoreSelector(1),
-
+            peer_id: Default::default(),
             signature,
         };
 
@@ -507,7 +559,7 @@ mod tests {
 
         let signed_info = SignedSchedulingInfo {
             core_selector: CoreSelector(1),
-
+            peer_id: Default::default(),
             signature,
         };
 
@@ -534,12 +586,133 @@ mod tests {
 
         let signed_info = SignedSchedulingInfo {
             core_selector: CoreSelector(1),
-
+            peer_id: Default::default(),
             signature,
         };
 
         // Verify against a different internal_scheduling_parent
         let result = verify_resubmission_signature(&signed_info, &collator_id, verify_isp);
         assert_eq!(result, Err(SchedulingValidationError::InvalidSignature));
+    }
+
+    // =========================================================================
+    // validate_v3_scheduling tests
+    // =========================================================================
+
+    /// Helper: builds a valid V3 extension and scheduling proof for a given header chain length.
+    /// Returns (extension, proof, expected_result).
+    fn make_v3_initial_submission(
+        chain_len: u32,
+    ) -> (ValidationParamsExtension, SchedulingProof, SchedulingValidationResult) {
+        let (headers, relay_parent) = make_header_chain(chain_len as usize);
+        let scheduling_parent = if headers.is_empty() {
+            relay_parent
+        } else {
+            BlakeTwo256::hash_of(&headers[0])
+        };
+
+        let extension =
+            ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
+        let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+        let expected = SchedulingValidationResult {
+            internal_scheduling_parent: relay_parent,
+            is_resubmission: false,
+        };
+        (extension, proof, expected)
+    }
+
+    #[test]
+    fn v3_disabled_no_extension_returns_none() {
+        let result = validate_v3_scheduling(false, &None, None, 0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "V3 extension present but SchedulingV3Enabled is false")]
+    fn v3_disabled_with_extension_panics() {
+        let ext = ValidationParamsExtension::V3 {
+            relay_parent: RelayHash::default(),
+            scheduling_parent: RelayHash::default(),
+        };
+        validate_v3_scheduling(false, &Some(ext), None, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "SchedulingV3Enabled is true but no V3 extension present")]
+    fn v3_enabled_no_extension_panics() {
+        validate_v3_scheduling(true, &None, None, 0);
+    }
+
+    #[test]
+    fn v3_enabled_valid_initial_submission() {
+        let (ext, proof, expected) = make_v3_initial_submission(3);
+        let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
+        assert_eq!(result, Some(expected));
+    }
+
+    #[test]
+    fn v3_enabled_valid_empty_header_chain() {
+        let (ext, proof, expected) = make_v3_initial_submission(0);
+        let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 0);
+        assert_eq!(result, Some(expected));
+    }
+
+    #[test]
+    #[should_panic(expected = "V3 candidates require ParachainBlockData::V2 with scheduling_proof")]
+    fn v3_enabled_missing_scheduling_proof_panics() {
+        let (ext, _, _) = make_v3_initial_submission(3);
+        // Pass None as scheduling_proof to simulate a V0/V1 POV
+        validate_v3_scheduling(true, &Some(ext), None, 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "V3 scheduling validation failed")]
+    fn v3_enabled_invalid_header_chain_length_panics() {
+        let (ext, proof, _) = make_v3_initial_submission(3);
+        // Expect 5 headers but proof only has 3
+        validate_v3_scheduling(true, &Some(ext), Some(&proof), 5);
+    }
+
+    #[test]
+    fn v3_enabled_valid_resubmission() {
+        let (headers, relay_parent) = make_header_chain(3);
+        let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+        // Use an unrelated hash as relay_parent to simulate a resubmission
+        let older_relay_parent = RelayHash::repeat_byte(0xBB);
+
+        let ext = ValidationParamsExtension::V3 {
+            relay_parent: older_relay_parent,
+            scheduling_parent,
+        };
+        let proof = SchedulingProof {
+            header_chain: headers,
+            signed_scheduling_info: Some(SignedSchedulingInfo {
+                core_selector: CoreSelector(0),
+                peer_id: Default::default(),
+                signature: dummy_signature(),
+            }),
+        };
+
+        let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
+        let result = result.expect("should succeed");
+        assert!(result.is_resubmission);
+        assert_eq!(result.internal_scheduling_parent, relay_parent);
+    }
+
+    #[test]
+    #[should_panic(expected = "V3 scheduling validation failed")]
+    fn v3_enabled_resubmission_without_signature_panics() {
+        let (headers, _relay_parent) = make_header_chain(3);
+        let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+        let older_relay_parent = RelayHash::repeat_byte(0xBB);
+
+        let ext = ValidationParamsExtension::V3 {
+            relay_parent: older_relay_parent,
+            scheduling_parent,
+        };
+        let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
+
+        // Should panic because resubmission requires signed_scheduling_info
+        validate_v3_scheduling(true, &Some(ext), Some(&proof), 3);
     }
 }
