@@ -384,12 +384,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
+			if !account.balance.is_zero() {
+				debug_assert!(details.supply >= account.balance, "supply < balance; qed");
+				details.supply = details.supply.saturating_sub(account.balance);
+			}
 			Account::<T, I>::remove(&id, &who);
 		} else {
 			debug_assert!(false, "refund did not result in dead account?!");
 			// deposit may have been refunded, need to update `Account`
 			Account::<T, I>::insert(id, &who, account);
 			return Ok(());
+		}
+
+		if !account.balance.is_zero() {
+			Self::deposit_event(Event::Burned {
+				asset_id: id.clone(),
+				owner: who.clone(),
+				balance: account.balance,
+			});
 		}
 
 		Asset::<T, I>::insert(&id, details);
