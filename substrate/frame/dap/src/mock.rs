@@ -123,15 +123,14 @@ impl Config for Test {
 /// Sets a default budget allocation mimicking what the migration would do.
 pub fn set_default_budget_allocation() {
 	use sp_runtime::{BoundedBTreeMap, Perbill};
-	use sp_staking::BudgetKey;
+	use sp_staking::BudgetRecipient;
 
-	let entries: &[(&[u8], u32)] =
-		&[(b"buffer", 10), (b"staker_rewards", 70), (b"validator_incentive", 20)];
 	let mut map = BoundedBTreeMap::new();
-	for (name, pct) in entries {
-		map.try_insert(BudgetKey::truncate_from(name.to_vec()), Perbill::from_percent(*pct))
-			.unwrap();
-	}
+	map.try_insert(Dap::budget_key(), Perbill::from_percent(15)).unwrap();
+	map.try_insert(TestStakerRecipient::budget_key(), Perbill::from_percent(85))
+		.unwrap();
+	map.try_insert(TestValidatorIncentiveRecipient::budget_key(), Perbill::from_percent(0))
+		.unwrap();
 	crate::BudgetAllocation::<Test>::put(map);
 }
 

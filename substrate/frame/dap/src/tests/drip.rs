@@ -19,7 +19,10 @@
 
 use super::budget_map;
 use crate::{
-	mock::{build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime, RuntimeOrigin, System, Test},
+	mock::{
+		build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime, RuntimeOrigin,
+		System, Test,
+	},
 	Event,
 };
 use frame_support::{assert_ok, traits::fungible::Inspect};
