@@ -44,7 +44,7 @@ pub struct ParentSearchParams {
 	pub ancestry_lookback: usize,
 }
 
-/// A potential parent block returned from [`find_potential_parents`]
+/// A potential parent block returned from [`find_parent_for_building`]
 #[derive(PartialEq, Clone)]
 pub struct ParentSearchResult<B: BlockT> {
 	/// The header of the included block (confirmed on relay chain).
