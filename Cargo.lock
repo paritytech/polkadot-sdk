@@ -14426,7 +14426,6 @@ dependencies = [
  "pallet-balances",
  "pallet-revive",
  "pallet-revive-fixtures",
- "pallet-revive-uapi",
  "pallet-timestamp",
  "pallet-vesting",
  "parity-scale-codec",

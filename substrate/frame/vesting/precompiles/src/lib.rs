@@ -30,8 +30,9 @@ use pallet_revive::{
 	Config,
 	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
 };
-use pallet_revive_uapi::precompiles::vesting::IVesting;
 use sp_runtime::traits::StaticLookup;
+
+alloy_core::sol!("IVesting.sol");
 
 pub use pallet::Pallet;
 

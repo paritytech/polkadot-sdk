@@ -24,7 +24,7 @@ use pallet_revive::{
 	AddressMapper,
 	precompiles::{Error, Precompile, U256},
 };
-use pallet_revive_uapi::precompiles::vesting::IVesting;
+use crate::IVesting;
 
 type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;
 

@@ -23,7 +23,6 @@ frame-system = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
-pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces"] }
 pallet-timestamp = { workspace = true }
 pallet-vesting = { workspace = true }
 scale-info = { workspace = true }
