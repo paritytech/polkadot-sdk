@@ -85,7 +85,8 @@ mod benchmarks {
 		let caller_account = call_setup.contract().caller.clone();
 
 		let locked: VestingBalance<T> = 10_000u32.into();
-		let balance: <T as pallet_revive::Config>::Balance = (locked * 10u32.into()).into();
+		let vesting_bal: U256 = (locked * 10u32.into()).into();
+		let balance = vesting_bal.try_into().ok().expect("balance fits");
 		FungibleOf::<T>::set_balance(&caller_account, balance);
 		add_vesting_schedule::<T>(&caller_account, locked);
 
@@ -111,7 +112,8 @@ mod benchmarks {
 		let target_addr = pallet_revive::precompiles::H160::from_low_u64_be(0xBEEF);
 		let target_account = T::AddressMapper::to_account_id(&target_addr);
 		let locked: VestingBalance<T> = 10_000u32.into();
-		let balance: <T as pallet_revive::Config>::Balance = (locked * 10u32.into()).into();
+		let vesting_bal: U256 = (locked * 10u32.into()).into();
+		let balance = vesting_bal.try_into().ok().expect("balance fits");
 		FungibleOf::<T>::set_balance(&target_account, balance);
 		add_vesting_schedule::<T>(&target_account, locked);
 
