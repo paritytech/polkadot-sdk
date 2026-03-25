@@ -130,12 +130,11 @@ use super::LOG_TARGET;
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	self, validate_commitments, ConstraintModifications, Constraints, Fragment,
-	HypotheticalOrConcreteCandidate, ProspectiveCandidate, RelayChainBlockInfo,
+	ProspectiveCandidate, RelayChainBlockInfo,
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, ValidationCodeHash,
+	BlockNumber, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash,
+	HeadData, Id as ParaId, PersistedValidationData,
 };
 use thiserror::Error;
 
@@ -212,14 +211,12 @@ impl CandidateStorage {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
-		v3_enabled: bool,
 	) -> Result<(), Error> {
 		let entry = CandidateEntry::new(
 			candidate_hash,
 			candidate,
 			persisted_validation_data,
 			CandidateState::Backed,
-			v3_enabled,
 		)?;
 
 		self.add_candidate_entry(entry)
@@ -377,15 +374,8 @@ impl CandidateEntry {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
-		v3_enabled: bool,
 	) -> Result<Self, CandidateEntryError> {
-		Self::new(
-			candidate_hash,
-			candidate,
-			persisted_validation_data,
-			CandidateState::Seconded,
-			v3_enabled,
-		)
+		Self::new(candidate_hash, candidate, persisted_validation_data, CandidateState::Seconded)
 	}
 
 	pub fn hash(&self) -> CandidateHash {
@@ -397,7 +387,6 @@ impl CandidateEntry {
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
 		state: CandidateState,
-		v3_enabled: bool,
 	) -> Result<Self, CandidateEntryError> {
 		let para_id = candidate.descriptor.para_id();
 		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
@@ -413,7 +402,7 @@ impl CandidateEntry {
 		}
 
 		let relay_parent = candidate.descriptor.relay_parent();
-		let scheduling_parent = candidate.descriptor.scheduling_parent(v3_enabled);
+		let scheduling_parent = candidate.descriptor.scheduling_parent();
 
 		Ok(Self {
 			candidate_hash,
@@ -430,49 +419,6 @@ impl CandidateEntry {
 			}),
 			para_id,
 		})
-	}
-}
-
-impl HypotheticalOrConcreteCandidate for CandidateEntry {
-	fn commitments(&self) -> Option<&CandidateCommitments> {
-		Some(&self.candidate.commitments)
-	}
-
-	fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
-		Some(&self.candidate.persisted_validation_data)
-	}
-
-	fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
-		Some(self.candidate.validation_code_hash)
-	}
-
-	fn parent_head_data_hash(&self) -> Hash {
-		self.parent_head_data_hash
-	}
-
-	fn output_head_data_hash(&self) -> Option<Hash> {
-		Some(self.output_head_data_hash)
-	}
-
-	/// Get the relay parent hash (execution context).
-	///
-	/// For V3 candidates, this determines execution context and can be older than
-	/// scheduling_parent. For V1/V2 candidates, this is the same as
-	/// scheduling_parent.
-	fn relay_parent(&self) -> Hash {
-		self.relay_parent
-	}
-
-	fn candidate_hash(&self) -> CandidateHash {
-		self.candidate_hash
-	}
-
-	/// Get the scheduling parent hash.
-	///
-	/// For V3 candidates, this is the scheduling parent (used for backing group selection).
-	/// For V1/V2 candidates, this equals the relay parent.
-	fn scheduling_parent(&self) -> Hash {
-		self.scheduling_parent
 	}
 }
 
@@ -644,6 +590,7 @@ struct FragmentNode {
 }
 
 impl FragmentNode {
+	/// Execution context: the relay parent determines PVD, constraints, and message state.
 	fn relay_parent(&self) -> Hash {
 		self.fragment.relay_parent().hash
 	}
@@ -653,6 +600,7 @@ impl From<&FragmentNode> for CandidateEntry {
 	fn from(node: &FragmentNode) -> Self {
 		// We don't need to perform the checks done in `CandidateEntry::new()`, since a
 		// `FragmentNode` always comes from a `CandidateEntry`
+		// Execution context: preserves relay parent for constraint validation.
 		let relay_parent = node.relay_parent();
 		Self {
 			candidate_hash: node.candidate_hash,
@@ -899,15 +847,39 @@ impl FragmentChain {
 	pub fn can_add_candidate_as_potential(
 		&self,
 		relay_chain_scope: &RelayChainScope,
-		candidate: &impl HypotheticalOrConcreteCandidate,
+		candidate: &CandidateEntry,
 	) -> Result<(), Error> {
-		let candidate_hash = candidate.candidate_hash();
+		let candidate_hash = candidate.candidate_hash;
 
 		if self.chain.contains(&candidate_hash) || self.unconnected.contains(&candidate_hash) {
 			return Err(Error::CandidateAlreadyKnown);
 		}
 
 		self.check_potential(relay_chain_scope, candidate)
+	}
+
+	/// Lightweight check for whether a hypothetical candidate (possibly incomplete) could be added
+	/// to this chain. Only performs checks that don't require the relay parent or full candidate
+	/// data: scheduling parent in scope, fork checks, cycle checks.
+	pub fn can_add_candidate_as_potential_hypothetical(
+		&self,
+		relay_chain_scope: &RelayChainScope,
+		scheduling_parent: Hash,
+		candidate_hash: CandidateHash,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
+	) -> Result<(), Error> {
+		if self.chain.contains(&candidate_hash) || self.unconnected.contains(&candidate_hash) {
+			return Err(Error::CandidateAlreadyKnown);
+		}
+
+		self.check_potential_lightweight(
+			relay_chain_scope,
+			scheduling_parent,
+			candidate_hash,
+			parent_head_hash,
+			output_head_hash,
+		)
 	}
 
 	/// Try adding a seconded candidate, if the candidate has potential. It will never be added to
@@ -1030,6 +1002,8 @@ impl FragmentChain {
 	// The value returned may not be valid if we want to add a candidate pending availability, which
 	// may have a relay parent which is out of scope. Special handling is needed in that case.
 	// `None` is returned if the candidate's relay parent info cannot be found.
+	// Execution context: the relay parent determines constraint progression
+	// (HRMP watermark, DMP advancement must not regress).
 	fn earliest_relay_parent(
 		&self,
 		relay_chain_scope: &RelayChainScope,
@@ -1112,37 +1086,19 @@ impl FragmentChain {
 		Ok(())
 	}
 
-	// Checks the potential of a candidate to be added to the chain now or in the future.
-	// It works both with concrete candidates for which we have the full PVD and committed receipt,
-	// but also does some more basic checks for incomplete candidates (before even fetching them).
-	fn check_potential(
+	// Lightweight potential check using only scheduling_parent and parent/output head hashes.
+	// Used for hypothetical (possibly incomplete) candidates where we don't have the relay parent
+	// or full candidate data. Checks: scheduling parent in scope, zero-length cycle, fork rules,
+	// cycle/invalid tree checks.
+	fn check_potential_lightweight(
 		&self,
 		relay_chain_scope: &RelayChainScope,
-		candidate: &impl HypotheticalOrConcreteCandidate,
+		scheduling_parent: Hash,
+		candidate_hash: CandidateHash,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
 	) -> Result<(), Error> {
-		let relay_parent = candidate.relay_parent();
-		let parent_head_hash = candidate.parent_head_data_hash();
-
-		// trivial 0-length cycle.
-		if let Some(output_head_hash) = candidate.output_head_data_hash() {
-			if parent_head_hash == output_head_hash {
-				return Err(Error::ZeroLengthCycle);
-			}
-		}
-
-		// Check if the relay parent is in scope.
-		let Some(relay_parent) = relay_chain_scope.ancestor(&relay_parent) else {
-			return Err(Error::RelayParentNotInScope(
-				relay_parent,
-				relay_chain_scope.earliest_relay_parent().hash,
-			));
-		};
-
-		// For V3 candidates, also check if the scheduling parent is in scope.
-		// The scheduling parent determines the backing group and must be within the implicit view.
-		// For V1/V2 candidates, scheduling_parent equals relay_parent, so this is redundant but
-		// harmless.
-		let scheduling_parent = candidate.scheduling_parent();
+		// Check if the scheduling parent is in scope.
 		if relay_chain_scope.ancestor(&scheduling_parent).is_none() {
 			return Err(Error::SchedulingParentNotInScope(
 				scheduling_parent,
@@ -1150,14 +1106,11 @@ impl FragmentChain {
 			));
 		}
 
-		// Check if the relay parent moved backwards from the latest candidate pending availability.
-		let earliest_rp_of_pending_availability =
-			self.earliest_relay_parent_pending_availability(relay_chain_scope);
-		if relay_parent.number < earliest_rp_of_pending_availability.number {
-			return Err(Error::RelayParentPrecedesCandidatePendingAvailability(
-				relay_parent.hash,
-				earliest_rp_of_pending_availability.hash,
-			));
+		// Trivial 0-length cycle.
+		if let Some(output_head_hash) = output_head_hash {
+			if parent_head_hash == output_head_hash {
+				return Err(Error::ZeroLengthCycle);
+			}
 		}
 
 		// If it's a fork with a backed candidate in the current chain.
@@ -1169,9 +1122,55 @@ impl FragmentChain {
 
 			// If the candidate is backed and in the current chain, accept only a candidate
 			// according to the fork selection rule.
-			if fork_selection_rule(other_candidate, &candidate.candidate_hash()) == Ordering::Less {
+			if fork_selection_rule(other_candidate, &candidate_hash) == Ordering::Less {
 				return Err(Error::ForkChoiceRule(*other_candidate));
 			}
+		}
+
+		// Check for cycles or invalid tree transitions.
+		if let Some(ref output_head_hash) = output_head_hash {
+			self.check_cycles_or_invalid_tree(output_head_hash)?;
+		}
+
+		Ok(())
+	}
+
+	// Full potential check for concrete candidates (CandidateEntry). Performs all lightweight
+	// checks plus relay-parent-dependent validation: relay parent in scope, constraint checking,
+	// min relay parent number checks.
+	fn check_potential(
+		&self,
+		relay_chain_scope: &RelayChainScope,
+		candidate: &CandidateEntry,
+	) -> Result<(), Error> {
+		let parent_head_hash = candidate.parent_head_data_hash;
+
+		// Run the lightweight checks first.
+		self.check_potential_lightweight(
+			relay_chain_scope,
+			candidate.scheduling_parent,
+			candidate.candidate_hash,
+			parent_head_hash,
+			Some(candidate.output_head_data_hash),
+		)?;
+
+		// Execution context: check if the relay parent is in scope.
+		let relay_parent_hash = candidate.relay_parent;
+		let Some(relay_parent) = relay_chain_scope.ancestor(&relay_parent_hash) else {
+			return Err(Error::RelayParentNotInScope(
+				relay_parent_hash,
+				relay_chain_scope.earliest_relay_parent().hash,
+			));
+		};
+
+		// Check if the relay parent moved backwards from the latest candidate pending availability.
+		let earliest_rp_of_pending_availability =
+			self.earliest_relay_parent_pending_availability(relay_chain_scope);
+		if relay_parent.number < earliest_rp_of_pending_availability.number {
+			return Err(Error::RelayParentPrecedesCandidatePendingAvailability(
+				relay_parent.hash,
+				earliest_rp_of_pending_availability.hash,
+			));
 		}
 
 		// Try seeing if the parent candidate is in the current chain or if it is the latest
@@ -1191,6 +1190,8 @@ impl FragmentChain {
 						.base_constraints
 						.apply_modifications(&parent_candidate.cumulative_modifications)
 						.map_err(Error::ComputeConstraints)?,
+					// Execution context: relay parent block number for HRMP
+					// watermark and DMP constraint checking.
 					relay_chain_scope
 						.ancestor(&parent_candidate.relay_parent())
 						.map(|rp| rp.number),
@@ -1203,37 +1204,29 @@ impl FragmentChain {
 				(true, self.scope.base_constraints.clone(), None)
 			};
 
-		// Check for cycles or invalid tree transitions.
-		if let Some(ref output_head_hash) = candidate.output_head_data_hash() {
-			self.check_cycles_or_invalid_tree(output_head_hash)?;
-		}
+		// Check against constraints.
+		let commitments = &candidate.candidate.commitments;
+		let pvd = &candidate.candidate.persisted_validation_data;
+		let validation_code_hash = candidate.candidate.validation_code_hash;
 
-		// Check against constraints if we have a full concrete candidate.
-		if let (Some(commitments), Some(pvd), Some(validation_code_hash)) = (
-			candidate.commitments(),
-			candidate.persisted_validation_data(),
-			candidate.validation_code_hash(),
-		) {
-			if is_unconnected {
-				// If the parent is not yet part of the chain, we can check the commitments only
-				// if we have the full candidate.
-				return validate_commitments(
-					&self.scope.base_constraints,
-					&relay_parent,
-					commitments,
-					&validation_code_hash,
-				)
-				.map_err(Error::CheckAgainstConstraints);
-			}
-			Fragment::check_against_constraints(
+		if is_unconnected {
+			// If the parent is not yet part of the chain, we can only check the commitments.
+			return validate_commitments(
+				&self.scope.base_constraints,
 				&relay_parent,
-				&constraints,
 				commitments,
 				&validation_code_hash,
-				pvd,
 			)
-			.map_err(Error::CheckAgainstConstraints)?;
+			.map_err(Error::CheckAgainstConstraints);
 		}
+		Fragment::check_against_constraints(
+			&relay_parent,
+			&constraints,
+			commitments,
+			&validation_code_hash,
+			pvd,
+		)
+		.map_err(Error::CheckAgainstConstraints)?;
 
 		if relay_parent.number < constraints.min_relay_parent_number {
 			return Err(Error::RelayParentMovedBackwards);
@@ -1507,7 +1500,7 @@ impl FragmentChain {
 
 				// Update the cumulative constraint modifications.
 				cumulative_modifications.stack(fragment.constraint_modifications());
-				// Update the earliest rp
+				// Execution context: track earliest relay parent for constraint validation.
 				earliest_rp = fragment.relay_parent().clone();
 
 				let node = FragmentNode {

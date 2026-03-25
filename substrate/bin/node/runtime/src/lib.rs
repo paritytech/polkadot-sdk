@@ -1567,6 +1567,7 @@ impl pallet_revive::Config for Runtime {
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
+	type OnBurn = ();
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1907,7 +1908,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
-	type CallbackHandle = ();
+	type CallbackHandle = (pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,);
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
