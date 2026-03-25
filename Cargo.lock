@@ -24967,6 +24967,7 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
+ "pallet-dap-satellite",
  "pallet-salary",
  "pallet-transaction-payment",
  "pallet-xcm",

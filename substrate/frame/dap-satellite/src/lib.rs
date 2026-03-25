@@ -263,7 +263,6 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-
 }
 
 /// Type alias for credit (negative imbalance - funds that were removed).
@@ -352,72 +351,4 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 			"💸 Deposited {numeric_amount:?} to DAP satellite"
 		);
 	}
-}
-
-/// Implements [`SendToDap`] for a runtime in order to allow transfers to the central DAP.
-///
-/// Generates a `SendToDapError` enum and the `SendToDap<Balance>` impl for the given `$runtime`.
-///
-/// # Parameters
-///
-/// - `$runtime`: The runtime type (e.g. `Runtime`).
-/// - `$asset_transactor`: Type implementing `xcm_executor::traits::TransactAsset`.
-/// - `$xcm_router`: Type implementing `xcm::prelude::SendXcm`.
-/// - `$dest`: Expression returning the [`xcm::prelude::Location`] of the central DAP.
-/// - `$native_asset`: Expression returning the [`xcm::prelude::Location`] of the native token.
-///
-/// # Requirements:
-///
-/// The following must be in scope at the call site:
-/// - `Balance`: the chain's native balance type.
-/// - `DapBufferLocation`: a `parameter_types!`-generated type whose `get()` returns the
-///   [`xcm::prelude::InteriorLocation`] of the central DAP account.
-/// ```
-#[macro_export]
-macro_rules! impl_send_to_dap_via_xcm {
-	($runtime:ty, $asset_transactor:ty, $xcm_router:ty, $dest:expr, $native_asset:expr $(,)?) => {
-		/// Error variants for the XCM-based [`pallet_dap_satellite::SendToDap`] implementation.
-		#[derive(Debug)]
-		pub enum SendToDapError {
-			/// The asset transactor rejected the outgoing check-out.
-			AssetCheckOutFailed,
-			/// Failed to reanchor assets for the destination chain.
-			ReanchorFailed,
-			/// The XCM router failed to dispatch the message.
-			SendXcmFailed,
-		}
-
-		impl $crate::SendToDap<Balance> for $runtime {
-			type Error = SendToDapError;
-
-			fn send(amount: Balance) -> Result<(), SendToDapError> {
-				use xcm::prelude::*;
-				use xcm_executor::traits::TransactAsset;
-
-				let dest = $dest;
-				let asset = Asset { id: AssetId($native_asset), fun: Fungible(amount) };
-				let check_context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
-
-				<$asset_transactor>::can_check_out(&dest, &asset, &check_context)
-					.map_err(|_| SendToDapError::AssetCheckOutFailed)?;
-
-				let assets_for_dest = Assets::from(asset.clone())
-					.reanchored(&dest, &Here.into())
-					.map_err(|_| SendToDapError::ReanchorFailed)?;
-
-				let beneficiary: Location = DapBufferLocation::get().into_location();
-				let message = Xcm(vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					ReceiveTeleportedAsset(assets_for_dest),
-					DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
-				]);
-
-				send_xcm::<$xcm_router>(dest.clone(), message)
-					.map_err(|_| SendToDapError::SendXcmFailed)?;
-
-				<$asset_transactor>::check_out(&dest, &asset, &check_context);
-				Ok(())
-			}
-		}
-	};
 }

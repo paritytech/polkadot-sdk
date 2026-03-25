@@ -19,14 +19,16 @@
 
 use crate::{self as pallet_dap_satellite, Config};
 use frame_support::{
-	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion,
-	weights::constants::RocksDbWeight, PalletId,
-};
-use frame_support::traits::{
-	fungible::{Balanced, Dust, Inspect, Mutate, Unbalanced},
-	tokens::{
-		DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
+	derive_impl, parameter_types,
+	sp_runtime::traits::AccountIdConversion,
+	traits::{
+		fungible::{Balanced, Dust, Inspect, Mutate, Unbalanced},
+		tokens::{
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
+		},
 	},
+	weights::constants::RocksDbWeight,
+	PalletId,
 };
 use pallet_balances::{NegativeImbalance, PositiveImbalance};
 use sp_runtime::{BuildStorage, DispatchError};

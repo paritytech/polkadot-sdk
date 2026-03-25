@@ -637,18 +637,16 @@ parameter_types! {
 	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
-pallet_dap_satellite::impl_send_to_dap_via_xcm!(
-	Runtime,
-	xcm_config::FungibleTransactor,
-	xcm_config::XcmRouter,
-	testnet_parachains_constants::westend::locations::AssetHubLocation::get(),
-	xcm_config::TokenRelayLocation::get(),
-);
-
 impl pallet_dap_satellite::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
-	type SendToDap = Runtime;
+	type SendToDap = xcm_builder::SendToDapViaTeleport<
+		xcm_config::FungibleTransactor,
+		xcm_config::XcmRouter,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+		xcm_config::TokenRelayLocation,
+		DapBufferLocation,
+	>;
 	type TransferPeriod = DapSatelliteTransferPeriod;
 	type MinTransferAmount = DapSatelliteMinTransferAmount;
 }
