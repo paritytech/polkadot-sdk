@@ -51,3 +51,5 @@ crates:
   bump: patch
 - name: penpal-runtime
   bump: patch
+- name: polkadot-sdk
+  bump: patch

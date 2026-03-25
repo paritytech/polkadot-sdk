@@ -353,7 +353,6 @@ mod tests {
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sp_consensus::BlockOrigin;
 	use sp_keystore::{Keystore, KeystorePtr};
-	use sp_timestamp::Timestamp;
 	use std::sync::{Arc, Mutex};
 
 	async fn import_block<I: BlockImport<Block>>(
@@ -417,21 +416,20 @@ mod tests {
 	async fn test_can_build_upon() {
 		sp_tracing::try_init_simple();
 
-		let (client, keystore) = set_up_components(6);
+		let (client, _keystore) = set_up_components(6);
 
 		let genesis_hash = client.chain_info().genesis_hash;
 		let mut last_hash = genesis_hash;
 
 		// Fill up the unincluded segment tracker in the runtime.
-		while claim_slot::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
-			Slot::from(u64::MAX),
-			Timestamp::default(),
+		while can_build_upon::<_, _>(
 			last_hash,
+			genesis_hash,
+			Slot::from(u64::MAX),
+			Slot::from(u64::MAX),
 			&*client,
-			&keystore,
 		)
 		.await
-		.is_some()
 		{
 			let block = build_and_import_block(&client, genesis_hash).await;
 			last_hash = block.header().hash();

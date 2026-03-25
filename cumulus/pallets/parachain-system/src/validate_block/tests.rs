@@ -855,8 +855,10 @@ fn validate_block_rejects_incomplete_bundle() {
 		.unwrap_err();
 	});
 	assert!(
-		log_capture.contains("Last block in PoV must have maybe_last=true"),
-		"Expected log about missing maybe_last, got: {}",
+		log_capture.contains(
+			"Last block in PoV must include the digest that marks it as the last block in the core"
+		),
+		"Expected log about missing last block digest, got: {}",
 		log_capture.get_logs()
 	);
 
