@@ -21,7 +21,7 @@ use crate::{
 		tracing::Tracing,
 	},
 	tracing::{EVMFrameTraceInfo, FrameTraceInfo},
-	vm::pvm::env::lookup_syscall_index,
+	vm::pvm::env::lookup_trace_op_index,
 };
 use alloc::{
 	collections::BTreeMap,
@@ -204,7 +204,7 @@ impl Tracing for ExecutionTracer {
 			return_data,
 			error: None,
 			kind: ExecutionStepKind::PVMSyscall {
-				op: lookup_syscall_index(ecall).unwrap_or_default(),
+				op: lookup_trace_op_index(ecall).unwrap_or_default(),
 				args: syscall_args,
 				returned: None,
 			},
