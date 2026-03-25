@@ -132,3 +132,14 @@ pub fn create_force_register_call(
 
 	calls
 }
+
+/// Check if all the nodes are validators (node_roles == 4.0)
+pub async fn assert_nodes_are_validators(nodes: &[&NetworkNode]) -> Result<(), anyhow::Error> {
+	for node in nodes {
+		node.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
+			.await
+			.map_err(|e| anyhow!("Validator {} role check failed: {e}", node.name()))?;
+	}
+
+	Ok(())
+}

@@ -7,8 +7,8 @@
 //! configured with high needed_approvals (8) and max_approval_coalesce_count (5).
 
 use crate::utils::{
-	env_or_default, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
-	NODE_ROLES_METRIC,
+	assert_nodes_are_validators, env_or_default, initialize_network, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -30,17 +30,11 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
-	let all_validators = [&MALUS_VALIDATORS[..], &HONEST_VALIDATORS[..]].concat();
+	let validator_nodes = network.relaychain().nodes();
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for name in &all_validators {
-		let validator = network.get_node(*name)?;
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {name} role check failed: {e}"))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	// Get a relay client for parachain throughput checks
@@ -89,8 +83,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	log::info!("Check lag - approval");
-	for name in &all_validators {
-		let validator = network.get_node(*name)?;
+	for validator in &validator_nodes {
 		validator
 			.wait_metric_with_timeout(
 				"polkadot_parachain_approval_checking_finality_lag",
@@ -101,7 +94,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 			.map_err(|e| {
 				anyhow!(
 					"Validator {} polkadot_parachain_approval_checking_finality_lag: {}",
-					name,
+					validator.name(),
 					e
 				)
 			})?;
@@ -109,8 +102,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 	log::info!("All validators passed the lag - approval check");
 
 	log::info!("Check lag - dispute conclusion");
-	for name in &all_validators {
-		let validator = network.get_node(*name)?;
+	for validator in &validator_nodes {
 		validator
 			.wait_metric_with_timeout(
 				"polkadot_parachain_disputes_finality_lag",
@@ -119,7 +111,11 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 			)
 			.await
 			.map_err(|e| {
-				anyhow!("Validator {} polkadot_parachain_disputes_finality_lag: {}", name, e)
+				anyhow!(
+					"Validator {} polkadot_parachain_disputes_finality_lag: {}",
+					validator.name(),
+					e
+				)
 			})?;
 	}
 	log::info!("All validators passed the lag - dispute conclusion check");
