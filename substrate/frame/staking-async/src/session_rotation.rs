@@ -1112,17 +1112,22 @@ impl<T: Config> EraElectionPlanner<T> {
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
 			total_backers += exposure.others.len() as u32;
 
-			// calculate and accumulate validator self-stake weight for incentive distribution.
-			let validator_weight =
-				T::StakerRewardCalculator::calculate_validator_incentive_weight(exposure.own);
-			total_validator_weight_page =
-				total_validator_weight_page.saturating_add(validator_weight);
-
-			// store individual validator weight for this era.
-			ErasValidatorIncentive::<T>::insert(new_planned_era, &stash, validator_weight);
-
-			// set or update staker exposure for this era.
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
+
+			// Calculate incentive weight from own-stake.
+			let own = ErasStakersOverview::<T>::get(new_planned_era, &stash)
+				.map(|o| o.own)
+				.unwrap_or_default();
+			// skip updating if own is zero, or incentive is already written.
+			if !own.is_zero() &&
+				!ErasValidatorIncentive::<T>::contains_key(new_planned_era, &stash)
+			{
+				let weight =
+					T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
+				total_validator_weight_page =
+					total_validator_weight_page.saturating_add(weight);
+				ErasValidatorIncentive::<T>::insert(new_planned_era, &stash, weight);
+			}
 		});
 
 		let elected_stashes: BoundedVec<_, MaxWinnersPerPageOf<T::ElectionProvider>> =

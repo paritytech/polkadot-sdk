@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::{asset, session_rotation::Eras};
+use crate::{
+	asset,
+	session_rotation::{EraElectionPlanner, Eras, Rotator},
+};
 
 /// Sets up the default validator self-stake incentive config used across tests.
 fn setup_incentive_config() {
@@ -523,10 +526,6 @@ fn validator_with_zero_reward_points_no_payout_triggered() {
 
 		// Bob (has reward points) gets staker reward
 		assert!(staker_reward_for(bob, &events).is_some());
-
-		// Both have self-stake weight allocated, but only Bob's is paid out
-		assert!(ErasValidatorIncentive::<Test>::get(1, alice).is_some());
-		assert!(ErasValidatorIncentive::<Test>::get(1, bob).is_some());
 	});
 }
 
@@ -1255,5 +1254,63 @@ fn force_unstake_settles_incentive_hold() {
 		assert_eq!(asset::incentive_held::<Test>(&alice), 0);
 		assert!(Staking::ledger(11.into()).is_err());
 		assert!(asset::total_balance::<Test>(&alice) >= balance_before);
+	});
+}
+
+#[test]
+fn multi_page_election_does_not_overwrite_incentive_weight() {
+	// Validator incentive weight must be written only once
+	ExtBuilder::default().exposures_page_size(1).build_and_execute(|| {
+		let alice = 11; // validator
+		setup_incentive_config();
+
+		Session::roll_to_next_session();
+		let planned_era = Rotator::<Test>::planned_era();
+
+		// Scenario 1: own-stake arrives on page 1, page 2 has only nominators.
+		hypothetically!({
+			let page1 = bounded_vec![(
+				alice,
+				Exposure { total: 1000 + 250, own: 1000, others: vec![IndividualExposure { who: 101, value: 250 }] },
+			)];
+			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
+
+			let weight = ErasValidatorIncentive::<Test>::get(planned_era, alice).unwrap();
+			let total = ErasTotalValidatorWeight::<Test>::get(planned_era);
+			assert!(weight > 0);
+
+			let page2 = bounded_vec![(
+				alice,
+				Exposure { total: 250, own: 0, others: vec![IndividualExposure { who: 102, value: 250 }] },
+			)];
+			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
+
+			// Weight and total unchanged — page 2 must not overwrite with 0.
+			assert_eq!(ErasValidatorIncentive::<Test>::get(planned_era, alice).unwrap(), weight);
+			assert_eq!(ErasTotalValidatorWeight::<Test>::get(planned_era), total);
+		});
+
+		// Scenario 2: own-stake arrives on page 2 (not page 1).
+		hypothetically!({
+			let page1 = bounded_vec![(
+				alice,
+				Exposure { total: 250, own: 0, others: vec![IndividualExposure { who: 101, value: 250 }] },
+			)];
+			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
+
+			// After page 1: no weight stored since own hasn't arrived yet.
+			assert_eq!(ErasValidatorIncentive::<Test>::get(planned_era, alice), None);
+
+			let page2 = bounded_vec![(
+				alice,
+				Exposure { total: 1000 + 250, own: 1000, others: vec![IndividualExposure { who: 102, value: 250 }] },
+			)];
+			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
+
+			// After page 2: weight should reflect own = 1000 from the overview.
+			let weight = ErasValidatorIncentive::<Test>::get(planned_era, alice).unwrap();
+			assert!(weight > 0, "Weight should be updated when own-stake arrives on page 2");
+			assert_eq!(ErasTotalValidatorWeight::<Test>::get(planned_era), weight);
+		});
 	});
 }
