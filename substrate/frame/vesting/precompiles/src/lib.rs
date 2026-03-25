@@ -67,7 +67,7 @@ type VestingBalance<T> =
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
-impl<T: Config + pallet_vesting::Config> Precompile for Vesting<T>
+impl<T: Config + pallet_vesting::Config + pallet::Config> Precompile for Vesting<T>
 where
 	VestingBalance<T>: Into<U256>,
 	// Weak proxy for type identity: mutual From bounds do not guarantee the types are the same
@@ -173,7 +173,7 @@ where
 					.clone();
 
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
-					<T as pallet::Config>::WeightInfo::vesting_balance(),
+					<<T as pallet::Config>::WeightInfo as weights::WeightInfo>::vesting_balance(),
 				))?;
 
 				let maybe_locked =
@@ -188,7 +188,8 @@ where
 				let account_id = env.to_account_id(&H160::from_slice(target.as_slice()));
 
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
-					<T as pallet::Config>::WeightInfo::vesting_balance_of(),
+					<<T as pallet::Config>::WeightInfo as weights::WeightInfo>::vesting_balance_of(
+					),
 				))?;
 
 				let maybe_locked =
