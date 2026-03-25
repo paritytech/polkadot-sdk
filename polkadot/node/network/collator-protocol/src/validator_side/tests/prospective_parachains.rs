@@ -1855,7 +1855,6 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 }
 
 #[rstest]
-#[case(false, CollationVersion::V3)] // V3 descriptor via V3 protocol → accepted
 #[case(false, CollationVersion::V1)] // V3 descriptor via V1 protocol → rejected (wrong protocol)
 #[case(false, CollationVersion::V2)] // V3 descriptor via V2 protocol → rejected (wrong protocol)
 #[case(true, CollationVersion::V1)] // Crafted unknown descriptor via V1 → rejected
@@ -1911,18 +1910,14 @@ fn v3_descriptor(#[case] crafted_unknown: bool, #[case] collation_version: Colla
 			CollationVersion::V2 => {
 				AdvertisementPayload::v2(head_b, candidate_hash, parent_head_data_hash)
 			},
-			CollationVersion::V3 => AdvertisementPayload::v3(
-				head_b,
-				candidate_hash,
-				parent_head_data_hash,
-				CandidateDescriptorVersion::V3,
-				head_b,
-			),
+			_ => {
+				panic!("unhandled collation version for advertisement")
+			},
 		};
 
 		advertise_collation(&mut virtual_overseer, peer_a, payload).await;
 
-		// Non-v1 advertisements trigger CanSecond check
+		// V2 advertisements trigger CanSecond check
 		if collation_version != CollationVersion::V1 {
 			assert_matches!(
 				overseer_recv(&mut virtual_overseer).await,
@@ -1954,44 +1949,26 @@ fn v3_descriptor(#[case] crafted_unknown: bool, #[case] collation_version: Colla
 				request_v1::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
 					.encode()
 			},
-			CollationVersion::V2 | CollationVersion::V3 => {
+			CollationVersion::V2 => {
 				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
 					.encode()
 			},
+			_ => panic!("unhandled collation version for collation fetching"),
 		};
 		response_channel
 			.send(Ok((encoded_response, ProtocolName::from(""))))
 			.expect("Sending response should succeed");
 
-		if crafted_unknown || collation_version != CollationVersion::V3 {
-			// Crafted unknown version or V3 descriptor via wrong protocol → rejected
-			assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-					NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
-				) => {
-					assert_eq!(peer_a, peer_id);
-					assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
-				}
-			);
-		} else {
-			// V3 descriptor via V3 protocol → accepted (V3 gating is done in backing)
-			assert_candidate_backing_second(
-				&mut virtual_overseer,
-				head_b,
-				head_b,
-				test_state.chain_ids[0],
-				&pov,
-				CollationVersion::V3,
-			)
-			.await;
-
-			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &committed_candidate)
-				.await;
-
-			assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V3)
-				.await;
-		}
+		// Crafted unknown version or V3 descriptor via wrong protocol → rejected
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+			}
+		);
 
 		virtual_overseer
 	});
