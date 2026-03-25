@@ -183,9 +183,9 @@ where
 						None => {
 							entry.remove();
 							// TODO: don't assume hash is BLAKE2b, use `Multihash` instead.
-							return Poll::Ready(Some(Change::Removed(to_multihash::<BlakeTwo256>(
-								&hash,
-							))));
+							return Poll::Ready(Some(Change::Removed(
+								to_multihash::<BlakeTwo256>(&hash),
+							)));
 						},
 					},
 					// This should not be possible!
@@ -240,7 +240,9 @@ where
 					Entry::Vacant(entry) => {
 						entry.insert(0);
 						// TODO: don't assume hash is BLAKE2b, use `Multihash` instead.
-						return Poll::Ready(Some(Change::Added(to_multihash::<BlakeTwo256>(&hash))));
+						return Poll::Ready(Some(Change::Added(to_multihash::<BlakeTwo256>(
+							&hash,
+						))));
 					},
 				}
 			}
