@@ -495,19 +495,21 @@ impl<T: Config> Eras<T> {
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
 		let e1 = ErasStakersPaged::<T>::iter_prefix_values((era,)).count() != 0;
 		let e2 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
+		let e3 = ErasValidatorIncentive::<T>::iter_prefix_values(era).count() != 0;
 
 		// check maps
 		// `ErasValidatorReward` is set at active era n for era n-1
-		let e3 = ErasValidatorReward::<T>::contains_key(era);
-		let e4 = ErasTotalStake::<T>::contains_key(era);
-		let e5 = ErasTotalValidatorWeight::<T>::contains_key(era);
+		let e4 = ErasValidatorReward::<T>::contains_key(era);
+		let e5 = ErasTotalStake::<T>::contains_key(era);
+		let e6 = ErasTotalValidatorWeight::<T>::contains_key(era);
+		let e7 = ErasValidatorIncentiveAllocation::<T>::contains_key(era);
 
 		// these two are only populated conditionally, so we only check them for lack of existence
-		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
-		let e7 = ErasRewardPoints::<T>::contains_key(era);
+		let e8 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
+		let e9 = ErasRewardPoints::<T>::contains_key(era);
 
 		// Check if era info is consistent - if not, era is in partial pruning state
-		if !vec![e0, e1, e2, e3, e4, e5, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+		if !vec![e0, e1, e2, e3, e4, e5, e6, e7, e8, e9].windows(2).all(|w| w[0] == w[1]) {
 			return Err("era info absence not consistent - partial pruning state".into());
 		}
 
