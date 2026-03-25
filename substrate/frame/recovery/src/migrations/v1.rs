@@ -474,6 +474,78 @@ mod tests {
 		});
 	}
 
+	/// Reproduces a migration bug where, if the rescuer cannot afford the new security deposit,
+	/// the old deposit is already unreserved and the attempt ticket is orphaned — but the
+	/// `Attempt` entry is never inserted. This test asserts that the `Attempt` IS inserted
+	/// (i.e., it will FAIL under the current buggy code).
+	#[test]
+	fn migration_inserts_attempt_when_security_deposit_hold_fails() {
+		new_test_ext().execute_with(|| {
+			let config_deposit = 50u128;
+			// Old recovery deposit is much smaller than new SECURITY_DEPOSIT (100)
+			let old_recovery_deposit = 10u128;
+
+			// Use a fresh account (99) as the rescuer with a very tight balance.
+			// They need enough for: attempt ticket + security deposit (100).
+			// We give them just enough for the ticket but NOT for the security deposit.
+			let rescuer: u64 = 99;
+			let lost = ALICE;
+
+			// Give rescuer a small balance: old_recovery_deposit (reserved) + a bit of free balance.
+			// After unreserve they'll have ~60 free, which covers the attempt ticket but not
+			// SECURITY_DEPOSIT (100).
+			let rescuer_free = 50u128;
+			pallet_balances::Pallet::<Test>::force_set_balance(
+				frame_system::RawOrigin::Root.into(),
+				rescuer,
+				rescuer_free + old_recovery_deposit,
+			)
+			.unwrap();
+			Balances::reserve(&rescuer, old_recovery_deposit).unwrap();
+
+			// Setup v0 Recoverable for the lost account (required for migration to find friend
+			// group)
+			v0::Recoverable::<T>::insert(
+				lost,
+				v0::RecoveryConfig {
+					delay_period: 10u64,
+					deposit: config_deposit,
+					friends: friends(&[BOB, CHARLIE]),
+					threshold: 2,
+				},
+			);
+			Balances::reserve(&lost, config_deposit).unwrap();
+
+			// Setup v0 ActiveRecovery: rescuer trying to recover lost's account
+			v0::ActiveRecoveries::<T>::insert(
+				lost,
+				rescuer,
+				v0::ActiveRecovery {
+					created: 1u64,
+					deposit: old_recovery_deposit,
+					friends: BoundedVec::default(), // no vouchers yet
+				},
+			);
+
+			assert_eq!(v0::ActiveRecoveries::<T>::iter().count(), 1);
+
+			// Run migration
+			run_migration();
+
+			// The old storage should be cleared
+			assert_eq!(v0::ActiveRecoveries::<T>::iter().count(), 0);
+
+			// BUG: The Attempt entry should exist for the migrated active recovery.
+			// Under the current code, the security deposit hold fails (rescuer can't afford 100),
+			// so Attempt is never inserted — this assertion FAILS, proving the bug.
+			assert_eq!(
+				pallet::Attempt::<T>::iter().count(),
+				1,
+				"Attempt entry was not inserted during migration — active recovery lost!"
+			);
+		});
+	}
+
 	#[test]
 	fn migrated_recovery_can_be_completed() {
 		use crate::mock::{signed, Recovery};
