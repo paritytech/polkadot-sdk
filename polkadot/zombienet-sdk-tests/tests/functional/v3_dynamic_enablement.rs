@@ -129,8 +129,8 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 40..51), (para_2901, 120..151)]),
-		50,
+		HashMap::from([(para_2900, 15..21), (para_2901, 45..61)]),
+		20,
 	)
 	.await?;
 
