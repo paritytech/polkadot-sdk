@@ -37,7 +37,6 @@ use pallet_revive::{
 	},
 	AccountId32Mapper,
 };
-use pallet_vesting_precompile::Vesting as VestingPrecompile;
 use pallet_transaction_payment::{ConstFeeMultiplier, FeeDetails, Multiplier, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
@@ -271,10 +270,6 @@ mod runtime {
 	/// Provides the ability to execute Smart Contracts.
 	#[runtime::pallet_index(5)]
 	pub type Revive = pallet_revive::Pallet<Runtime>;
-
-	/// Provides vesting functionality.
-	#[runtime::pallet_index(6)]
-	pub type Vesting = pallet_vesting::Pallet<Runtime>;
 }
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
@@ -358,23 +353,6 @@ impl pallet_transaction_payment::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinVestedTransfer: Balance = DOLLARS;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
-}
-
-impl pallet_vesting::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type BlockNumberToBalance = sp_runtime::traits::ConvertInto;
-	type MinVestedTransfer = MinVestedTransfer;
-	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Runtime>;
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
-	type BlockNumberProvider = System;
-	const MAX_VESTING_SCHEDULES: u32 = 28;
-}
-
-parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
 
@@ -386,7 +364,6 @@ impl pallet_revive::Config for Runtime {
 	type Balance = Balance;
 	type Currency = Balances;
 	type NativeToEthRatio = ConstU32<1_000_000>;
-	type Precompiles = (VestingPrecompile<Self>,);
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
