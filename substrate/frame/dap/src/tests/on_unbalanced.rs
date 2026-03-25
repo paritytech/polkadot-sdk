@@ -17,7 +17,7 @@
 
 //! OnUnbalanced tests for the DAP pallet.
 
-use crate::mock::{new_test_ext, Balances, Test};
+use crate::mock::{build_and_execute, set_default_budget_allocation, Balances, Test};
 use frame_support::traits::{
 	fungible::{Balanced, Inspect},
 	tokens::{Fortitude, Precision, Preservation},
@@ -29,7 +29,9 @@ type DapPallet = crate::Pallet<Test>;
 #[test]
 #[should_panic(expected = "Failed to deposit slash to DAP buffer")]
 fn on_unbalanced_panics_when_buffer_not_funded_and_deposit_below_ed() {
-	new_test_ext(false).execute_with(|| {
+	build_and_execute(false, || {
+		set_default_budget_allocation();
+
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
@@ -51,7 +53,9 @@ fn on_unbalanced_panics_when_buffer_not_funded_and_deposit_below_ed() {
 
 #[test]
 fn on_unbalanced_creates_buffer_when_not_funded_and_deposit_at_least_ed() {
-	new_test_ext(false).execute_with(|| {
+	build_and_execute(false, || {
+		set_default_budget_allocation();
+
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
@@ -76,7 +80,9 @@ fn on_unbalanced_creates_buffer_when_not_funded_and_deposit_at_least_ed() {
 
 #[test]
 fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 

@@ -120,7 +120,22 @@ impl Config for Test {
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
-pub fn new_test_ext(fund_buffer: bool) -> sp_io::TestExternalities {
+/// Sets a default budget allocation mimicking what the migration would do.
+pub fn set_default_budget_allocation() {
+	use sp_runtime::{BoundedBTreeMap, Perbill};
+	use sp_staking::BudgetKey;
+
+	let entries: &[(&[u8], u32)] =
+		&[(b"buffer", 10), (b"staker_rewards", 70), (b"validator_incentive", 20)];
+	let mut map = BoundedBTreeMap::new();
+	for (name, pct) in entries {
+		map.try_insert(BudgetKey::truncate_from(name.to_vec()), Perbill::from_percent(*pct))
+			.unwrap();
+	}
+	crate::BudgetAllocation::<Test>::put(map);
+}
+
+fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {
 	let mut balances = vec![(1, 100), (2, 200), (3, 300)];
 
 	if fund_buffer {
@@ -142,4 +157,12 @@ pub fn new_test_ext(fund_buffer: bool) -> sp_io::TestExternalities {
 	});
 
 	ext
+}
+
+pub fn build_and_execute(fund_buffer: bool, test: impl FnOnce()) {
+	let mut ext = new_test_ext_inner(fund_buffer);
+	ext.execute_with(test);
+	ext.execute_with(|| {
+		Dap::do_try_state().unwrap();
+	});
 }

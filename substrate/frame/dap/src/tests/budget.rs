@@ -19,14 +19,14 @@
 // TODO(ank4n): Verify tests again!
 use super::budget_map;
 use crate::{
-	mock::{new_test_ext, Dap, RuntimeOrigin, System},
+	mock::{build_and_execute, set_default_budget_allocation, Dap, RuntimeOrigin, System},
 	Error, Event,
 };
 use frame_support::{assert_noop, assert_ok};
 
 #[test]
 fn set_budget_allocation_works_with_root() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
 		System::set_block_number(1);
 
 		let allocs =
@@ -41,7 +41,9 @@ fn set_budget_allocation_works_with_root() {
 
 #[test]
 fn set_budget_allocation_rejects_unknown_key() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
 		let allocs = budget_map(&[(b"unknown_key", 50)]);
 
 		assert_noop!(
@@ -53,7 +55,9 @@ fn set_budget_allocation_rejects_unknown_key() {
 
 #[test]
 fn set_budget_allocation_rejects_over_100_percent() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
 		let allocs = budget_map(&[(b"buffer", 50), (b"staker_rewards", 60)]);
 
 		assert_noop!(
@@ -65,7 +69,9 @@ fn set_budget_allocation_rejects_over_100_percent() {
 
 #[test]
 fn set_budget_allocation_rejects_under_100_percent() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
 		let allocs = budget_map(&[(b"staker_rewards", 50)]);
 
 		assert_noop!(
@@ -77,7 +83,9 @@ fn set_budget_allocation_rejects_under_100_percent() {
 
 #[test]
 fn set_budget_allocation_requires_budget_origin() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
 		let allocs = budget_map(&[(b"staker_rewards", 80)]);
 
 		assert_noop!(

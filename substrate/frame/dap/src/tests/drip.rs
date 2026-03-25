@@ -19,7 +19,7 @@
 
 use super::budget_map;
 use crate::{
-	mock::{new_test_ext, Balances, Dap, MockTime, RuntimeOrigin, System, Test},
+	mock::{build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime, RuntimeOrigin, System, Test},
 	Event,
 };
 use frame_support::{assert_ok, traits::fungible::Inspect};
@@ -33,7 +33,7 @@ fn advance_time_and_drip(elapsed_ms: u64) {
 
 #[test]
 fn drip_distributes_according_to_budget() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
 		System::set_block_number(1);
 
 		// GIVEN: 60% staker, 25% validator incentive, 15% buffer
@@ -61,7 +61,8 @@ fn drip_distributes_according_to_budget() {
 
 #[test]
 fn drip_skips_when_cadence_not_reached() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
 		System::set_block_number(1);
 		let buffer = Dap::buffer_account();
 		let buffer_before = Balances::balance(&buffer);
@@ -76,7 +77,7 @@ fn drip_skips_when_cadence_not_reached() {
 
 #[test]
 fn drip_fires_after_cadence_reached() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
 		System::set_block_number(1);
 
 		// Set 100% to buffer.
@@ -99,7 +100,7 @@ fn drip_fires_after_cadence_reached() {
 #[test]
 #[should_panic(expected = "BudgetAllocation is empty")]
 fn no_drip_when_budget_not_set() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
 		System::set_block_number(1);
 
 		// GIVEN: no budget set (default empty map)
@@ -109,8 +110,19 @@ fn no_drip_when_budget_not_set() {
 }
 
 #[test]
+fn try_state_fails_with_empty_allocation() {
+	build_and_execute(true, || {
+		// BudgetAllocation is empty — try_state should catch this.
+		assert!(Dap::do_try_state().is_err());
+
+		// Set valid allocation so post-test try_state passes.
+		set_default_budget_allocation();
+	});
+}
+
+#[test]
 fn elapsed_ceiling_is_applied() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
 		System::set_block_number(1);
 
 		// Set 100% to buffer.
@@ -164,7 +176,7 @@ fn first_block_initializes_timestamp_without_dripping() {
 
 #[test]
 fn drip_emits_inflation_dripped_event() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
 		System::set_block_number(1);
 
 		// Set 100% to buffer so drip distributes.
