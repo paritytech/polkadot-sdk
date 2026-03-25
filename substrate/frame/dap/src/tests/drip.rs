@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for inflation drip and distribution.
+//! Tests for issuance drip and distribution.
 
 use super::budget_map;
 use crate::{
@@ -73,7 +73,7 @@ fn drip_skips_when_cadence_not_reached() {
 		// WHEN: only 30 seconds pass (cadence = 60s)
 		advance_time_and_drip(30_000);
 
-		// THEN: no inflation minted
+		// THEN: nothing minted
 		assert_eq!(Balances::balance(&buffer), buffer_before);
 	});
 }
@@ -140,7 +140,7 @@ fn elapsed_ceiling_is_applied() {
 		// With clamping: 600_000ms → TestIssuanceCurve returns 1000
 		advance_time_and_drip(1_200_000);
 
-		// THEN: inflation based on clamped elapsed (1000, not 2000)
+		// THEN: issuance based on clamped elapsed (1000, not 2000)
 		assert_eq!(Balances::balance(&buffer) - buffer_before, 1000);
 
 		// AND: ElapsedClamped event emitted
@@ -170,7 +170,7 @@ fn first_block_initializes_timestamp_without_dripping() {
 		MockTime::set(1_000_000);
 		Dap::drip_issuance();
 
-		// Timestamp should be set but no inflation minted.
+		// Timestamp should be set but nothing minted.
 		assert_eq!(crate::LastIssuanceTimestamp::<Test>::get(), 1_000_000);
 		// Total issuance unchanged (only the initial 100 balance).
 		assert_eq!(Balances::total_issuance(), 100);
@@ -178,7 +178,7 @@ fn first_block_initializes_timestamp_without_dripping() {
 }
 
 #[test]
-fn drip_emits_inflation_dripped_event() {
+fn drip_emits_issuance_minted_event() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 

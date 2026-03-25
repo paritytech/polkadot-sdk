@@ -428,7 +428,7 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		make_all_reward_payment(2);
 
 		// THEN: Pot is depleted and total matches expected
-		let pot_account = <Test as Config>::EraPotAccountProvider::era_pot_account(
+		let pot_account = <Test as Config>::EraPots::era_pot_account(
 			2,
 			EraPotType::ValidatorSelfStake,
 		);

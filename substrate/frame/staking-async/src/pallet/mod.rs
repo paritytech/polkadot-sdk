@@ -278,7 +278,7 @@ pub mod pallet {
 		/// Use [`crate::Seed`] in production with a pallet ID.
 		/// Use [`crate::SequentialTest`] for testing with predictable sequential IDs.
 		#[pallet::no_default_bounds]
-		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
+		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -494,7 +494,7 @@ pub mod pallet {
 			type Reward = ();
 			type UnclaimedRewardSink = ();
 			type GeneralPots = crate::Seed<StakingAsyncPalletId>;
-			type EraPotAccountProvider = crate::Seed<StakingAsyncPalletId>;
+			type EraPots = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;

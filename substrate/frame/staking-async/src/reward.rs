@@ -49,7 +49,7 @@ impl<T: Config> EraRewardManager<T> {
 	/// # Returns
 	/// The account ID of the created pot.
 	pub(crate) fn create(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
-		let pot_account = T::EraPotAccountProvider::era_pot_account(era, pot_type);
+		let pot_account = T::EraPots::era_pot_account(era, pot_type);
 		frame_system::Pallet::<T>::inc_providers(&pot_account);
 		pot_account
 	}
@@ -154,7 +154,7 @@ impl<T: Config> EraRewardManager<T> {
 	///
 	/// The symmetric operation to [`Self::create`].
 	pub(crate) fn destroy(era: EraIndex, pot_type: EraPotType) {
-		let pot_account = T::EraPotAccountProvider::era_pot_account(era, pot_type);
+		let pot_account = T::EraPots::era_pot_account(era, pot_type);
 
 		// Get remaining balance in pot
 		let remaining = T::Currency::balance(&pot_account);
@@ -201,7 +201,7 @@ impl<T: Config> EraRewardManager<T> {
 	/// Returns true if the pot exists (has providers), false otherwise.
 	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
 		let staker_rewards_pot =
-			T::EraPotAccountProvider::era_pot_account(era, EraPotType::StakerRewards);
+			T::EraPots::era_pot_account(era, EraPotType::StakerRewards);
 		frame_system::Pallet::<T>::providers(&staker_rewards_pot) > 0
 	}
 

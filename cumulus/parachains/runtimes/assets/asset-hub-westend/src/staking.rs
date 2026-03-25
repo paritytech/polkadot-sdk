@@ -275,7 +275,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Reward = ();
 	type GeneralPots = pallet_staking_async::Seed<StakingPalletId>;
 	type UnclaimedRewardSink = Dap;
-	type EraPotAccountProvider = pallet_staking_async::Seed<StakingPalletId>;
+	type EraPots = pallet_staking_async::Seed<StakingPalletId>;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;

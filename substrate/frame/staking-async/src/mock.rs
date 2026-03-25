@@ -509,7 +509,7 @@ impl Config for Test {
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type GeneralPots = SequentialTest;
 	type UnclaimedRewardSink = Dap;
-	type EraPotAccountProvider = SequentialTest;
+	type EraPots = SequentialTest;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;
 	type VoterList = VoterBagsList;

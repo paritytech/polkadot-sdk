@@ -657,7 +657,7 @@ impl<T: Config> Pallet<T> {
 		let payout_account = Self::payout_account_for_dest(stash, &dest)?;
 
 		let staker_rewards_pot =
-			T::EraPotAccountProvider::era_pot_account(era, crate::EraPotType::StakerRewards);
+			T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
 		if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,
@@ -815,7 +815,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let validator_incentive_pot_account =
-			T::EraPotAccountProvider::era_pot_account(era, EraPotType::ValidatorSelfStake);
+			T::EraPots::era_pot_account(era, EraPotType::ValidatorSelfStake);
 
 		let vesting_duration = T::VestingDuration::get();
 
