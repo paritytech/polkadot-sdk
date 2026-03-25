@@ -702,7 +702,7 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		&self,
 		hash: Block::Hash,
 	) -> ClientResult<Option<impl Iterator<Item = DbHash>>> {
-		let Some(body) = match read_db(
+		let Some(body) = read_db(
 			&*self.db,
 			columns::KEY_LOOKUP,
 			columns::BODY_INDEX,
