@@ -14,17 +14,12 @@ use crate::utils::{
 	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_NOT_POSSIBLE_PATTERN, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::{ops::Range, time::Duration};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{
-	subxt::{ext::scale_value::value, tx},
-	NetworkConfig, NetworkConfigBuilder,
-};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARAS: [u32; 2] = [2000, 2001];
 pub const DATA_RECOVERY_CHUNKS_NOT_POSSIBLE_PATTERN: &str =
