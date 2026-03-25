@@ -13221,6 +13221,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",

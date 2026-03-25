@@ -104,7 +104,7 @@ use frame::{
 	prelude::*,
 	traits::{
 		fungible::{Inspect, MutateHold},
-		Consideration, Footprint,
+		Consideration, Footprint, OriginTrait,
 	},
 };
 use types::{Bitfield, IdentifiedConsideration};
@@ -268,7 +268,9 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
-			+ From<frame_system::Call<Self>>;
+			+ From<frame_system::Call<Self>>
+			+ IsSubType<Call<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// The overarching hold reason.
 		type RuntimeHoldReason: Parameter
@@ -550,6 +552,10 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Allows the inheritor of a recovered account to control it.
+		///
+		/// The controller is not allowed to dispatch calls of the recovery pallet. Otherwise they
+		/// could mess with the recovery configuration and possibly cancel or slash attempts from
+		/// lower-order friend groups.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
@@ -568,8 +574,14 @@ pub mod pallet {
 				.ok_or(Error::<T>::NoInheritor)?;
 			ensure!(maybe_inheritor == inheritor, Error::<T>::NotInheritor);
 
-			// pretend to be the lost account
-			let origin = frame_system::RawOrigin::Signed(recovered.clone()).into();
+			let mut origin: T::RuntimeOrigin =
+				frame_system::RawOrigin::Signed(recovered.clone()).into();
+			// Reentrancy guard
+			origin.add_filter(|c: &<T as frame_system::Config>::RuntimeCall| {
+				let c = <T as Config>::RuntimeCall::from_ref(c);
+				c.is_sub_type().is_none()
+			});
+
 			let call_hash = call.using_encoded(&T::Hashing::hash);
 			let call_result = call.dispatch(origin).map(|_| ()).map_err(|r| r.error);
 

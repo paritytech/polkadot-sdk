@@ -61,22 +61,18 @@ fn basic_flow_works() {
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 		assert_eq!(Recovery::inheritance(FERDIE), vec![ALICE]);
 
-		// Ferdie can control the lost account
-		// In order to withdraw everything, Ferdie has to first remove the friend group deposit
-		assert_ok!(Recovery::control_inherited_account(
-			signed(FERDIE),
-			ALICE,
-			Box::new(RecoveryCall::set_friend_groups { friend_groups: vec![] }.into())
-		));
-
 		assert_ok!(Recovery::control_inherited_account(
 			signed(FERDIE),
 			ALICE,
 			Box::new(BalancesCall::transfer_all { dest: FERDIE, keep_alive: false }.into())
 		));
 
-		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 0);
-		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 2 * START_BALANCE);
+		// Alice will still have the friend group deposit
+		assert_fg_deposit(ALICE, 63);
+		// but otherwise only ED
+		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 63 + 1);
+		// Ferdie will have the balance
+		assert_eq!(<Test as Config>::Currency::total_balance(&FERDIE), 2 * START_BALANCE - 64);
 	});
 }
 
@@ -1302,5 +1298,133 @@ fn finish_attempt_higher_order_does_not_replace() {
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 		assert!(can_control_account(FERDIE, ALICE));
 		assert!(!can_control_account(DAVE, ALICE));
+	});
+}
+
+/// Regression test to ensure a malicious controller cannot dismiss lower-order attempts.
+#[test]
+fn inheritor_can_slash_higher_priority_attempts_and_remove_friend_groups() {
+	new_test_ext().execute_with(|| {
+		// Alice configures two friend groups:
+		//   Group 0 (order 0, "Family"): BOB, CHARLIE — higher priority
+		//   Group 1 (order 1, "Friends"): DAVE, EVE — lower priority, inheritor = FERDIE
+		let family = FriendGroupOf::<T> {
+			friends: friends([BOB, CHARLIE]),
+			friends_needed: 1,
+			inheritor: DAVE, // Family's chosen inheritor
+			inheritance_delay: 10,
+			inheritance_order: 0,
+			cancel_delay: 5,
+		};
+		let friends_group = FriendGroupOf::<T> {
+			friends: friends([CHARLIE, EVE]),
+			friends_needed: 1,
+			inheritor: FERDIE, // Friends' chosen inheritor
+			inheritance_delay: 1,
+			inheritance_order: 1,
+			cancel_delay: 5,
+		};
+		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![family, friends_group]));
+
+		// --- Friends group (order 1) recovers first due to shorter delay ---
+		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
+		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
+		inc_block_number(2);
+		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 1));
+		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
+
+		// --- Family group (order 0) initiates a higher-priority attempt ---
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		let bob_balance_before = <Test as Config>::Currency::total_balance(&BOB);
+
+		// Attack vector A: FERDIE tries to slash Family's attempt via the proxy.
+		assert_ok!(Recovery::control_inherited_account(
+			signed(FERDIE),
+			ALICE,
+			Box::new(RecoveryCall::slash_attempt { attempt_index: 0 }.into())
+		));
+
+		// BOB's security deposit must NOT have been slashed
+		let bob_balance_after = <Test as Config>::Currency::total_balance(&BOB);
+		if bob_balance_after < bob_balance_before {
+			panic!(
+				"VULNERABILITY: inheritor slashed a higher-priority attempt via proxy! \
+				 BOB lost {} from security deposit.",
+				bob_balance_before - bob_balance_after
+			);
+		}
+		// The family attempt must still be alive
+		assert!(!Recovery::attempts(ALICE).is_empty(), "Family attempt was destroyed");
+
+		// Attack vector B: FERDIE tries to remove all friend groups via the proxy.
+		assert_ok!(Recovery::control_inherited_account(
+			signed(FERDIE),
+			ALICE,
+			Box::new(RecoveryCall::set_friend_groups { friend_groups: vec![] }.into())
+		));
+
+		// Friend groups must still be intact
+		assert!(
+			!Recovery::friend_groups(ALICE).is_empty(),
+			"VULNERABILITY: inheritor removed all friend groups via proxy"
+		);
+	});
+}
+
+/// Verify that wrapping a recovery call inside Utility::batch does not bypass the filter.
+#[test]
+fn inheritor_cannot_bypass_filter_via_utility_batch() {
+	new_test_ext().execute_with(|| {
+		let family = FriendGroupOf::<T> {
+			friends: friends([BOB, CHARLIE]),
+			friends_needed: 1,
+			inheritor: DAVE,
+			inheritance_delay: 10,
+			inheritance_order: 0,
+			cancel_delay: 5,
+		};
+		let friends_group = FriendGroupOf::<T> {
+			friends: friends([CHARLIE, EVE]),
+			friends_needed: 1,
+			inheritor: FERDIE,
+			inheritance_delay: 1,
+			inheritance_order: 1,
+			cancel_delay: 5,
+		};
+		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![family, friends_group]));
+
+		// Friends group recovers first
+		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
+		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
+		inc_block_number(2);
+		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 1));
+		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
+
+		// Family initiates higher-priority attempt
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		let bob_balance_before = <Test as Config>::Currency::total_balance(&BOB);
+
+		// FERDIE wraps the slash inside a utility::batch call to try to bypass the filter
+		let slash_call: RuntimeCall = RecoveryCall::slash_attempt { attempt_index: 0 }.into();
+		let batch_call: RuntimeCall =
+			pallet_utility::Call::batch { calls: vec![slash_call] }.into();
+		assert_ok!(Recovery::control_inherited_account(
+			signed(FERDIE),
+			ALICE,
+			Box::new(batch_call),
+		));
+
+		// The batch dispatched as ALICE, but the inner slash should have still executed
+		// since our filter only checks the outer call. Check if BOB was slashed:
+		let bob_balance_after = <Test as Config>::Currency::total_balance(&BOB);
+		let was_slashed = bob_balance_after < bob_balance_before;
+
+		if was_slashed {
+			panic!(
+				"BYPASS: recovery call filter was circumvented via utility::batch! \
+				 BOB lost {} from security deposit slash.",
+				bob_balance_before - bob_balance_after
+			);
+		}
 	});
 }

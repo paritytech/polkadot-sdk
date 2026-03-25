@@ -33,6 +33,7 @@ construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Recovery: recovery,
+		Utility: pallet_utility,
 	}
 );
 
@@ -65,6 +66,13 @@ pub const SECURITY_DEPOSIT: u128 = 100;
 
 parameter_types! {
 	pub storage SlashReceiverAccount: Option<u64> = None;
+}
+
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
 }
 
 impl Config for Test {
