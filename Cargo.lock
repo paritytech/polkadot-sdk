@@ -1488,6 +1488,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "pallet-vesting",
+ "pallet-vesting-precompile",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
