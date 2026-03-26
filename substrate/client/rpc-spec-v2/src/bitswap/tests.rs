@@ -62,9 +62,7 @@ impl sc_client_api::BlockBackend<Block> for MockClient {
 	fn block(
 		&self,
 		_hash: <Block as BlockT>::Hash,
-	) -> sp_blockchain::Result<
-		Option<sp_runtime::generic::SignedBlock<Block>>,
-	> {
+	) -> sp_blockchain::Result<Option<sp_runtime::generic::SignedBlock<Block>>> {
 		unimplemented!()
 	}
 
@@ -168,6 +166,16 @@ fn make_cid_v1_short_digest() -> String {
 	c.to_string()
 }
 
+/// Create a CIDv1 string with unsupported multihash code.
+fn make_cid_v1_unsupported_hash_function() -> String {
+	let digest = [0u8; 32];
+	let mh = cid::multihash::Multihash::<64>::wrap(0x1b, &digest)
+		.expect("32 bytes fits in Multihash<32>");
+	// codec 0x70 = dag-pb
+	let c = cid::Cid::new_v1(0x70, mh);
+	c.to_string()
+}
+
 async fn setup(
 	major_syncing: bool,
 ) -> (jsonrpsee::ws_client::WsClient, jsonrpsee::server::ServerHandle, Arc<MockClient>) {
@@ -181,10 +189,7 @@ async fn setup(
 	let handle = server.start(bitswap.into_rpc());
 
 	let url = format!("ws://{}", addr);
-	let ws_client = jsonrpsee::ws_client::WsClientBuilder::default()
-		.build(&url)
-		.await
-		.unwrap();
+	let ws_client = jsonrpsee::ws_client::WsClientBuilder::default().build(&url).await.unwrap();
 
 	(ws_client, handle, client)
 }
@@ -198,10 +203,7 @@ async fn valid_cid_data_found() {
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
 	let cid_str = make_cid_v1(&digest);
-	let result: String = ws_client
-		.request("bitswap_v1_get", rpc_params![cid_str])
-		.await
-		.unwrap();
+	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
 	assert_eq!(result, crate::hex_string(&data));
 }
@@ -251,6 +253,19 @@ async fn cid_v0_rejected() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
 	let cid_str = make_cid_v0();
+	let err = ws_client
+		.request::<String, _>("bitswap_v1_get", rpc_params![cid_str])
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32602);
+}
+
+#[tokio::test]
+async fn cid_v1_unsupported_hash_function_rejected() {
+	let (ws_client, _handle, _mock_client) = setup(false).await;
+
+	let cid_str = make_cid_v1_unsupported_hash_function();
 	let err = ws_client
 		.request::<String, _>("bitswap_v1_get", rpc_params![cid_str])
 		.await
