@@ -506,6 +506,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 		target: LOG_TARGET,
 		?latest_finalized_block_hash,
 		processed_finalized_block_number,
+		ancestors_len = ancestors.len(),
 		"Processing reputation bumps for finalized relay parent {} and its {} ancestors",
 		latest_finalized_block_number,
 		ancestry_len
@@ -517,7 +518,30 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	for i in 1..ancestors.len() {
 		let rp = ancestors[i];
 		let parent_rp = ancestors[i - 1];
-		let candidate_events = recv_runtime(request_candidate_events(rp, sender).await).await?;
+
+		gum::trace!(
+			target: LOG_TARGET,
+			relay_parent=?rp,
+			"request_candidate_events"
+		);
+
+		let candidate_events = match recv_runtime(request_candidate_events(rp, sender).await).await
+		{
+			Ok(candidate_events) => candidate_events,
+			Err(e) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					relay_parent=?rp,
+					err=?e,
+					"Error fetching candidate events for reputation bump extraction"
+				);
+				// `ancestors` are reversed so their order is from oldest to newest
+				// (`get_ancestors()` returns newest -> oldest, but they are reversed after that).
+				// So if this runtime call fails, the next one has got a better chance in
+				// succeeding.
+				continue;
+			},
+		};
 
 		for event in candidate_events {
 			if let CandidateEvent::CandidateIncluded(receipt, _, _, _) = event {

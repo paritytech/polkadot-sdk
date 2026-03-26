@@ -1,0 +1,19 @@
+title: 'Statement Store: Introduce new CLI args'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Introduce new CLI args to control statement store parameters.
+    Rework the statement store configuration, consolidating all parameters into a single structure.
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+  validate: false
+- name: sc-statement-store
+  bump: major
+  validate: false
+- name: staging-node-cli
+  bump: major
+  validate: false
+- name: sp-statement-store
+  bump: major
+  validate: false
