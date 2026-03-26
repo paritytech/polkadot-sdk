@@ -1,0 +1,14 @@
+title: 'eth-rpc: add support for the earliest block tag'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ### Summary
+    1. Resolve the earliest block tag to the first known EVM block across RPC methods (eth_getBlockByNumber, eth_call, eth_getLogs, etc.)
+    2. Add a known_first_evm_block_for_chain() lookup for Polkadot, Kusama, Paseo, and Westend Asset Hubs so earliest works without historical sync
+    3. Fix tracing_block to propagate errors and handle genesis (no parent)
+
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/11383
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+  validate: false

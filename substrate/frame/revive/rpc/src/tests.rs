@@ -19,8 +19,10 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	EthRpcClient,
+	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, Filter, FilterResults,
+	GenericTransaction, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
+	client::{Client, connect},
 	example::TransactionBuilder,
 	subxt_client::{
 		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
@@ -33,9 +35,10 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, H256,
-		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
+		HashesOrTransactionInfos, Trace, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
 	OnlineClient,
@@ -87,6 +90,7 @@ impl SharedResources {
 			"--node-rpc-url=ws://localhost:45789",
 			"--no-prometheus",
 			"-linfo,eth-rpc=debug",
+			"--eth-pruning=256",
 		]);
 
 		let _rpc_handle = thread::spawn(move || {
@@ -314,9 +318,14 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
 		test_block_hash_for_tag_with_block_tags_works,
+		test_earliest_block_tag,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
+		test_block_sync_fresh,
+		test_block_sync_resume_interrupted,
+		test_block_sync_detects_corruption,
+		test_block_sync_picks_up_new_blocks,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -707,6 +716,94 @@ async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// Validate that all RPC methods accept the `earliest` block tag and return correct data.
+async fn test_earliest_block_tag() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let tx = GenericTransaction {
+		from: Some(account.address()),
+		to: Some(account.address()),
+		..Default::default()
+	};
+
+	// eth_getBlockByNumber
+	let block = client
+		.get_block_by_number(BlockTag::Earliest.into(), false)
+		.await?
+		.expect("earliest block should exist");
+	assert_eq!(block.number, U256::zero(), "earliest block number should be 0");
+
+	// eth_getBalance
+	let balance = client.get_balance(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(balance > U256::zero(), "dev account should have a non-zero balance at genesis");
+
+	// eth_getTransactionCount
+	let nonce = client
+		.get_transaction_count(account.address(), BlockTag::Earliest.into())
+		.await?;
+	assert_eq!(nonce, U256::zero(), "nonce at genesis should be 0");
+
+	// eth_getCode
+	let code = client.get_code(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(code.is_empty(), "EOA should have no code");
+
+	// eth_getStorageAt
+	let storage = client
+		.get_storage_at(account.address(), U256::zero(), BlockTag::Earliest.into())
+		.await?;
+	assert!(storage.0.iter().all(|&b| b == 0), "EOA should have zero storage");
+
+	// eth_getBlockTransactionCountByNumber
+	let tx_count = client
+		.get_block_transaction_count_by_number(Some(BlockTag::Earliest.into()))
+		.await?;
+	assert_eq!(tx_count, Some(U256::zero()), "genesis block should have no transactions");
+
+	// eth_getTransactionByBlockNumberAndIndex
+	let tx_by_index = client
+		.get_transaction_by_block_number_and_index(BlockTag::Earliest.into(), U256::zero())
+		.await?;
+	assert!(tx_by_index.is_none(), "genesis block should have no transactions");
+
+	// eth_call
+	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(call_result.is_empty(), "calling an EOA should return empty bytes");
+
+	// eth_estimateGas
+	let gas = client.estimate_gas(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(gas > U256::zero(), "gas estimate should be non-zero");
+
+	// eth_feeHistory
+	let fee = client.fee_history(U256::from(1), BlockTag::Earliest.into(), None).await?;
+	assert_eq!(fee.oldest_block, U256::zero(), "feeHistory oldest_block should be 0");
+	assert!(!fee.base_fee_per_gas.is_empty(), "feeHistory should include base fee");
+
+	// eth_getLogs
+	let filter = Filter {
+		from_block: Some(BlockTag::Earliest.into()),
+		to_block: Some(BlockTag::Earliest.into()),
+		..Default::default()
+	};
+	let logs = client.get_logs(Some(filter)).await?;
+	assert_eq!(logs, FilterResults::default(), "genesis block should have no logs");
+
+	// debug_traceBlockByNumber
+	let traces =
+		DebugRpcClient::trace_block_by_number(&*client, BlockTag::Earliest.into(), None).await?;
+	assert!(traces.is_empty(), "genesis block should have no traces");
+
+	// debug_traceCall
+	let trace =
+		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
+	assert!(
+		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		"traceCall should return a trace"
+	);
+
+	Ok(())
+}
+
 async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let num_transactions = 20;
@@ -951,6 +1048,320 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
+
+	Ok(())
+}
+
+/// Submit `count` EVM transfer transactions and wait for inclusion.
+async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
+	let ws_client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let transactions = prepare_evm_transactions(
+		ws_client.clone(),
+		Account::default(),
+		ethan.address(),
+		U256::from(1_000_000_000_000u128),
+		count,
+	)
+	.await?;
+	let submitted = submit_evm_transactions(transactions).await?;
+	submitted[0].2.wait_for_receipt().await?;
+	Ok(())
+}
+
+/// Create a [`Client`] for block-sync testing.
+///
+/// Connects to the same dev-node that [`SharedResources`] started, but uses its own
+/// in-memory SQLite database so that sync labels written by the test do not interfere
+/// with the eth-rpc server's internal database (and vice versa).
+async fn create_sync_test_client() -> anyhow::Result<Client> {
+	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
+
+	let node_url = SharedResources::node_rpc_url();
+	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
+	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
+	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
+	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
+
+	let pool = SqlitePoolOptions::new()
+		.max_connections(1)
+		.idle_timeout(None)
+		.max_lifetime(None)
+		.connect_with(SqliteConnectOptions::new().in_memory(true))
+		.await?;
+
+	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let receipt_provider =
+		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
+
+	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider, true).await?;
+	Ok(client)
+}
+
+/// Fresh sync: labels, hash mappings, and re-sync idempotency.
+async fn test_block_sync_fresh() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit a transaction so the chain has at least one block with EVM data to sync.
+	submit_evm_transfers(1).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Fresh DB — sync_state table should be empty.
+	for label in [SyncLabel::Tail, SyncLabel::Head] {
+		assert!(
+			client.receipt_provider().get_sync_label(label).await?.is_none(),
+			"sync_state[{label}] should be absent on fresh DB"
+		);
+	}
+	for label in [ChainMetadata::Genesis, ChainMetadata::FirstEvmBlock] {
+		assert!(
+			client.receipt_provider().get_sync_label(label).await?.is_none(),
+			"sync_state[{label}] should be absent on fresh DB"
+		);
+	}
+
+	// Capture finalized before sync — Head will be set to this snapshot.
+	let finalized_before_sync = client.latest_finalized_block().await.number();
+
+	// Run the full backward sync.
+	client.sync_backward().await?;
+
+	// Genesis label must match the chain.
+	let genesis = client
+		.receipt_provider()
+		.get_sync_label(ChainMetadata::Genesis)
+		.await?
+		.expect("Genesis label should be set after sync");
+	assert_eq!(
+		genesis,
+		SyncCheckpoint::new(0, client.api().genesis_hash()),
+		"Stored genesis should match chain genesis"
+	);
+
+	// Head should be exactly the finalized block at sync start.
+	let sync_head = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should be set after sync");
+	assert_eq!(
+		sync_head.block_number, finalized_before_sync,
+		"Head should equal finalized at sync start"
+	);
+
+	// Tail should be genesis (block 0) — on the dev node all blocks have EVM hashes.
+	let sync_tail = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Tail)
+		.await?
+		.expect("Tail should be set after sync");
+	assert_eq!(sync_tail, genesis, "Tail should be genesis");
+
+	// On the dev node all blocks (including genesis) have EVM hashes
+	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
+	assert!(evm_first.is_none(), "FirstEvmBlock should not be set when all blocks are EVM");
+	assert_eq!(client.receipt_provider().first_evm_block(), None);
+
+	// Block hash mappings should be queryable after sync.
+	let finalized = client.latest_finalized_block().await;
+	let substrate_hash = finalized.hash();
+	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
+	assert!(
+		ethereum_hash.is_some(),
+		"Finalized block #{} should have an ethereum hash mapping after sync",
+		finalized.number(),
+	);
+	assert_eq!(
+		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
+		Some(substrate_hash),
+		"Reverse mapping should resolve back to the substrate hash"
+	);
+
+	// Re-syncing should complete without errors (exercises the resume path).
+	client.sync_backward().await?;
+	let sync_head_after = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should exist after re-sync");
+	assert!(
+		sync_head_after.block_number >= sync_head.block_number,
+		"Head should not regress after re-sync"
+	);
+
+	Ok(())
+}
+
+/// Simulate an interrupted sync by manually setting both Head and Tail
+/// to create a top gap and a bottom gap, then verify that `resume_sync` fills both.
+async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit transactions so the chain has enough blocks for the 1/3 and 2/3 split.
+	submit_evm_transfers(6).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so the DB has all blocks and labels.
+	client.sync_backward().await?;
+
+	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
+	let chain_len = client.latest_finalized_block().await.number();
+
+	let tail_num = chain_len / 3;
+	let tail_block = client
+		.block_provider()
+		.block_by_number(tail_num)
+		.await?
+		.expect("Tail block should exist");
+
+	let head_num = chain_len * 2 / 3;
+	let head_block = client
+		.block_provider()
+		.block_by_number(head_num)
+		.await?
+		.expect("Head block should exist");
+
+	// Overwrite both labels to simulate an interrupted sync with a partial range.
+	let interrupted_tail = SyncCheckpoint::new(tail_block.number(), tail_block.hash());
+	let interrupted_head = SyncCheckpoint::new(head_block.number(), head_block.hash());
+
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Tail, interrupted_tail)
+		.await?;
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Head, interrupted_head)
+		.await?;
+
+	// Capture finalized before resume — Head will be set to this snapshot.
+	let finalized_before_resume = client.latest_finalized_block().await.number();
+
+	// Resume sync — fills top gap and bottom gap.
+	client.sync_backward().await?;
+
+	// After resume, Head should be at the finalized block that was current at resume start.
+	let new_head = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should exist after resume");
+	assert_eq!(
+		new_head.block_number, finalized_before_resume,
+		"Head should equal finalized at resume start",
+	);
+
+	// Tail should reach genesis (bottom gap fully filled).
+	let new_tail = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Tail)
+		.await?
+		.expect("Tail should exist after resume");
+	assert_eq!(
+		new_tail.block_number, 0,
+		"Tail should be 0 after resume fills the bottom gap, got #{}",
+		new_tail.block_number,
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Resume interrupted OK: simulated partial range #{}..#{}, \
+		 after resume tail=#{}, head=#{}",
+		interrupted_tail.block_number,
+		interrupted_head.block_number,
+		new_tail.block_number,
+		new_head.block_number,
+	);
+
+	Ok(())
+}
+
+/// Corrupted sync labels should be detected on resume:
+/// - Fake Genesis hash → `ChainMismatch`
+/// - Fake Head hash → `SyncBoundaryMismatch`
+async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
+	use crate::{block_sync::SyncCheckpoint, client::ClientError};
+
+	// Submit transactions so the chain has enough blocks for the boundary test.
+	submit_evm_transfers(2).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so all labels are stored.
+	client.sync_backward().await?;
+
+	// --- ChainMismatch: overwrite Genesis with a fake hash ---
+	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
+	client
+		.receipt_provider()
+		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
+		.await?;
+
+	let err = client.sync_backward().await.unwrap_err();
+	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
+
+	// Restore the real genesis so we can test the next corruption.
+	let real_genesis = SyncCheckpoint::new(0, client.api().genesis_hash());
+	client
+		.receipt_provider()
+		.set_sync_label(ChainMetadata::Genesis, real_genesis)
+		.await?;
+
+	// --- SyncBoundaryMismatch: corrupted Head hash ---
+	let chain_len = client.latest_finalized_block().await.number();
+	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Head, corrupted_upper)
+		.await?;
+
+	let err = client.sync_backward().await.unwrap_err();
+	assert!(
+		matches!(err, ClientError::SyncBoundaryMismatch),
+		"Expected SyncBoundaryMismatch, got: {err:?}"
+	);
+
+	Ok(())
+}
+
+/// Syncing a second client after new transactions have been submitted
+/// should include the newer blocks.
+async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
+	// First sync: snapshot the current chain state.
+	let client1 = create_sync_test_client().await?;
+	let finalized1 = client1.latest_finalized_block().await.number();
+
+	client1.sync_backward().await?;
+
+	// Submit a transaction to produce at least one new block.
+	submit_evm_transfers(1).await?;
+
+	// Second sync: new client with fresh DB should see the new blocks.
+	let client2 = create_sync_test_client().await?;
+	let finalized2 = client2.latest_finalized_block().await;
+
+	client2.sync_backward().await?;
+	assert!(
+		finalized2.number() > finalized1,
+		"Second finalized #{} should be higher than first #{finalized1}",
+		finalized2.number(),
+	);
+
+	// The new block should have an ethereum hash mapping in client2's DB.
+	assert!(
+		client2.receipt_provider().get_ethereum_hash(&finalized2.hash()).await.is_some(),
+		"New finalized block #{} should be synced in client2",
+		finalized2.number(),
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
+		finalized2.number(),
+		client2.receipt_provider().first_evm_block().unwrap_or(0),
+	);
 
 	Ok(())
 }
