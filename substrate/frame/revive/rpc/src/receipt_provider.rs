@@ -207,6 +207,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		)
 		.fetch_optional(&self.pool)
 		.await
+		.inspect_err(|err| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: DB query failed for tx {transaction_hash:?}: {err:?}");
+		})
 		.ok()??;
 
 		let block_hash = H256::from_slice(&result.block_hash[..]);
@@ -542,7 +546,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
 		// logs exist
-		if !result.exists {
+		if result.exists {
+			log::trace!(target: LOG_TARGET,
+				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
+				 mapping already exists. Receipts count: {count}",
+				count = receipts.len(),
+			);
+		} else {
 			let ethereum_hash_ref = ethereum_hash.as_ref();
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
@@ -796,15 +806,37 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Get the receipt for the given transaction hash.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
-		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
+		let (block_hash, transaction_index) = match self.find_transaction(transaction_hash).await {
+			Some(v) => v,
+			None => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: tx {transaction_hash:?} not found in DB");
+				return None;
+			},
+		};
 
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
-		Some(receipt)
+		let block = match self.block_provider.block_by_hash(&block_hash).await {
+			Ok(Some(b)) => b,
+			Ok(None) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: block {block_hash:?} not available from node (pruned?) for tx {transaction_hash:?}");
+				return None;
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: failed to fetch block {block_hash:?} for tx {transaction_hash:?}: {err:?}");
+				return None;
+			},
+		};
+
+		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
+			Ok((_, receipt)) => Some(receipt),
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: extraction failed for tx {transaction_hash:?} in block {block_hash:?}: {err:?}");
+				None
+			},
+		}
 	}
 
 	/// Get the signed transaction for the given transaction hash.

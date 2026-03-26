@@ -162,6 +162,24 @@ impl ReceiptExtractor {
 		(val != u32::MAX).then_some(val)
 	}
 
+	/// Resolve the Ethereum block hash for a substrate block, falling back to the substrate hash.
+	async fn resolve_eth_block_hash(
+		&self,
+		substrate_block_hash: H256,
+		substrate_block_number: u64,
+	) -> H256 {
+		match (self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number).await {
+			Some(hash) => hash,
+			None => {
+				log::trace!(target: LOG_TARGET,
+					"eth_block_hash returned None for substrate block \
+					 #{substrate_block_number} ({substrate_block_hash:?}), \
+					 falling back to substrate hash as ETH hash");
+				substrate_block_hash
+			},
+		}
+	}
+
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
@@ -262,9 +280,7 @@ impl ReceiptExtractor {
 		let substrate_block_number = block.number() as u64;
 		let substrate_block_hash = block.hash();
 		let eth_block_hash =
-			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
-				.await
-				.unwrap_or(substrate_block_hash);
+			self.resolve_eth_block_hash(substrate_block_hash, substrate_block_number).await;
 
 		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
@@ -349,9 +365,7 @@ impl ReceiptExtractor {
 		let substrate_block_number = block.number() as u64;
 		let substrate_block_hash = block.hash();
 		let eth_block_hash =
-			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
-				.await
-				.unwrap_or(substrate_block_hash);
+			self.resolve_eth_block_hash(substrate_block_hash, substrate_block_number).await;
 
 		self.extract_from_extrinsic(
 			block,
