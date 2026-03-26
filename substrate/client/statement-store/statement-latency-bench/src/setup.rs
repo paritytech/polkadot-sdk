@@ -22,7 +22,6 @@
 
 use anyhow::{anyhow, Context};
 use clap::Parser;
-use jsonrpsee::{core::client::ClientT, rpc_params, ws_client::WsClientBuilder};
 use log::{debug, info};
 use sc_statement_store::{
 	subxt_client::{get_account_nonce, submit_extrinsic, CustomConfig},
@@ -87,12 +86,6 @@ async fn main() -> Result<(), anyhow::Error> {
 		args.max_batch_calls
 	);
 
-	let rpc_client = WsClientBuilder::default()
-		.max_concurrent_requests(10000)
-		.build(&args.rpc_endpoint)
-		.await
-		.with_context(|| format!("Failed to connect to {}", args.rpc_endpoint))?;
-
 	let client = OnlineClient::<CustomConfig>::from_insecure_url_with_config(
 		CustomConfig::default(),
 		&args.rpc_endpoint,
@@ -149,28 +142,23 @@ async fn main() -> Result<(), anyhow::Error> {
 		);
 	}
 
-	// Verify that allowances were actually written to storage.
-	let finalized_hash: String = rpc_client
-		.request("chain_getFinalizedHead", rpc_params![])
+	// Verify that allowances were actually written to storage at the latest finalized block
+	let at_finalized = client
+		.at_current_block()
 		.await
-		.context("Failed to get finalized head")?;
+		.context("Failed to get finalized block")?;
 
 	for i in 0..args.num_clients {
 		let pub_key = get_keypair(i).public();
 		let storage_key = statement_allowance_key(pub_key.as_ref() as &[u8]);
-		let hex_key: String = storage_key.iter().map(|b| format!("{b:02x}")).collect();
 
-		let result_finalized: Option<String> = rpc_client
-			.request("state_getStorage", rpc_params![format!("0x{hex_key}"), &finalized_hash])
-			.await
-			.with_context(|| format!("Failed to verify allowance for account {i} at finalized"))?;
-
-		debug!("Account {i}: allowance at finalized={:?}", result_finalized);
-
-		if result_finalized.is_none() {
-			return Err(anyhow!(
-				"Account {i}: allowance NOT found at finalized block {finalized_hash}"
-			));
+		match at_finalized.storage().fetch_raw(storage_key.to_vec()).await {
+			Ok(value) => {
+				debug!("Account {i}: allowance at finalized ({} bytes)", value.len());
+			},
+			Err(e) => {
+				return Err(anyhow!("Account {i}: allowance NOT found at finalized block: {e}"));
+			},
 		}
 	}
 
