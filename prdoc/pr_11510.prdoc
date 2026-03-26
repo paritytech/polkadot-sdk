@@ -6,6 +6,6 @@ doc:
     and gives precise information about which benchmark is at fault.
 crates:
 - name: frame-benchmarking
-  bump: patch
+  bump: major
 - name: frame-benchmarking-cli
   bump: patch
