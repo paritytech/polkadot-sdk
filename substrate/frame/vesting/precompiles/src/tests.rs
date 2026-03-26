@@ -133,14 +133,14 @@ fn vest_reverts_under_delegate_call() {
 		let result = call_vesting_delegate(&input);
 		assert!(result.is_err());
 		match result.unwrap_err() {
-			Error::Revert(msg) => {
-				let msg_str = &msg.reason;
-				assert!(
-					msg_str.contains("delegate call"),
-					"expected 'delegate call' in error, got: {msg_str}"
+			Error::Error(err) => {
+				let dispatch_err = err.error;
+				assert_eq!(
+					dispatch_err,
+					pallet_revive::Error::<Test>::PrecompileDelegateDenied.into(),
 				);
 			},
-			other => panic!("expected Revert error about delegate call, got: {other:?}"),
+			other => panic!("expected PrecompileDelegateDenied error, got: {other:?}"),
 		}
 	});
 }
@@ -280,14 +280,14 @@ fn vest_other_reverts_under_delegate_call() {
 		let result = call_vesting_delegate(&input);
 		assert!(result.is_err());
 		match result.unwrap_err() {
-			Error::Revert(msg) => {
-				let msg_str = &msg.reason;
-				assert!(
-					msg_str.contains("delegate call"),
-					"expected 'delegate call' in error, got: {msg_str}"
+			Error::Error(err) => {
+				let dispatch_err = err.error;
+				assert_eq!(
+					dispatch_err,
+					pallet_revive::Error::<Test>::PrecompileDelegateDenied.into(),
 				);
 			},
-			other => panic!("expected Revert error about delegate call, got: {other:?}"),
+			other => panic!("expected PrecompileDelegateDenied error, got: {other:?}"),
 		}
 	});
 }

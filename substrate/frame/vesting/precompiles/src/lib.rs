@@ -91,12 +91,10 @@ where
 			IVestingCalls::vest(_) if env.is_read_only() => {
 				Err(pallet_revive::Error::<T>::StateChangeDenied.into())
 			},
+			IVestingCalls::vest(_) if env.is_delegate_call() => {
+				Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into())
+			},
 			IVestingCalls::vest(IVesting::vestCall {}) => {
-				if env.is_delegate_call() {
-					return Err(Error::Revert(
-						"vesting precompile cannot be called via delegate call".into(),
-					));
-				}
 				// Derive the beneficiary from the immediate caller (not the tx origin).
 				let account_id = env
 					.caller()
@@ -123,12 +121,10 @@ where
 			IVestingCalls::vestOther(_) if env.is_read_only() => {
 				Err(pallet_revive::Error::<T>::StateChangeDenied.into())
 			},
+			IVestingCalls::vestOther(_) if env.is_delegate_call() => {
+				Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into())
+			},
 			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
-				if env.is_delegate_call() {
-					return Err(Error::Revert(
-						"vesting precompile cannot be called via delegate call".into(),
-					));
-				}
 				let caller_account = env
 					.caller()
 					.account_id()
