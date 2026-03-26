@@ -161,6 +161,14 @@ pub struct RetryConfig<Period> {
 	pub strategy: RetryStrategy<Period>,
 }
 
+impl<Period: Copy> RetryConfig<Period> {
+	/// Decrements `remaining` and returns the updated config, or `None` if retries are exhausted.
+	pub fn checked_decrement_remaining(self) -> Option<Self> {
+		let remaining = self.remaining.checked_sub(1)?;
+		Some(Self { remaining, ..self })
+	}
+}
+
 /// The strategy for scheduling retries of a failed task.
 ///
 /// If the target bucket is full, falls back to the next bucket. If that is also full,
@@ -429,6 +437,8 @@ pub mod pallet {
 		Named,
 		/// Duration must be at least BucketResolution.
 		DurationTooSmall,
+		/// Retry count must be at least 1.
+		ZeroRetries,
 	}
 
 	#[pallet::hooks]
@@ -448,6 +458,11 @@ pub mod pallet {
 
 		#[cfg(feature = "std")]
 		fn integrity_test() {
+			assert!(
+				T::BucketResolution::get() > 0,
+				"BucketResolution must be > 0"
+			);
+
 			/// Calculate the maximum weight that a lookup of a given size can take.
 			fn lookup_weight<T: Config>(s: usize) -> Weight {
 				T::WeightInfo::service_agendas_base()
@@ -613,6 +628,7 @@ pub mod pallet {
 			strategy: RetryStrategy<TimeFor<T>>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			ensure!(retries > 0, Error::<T>::ZeroRetries);
 			let bucket_strategy = Self::convert_strategy(strategy)?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (bucket, index) = task;
@@ -648,6 +664,7 @@ pub mod pallet {
 			strategy: RetryStrategy<TimeFor<T>>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			ensure!(retries > 0, Error::<T>::ZeroRetries);
 			let bucket_strategy = Self::convert_strategy(strategy)?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (bucket, index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
@@ -801,7 +818,7 @@ impl<T: Config> Pallet<T> {
 		// Convert duration-based period to bucket-based period.
 		// Duration must be >= BucketResolution to ensure at least one bucket between executions.
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1)
+			.filter(|(_, count)| *count > 1)
 			.map(|(duration, count)| -> Result<_, DispatchError> {
 				ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
 				// Convert duration to bucket count (rounded down).
@@ -906,7 +923,7 @@ impl<T: Config> Pallet<T> {
 		// Convert duration-based period to bucket-based period.
 		// Duration must be >= BucketResolution to ensure at least one bucket between executions.
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1)
+			.filter(|(_, count)| *count > 1)
 			.map(|(duration, count)| -> Result<_, DispatchError> {
 				ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
 				// Convert duration to bucket count (rounded down).
@@ -1057,7 +1074,7 @@ impl<T: Config> Pallet<T> {
 			// There were incomplete tasks - store the earliest incomplete bucket
 			Self::deposit_event(Event::AgendaIncomplete { when: incomplete });
 			IncompleteSince::<T>::put(incomplete);
-		} else if bucket <= now_bucket {
+		} else if bucket < now_bucket {
 			// We ran out of iterations before reaching now_bucket - store where we stopped
 			Self::deposit_event(Event::AgendaIncomplete { when: bucket });
 			IncompleteSince::<T>::put(bucket);
@@ -1308,21 +1325,29 @@ impl<T: Config> Pallet<T> {
 			return;
 		}
 
-		let RetryConfig { total_retries, mut remaining, strategy } = retry_config;
-		remaining = match remaining.checked_sub(1) {
-			Some(n) => n,
-			None => return,
+		let strategy = retry_config.strategy;
+		let new_retry_config = match retry_config.checked_decrement_remaining() {
+			Some(config) => config,
+			None => {
+				Retries::<T>::remove((bucket, agenda_index));
+				Self::deposit_event(Event::RetryFailed {
+					task: (bucket, agenda_index),
+					id: task.maybe_id,
+				});
+				return;
+			},
 		};
-
-		let new_retry_config = RetryConfig { total_retries, remaining, strategy };
 
 		let target_bucket = match strategy {
 			RetryStrategy::SameBucket => bucket,
 			RetryStrategy::Periodic(period) => bucket.saturating_add(period),
 			RetryStrategy::ExponentialBackoff => {
 				// attempt = total_retries - remaining (0-indexed, after decrement)
-				let attempt = total_retries.saturating_sub(remaining).saturating_sub(1);
-				let offset: BucketFor<T> = 1u32.checked_shl(attempt as u32)
+				let attempt = new_retry_config
+					.total_retries
+					.saturating_sub(new_retry_config.remaining)
+					.saturating_sub(1);
+				let offset: BucketFor<T> = 1u32.checked_shl(u32::from(attempt))
 					.unwrap_or(u32::MAX)
 					.into();
 				bucket.saturating_add(offset)

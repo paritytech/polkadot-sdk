@@ -145,9 +145,16 @@ pub mod v1 {
 	use super::*;
 	use crate::traits::Bounded;
 
-	/// A type that can be used as a scheduler.
+	/// A type that can be used as a time-based scheduler.
 	///
-	/// - `Time`: Timestamp type.`
+	/// Tasks are scheduled at a given `Time` (milliseconds since Unix epoch) and dispatched when
+	/// the chain's timestamp reaches that value. The scheduler groups tasks into buckets of
+	/// configurable resolution, so actual dispatch happens at the start of the first block whose
+	/// timestamp falls within or after the target bucket.
+	///
+	/// - `Time`: The timestamp type (ms since Unix epoch).
+	/// - `Call`: The dispatchable call type.
+	/// - `Origin`: The origin type used to authorize the scheduling.
 	pub trait Anon<Time, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug + TypeInfo;
@@ -205,9 +212,10 @@ pub mod v1 {
 		/// The hasher used in the runtime.
 		type Hasher: sp_runtime::traits::Hash;
 
-		/// Schedule a dispatch to happen at the beginning of some block in the future.
+		/// Schedule a named dispatch to happen at the given timestamp.
 		///
-		/// - `id`: The identity of the task. This must be unique and will return an error if not.
+		/// - `id`: A unique identifier for the task. Returns an error if a task with this id
+		///   already exists.
 		///
 		/// NOTE: This will request `call` to be made available.
 		fn schedule_named(

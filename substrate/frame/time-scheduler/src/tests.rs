@@ -771,6 +771,50 @@ fn set_retry_rejects_duration_too_small() {
 }
 
 #[test]
+fn set_retry_rejects_zero_retries() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+				i: 42,
+				weight: Weight::from_parts(10, 0),
+			}))
+			.unwrap(),
+		));
+		// bucket 4 = 240_000 / 60_000
+		assert_noop!(
+			Scheduler::set_retry(root().into(), (4, 0), 0, RetryStrategy::SameBucket),
+			Error::<Test>::ZeroRetries
+		);
+	});
+}
+
+#[test]
+fn set_retry_named_rejects_zero_retries() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scheduler::do_schedule_named(
+			[1u8; 32],
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+				i: 42,
+				weight: Weight::from_parts(10, 0),
+			}))
+			.unwrap(),
+		));
+		assert_noop!(
+			Scheduler::set_retry_named(root().into(), [1u8; 32], 0, RetryStrategy::SameBucket),
+			Error::<Test>::ZeroRetries
+		);
+	});
+}
+
+#[test]
 fn set_retry_named_rejects_duration_too_small() {
 	new_test_ext().execute_with(|| {
 		// Named task 42 at minute 4
@@ -3262,6 +3306,9 @@ fn overweight_task_is_permanently_overweight_when_first_in_catchup() {
 			System::events().last().unwrap().event,
 			crate::Event::PermanentlyOverweight { task: (schedule_at, 0), id: None }.into(),
 		);
+		// The task was permanently dropped (dropped += 1, postponed == 0), so service_agenda
+		// returns true for bucket 6. IncompleteSince advances to now_bucket (11).
+		assert_eq!(IncompleteSince::<Test>::get(), Some(11));
 	});
 }
 
@@ -3500,5 +3547,128 @@ fn on_initialize_weight_is_correct() {
 
 		// Reset bucket resolution
 		BucketResolution::set(&60_000);
+	});
+}
+
+// When `on_initialize` runs at the first block of a new bucket, `IncompleteSince` is set to
+// `now_bucket` (not `now_bucket + 1`). This means a second `on_initialize` in the same bucket
+// (same timestamp) will still start from that bucket, picking up any tasks newly scheduled into
+// it between the two blocks.
+#[test]
+fn on_initialize_runs_twice_for_the_same_bucket_starting_block() {
+	new_test_ext().execute_with(|| {
+		// Schedule task 42 at bucket 3 (180_000ms)
+		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(180_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		));
+
+		// First on_initialize at bucket 3: task 42 dispatched, IncompleteSince = Some(3)
+		run_to_time(180_000);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(3));
+
+		// Schedule task 99 at bucket 3 after the first on_initialize
+		let call2 =
+			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: Weight::from_parts(10, 0) });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(180_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(call2).unwrap(),
+		));
+
+		// Second on_initialize still at bucket 3 (same timestamp): task 99 is picked up because
+		// IncompleteSince points to bucket 3, not 4.
+		run_to_time(180_000);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 99u32)]);
+	});
+}
+
+// Two consecutive blocks whose timestamps both fall within the same time bucket can collectively
+// process all tasks in that bucket across two `on_initialize` calls.
+#[test]
+fn on_initialize_runs_twice_for_the_same_bucket_different_blocks() {
+	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+
+		// Two heavy tasks at bucket 3 that cannot both fit in a single block.
+		let call1 =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3u64 * 2u64 });
+		let call2 =
+			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: max_weight / 3u64 * 2u64 });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(180_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(call1).unwrap(),
+		));
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(180_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(call2).unwrap(),
+		));
+
+		// Block A at timestamp 180_000 (bucket 3): only task 42 fits.
+		run_to_time(180_000);
+		assert_eq!(logger::log().len(), 1);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(3));
+
+		// Block B at timestamp 185_000 (185_000 / 60_000 = 3, still bucket 3):
+		// picks up IncompleteSince=3 and processes task 99.
+		run_to_time(185_000);
+		assert_eq!(logger::log().len(), 2);
+	});
+}
+
+// When ExponentialBackoff retries reach an attempt index >= 32, `checked_shl` returns None and
+// the offset saturates to u32::MAX rather than panicking.
+#[test]
+fn retry_exponential_backoff_saturates_at_u32_max_offset() {
+	new_test_ext().execute_with(|| {
+		Timestamp::set_timestamp(120_000); // bucket 2
+
+		let call = RuntimeCall::Logger(LoggerCall::timed_log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		});
+		Scheduler::do_schedule(
+			DispatchTime::At(180_000), // bucket 3
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		)
+		.unwrap();
+
+		assert_ok!(Scheduler::set_retry(
+			RuntimeOrigin::root(),
+			(3, 0),
+			34,
+			RetryStrategy::ExponentialBackoff,
+		));
+
+		// Manually set remaining=1 so attempt = 34 - 1 - 1 = 32 on the next failure.
+		// checked_shl(32) is None for u32, so offset falls back to u32::MAX.
+		Retries::<Test>::insert(
+			(3u64, 0u32),
+			RetryConfig { total_retries: 34, remaining: 1, strategy: RetryStrategy::ExponentialBackoff },
+		);
+
+		logger::set_time_threshold(999_000, 999_999);
+		run_to_time(180_000);
+
+		let expected_bucket = 3u64 + u32::MAX as u64;
+		assert_eq!(agenda_task_count(expected_bucket), 1, "retry should land at bucket 3 + u32::MAX");
+
+		logger::clear_time_threshold();
 	});
 }
