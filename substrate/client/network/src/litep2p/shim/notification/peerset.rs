@@ -642,7 +642,7 @@ impl Peerset {
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
 				if !is_reserved_peer && self.num_in == self.max_in {
-					log::trace!(
+					log::warn!(
 						target: LOG_TARGET,
 						"{}: ({peer:?}) is backed-off and cannot accept, reject inbound substream",
 						self.protocol,
@@ -737,7 +737,7 @@ impl Peerset {
 			return ValidationResult::Accept;
 		}
 
-		log::trace!(
+		log::warn!(
 			target: LOG_TARGET,
 			"{}: reject {peer:?}, not a reserved peer and no free inbound slots",
 			self.protocol,
