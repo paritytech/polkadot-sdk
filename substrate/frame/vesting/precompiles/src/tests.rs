@@ -53,11 +53,8 @@ fn add_vesting_schedule(who: &u64, locked: u64) {
 }
 
 fn bare_call(input: &IVesting::IVestingCalls) -> BareCallBuilder<Test> {
-	BareCallBuilder::<Test>::bare_call(
-		RuntimeOrigin::signed(ALICE),
-		precompile_address(),
-	)
-	.data(input.abi_encode())
+	BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), precompile_address())
+		.data(input.abi_encode())
 }
 
 fn decode_balance(result: &ExecReturnValue) -> U256 {
@@ -124,9 +121,8 @@ fn vest_other_succeeds_with_active_schedule() {
 		CurrencyOf::<Test>::make_free_balance_be(&TARGET, locked * 10);
 		add_vesting_schedule(&TARGET, locked);
 
-		let input = IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
-			target: target_alloy(),
-		});
+		let input =
+			IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall { target: target_alloy() });
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert!(result.data.is_empty());
@@ -142,9 +138,8 @@ fn vest_other_actually_unlocks_funds_for_target() {
 
 		frame_system::Pallet::<Test>::set_block_number(21);
 
-		let input = IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
-			target: target_alloy(),
-		});
+		let input =
+			IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall { target: target_alloy() });
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(!result.did_revert());
 
@@ -157,9 +152,8 @@ fn vest_other_actually_unlocks_funds_for_target() {
 #[test]
 fn vest_other_reverts_with_no_schedule_on_target() {
 	new_test_ext().execute_with(|| {
-		let input = IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
-			target: target_alloy(),
-		});
+		let input =
+			IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall { target: target_alloy() });
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(result.did_revert(), "expected revert when target has no schedule");
 	});
