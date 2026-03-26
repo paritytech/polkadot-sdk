@@ -1430,6 +1430,105 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+// PSM configuration.
+parameter_types! {
+	/// The pUSD stablecoin asset ID (trust-backed asset).
+	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 4242;
+	/// Minimum swap amount for PSM operations (1 pUSD).
+	pub const PsmMinSwapAmount: Balance = 1_000_000;
+	/// PalletId for deriving the PSM system account.
+	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
+	/// Fee revenue destination: routes to the treasury account.
+	pub PsmFeeDestination: AccountId = governance::TreasuryAccount::get();
+	/// Maximum pUSD issuance across the system (100 million pUSD).
+	pub const PsmMaximumIssuance: Balance = 100_000_000 * 1_000_000;
+}
+
+/// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
+type PsmStableAsset =
+	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+
+/// Fixed maximum issuance ceiling until a real Vaults pallet is integrated.
+pub struct FixedMaxIssuance;
+impl frame_support::traits::VaultsInterface for FixedMaxIssuance {
+	type Balance = Balance;
+	fn get_maximum_issuance() -> Balance {
+		PsmMaximumIssuance::get()
+	}
+}
+
+/// EnsureOrigin for PSM management with privilege levels.
+/// Root and GeneralAdmin get Full privileges; no emergency-only origin yet.
+///
+/// NOTE: On Polkadot, `FellowshipAdmin` could be wired as `PsmManagerLevel::Emergency`
+/// to allow the Fellowship to trigger the circuit breaker without a full referendum.
+pub struct EnsurePsmManager;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
+	type Success = pallet_psm::PsmManagerLevel;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		// Try Root first.
+		let o = match o.clone().into() {
+			Ok(frame_system::RawOrigin::Root) =>
+				return Ok(pallet_psm::PsmManagerLevel::Full),
+			_ => o,
+		};
+		// Try GeneralAdmin.
+		governance::GeneralAdmin::try_origin(o)
+			.map(|_| pallet_psm::PsmManagerLevel::Full)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PsmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for PsmBenchmarkHelper {
+	fn create_asset(
+		asset_id: AssetIdForTrustBackedAssets,
+		owner: &AccountId,
+		decimals: u8,
+	) {
+		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
+		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(
+			asset_id,
+		) {
+			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
+		}
+		let _ = Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			owner.clone().into(),
+			10u128.pow(18),
+		);
+		let _ = <Assets as MetadataMutate<AccountId>>::set(
+			asset_id,
+			owner,
+			b"Benchmark".to_vec(),
+			b"BNC".to_vec(),
+			decimals,
+		);
+	}
+}
+
+impl pallet_psm::Config for Runtime {
+	type Fungibles = Assets;
+	type AssetId = AssetIdForTrustBackedAssets;
+	type VaultsInterface = FixedMaxIssuance;
+	type ManagerOrigin = EnsurePsmManager;
+	type WeightInfo = ();
+	type StableAsset = PsmStableAsset;
+	type FeeDestination = PsmFeeDestination;
+	type PalletId = PsmPalletId;
+	type MinSwapAmount = PsmMinSwapAmount;
+	type MaxExternalAssets = ConstU32<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PsmBenchmarkHelper;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1496,6 +1595,7 @@ construct_runtime!(
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
 		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
+		Psm: pallet_psm = 65,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1856,6 +1956,7 @@ mod benches {
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
+		[pallet_psm, Psm]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]

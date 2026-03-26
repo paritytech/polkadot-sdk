@@ -1748,6 +1748,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-psm",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
