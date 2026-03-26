@@ -98,8 +98,8 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 /// 3. Add dave as a late joiner (will enter major sync)
 /// 4. Poll system_peers on dave every 2s to track when dave connects to charlie
 /// 5. Simultaneously wait for the statement to arrive on dave
-/// 6. Compare timing: if statement protocol peers are deferred during major sync,
-///    the statement will arrive AFTER dave connects (gap = major sync duration)
+/// 6. Compare timing: if statement protocol peers are deferred during major sync, the statement
+///    will arrive AFTER dave connects (gap = major sync duration)
 ///
 /// This proves that remove_peers_from_reserved_set / deferred peer logic works:
 /// dave sees charlie in system_peers (base protocol) but the statement only arrives
@@ -131,8 +131,9 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	statement.sign_sr25519_private(&keypair);
 	let statement_bytes: Bytes = statement.encode().into();
 
-	let _: SubmitResult =
-		charlie_rpc.request("statement_submit", rpc_params![statement_bytes.clone()]).await?;
+	let _: SubmitResult = charlie_rpc
+		.request("statement_submit", rpc_params![statement_bytes.clone()])
+		.await?;
 	log::info!("Statement submitted to charlie");
 
 	// Add dave as a late-joining collator
@@ -171,18 +172,14 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 		}
 
 		// Poll system_peers on dave
-		let peers: Vec<SystemPeerInfo> = dave_rpc
-			.request("system_peers", rpc_params![])
-			.await
-			.unwrap_or_default();
+		let peers: Vec<SystemPeerInfo> =
+			dave_rpc.request("system_peers", rpc_params![]).await.unwrap_or_default();
 		let t = elapsed.as_secs_f64();
 		log::info!("[{:>5.1}s] dave system_peers: {} peer(s)", t, peers.len());
 		peer_counts.push((t, peers.len()));
 
 		if statement_received_at.is_some() {
-			if peer_counts.len() > 3
-				&& peer_counts.iter().rev().take(3).all(|(_, c)| *c > 0)
-			{
+			if peer_counts.len() > 3 && peer_counts.iter().rev().take(3).all(|(_, c)| *c > 0) {
 				break;
 			}
 			tokio::time::sleep(Duration::from_secs(1)).await;

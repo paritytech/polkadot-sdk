@@ -755,10 +755,9 @@ where
 	fn on_major_sync_complete(&mut self) {
 		let peers = std::mem::take(&mut self.deferred_peers);
 		for (_peer_id, addr) in peers {
-			let result = self.network.add_peers_to_reserved_set(
-				self.protocol_name.clone(),
-				iter::once(addr).collect(),
-			);
+			let result = self
+				.network
+				.add_peers_to_reserved_set(self.protocol_name.clone(), iter::once(addr).collect());
 			if let Err(err) = result {
 				log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
 			}
@@ -800,10 +799,8 @@ where
 
 				let hashes = self.statement_store.statement_hashes();
 				if !hashes.is_empty() {
-					self.pending_initial_syncs.insert(
-						peer,
-						PendingInitialSync { hashes, started_at: Instant::now() },
-					);
+					self.pending_initial_syncs
+						.insert(peer, PendingInitialSync { hashes, started_at: Instant::now() });
 					self.initial_sync_peer_queue.push_back(peer);
 					self.metrics.as_ref().map(|metrics| {
 						metrics.initial_sync_peers_active.inc();
@@ -1139,14 +1136,17 @@ mod tests {
 
 	use super::*;
 	use sp_consensus::SyncOracle;
-	use std::sync::atomic::AtomicBool;
-	use std::sync::Mutex;
+	use std::sync::{atomic::AtomicBool, Mutex};
 
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
 		disconnected_peers: Arc<Mutex<Vec<PeerId>>>,
-		reserved_added: Arc<Mutex<Vec<(sc_network::ProtocolName, std::collections::HashSet<sc_network::Multiaddr>)>>>,
+		reserved_added: Arc<
+			Mutex<
+				Vec<(sc_network::ProtocolName, std::collections::HashSet<sc_network::Multiaddr>)>,
+			>,
+		>,
 		reserved_removed: Arc<Mutex<Vec<(sc_network::ProtocolName, Vec<PeerId>)>>>,
 	}
 
@@ -2443,7 +2443,11 @@ mod tests {
 		handler.had_major_syncing = currently_syncing;
 
 		let removed = network.reserved_removed.lock().unwrap();
-		assert_eq!(removed.len(), 2, "Should have called remove_peers_from_reserved_set for each peer");
+		assert_eq!(
+			removed.len(),
+			2,
+			"Should have called remove_peers_from_reserved_set for each peer"
+		);
 		for (protocol, peers) in removed.iter() {
 			assert_eq!(protocol.as_ref(), "/statement/1");
 			assert_eq!(peers.len(), 1, "Each call should remove exactly one peer");
@@ -2460,8 +2464,7 @@ mod tests {
 
 		// Both peers were moved to deferred list
 		assert_eq!(handler.deferred_peers.len(), 2, "Both peers should be deferred");
-		let deferred_ids: Vec<PeerId> =
-			handler.deferred_peers.iter().map(|(id, _)| *id).collect();
+		let deferred_ids: Vec<PeerId> = handler.deferred_peers.iter().map(|(id, _)| *id).collect();
 		assert!(deferred_ids.contains(&peer_id));
 		assert!(deferred_ids.contains(&peer_id2));
 		assert!(
@@ -2478,13 +2481,20 @@ mod tests {
 		handler.had_major_syncing = currently_syncing;
 
 		let added = network.reserved_added.lock().unwrap();
-		assert_eq!(added.len(), 2, "Should have called add_peers_to_reserved_set for each deferred peer");
+		assert_eq!(
+			added.len(),
+			2,
+			"Should have called add_peers_to_reserved_set for each deferred peer"
+		);
 		for (protocol, _addrs) in added.iter() {
 			assert_eq!(protocol.as_ref(), "/statement/1");
 		}
 		drop(added);
 
-		assert!(handler.deferred_peers.is_empty(), "Deferred peers should be drained after reconnect");
+		assert!(
+			handler.deferred_peers.is_empty(),
+			"Deferred peers should be drained after reconnect"
+		);
 	}
 
 	#[tokio::test]
