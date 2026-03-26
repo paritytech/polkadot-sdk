@@ -116,18 +116,10 @@ enum HasEpochChange {
 	No,
 }
 
-#[rstest]
-#[case::in_best(
-	&[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes],
-)]
-#[case::in_first_ancestor(
-	&[HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No],
-)]
-#[case::in_second_ancestor(
-	&[HasEpochChange::Yes, HasEpochChange::No, HasEpochChange::No],
-)]
 #[tokio::test]
-async fn offset_returns_none_when_epoch_change_encountered(#[case] flags: &[HasEpochChange]) {
+async fn offset_returns_none_when_rc_tip_has_epoch_change() {
+	// Only skip when the RC tip itself is the session change block.
+	let flags = &[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes];
 	let (headers, best_hash) = build_headers_with_epoch_flags(flags);
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -135,6 +127,25 @@ async fn offset_returns_none_when_epoch_change_encountered(#[case] flags: &[HasE
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3).await;
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_none());
+}
+
+#[rstest]
+#[case::in_first_ancestor(
+	&[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No],
+)]
+#[case::in_second_ancestor(
+	&[HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No, HasEpochChange::No],
+)]
+#[tokio::test]
+async fn offset_allows_epoch_change_in_ancestors(#[case] flags: &[HasEpochChange]) {
+	// Session changes within the offset window (ancestors) are fine.
+	let (headers, best_hash) = build_headers_with_epoch_flags(flags);
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_some());
 }
 
 #[tokio::test]

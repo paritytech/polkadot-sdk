@@ -604,8 +604,11 @@ where
 		return Ok(Some(RelayParentData::new(relay_header)));
 	}
 
+	// Only skip if the RC tip itself is the session change block. Session changes
+	// within the offset window (ancestors) are fine — the scheduling proof header
+	// chain can span across session boundaries.
 	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
-		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "Relay parent is in previous session.");
+		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "RC tip is a session change block, skipping.");
 		return Ok(None);
 	}
 
@@ -617,10 +620,6 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
-		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
-			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), ancestor_block_number = next_header.number(), "Ancestor of best block is in previous session.");
-			return Ok(None);
-		}
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}
