@@ -67,10 +67,10 @@ use std::{
 const LOG_TARGET: &str = "sub-libp2p::peerset";
 
 /// Default backoff for connection re-attempts.
-const DEFAULT_BACKOFF: Duration = Duration::from_secs(5);
+const DEFAULT_BACKOFF: Duration = Duration::from_secs(1);
 
 /// Open failure backoff.
-const OPEN_FAILURE_BACKOFF: Duration = Duration::from_secs(5);
+const OPEN_FAILURE_BACKOFF: Duration = Duration::from_secs(1);
 
 /// Slot allocation frequency.
 ///
