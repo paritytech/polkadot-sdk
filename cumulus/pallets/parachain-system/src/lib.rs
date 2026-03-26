@@ -760,8 +760,6 @@ pub mod pallet {
 				};
 			}
 
-
-
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
 				T::ConsensusHook::on_state_proof(&relay_state_proof);
