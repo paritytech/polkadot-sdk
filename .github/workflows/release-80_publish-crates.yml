@@ -126,8 +126,7 @@ jobs:
       - name: Checkout stable branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
-          ref: ep-crates-publishing-exp
+          ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -168,15 +167,6 @@ jobs:
             git checkout -b "$CRATES_RELEASE_BRANCH"
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
-
-      # - name: Install Rust 1.93
-      #   shell: bash
-      #   run: |
-      #     rustup install 1.93
-      #     rustup default 1.93
-      #     echo "Rust version:"
-      #     rustc --version
-      #     cargo --version
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
