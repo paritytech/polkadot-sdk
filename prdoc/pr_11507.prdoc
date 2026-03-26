@@ -1,0 +1,53 @@
+title: '[pallet-revive] Add debug cargo feature flag'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Description
+
+      `debug_trace*` RPCs only work when pallet-revive's `DebugEnabled` config is set to `true`.
+    Currently only the dev-node has this enabled, but the dev-node is a simplified environment that doesn't fully replicate parachain runtime behavior (e.g. no PoV deduplication).
+    To get accurate debug tracing data, it needs to run on parachain runtimes.
+
+    Previously this required editing each runtime's source code to flip `ConstBool<false>` to `ConstBool<true>`.
+    This PR adds a `debug` cargo feature flag so debug mode can be toggled at build time without code changes:
+
+      ```bash
+      cargo build -p asset-hub-westend-runtime --features debug
+      cargo build -p penpal-runtime --features debug
+      cargo build -p kitchensink-runtime --features debug
+      ```
+    ## Integration
+
+      Downstream runtimes using pallet-revive that want this capability need two changes:
+
+      1. Add the feature to Cargo.toml:
+    ```diff
+    + debug = ["pallet-revive/debug"]
+    ```
+
+      2. Switch the config in lib.rs:
+      ```diff
+    - type DebugEnabled = ConstBool<false>;
+    + type DebugEnabled = pallet_revive::DebugIsEnabled;
+    ```
+
+      Without these changes, behavior is unchanged (`DebugEnabled` defaults to false).
+
+    ## Review Notes
+
+      - pallet-revive/Cargo.toml: adds empty `debug = []` feature
+      - pallet-revive/src/lib.rs: adds `pub type DebugIsEnabled = ConstBool<{ cfg!(feature = "debug") }>`
+      - umbrella/Cargo.toml: forwards debug to `pallet-revive?/debug`
+      - Runtimes (asset-hub-westend, penpal, kitchensink): add debug feature and switch `DebugEnabled` to `DebugIsEnabled`
+      - Dev-node is left as `ConstBool<true>`
+crates:
+- name: bp-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
