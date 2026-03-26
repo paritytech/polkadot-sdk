@@ -27,6 +27,7 @@ use frame_support::{
 		WhitelistedStorageKeys,
 	},
 };
+#[allow(deprecated)]
 use pallet_staking::EraPayout;
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::{self, Alice};
