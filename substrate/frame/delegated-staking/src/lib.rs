@@ -631,7 +631,7 @@ impl<T: Config> Pallet<T> {
 		delegation.amount = delegation
 			.amount
 			.checked_sub(&amount)
-			.defensive_ok_or(ArithmeticError::Overflow)?;
+			.defensive_ok_or(ArithmeticError::Underflow)?;
 
 		let released = T::Currency::release(
 			&HoldReason::StakingDelegation.into(),
