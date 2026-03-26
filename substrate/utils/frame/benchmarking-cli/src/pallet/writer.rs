@@ -213,14 +213,15 @@ fn get_benchmark_data(
 	let pallet = String::from_utf8(batch.pallet.clone()).unwrap();
 	let benchmark = String::from_utf8(batch.benchmark.clone()).unwrap();
 
-	let extrinsic_time = analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
-		.expect("analysis function should return an extrinsic time for valid inputs");
-	let reads = analysis_function(&batch.db_results, BenchmarkSelector::Reads)
+	let extrinsic_time =
+		analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime, &benchmark)
+			.expect("analysis function should return an extrinsic time for valid inputs");
+	let reads = analysis_function(&batch.db_results, BenchmarkSelector::Reads, &benchmark)
 		.expect("analysis function should return the number of reads for valid inputs");
-	let writes = analysis_function(&batch.db_results, BenchmarkSelector::Writes)
+	let writes = analysis_function(&batch.db_results, BenchmarkSelector::Writes, &benchmark)
 		.expect("analysis function should return the number of writes for valid inputs");
 	let recorded_proof_size =
-		pov_analysis_function(&batch.db_results, BenchmarkSelector::ProofSize)
+		pov_analysis_function(&batch.db_results, BenchmarkSelector::ProofSize, &benchmark)
 			.expect("analysis function should return proof sizes for valid inputs");
 
 	// Analysis data may include components that are not used, this filters out anything whose value
@@ -301,7 +302,7 @@ fn get_benchmark_data(
 	let proof_size_per_components = storage_per_prefix
 		.iter()
 		.map(|(prefix, results)| {
-			let proof_size = analysis_function(results, BenchmarkSelector::ProofSize)
+			let proof_size = analysis_function(results, BenchmarkSelector::ProofSize, &benchmark)
 				.expect("analysis function should return proof sizes for valid inputs");
 			let slope = proof_size
 				.slopes

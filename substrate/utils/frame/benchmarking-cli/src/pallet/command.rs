@@ -893,7 +893,7 @@ impl PalletCmd {
 
 			if !self.no_storage_info {
 				let mut storage_per_prefix = HashMap::<Vec<u8>, Vec<BenchmarkResult>>::new();
-				let pov_mode = pov_modes.get(&(pallet, benchmark)).cloned().unwrap_or_default();
+				let pov_mode = pov_modes.get(&(pallet, benchmark.clone())).cloned().unwrap_or_default();
 
 				let comments = writer::process_storage_results(
 					&mut storage_per_prefix,
@@ -915,22 +915,22 @@ impl PalletCmd {
 			if !self.no_median_slopes {
 				println!("Median Slopes Analysis\n========");
 				if let Some(analysis) =
-					Analysis::median_slopes(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
+					Analysis::median_slopes(&batch.time_results, BenchmarkSelector::ExtrinsicTime, &benchmark)
 				{
 					println!("-- Extrinsic Time --\n{}", analysis);
 				}
 				if let Some(analysis) =
-					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Reads)
+					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Reads, &benchmark)
 				{
 					println!("Reads = {:?}", analysis);
 				}
 				if let Some(analysis) =
-					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Writes)
+					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::Writes, &benchmark)
 				{
 					println!("Writes = {:?}", analysis);
 				}
 				if let Some(analysis) =
-					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::ProofSize)
+					Analysis::median_slopes(&batch.db_results, BenchmarkSelector::ProofSize, &benchmark)
 				{
 					println!("Recorded proof Size = {:?}", analysis);
 				}
@@ -939,22 +939,22 @@ impl PalletCmd {
 			if !self.no_min_squares {
 				println!("Min Squares Analysis\n========");
 				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
+					Analysis::min_squares_iqr(&batch.time_results, BenchmarkSelector::ExtrinsicTime, &benchmark)
 				{
 					println!("-- Extrinsic Time --\n{}", analysis);
 				}
 				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Reads)
+					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Reads, &benchmark)
 				{
 					println!("Reads = {:?}", analysis);
 				}
 				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Writes)
+					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::Writes, &benchmark)
 				{
 					println!("Writes = {:?}", analysis);
 				}
 				if let Some(analysis) =
-					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::ProofSize)
+					Analysis::min_squares_iqr(&batch.db_results, BenchmarkSelector::ProofSize, &benchmark)
 				{
 					println!("Recorded proof Size = {:?}", analysis);
 				}

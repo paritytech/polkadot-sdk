@@ -227,7 +227,11 @@ impl Analysis {
 		})
 	}
 
-	pub fn median_slopes(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	pub fn median_slopes(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+		benchmark_name: &str,
+	) -> Option<Self> {
 		if r[0].components.is_empty() {
 			return Self::median_value(r, selector);
 		}
@@ -273,7 +277,7 @@ impl Analysis {
 
 		let models = results
 			.iter()
-			.map(|(_, _, _, ref values)| {
+			.map(|(param_name, _, _, ref values)| {
 				let mut slopes = vec![];
 				for (i, &(x1, y1)) in values.iter().enumerate() {
 					for &(x2, y2) in values.iter().skip(i + 1) {
@@ -281,6 +285,17 @@ impl Analysis {
 							slopes.push((y1 as f64 - y2 as f64) / (x1 as f64 - x2 as f64));
 						}
 					}
+				}
+				if slopes.is_empty() {
+					let unique_values = values.iter().map(|(x, _)| x).collect::<std::collections::BTreeSet<_>>().len();
+					panic!(
+						"Benchmark `{}` parameter `{}` only has {} unique value(s) but needs at least 2 to compute a slope. \
+						This can happen when too many benchmark samples are skipped. \
+						Try increasing the number of steps for this parameter or fix the benchmark.",
+						benchmark_name,
+						param_name,
+						unique_values
+					);
 				}
 				slopes.sort_by(|a, b| a.partial_cmp(b).expect("values well defined; qed"));
 				let slope = slopes[slopes.len() / 2];
@@ -327,7 +342,11 @@ impl Analysis {
 		})
 	}
 
-	pub fn min_squares_iqr(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	pub fn min_squares_iqr(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+		_benchmark_name: &str,
+	) -> Option<Self> {
 		if r[0].components.is_empty() || r.len() <= 2 {
 			return Self::median_value(r, selector);
 		}
@@ -400,9 +419,13 @@ impl Analysis {
 		})
 	}
 
-	pub fn max(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
-		let median_slopes = Self::median_slopes(r, selector);
-		let min_squares = Self::min_squares_iqr(r, selector);
+	pub fn max(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+		benchmark_name: &str,
+	) -> Option<Self> {
+		let median_slopes = Self::median_slopes(r, selector, benchmark_name);
+		let min_squares = Self::min_squares_iqr(r, selector, benchmark_name);
 
 		if median_slopes.is_none() || min_squares.is_none() {
 			return None;
@@ -647,15 +670,15 @@ mod tests {
 		];
 
 		let extrinsic_time =
-			Analysis::median_slopes(&data, BenchmarkSelector::ExtrinsicTime).unwrap();
+			Analysis::median_slopes(&data, BenchmarkSelector::ExtrinsicTime, "test").unwrap();
 		assert_eq!(extrinsic_time.base, 10_000_000_000);
 		assert_eq!(extrinsic_time.slopes, vec![1_000_000_000, 100_000_000]);
 
-		let reads = Analysis::median_slopes(&data, BenchmarkSelector::Reads).unwrap();
+		let reads = Analysis::median_slopes(&data, BenchmarkSelector::Reads, "test").unwrap();
 		assert_eq!(reads.base, 2);
 		assert_eq!(reads.slopes, vec![1, 0]);
 
-		let writes = Analysis::median_slopes(&data, BenchmarkSelector::Writes).unwrap();
+		let writes = Analysis::median_slopes(&data, BenchmarkSelector::Writes, "test").unwrap();
 		assert_eq!(writes.base, 0);
 		assert_eq!(writes.slopes, vec![0, 2]);
 	}
@@ -722,15 +745,15 @@ mod tests {
 		];
 
 		let extrinsic_time =
-			Analysis::min_squares_iqr(&data, BenchmarkSelector::ExtrinsicTime).unwrap();
+			Analysis::min_squares_iqr(&data, BenchmarkSelector::ExtrinsicTime, "test").unwrap();
 		assert_eq!(extrinsic_time.base, 10_000_000_000);
 		assert_eq!(extrinsic_time.slopes, vec![1000000000, 100000000]);
 
-		let reads = Analysis::min_squares_iqr(&data, BenchmarkSelector::Reads).unwrap();
+		let reads = Analysis::min_squares_iqr(&data, BenchmarkSelector::Reads, "test").unwrap();
 		assert_eq!(reads.base, 2);
 		assert_eq!(reads.slopes, vec![1, 0]);
 
-		let writes = Analysis::min_squares_iqr(&data, BenchmarkSelector::Writes).unwrap();
+		let writes = Analysis::min_squares_iqr(&data, BenchmarkSelector::Writes, "test").unwrap();
 		assert_eq!(writes.base, 0);
 		assert_eq!(writes.slopes, vec![0, 2]);
 	}
@@ -745,7 +768,7 @@ mod tests {
 		];
 
 		let extrinsic_time =
-			Analysis::min_squares_iqr(&data, BenchmarkSelector::ExtrinsicTime).unwrap();
+			Analysis::min_squares_iqr(&data, BenchmarkSelector::ExtrinsicTime, "test").unwrap();
 		assert_eq!(extrinsic_time.base, 3_000_000_000);
 		assert_eq!(extrinsic_time.slopes, vec![3_000_000_000]);
 	}
@@ -762,7 +785,7 @@ mod tests {
 		];
 
 		let extrinsic_time =
-			Analysis::min_squares_iqr(&data, BenchmarkSelector::ExtrinsicTime).unwrap();
+			Analysis::min_squares_iqr(&data, BenchmarkSelector::ExtrinsicTime, "test").unwrap();
 		assert_eq!(extrinsic_time.base, 0);
 		assert_eq!(extrinsic_time.slopes, vec![2000]);
 	}
