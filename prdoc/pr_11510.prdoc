@@ -8,4 +8,4 @@ crates:
 - name: frame-benchmarking
   bump: major
 - name: frame-benchmarking-cli
-  bump: patch
+  bump: major
