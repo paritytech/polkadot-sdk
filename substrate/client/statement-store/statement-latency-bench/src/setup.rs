@@ -143,10 +143,7 @@ async fn main() -> Result<(), anyhow::Error> {
 	}
 
 	// Verify that allowances were actually written to storage at the latest finalized block
-	let at_finalized = client
-		.at_current_block()
-		.await
-		.context("Failed to get finalized block")?;
+	let at_finalized = client.at_current_block().await.context("Failed to get finalized block")?;
 
 	for i in 0..args.num_clients {
 		let pub_key = get_keypair(i).public();

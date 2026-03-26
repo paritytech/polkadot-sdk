@@ -234,4 +234,3 @@ pub async fn get_account_nonce(
 	let nonce = client.tx().await?.account_nonce(account_id).await?;
 	Ok(nonce)
 }
-
