@@ -1174,10 +1174,10 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { git = "https://github.com/paritytech/polkavm.git", branch = "master_misc", default-features = false }
-polkavm-common = { git = "https://github.com/paritytech/polkavm.git", branch = "master_misc", default-features = false }
-polkavm-derive = { git = "https://github.com/paritytech/polkavm.git", branch = "master_misc" }
-polkavm-linker = { git = "https://github.com/paritytech/polkavm.git", branch = "master_misc" }
+polkavm = { git = "https://github.com/paritytech/polkavm.git", rev = "5498c7ec56900ae6b32bc53e5b1e96a84d0d8b7e", default-features = false }
+polkavm-common = { git = "https://github.com/paritytech/polkavm.git", rev = "5498c7ec56900ae6b32bc53e5b1e96a84d0d8b7e", default-features = false }
+polkavm-derive = { git = "https://github.com/paritytech/polkavm.git", rev = "5498c7ec56900ae6b32bc53e5b1e96a84d0d8b7e" }
+polkavm-linker = { git = "https://github.com/paritytech/polkavm.git", rev = "5498c7ec56900ae6b32bc53e5b1e96a84d0d8b7e" }
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
