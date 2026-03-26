@@ -129,8 +129,18 @@ fn create_cargo_toml<'a>(
 	};
 	set_dep("uapi", "../uapi")?;
 	set_dep("common", "./contracts/common")?;
-	cargo_toml["dependencies"]["polkavm-derive"]["version"] =
-		root_toml["workspace"]["dependencies"]["polkavm-derive"].clone();
+	let polkavm_derive_dep = root_toml["workspace"]["dependencies"]["polkavm-derive"].clone();
+	match polkavm_derive_dep {
+		// Simple string version like "0.31.0"
+		toml::Value::String(_) => {
+			cargo_toml["dependencies"]["polkavm-derive"]["version"] = polkavm_derive_dep;
+		},
+		// Table with git/branch/version fields
+		toml::Value::Table(table) => {
+			cargo_toml["dependencies"]["polkavm-derive"] = toml::Value::Table(table);
+		},
+		_ => anyhow::bail!("Unexpected polkavm-derive dependency format"),
+	}
 
 	cargo_toml["bin"] = toml::Value::Array(
 		entries
