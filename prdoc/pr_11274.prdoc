@@ -1,14 +1,10 @@
 title: 'Statement store: Latency bench cli sudo'
 doc:
-- audience: Todo
+- audience: Node Dev
   description: |-
-    # Description
+    Extend the statement-latency-bench CLI tool to automatically set up per-account statement allowances via sudo extrinsics.
 
-    Extend the statement-latency-bench CLI tool to automatically set up per-account statement allowances via sudo extrinsics
-
-    Added subxt-based sudo call to system.set_storage that writes :statement_allowance: keys for each benchmark account
-
-    Updated the grafana dashboard and Metrics.md
+    Added a separate `setup-allowances` binary that issues subxt-based `Sudo(batch_all(set_storage(...)))` calls to write `:statement_allowance:` keys for each benchmark account. Extracted shared subxt configuration and test utilities into `subxt_client` and `test_utils` modules gated behind the `test-helpers` feature.
 crates:
 - name: sc-rpc-api
   bump: major

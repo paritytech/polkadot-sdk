@@ -25,10 +25,8 @@ use clap::Parser;
 use jsonrpsee::{core::client::ClientT, rpc_params, ws_client::WsClientBuilder};
 use log::{debug, info};
 use sc_statement_store::{
-	subxt_client::CustomConfig,
-	test_utils::{
-		create_uniform_allowance_items, get_account_nonce, get_keypair, submit_extrinsic,
-	},
+	subxt_client::{get_account_nonce, submit_extrinsic, CustomConfig},
+	test_utils::{create_uniform_allowance_items, get_keypair},
 };
 use sp_core::Pair;
 use sp_statement_store::{statement_allowance_key, StatementAllowance};

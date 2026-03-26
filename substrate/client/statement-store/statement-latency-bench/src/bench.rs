@@ -156,7 +156,7 @@ struct ClientConfig {
 
 async fn run_client(
 	config: ClientConfig,
-	rpc_client: Arc<jsonrpsee::ws_client::WsClient>,
+	rpc_client: Arc<WsClient>,
 	barrier: Arc<Barrier>,
 	sync_start: std::time::Instant,
 ) -> Result<Vec<RoundStats>, anyhow::Error> {

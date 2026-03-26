@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Custom subxt configuration for the statement-store runtime
+//! Custom subxt configuration for runtimes interacting with statement-store, used only for tests
 //!
 //! The runtime uses `VerifyMultiSignature` instead of the standard
 //! `VerifySignature` transaction extension, and includes a `RestrictOrigins`
@@ -33,9 +33,14 @@ use subxt::{
 			ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
 			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, VerifySignature,
 		},
-		ClientState, Config, TransactionExtension,
+		ClientState, Config, DefaultExtrinsicParamsBuilder, TransactionExtension,
+		TransactionExtensions,
 	},
-	ext::frame_decode,
+	dynamic::Value,
+	ext::{frame_decode, scale_value::value},
+	transactions::Signer,
+	utils::H256,
+	OnlineClient,
 };
 
 /// Wrapper around `VerifySignature` that matches the runtime's `VerifyMultiSignature` name
@@ -188,4 +193,79 @@ impl Config for CustomConfig {
 	) {
 		self.0.set_metadata_for_spec_version(spec_version, metadata)
 	}
+}
+
+/// Creates a sudo -> frame_system::set_storage call to set statement allowances
+pub fn create_set_storage_call(
+	items: Vec<(Vec<u8>, Vec<u8>)>,
+) -> subxt::transactions::DynamicPayload<Vec<Value>> {
+	let items_value: Vec<Value> = items
+		.into_iter()
+		.map(|(key, value)| value!((Value::from_bytes(key), Value::from_bytes(value))))
+		.collect();
+
+	subxt::transactions::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			System(set_storage { items: items_value })
+		}],
+	)
+}
+
+/// Builds params for CustomConfig's transaction extensions (9 defaults + RestrictOrigins)
+pub fn build_params(
+	nonce: u64,
+) -> <<CustomConfig as Config>::TransactionExtensions as TransactionExtensions<CustomConfig>>::Params
+{
+	let (a, b, c, d, e, f, g, h, i) = DefaultExtrinsicParamsBuilder::<CustomConfig>::new()
+		.immortal()
+		.nonce(nonce)
+		.build();
+	(a, b, c, d, e, f, g, h, i, ())
+}
+
+/// Submits an extrinsic with an explicit nonce and waits for it to be finalized
+pub async fn submit_extrinsic<S: Signer<CustomConfig>>(
+	client: &OnlineClient<CustomConfig>,
+	call: &subxt::transactions::DynamicPayload<Vec<Value>>,
+	signer: &S,
+	nonce: u64,
+) -> Result<H256, anyhow::Error> {
+	let tx_in_block = client
+		.tx()
+		.await?
+		.sign_and_submit_then_watch(call, signer, build_params(nonce))
+		.await?
+		.wait_for_finalized()
+		.await?;
+
+	tx_in_block.wait_for_success().await?;
+	Ok(tx_in_block.block_hash())
+}
+
+/// Gets the current nonce for an account
+pub async fn get_account_nonce(
+	client: &OnlineClient<CustomConfig>,
+	account_id: &<CustomConfig as Config>::AccountId,
+) -> Result<u64, anyhow::Error> {
+	let nonce = client.tx().await?.account_nonce(account_id).await?;
+	Ok(nonce)
+}
+
+/// Sets statement allowances via sudo -> frame_system::set_storage extrinsic
+pub async fn set_allowances_via_sudo(
+	para_client: &OnlineClient<CustomConfig>,
+	items: Vec<(Vec<u8>, Vec<u8>)>,
+) -> Result<(), anyhow::Error> {
+	let alice = subxt_signer::sr25519::dev::alice();
+	let alice_account_id =
+		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
+
+	let current_nonce = get_account_nonce(para_client, &alice_account_id).await?;
+	let set_storage_call = create_set_storage_call(items);
+
+	submit_extrinsic(para_client, &set_storage_call, &alice, current_nonce).await?;
+
+	Ok(())
 }
