@@ -162,6 +162,12 @@ impl From<polkavm::Error> for WasmError {
 	}
 }
 
+impl From<polkavm::CompileError> for WasmError {
+	fn from(error: polkavm::CompileError) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
 impl From<polkavm::Error> for Error {
 	fn from(error: polkavm::Error) -> Self {
 		Error::Other(error.to_string())
