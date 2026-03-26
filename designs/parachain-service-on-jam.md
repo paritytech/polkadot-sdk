@@ -1,7 +1,6 @@
 # Parachain Service on JAM
 
 > **Status**: Draft  
-> **Authors**: TBD  
 > **Last Updated**: 2026-03-02
 
 ---
@@ -13,13 +12,11 @@
 3. [The Parachain Service](#3-the-parachain-service)
    - 3.1 [Service State Layout](#31-service-state-layout)
    - 3.2 [Work Items](#32-work-items)
-   - 3.3 [Work Reports](#33-work-reports)
+   - 3.3 [Refine Result](#33-refine-result)
 4. [Refine: In-Core Execution](#4-refine-in-core-execution)
    - 4.1 [What Refine Does](#41-what-refine-does)
    - 4.2 [PVF Execution in PVM](#42-pvf-execution-in-pvm)
-   - 4.3 [Guarantor Assignment](#43-guarantor-assignment)
-   - 4.4 [Preimage Access & Data Loading](#44-preimage-access-data-loading)
-   - 4.5 [Host Functions & PVM Imports](#45-host-functions-pvm-imports)
+   - 4.3 [Host Functions & PVM Imports](#43-host-functions-pvm-imports)
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
    - 5.3 [Code Upgrade Lifecycle](#53-code-upgrade-lifecycle)
 6. [Authorization & Coretime](#6-authorization-coretime)
@@ -27,7 +24,8 @@
    - 6.4 [On-Demand Parachains](#64-on-demand-parachains)
 7. [Messaging](#7-messaging)
 8. [Open Questions](#8-open-questions)
-9. [References](#9-references)
+9. [Missing JAM / Gray Paper Features](#9-missing-jam-gray-paper-features)
+10. [References](#10-references)
 
 ---
 
@@ -37,11 +35,6 @@ This document describes the architecture of the **Parachain Service** — a JAM 
 Polkadot's parachain host functionality. The Parachain Service is the JAM successor to the current
 Polkadot relay-chain parachain host, mapping all the concepts of collation, validation, availability,
 and finality into JAM's Collect-Refine-Join-Accumulate (CRJA) computation model.
-
-In short: what the Polkadot relay chain currently does natively for parachains will, on JAM, be
-implemented as an ordinary JAM service. This enables the relay chain to shed protocol-level
-opinion about parachains, while parachains continue operating with full shared security and
-interoperability.
 
 The key conceptual mapping from today's Polkadot to JAM:
 
@@ -117,17 +110,16 @@ The CRJA pipeline for a parachain block:
     ▼
 [Refine]      IN-CORE: Guarantors execute the parachain service refine functionality. Internally this calls the PVF code to verify the work package.
               Stateless, off-chain, metered via PVM gas.
-              Output: a compact Work Result (~90 kB) summarising the validated candidate.
+              Output: per-item work-digests plus authorization/export metadata, assembled into a Work Report.
     │
     ▼
-[Join]        The Work Report (aggregating Work Results) is submitted on-chain.
+[Join]        The Work Report (aggregating per-item work-digests and authorization metadata) is submitted on-chain.
               JAM validators attest (guarantee) its correctness. Availability is ensured.
     │
     ▼
 [Accumulate]  ON-CHAIN: The Parachain Service's Accumulate function runs on-chain.
               It records the new parachain head, processes upward signals (code upgrades,
-              HRMP channel management, outbound transfers), updates XCMP channel metadata,
-              and queues downward signals for parachains.
+              HRMP channel management, outbound transfers) and queues downward signals for parachains.
 
 ```
 
@@ -155,6 +147,11 @@ natively. The Parachain Service only implements what is specific to the parachai
 The Parachain Service is a JAM service whose code implements the on-chain logic of the parachain
 host. It holds all per-parachain state and drives the CRJA pipeline for every registered parachain.
 
+The Parachain Service is expected to be an **always-accumulate** service in the Gray Paper sense.
+Even in blocks where no parachain candidate becomes available, it still needs an accumulation step
+to apply privileged control-plane updates such as authorizer queue changes, validator-key updates,
+and other service-level bookkeeping that must take effect without waiting for a parachain block.
+
 ### 3.1 Service State Layout
 
 The service state is a key-value store. Logically it contains:
@@ -174,8 +171,18 @@ struct ParachainServiceState {
     dsq: Map<ParaId, VecDeque<DownwardSignal>>,
 
     /// PVF (Parachain Validation Function) preimage registry.
-    /// Maps validation_code_hash → (code, ref_count, expiry).
     pvf_registry: Map<ValidationCodeHash, PvfEntry>,
+
+    /// Stores when pending upgrades timeout. 
+    pending_upgrades_timeouts: Map<Timeslot, Vec<(ValidationCodeHash, ParaId)>>,
+}
+
+struct PvfEntry {
+	/// Length of the solicited preimage, used when forgetting it later.
+	code_len: u32,
+	/// Number of parachains currently referencing this validation code.
+	/// When this drops to zero the preimage can be released immediately.
+	ref_count: u32,
 }
 
 struct ParaInfo {
@@ -184,18 +191,7 @@ struct ParaInfo {
     /// Hash of the currently active validation code.
     validation_code_hash: ValidationCodeHash,
     /// Pending code upgrade, if any. See §5.3 for the full lifecycle.
-    pending_upgrade: Option<PendingCodeUpgrade>,
-}
-
-/// Note: the service state should also maintain a reverse index from
-/// deadline timeslot to ParaId, so expired upgrades can be efficiently
-/// cleaned up during Accumulate.
-struct PendingCodeUpgrade {
-    /// Hash of the new PVM code.
-    new_code_hash: ValidationCodeHash,
-    /// Deadline: upgrade rejected if preimage is not available or no block
-    /// uses the new code by this timeslot.
-    deadline: Timeslot,
+    pending_upgrade: Option<(ValidationCodeHash, Timeslot)>,
 }
 ```
 
@@ -217,44 +213,45 @@ struct ParachainWorkItem {
     /// The Proof-of-Validity (PoV) — the actual block data + witness.
     /// This is the large input to Refine (up to ~15 MB per slot across all items).
     pov: Vec<u8>,
-
-    /// The work package's `RefineContext` provides the JAM block context (anchor hash,
-    /// state root, beefy root) needed by the PVF. These are verified on-chain when the
-    /// work report is submitted, so they do not need to be included in the work item.
 }
 ```
 
 Initially, each work package will contain a single work item (one parachain candidate).
 Support for multiple items per package may be added later.
 
-### 3.3 Work Reports
+### 3.3 Refine Result
 
-After the Refine step, guarantors produce a **work result** per work item. The work result
-is an opaque output blob (up to ~48 KB shared with the authorizer trace, see W_R in the
-Gray Paper). For the Parachain Service, this blob encodes the validated candidate outputs:
+The Parachain Service's Refine function returns an opaque result blob per work item. This blob is forwarded to `accumulate`.
+From the service's perspective, Refine either succeeds or fails:
 
 ```rust
-/// Encoded as the Refine output blob for one parachain candidate.
-struct ParachainWorkResult {
-    /// New head data produced by the parachain block.
-    head_data: HeadData,
-    /// Upward signals from the parachain (code upgrades, channel ops, transfers).
-    upward_signals: Vec<UpwardSignal>,
-    /// Hashes of outbound XCMP messages (payloads are exported to DA via export()).
-    outbound_message_hashes: Vec<(ParaId, Hash)>,
-    /// Number of downward signals processed by the parachain.
-    processed_downward_signals: u32,
-    /// HRMP watermark — up to which point inbound messages were consumed.
-    hrmp_watermark: Timeslot,
+/// The Parachain Service's Refine output for one parachain candidate.
+enum ParachainWorkResult {
+    Ok {
+        /// New head data produced by the parachain block.
+        head_data: HeadData,
+        /// Upward signals from the parachain (code upgrades, channel ops, transfers).
+        upward_signals: Vec<UpwardSignal>,
+        /// Other message related fields may need to be added, depends on the messaging approach.
+    },
+    /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
+    ///
+    /// Opaque error payload, max 1024 bytes.
+    Err(BoundedVec<u8, 1024>),
 }
 ```
 
-The `ParaId` does not need to be in the work result — it is conveyed via the **authorizer
-trace**, which the authorizer returns upon successful authorization and which is available
-to Accumulate as part of the operand tuple.
+Both variants are encoded into the Refine result blob — from JAM's perspective, Refine
+always succeeds. The `Ok`/`Err` distinction is internal to the Parachain Service and
+decoded by Accumulate. This avoids losing error context to JAM's fixed `workerror` enum,
+which carries no payload. The combined size of all result blobs plus the authorizer trace
+in a work-report is limited to **48 KiB** by the Gray Paper.
 
-The work report itself is subject to JAM's **guarantee** and **assurance** mechanisms — validators
-attest its correctness and data availability is enforced before Accumulate runs.
+- **`Ok`** is returned when PVF validation succeeds without error.
+- **`Err`** is returned when PVF validation fails. The opaque error payload (up to 1024
+  bytes) is stored by Accumulate and can be read by the parachain later. This can be used
+  for example to slash a collator who claimed an authorizer slot that was not theirs, e.g.
+  by building blocks in consecutive slots that should have belonged to different collators.
 
 ---
 
@@ -272,165 +269,34 @@ Refine:
 3. Executes the PVF against the PoV (the `validate_block` call).
 4. Returns a `ParachainWorkResult` with the committed outputs.
 
-Because Refine is stateless, it cannot write to service storage. The only "statefulness" it can
-exercise is via preimage lookups — which is exactly how PVF code is accessed.
+Because Refine is stateless, it cannot write to service storage.
 
 ### 4.2 PVF Execution in PVM
 
-PVFs execute in the **Polkadot Virtual Machine (PVM)**, a RISC-V based VM. The resources
-available to PVF execution during Refine:
+PVFs execute in the **Polkadot Virtual Machine (PVM)**, a RISC-V based VM. Resource limits
+(gas, memory, code size) are defined in the Gray Paper and not repeated here.
 
-- **Gas**: Up to 6 seconds of PVM gas per Refine invocation (one full JAM slot).
-- **Memory**: Up to 4 GB addressable memory (PVM is 64-bit RV64, but PVF memory is capped).
-- **Code size**: Up to W_C = 4 MB for the PVF bytecode.
-- **I/O**: Access to the work item payload (PoV), import segments from the DA layer, and
-  preimage lookups from the service's preimage store. Outbound data can be written to DA
-  segments via `export()`.
+### 4.3 Host Functions & PVM Imports
 
-### 4.3 Guarantor Assignment
+On JAM, PVFs execute inside a child PVM instance spawned by the Parachain Service's Refine
+function. **Hashing**, **trie operations**, and **signature verification** are expected to
+move into PVM guest code — transpilation to native code should bring acceptable performance,
+though benchmarks are needed to confirm exact numbers.
 
-Guarantors are assigned to cores by JAM's core assignment mechanism. The Parachain Service
-does not manage this directly — JAM natively handles core-to-validator-group mapping. For
-each slot, JAM assigns a small validator sub-group to each core. This mirrors the current
-"backing group" model but is driven by JAM's generic core assignment rather than a
-parachain-specific scheduler. See §6 for how coretime allocation feeds into this.
+The Parachain Service's Refine function provides the following host functions to the child
+PVM executing the PVF:
 
-### 4.4 Preimage Access & Data Loading
-
-Refine is stateless — it cannot directly access service storage. However, JAM provides a
-**preimage lookup** mechanism that allows Refine to fetch data blobs by hash. This is the
-primary mechanism the Parachain Service uses to load PVF code and other data needed for
-validation.
-
-The data loading pipeline for a parachain candidate works as follows:
-
-1. **PVF code**: The parachain's validation function bytecode is stored as a preimage in
-   the Parachain Service's preimage store. The Accumulate function registers PVF code via
-   `solicit()` + `provide()` when a parachain first registers or schedules a code upgrade.
-   During Refine, the guarantor calls `lookup(validation_code_hash)` to fetch the PVF
-   bytecode from the preimage store.
-
-2. **Proof-of-Validity (PoV)**: The PoV is the large input (~15 MB budget) containing the
-   parachain block data and state witness. It is carried **inline** as part of the work
-   item payload, accessed via `work_item_payload()`. This data is not a preimage — it is
-   submitted fresh with each work package.
-
-3. **Block context**: The relay-parent context (header hash, state root, etc.) needed
-   by the PVF comes from the work package's `RefineContext` — a
-   JAM-native struct containing `anchor` (recent header hash), `state_root`, `beefy_root`,
-   `lookup_anchor`, and `lookup_anchor_slot`. These values are set by the work package
-   builder (collator) and **verified on-chain** when the work report is submitted, so
-   Refine can trust them without additional validation.
-
-4. **Import segments**: JAM work items may reference **import segments** — data blobs from
-   the JAM Data Lake that are made available to Refine via the import manifest. The
-   Parachain Service can use import segments to provide additional context data (e.g.,
-   recent relay chain headers) without including them in the PoV.
-
-```
-Work Package
-├── Work Item (ParachainWorkItem)
-│   ├── payload: PoV                                ← inline, via work_item_payload()
-│   ├── import manifest: [segment_hash, ...]        ← optional, via import()
-│   └── service: Parachain Service ID
-│
-└── Refine execution
-    ├── lookup(validation_code_hash) → PVF bytecode ← from preimage store
-    ├── work_item_payload() → PoV                   ← inline data
-    ├── import(0) → additional context               ← from Data Lake (if needed)
-    └── machine() + invoke() → execute PVF           ← child PVM instance
-```
-
-This design means the PoV format is largely unchanged from Polkadot 1.x — it still contains
-the parachain block data and state witness proofs. The key difference is that PVF code is
-accessed via preimage lookup rather than being part of the validator's local state.
-
-### 4.5 Host Functions & PVM Imports
-
-In Polkadot 1.x, PVFs execute in a WebAssembly sandbox with a restricted set of **host
-functions** provided by the validator. On JAM, PVFs execute inside a child PVM instance
-spawned by the Parachain Service's Refine function. This fundamentally changes which
-operations require host function support versus being compiled directly into PVM guest code.
-
-#### Current PVF Host Functions (Polkadot 1.x)
-
-The current PVF executor exposes exactly six categories of host functions:
-
-| Category | Examples | Purpose |
-|----------|----------|---------|
-| **Crypto** | `sr25519_verify`, `ed25519_verify`, `secp256k1_ecdsa_recover` | Signature verification |
-| **Hashing** | `blake2_256`, `keccak_256`, `twox_128` | Data integrity |
-| **Trie** | `blake2_256_root`, `blake2_256_verify_proof` | State proof verification |
-| **Allocator** | `malloc`, `free` | Wasm memory management |
-| **Logging** | `log`, `max_level` | Debug output |
-| **Misc** | `print_num`, `print_utf8` | Debug output |
-
-Notably excluded: all storage operations, offchain workers, tracing, and transaction indexing.
-PVF execution is fully stateless — state verification happens via trie proofs, not storage
-reads.
-
-#### PVM Transition: What Changes
-
-On JAM, most of these host functions can be **eliminated** because their implementations can
-be compiled directly into PVM guest code (RISC-V). The key categories:
-
-**Can be compiled into guest code (no host call needed):**
-
-- **Hashing** (`blake2_256`, `keccak_256`, `sha2_256`, `twox_*`): Pure computation.
-  These algorithms compile straightforwardly to RISC-V and can run as ordinary guest code.
-  Like crypto operations, benchmarking is needed to quantify PVM-compiled performance vs
-  native — though hashing is generally less sensitive to overhead than big-integer crypto.
-- **Trie operations** (`blake2_256_root`, `blake2_256_verify_proof`): Built on top of
-  hashing — once hashing is native, trie operations are too.
-- **Allocator** (`malloc`, `free`): PVM uses a RISC-V memory model where the guest manages
-  its own heap. No host-provided allocator is needed.
-- **Misc / Logging**: Logging can use PVM's native `log` host call (JIP-1); print functions
-  are unnecessary.
-
-**Crypto operations — compiled with potential host call acceleration:**
-
-- **Signature verification** (`sr25519_verify`, `ed25519_verify`, `ecdsa_*`): These are
-  pure computation and *can* be compiled to RISC-V. However, compiled crypto in PVM is
-  expected to be slower than native execution. The performance gap depends on how well
-  the PVM JIT compiler handles big-integer arithmetic and field operations.
-- Benchmarking is needed to quantify the overhead of PVM-compiled crypto versus native
-  host functions. If the overhead is acceptable (e.g., 2-3x), crypto can be fully compiled.
-  If it is prohibitive (e.g., 10x+), the Parachain Service's Refine function may provide
-  crypto verification as host calls to the child PVM executing the PVF.
-- Note that PVM's JIT compilation to native RISC-V (or x86/ARM via transpilation) may
-  narrow this gap significantly compared to interpreted execution.
-
-**Must remain as host calls (JAM-provided):**
-
-- **Preimage lookup** (`lookup`, `foreign_lookup`): Accessing the JAM preimage store
-  requires interaction with the JAM runtime — this cannot be compiled into guest code.
-- **Data export** (`export`): Writing to the JAM Data Lake. The Refine function uses
-  `export()` to write outbound XCMP message payloads into DA segments. Recipient
-  parachains' collators can then fetch these segments directly from the DA layer by
-  segment hash, avoiding the need to route full message payloads through on-chain state.
-  Accumulate only records the message hashes and channel metadata — the payloads remain
-  off-chain in the DA layer (see §7.2).
-- **Gas metering** (`gas`): Inspecting the remaining gas budget.
-
-#### Practical Architecture
-
-The Parachain Service's Refine function acts as a **shim** between JAM's host call
-interface and the PVF's expected environment:
-
-```
-JAM Host Calls                Parachain Service Refine           Child PVM (PVF)
-─────────────────────────     ──────────────────────────         ─────────────────
-lookup(hash)           ←──── fetches PVF code               ──→ PVF bytecode loaded
-work_item_payload()    ←──── extracts PoV                   ──→ PoV passed as input
-machine() + invoke()   ←──── creates child PVM              ──→ PVF executes
-                              provides crypto (compiled       ──→ calls crypto functions
-                              or host-accelerated)                (linked or host-called)
-export()               ←──── exports XCMP payloads
-```
-
-This shim pattern means the PVF itself does not need to know whether it is running on
-Polkadot 1.x or JAM — the interface it sees (validation data in, commitments out) remains
-the same. The differences are handled by the Parachain Service's Refine wrapper.
+| Host function | Purpose |
+|---|---|
+| `lookup(hash)` | Fetch a preimage from the Parachain Service's preimage store (e.g. PVF code) |
+| `foreign_lookup(service, hash)` | Fetch a preimage from another service's preimage store |
+| `export(data)` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads) |
+| `gas()` | Query the remaining gas budget |
+| `refine_context()` | Access the refinement context (anchor, lookup-anchor, prerequisites) |
+| `work_package()` | Access the work package metadata |
+| `work_item_payload()` | Access the current work item's payload (the PoV) |
+| `send_upward_signal(signal)` | Emit an upward signal (code upgrade, channel ops, transfers) |
+| `read_downward_signals()` | Read pending downward signals for this parachain |
 
 ---
 
@@ -557,55 +423,57 @@ Phase 5: Activation or Rejection
 - **Timeout protection**: The deadline prevents parachains from indefinitely occupying
   preimage store space with unused code. `UPGRADE_TIMEOUT` should be long enough for
   collators to update their software (e.g. 24-48 hours).
+- **No active polling needed**: The service does not need a background polling mechanism for
+  pending upgrades. Upgrade state is checked when a candidate for that parachain is accumulated,
+  and the always-accumulate control path can additionally clear timed-out upgrades as part of
+  normal service execution.
 ---
 
 ## 6. Authorization & Coretime
 
-### 6.1 Authorization Model
+JAM natively handles core assignment and coretime tracking, but the Parachain Service still needs
+to decide **which authorizers are valid for each core**. For now, that control-plane function is
+best modeled as an integration with the **Coretime Chain** (today's `pallet-broker` / coretime
+system chain), which already owns the notion of who has rights over a core.
 
-In JAM, any work package targeting a service must be **authorized**. For the Parachain Service,
-authorization ensures that:
+The important point is not the internals of authorizer execution, but the ownership boundary:
 
-- Only work packages corresponding to legitimately registered parachains are processed.
-- The para submitting the work package holds valid coretime for the requested core.
+- The **Coretime Chain** decides which parachain or customer owns a core and therefore which
+  authorizer queue should be installed for that core.
+- The **Parachain Service** applies those decisions to JAM via its always-accumulate control path.
+- JAM's `is_authorized` invocation then checks a work-package token against one of the authorizers
+  currently in the core's authorizer pool.
 
-The authorization check is performed by the Parachain Service's authorization code, evaluated
-before guarantors execute Refine. It validates:
-
-```
-is_authorized(work_package) =
-    para_id ∈ registered_parachains
-    AND core_assignment[work_package.core] == para_id
-    AND coretime_valid_for(para_id, slot)
-```
-
-### 6.2 Coretime Allocation
-
-JAM natively manages core assignment and tracks core usage. Parachains obtain coretime from
-the **coretime chain** (currently `pallet-broker` on the Coretime system chain). The coretime
-allocation pipeline remains largely unchanged, but the destination of the assignment changes
-from "relay chain availability cores" to "JAM service cores".
-
-The Parachain Service provides an **authorizer** — a piece of PVM code that JAM calls to
-validate each work package before guarantors execute Refine. The authorizer checks that the
-submitting parachain holds valid coretime for the requested core:
+This yields the following high-level flow:
 
 ```
 Coretime Chain (pallet-broker)
-    │  assigns coretime to para_id on core N
+    │  decides which parachain/customer controls core N
+    │  and computes the desired authorizer queue for that core
     ▼
-JAM (authorizer invocation)
-    │  is_authorized() validates coretime assignment for work package
+Parachain Service (always-accumulate control path)
+    │  applies the queue update via JAM assign(core, queue, next_assigner)
+    ▼
+JAM authorizer pool / queue
+    │  rotates authorizers from the queue into the pool over time
     ▼
 Guarantors
-    │  execute Refine for para_id's work items on core N
+    │  call is_authorized() before Refine
     ▼
 JAM chain (Accumulate)
 ```
 
-The authorizer's state (valid coretime assignments per parachain) is maintained by the
-Parachain Service's Accumulate function, updated when coretime assignments arrive from the
-Coretime Chain.
+Two Gray Paper details matter here:
+
+1. `assign` **overwrites the entire authorizer queue for a core immediately**.
+2. The queue length is **80 entries** and the pool length is **8 entries**. Updating the queue is
+   immediate, while actual authorizer eligibility changes gradually as the pool rotates entries in
+   from the queue.
+
+For the initial design we should therefore assume a simple model: the Coretime Chain (or a service
+acting on its behalf) decides the full next 80-entry queue and the Parachain Service applies it
+directly. If later we want delayed queue-rollover semantics, that should be specified explicitly as
+service-level logic rather than assumed from JAM itself.
 
 ### 6.3 Authorizer Design: AURA Example
 
@@ -619,8 +487,6 @@ The config encodes the parachain's collator set and slot timing:
 
 ```rust
 struct AuthorizerConfig {
-    /// The parachain assigned to this core.
-    para_id: ParaId,
     /// Root of a binary Merkle trie over the collator public keys.
     /// Leaf index == collator index in the set.
     collator_set_root: Hash,
@@ -637,9 +503,9 @@ hash (`H(code_hash ⌢ config)`), the same authorizer hash is used for **every s
 the pool and queue as long as the collator set and slot duration remain unchanged.
 
 When a parachain wants to **rotate its collator set** or **change its slot duration**, it
-announces this to the Coretime Chain. The Coretime Chain then sends an
-`UpwardSignal::SetAuthorizerQueue` to update the authorizer queue for the relevant core
-with a new config (and thus a new authorizer hash).
+announces this to the Coretime Chain. The Coretime Chain then causes the Parachain Service's
+always-accumulate path to apply a new authorizer queue for the relevant core, producing a new
+authorizer hash from the same code and updated config.
 
 #### Authorization Token
 
@@ -647,9 +513,6 @@ The collator includes an authorization token (`pj`) in the work package:
 
 ```rust
 struct AuthorizationToken {
-    /// Full JAM block header at the anchor, so the authorizer can extract
-    /// the timeslot. (~1 KB including seal.)
-    anchor_header: Vec<u8>,
     /// Merkle proof that the collator's public key exists at the expected
     /// leaf index in the collator set trie.
     collator_proof: Vec<Hash>,
@@ -662,19 +525,17 @@ struct AuthorizationToken {
 
 #### Authorizer Logic
 
-1. Decode config (`pf`) → `para_id`, `collator_set_root`, `collator_set_size`,
-   `slot_duration`.
-2. Decode token (`pj`) → `anchor_header`, `collator_proof`, `collator_key`, `signature`.
-3. Hash `anchor_header` and verify it matches the anchor hash `a` from the refinement
-   context — proving the header is authentic.
-4. Extract the anchor timeslot from the header.
-5. Compute the expected collator index:
+1. Decode config (`pf`) → `collator_set_root`, `collator_set_size`, `slot_duration`.
+2. Decode token (`pj`) → `collator_proof`, `collator_key`, `signature`.
+3. Read the **anchor timeslot** from the refinement context. If JAM does not yet expose it
+   directly, this becomes a required host-interface extension (see §9).
+4. Compute the expected collator index:
    `collator_index = (anchor_timeslot / slot_duration) mod collator_set_size`.
-6. Verify `collator_proof` against `collator_set_root` at leaf `collator_index`,
+5. Verify `collator_proof` against `collator_set_root` at leaf `collator_index`,
    confirming `collator_key` is the expected collator for this slot.
-7. Verify `signature` over the work package hash using `collator_key`.
-8. Check the work item's `para_id` matches the config's `para_id`.
-9. Return trace = `encode(para_id)`.
+6. Verify `signature` over the work package hash using `collator_key`.
+7. Return a trace carrying the collator identity (or other minimal authorization metadata)
+   needed by Refine/Accumulate.
 
 #### Anchor Selection and Slot Claiming
 
@@ -718,8 +579,13 @@ Pool (8 entries)
 
 On-demand parachains (currently acquired via `pallet-on-demand`) continue to work: they
 acquire a single-shot coretime allocation for one slot, submitted as a work package to the
-Parachain Service for that slot only. This can be handled via JAM's own bulk/on-demand coretime
-markets or via the Parachain Service's own internal priority queue.
+Parachain Service for that slot only. This should remain **Coretime-Chain controlled** rather than
+become an internal Parachain Service market. In other words, the Coretime Chain is responsible for
+deciding who temporarily controls a core and for installing the corresponding authorizer queue.
+
+One plausible extension is a fast-path market where an off-chain seller pre-registers authorizers
+for short-lived slots and then resells access off-chain, but that is still conceptually a
+Coretime-Chain policy question, not part of the Parachain Service itself.
 
 ---
 
@@ -863,7 +729,27 @@ The following questions are not yet resolved and require further design work or 
 
 ---
 
-## 9. References
+## 9. Missing JAM / Gray Paper Features
+
+The current design assumes two pieces of context that are not yet clearly exposed by the Gray Paper
+host interface and therefore likely need either specification work or an explicit embedding into the
+Parachain Service protocol:
+
+1. **Anchor timeslot access**: the authorizer wants direct access to the anchor block's timeslot in
+   order to derive the expected collator index. If this is not provided in the refinement context,
+   JAM likely needs a dedicated host function or an equivalent context field.
+2. **Lookup-anchor posterior state root access**: Parachain validation flows will need the
+   posterior state root associated with the lookup anchor, not just its hash and timeslot. If that
+   root is required, the refinement context or historical-lookup interface needs to expose it.
+
+These are hard requirements, not optional refinements. The authorizer needs anchor-timeslot access
+in order to derive the expected collator slot, and parachain validation is likely to need the
+lookup-anchor posterior state root for state-proof reuse and retry scenarios where an earlier work
+package failed to make it on-chain despite having a reusable PoV.
+
+---
+
+## 10. References
 
 - [JAM Gray Paper](https://graypaper.com) — Formal JAM specification (Gavin Wood)
 - [CoreJAM RFC #31](https://github.com/polkadot-fellows/RFCs/pull/31) — Original CoreJAM RFC
@@ -874,5 +760,3 @@ The following questions are not yet resolved and require further design work or 
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/) — Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/) — Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md) — PVM logging specification
-
-
