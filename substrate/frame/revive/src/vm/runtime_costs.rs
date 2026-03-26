@@ -279,21 +279,21 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				)),
 			SetStorage { new_bytes, old_bytes, is_cold } =>
 				if is_cold {
-					cost_storage!(write, seal_set_storage, new_bytes, old_bytes, is_cold as u32)
+					cost_storage!(write, seal_set_storage_cold, new_bytes, old_bytes)
 				} else {
-					T::WeightInfo::seal_set_storage(new_bytes, old_bytes, 0)
+					T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes)
 				},
 			ClearStorage { len, is_cold } =>
 				if is_cold {
-					cost_storage!(write, clear_storage, len, is_cold as u32)
+					cost_storage!(write, clear_storage_cold, len)
 				} else {
-					T::WeightInfo::clear_storage(len, 0)
+					T::WeightInfo::clear_storage_hot(len)
 				},
 			ContainsStorage { len, is_cold } =>
 				if is_cold {
-					cost_storage!(read, contains_storage, len, is_cold as u32)
+					cost_storage!(read, contains_storage_cold, len)
 				} else {
-					T::WeightInfo::contains_storage(len, 0)
+					T::WeightInfo::contains_storage_hot(len)
 				},
 			GetStorage { len, is_cold } =>
 				if is_cold {
@@ -303,9 +303,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				},
 			TakeStorage { len, is_cold } =>
 				if is_cold {
-					cost_storage!(write, take_storage, len, is_cold as u32)
+					cost_storage!(write, take_storage_cold, len)
 				} else {
-					T::WeightInfo::take_storage(len, 0)
+					T::WeightInfo::take_storage_hot(len)
 				},
 			SetTransientStorage { new_bytes, old_bytes } => {
 				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
