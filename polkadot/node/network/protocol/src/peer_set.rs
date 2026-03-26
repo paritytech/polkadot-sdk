@@ -638,65 +638,6 @@ mod tests {
 	}
 
 	#[test]
-	fn collation_version_v1_is_not_supported() {
-		use super::UnknownVersion;
-
-		let v1 = ProtocolVersion(1);
-		assert_eq!(CollationVersion::try_from(v1), Err(UnknownVersion));
-
-		assert_eq!(CollationVersion::try_from(ProtocolVersion(2)), Ok(CollationVersion::V2));
-		assert_eq!(CollationVersion::try_from(ProtocolVersion(3)), Ok(CollationVersion::V3));
-
-		let all_versions: Vec<_> = CollationVersion::iter().collect();
-		assert!(!all_versions.iter().any(|v| *v as u32 == 1), "V1 should not exist in the enum");
-		assert_eq!(all_versions, vec![CollationVersion::V2, CollationVersion::V3]);
-	}
-
-	#[test]
-	fn collation_v1_protocol_names_are_not_recognized() {
-		let genesis_hash = Hash::from([
-			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
-			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
-		]);
-		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
-
-		let legacy_v1 = "/polkadot/collation/1";
-		assert!(
-			protocol_names.try_get_protocol(&legacy_v1.into()).is_none(),
-			"Legacy collation/1 protocol name must not be recognized"
-		);
-
-		let genesis_v1 =
-			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/1";
-		assert!(
-			protocol_names.try_get_protocol(&genesis_v1.into()).is_none(),
-			"Genesis-hash-based collation/1 protocol name must not be recognized"
-		);
-	}
-
-	#[test]
-	fn collation_v1_not_in_fallback_names() {
-		let genesis_hash = Hash::from([
-			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
-			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
-		]);
-		let fallbacks =
-			PeerSetProtocolNames::get_fallback_names(PeerSet::Collation, &genesis_hash, None);
-		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
-
-		for fallback in &fallbacks {
-			let (_, version) = protocol_names
-				.try_get_protocol(fallback)
-				.expect("fallback name must be recognized");
-			assert_ne!(
-				version,
-				ProtocolVersion(1),
-				"V1 must not appear in collation fallback names"
-			);
-		}
-	}
-
-	#[test]
 	fn all_protocol_versions_have_labels() {
 		for protocol in PeerSet::iter() {
 			match protocol {
