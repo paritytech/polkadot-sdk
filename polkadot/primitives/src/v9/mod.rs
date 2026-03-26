@@ -2413,6 +2413,38 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
+	/// Constructor for a V1-like candidate descriptor with non-zero collator
+	/// fields so that `version()` returns [`CandidateDescriptorVersion::V1`].
+	pub fn new_v1(
+		para_id: Id,
+		relay_parent: H,
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+	) -> Self
+	where
+		H: Default,
+	{
+		Self {
+			para_id,
+			relay_parent,
+			version: 0,
+			core_index: 0,
+			session_index: 0,
+			scheduling_session_offset: 0,
+			reserved1: [1u8; 24],
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			scheduling_parent: H::default(),
+			reserved2: [1u8; 32],
+			para_head,
+			validation_code_hash,
+		}
+	}
+
 	#[cfg(feature = "test")]
 	#[doc(hidden)]
 	pub fn new_from_raw(
