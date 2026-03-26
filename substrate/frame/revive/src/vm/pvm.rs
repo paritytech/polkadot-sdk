@@ -840,7 +840,13 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result;
 			}
 		};
-		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
+		crate::tracing::if_tracing(|tracer| {
+			tracer.enter_ecall(crate::tracing::PVM_FUEL_NAME, &[], &self.runtime)
+		});
+		let sync_result =
+			self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas());
+		crate::tracing::if_tracing(|tracer| tracer.exit_step(&self.runtime, None));
+		sync_result?;
 		exec_result
 	}
 
