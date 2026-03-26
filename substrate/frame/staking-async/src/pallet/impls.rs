@@ -1194,6 +1194,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let oldest_reportable_offence_era = if T::SlashDeferDuration::get() == 0 {
 			// this implies that slashes are applied immediately, so we can accept any offence up to
 			// bonding duration old.
+			// +2 because: saturating_sub(BondingDuration) reduces the range to BondingDuration - 1;
+			// the extra buffer era ensures old offences have time to be cleared out.
 			active_era.index.saturating_sub(T::BondingDuration::get()).saturating_add(2)
 		} else {
 			// slashes are deffered, so we only accept offences that are not older than the

@@ -2147,3 +2147,78 @@ mod paged_slashing {
 		});
 	}
 }
+
+#[test]
+fn old_offences_rejected_with_zero_slash_defer_duration() {
+	// Regression test: with SlashDeferDuration=0, the old formula for oldest_reportable was
+	// `active_era - BondingDuration`, which was too permissive. It accepted offences from more
+	// eras than the OffenceQueueEras bound could hold, causing a defensive_proof failure on
+	// try_insert. The fix narrows the window to `active_era - BondingDuration + 2`.
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		assert_eq!(SlashDeferDuration::get(), 0);
+		assert_eq!(BondingDuration::get(), 3);
+
+		// advance to era 5.
+		Session::roll_until_active_era(5);
+		assert_eq!(active_era(), 5);
+
+		// The old (broken) formula: oldest_reportable = 5 - 3 = 2.
+		// This would accept eras {2, 3, 4, 5} = 4 distinct eras, exceeding the old
+		// OffenceQueueEras bound of BondingDuration (3).
+		let old_oldest_reportable = active_era() - BondingDuration::get();
+		assert_eq!(old_oldest_reportable, 2);
+
+		// The new (fixed) formula: oldest_reportable = 5 - 3 + 2 = 4.
+		let new_oldest_reportable = active_era() - BondingDuration::get() + 2;
+		assert_eq!(new_oldest_reportable, 4);
+
+		// Era 3 would have been accepted by the old formula (3 >= 2) but is now rejected
+		// (3 < 4).
+		let offence_era = 3u32;
+		assert!(offence_era >= old_oldest_reportable, "old formula would have accepted this");
+		assert!(offence_era < new_oldest_reportable, "new formula correctly rejects this");
+
+		// clear events from era transitions.
+		staking_events_since_last_call();
+
+		// WHEN: reporting offence for era 3.
+		add_slash_in_era(11, offence_era, Perbill::from_percent(10));
+
+		// THEN: correctly rejected as too old.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceTooOld {
+				offence_era,
+				validator: 11,
+				fraction: Perbill::from_percent(10),
+			}]
+		);
+
+		// offence is not stored.
+		assert!(OffenceQueue::<Test>::iter_prefix(offence_era).next().is_none());
+		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&offence_era));
+
+		// WHEN: reporting offence for era 4 (within the valid window).
+		add_slash_in_era(21, 4, Perbill::from_percent(10));
+
+		// THEN: offence is accepted.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceReported {
+				offence_era: 4,
+				validator: 21,
+				fraction: Perbill::from_percent(10),
+			}]
+		);
+
+		// AND: computed in the next block.
+		Session::roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SlashComputed { offence_era: 4, slash_era: 4, offender: 21, page: 0 },
+				Event::Slashed { staker: 21, amount: 100 },
+			]
+		);
+	});
+}
