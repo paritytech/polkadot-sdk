@@ -289,12 +289,10 @@ impl Analysis {
 				if slopes.is_empty() {
 					let unique_values = values.iter().map(|(x, _)| x).collect::<std::collections::BTreeSet<_>>().len();
 					panic!(
-						"Benchmark `{}` parameter `{}` only has {} unique value(s) but needs at least 2 to compute a slope. \
+						"Benchmark `{benchmark_name}` parameter `{param_name}` only has \
+						{unique_values} unique value(s) but needs at least 2 to compute a slope. \
 						This can happen when too many benchmark samples are skipped. \
 						Try increasing the number of steps for this parameter or fix the benchmark.",
-						benchmark_name,
-						param_name,
-						unique_values
 					);
 				}
 				slopes.sort_by(|a, b| a.partial_cmp(b).expect("values well defined; qed"));
