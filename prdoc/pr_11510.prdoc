@@ -1,4 +1,4 @@
-title: 'frame-omni-bencher: better diagnostic and no panic on skipped benchmarks'
+title: 'frame-omni-bencher: better diagnostic on insufficient data points'
 doc:
 - audience: Runtime Dev
   description: When a benchmark is run with not enough steps and too many points are
