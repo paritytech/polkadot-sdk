@@ -239,6 +239,7 @@ where
 				&mut relay_chain_data_cache,
 				descendants_start,
 				relay_parent_offset,
+				v3_enabled,
 			)
 			.await
 			else {
@@ -587,6 +588,7 @@ pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
+	v3_enabled: bool,
 ) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
@@ -604,9 +606,6 @@ where
 		return Ok(Some(RelayParentData::new(relay_header)));
 	}
 
-	// Only skip if the RC tip itself is the session change block. Session changes
-	// within the offset window (ancestors) are fine — the scheduling proof header
-	// chain can span across session boundaries.
 	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
 		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "RC tip is a session change block, skipping.");
 		return Ok(None);
@@ -620,6 +619,12 @@ where
 			.await?
 			.relay_parent_header
 			.clone();
+		// When V3 is not enabled, skip if any ancestor in the window has a session change.
+		// With V3 enabled, the scheduling proof header chain can span session boundaries.
+		if !v3_enabled && sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
+			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), ancestor_block_number = next_header.number(), "Ancestor of best block is in previous session.");
+			return Ok(None);
+		}
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}

@@ -49,7 +49,7 @@ async fn offset_test_zero_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0, false).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 0);
@@ -65,7 +65,7 @@ async fn offset_test_two_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2, false).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 2);
@@ -84,7 +84,7 @@ async fn offset_test_five_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5, false).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 5);
@@ -103,10 +103,10 @@ async fn offset_test_too_long() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 200).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 200, false).await;
 	assert!(result.is_err());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101, false).await;
 	assert!(result.is_err());
 }
 
@@ -124,7 +124,8 @@ async fn offset_returns_none_when_rc_tip_has_epoch_change() {
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3).await;
+	// Skips regardless of v3_enabled
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, false).await;
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_none());
 }
@@ -137,15 +138,34 @@ async fn offset_returns_none_when_rc_tip_has_epoch_change() {
 	&[HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No, HasEpochChange::No],
 )]
 #[tokio::test]
-async fn offset_allows_epoch_change_in_ancestors(#[case] flags: &[HasEpochChange]) {
-	// Session changes within the offset window (ancestors) are fine.
+async fn offset_allows_epoch_change_in_ancestors_when_v3(#[case] flags: &[HasEpochChange]) {
+	// With V3 enabled, session changes within the offset window (ancestors) are fine.
 	let (headers, best_hash) = build_headers_with_epoch_flags(flags);
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, true).await;
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_some());
+}
+
+#[rstest]
+#[case::in_first_ancestor(
+	&[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No],
+)]
+#[case::in_second_ancestor(
+	&[HasEpochChange::No, HasEpochChange::Yes, HasEpochChange::No, HasEpochChange::No],
+)]
+#[tokio::test]
+async fn offset_skips_epoch_change_in_ancestors_when_not_v3(#[case] flags: &[HasEpochChange]) {
+	// Without V3, session changes in ancestors still cause a skip.
+	let (headers, best_hash) = build_headers_with_epoch_flags(flags);
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, false).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_none());
 }
 
 #[tokio::test]
