@@ -56,7 +56,9 @@ impl From<Error> for ErrorObject<'static> {
 		let msg = e.to_string();
 
 		match e {
-			Error::InvalidCid(_) => ErrorObject::owned(INVALID_PARAMS, msg, None::<()>),
+			Error::InvalidCid(_) => {
+				ErrorObject::owned(INVALID_PARAMS, msg, Some(ErrorData { variant: "InvalidCid" }))
+			},
 			Error::NotFound => {
 				ErrorObject::owned(FAIL, msg, Some(ErrorData { variant: "NotFound" }))
 			},
