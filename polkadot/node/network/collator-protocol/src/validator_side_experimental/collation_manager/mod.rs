@@ -378,7 +378,7 @@ impl CollationManager {
 				if self.claim_queue_state.claim_pending_slot(
 					&advertisement.scheduling_parent,
 					&para_id,
-					Some(advertisement.candidate_hash()),
+					advertisement.candidate_hash(),
 				) {
 					gum::trace!(
 						target: LOG_TARGET,
@@ -729,12 +729,6 @@ impl CollationManager {
 		.await;
 		let can_second = match fetch_pvd_res {
 			Ok(pvd) => {
-				// Mark this claim with the right candidate hash.
-				self.claim_queue_state.mark_pending_slot_with_candidate(
-					&relay_parent,
-					&para_id,
-					&candidate_hash,
-				);
 				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
 			},
 			Err(error) => match error {
@@ -754,13 +748,6 @@ impl CollationManager {
 							.or_default()
 							.push(fetched_collation);
 					}
-
-					// Mark this claim with the right candidate hash.
-					self.claim_queue_state.mark_pending_slot_with_candidate(
-						&relay_parent,
-						&para_id,
-						&candidate_hash,
-					);
 
 					CanSecond::BlockedOnParent(parent, reject_info)
 				},

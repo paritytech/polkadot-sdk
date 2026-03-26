@@ -15282,6 +15282,7 @@ dependencies = [
  "rstest",
  "sc-keystore",
  "sc-network 0.34.0",
+ "sc-network-types 0.10.0",
  "schnellru",
  "sp-consensus-babe",
  "sp-consensus-slots",

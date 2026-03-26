@@ -29,12 +29,10 @@ pub(crate) use per_leaf::PerLeafClaimQueueState;
 /// Represents the state of a claim.
 #[derive(Debug, PartialEq, Clone)]
 enum ClaimState {
-	/// Unclaimed
+	/// Unclaimed.
 	Free,
-	/// The candidate is pending fetching or validation. The candidate hash is optional because
-	/// collator protocol v1 doesn't care about specific candidate hashes, but only about their
-	/// number.
-	Pending(Option<CandidateHash>),
+	/// The candidate is pending fetching or validation.
+	Pending(CandidateHash),
 	/// The candidate is seconded.
 	Seconded(CandidateHash),
 }
@@ -42,15 +40,15 @@ enum ClaimState {
 impl ClaimState {
 	fn candidate_hash(&self) -> Option<&CandidateHash> {
 		match self {
-			ClaimState::Pending(Some(candidate)) => Some(candidate),
+			ClaimState::Pending(candidate) => Some(candidate),
 			ClaimState::Seconded(candidate) => Some(candidate),
-			_ => None,
+			ClaimState::Free => None,
 		}
 	}
 
 	fn clone_or_default(&self, known_candidates: &HashSet<CandidateHash>) -> Self {
 		match self {
-			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate)
+			ClaimState::Pending(candidate) | ClaimState::Seconded(candidate)
 				if !known_candidates.contains(candidate) =>
 			{
 				ClaimState::Free
@@ -155,8 +153,8 @@ mod test {
 			Self::new(claim_queue_len, ClaimState::Free)
 		}
 
-		pub fn new_pending(claim_queue_len: usize, maybe_candidate: Option<CandidateHash>) -> Self {
-			Self::new(claim_queue_len, ClaimState::Pending(maybe_candidate))
+		pub fn new_pending(claim_queue_len: usize, candidate: CandidateHash) -> Self {
+			Self::new(claim_queue_len, ClaimState::Pending(candidate))
 		}
 
 		pub fn new_seconded(claim_queue_len: usize, candidate: CandidateHash) -> Self {

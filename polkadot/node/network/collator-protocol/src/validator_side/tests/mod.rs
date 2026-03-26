@@ -33,8 +33,7 @@ use self::prospective_parachains::update_view;
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, ProtocolVersion},
 	request_response::{Requests, ResponseSender},
-	ObservedRole,
-	PeerId,
+	ObservedRole, PeerId,
 };
 use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_node_subsystem::messages::{

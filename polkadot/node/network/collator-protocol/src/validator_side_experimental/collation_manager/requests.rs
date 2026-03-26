@@ -96,8 +96,7 @@ impl PendingRequests {
 struct CollationFetchRequest {
 	/// Info about the requested collation.
 	advertisement: Advertisement,
-	/// Responses from collator. We can directly use v2 response because the payloads are identical
-	/// for v1 and v2.
+	/// Responses from collator.
 	from_collator: BoxFuture<'static, OutgoingResult<request_v2::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	cancellation_future: BoxFuture<'static, ()>,

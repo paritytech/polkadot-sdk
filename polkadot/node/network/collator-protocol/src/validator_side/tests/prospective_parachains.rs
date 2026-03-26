@@ -506,8 +506,14 @@ async fn send_collation_and_assert_processing(
 		)))
 		.expect("Sending response should succeed");
 
-	assert_candidate_backing_second(virtual_overseer, relay_parent, relay_parent, expected_para_id, &pov)
-		.await;
+	assert_candidate_backing_second(
+		virtual_overseer,
+		relay_parent,
+		relay_parent,
+		expected_para_id,
+		&pov,
+	)
+	.await;
 
 	let candidate = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
 
@@ -1902,7 +1908,8 @@ fn v3_descriptor(#[case] crafted_unknown: bool) {
 			)
 			.await;
 
-			let mut committed_candidate = dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
+			let mut committed_candidate =
+				dummy_committed_candidate_receipt_v3(head_b_parent, head_b);
 			committed_candidate.descriptor.set_para_id(test_state.chain_ids[0]);
 			committed_candidate
 				.descriptor
@@ -1949,8 +1956,11 @@ fn v3_descriptor(#[case] crafted_unknown: bool) {
 
 			response_channel
 				.send(Ok((
-					request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
-						.encode(),
+					request_v2::CollationFetchingResponse::Collation(
+						candidate.clone(),
+						pov.clone(),
+					)
+					.encode(),
 					ProtocolName::from(""),
 				)))
 				.expect("Sending response should succeed");

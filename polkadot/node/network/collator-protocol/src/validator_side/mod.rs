@@ -1622,8 +1622,8 @@ where
 		&collator_id,
 		scheduling_parent,
 		prospective_candidate,
-		scheduling_parent, // For V1/V2, the relay parent is the same as the scheduling parent
-		None,              // V1/V2 don't have advertised descriptor version
+		scheduling_parent, // For V2, the relay parent is the same as the scheduling parent
+		None,              // V2 doesn't carry an advertised descriptor version
 	) {
 		return Ok(());
 	}
@@ -2618,30 +2618,21 @@ async fn kick_off_seconding<Context>(
 		let ProspectiveCandidate { parent_head_data_hash, .. } =
 			collation_event.pending_collation.prospective_candidate;
 
-		let (maybe_pvd, maybe_parent_head, maybe_parent_head_hash) =
-			match collation_event.collator_protocol_version {
-				CollationVersion::V2 | CollationVersion::V3 => {
-					// PVD includes relay_parent_number and relay_parent_storage_root, so use the
-					// candidate's execution-context relay parent (V3 may differ from scheduling_parent).
-					let pvd = request_prospective_validation_data(
-						ctx.sender(),
-						candidate_receipt.descriptor().relay_parent(),
-						parent_head_data_hash,
-						para_id,
-						maybe_parent_head_data.clone(),
-					)
-					.await?;
+		let maybe_pvd = request_prospective_validation_data(
+			ctx.sender(),
+			candidate_receipt.descriptor().relay_parent(),
+			parent_head_data_hash,
+			para_id,
+			maybe_parent_head_data.clone(),
+		)
+		.await?;
 
-					(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
-				},
-			};
-
-		let pvd = match (maybe_pvd, maybe_parent_head.clone(), maybe_parent_head_hash) {
-			(Some(pvd), _, _) => pvd,
-			(None, None, Some(parent_head_data_hash)) => {
-				// In this case, the collator did not supply the head data and neither could
-				// prospective-parachains. We add this to the blocked_from_seconding collection
-				// until we second its parent.
+		let pvd = match (maybe_pvd, maybe_parent_head_data.as_ref()) {
+			(Some(pvd), _) => pvd,
+			(None, None) => {
+				// The collator did not supply parent head data (`Collation` response) and
+				// prospective-parachains could not derive PVD from the advertised parent head hash
+				// alone. Queue until the parent candidate is seconded.
 				let blocked_collation = PendingCollationFetch {
 					collation_event,
 					candidate_receipt,
@@ -2666,18 +2657,21 @@ async fn kick_off_seconding<Context>(
 
 				return Ok(false);
 			},
-			(None, _, _) => {
-				// Even though we already have the parent head data, the pvd fetching failed. We
-				// don't need to wait for seconding another collation outputting this head data.
+			(None, Some(_)) => {
+				// Parent head data was supplied (`CollationWithParentHeadData`) but PVD could still
+				// not be obtained
 				return Err(SecondingError::PersistedValidationDataNotFound);
 			},
 		};
+
+		let maybe_parent_head_and_hash =
+			maybe_parent_head_data.clone().map(|head| (head, parent_head_data_hash));
 
 		fetched_collation_sanity_check(
 			&collation_event.pending_collation,
 			&candidate_receipt,
 			&pvd,
-			maybe_parent_head.and_then(|head| maybe_parent_head_hash.map(|hash| (head, hash))),
+			maybe_parent_head_and_hash,
 		)?;
 
 		ctx.send_message(CandidateBackingMessage::Second {

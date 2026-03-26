@@ -44,7 +44,7 @@ use std::{
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
-	request_response::{outgoing::RequestError, v1 as request_v1, OutgoingResult},
+	request_response::{outgoing::RequestError, v2 as request_v2, OutgoingResult},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
@@ -396,7 +396,7 @@ pub(super) struct CollationFetchRequest {
 	/// The network protocol version the collator is using.
 	pub collator_protocol_version: CollationVersion,
 	/// Responses from collator.
-	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
+	pub from_collator: BoxFuture<'static, OutgoingResult<request_v2::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	pub cancellation_token: CancellationToken,
 	/// A metric histogram for the lifetime of the request
@@ -406,7 +406,7 @@ pub(super) struct CollationFetchRequest {
 impl Future for CollationFetchRequest {
 	type Output = (
 		CollationEvent,
-		std::result::Result<request_v1::CollationFetchingResponse, CollationFetchError>,
+		std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
 	);
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {

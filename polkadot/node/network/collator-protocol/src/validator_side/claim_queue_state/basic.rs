@@ -389,7 +389,7 @@ impl ClaimQueueState {
 		&mut self,
 		relay_parent: &Hash,
 		para_id: &ParaId,
-		maybe_candidate_hash: Option<CandidateHash>,
+		candidate_hash: CandidateHash,
 	) -> bool {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -398,7 +398,7 @@ impl ClaimQueueState {
 			"claim_at"
 		);
 
-		if self.trace_has_claim(relay_parent, para_id, maybe_candidate_hash.as_ref()) {
+		if self.trace_has_claim(relay_parent, para_id, Some(&candidate_hash)) {
 			return true;
 		}
 		self.find_and_replace_claim(
@@ -406,48 +406,7 @@ impl ClaimQueueState {
 			para_id,
 			&[ClaimState::Free],
 			true,
-			ClaimState::Pending(maybe_candidate_hash),
-		)
-	}
-
-	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
-	/// if the claim was successful. For a v1 advertisement.
-	pub(super) fn claim_pending_at_v1(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			?relay_parent,
-			"claim_at_v1"
-		);
-
-		self.find_and_replace_claim(
-			relay_parent,
-			para_id,
-			&[ClaimState::Free],
-			false,
-			ClaimState::Pending(None),
-		)
-	}
-
-	/// Sets the candidate hash for a pending claim. If no such claim is found - returns false.
-	/// Note that the candidate is set at first available `Pending(None)` claim. Tracking the exact
-	/// candidate order is not required here.
-	pub(crate) fn mark_pending_slot_with_candidate(
-		&mut self,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-		candidate_hash: CandidateHash,
-	) -> bool {
-		if self.trace_has_claim(relay_parent, para_id, Some(&candidate_hash)) {
-			return true;
-		}
-
-		self.find_and_replace_claim(
-			relay_parent,
-			para_id,
-			&[ClaimState::Pending(None)],
-			false,
-			ClaimState::Pending(Some(candidate_hash)),
+			ClaimState::Pending(candidate_hash),
 		)
 	}
 
@@ -471,7 +430,7 @@ impl ClaimQueueState {
 			let claimed = self.find_and_replace_claim(
 				relay_parent,
 				para_id,
-				&[ClaimState::Pending(Some(candidate_hash)), ClaimState::Seconded(candidate_hash)],
+				&[ClaimState::Pending(candidate_hash), ClaimState::Seconded(candidate_hash)],
 				true,
 				ClaimState::Seconded(candidate_hash),
 			);
@@ -559,7 +518,7 @@ impl ClaimQueueState {
 		}
 
 		for claim_info in self.block_state.iter_mut() {
-			if let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed {
+			if let ClaimState::Pending(candidate_hash) = claim_info.claimed {
 				if removed_candidates.contains(&candidate_hash) {
 					claim_info.claimed = ClaimState::Free;
 				}
@@ -589,7 +548,7 @@ impl ClaimQueueState {
 
 		let window = self.get_window_mut(&relay_parent);
 		for w in window {
-			if w.claimed == ClaimState::Pending(Some(*candidate_hash)) ||
+			if w.claimed == ClaimState::Pending(*candidate_hash) ||
 				w.claimed == ClaimState::Seconded(*candidate_hash)
 			{
 				w.claimed = ClaimState::Free;
@@ -662,7 +621,7 @@ mod test {
 		let mut state = ClaimQueueState::new();
 
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 		assert!(state.get_pending_at(&RELAY_PARENT_A).is_empty());
 		assert!(state.is_empty());
 	}
@@ -676,23 +635,23 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_C, &[PARA_3, PARA_1, PARA_2].into());
 		state.add_leaf(&RELAY_PARENT_D, &[PARA_1, PARA_2, PARA_3, PARA_1].into());
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_2, *CANDIDATE_B1));
 		assert!(state.claim_seconded_at(&RELAY_PARENT_B, &PARA_3, *CANDIDATE_B2));
-		assert!(state.claim_pending_at(&RELAY_PARENT_C, &PARA_1, Some(*CANDIDATE_C1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_C, &PARA_2, Some(*CANDIDATE_C2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_C, &PARA_1, *CANDIDATE_C1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_C, &PARA_2, *CANDIDATE_C2));
 		assert!(state.claim_seconded_at(&RELAY_PARENT_D, &PARA_3, *CANDIDATE_D1));
 
 		let expected_block_state = [
-			ClaimInfo::new_pending(2, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
-			ClaimInfo::new_pending(2, Some(*CANDIDATE_B1)).with(*RELAY_PARENT_B, PARA_2),
+			ClaimInfo::new_pending(2, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
+			ClaimInfo::new_pending(2, *CANDIDATE_B1).with(*RELAY_PARENT_B, PARA_2),
 			ClaimInfo::new_seconded(3, *CANDIDATE_B2).with(*RELAY_PARENT_C, PARA_3),
-			ClaimInfo::new_pending(4, Some(*CANDIDATE_C1)).with(*RELAY_PARENT_D, PARA_1),
+			ClaimInfo::new_pending(4, *CANDIDATE_C1).with(*RELAY_PARENT_D, PARA_1),
 		];
 		assert_eq!(state.block_state.make_contiguous(), expected_block_state,);
 
 		let expected_future_blocks = [
-			ClaimInfo::new_pending(1, Some(*CANDIDATE_C2)).with_claim(PARA_2),
+			ClaimInfo::new_pending(1, *CANDIDATE_C2).with_claim(PARA_2),
 			ClaimInfo::new_seconded(1, *CANDIDATE_D1).with_claim(PARA_3),
 			ClaimInfo::new_free(1).with_claim(PARA_1),
 		];
@@ -736,7 +695,7 @@ mod test {
 		assert_eq!(
 			fork.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_C1)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_C1).with_claim(PARA_1),
 				expected_future_blocks[0].clone()
 			])
 		);
@@ -810,10 +769,10 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue);
 
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 		// Claiming the same slot again should return true
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
 		assert!(state.claim_seconded_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
@@ -832,17 +791,17 @@ mod test {
 
 		// add one claim for a
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 
 		// and one for b
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_B1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_B1));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_B1)).with(*RELAY_PARENT_B, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_B1).with(*RELAY_PARENT_B, PARA_1),
 			])
 		);
 		assert_eq!(
@@ -869,20 +828,20 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue);
 
 		// add two claims, 2nd should be transferred to a new leaf
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 				ClaimInfo::new_free(1).with_claim(PARA_1),
 			])
 		);
@@ -892,19 +851,19 @@ mod test {
 		);
 
 		// one more
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A3));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A3)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A3).with_claim(PARA_1),
 			])
 		);
 		assert_eq!(
@@ -926,21 +885,21 @@ mod test {
 
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue);
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A3));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A3)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A3).with_claim(PARA_1),
 			])
 		);
 		assert_eq!(
@@ -960,14 +919,14 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A2)).with(*RELAY_PARENT_B, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A2).with(*RELAY_PARENT_B, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A3)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A3).with_claim(PARA_1),
 				ClaimInfo::new_free(1).with_claim(PARA_1),
 			])
 		);
@@ -976,20 +935,20 @@ mod test {
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A4)));
 
 		// but can accept for b
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A4)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_A4));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A2)).with(*RELAY_PARENT_B, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A2).with(*RELAY_PARENT_B, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A3)).with_claim(PARA_1),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A4)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A3).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A4).with_claim(PARA_1),
 			])
 		);
 		assert_eq!(
@@ -1024,7 +983,7 @@ mod test {
 		assert!(state.candidates_per_rp.is_empty());
 
 		// claim a candidate
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 
 		// we should still be able to claim candidates for both paras
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
@@ -1033,7 +992,7 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
@@ -1049,7 +1008,7 @@ mod test {
 		);
 
 		// another claim for a
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
 
 		// no more claims for a, but should be able to claim for b
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3)));
@@ -1058,14 +1017,14 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
 				ClaimInfo::new_free(1).with_claim(PARA_2),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 			])
 		);
 		assert_eq!(
@@ -1074,7 +1033,7 @@ mod test {
 		);
 
 		// another claim for b
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, *CANDIDATE_B1));
 
 		// no more claims neither for a nor for b
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3)));
@@ -1083,14 +1042,14 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_B1)).with_claim(PARA_2),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_B1).with_claim(PARA_2),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 			])
 		);
 		assert_eq!(
@@ -1109,21 +1068,21 @@ mod test {
 
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue_a);
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, *CANDIDATE_B1));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_B1)).with_claim(PARA_2),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_B1).with_claim(PARA_2),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 			])
 		);
 		assert_eq!(
@@ -1142,7 +1101,7 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 				ClaimInfo::new_free(3).with(*RELAY_PARENT_B, PARA_1),
 			])
 		);
@@ -1151,7 +1110,7 @@ mod test {
 			// since the 3rd slot of the claim queue at rp1 is equal to the second one in rp2,
 			// this claim still exists
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 				ClaimInfo::new_free(1).with_claim(PARA_1),
 			])
 		);
@@ -1171,21 +1130,21 @@ mod test {
 		let claim_queue_a = VecDeque::from([PARA_1, PARA_2, PARA_2]);
 
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue_a);
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, Some(*CANDIDATE_B1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, Some(*CANDIDATE_B2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, *CANDIDATE_B1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, *CANDIDATE_B2));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_B1)).with_claim(PARA_2),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_B2)).with_claim(PARA_2),
+				ClaimInfo::new_pending(1, *CANDIDATE_B1).with_claim(PARA_2),
+				ClaimInfo::new_pending(1, *CANDIDATE_B2).with_claim(PARA_2),
 			])
 		);
 		assert_eq!(
@@ -1204,7 +1163,7 @@ mod test {
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 				ClaimInfo::new_free(3).with(*RELAY_PARENT_B, PARA_1)
 			])
 		);
@@ -1234,8 +1193,8 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue);
 
 		// add one claim per leaf
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_A2));
 
 		state.remove_pruned_ancestors(&HashSet::from([*RELAY_PARENT_A]));
 
@@ -1257,8 +1216,8 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue);
 
 		// add one claim per leaf
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_A2));
 
 		state.remove_pruned_ancestors(&HashSet::from([*RELAY_PARENT_B]));
 
@@ -1279,11 +1238,11 @@ mod test {
 		let claim_queue = VecDeque::from([PARA_1, PARA_1, PARA_1]);
 
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue);
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue);
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_A2));
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue);
-		assert!(state.claim_pending_at(&RELAY_PARENT_C, &PARA_1, Some(*CANDIDATE_A3)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_C, &PARA_1, *CANDIDATE_A3));
 
 		state.remove_pruned_ancestors(&HashSet::from([*RELAY_PARENT_A, *RELAY_PARENT_B]));
 
@@ -1312,7 +1271,7 @@ mod test {
 		assert!(state.future_blocks.is_empty());
 
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 
 		let claim_queue_b = VecDeque::from([PARA_1]);
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue_b);
@@ -1328,10 +1287,10 @@ mod test {
 		assert!(state.future_blocks.is_empty());
 
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
-		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
 
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A2)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_A2));
 
 		let claim_queue_c = VecDeque::from([PARA_1, PARA_1]);
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue_c);
@@ -1340,7 +1299,7 @@ mod test {
 			state.block_state,
 			VecDeque::from([
 				ClaimInfo::new_free(0).with_hash(*RELAY_PARENT_A),
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with(*RELAY_PARENT_B, PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with(*RELAY_PARENT_B, PARA_1),
 				ClaimInfo::new_free(2).with(*RELAY_PARENT_C, PARA_1),
 			])
 		);
@@ -1351,11 +1310,11 @@ mod test {
 		);
 
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3)));
-		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3)));
+		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A3));
 
 		// already claimed
 		assert!(!state.has_or_can_claim_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A3)));
-		assert!(!state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A3)));
+		assert!(!state.claim_pending_at(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_A3));
 
 		assert!(state.has_or_can_claim_at(&RELAY_PARENT_C, &PARA_1, Some(*CANDIDATE_A3)));
 	}
@@ -1443,19 +1402,19 @@ mod test {
 
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue);
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
 
 		assert_eq!(
 			state.block_state,
 			VecDeque::from([
-				ClaimInfo::new_pending(3, Some(*CANDIDATE_A1)).with(*RELAY_PARENT_A, PARA_1),
+				ClaimInfo::new_pending(3, *CANDIDATE_A1).with(*RELAY_PARENT_A, PARA_1),
 			])
 		);
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 				ClaimInfo::new_free(1).with_claim(PARA_1)
 			])
 		);
@@ -1473,7 +1432,7 @@ mod test {
 		assert_eq!(
 			state.future_blocks,
 			VecDeque::from([
-				ClaimInfo::new_pending(1, Some(*CANDIDATE_A2)).with_claim(PARA_1),
+				ClaimInfo::new_pending(1, *CANDIDATE_A2).with_claim(PARA_1),
 				ClaimInfo::new_free(1).with_claim(PARA_1)
 			])
 		);
@@ -1491,8 +1450,8 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_A, &claim_queue);
 
 		assert!(state.claim_seconded_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(!state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
 
 		assert_eq!(
 			state.block_state,
@@ -1512,13 +1471,13 @@ mod test {
 
 		assert!(state.get_pending_at(&RELAY_PARENT_A).is_empty());
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 		assert_eq!(state.get_pending_at(&RELAY_PARENT_A), [PARA_1]);
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A2));
 		assert_eq!(state.get_pending_at(&RELAY_PARENT_A), [PARA_1, PARA_1]);
 
-		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_at(&RELAY_PARENT_A, &PARA_2, *CANDIDATE_B1));
 		assert_eq!(state.get_pending_at(&RELAY_PARENT_A), [PARA_1, PARA_2, PARA_1]);
 
 		let claim_queue = VecDeque::from([PARA_2, PARA_1, PARA_2]);

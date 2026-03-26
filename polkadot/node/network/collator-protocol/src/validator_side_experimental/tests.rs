@@ -32,7 +32,7 @@ use futures::channel::mpsc::UnboundedReceiver;
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
-		outgoing::RequestError, v1::CollationFetchingResponse, Recipient, Requests, ResponseSender,
+		outgoing::RequestError, v2::CollationFetchingResponse, Recipient, Requests, ResponseSender,
 	},
 	OurView,
 };
@@ -50,16 +50,15 @@ use polkadot_primitives::{
 	ApprovedPeerId, BlockNumber, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupRotationInfo, Hash,
 	HeadData, Header, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
-	SigningContext, UMPSignal, ValidatorId, ValidatorIndex,
-	UMP_SEPARATOR,
+	SigningContext, UMPSignal, ValidatorId, ValidatorIndex, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_commitments, dummy_committed_candidate_receipt,
 	dummy_committed_candidate_receipt_v2, make_valid_candidate_descriptor_v2,
 };
 use sc_network::{OutboundFailure, RequestFailure};
-use sp_keyring::Sr25519Keyring;
 use sc_network_types::multihash::Multihash;
+use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},

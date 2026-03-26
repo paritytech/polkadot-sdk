@@ -130,48 +130,16 @@ impl PerLeafClaimQueueState {
 		&mut self,
 		relay_parent: &Hash,
 		para_id: &ParaId,
-		candidate_hash: Option<CandidateHash>,
+		candidate_hash: CandidateHash,
 	) -> bool {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
-			let claimed = if candidate_hash.is_none() {
-				// special treatment -  we can't claim a future slot for v1 candidates
-				state.claim_pending_at_v1(relay_parent, para_id)
-			} else {
-				state.claim_pending_at(relay_parent, para_id, candidate_hash)
-			};
+			let claimed = state.claim_pending_at(relay_parent, para_id, candidate_hash);
 
 			if claimed {
 				result = true;
 			}
 
-			gum::trace!(
-				target: LOG_TARGET,
-				?leaf,
-				?para_id,
-				?relay_parent,
-				maybe_candidate_hash = ?candidate_hash,
-				result,
-				"claim_pending_slot"
-			);
-		}
-		result
-	}
-
-	/// Sets the candidate hash for a pending claim at all leaves. If no such claim is found -
-	/// returns false. Note that the candidate is set at first available `Pending(None)` claim at
-	/// each leaf. Tracking the exact candidate order is not required here.
-	pub fn mark_pending_slot_with_candidate(
-		&mut self,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-		candidate_hash: &CandidateHash,
-	) -> bool {
-		let mut result = false;
-		for (leaf, state) in &mut self.leaves {
-			if state.mark_pending_slot_with_candidate(relay_parent, para_id, *candidate_hash) {
-				result = true;
-			}
 			gum::trace!(
 				target: LOG_TARGET,
 				?leaf,
@@ -310,8 +278,8 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
-		assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_B1)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_1, *CANDIDATE_B1));
 		assert!(!state.has_free_slot_at_leaf_for(
 			&RELAY_PARENT_B,
 			&RELAY_PARENT_A,
@@ -337,7 +305,7 @@ mod test {
 		state.add_leaf(&RELAY_PARENT_B, &claim_queue, Some(&RELAY_PARENT_A));
 		state.add_leaf(&RELAY_PARENT_C, &claim_queue, Some(&RELAY_PARENT_A));
 
-		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1)));
+		assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, *CANDIDATE_A1));
 
 		// CQ is of size 1. We have claimed one slot at A, so there should be one free slot at
 		// each leaf.
