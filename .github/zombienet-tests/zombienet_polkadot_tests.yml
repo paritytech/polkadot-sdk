@@ -114,7 +114,6 @@
   runner-type: "default"
 
 
-# SDK tests using zombienet-sdk
 # TODO: Disabled
 - job-name: "zombienet-polkadot-coretime-revenue"
   test-filter: "smoke::coretime_revenue::coretime_revenue_test"
@@ -126,7 +125,6 @@
   runner-type: "large"
   cumulus-image: "test-parachain"
 
-# TODO: Disabled, fails very often with zombienet native provider
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
   test-filter: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
   runner-type: "default"
