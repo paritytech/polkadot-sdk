@@ -954,6 +954,8 @@ where
 		transaction_meter: &'a mut TransactionMeter<T>,
 		value: BalanceOf<T>,
 		exec_config: &'a ExecConfig<T>,
+		read_only: bool,
+		delegate_call: bool,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -969,32 +971,18 @@ where
 		)
 		.unwrap()
 		.unwrap();
-		(call.0, call.1.into_executable().unwrap())
-	}
-
-	/// Set the read-only flag on the current (top) frame.
-	///
-	/// This is useful for testing pre-compiles that guard against state changes
-	/// in read-only contexts.
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	pub fn set_read_only(&mut self, read_only: bool) {
-		self.top_frame_mut().read_only = read_only;
-	}
-
-	/// Mark the current (top) frame as a delegate call.
-	///
-	/// This is useful for testing pre-compiles that reject delegate calls.
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	pub fn set_delegate_call(&mut self, delegate: bool) {
-		let frame = self.top_frame_mut();
-		if delegate {
+		let mut stack = call.0;
+		if read_only {
+			stack.top_frame_mut().read_only = true;
+		}
+		if delegate_call {
+			let frame = stack.top_frame_mut();
 			frame.delegate = Some(DelegateInfo {
 				caller: Origin::from_account_id(frame.account_id.clone()),
 				callee: H160::zero(),
 			});
-		} else {
-			frame.delegate = None;
 		}
+		(stack, call.1.into_executable().unwrap())
 	}
 
 	/// Create a new call stack.

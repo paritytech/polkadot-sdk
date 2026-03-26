@@ -50,16 +50,16 @@ fn call_vesting(input: &IVesting::IVestingCalls) -> Result<alloc::vec::Vec<u8>, 
 /// Helper: call the precompile in read-only mode.
 fn call_vesting_read_only(input: &IVesting::IVestingCalls) -> Result<alloc::vec::Vec<u8>, Error> {
 	let mut call_setup = pallet_revive::call_builder::CallSetup::<Test>::default();
+	call_setup.set_read_only(true);
 	let (mut ext, _) = call_setup.ext();
-	ext.set_read_only(true);
 	Vesting::<Test>::call(&precompile_address(), input, &mut ext)
 }
 
 /// Helper: call the precompile in delegate-call mode.
 fn call_vesting_delegate(input: &IVesting::IVestingCalls) -> Result<alloc::vec::Vec<u8>, Error> {
 	let mut call_setup = pallet_revive::call_builder::CallSetup::<Test>::default();
+	call_setup.set_delegate_call(true);
 	let (mut ext, _) = call_setup.ext();
-	ext.set_delegate_call(true);
 	Vesting::<Test>::call(&precompile_address(), input, &mut ext)
 }
 
