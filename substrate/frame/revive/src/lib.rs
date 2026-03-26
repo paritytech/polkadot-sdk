@@ -73,8 +73,7 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	storage::with_transaction,
 	traits::{
-		ConstBool, ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced,
-		OriginTrait,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
 		fungible::{Balanced, Credit, Inspect, Mutate, MutateHold},
 		tokens::Balance,
 	},
@@ -457,11 +456,6 @@ pub mod pallet {
 			type OnBurn = ();
 		}
 	}
-
-	/// Debug mode flag controlled by the `debug` Cargo feature.
-	/// Enable with `--features pallet-revive/debug` when building a runtime
-	/// that depends on pallet-revive directly.
-	pub type DebugIsEnabled = ConstBool<{ cfg!(feature = "debug") }>;
 
 	#[pallet::event]
 	pub enum Event<T: Config> {

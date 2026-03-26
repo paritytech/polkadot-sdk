@@ -75,5 +75,4 @@ try-runtime = [
 experimental = [
 	"pallet-example-tasks/experimental",
 ]
-debug = ["polkadot-sdk/debug"]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
