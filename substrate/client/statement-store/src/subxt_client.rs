@@ -37,7 +37,7 @@ use subxt::{
 		TransactionExtensions,
 	},
 	dynamic::Value,
-	ext::{frame_decode, scale_value::value},
+	ext::frame_decode,
 	transactions::Signer,
 	utils::H256,
 	OnlineClient,
@@ -195,26 +195,8 @@ impl Config for CustomConfig {
 	}
 }
 
-/// Creates a sudo -> frame_system::set_storage call to set statement allowances
-pub fn create_set_storage_call(
-	items: Vec<(Vec<u8>, Vec<u8>)>,
-) -> subxt::transactions::DynamicPayload<Vec<Value>> {
-	let items_value: Vec<Value> = items
-		.into_iter()
-		.map(|(key, value)| value!((Value::from_bytes(key), Value::from_bytes(value))))
-		.collect();
-
-	subxt::transactions::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			System(set_storage { items: items_value })
-		}],
-	)
-}
-
 /// Builds params for CustomConfig's transaction extensions (9 defaults + RestrictOrigins)
-pub fn build_params(
+fn build_params(
 	nonce: u64,
 ) -> <<CustomConfig as Config>::TransactionExtensions as TransactionExtensions<CustomConfig>>::Params
 {
@@ -253,19 +235,3 @@ pub async fn get_account_nonce(
 	Ok(nonce)
 }
 
-/// Sets statement allowances via sudo -> frame_system::set_storage extrinsic
-pub async fn set_allowances_via_sudo(
-	para_client: &OnlineClient<CustomConfig>,
-	items: Vec<(Vec<u8>, Vec<u8>)>,
-) -> Result<(), anyhow::Error> {
-	let alice = subxt_signer::sr25519::dev::alice();
-	let alice_account_id =
-		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
-
-	let current_nonce = get_account_nonce(para_client, &alice_account_id).await?;
-	let set_storage_call = create_set_storage_call(items);
-
-	submit_extrinsic(para_client, &set_storage_call, &alice, current_nonce).await?;
-
-	Ok(())
-}

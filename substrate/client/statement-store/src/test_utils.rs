@@ -27,18 +27,6 @@ pub fn get_keypair(idx: u32) -> sr25519::Pair {
 		.expect("Derivation path is always valid; qed")
 }
 
-/// Creates storage items for custom per-participant allowances
-pub fn create_allowance_items(allowances: &[(u32, StatementAllowance)]) -> Vec<(Vec<u8>, Vec<u8>)> {
-	let mut items = Vec::with_capacity(allowances.len());
-	for (idx, allowance) in allowances {
-		let keypair = get_keypair(*idx);
-		let account_id = keypair.public();
-		let storage_key = statement_allowance_key(account_id.0);
-		items.push((storage_key.to_vec(), allowance.encode()));
-	}
-	items
-}
-
 /// Creates uniform allowance storage items for a range of participants
 pub fn create_uniform_allowance_items(
 	count: u32,
