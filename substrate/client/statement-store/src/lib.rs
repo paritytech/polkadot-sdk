@@ -167,24 +167,55 @@ impl StatementsForAccount {
 	}
 }
 
-/// Store configuration
-pub struct Options {
-	/// Maximum statement allowed in the store. Once this limit is reached lower-priority
+/// Default number of concurrent workers for statement validation.
+pub const DEFAULT_NETWORK_WORKERS: usize = 1;
+
+/// Default maximum statements per second per peer before rate limiting kicks in.
+pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
+
+/// Statement store and network handler configuration.
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+	/// Maximum statements allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
-	max_total_statements: usize,
+	pub max_total_statements: usize,
 	/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
-	max_total_size: usize,
+	pub max_total_size: usize,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
-	purge_after_sec: u64,
+	pub purge_after_sec: u64,
+	/// Number of concurrent workers for statement validation from the network.
+	pub network_workers: usize,
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	pub rate_limit: u32,
 }
 
-impl Default for Options {
+impl Config {
+	/// Validate the configuration, returning an error if any values are invalid.
+	pub fn validate(&self) -> Result<()> {
+		if self.max_total_statements == 0 {
+			return Err(Error::InvalidConfig(
+				"max_total_statements must be greater than zero".into(),
+			));
+		}
+		if self.max_total_size == 0 {
+			return Err(Error::InvalidConfig("max_total_size must be greater than zero".into()));
+		}
+		if self.network_workers == 0 {
+			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
+		}
+		Ok(())
+	}
+}
+
+impl Default for Config {
 	fn default() -> Self {
-		Options {
+		Config {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
+			network_workers: DEFAULT_NETWORK_WORKERS,
+			rate_limit: DEFAULT_RATE_LIMIT,
 		}
 	}
 }
@@ -199,7 +230,7 @@ struct Index {
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
-	options: Options,
+	config: Config,
 	total_size: usize,
 }
 
@@ -258,8 +289,8 @@ enum IndexQuery {
 }
 
 impl Index {
-	fn new(options: Options) -> Index {
-		Index { options, ..Default::default() }
+	fn new(config: Config) -> Index {
+		Index { config, ..Default::default() }
 	}
 
 	fn insert_new(
@@ -418,7 +449,7 @@ impl Index {
 		// Purge previously expired messages.
 		let mut purged = Vec::new();
 		self.expired.retain(|hash, timestamp| {
-			if *timestamp + self.options.purge_after_sec <= current_time {
+			if *timestamp + self.config.purge_after_sec <= current_time {
 				purged.push(*hash);
 				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
 				false
@@ -576,8 +607,8 @@ impl Index {
 			}
 		}
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
+		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
+			self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -602,7 +633,7 @@ impl Store {
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
 	pub fn new_shared<Block, Client, BE>(
 		path: &std::path::Path,
-		options: Options,
+		config: Config,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -615,7 +646,7 @@ impl Store {
 		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let store =
-			Arc::new(Self::new(path, options, client, keystore, prometheus, task_spawner.clone())?);
+			Arc::new(Self::new(path, config, client, keystore, prometheus, task_spawner.clone())?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -642,7 +673,7 @@ impl Store {
 	#[doc(hidden)]
 	pub fn new<Block, Client, BE>(
 		path: &std::path::Path,
-		options: Options,
+		config: Config,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -654,16 +685,18 @@ impl Store {
 		BE: Backend<Block> + 'static,
 		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
+		config.validate()?;
+
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
 
-		let mut config = parity_db::Options::with_columns(&path, col::COUNT);
+		let mut db_config = parity_db::Options::with_columns(&path, col::COUNT);
 
-		let statement_col = &mut config.columns[col::STATEMENTS as usize];
+		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
 		statement_col.ref_counted = false;
 		statement_col.preimage = true;
 		statement_col.uniform = true;
-		let db = parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?;
+		let db = parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))?;
 		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
 			Some(version) => {
 				let version = u32::from_le_bytes(
@@ -694,7 +727,7 @@ impl Store {
 
 		let store = Store {
 			db,
-			index: RwLock::new(Index::new(options)),
+			index: RwLock::new(Index::new(config)),
 			read_allowance_fn,
 			keystore,
 			time_override: None,
@@ -987,8 +1020,8 @@ impl Store {
 				index.expired.len(),
 				index.total_size,
 				index.accounts.len(),
-				index.options.max_total_statements,
-				index.options.max_total_size,
+				index.config.max_total_statements,
+				index.config.max_total_size,
 			)
 		};
 		let deleted: Vec<_> =
@@ -1861,7 +1894,7 @@ mod tests {
 	fn constraints() {
 		let (store, _temp) = test_store();
 
-		store.index.write().options.max_total_size = 3000;
+		store.index.write().config.max_total_size = 3000;
 		let source = StatementSource::Network;
 		let ok = SubmitResult::New;
 
@@ -1916,7 +1949,7 @@ mod tests {
 			SubmitResult::Rejected(_)
 		));
 		// Should be over the global count limit
-		store.index.write().options.max_total_statements = 4;
+		store.index.write().config.max_total_statements = 4;
 		assert!(matches!(
 			store.submit(statement(1, 1, None, 100), source),
 			SubmitResult::Rejected(_)
@@ -1938,7 +1971,7 @@ mod tests {
 	#[test]
 	fn max_statement_size_for_gossiping() {
 		let (store, _temp) = test_store();
-		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+		store.index.write().config.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
 
 		assert_eq!(
 			store.submit(
@@ -2311,7 +2344,7 @@ mod tests {
 		store.remove_by(account(4)).expect("second remove_by should be a no-op");
 
 		// --- Purge: advance time beyond TTL and run maintenance; expired entries disappear.
-		let purge_after = store.index.read().options.purge_after_sec;
+		let purge_after = store.index.read().config.purge_after_sec;
 		store.set_time(purge_after + 1);
 		store.maintain();
 		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
