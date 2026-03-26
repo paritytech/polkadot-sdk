@@ -2150,10 +2150,10 @@ mod paged_slashing {
 
 #[test]
 fn old_offences_rejected_with_zero_slash_defer_duration() {
-	// Regression test: with SlashDeferDuration=0, the old formula for oldest_reportable was
-	// `active_era - BondingDuration`, which was too permissive. It accepted offences from more
-	// eras than the OffenceQueueEras bound could hold, causing a defensive_proof failure on
-	// try_insert. The fix narrows the window to `active_era - BondingDuration + 2`.
+	// Regression test: with SlashDeferDuration=0, the previous formula
+	// `oldest_reportable = active_era - BondingDuration` would have accepted era 3 here,
+	// which would cause OffenceQueueEras to go out of sync with OffenceQueue. The fix
+	// narrows the window to `active_era - BondingDuration + 2`.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		assert_eq!(SlashDeferDuration::get(), 0);
 		assert_eq!(BondingDuration::get(), 3);
@@ -2162,26 +2162,12 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 		Session::roll_until_active_era(5);
 		assert_eq!(active_era(), 5);
 
-		// The old (broken) formula: oldest_reportable = 5 - 3 = 2.
-		// This would accept eras {2, 3, 4, 5} = 4 distinct eras, exceeding the old
-		// OffenceQueueEras bound of BondingDuration (3).
-		let old_oldest_reportable = active_era() - BondingDuration::get();
-		assert_eq!(old_oldest_reportable, 2);
-
-		// The new (fixed) formula: oldest_reportable = 5 - 3 + 2 = 4.
-		let new_oldest_reportable = active_era() - BondingDuration::get() + 2;
-		assert_eq!(new_oldest_reportable, 4);
-
-		// Era 3 would have been accepted by the old formula (3 >= 2) but is now rejected
-		// (3 < 4).
-		let offence_era = 3u32;
-		assert!(offence_era >= old_oldest_reportable, "old formula would have accepted this");
-		assert!(offence_era < new_oldest_reportable, "new formula correctly rejects this");
-
 		// clear events from era transitions.
 		staking_events_since_last_call();
 
-		// WHEN: reporting offence for era 3.
+		let offence_era = 3u32;
+
+		// WHEN: reporting offence for era 3 (outside the valid window).
 		add_slash_in_era(11, offence_era, Perbill::from_percent(10));
 
 		// THEN: correctly rejected as too old.
@@ -2194,14 +2180,14 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 			}]
 		);
 
-		// offence is not stored.
+		// OffenceQueue and OffenceQueueEras remain consistent: no orphaned records.
 		assert!(OffenceQueue::<Test>::iter_prefix(offence_era).next().is_none());
 		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&offence_era));
 
 		// WHEN: reporting offence for era 4 (within the valid window).
 		add_slash_in_era(21, 4, Perbill::from_percent(10));
 
-		// THEN: offence is accepted.
+		// THEN: offence is accepted and stored consistently.
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![Event::OffenceReported {
@@ -2210,6 +2196,11 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 				fraction: Perbill::from_percent(10),
 			}]
 		);
+
+		// OffenceQueue has the record for era 4.
+		assert!(OffenceQueue::<Test>::iter_prefix(4).next().is_some());
+		// OffenceQueueEras tracks era 4.
+		assert!(OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
 
 		// AND: computed in the next block.
 		Session::roll_next();
@@ -2220,5 +2211,9 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 				Event::Slashed { staker: 21, amount: 100 },
 			]
 		);
+
+		// After processing, both storages are cleaned up consistently.
+		assert!(OffenceQueue::<Test>::iter_prefix(4).next().is_none());
+		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
 	});
 }

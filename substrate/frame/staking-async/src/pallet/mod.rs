@@ -584,12 +584,14 @@ pub mod pallet {
 	}
 
 	const OFFENCE_QUEUE_ERAS_BOUND: u32 = 10;
-	/// Custom bound for [`OffenceQueueEras`] which is equal to `Config::BondingDuration + OFFENCE_QUEUE_ERAS_BOUND`.
+	/// Custom bound for [`OffenceQueueEras`] which is equal to `Config::BondingDuration +
+	/// OFFENCE_QUEUE_ERAS_BOUND`.
 	pub struct OffenceQueueErasBound<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<u32> for OffenceQueueErasBound<T> {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
-			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding 10 eras so the system has time to process offences
+			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding 10 eras so the system has
+			                                                 // time to process offences
 		}
 	}
 
