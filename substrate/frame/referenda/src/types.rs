@@ -381,6 +381,21 @@ impl<
 			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),
 		}
 	}
+
+	/// Take the Submission Deposit from `self` to have it slashed, if there is one and it's in a
+	/// valid state to be taken. Returns an `Err` if `self` is not in a valid state for the
+	/// Submission Deposit to be slashed.
+	pub fn take_slash_submission_deposit(
+		&mut self,
+	) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
+		use ReferendumInfo::*;
+		match self {
+			// Can only slash deposit if it's rejected or timed out.
+			Rejected(_, s, _) | TimedOut(_, s, _) => Ok(s.take()),
+			// Cannot slash deposit if Ongoing as this breaks assumptions.
+			Ongoing(..) | Approved(..) | Cancelled(..) | Killed(..) => Err(()),
+		}
+	}
 }
 
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented

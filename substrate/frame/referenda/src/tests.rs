@@ -500,6 +500,64 @@ fn refund_submission_deposit_works() {
 }
 
 #[test]
+fn slash_submission_deposit_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// slash of non-existing referendum fails.
+		let e = Error::<Test>::BadReferendum;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(1), 0), e);
+		// create a referendum.
+		let h = set_balance_proposal_bounded(1);
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h.clone(),
+			DispatchTime::At(10),
+		));
+		// slash of an ongoing referendum fails.
+		let e = Error::<Test>::BadStatus;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 0), e);
+		// cancel referendum.
+		assert_ok!(Referenda::cancel(RuntimeOrigin::signed(4), 0));
+		// slash of cancelled referendum fails (should use refund instead).
+		let e = Error::<Test>::BadStatus;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 0), e);
+
+		// create another referendum that will be rejected.
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h.clone(),
+			DispatchTime::At(30),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 1));
+		// Let it run until rejected (failing state, past decision period).
+		// Track 0 has prepare_period=4 and decision_period=4, so 1 + 4 + 4 = 9
+		run_to(9);
+		assert_eq!(rejected_since(1), 9);
+
+		// Now slashing should work.
+		assert_ok!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 1));
+		// fails if already slashed.
+		let e = Error::<Test>::NoDeposit;
+		assert_noop!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(2), 1), e);
+
+		// Also test with timed out referendum.
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			h,
+			DispatchTime::At(50),
+		));
+		// Don't place decision deposit, let it time out (UndecidingTimeout = 20).
+		// Submitted at block 9, so times out at 9 + 20 = 29.
+		run_to(29);
+		assert_eq!(timed_out_since(2), 29);
+		// Slashing timed out referendum works.
+		assert_ok!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 2));
+	});
+}
+
+#[test]
 fn cancel_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let h = set_balance_proposal_bounded(1);

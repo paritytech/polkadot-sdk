@@ -306,6 +306,22 @@ benchmarks_instance_pallet! {
 		assert!(T::SubmissionDeposit::get().is_zero() || new_balance > balance);
 	}
 
+	slash_submission_deposit {
+		let origin =
+			T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into()).map_err(|_| BenchmarkError::Weightless)?;
+		let index = create_referendum::<T, I>(origin.clone());
+		place_deposit::<T, I>(index);
+		skip_prepare_period::<T, I>(index);
+		make_failing::<T, I>(index);
+		nudge::<T, I>(index);
+		skip_decision_period::<T, I>(index);
+		nudge::<T, I>(index);
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Rejected(_, Some(_), _)));
+	}: _<T::RuntimeOrigin>(origin, index)
+	verify {
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Rejected(_, None, _)));
+	}
+
 	cancel {
 		let origin = T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into())
 			.expect("SubmitOrigin has no successful origin required for the benchmark");

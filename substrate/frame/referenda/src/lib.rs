@@ -718,6 +718,31 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Slash the Submission Deposit for a closed referendum.
+		///
+		/// - `origin`: must be `Signed` or `Root`.
+		/// - `index`: The index of a closed referendum whose Submission Deposit has not yet been
+		///   slashed.
+		///
+		/// Emits `DepositSlashed`.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::slash_submission_deposit())]
+		pub fn slash_submission_deposit(
+			origin: OriginFor<T>,
+			index: ReferendumIndex,
+		) -> DispatchResult {
+			ensure_signed_or_root(origin)?;
+			let mut info =
+				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
+			let deposit = info
+				.take_slash_submission_deposit()
+				.map_err(|_| Error::<T, I>::BadStatus)?
+				.ok_or(Error::<T, I>::NoDeposit)?;
+			Self::slash_deposit(Some(deposit));
+			ReferendumInfoFor::<T, I>::insert(index, info);
+			Ok(())
+		}
+
 		/// Set or clear metadata of a referendum.
 		///
 		/// Parameters:

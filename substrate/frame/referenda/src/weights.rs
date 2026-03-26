@@ -80,6 +80,7 @@ pub trait WeightInfo {
 	fn place_decision_deposit_failing() -> Weight;
 	fn refund_decision_deposit() -> Weight;
 	fn refund_submission_deposit() -> Weight;
+	fn slash_submission_deposit() -> Weight;
 	fn cancel() -> Weight;
 	fn kill() -> Weight;
 	fn one_fewer_deciding_queue_empty() -> Weight;
@@ -235,6 +236,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
 	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
 	fn refund_submission_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `161`
+		//  Estimated: `3831`
+		// Minimum execution time: 24_799_000 picoseconds.
+		Weight::from_parts(25_604_000, 3831)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
+	fn slash_submission_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `161`
 		//  Estimated: `3831`
@@ -719,6 +731,17 @@ impl WeightInfo for () {
 	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
 	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
 	fn refund_submission_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `161`
+		//  Estimated: `3831`
+		// Minimum execution time: 24_799_000 picoseconds.
+		Weight::from_parts(25_604_000, 3831)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
+	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
+	fn slash_submission_deposit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `161`
 		//  Estimated: `3831`
