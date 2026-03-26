@@ -17,13 +17,24 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Implementation of the `bitswap_v1_get` RPC method.
+//!
+//! See <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_get.md>
 
 use crate::bitswap::{api::BitswapApiServer, error::Error};
+use cid::Cid;
 use jsonrpsee::core::RpcResult;
 use sc_client_api::BlockBackend;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
+
+/// Log target for this file.
+const LOG_TARGET: &str = "rpc-spec-v2";
+
+// Standard multihash codes.
+// See <https://github.com/multiformats/multicodec/blob/master/table.csv>
+const SHA2_256: u64 = 0x12;
+const BLAKE2B_256: u64 = 0xb220;
 
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
@@ -48,31 +59,45 @@ where
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	fn bitswap_v1_get(&self, cid_str: String) -> RpcResult<String> {
-		let cid = cid::Cid::try_from(cid_str.as_str())
-			.map_err(|e| Error::InvalidCid(format!("{e}")))?;
+		let cid = Cid::try_from(cid_str.as_str()).map_err(|e| Error::InvalidCid(format!("{e}")))?;
 
+		// Only CIDv1 version is supported according to the spec.
 		if cid.version() != cid::Version::V1 {
 			return Err(Error::InvalidCid("Only CIDv1 is supported".into()).into());
 		}
 
 		let hash = cid.hash();
+
+		// Only sha2-256 & blake2b-256 hash functions are supported according to the spec.
+		if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 {
+			return Err(Error::InvalidCid(
+				"Only sha2-256 & blake2b-256 hash functions are supported".into(),
+			)
+			.into());
+		}
+
+		// `H256::from_slice` panics below if the size is incorrect, so double-check the size is
+		// correct, even though we checked the hash function type above.
 		if hash.size() != 32 {
-			return Err(
-				Error::InvalidCid("Hash digest must be 32 bytes".into()).into()
-			);
+			return Err(Error::InvalidCid("Only 256-bit hash digests are supported".into()).into());
 		}
 
 		let digest = H256::from_slice(hash.digest());
 
 		match self.client.indexed_transaction(digest) {
 			Ok(Some(data)) => Ok(crate::hex_string(&data)),
-			Ok(None) =>
+			Ok(None) => {
 				if self.sync_oracle.is_major_syncing() {
 					Err(Error::MajorSyncing.into())
 				} else {
 					Err(Error::NotFound.into())
-				},
-			Err(e) => Err(Error::Internal(e.to_string()).into()),
+				}
+			},
+			Err(err) => {
+				log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
+
+				Err(Error::Internal(err).into())
+			},
 		}
 	}
 }

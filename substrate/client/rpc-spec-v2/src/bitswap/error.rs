@@ -30,18 +30,20 @@ pub enum Error {
 	#[error("Transaction not found")]
 	NotFound,
 	/// Node is performing major sync.
-	#[error("Node is performing major sync")]
+	#[error("Node is major syncing")]
 	MajorSyncing,
 	/// Internal error.
-	#[error("Internal error: {0}")]
-	Internal(String),
+	///
+	/// Do not render the wrapped error to not expose the internal state to the remote caller.
+	#[error("Internal error")]
+	Internal(#[from] sp_blockchain::Error),
 }
 
-/// Invalid params error code (standard JSON-RPC).
+/// Invalid params error category (standard JSON-RPC), according to the spec.
 const INVALID_PARAMS: i32 = -32602;
-/// Fail error code.
+/// Fail error category, according to the spec.
 const FAIL: i32 = -32810;
-/// Fail with retry backoff error code.
+/// Fail with retry backoff error category, according to the spec.
 const FAIL_RETRY_BACKOFF: i32 = -32812;
 
 #[derive(serde::Serialize)]
@@ -55,15 +57,19 @@ impl From<Error> for ErrorObject<'static> {
 
 		match e {
 			Error::InvalidCid(_) => ErrorObject::owned(INVALID_PARAMS, msg, None::<()>),
-			Error::NotFound =>
-				ErrorObject::owned(FAIL, msg, Some(ErrorData { variant: "NotFound" })),
+			Error::NotFound => {
+				ErrorObject::owned(FAIL, msg, Some(ErrorData { variant: "NotFound" }))
+			},
 			Error::MajorSyncing => ErrorObject::owned(
 				FAIL_RETRY_BACKOFF,
 				msg,
 				Some(ErrorData { variant: "MajorSyncing" }),
 			),
-			Error::Internal(_) =>
-				ErrorObject::owned(FAIL, msg, Some(ErrorData { variant: "Internal" })),
+			Error::Internal(_) => {
+				// It is unclear what error category to use in case of internal errors, let's use
+				// `FAIL_RETRY_BACKOFF`.
+				ErrorObject::owned(FAIL_RETRY_BACKOFF, msg, Some(ErrorData { variant: "Internal" }))
+			},
 		}
 	}
 }
