@@ -670,7 +670,7 @@ impl pallet_meta_tx::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
-	type Extension = weights::pallet_meta_tx::WeightlessExtension<Runtime>;
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
 impl pallet_verify_signature::Config for Runtime {
