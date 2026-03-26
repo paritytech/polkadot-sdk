@@ -636,6 +636,8 @@ impl Limit {
 mod tests {
 	use super::*;
 
+	use crate::mock::EnvGuard;
+
 	type Hash = u64;
 
 	fn pool() -> BasePool<Hash, Vec<u8>> {
@@ -852,6 +854,7 @@ mod tests {
 
 	#[test]
 	fn should_remove_conflicting_future() {
+		let _guard = EnvGuard::allow_tx_replacement();
 		let mut pool = pool();
 		pool.import(Transaction {
 			data: vec![3u8].into(),
@@ -904,6 +907,7 @@ mod tests {
 
 	#[test]
 	fn should_handle_a_cycle() {
+		let _guard = EnvGuard::allow_tx_replacement();
 		// given
 		let mut pool = pool();
 		pool.import(Transaction {
@@ -971,6 +975,7 @@ mod tests {
 
 	#[test]
 	fn should_handle_a_cycle_with_low_priority() {
+		let _guard = EnvGuard::allow_tx_replacement();
 		// given
 		let mut pool = pool();
 		pool.import(Transaction {

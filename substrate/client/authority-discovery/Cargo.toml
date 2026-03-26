@@ -30,10 +30,10 @@ prost = { workspace = true }
 rand = { workspace = true, default-features = true }
 sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-network-types.default-features = true
-sc-network-types.workspace = true
 sc-network.default-features = true
 sc-network.workspace = true
+sc-network-types.default-features = true
+sc-network-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sp-api.default-features = true

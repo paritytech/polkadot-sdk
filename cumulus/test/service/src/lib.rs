@@ -468,12 +468,14 @@ where
 			})
 			.await;
 		} else {
+			let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				None,
+				shield_keystore,
 			);
 			let proposer = Proposer::new(proposer_factory);
 

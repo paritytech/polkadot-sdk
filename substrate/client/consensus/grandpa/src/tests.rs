@@ -132,6 +132,7 @@ impl TestNetFactory for GrandpaTestNet {
 			&self.test_config,
 			LongestChain::new(backend.clone()),
 			None,
+			None,
 		)
 		.expect("Could not create block import for fresh peer.");
 		let justification_import = Box::new(import.clone());

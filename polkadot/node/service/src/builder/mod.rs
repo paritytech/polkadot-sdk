@@ -49,6 +49,7 @@ use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_overseer::{Handle, OverseerConnector};
 use polkadot_primitives::Block;
 use sc_client_api::Backend;
+use sc_consensus_grandpa::warp_proof::HardForks;
 use sc_network::config::FullNetworkConfiguration;
 use sc_network_sync::WarpSyncConfig;
 use sc_service::{Configuration, RpcHandlers, TaskManager};
@@ -57,6 +58,7 @@ use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_beefy::ecdsa_crypto;
 use sp_runtime::traits::Block as BlockT;
+use stc_shield::MemoryShieldKeystore;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 /// Polkadot node service initialization parameters.
@@ -362,7 +364,7 @@ where
 		let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 			backend.clone(),
 			import_setup.1.shared_authority_set().clone(),
-			grandpa_hard_forks,
+			HardForks::new_hard_forked_authorities(grandpa_hard_forks),
 		));
 
 		let ext_overseer_args = if is_parachain_node.is_running_alongside_parachain_node() {
@@ -663,12 +665,15 @@ where
 		};
 
 		if role.is_authority() {
+			let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+
 			let proposer = sc_basic_authorship::ProposerFactory::new(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				telemetry.as_ref().map(|x| x.handle()),
+				shield_keystore,
 			);
 
 			let client_clone = client.clone();

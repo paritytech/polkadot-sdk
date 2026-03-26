@@ -325,12 +325,14 @@ where
 		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
+		let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
 			prometheus_registry,
 			telemetry.clone(),
+			shield_keystore,
 		);
 
 		let proposer = Proposer::new(proposer_factory);
@@ -450,12 +452,14 @@ where
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
+		let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
 			prometheus_registry,
 			telemetry.clone(),
+			shield_keystore,
 		);
 
 		let collator_service = CollatorService::new(

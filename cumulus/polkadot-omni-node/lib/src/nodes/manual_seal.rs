@@ -142,12 +142,14 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			);
 		}
 
+		let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			None,
 			None,
+			shield_keystore,
 		);
 
 		let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);

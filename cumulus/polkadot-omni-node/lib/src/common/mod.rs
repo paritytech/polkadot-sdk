@@ -42,6 +42,7 @@ use sp_session::SessionKeys;
 use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
+use stp_shield::runtime_api::ShieldApi;
 
 pub trait NodeBlock:
 	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash> + DeserializeOwned
@@ -74,6 +75,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetCoreSelectorApi<Block>
 	+ ValidateStatement<Block>
 	+ RelayParentOffsetApi<Block>
+	+ ShieldApi<Block>
 	+ Sized
 {
 }
@@ -89,6 +91,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ RelayParentOffsetApi<Block>
 		+ CollectCollationInfo<Block>
 		+ ValidateStatement<Block>
+		+ ShieldApi<Block>
 {
 }
 

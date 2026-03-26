@@ -113,6 +113,7 @@ async fn author_submit_transaction_should_not_cause_error() {
 
 #[tokio::test]
 async fn author_should_watch_extrinsic() {
+	let _guard = sc_transaction_pool::mock::EnvGuard::allow_tx_replacement();
 	let api = TestSetup::into_rpc();
 	let xt = to_hex(
 		&ExtrinsicBuilder::new_call_with_priority(0)

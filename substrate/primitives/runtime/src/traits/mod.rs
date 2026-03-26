@@ -1815,7 +1815,7 @@ pub trait Applyable: Sized + Send + Sync {
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Self::Call>>;
-	
+
 	/// Returns the call.
 	fn call(&self) -> &Self::Call;
 }

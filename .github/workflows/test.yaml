@@ -6,3 +6,108 @@ concurrency:
 
 on:
   pull_request:
+
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  test:
+    name: cargo nextest
+    runs-on: [self-hosted, fireactions-heavy]
+    env:
+      RUSTFLAGS: -Cdebug-assertions=y
+
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-cache
+          cache-on-failure: true
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Install solidity compiler
+        run: |
+          VERSION="0.8.33"
+          ASSET_URL="https://github.com/argotorg/solidity/releases/download/v$VERSION/solc-static-linux"
+          echo "Downloading solc v$VERSION from $ASSET_URL"
+          curl -Lsf --show-error -o $HOME/.cargo/bin/solc "$ASSET_URL"
+          chmod +x $HOME/.cargo/bin/solc
+          solc --version
+
+      - name: Install revive compiler (Polkadot VM)
+        run: |
+          VERSION="0.6.0"
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
+          echo "Downloading resolc v$VERSION from $ASSET_URL"
+          curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
+          chmod +x $HOME/.cargo/bin/resolc
+          resolc --version
+
+      - name: Cargo nextest
+        run: |
+          cargo nextest run --release --workspace --no-fail-fast \
+            --exclude 'asset-hub-*' \
+            --exclude 'asset-test-utils' \
+            --exclude 'assets-common' \
+            --exclude 'bp-*' \
+            --exclude 'bridge-hub-*' \
+            --exclude 'bridge-runtime-common' \
+            --exclude 'chain-spec-guide-runtime' \
+            --exclude 'collectives-*' \
+            --exclude 'coretime-*' \
+            --exclude 'cumulus-*' \
+            --exclude 'emulated-*' \
+            --exclude 'glutton-*' \
+            --exclude 'governance-*' \
+            --exclude 'minimal-template-*' \
+            --exclude 'pallet-bridge-*' \
+            --exclude 'pallet-collator-selection' \
+            --exclude 'pallet-collective-content' \
+            --exclude 'pallet-minimal-template' \
+            --exclude 'pallet-parachain-template' \
+            --exclude 'pallet-xcm*' \
+            --exclude 'parachain-template*' \
+            --exclude 'parachains-*' \
+            --exclude 'penpal-*' \
+            --exclude 'people-*' \
+            --exclude 'polkadot-*' \
+            --exclude 'relay-*' \
+            --exclude 'rococo-*' \
+            --exclude 'snowbridge-*' \
+            --exclude 'staging-parachain-info' \
+            --exclude 'staging-xcm*' \
+            --exclude 'substrate-relay-helper' \
+            --exclude 'template-zombienet-*' \
+            --exclude 'test-parachain-*' \
+            --exclude 'test-runtime-constants' \
+            --exclude 'testnet-*' \
+            --exclude 'tracing-gum*' \
+            --exclude 'westend-*' \
+            --exclude 'xcm-*' \
+            --exclude 'yet-another-*' \
+            --exclude 'zombienet-*' \
+            --exclude 'pallet-example*' \
+            --exclude 'staging-node-cli' \
+            --exclude 'node-rpc' \
+            --exclude 'node-bench' \
+            --exclude 'node-testing' \
+            --exclude 'kitchensink-runtime' \
+            --exclude 'polkadot' \
+            --exclude 'frame-benchmarking-cli' \
+            --exclude 'frame-omni-bencher' \
+            --exclude 'pallet-revive-eth-rpc' \
+            --exclude 'solochain-template-*' \
+            --exclude 'substrate-cli-test-utils'

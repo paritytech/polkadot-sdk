@@ -1481,7 +1481,7 @@ where
 		let pre_digest = find_pre_digest::<Block>(&block.header)
 			.map_err(|e| ConsensusError::Other(Box::new(e)))?
 			.expect(
-			"valid babe leaders must contain a predigest; header has been already verified; qed"
+			"valid babe headers must contain a predigest; header has been already verified; qed"
 		);
 		let slot = pre_digest.slot();
 

@@ -41,11 +41,11 @@ sp-inherents.default-features = true
 sp-inherents.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
-stp-shield = { workspace = true, default-features = true}
+stp-shield = { workspace = true, default-features = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
 sc-client-api = { default-features = true, workspace = true }
 sc-transaction-pool = { default-features = true, workspace = true }
-substrate-test-runtime-client = { workspace = true }
 stc-shield = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }

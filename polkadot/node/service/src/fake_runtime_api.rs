@@ -457,4 +457,18 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 	}
+
+	impl stp_shield::runtime_api::ShieldApi<Block> for Runtime {
+		fn try_decode_shielded_tx(_: <Block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+			unimplemented!()
+		}
+
+		fn is_shielded_using_current_key(_: &[u8; 16]) -> bool {
+			unimplemented!()
+		}
+
+		fn try_unshield_tx(_: Vec<u8>, _: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+			unimplemented!()
+		}
+	}
 }

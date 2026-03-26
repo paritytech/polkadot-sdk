@@ -64,6 +64,8 @@ polkadot-sdk = { features = ["fork-tree", "frame-benchmarking-cli", "frame-remot
 rand = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+stc-shield.default-features = true
+stc-shield.workspace = true
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 [dev-dependencies]

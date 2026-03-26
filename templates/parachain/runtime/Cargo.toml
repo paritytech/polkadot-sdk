@@ -23,6 +23,7 @@ polkadot-sdk = { workspace = true, features = ["cumulus-pallet-aura-ext", "cumul
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 smallvec = { workspace = true, default-features = true }
+stp-shield.workspace = true
 
 [build-dependencies]
 docify = { workspace = true }
@@ -38,6 +39,7 @@ std = [
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
+	"stp-shield/std",
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [

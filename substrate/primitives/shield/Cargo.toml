@@ -9,8 +9,8 @@ edition.workspace = true
 codec.workspace = true
 scale-info.workspace = true
 sp-api.workspace = true
-sp-runtime.workspace = true
 sp-inherents.workspace = true
+sp-runtime.workspace = true
 
 [lints]
 workspace = true
@@ -18,9 +18,9 @@ workspace = true
 [features]
 default = ["std"]
 std = [
-    "codec/std",
-    "scale-info/std",
-    "sp-api/std",
-    "sp-runtime/std",
-    "sp-inherents/std",
+	"codec/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
 ]

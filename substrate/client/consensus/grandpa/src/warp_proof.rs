@@ -386,7 +386,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::WarpSyncProof;
+	use super::{HardForks, WarpSyncProof};
 	use crate::{AuthoritySetChanges, GrandpaJustification};
 	use codec::Encode;
 	use rand::prelude::*;
@@ -503,8 +503,9 @@ mod tests {
 			WarpSyncProof::generate(&*backend, genesis_hash, &authority_set_changes).unwrap();
 
 		// verifying the proof should yield the last set id and authorities
+		let hard_forks = HardForks::new_hard_forked_authorities(vec![]);
 		let (new_set_id, new_authorities) =
-			warp_sync_proof.verify(0, genesis_authorities, &Default::default()).unwrap();
+			warp_sync_proof.verify(0, genesis_authorities, &hard_forks).unwrap();
 
 		let expected_authorities = current_authorities
 			.iter()

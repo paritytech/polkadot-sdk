@@ -81,6 +81,15 @@ mod tests {
 		#[pallet::call]
 		impl<T: Config> Pallet<T> {}
 
+		impl<T: Config> Pallet<T> {
+			pub fn check_dispatch_guard(
+				_origin: &T::RuntimeOrigin,
+				_call: &T::RuntimeCall,
+			) -> crate::dispatch::DispatchResultWithPostInfo {
+				Ok(().into())
+			}
+		}
+
 		#[pallet::storage]
 		pub type Value<T> = StorageValue<_, (u64, u64), ValueQuery>;
 

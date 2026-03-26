@@ -21,6 +21,8 @@ futures-timer = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 minimal-template-runtime.workspace = true
 polkadot-sdk = { workspace = true, features = ["experimental", "node"] }
+stc-shield.default-features = true
+stc-shield.workspace = true
 
 [build-dependencies]
 polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }

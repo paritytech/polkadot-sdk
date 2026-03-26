@@ -16,10 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::{HashMap, HashSet}, marker::PhantomData, sync::Arc};
 use codec::Decode;
 use log::debug;
 use parking_lot::Mutex;
+use std::{
+	collections::{HashMap, HashSet},
+	marker::PhantomData,
+	sync::Arc,
+};
 
 use sc_client_api::{backend::Backend, utils::is_descendent_of};
 use sc_consensus::{
@@ -239,7 +243,10 @@ where
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
 {
 	fn skip_block_justifications(&self, hash: &Block::Hash) -> bool {
-		self.skip_block_justifications.as_ref().map(|hashes| hashes.contains(hash)).unwrap_or(false)
+		self.skip_block_justifications
+			.as_ref()
+			.map(|hashes| hashes.contains(hash))
+			.unwrap_or(false)
 	}
 	// check for a new authority set change.
 	fn check_new_change(
@@ -557,10 +564,10 @@ where
 				if block.justifications.is_none() {
 					if self.skip_block_justifications(&hash) {
 						log::warn!(
-								"Justifications were skipped for block #{} {:?}.",
-								block.header.number(),
-								hash
-							);
+							"Justifications were skipped for block #{} {:?}.",
+							block.header.number(),
+							hash
+						);
 					} else {
 						return Err(ConsensusError::ClientImport(
 							"Justification required when importing \

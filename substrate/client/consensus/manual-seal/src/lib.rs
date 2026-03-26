@@ -352,6 +352,7 @@ mod tests {
 	use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool, TransactionSource};
 	use sp_inherents::InherentData;
 	use sp_runtime::generic::{Digest, DigestItem};
+	use stc_shield::MemoryShieldKeystore;
 	use substrate_test_runtime_client::{
 		DefaultTestClientBuilderExt, Sr25519Keyring::*, TestClientBuilder, TestClientBuilderExt,
 	};
@@ -412,7 +413,15 @@ mod tests {
 			genesis_hash,
 			genesis_hash,
 		));
-		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
+		let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+		let env = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			pool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 		// this test checks that blocks are created as soon as transactions are imported into the
 		// pool.
 		let (sender, receiver) = futures::channel::oneshot::channel();
@@ -489,7 +498,15 @@ mod tests {
 			genesis_hash,
 			genesis_hash,
 		));
-		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
+		let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+		let env = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			pool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 		// this test checks that blocks are created as soon as transactions are imported into the
 		// pool.
 		let (sender, receiver) = futures::channel::oneshot::channel();
@@ -579,7 +596,15 @@ mod tests {
 			genesis_hash,
 			genesis_hash,
 		));
-		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
+		let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+		let env = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			pool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 		// this test checks that blocks are created as soon as an engine command is sent over the
 		// stream.
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
@@ -663,7 +688,15 @@ mod tests {
 			genesis_hash,
 			genesis_hash,
 		));
-		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
+		let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+		let env = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			pool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 		// this test checks that blocks are created as soon as an engine command is sent over the
 		// stream.
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
@@ -768,7 +801,15 @@ mod tests {
 			genesis_hash,
 			genesis_hash,
 		));
-		let env = ProposerFactory::new(spawner.clone(), client.clone(), pool.clone(), None, None);
+		let shield_keystore = Arc::new(MemoryShieldKeystore::new());
+		let env = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			pool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
 
 		let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
 

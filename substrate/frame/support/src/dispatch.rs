@@ -707,7 +707,7 @@ impl<T> PaysFee<T> for (u64, Pays) {
 
 /// A `DispatchGuard` is executed right before the `Call` is dispatched. It has access
 /// to read-only storage and any changes will be rolled back. Root origin will passthrough.
-/// 
+///
 /// The trait is implemented for all tuples of up to 30 elements.
 pub trait DispatchGuard<Call: Dispatchable> {
 	fn check(origin: &Call::RuntimeOrigin, call: &Call) -> DispatchResultWithPostInfo;
@@ -830,6 +830,15 @@ mod weight_tests {
 					actual_weight: Some(Weight::from_parts(500, 0)),
 					pays_fee: Pays::Yes,
 				})
+			}
+		}
+
+		impl<T: Config> Pallet<T> {
+			pub fn check_dispatch_guard(
+				_origin: &T::RuntimeOrigin,
+				_call: &T::RuntimeCall,
+			) -> crate::dispatch::DispatchResultWithPostInfo {
+				Ok(().into())
 			}
 		}
 

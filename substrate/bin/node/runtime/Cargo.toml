@@ -32,6 +32,7 @@ pallet-example-mbm.workspace = true
 pallet-example-tasks.workspace = true
 polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+stp-shield.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -50,6 +51,7 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
+	"stp-shield/std",
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [

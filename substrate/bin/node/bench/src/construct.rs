@@ -120,12 +120,14 @@ impl core::Benchmark for ConstructionBenchmark {
 			std::thread::park_timeout(std::time::Duration::from_secs(3));
 		}
 
+		let shield_keystore = Arc::new(stc_shield::MemoryShieldKeystore::new());
 		let mut proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			context.spawn_handle.clone(),
 			context.client.clone(),
 			self.transactions.clone().into(),
 			None,
 			None,
+			shield_keystore,
 		);
 		let timestamp_provider = sp_timestamp::InherentDataProvider::from_system_time();
 

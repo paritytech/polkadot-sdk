@@ -242,6 +242,20 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl stp_shield::runtime_api::ShieldApi<$block> for $runtime {
+				fn try_decode_shielded_tx(_: <$block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+					unimplemented!()
+				}
+
+				fn is_shielded_using_current_key(_: &[u8; 16]) -> bool {
+					unimplemented!()
+				}
+
+				fn try_unshield_tx(_: Vec<u8>, _: stp_shield::ShieldedTransaction) -> Option<<$block as BlockT>::Extrinsic> {
+					unimplemented!()
+				}
+			}
 		}
 	};
 }

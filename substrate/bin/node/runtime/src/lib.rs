@@ -3735,6 +3735,20 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 	}
 
+	impl stp_shield::runtime_api::ShieldApi<Block> for Runtime {
+		fn try_decode_shielded_tx(_uxt: <Block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+			unimplemented!()
+		}
+
+		fn is_shielded_using_current_key(_key_hash: &[u8; 16]) -> bool {
+			unimplemented!()
+		}
+
+		fn try_unshield_tx(_dec_key_bytes: Vec<u8>, _shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+			unimplemented!()
+		}
+	}
+
 );
 
 #[cfg(test)]

@@ -388,9 +388,12 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 					// another babe instance and then tries to build a block in the same slot making
 					// this test fail.
 					let parent_header = client_clone.header(parent).ok().flatten().unwrap();
-					let slot = Slot::from(
-						find_pre_digest::<TestBlock>(&parent_header).unwrap().slot() + 1,
-					);
+					let parent_pre_digest = if parent_header.number().is_zero() {
+						Default::default()
+					} else {
+						find_pre_digest::<TestBlock>(&parent_header).unwrap().unwrap()
+					};
+					let slot = Slot::from(parent_pre_digest.slot() + 1);
 
 					async move { Ok((InherentDataProvider::new(slot),)) }
 				}),
@@ -627,10 +630,12 @@ async fn propose_and_import_block(
 ) -> Hash {
 	let mut proposer = proposer_factory.init(parent).await.unwrap();
 
-	let slot = slot.unwrap_or_else(|| {
-		let parent_pre_digest = find_pre_digest::<TestBlock>(parent).unwrap();
-		parent_pre_digest.slot() + 1
-	});
+	let parent_pre_digest = if parent.number().is_zero() {
+		Default::default()
+	} else {
+		find_pre_digest::<TestBlock>(parent).unwrap().unwrap()
+	};
+	let slot = slot.unwrap_or_else(|| parent_pre_digest.slot() + 1);
 
 	let pre_digest = sp_runtime::generic::Digest {
 		logs: vec![Item::babe_pre_digest(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
