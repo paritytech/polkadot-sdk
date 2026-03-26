@@ -26,6 +26,7 @@ use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
 pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
+mod dispatch_extension;
 mod storage_alias;
 
 #[pallet]
@@ -52,6 +53,7 @@ pub mod frame_system {
 			#[inject_runtime_type]
 			type RuntimeTask = ();
 			type DbWeight = ();
+			type DispatchExtension = ();
 		}
 	}
 
@@ -69,12 +71,14 @@ pub mod frame_system {
 		#[pallet::no_default_bounds]
 		type RuntimeOrigin;
 		#[pallet::no_default_bounds]
-		type RuntimeCall;
+		type RuntimeCall: sp_runtime::traits::Dispatchable;
 		#[pallet::no_default_bounds]
 		type RuntimeTask: crate::traits::tasks::Task;
 		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+		#[pallet::no_default_bounds]
+		type DispatchExtension: crate::traits::DispatchExtension<Self::RuntimeCall>;
 		#[pallet::constant]
 		#[pallet::no_default]
 		#[deprecated = "this constant is deprecated"]

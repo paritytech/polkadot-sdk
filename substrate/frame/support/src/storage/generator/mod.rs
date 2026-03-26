@@ -63,10 +63,11 @@ mod tests {
 			type AccountId;
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
-			type RuntimeCall;
+			type RuntimeCall: sp_runtime::traits::Dispatchable;
 			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+			type DispatchExtension: crate::traits::DispatchExtension<Self::RuntimeCall>;
 		}
 
 		#[pallet::origin]
@@ -143,6 +144,7 @@ mod tests {
 		type RuntimeTask = RuntimeTask;
 		type PalletInfo = PalletInfo;
 		type DbWeight = ();
+		type DispatchExtension = ();
 	}
 
 	pub fn key_before_prefix(mut prefix: Vec<u8>) -> Vec<u8> {

@@ -18,7 +18,7 @@
 //! Dispatch system. Contains a macro for defining runtime modules and
 //! generating values representing lazy module function calls.
 
-use crate::traits::UnfilteredDispatchable;
+pub use crate::traits::{DispatchExtension, ExtendedDispatchable, UnfilteredDispatchable};
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt;
 use scale_info::TypeInfo;
@@ -705,22 +705,6 @@ impl<T> PaysFee<T> for (u64, Pays) {
 
 // END TODO
 
-/// A `DispatchGuard` is executed right before the `Call` is dispatched. It has access
-/// to read-only storage and any changes will be rolled back. Root origin will passthrough.
-///
-/// The trait is implemented for all tuples of up to 30 elements.
-pub trait DispatchGuard<Call: Dispatchable> {
-	fn check(origin: &Call::RuntimeOrigin, call: &Call) -> DispatchResultWithPostInfo;
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-impl<Call: Dispatchable> DispatchGuard<Call> for Tuple {
-	fn check(origin: &Call::RuntimeOrigin, call: &Call) -> DispatchResultWithPostInfo {
-		for_tuples!( #( Tuple::check(origin, call)?; )* );
-		Ok(().into())
-	}
-}
-
 #[cfg(test)]
 // Do not complain about unused `dispatch` and `dispatch_aux`.
 #[allow(dead_code)]
@@ -747,7 +731,7 @@ mod weight_tests {
 	pub mod frame_system {
 		use super::{frame_system, frame_system::pallet_prelude::*};
 		pub use crate::dispatch::RawOrigin;
-		use crate::pallet_prelude::*;
+		use crate::{pallet_prelude::*, traits::DispatchExtension};
 
 		#[pallet::pallet]
 		pub struct Pallet<T>(_);
@@ -760,10 +744,11 @@ mod weight_tests {
 			type Balance;
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
-			type RuntimeCall;
+			type RuntimeCall: sp_runtime::traits::Dispatchable;
 			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
+			type DispatchExtension: DispatchExtension<Self::RuntimeCall>;
 		}
 
 		#[pallet::error]
@@ -883,6 +868,7 @@ mod weight_tests {
 		type RuntimeTask = RuntimeTask;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
+		type DispatchExtension = ();
 	}
 
 	#[test]
@@ -1413,6 +1399,7 @@ mod extension_weight_tests {
 		type RuntimeTask = RuntimeTask;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
+		type DispatchExtension = ();
 	}
 
 	parameter_types! {

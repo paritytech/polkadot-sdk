@@ -49,9 +49,11 @@ pub mod pallet {
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>;
 		/// The runtime call type.
-		type RuntimeCall;
+		type RuntimeCall: sp_runtime::traits::Dispatchable;
 		/// Contains an aggregation of all tasks in this runtime.
 		type RuntimeTask;
+		/// The dispatch extension.
+		type DispatchExtension: frame_support::traits::DispatchExtension<Self::RuntimeCall>;
 		/// The runtime event type.
 		type RuntimeEvent: Parameter
 			+ Member
