@@ -28,15 +28,16 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	BlockNumber, CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2, OccupiedCore,
+	node_features, BlockNumber, CandidateDescriptorVersion, CollatorId, CollatorSignature,
+	CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2, OccupiedCore,
 	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt_v2, dummy_hash,
-	validator_pubkeys,
+	validator_pubkeys, CandidateDescriptor,
 };
 use polkadot_statement_table::v2::Misbehavior;
-use sp_application_crypto::AppCrypto;
+use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use sp_tracing as _;
@@ -4081,6 +4082,179 @@ fn seconding_sanity_check_occupy_same_depth() {
 			.await;
 		}
 
+		virtual_overseer
+	});
+}
+
+// V3-capable validator successfully backs a V1 candidate descriptor.
+// `TestCandidateBuilder` produces non-zero collator/signature fields which overlap
+// the reserved fields in the V2 layout, causing the descriptor to be detected as V1.
+#[test]
+fn v3_capable_validator_backs_v1_descriptor() {
+	let mut test_state = TestState::default();
+
+	// Enable V3 feature
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
+
+		let pov = PoV { block_data: BlockData(vec![1, 2, 3]) };
+		let pvd = dummy_pvd();
+		let validation_code = ValidationCode(vec![1, 2, 3]);
+		let pov_hash = pov.hash();
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+
+		// Build the V1 descriptor
+		let v1_descriptor = CandidateDescriptor {
+			para_id,
+			relay_parent: test_state.relay_parent,
+			collator: CollatorId::from_slice(&(0u8..32).collect::<Vec<_>>())
+				.expect("32 bytes; qed"),
+			persisted_validation_data_hash: pvd.hash(),
+			pov_hash,
+			erasure_root: make_erasure_root(&test_state, pov.clone(), pvd.clone()),
+			signature: CollatorSignature::from_slice(&(0u8..64).collect::<Vec<_>>())
+				.expect("64 bytes; qed"),
+			para_head: expected_head_data.hash(),
+			validation_code_hash: ValidationCode(validation_code.0.clone()).hash(),
+		};
+
+		let candidate = CommittedCandidateReceipt {
+			descriptor: v1_descriptor.into(),
+			commitments: CandidateCommitments {
+				head_data: expected_head_data.clone(),
+				horizontal_messages: Default::default(),
+				upward_messages: Default::default(),
+				new_validation_code: None,
+				processed_downward_messages: 0,
+				hrmp_watermark: 0_u32,
+			},
+		};
+
+		// The descriptor must be detected as V1
+		assert_eq!(candidate.descriptor.version(), CandidateDescriptorVersion::V1);
+
+		let candidate_hash = candidate.hash();
+
+		let public2 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[2].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed_seconded = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+			&test_state.signing_context,
+			ValidatorIndex(2),
+			&public2.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		let public5 = Keystore::sr25519_generate_new(
+			&*test_state.keystore,
+			ValidatorId::ID,
+			Some(&test_state.validators[5].to_seed()),
+		)
+		.expect("Insert key into keystore");
+
+		let signed_valid = SignedFullStatementWithPVD::sign(
+			&test_state.keystore,
+			StatementWithPVD::Valid(candidate_hash),
+			&test_state.signing_context,
+			ValidatorIndex(5),
+			&public5.into(),
+		)
+		.ok()
+		.flatten()
+		.expect("should be signed");
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: signed_seconded,
+				},
+			})
+			.await;
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx),
+			) if req.candidate_receipt == candidate
+				&& req.candidate_para == para_id
+				&& pvd == req.persisted_validation_data => {
+				tx.send(true).unwrap();
+			}
+		);
+
+		assert_validate_seconded_candidate(
+			&mut virtual_overseer,
+			candidate.descriptor.relay_parent(),
+			&candidate,
+			&pov,
+			&pvd,
+			&validation_code,
+			expected_head_data,
+			true,
+		)
+		.await;
+
+		assert_candidate_is_shared_and_backed(
+			&mut virtual_overseer,
+			&test_state.relay_parent,
+			&para_id,
+			&candidate_hash,
+		)
+		.await;
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::Statement {
+					scheduling_parent: test_state.relay_parent,
+					statement: signed_valid,
+				},
+			})
+			.await;
+
+		let (tx, rx) = oneshot::channel();
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CandidateBackingMessage::GetBackableCandidates {
+					candidates: std::iter::once((
+						para_id,
+						vec![BackableCandidateRef {
+							candidate_hash,
+							scheduling_parent: test_state.relay_parent,
+						}],
+					))
+					.collect(),
+					sender: tx,
+				},
+			})
+			.await;
+
+		let mut candidates = rx.await.unwrap();
+		assert_eq!(candidates.len(), 1);
+		let candidates = candidates.remove(&para_id).unwrap();
+		assert_eq!(candidates.len(), 1);
+		assert_eq!(candidates[0].validity_votes().len(), 3);
+
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
+			)))
+			.await;
 		virtual_overseer
 	});
 }

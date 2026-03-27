@@ -39,8 +39,9 @@ use jsonrpsee::{
 	ws_client::{WsClient, WsClientBuilder},
 };
 use log::{debug, info, warn};
+use sc_statement_store::test_utils::get_keypair;
 use serde::{Deserialize, Serialize};
-use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
+use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
@@ -93,7 +94,6 @@ struct RoundStats {
 	received_count: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Stats {
 	min: f64,
 	avg: f64,
@@ -172,7 +172,7 @@ async fn run_client(
 		statement_expiry_ms,
 	} = config;
 
-	let (keyring, _) = sr25519::Pair::generate();
+	let keyring = get_keypair(client_id);
 	let expected_count = messages_per_client(&messages_pattern) as u32;
 
 	barrier.wait().await;
