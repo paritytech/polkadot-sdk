@@ -363,7 +363,12 @@ impl ReceiptExtractor {
 		let (ext, eth_call, receipt_gas_info, _) = ext_iter
 			.into_iter()
 			.find(|(_, _, _, ext_idx)| *ext_idx == transaction_index)
-			.ok_or(ClientError::EthExtrinsicNotFound)?;
+			.ok_or_else(|| {
+				log::trace!(target: LOG_TARGET,
+					"extract_from_transaction: no EVM extrinsic at tx_index {transaction_index} \
+					 in block #{} ({:?})", block.number(), block.hash());
+				ClientError::EthExtrinsicNotFound
+			})?;
 
 		let substrate_block_number = block.number() as u64;
 		let substrate_block_hash = block.hash();

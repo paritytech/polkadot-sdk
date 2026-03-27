@@ -211,7 +211,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			log::trace!(target: LOG_TARGET,
 				"find_transaction: DB query failed for tx {transaction_hash:?}: {err:?}");
 		})
-		.ok()??;
+		.ok()?
+		.or_else(|| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: tx {transaction_hash:?} not found in DB");
+			None
+		})?;
 
 		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
@@ -806,14 +811,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	/// Get the receipt for the given transaction hash.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
-		let (block_hash, transaction_index) = match self.find_transaction(transaction_hash).await {
-			Some(v) => v,
-			None => {
-				log::trace!(target: LOG_TARGET,
-					"receipt_by_hash: tx {transaction_hash:?} not found in DB");
-				return None;
-			},
-		};
+		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
 		let block = match self.block_provider.block_by_hash(&block_hash).await {
 			Ok(Some(b)) => b,
@@ -848,6 +846,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.receipt_extractor
 			.extract_from_transaction(&block, transaction_index)
 			.await
+			.inspect_err(|err| {
+				log::trace!(target: LOG_TARGET,
+					"signed_tx_by_hash: extraction failed for tx {transaction_hash:?} \
+					 in block {block_hash:?}: {err:?}");
+			})
 			.ok()?;
 		Some(signed_tx)
 	}
