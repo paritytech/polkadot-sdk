@@ -799,6 +799,9 @@ impl Peerset {
 					"{}: substream open failure for reserved peer {peer:?}",
 					self.protocol,
 				);
+
+				// Do not backoff reserved peers.
+				return;
 			},
 			state => {
 				log::debug!(
