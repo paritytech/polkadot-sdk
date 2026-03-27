@@ -40,7 +40,7 @@
 
 use crate::{
 	peer_store::{PeerStoreProvider, ProtocolHandle},
-	service::traits::{self, ValidationResult},
+	service::{metrics::NotificationMetrics, traits::{self, ValidationResult}},
 	ProtocolName, ReputationChange as Reputation,
 };
 
@@ -368,6 +368,9 @@ pub struct Peerset {
 
 	/// Next time when [`Peerset`] should perform slot allocation.
 	next_slot_allocation: Delay,
+
+	/// Notification metrics for reporting slot occupancy.
+	metrics: NotificationMetrics,
 }
 
 macro_rules! decrement_or_warn {
@@ -412,6 +415,7 @@ impl Peerset {
 		reserved_peers: HashSet<PeerId>,
 		connected_peers: Arc<AtomicUsize>,
 		peerstore_handle: Arc<dyn PeerStoreProvider>,
+		metrics: NotificationMetrics,
 	) -> (Self, TracingUnboundedSender<PeersetCommand>) {
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc-peerset-protocol", 100_000);
 		let peers = reserved_peers
@@ -447,6 +451,7 @@ impl Peerset {
 				connected_peers,
 				pending_backoffs: FuturesUnordered::new(),
 				next_slot_allocation: Delay::new(SLOT_ALLOCATION_FREQUENCY),
+				metrics,
 			},
 			cmd_tx,
 		)
@@ -599,6 +604,7 @@ impl Peerset {
 		}
 
 		*state = PeerState::Backoff;
+		self.update_slot_metrics();
 		self.pending_backoffs.push(Box::pin(async move {
 			Delay::new(DEFAULT_BACKOFF).await;
 			(peer, DISCONNECT_ADJUSTMENT)
@@ -734,6 +740,7 @@ impl Peerset {
 			self.num_in += 1;
 
 			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
+			self.update_slot_metrics();
 			return ValidationResult::Accept;
 		}
 
@@ -811,6 +818,7 @@ impl Peerset {
 			},
 		}
 
+		self.update_slot_metrics();
 		self.peers.insert(peer, PeerState::Backoff);
 		self.pending_backoffs.push(Box::pin(async move {
 			Delay::new(OPEN_FAILURE_BACKOFF).await;
@@ -871,6 +879,7 @@ impl Peerset {
 			},
 			None => {},
 		}
+		self.update_slot_metrics();
 	}
 
 	/// Calculate how many of the connected peers were counted as normal inbound/outbound peers
@@ -929,6 +938,13 @@ impl Peerset {
 			Direction::Outbound(Reserved::No) => self.num_out += 1,
 			_ => {},
 		}
+		self.update_slot_metrics();
+	}
+
+	/// Report current slot occupancy to metrics.
+	fn update_slot_metrics(&self) {
+		self.metrics.set_peerset_num_in(&self.protocol, self.num_in);
+		self.metrics.set_peerset_num_out(&self.protocol, self.num_out);
 	}
 
 	/// Connect to all reserved peers.
@@ -1120,6 +1136,7 @@ impl Stream for Peerset {
 					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
 					self.num_out -= out_peers;
 					self.num_in -= in_peers;
+					self.update_slot_metrics();
 
 					// collect all *reserved* peers who are not in the new reserved set
 					let reserved_peers_maybe_remove =
@@ -1220,6 +1237,7 @@ impl Stream for Peerset {
 					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
 					self.num_out -= out_peers;
 					self.num_in -= in_peers;
+					self.update_slot_metrics();
 
 					let peers = peers
 						.iter()
@@ -1511,6 +1529,7 @@ impl Stream for Peerset {
 					});
 
 					self.num_out += peers.len();
+					self.update_slot_metrics();
 					connect_to.extend(peers);
 				}
 			}

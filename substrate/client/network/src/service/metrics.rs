@@ -365,6 +365,26 @@ impl NotificationMetrics {
 				.observe(size as f64);
 		}
 	}
+
+	/// Update the number of occupied inbound peerset slots.
+	pub fn set_peerset_num_in(&self, protocol: &ProtocolName, count: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.peerset_num_slots
+				.with_label_values(&["in", protocol])
+				.set(count as u64);
+		}
+	}
+
+	/// Update the number of occupied outbound peerset slots.
+	pub fn set_peerset_num_out(&self, protocol: &ProtocolName, count: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.peerset_num_slots
+				.with_label_values(&["out", protocol])
+				.set(count as u64);
+		}
+	}
 }
 
 /// Notification metrics.
@@ -378,6 +398,9 @@ struct InnerNotificationMetrics {
 
 	/// In/outbound notification sizes.
 	pub notifications_sizes: HistogramVec,
+
+	/// Number of occupied peerset slots per direction and protocol.
+	pub peerset_num_slots: GaugeVec<U64>,
 }
 
 impl InnerNotificationMetrics {
@@ -414,6 +437,16 @@ impl InnerNotificationMetrics {
 						"Total number of notification substreams that have been opened",
 					),
 					&["protocol"],
+				)?,
+				registry,
+			)?,
+			peerset_num_slots: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_libp2p_peerset_slots",
+						"Number of occupied peerset slots per direction and protocol",
+					),
+					&["direction", "protocol"],
 				)?,
 				registry,
 			)?,
