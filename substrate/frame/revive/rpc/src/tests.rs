@@ -787,7 +787,7 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 	assert!(tx_by_index.is_none(), "genesis block should have no transactions");
 
 	// eth_call
-	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into()), None).await?;
 	assert!(call_result.is_empty(), "calling an EOA should return empty bytes");
 
 	// eth_estimateGas

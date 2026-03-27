@@ -18,25 +18,87 @@
 use super::*;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use frame_support::DefaultNoBound;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 
 /// Configuration specific to a dry-run execution.
-#[derive(Debug, Encode, Decode, TypeInfo, Clone, Copy, DefaultNoBound)]
+///
+/// Passed as an argument to the `eth_transact_with_config` runtime API method. Contains optional
+/// overrides that control how the dry-run is executed, such as timestamp simulation and state
+/// injection.
+///
+/// # Backwards Compatibility
+///
+/// This type is SCALE-encoded when passed across the runtime API boundary via `state_call`.
+/// SCALE is a non-self-describing format: fields are encoded sequentially with no field names,
+/// delimiters, or end-of-message markers. This has important implications when the struct evolves
+/// over time.
+///
+/// ## Adding new trailing fields
+///
+/// New fields may be appended to the end of this struct without requiring a new runtime API
+/// method, provided that:
+///
+/// 1. **New RPC, old runtime (trailing bytes are ignored):** The `sp_api` runtime API argument
+///    decoding machinery uses `Decode::decode` (not `decode_all`) for parameterized calls. This
+///    means bytes remaining after decoding all known fields are silently ignored. An old runtime
+///    that does not know about a newly appended field will decode the fields it recognizes and
+///    discard the rest. This is intentional behavior in `sp_api` — see the generated code in
+///    `substrate/primitives/api/proc-macro/src/impl_runtime_apis.rs`.
+///
+/// 2. **Old RPC, new runtime (missing bytes are defaulted):** A new runtime expecting more fields
+///    than an old RPC provides would hit EOF during decoding and fail. To guard against this,
+///    this type uses a **custom `Decode` implementation** that falls back to `Default` for any
+///    trailing fields that are absent from the input. This ensures that an old RPC sending a
+///    shorter encoding is handled gracefully.
+///
+/// ## Constraints
+///
+/// - New fields **must** be appended to the end. Inserting or reordering fields changes the byte
+///   layout of all subsequent fields, breaking both directions.
+/// - New fields **must** implement `Default` so that the custom `Decode` fallback can produce a
+///   sensible value when the field is absent from the input. This is the only requirement on the
+///   field's type — it does not need to be `Option`.
+/// - This pattern relies on `sp_api` continuing to use `Decode::decode` rather than `decode_all`.
+///   If that ever changes, a new runtime API method would be needed instead.
+#[derive(Debug, Encode, TypeInfo, Clone)]
 pub struct DryRunConfig<Moment> {
 	/// Optional timestamp override for dry-run in pending block.
 	pub timestamp_override: Option<Moment>,
 	/// Used to control if the dry run logic should perform the balance checks or not.
 	pub perform_balance_checks: Option<bool>,
+	/// Optional state overrides to apply before executing the call. Each entry maps an account
+	/// address to a set of fields (balance, nonce, code, storage) that should be temporarily
+	/// replaced for the duration of the dry-run.
+	pub state_overrides: Option<StateOverrideSet>,
 }
-impl<Moment> DryRunConfig<Moment> {
-	/// Create a new `DryRunConfig` with an optional timestamp override.
-	pub fn new(timestamp_override: Option<Moment>) -> Self {
+
+impl<Moment> Default for DryRunConfig<Moment> {
+	fn default() -> Self {
 		Self {
-			timestamp_override,
-			perform_balance_checks: Some(true), // default value
+			timestamp_override: None,
+			perform_balance_checks: Some(true),
+			state_overrides: None,
 		}
+	}
+}
+
+impl<Moment: Decode> Decode for DryRunConfig<Moment> {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let timestamp_override = Option::<Moment>::decode(input)?;
+		let perform_balance_checks = Option::<bool>::decode(input)?;
+		let state_overrides =
+			Option::<StateOverrideSet>::decode(input).unwrap_or_default();
+		Ok(Self { timestamp_override, perform_balance_checks, state_overrides })
+	}
+}
+
+impl<Moment> DryRunConfig<Moment> {
+	/// Create a new `DryRunConfig` with default values.
+	///
+	/// Balance checks are enabled by default. Use the builder methods to customize.
+	pub fn new() -> Self {
+		Self::default()
 	}
 
 	/// A builder method which consumes the object and modifies the `timestamp_override` field.
@@ -54,6 +116,15 @@ impl<Moment> DryRunConfig<Moment> {
 		perform_balance_checks: impl Into<Option<bool>>,
 	) -> Self {
 		self.perform_balance_checks = perform_balance_checks.into();
+		self
+	}
+
+	/// A builder method which consumes the object and sets the state overrides.
+	pub fn with_state_overrides(
+		mut self,
+		state_overrides: impl Into<Option<StateOverrideSet>>,
+	) -> Self {
+		self.state_overrides = state_overrides.into();
 		self
 	}
 }

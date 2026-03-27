@@ -201,6 +201,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
+		_state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block.clone()).await?;

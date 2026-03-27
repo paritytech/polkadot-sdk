@@ -1834,10 +1834,11 @@ impl<T: Config> Pallet<T> {
 		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()].map(|gas_limit| {
 			let mut transaction = tx.clone();
 			transaction.gas = Some(gas_limit);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			let eth_transact_result = with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					config.with_perform_balance_checks(perform_balance_checks),
+					dry_run_config,
 				)))
 			})
 			.expect("Rollback shouldn't error out");
@@ -1902,10 +1903,11 @@ impl<T: Config> Pallet<T> {
 
 			let mut transaction = tx.clone();
 			transaction.gas = Some(midpoint);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			let dry_run_result = with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					config.with_perform_balance_checks(perform_balance_checks),
+					dry_run_config,
 				)))
 			})
 			.expect("Rollback shouldn't error out");
@@ -1994,6 +1996,7 @@ impl<T: Config> Pallet<T> {
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
 		let base_weight = base_info.total_weight();
+		let perform_balance_checks = dry_run_config.perform_balance_checks;
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
 				.with_dry_run(dry_run_config);
@@ -2002,7 +2005,7 @@ impl<T: Config> Pallet<T> {
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
 			let fees =
-				if gas.is_some() && matches!(dry_run_config.perform_balance_checks, Some(true)) {
+				if gas.is_some() && matches!(perform_balance_checks, Some(true)) {
 					fees
 				} else {
 					Zero::zero()

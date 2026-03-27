@@ -95,7 +95,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_estimate_gas(
 						tx.clone().into(),
-						DryRunConfig::new(timestamp_override).into(),
+						DryRunConfig::new().with_timestamp_override(timestamp_override).into(),
 					)
 					.unvalidated();
 				self.0.call(payload).await.map(|value| value.map(|value| value.0))
@@ -106,7 +106,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_transact_with_config(
 						tx.clone().into(),
-						DryRunConfig::new(timestamp_override).into(),
+						DryRunConfig::new().with_timestamp_override(timestamp_override).into(),
 					)
 					.unvalidated();
 				self.0.call(payload).await.map(|value| value.map(|value| value.eth_gas))
@@ -155,7 +155,7 @@ impl RuntimeApi {
 			.revive_api()
 			.eth_transact_with_config(
 				tx.clone().into(),
-				DryRunConfig::new(timestamp_override).into(),
+				DryRunConfig::new().with_timestamp_override(timestamp_override).into(),
 			)
 			.unvalidated();
 
