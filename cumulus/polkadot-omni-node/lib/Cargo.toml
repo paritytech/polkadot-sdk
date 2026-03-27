@@ -25,6 +25,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+array-bytes = { workspace = true }
 
 # Local
 frame-metadata = { workspace = true, default-features = true }

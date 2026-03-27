@@ -187,20 +187,24 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 struct MetadataInspector {
 	metadata: Metadata,
-	#[allow(dead_code)]
-	version: u32,
 }
 
 impl MetadataInspector {
 	fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
 		let (metadata, version) = MetadataInspector::fetch_metadata(chain_spec)?;
 		log::info!("Detected runtime metadata version: V{}", version);
-		Ok(MetadataInspector { metadata, version })
+		Ok(MetadataInspector { metadata })
 	}
 
-	#[cfg(test)]
-	fn version(&self) -> u32 {
-		self.version
+	fn storage_entry_type_id(&self, pallet_name: &str, entry_name: &str) -> Option<u32> {
+		self.metadata
+			.pallet_by_name(pallet_name)?
+			.storage()?
+			.entry_by_name(entry_name)
+			.and_then(|entry| match entry.entry_type() {
+				StorageEntryType::Plain(ty_id) => Some(*ty_id),
+				_ => None,
+			})
 	}
 
 	fn pallet_exists(&self, name: &str) -> bool {
@@ -208,15 +212,8 @@ impl MetadataInspector {
 	}
 
 	fn block_number(&self) -> Option<BlockNumber> {
-		let pallet_metadata = self.metadata.pallet_by_name(DEFAULT_FRAME_SYSTEM_PALLET_NAME);
-		pallet_metadata
-			.and_then(|inner| inner.storage())
-			.and_then(|inner| inner.entry_by_name("Number"))
-			.and_then(|number_ty| match number_ty.entry_type() {
-				StorageEntryType::Plain(ty_id) => Some(ty_id),
-				_ => None,
-			})
-			.and_then(|ty_id| self.metadata.types().resolve(*ty_id))
+		self.storage_entry_type_id(DEFAULT_FRAME_SYSTEM_PALLET_NAME, "Number")
+			.and_then(|ty_id| self.metadata.types().resolve(ty_id))
 			.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
 	}
 
@@ -233,13 +230,11 @@ impl MetadataInspector {
 		// 2. (Robust Fallback) Check the "Authorities" storage item in the Aura pallet.
 		// Some chain specs might not expose all associated types clearly, but storage is usually
 		// present.
-		if let Some(storage) = pallet.storage() {
-			if let Some(entry) = storage.entry_by_name("Authorities") {
-				if let StorageEntryType::Plain(ty_id) = entry.entry_type() {
-					if let Some(id) = self.resolve_aura_id_from_type_id(*ty_id) {
-						return Some(id);
-					}
-				}
+		if let Some(ty_id) = self.storage_entry_type_id(DEFAULT_AURA_PALLET_NAME, "Authorities") {
+			let authorities_ty = self.metadata.types().resolve(ty_id)?;
+			let authority_ty_id = authorities_ty.type_params.get(0).and_then(|p| p.ty).map(|ty| ty.id);
+			if let Some(id) = authority_ty_id.and_then(|id| self.resolve_aura_id_from_type_id(id)) {
+				return Some(id);
 			}
 		}
 
@@ -259,54 +254,7 @@ impl MetadataInspector {
 			return Some(AuraConsensusId::Ed25519);
 		}
 
-		// If it's a wrapper, we traverse it without complex recursion for now to keep it clean.
-		match &portable_type.type_def {
-			TypeDef::Composite(composite) => {
-				for field in &composite.fields {
-					// We use format and parse here as a final fallback only if we really can't get
-					// the ID. But we should be able to get it if we use the right types.
-					// For now, let's just use the name if possible.
-					if let Some(resolved) = self.resolve_aura_id_from_type_id_opaque(&field.ty) {
-						return Some(resolved);
-					}
-				}
-			},
-			TypeDef::Sequence(seq) => {
-				if let Some(resolved) = self.resolve_aura_id_from_type_id_opaque(&seq.type_param) {
-					return Some(resolved);
-				}
-			},
-			_ => {},
-		}
-
 		None
-	}
-
-	/// Fallback helper to resolve from an opaque symbol.
-	fn resolve_aura_id_from_type_id_opaque<T: std::fmt::Debug>(
-		&self,
-		symbol: &T,
-	) -> Option<AuraConsensusId> {
-		let debug_str = format!("{:?}", symbol);
-		// Parse the ID out of "UntrackedSymbol { id: 183, ... }" or similar
-		let id = debug_str
-			.split("id: ")
-			.nth(1)
-			.and_then(|s| s.split(',').next())
-			.and_then(|s| s.trim().parse::<u32>().ok())
-			.or_else(|| {
-				debug_str
-					.split('(')
-					.nth(1)
-					.and_then(|s| s.split(',').next())
-					.and_then(|s| s.trim().parse::<u32>().ok())
-			});
-
-		if let Some(id) = id {
-			self.resolve_aura_id_from_type_id(id)
-		} else {
-			None
-		}
 	}
 
 	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<(Metadata, u32), sc_cli::Error> {
@@ -367,9 +315,25 @@ mod tests {
 		)
 		.unwrap();
 		let mut encoded = (*opaque_metadata).as_slice();
-		let (metadata, version) =
+		let (metadata, _version) =
 			MetadataInspector::fetch_metadata_from_bytes(&mut encoded).unwrap();
-		MetadataInspector { metadata, version }
+		MetadataInspector { metadata }
+	}
+
+	fn extract_code_from_spec_json(path: std::path::PathBuf) -> Vec<u8> {
+		let file = std::fs::File::open(path).expect("failed to open spec file");
+		let json: serde_json::Value = serde_json::from_reader(file).expect("failed to parse spec JSON");
+
+		let code_hex = if let Some(code) = json.pointer("/genesis/runtimeGenesis/code") {
+			code.as_str().expect("code is not a string")
+		} else if let Some(code) = json.pointer("/genesis/raw/top/0x3a636f6465") {
+			code.as_str().expect("code is not a string")
+		} else {
+			panic!("Could not find code in chain spec JSON");
+		};
+
+		let hex_str = code_hex.strip_prefix("0x").unwrap_or(code_hex);
+		array_bytes::hex2bytes(hex_str).expect("failed to decode hex code")
 	}
 
 	fn cumulus_test_runtime_inspector() -> MetadataInspector {
@@ -379,7 +343,6 @@ mod tests {
 	#[test]
 	fn test_pallet_exists() {
 		let inspector = cumulus_test_runtime_inspector();
-		assert!(inspector.version() >= 14);
 		assert!(inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME));
 		assert!(inspector.pallet_exists(DEFAULT_FRAME_SYSTEM_PALLET_NAME));
 	}
@@ -387,7 +350,16 @@ mod tests {
 	#[test]
 	fn test_runtime_block_number() {
 		let inspector = cumulus_test_runtime_inspector();
-		assert!(inspector.version() >= 14);
+		assert_eq!(inspector.block_number().unwrap(), BlockNumber::U32);
+	}
+
+	fn test_metadata_inspector_for_spec(path_suffix: &str, expected_aura: AuraConsensusId) {
+		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join(format!("tests/chain-specs/{}", path_suffix));
+		let code = extract_code_from_spec_json(path);
+		let inspector = test_inspector_for_runtime(&code);
+
+		assert_eq!(inspector.aura_consensus_id(), Some(expected_aura));
 		assert_eq!(inspector.block_number().unwrap(), BlockNumber::U32);
 	}
 
@@ -407,45 +379,16 @@ mod tests {
 
 	#[test]
 	fn test_aura_consensus_id_v15() {
-		// Test with V15 metadata (Sr25519)
-		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-			.join("tests/chain-specs/coretime-polkadot.json");
-		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
-			.expect("invalid chain spec");
-
-		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
-		assert_eq!(inspector.version(), 15);
-		let aura_id = inspector.aura_consensus_id();
-		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
+		test_metadata_inspector_for_spec("coretime-polkadot.json", AuraConsensusId::Sr25519);
 	}
 
 	#[test]
 	fn test_aura_consensus_id_v14() {
-		// Test with V14 metadata (Sr25519) from bridge-hub-polkadot
-		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-			.join("tests/chain-specs/bridge-hub-polkadot.json");
-		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
-			.expect("invalid chain spec");
-
-		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
-		assert_eq!(inspector.version(), 14);
-		let aura_id = inspector.aura_consensus_id();
-		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
+		test_metadata_inspector_for_spec("bridge-hub-polkadot.json", AuraConsensusId::Sr25519);
 	}
 
 	#[test]
 	fn test_aura_consensus_id_asset_hub_polkadot() {
-		// Test with Asset Hub Polkadot metadata
-		let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-			.join("tests/chain-specs/asset-hub-polkadot.json");
-		let chain_spec = sc_chain_spec::GenericChainSpec::<Option<()>>::from_json_file(path)
-			.expect("invalid chain spec");
-
-		let inspector = MetadataInspector::new(&chain_spec).expect("failed to inspect metadata");
-		assert!(inspector.version() >= 14);
-		let aura_id = inspector.aura_consensus_id();
-
-		// Asset Hub Polkadot uses Ed25519 for Aura.
-		assert_eq!(aura_id, Some(AuraConsensusId::Ed25519));
+		test_metadata_inspector_for_spec("asset-hub-polkadot.json", AuraConsensusId::Ed25519);
 	}
 }
