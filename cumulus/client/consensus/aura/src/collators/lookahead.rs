@@ -317,22 +317,19 @@ where
 				},
 			};
 
-			let session_index = match params
-				.relay_client
-				.session_index_for_child(relay_parent)
-				.await
-			{
-				Ok(session_index) => session_index,
-				Err(err) => {
-					tracing::error!(
-						target: crate::LOG_TARGET,
-						?err,
-						?relay_parent,
-						"Failed to fetch session index."
-					);
-					continue;
-				},
-			};
+			let session_index =
+				match params.relay_client.session_index_for_child(relay_parent).await {
+					Ok(session_index) => session_index,
+					Err(err) => {
+						tracing::error!(
+							target: crate::LOG_TARGET,
+							?err,
+							?relay_parent,
+							"Failed to fetch session index."
+						);
+						continue;
+					},
+				};
 
 			let parent_search_result = match crate::collators::find_parent(
 				relay_parent,
