@@ -262,7 +262,7 @@ pub async fn spawn_network(
 	collators: &[&str],
 	participant_count: u32,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(collators.len() >= 2);
+	assert!(collators.len() >= 1);
 	let images = zombienet_sdk::environment::get_images_from_env();
 
 	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
@@ -275,7 +275,7 @@ pub async fn spawn_network(
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	// Headroom for the ~5,000 subscriptions that
 	// actually end up on each pooled conn (500 participants * 10 subscriptions each)
-	let max_subs_per_conn = participant_count / RPC_POOL_SIZE as u32 * 16;
+	let max_subs_per_conn = (participant_count / RPC_POOL_SIZE as u32 * 16).max(1024);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
