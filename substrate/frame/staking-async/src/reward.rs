@@ -24,8 +24,8 @@ use crate::*;
 use frame_support::{
 	defensive,
 	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		fungible::{Balanced, Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
 		Defensive, OnUnbalanced,
 	},
 };
@@ -143,39 +143,39 @@ impl<T: Config> EraRewardManager<T> {
 		}
 	}
 
-	/// Destroys an era pot account by transferring out unclaimed rewards and removing the provider.
+	/// Destroys an era pot account by withdrawing unclaimed rewards and removing the provider.
 	///
-	/// Transfers any remaining balance to the unclaimed reward sink, then decrements the provider
-	/// to allow the account to be reaped.
-	///
-	/// This unconditionally:
-	/// 1. Transfers out all balance (unclaimed rewards)
-	/// 2. Decrements exactly one provider reference
+	/// Any remaining balance is withdrawn as a `Credit` and passed to
+	/// `T::UnclaimedRewardHandler`. The provider is then decremented.
 	///
 	/// The symmetric operation to [`Self::create`].
 	pub(crate) fn destroy(era: EraIndex, pot_type: EraPotType) {
 		let pot_account = T::EraPots::era_pot_account(era, pot_type);
-
-		// Get remaining balance in pot
 		let remaining = T::Currency::balance(&pot_account);
 
-		// Transfer any remaining funds to unclaimed reward sink
 		if !remaining.is_zero() {
-			match T::UnclaimedRewardSink::deposit(&pot_account, remaining) {
-				Ok(_) => {
+			match T::Currency::withdraw(
+				&pot_account,
+				remaining,
+				Precision::BestEffort,
+				Preservation::Expendable,
+				Fortitude::Force,
+			) {
+				Ok(credit) => {
+					T::UnclaimedRewardHandler::on_unbalanced(credit);
 					log::debug!(
 						target: crate::LOG_TARGET,
-						"Transferred {:?} unclaimed rewards from era {:?} {:?} pot to sink",
+						"Withdrew {:?} unclaimed rewards from era {:?} {:?} pot",
 						remaining,
 						era,
 						pot_type
 					);
 				},
 				Err(e) => {
-					defensive!("Failed to transfer unclaimed rewards to sink");
+					defensive!("Failed to withdraw unclaimed rewards from era pot");
 					log::error!(
 						target: crate::LOG_TARGET,
-						"Era {:?} {:?}: unclaimed reward transfer failed: {:?}",
+						"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
 						era,
 						pot_type,
 						e
@@ -184,16 +184,8 @@ impl<T: Config> EraRewardManager<T> {
 			}
 		}
 
-		// Decrement provider to allow account to be reaped.
 		let _ = frame_system::Pallet::<T>::dec_providers(&pot_account)
 			.defensive_proof("Provider was added in Self::create; qed");
-
-		log::debug!(
-			target: crate::LOG_TARGET,
-			"✅ Cleaned up era {:?} {:?} pot account (removed provider)",
-			era,
-			pot_type
-		);
 	}
 
 	/// Checks if an era has a staker rewards pot by checking if the account has providers.
