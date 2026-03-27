@@ -69,7 +69,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		frame_support::ensure!(
 			LastIssuanceTimestamp::<T>::get() == 0 || BudgetAllocation::<T>::get().is_empty(),
-			"Migration not needed: both LastIssuanceTimestamp and BudgetAllocation already set"
+			"Migration not needed: LastIssuanceTimestamp and BudgetAllocation already set"
 		);
 		Ok(alloc::vec::Vec::new())
 	}
@@ -84,9 +84,9 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 		let budget = BudgetAllocation::<T>::get();
 		frame_support::ensure!(!budget.is_empty(), "BudgetAllocation should be non-empty");
 
-		let total: u32 = budget.values().map(|p| p.deconstruct()).sum();
+		let total: u64 = budget.values().map(|p| p.deconstruct() as u64).sum();
 		frame_support::ensure!(
-			total == Perbill::one().deconstruct(),
+			total == Perbill::one().deconstruct() as u64,
 			"BudgetAllocation must sum to 100%"
 		);
 

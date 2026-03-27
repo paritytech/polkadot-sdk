@@ -21,22 +21,21 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Time;
 use frame_system::RawOrigin;
-use sp_staking::budget::{BudgetKey, BudgetRecipientList};
+use sp_staking::budget::BudgetRecipientList;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
-	fn set_budget_allocation() {
-		// Build a valid allocation from registered recipients summing to 100%.
+	/// Build a valid allocation from registered recipients, distributing evenly and giving
+	/// the remainder to the last recipient to ensure the sum is exactly 100%.
+	fn build_even_allocation<T: Config>() -> BudgetAllocationMap {
 		let recipients = T::BudgetRecipients::recipients();
 		let count = recipients.len() as u32;
 		let mut allocations = BudgetAllocationMap::new();
 
 		for (i, (key, _)) in recipients.into_iter().enumerate() {
 			let perbill = if i as u32 == count - 1 {
-				// Last recipient gets the remainder to ensure exact 100%.
 				let used: u32 = allocations.values().map(|p| p.deconstruct()).sum();
 				Perbill::from_parts(Perbill::one().deconstruct().saturating_sub(used))
 			} else {
@@ -44,6 +43,13 @@ mod benchmarks {
 			};
 			allocations.try_insert(key, perbill).expect("bounded by MAX_BUDGET_RECIPIENTS");
 		}
+
+		allocations
+	}
+
+	#[benchmark]
+	fn set_budget_allocation() {
+		let allocations = build_even_allocation::<T>();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, allocations.clone());
@@ -53,20 +59,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn drip_issuance() {
-		// Set up a valid budget allocation.
-		let recipients = T::BudgetRecipients::recipients();
-		let count = recipients.len() as u32;
-		let mut allocations = BudgetAllocationMap::new();
-
-		for (i, (key, _)) in recipients.iter().enumerate() {
-			let perbill = if i as u32 == count - 1 {
-				let used: u32 = allocations.values().map(|p| p.deconstruct()).sum();
-				Perbill::from_parts(Perbill::one().deconstruct().saturating_sub(used))
-			} else {
-				Perbill::from_rational(1u32, count)
-			};
-			allocations.try_insert(key.clone(), perbill).expect("bounded");
-		}
+		let allocations = build_even_allocation::<T>();
 		BudgetAllocation::<T>::put(allocations);
 
 		// Seed the timestamp so the drip fires.

@@ -198,8 +198,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			Self::drip_issuance();
-			T::WeightInfo::drip_issuance()
+			Self::drip_issuance()
 		}
 
 		fn integrity_test() {
@@ -272,7 +271,7 @@ pub mod pallet {
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
-		pub(crate) fn drip_issuance() {
+		pub(crate) fn drip_issuance() -> Weight {
 			let now_moment = T::Time::now();
 			let now: u64 = now_moment.saturated_into();
 			let last = LastIssuanceTimestamp::<T>::get();
@@ -280,7 +279,7 @@ pub mod pallet {
 
 			let cadence = T::IssuanceCadence::get();
 			if cadence > 0 && elapsed < cadence {
-				return;
+				return T::DbWeight::get().reads(2);
 			}
 
 			// First block after genesis: initialize timestamp, don't drip.
@@ -288,7 +287,7 @@ pub mod pallet {
 			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
 				LastIssuanceTimestamp::<T>::put(now);
-				return;
+				return T::DbWeight::get().reads_writes(2, 1);
 			}
 
 			// Apply safety ceiling on elapsed time.
@@ -306,7 +305,7 @@ pub mod pallet {
 
 			if issuance.is_zero() {
 				LastIssuanceTimestamp::<T>::put(now);
-				return;
+				return T::DbWeight::get().reads_writes(3, 1);
 			}
 
 			// Distribute according to budget map.
@@ -318,7 +317,7 @@ pub mod pallet {
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
 				LastIssuanceTimestamp::<T>::put(now);
-				return;
+				return T::DbWeight::get().reads_writes(4, 1);
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
@@ -350,6 +349,8 @@ pub mod pallet {
 				target: LOG_TARGET,
 				"Issuance drip: total={issuance:?}, elapsed={elapsed}ms"
 			);
+
+			T::WeightInfo::drip_issuance()
 		}
 	}
 
@@ -379,12 +380,10 @@ pub mod pallet {
 			}
 
 			// Allocation must sum to exactly 100%.
-			let total_parts: u32 = allocation
-				.values()
-				.map(|p| p.deconstruct())
-				.fold(0u32, |acc, p| acc.saturating_add(p));
+			let total_parts: u64 =
+				allocation.values().map(|p| p.deconstruct() as u64).sum();
 			ensure!(
-				total_parts == Perbill::one().deconstruct(),
+				total_parts == Perbill::one().deconstruct() as u64,
 				"BudgetAllocation does not sum to 100%"
 			);
 

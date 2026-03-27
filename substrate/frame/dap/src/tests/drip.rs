@@ -103,11 +103,9 @@ fn drip_fires_after_cadence_reached() {
 #[test]
 fn no_drip_when_budget_not_set() {
 	build_and_execute(true, || {
-		set_default_budget_allocation();
 		System::set_block_number(1);
 
-		// Clear the budget allocation.
-		crate::BudgetAllocation::<Test>::kill();
+		// GIVEN: no budget allocation set.
 
 		let staker_pot = 500u128;
 		let balance_before = Balances::balance(&staker_pot);
