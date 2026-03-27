@@ -379,7 +379,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
           # Restore origin to the fork repo in case it was changed by the upstream push step
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "$CRATES_RELEASE_BRANCH" --force-with-lease
