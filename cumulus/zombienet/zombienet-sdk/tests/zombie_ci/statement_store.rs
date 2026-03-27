@@ -12,16 +12,6 @@ use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 
 use crate::zombie_ci::statement_store_bench::{get_keypair, spawn_network};
 
-/// Peer info returned by the system_peers RPC
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SystemPeerInfo {
-	peer_id: String,
-	roles: String,
-	best_hash: String,
-	best_number: u64,
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -172,7 +162,7 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 		}
 
 		// Poll system_peers on dave
-		let peers: Vec<SystemPeerInfo> =
+		let peers: Vec<serde_json::Value> =
 			dave_rpc.request("system_peers", rpc_params![]).await.unwrap_or_default();
 		let t = elapsed.as_secs_f64();
 		log::info!("[{:>5.1}s] dave system_peers: {} peer(s)", t, peers.len());
