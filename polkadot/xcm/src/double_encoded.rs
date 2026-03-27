@@ -44,7 +44,7 @@ fn descend_ref_and_check_depth(
 /// One instance of this input corresponds to one `DoubleEncoded` structure being decoded.
 /// For nested `DoubleEncoded` structures, the decoding logic will create an equal number of
 /// `NestedInput`s chained through the `downstream_input` field. For example:
-/// ```
+/// ```ignore
 /// NestedInput {
 /// 	downstream_input: NestedInput {
 /// 		downstream_input: NestedInput { downstream_input: ... }
