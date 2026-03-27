@@ -82,5 +82,4 @@ mod benchmarks {
 		// Timestamp should be updated.
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
 	}
-
 }

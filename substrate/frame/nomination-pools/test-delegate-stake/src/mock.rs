@@ -122,7 +122,8 @@ impl pallet_staking_async::Config for Runtime {
 	type VestingDuration = ConstU64<0>;
 	type BlocksPerSession = ConstU64<1>;
 	type ValidatorIncentivePayout = pallet_staking_async::ImmediateIncentivePayout<Balances>;
-	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 }
 
 parameter_types! {

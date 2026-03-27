@@ -436,4 +436,3 @@ impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
 		Self::buffer_account()
 	}
 }
-
