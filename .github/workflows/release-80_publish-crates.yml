@@ -117,19 +117,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate resume preconditions
-        if: inputs.resume_from != 'full'
-        shell: bash
-        env:
-          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
-          RESUME_FROM: ${{ inputs.resume_from }}
-        run: |
-          if ! git branch -r --list "origin/$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
-            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
-            exit 1
-          fi
-          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
-
       - name: Import GPG keys
         shell: bash
         run: |
@@ -147,6 +134,19 @@ jobs:
           git config --global user.name "ParityReleases"
           git config --global user.email "release-team@parity.io"
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+
+      - name: Validate resume preconditions
+        if: inputs.resume_from != 'full'
+        shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
+        run: |
+          if ! git branch -r --list "origin/$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
+            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
+            exit 1
+          fi
+          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
 
       - name: Create or switch to release branch
         shell: bash
