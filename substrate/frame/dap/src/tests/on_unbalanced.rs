@@ -17,7 +17,7 @@
 
 //! OnUnbalanced tests for the DAP pallet.
 
-use crate::mock::{new_test_ext, Balances, Test};
+use crate::mock::{build_and_execute, set_default_budget_allocation, Balances, Test};
 use frame_support::traits::{
 	fungible::{Balanced, Inspect},
 	tokens::{Fortitude, Precision, Preservation},
@@ -29,7 +29,9 @@ type DapPallet = crate::Pallet<Test>;
 #[test]
 #[should_panic(expected = "Failed to deposit slash to DAP buffer")]
 fn on_unbalanced_panics_when_buffer_not_funded_and_deposit_below_ed() {
-	new_test_ext(false).execute_with(|| {
+	build_and_execute(false, || {
+		set_default_budget_allocation();
+
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
@@ -37,7 +39,7 @@ fn on_unbalanced_panics_when_buffer_not_funded_and_deposit_below_ed() {
 		assert_eq!(Balances::free_balance(buffer), 0);
 
 		// When: deposit < ED -> triggers defensive panic
-		let credit = <Balances as Balanced<u64>>::withdraw(
+		let credit = <Balances as Balanced<_>>::withdraw(
 			&1,
 			ed - 1,
 			Precision::Exact,
@@ -51,7 +53,9 @@ fn on_unbalanced_panics_when_buffer_not_funded_and_deposit_below_ed() {
 
 #[test]
 fn on_unbalanced_creates_buffer_when_not_funded_and_deposit_at_least_ed() {
-	new_test_ext(false).execute_with(|| {
+	build_and_execute(false, || {
+		set_default_budget_allocation();
+
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
@@ -59,7 +63,7 @@ fn on_unbalanced_creates_buffer_when_not_funded_and_deposit_at_least_ed() {
 		assert_eq!(Balances::free_balance(buffer), 0);
 
 		// When: deposit >= ED
-		let credit = <Balances as Balanced<u64>>::withdraw(
+		let credit = <Balances as Balanced<_>>::withdraw(
 			&1,
 			ed,
 			Precision::Exact,
@@ -76,7 +80,9 @@ fn on_unbalanced_creates_buffer_when_not_funded_and_deposit_at_least_ed() {
 
 #[test]
 fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
-	new_test_ext(true).execute_with(|| {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
@@ -86,7 +92,7 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		let initial_total = <Balances as Inspect<_>>::total_issuance();
 
 		// When: multiple slashes occur via OnUnbalanced (simulating staking slashes)
-		let credit1 = <Balances as Balanced<u64>>::withdraw(
+		let credit1 = <Balances as Balanced<_>>::withdraw(
 			&1,
 			30,
 			Precision::Exact,
@@ -96,7 +102,7 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		.unwrap();
 		DapPallet::on_unbalanced(credit1);
 
-		let credit2 = <Balances as Balanced<u64>>::withdraw(
+		let credit2 = <Balances as Balanced<_>>::withdraw(
 			&2,
 			20,
 			Precision::Exact,
@@ -106,7 +112,7 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		.unwrap();
 		DapPallet::on_unbalanced(credit2);
 
-		let credit3 = <Balances as Balanced<u64>>::withdraw(
+		let credit3 = <Balances as Balanced<_>>::withdraw(
 			&3,
 			50,
 			Precision::Exact,
@@ -116,8 +122,8 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		.unwrap();
 		DapPallet::on_unbalanced(credit3);
 
-		// Then: buffer has ED + all slashes
-		assert_eq!(Balances::free_balance(buffer), ed + 100);
+		// Then: buffer has ED + all slashes (1 + 30 + 20 + 50 = 101)
+		assert_eq!(Balances::free_balance(&buffer), ed + 100);
 
 		// And: users lost their slashed amounts
 		assert_eq!(Balances::free_balance(1), 100 - 30);
@@ -128,8 +134,11 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 100);
 
 		// When: slash with zero amount (no-op)
-		let credit = <Balances as Balanced<u64>>::issue(0);
+		let credit = Balances::issue(0);
 		DapPallet::on_unbalanced(credit);
+
+		// Then: buffer unchanged (still ED + 100)
+		assert_eq!(Balances::free_balance(&buffer), ed + 100);
 
 		// And: total issuance unchanged (funds moved, not created/destroyed)
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_total);
