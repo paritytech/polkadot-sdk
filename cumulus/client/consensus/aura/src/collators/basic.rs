@@ -40,7 +40,7 @@ use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
-use sp_api::{CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
@@ -175,12 +175,18 @@ where
 				continue;
 			}
 
-			let Ok(Some(code)) =
-				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
-					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
-				})
-			else {
-				continue;
+			let code = {
+				let Ok(state) = params.para_client.state_at(parent_hash) else { continue };
+				let Ok(pending) = state.storage(&sp_core::storage::well_known_keys::PENDING_CODE)
+				else {
+					continue;
+				};
+				let Some(code) = pending.or_else(|| {
+					state.storage(&sp_core::storage::well_known_keys::CODE).ok().flatten()
+				}) else {
+					continue;
+				};
+				code
 			};
 
 			super::check_validation_code_or_log(
@@ -198,7 +204,9 @@ where
 					Ok(Some(h)) => h,
 				};
 
-			let slot_duration = match params.para_client.runtime_api().slot_duration(parent_hash) {
+			let mut runtime_api = params.para_client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+			let slot_duration = match runtime_api.slot_duration(parent_hash) {
 				Ok(d) => d,
 				Err(e) => reject_with_error!(e),
 			};

@@ -755,6 +755,18 @@ async fn activate_leaf(
 		}
 	);
 
+	// The V3 feature detection in handle_signals sends a NodeFeatures request
+	// right after SessionIndexForChild.
+	assert_matches!(
+		handle.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::NodeFeatures(_, tx)
+		)) => {
+			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+		}
+	);
+
 	if let Some(session_info) = new_session {
 		assert_matches!(
 			handle.recv().await,
