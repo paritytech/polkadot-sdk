@@ -80,7 +80,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -309,13 +309,7 @@ pub mod pallet {
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			if budget.is_empty() {
-				// TODO(ank4n): Add defensive! panic once budget is always configured.
-				log::warn!(
-					target: LOG_TARGET,
-					"BudgetAllocation is empty — no issuance will be distributed"
-				);
-				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(4, 1);
+				defensive!("BudgetAllocation is empty — no issuance will be distributed");
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();

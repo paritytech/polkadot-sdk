@@ -101,25 +101,14 @@ fn drip_fires_after_cadence_reached() {
 }
 
 #[test]
+#[should_panic(expected = "BudgetAllocation is empty")]
 fn no_drip_when_budget_not_set() {
 	build_and_execute(true, || {
-		set_default_budget_allocation();
 		System::set_block_number(1);
 
-		// Clear the budget allocation.
-		crate::BudgetAllocation::<Test>::kill();
-
-		let staker_pot = 500u128;
-		let balance_before = Balances::balance(&staker_pot);
-
-		// WHEN: drip fires with empty budget — no panic, just early return.
+		// GIVEN: no budget set (default empty map)
+		// WHEN: drip fires — triggers defensive panic since empty budget is unexpected.
 		advance_time_and_drip(60_000);
-
-		// THEN: no funds distributed.
-		assert_eq!(Balances::balance(&staker_pot), balance_before);
-
-		// Restore for post-test try_state.
-		set_default_budget_allocation();
 	});
 }
 
