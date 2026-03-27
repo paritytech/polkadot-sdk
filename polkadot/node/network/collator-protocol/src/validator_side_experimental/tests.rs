@@ -3733,9 +3733,12 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 }
 
 #[tokio::test]
-// Check that the core is computed correctly for ancestors.
+// Regression test for checking that the core is computed correctly
+// for ancestors.
 async fn core_assignment_uses_ancestor_not_leaf() {
 	let mut test_state = TestState::default();
+	// Rotate groups every block so block 9 and block 10 have different
+	// core assignments.
 	test_state
 		.session_info
 		.get_mut(&1)
@@ -3754,6 +3757,10 @@ async fn core_assignment_uses_ancestor_not_leaf() {
 	let mut sender = test_state.sender.clone();
 
 	let peer_id = PeerId::random();
+	// Core 2 is the correct one for the SP 10. Given the group rotation
+	// math the core index for block 10 is 1. If we were to still compute the CoreIndex
+	// for the ancestors based on leaf then this candidate would be rejected and
+	// the collator slashed.
 	let (ccr, adv) = dummy_candidate_v3(
 		get_hash(8),
 		get_hash(9),
