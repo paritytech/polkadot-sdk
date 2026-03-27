@@ -763,7 +763,7 @@ pub struct StakerRewardResult<Balance> {
 }
 
 /// Calculates staking rewards and validator incentive weights.
-pub trait StakerRewardCalculator<AccountId, Balance> {
+pub trait StakerRewardCalculator<Balance> {
 	/// Calculate the reward weight for a validator based on their self-stake.
 	///
 	/// Used for distributing validator self-stake incentive rewards proportionally.

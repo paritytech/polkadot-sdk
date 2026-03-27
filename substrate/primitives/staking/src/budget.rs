@@ -18,8 +18,7 @@
 //! Traits for inflation issuance and budget distribution.
 //!
 //! These traits define how new tokens are minted and distributed among budget recipients
-//! (e.g. staker rewards, validator incentives). They are used by `pallet-dap` to drive
-//! inflation drip and budget allocation.
+//! (e.g. staker rewards, validator incentives).
 
 use alloc::vec::Vec;
 use sp_runtime::BoundedVec;
