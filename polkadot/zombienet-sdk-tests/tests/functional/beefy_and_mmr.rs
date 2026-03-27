@@ -9,6 +9,7 @@ use crate::utils::{
 	MetricCheckSetup, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
+use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
 use futures::future::try_join_all;
 use std::collections::HashMap;
 use zombienet_sdk::{
@@ -86,9 +87,22 @@ async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 	);
 
 	unstable_node.resume().await?;
+
+	// Wait at least 1 full sessions
+	log::info!("Waiting for at least 1 full session");
+	let relay_node = stable_validators
+		.first()
+		.ok_or(anyhow!("stable-validators should have one node"))?;
+	let relay_client = relay_node.wait_client().await?;
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	// in order to ensure to wait at least one full session
+	// we wait 2 session change events.
+	wait_for_nth_session_change(&mut blocks_sub, 2).await?;
+	log::info!("Full session passed");
+
 	let metric_checks: Vec<MetricCheckSetup> = vec![
-		("substrate_beefy_validator_set_id", Box::new(|v| v >= 2.0), 60u64),
-		("substrate_beefy_best_block", Box::new(|v| v >= 21.0), 120u64),
+		("substrate_beefy_validator_set_id", Box::new(|v| v >= 3.0), 60u64),
+		("substrate_beefy_best_block", Box::new(|v| v >= 21.0), 30u64),
 	];
 	check_metrics(&[unstable_node], &metric_checks).await?;
 
