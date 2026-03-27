@@ -25,6 +25,9 @@ use frame_support::traits::UncheckedOnRuntimeUpgrade;
 /// - `T`: DAP pallet config
 /// - `P`: `Get<u64>` providing the initial timestamp (e.g. active era start from staking)
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation
+///
+/// NOTE: This migration should be applied when staking changes are integrated to support
+/// budget drip. The storage version bump (V1 → V2) happens at that point.
 pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
