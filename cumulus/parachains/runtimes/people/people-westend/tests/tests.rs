@@ -16,20 +16,56 @@
 
 #![cfg(test)]
 
-use frame_support::{assert_err, assert_ok};
-use parachains_common::AccountId;
-use parachains_runtimes_test_utils::GovernanceOrigin;
+use codec::Encode;
+use frame_support::{assert_err, assert_ok, traits::fungible::Inspect};
+use parachains_common::{AccountId, AuraId, Signature};
+use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
 use people_westend_runtime::{
 	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Block, Runtime, RuntimeCall, RuntimeOrigin,
+	Balances, Block, Executive, ExistentialDeposit, Runtime, RuntimeCall, RuntimeOrigin,
+	TxExtension, UncheckedExtrinsic,
 };
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::Either;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::{generic::Era, AccountId32, Either};
 use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
+
+fn construct_extrinsic(
+	sender: sp_keyring::Sr25519Keyring,
+	call: RuntimeCall,
+) -> UncheckedExtrinsic {
+	let account_id = AccountId32::from(sender.public());
+	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+	)
+		.into();
+	let payload = sp_runtime::generic::SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
+	let signature = payload.using_encoded(|e| sender.sign(e));
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
+}
+
+fn collator_session_keys() -> parachains_runtimes_test_utils::CollatorSessionKeys<Runtime> {
+	parachains_runtimes_test_utils::CollatorSessionKeys::new(
+		AccountId::from(Sr25519Keyring::Alice),
+		AccountId::from(Sr25519Keyring::Alice),
+		people_westend_runtime::SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
+	)
+}
 
 #[test]
 fn location_conversion_works() {
@@ -199,4 +235,70 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn tx_fees_go_to_dap_satellite() {
+	let alice = AccountId::from(Sr25519Keyring::Alice);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![(alice.clone(), 100 * ed), (satellite.clone(), ed)])
+		.with_para_id(1004.into())
+		.build()
+		.execute_with(|| {
+			let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+			let xt = construct_extrinsic(Sr25519Keyring::Alice, call);
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let alice_after = <Balances as Inspect<AccountId>>::balance(&alice);
+			let fee_paid = alice_before - alice_after;
+			assert!(fee_paid > 0, "a fee should have been paid");
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+
+			assert_eq!(satellite_after, satellite_before + fee_paid);
+			assert_eq!(issuance_before, issuance_after);
+		});
+}
+
+#[test]
+fn dust_removal_goes_to_dap_satellite() {
+	let alice = AccountId::from(Sr25519Keyring::Alice);
+	let bob = AccountId::from(Sr25519Keyring::Bob);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+	let dust = ed / 2;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![
+			(alice.clone(), 100 * ed),
+			(bob.clone(), ed + dust),
+			(satellite.clone(), ed),
+		])
+		.with_para_id(1004.into())
+		.build()
+		.execute_with(|| {
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(bob.clone()),
+				alice.clone().into(),
+				ed,
+			));
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			assert_eq!(satellite_after, satellite_before + dust);
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+		});
 }

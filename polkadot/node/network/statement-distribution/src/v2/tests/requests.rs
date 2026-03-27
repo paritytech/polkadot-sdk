@@ -63,6 +63,12 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] use_v3_descriptor:
 		if use_v3_descriptor {
 			candidate.descriptor.set_version(1);
 			candidate.descriptor.set_scheduling_parent(relay_parent);
+			// V3 descriptors require UMP signals.
+			candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+			candidate
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
 		}
 
 		let candidate_hash = candidate.hash();
@@ -276,7 +282,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// Peer C advertises candidate 1.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_1,
 				group_index: other_group,
 				para_id: other_para,
@@ -348,7 +354,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// Peer C advertises candidate 2.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_2,
 				group_index: other_group,
 				para_id: other_para,
@@ -425,7 +431,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// would fail with "Un-requested Statement In Response".
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_3,
 				group_index: other_group,
 				para_id: other_para,
@@ -526,7 +532,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2407,7 +2413,7 @@ fn local_node_respects_statement_mask() {
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -2540,7 +2546,7 @@ fn should_delay_before_retrying_dropped_requests() {
 		// Send a request about a candidate.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_1,
 				group_index: other_group,
 				para_id: other_para,
@@ -2586,7 +2592,7 @@ fn should_delay_before_retrying_dropped_requests() {
 		// We still send requests about different candidates as per usual.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_2,
 				group_index: other_group,
 				para_id: other_para,

@@ -79,7 +79,7 @@ const LOG_TARGET: &str = "runtime::MigrateForeignAssetPrecompileMappings";
 /// clearing and repopulating would reassign indices, breaking EVM contracts that
 /// cached precompile addresses derived from those indices.
 
-pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<(T, I, W)>);
+pub struct MigrateForeignAssetPrecompileMappings<T, I, W>(PhantomData<(T, I, W)>);
 
 impl<T, I, W> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I, W>
 where
@@ -111,34 +111,32 @@ where
 				break;
 			}
 
-			let next_asset = Self::peek_next_asset(last_key.as_ref());
-
-			if let Some(asset_id) = next_asset {
-				if pallet::Pallet::<T>::asset_index_of(&asset_id).is_none() {
-					match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
-						Ok(asset_index) => log::debug!(
-							target: LOG_TARGET,
-							"Migrated asset {:?} to index {:?}",
-							asset_id,
-							asset_index
-						),
-						Err(()) => {
-							// qed: we already checked that the index does *not* exist
-							defensive!("insert_asset_mapping failed during migration; this should be unreachable unless NextAssetIndex overflowed u32::MAX");
-						},
-					}
-				} else {
-					log::debug!(
-						target: LOG_TARGET,
-						"Skipping already-mapped asset {:?}",
-						asset_id
-					);
-				}
-				last_key = Some(asset_id);
-			} else {
+			let Some(asset_id) = Self::peek_next_asset(last_key.as_ref()) else {
 				log::info!(target: LOG_TARGET, "migration finished");
 				return Ok(None);
+			};
+
+			if pallet::Pallet::<T>::asset_index_of(&asset_id).is_none() {
+				match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
+					Ok(asset_index) => log::debug!(
+						target: LOG_TARGET,
+						"Migrated asset {:?} to index {:?}",
+						asset_id,
+						asset_index
+					),
+					Err(()) => {
+						// qed: we already checked that the index does *not* exist
+						defensive!("insert_asset_mapping failed during migration; this should be unreachable unless NextAssetIndex overflowed u32::MAX");
+					},
+				}
+			} else {
+				log::debug!(
+					target: LOG_TARGET,
+					"Skipping already-mapped asset {:?}",
+					asset_id
+				);
 			}
+			last_key = Some(asset_id);
 		}
 
 		Ok(last_key)

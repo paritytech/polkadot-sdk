@@ -77,7 +77,7 @@ async fn participate_with_commitments_hash<Context>(
 		ParticipationRequest::new(candidate_receipt, session, Default::default(), request_timer);
 
 	participation
-		.queue_participation(ctx, ParticipationPriority::BestEffort, req)
+		.queue_participation(ctx, ParticipationPriority::BestEffort, req, false)
 		.await
 }
 
