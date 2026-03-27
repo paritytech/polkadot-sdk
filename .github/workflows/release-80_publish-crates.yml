@@ -110,6 +110,13 @@ jobs:
 
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
+      - name: Checkout stable branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Validate resume preconditions
         if: inputs.resume_from != 'full'
         shell: bash
@@ -122,13 +129,6 @@ jobs:
             exit 1
           fi
           echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
-
-      - name: Checkout stable branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Import GPG keys
         shell: bash
