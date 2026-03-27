@@ -813,7 +813,8 @@ pub mod pallet {
 	/// - When a new offence is added to `OffenceQueue`, its era is **inserted in sorted order**
 	/// if not already present.
 	/// - When all offences for an era are processed, it is **removed** from this list.
-	/// - The maximum length of this vector is bounded by `BondingDuration + OFFENCE_QUEUE_ERAS_BOUND`.
+	/// - The maximum length of this vector is bounded by `BondingDuration +
+	///   OFFENCE_QUEUE_ERAS_BOUND`.
 	///
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
