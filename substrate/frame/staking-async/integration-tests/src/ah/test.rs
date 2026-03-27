@@ -942,11 +942,10 @@ fn on_offence_previous_era_instant_apply() {
 		.build()
 		.execute_with(|| {
 			let _ = roll_until_next_active(0);
-			let _ = roll_until_next_active(5);
-			let active_validators = roll_until_next_active(10);
+			let active_validators = roll_until_next_active(7);
 
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
-			assert_eq!(Rotator::<Runtime>::active_era(), 3);
+			assert_eq!(Rotator::<Runtime>::active_era(), 2);
 
 			// flush the events.
 			let _ = staking_events_since_last_call();
