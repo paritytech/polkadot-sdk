@@ -57,7 +57,7 @@
 //! ### Account derivation
 //!
 //! Bounty and child-bounty accounts are derived from the funding source [`PalletId`] using the
-//! sub-account prefixes `"mbt"` (multi-asset bounty) and `"mcb"` (multi-asset child bounty).
+//! raw-byte prefixes `b"mbt"` (multi-asset bounty) and `b"mcb"` (multi-asset child bounty).
 //!
 //! ### Example
 //!
@@ -1892,7 +1892,8 @@ impl Get<[u8; 3]> for ChildBountyAccountPrefix {
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
 /// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`BountyAccountPrefix`]). Must implement
-///   `Get<[u8; 3]>`.
+///   `Get<[u8; 3]>`. Fixed at 3 bytes to guarantee predictable seed size and avoid truncation of
+///   the bounty index. 
 /// - `T`: The pallet configuration
 /// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
 ///   same.
@@ -1928,7 +1929,8 @@ where
 /// # Type Parameters
 /// - `Id`: The pallet ID getter
 /// - `Prefix`: Getter for the 3-byte account prefix (e.g. [`ChildBountyAccountPrefix`]). Must
-///   implement `Get<[u8; 3]>`.
+///   implement `Get<[u8; 3]>`. Fixed at 3 bytes to guarantee predictable seed size and avoid
+///   truncation of the bounty indices. 
 /// - `T`: The pallet configuration
 /// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
 ///   same.
