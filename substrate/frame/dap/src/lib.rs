@@ -34,6 +34,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod migrations;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -76,6 +77,7 @@ pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::weights::WeightInfo;
 	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
 	use frame_system::pallet_prelude::*;
 
@@ -133,6 +135,9 @@ pub mod pallet {
 
 		/// Origin that can update budget allocation percentages.
 		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: crate::weights::WeightInfo;
 	}
 
 	#[pallet::event]
@@ -193,7 +198,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			Self::drip_issuance()
+			Self::drip_issuance();
+			T::WeightInfo::drip_issuance()
 		}
 
 		fn integrity_test() {
@@ -226,8 +232,7 @@ pub mod pallet {
 		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
 		/// must be exactly 100%. Every recipient (including buffer) must be explicitly allocated.
 		#[pallet::call_index(0)]
-		// TODO(ank4n): Benchmark
-		#[pallet::weight(T::DbWeight::get().reads_writes(0, 1))]
+		#[pallet::weight(T::WeightInfo::set_budget_allocation())]
 		pub fn set_budget_allocation(
 			origin: OriginFor<T>,
 			new_allocations: BudgetAllocationMap,
@@ -267,8 +272,7 @@ pub mod pallet {
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
-		// TODO(ank4n) needs to be properly benchmarked.
-		pub(crate) fn drip_issuance() -> Weight {
+		pub(crate) fn drip_issuance() {
 			let now_moment = T::Time::now();
 			let now: u64 = now_moment.saturated_into();
 			let last = LastIssuanceTimestamp::<T>::get();
@@ -276,8 +280,7 @@ pub mod pallet {
 
 			let cadence = T::IssuanceCadence::get();
 			if cadence > 0 && elapsed < cadence {
-				// Not time yet — cheap early return.
-				return T::DbWeight::get().reads(2);
+				return;
 			}
 
 			// First block after genesis: initialize timestamp, don't drip.
@@ -285,7 +288,7 @@ pub mod pallet {
 			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(2, 1);
+				return;
 			}
 
 			// Apply safety ceiling on elapsed time.
@@ -303,7 +306,7 @@ pub mod pallet {
 
 			if issuance.is_zero() {
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(3, 1);
+				return;
 			}
 
 			// Distribute according to budget map.
@@ -315,7 +318,7 @@ pub mod pallet {
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(4, 1);
+				return;
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
@@ -347,11 +350,6 @@ pub mod pallet {
 				target: LOG_TARGET,
 				"Issuance drip: total={issuance:?}, elapsed={elapsed}ms"
 			);
-
-			// Weight: 2 reads (time + last) + 1 read (issuance) + 1 read (budget) +
-			// N mints + 1 write (timestamp)
-			let recipient_count = recipients.len() as u64;
-			T::DbWeight::get().reads_writes(4 + recipient_count, 1 + recipient_count)
 		}
 	}
 

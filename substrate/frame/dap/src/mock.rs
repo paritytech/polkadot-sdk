@@ -118,6 +118,7 @@ impl Config for Test {
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 /// Sets a default budget allocation mimicking what the migration would do.

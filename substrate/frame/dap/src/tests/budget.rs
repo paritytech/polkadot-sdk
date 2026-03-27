@@ -16,7 +16,6 @@
 // limitations under the License.
 
 //! Tests for budget allocation functionality.
-// TODO(ank4n): Verify tests again!
 use super::budget_map;
 use crate::{
 	mock::{build_and_execute, set_default_budget_allocation, Dap, RuntimeOrigin, System},
