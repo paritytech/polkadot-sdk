@@ -216,10 +216,6 @@ where
 			// edge case, block building will fail and self-correct once the upgrade
 			// is included on the relay chain.
 			let best_hash = para_client.info().best_hash;
-			let relay_parent_offset =
-				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
-			let max_claim_queue_offset =
-				para_client.runtime_api().max_claim_queue_offset(best_hash).unwrap_or(1);
 			let v3_enabled =
 				para_client.runtime_api().scheduling_v3_enabled(best_hash).unwrap_or(false);
 
@@ -235,6 +231,8 @@ where
 				continue;
 			};
 
+			let relay_parent_offset =
+				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				descendants_start,
@@ -288,6 +286,8 @@ where
 			// enforces: claim_queue_offset <= relay_parent_offset + max_claim_queue_offset
 			//
 			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
+			let max_claim_queue_offset =
+				para_client.runtime_api().max_claim_queue_offset(best_hash).unwrap_or(1);
 			let (claim_queue_relay_block, claim_queue_depth, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip), use max_claim_queue_offset
 				(descendants_start, max_claim_queue_offset as u32, max_claim_queue_offset)
