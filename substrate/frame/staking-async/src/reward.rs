@@ -32,6 +32,12 @@ use frame_support::{
 use sp_runtime::traits::Zero;
 use sp_staking::EraIndex;
 
+/// Allocation breakdown returned by [`EraRewardManager::snapshot_era_rewards`].
+pub(crate) struct EraRewardAllocation<Balance> {
+	pub staker_rewards: Balance,
+	pub validator_incentive: Balance,
+}
+
 /// Manager for era reward allocation and distribution.
 ///
 /// Handles the lifecycle of era rewards from creation to cleanup:
@@ -72,7 +78,7 @@ impl<T: Config> EraRewardManager<T> {
 	/// The allocation breakdown showing amounts transferred into each era pot.
 	pub(crate) fn snapshot_era_rewards(
 		era: EraIndex,
-	) -> sp_staking::EraRewardAllocation<BalanceOf<T>> {
+	) -> EraRewardAllocation<BalanceOf<T>> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
 		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 
@@ -137,7 +143,7 @@ impl<T: Config> EraRewardManager<T> {
 			 validator_incentive={actual_incentive:?}"
 		);
 
-		sp_staking::EraRewardAllocation {
+		EraRewardAllocation {
 			staker_rewards: actual_staker,
 			validator_incentive: actual_incentive,
 		}

@@ -726,14 +726,6 @@ pub trait DelegationMigrator {
 	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
-/// Allocation breakdown for era rewards among stakers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EraRewardAllocation<Balance> {
-	/// Amount allocated to stakers (nominators + validator stake rewards).
-	pub staker_rewards: Balance,
-	/// Amount allocated to validator self-stake incentive.
-	pub validator_incentive: Balance,
-}
 
 /// Handler for determining how much of a balance should be paid out on the current era.
 ///
