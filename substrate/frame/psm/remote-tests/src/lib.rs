@@ -1,0 +1,316 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Remote integration tests for pallet-psm.
+//!
+//! These tests fetch live chain state (e.g., Asset Hub Westend) via RPC and execute
+//! PSM operations against real asset data. Since the PSM pallet may not be deployed
+//! on the live chain yet, the tests inject PSM configuration into the fetched state.
+
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::{Inspect as FungibleInspect, metadata::Inspect as FungibleMetadataInspect},
+		fungibles::{
+			Create as FungiblesCreate, Inspect as FungiblesInspect,
+			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
+			Mutate as FungiblesMutate,
+		},
+		Get,
+	},
+};
+use remote_externalities::{Builder, Mode, OnlineConfig};
+use sp_runtime::{
+	traits::{AccountIdConversion, Block as BlockT, Zero},
+	DeserializeOwned, Permill,
+};
+
+pub const LOG_TARGET: &str = "runtime::psm::remote-tests";
+
+/// Balance type used by the PSM pallet's fungibles.
+type BalanceOf<Runtime> = <<Runtime as pallet_psm::Config>::Fungibles as
+	frame_support::traits::fungibles::Inspect<
+		<Runtime as frame_system::Config>::AccountId,
+	>>::Balance;
+
+/// Configuration for which asset to use as the external stablecoin in tests.
+pub struct PsmTestConfig {
+	/// The external stablecoin asset ID (e.g., USDT = 1984).
+	pub external_asset_id: u32,
+	/// The pUSD stable asset ID. Will be created if it doesn't exist.
+	pub stable_asset_id: u32,
+	/// The pallet name for the assets pallet on the target chain (e.g., "Assets").
+	/// Used to determine which storage prefixes to fetch from the live chain.
+	pub assets_pallet_name: String,
+	/// Optional setup callback invoked before creating the stable asset.
+	/// Use this to set `NextAssetId` so that the asset can be created with
+	/// the desired ID on chains that use `AutoIncAssetId`.
+	pub pre_create_hook: Option<Box<dyn Fn()>>,
+}
+
+/// Fetch live state and test that minting and redeeming through the PSM works
+/// against real on-chain asset data.
+///
+/// This test:
+/// 1. Fetches the Assets pallet state from a live node
+/// 2. Configures PSM via governance dispatchables (approves asset, sets ceilings)
+/// 3. Mints pUSD by depositing the external stablecoin
+/// 4. Redeems pUSD back for the external stablecoin
+/// 5. Verifies balances, debt tracking, and fee accounting
+pub async fn mint_and_redeem<Runtime, Block>(ws_url: String, config: PsmTestConfig)
+where
+	Runtime: pallet_psm::Config + frame_system::Config,
+	Block: BlockT + DeserializeOwned,
+	Block::Header: DeserializeOwned,
+	Runtime::AssetId: From<u32>,
+	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
+	Runtime::Fungibles: FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+{
+	let mut ext = Builder::<Block>::new()
+		.mode(Mode::Online(OnlineConfig {
+			transport_uris: vec![ws_url],
+			// Fetch the full Assets pallet state (includes balances, metadata, accounts).
+			pallets: vec![config.assets_pallet_name],
+			..Default::default()
+		}))
+		.build()
+		.await
+		.unwrap();
+
+	ext.execute_with(|| {
+		let asset_id: Runtime::AssetId = config.external_asset_id.into();
+
+		// --- Setup: configure PSM state via governance calls ---
+
+		// Check that the external asset actually exists on-chain.
+		assert!(
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(asset_id),
+			"External asset does not exist on the live chain. \
+			 Make sure the asset ID is correct."
+		);
+
+		let decimals = <Runtime::Fungibles as FungiblesMetadataInspect<
+			Runtime::AccountId,
+		>>::decimals(asset_id);
+		log::info!(
+			target: LOG_TARGET,
+			"External asset found with {} decimals",
+			decimals,
+		);
+
+		// Create the pUSD stable asset if it doesn't exist yet (it won't on live chains
+		// where PSM hasn't been deployed).
+		let stable_asset_id: Runtime::AssetId = config.stable_asset_id.into();
+		if !<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(
+			stable_asset_id,
+		) {
+			// Run pre-create hook (e.g., set NextAssetId for AutoIncAssetId chains).
+			if let Some(hook) = &config.pre_create_hook {
+				hook();
+			}
+
+			let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+			let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
+
+			// Ensure the fee destination account exists in the system.
+			let fee_dest = Runtime::FeeDestination::get();
+			let _ = frame_system::Pallet::<Runtime>::inc_providers(&fee_dest);
+
+			assert_ok!(<Runtime::Fungibles as FungiblesCreate<Runtime::AccountId>>::create(
+				stable_asset_id,
+				psm_account.clone(),
+				true,
+				1u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed")),
+			));
+
+			// Set pUSD metadata with matching decimals.
+			assert_ok!(
+				<Runtime::Fungibles as FungiblesMetadataMutate<Runtime::AccountId>>::set(
+					stable_asset_id,
+					&psm_account,
+					b"pUSD".to_vec(),
+					b"pUSD".to_vec(),
+					decimals,
+				)
+			);
+
+			log::info!(
+				target: LOG_TARGET,
+				"Created pUSD stable asset (id={}) with {} decimals",
+				config.stable_asset_id,
+				decimals,
+			);
+		}
+
+		// Verify the stable asset and external asset have matching decimals.
+		let stable_decimals =
+			<Runtime::StableAsset as FungibleMetadataInspect<Runtime::AccountId>>::decimals();
+		let external_decimals = <Runtime::Fungibles as FungiblesMetadataInspect<
+			Runtime::AccountId,
+		>>::decimals(asset_id);
+		assert_eq!(
+			stable_decimals, external_decimals,
+			"Decimals mismatch: stable={} vs external={}",
+			stable_decimals, external_decimals,
+		);
+
+		// Set the PSM debt ceiling.
+		assert_ok!(pallet_psm::Pallet::<Runtime>::set_max_psm_debt(
+			frame_system::RawOrigin::Root.into(),
+			Permill::from_percent(50),
+		));
+
+		// Approve the external asset.
+		assert_ok!(pallet_psm::Pallet::<Runtime>::add_external_asset(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+		));
+
+		// Set its ceiling weight.
+		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_ceiling_weight(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			Permill::from_percent(100),
+		));
+
+		// --- Setup: fund test accounts ---
+		// Use a separate test caller (not the PSM account, since mint transfers
+		// from caller to PSM — using the same account would be a no-op on balance).
+		let caller: Runtime::AccountId = frame_support::PalletId(*b"py/test!")
+			.into_account_truncating();
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&caller);
+
+		let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
+
+		let fee_dest = Runtime::FeeDestination::get();
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&fee_dest);
+
+		// Pre-fund accounts with pUSD so they have asset accounts (needed for
+		// non-sufficient assets where holding requires an existing account).
+		let seed_amount: BalanceOf<Runtime> = 1u128
+			.try_into()
+			.unwrap_or_else(|_| panic!("balance conversion failed"));
+		let _ = <Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
+			stable_asset_id, &caller, seed_amount,
+		);
+		let _ = <Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
+			stable_asset_id, &fee_dest, seed_amount,
+		);
+
+		// Fund the test caller with 2000 external stablecoin (2000 * 10^decimals).
+		let fund_amount: BalanceOf<Runtime> = 2_000_000_000u128
+			.try_into()
+			.unwrap_or_else(|_| panic!("balance conversion failed"));
+
+		assert_ok!(<Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
+			asset_id, &caller, fund_amount,
+		));
+
+		let balance_before =
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+				asset_id, &caller,
+			);
+
+		log::info!(
+			target: LOG_TARGET,
+			"Test account external stablecoin balance: {:?}",
+			balance_before,
+		);
+
+		// --- Test: Mint 1000 pUSD (1000 * 10^decimals) ---
+		let swap_amount: BalanceOf<Runtime> = 1_000_000_000u128
+			.try_into()
+			.unwrap_or_else(|_| panic!("balance conversion failed"));
+
+		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
+			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			asset_id,
+			swap_amount,
+		));
+
+		// Verify exact balances after mint.
+		// Default fee is 0.5%, so: fee = swap_amount * 0.5% (rounded up),
+		// pusd_to_user = swap_amount - fee, total_debt = swap_amount.
+		let balance_after_mint =
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+				asset_id, &caller,
+			);
+		assert_eq!(
+			balance_after_mint,
+			balance_before - swap_amount,
+			"Caller external balance should decrease by exactly swap_amount"
+		);
+
+		let total_debt = pallet_psm::Pallet::<Runtime>::total_psm_debt();
+		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
+
+		// The PSM account should hold the external stablecoin.
+		let psm_external =
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+				asset_id, &psm_account,
+			);
+		assert_eq!(psm_external, swap_amount, "PSM should hold the external stablecoin");
+
+		log::info!(
+			target: LOG_TARGET,
+			"Mint successful: debt={:?}, PSM external balance={:?}",
+			total_debt,
+			psm_external,
+		);
+
+		// --- Test: Redeem pUSD ---
+		// Redeem all pUSD the caller has (seed + minted amount).
+		let pusd_balance = Runtime::StableAsset::balance(&caller);
+		let redeem_amount = pusd_balance;
+
+		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
+			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			asset_id,
+			redeem_amount,
+		));
+
+		// Verify caller's pUSD was fully spent.
+		let pusd_after = Runtime::StableAsset::balance(&caller);
+		assert_eq!(pusd_after, Zero::zero(), "Caller should have no pUSD remaining");
+
+		// Debt decreases by the external amount returned (redeem_amount - redeem_fee),
+		// not the full pUSD amount, since the fee portion is not backed by debt.
+		let debt_after = pallet_psm::Pallet::<Runtime>::total_psm_debt();
+		assert!(
+			debt_after < total_debt && debt_after > Zero::zero(),
+			"PSM debt should decrease after redeem but remain > 0 (fee portion stays as debt)"
+		);
+
+		// Verify fees were collected at the fee destination.
+		let fee_dest = Runtime::FeeDestination::get();
+		let fee_balance = Runtime::StableAsset::balance(&fee_dest);
+		assert!(
+			fee_balance > seed_amount,
+			"Fee destination should have received fees beyond the seed"
+		);
+
+		log::info!(
+			target: LOG_TARGET,
+			"Redeem successful: debt_after={:?}, fee_balance={:?}",
+			debt_after,
+			fee_balance,
+		);
+
+		log::info!(target: LOG_TARGET, "All PSM remote tests passed.");
+	});
+}

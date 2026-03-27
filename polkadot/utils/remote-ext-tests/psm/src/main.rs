@@ -1,0 +1,87 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Remote tests for pallet-psm against live Asset Hub state.
+
+use clap::{Parser, ValueEnum};
+use frame_support::traits::fungible::Mutate as FungibleMutate;
+
+#[derive(Clone, Debug, ValueEnum)]
+#[value(rename_all = "PascalCase")]
+enum Runtime {
+	AssetHubWestend,
+}
+
+#[derive(Parser)]
+struct Cli {
+	#[arg(
+		long,
+		short,
+		default_value = "wss://westend-asset-hub-rpc.polkadot.io:443"
+	)]
+	uri: String,
+	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::AssetHubWestend)]
+	runtime: Runtime,
+	/// External stablecoin asset ID to use for testing (e.g., USDT = 1984).
+	#[arg(long, default_value_t = 1984)]
+	asset_id: u32,
+}
+
+#[tokio::main]
+async fn main() {
+	let options = Cli::parse();
+	sp_tracing::try_init_simple();
+
+	log::info!(
+		target: "remote-ext-tests",
+		"using runtime {:?} / asset_id: {}",
+		options.runtime,
+		options.asset_id,
+	);
+
+	match options.runtime {
+		Runtime::AssetHubWestend => {
+			use asset_hub_westend_runtime::{
+				Block, Runtime, TrustBackedAssetsInstance,
+			};
+			let stable_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
+			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block>(
+				options.uri,
+				pallet_psm_remote_tests::PsmTestConfig {
+					external_asset_id: options.asset_id,
+					stable_asset_id,
+					assets_pallet_name: "Assets".to_string(),
+					pre_create_hook: Some(Box::new(move || {
+						pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(
+							stable_asset_id,
+						);
+						// Fund the PSM account with native balance for the asset creation
+						// deposit. 
+						//
+						// This is only needed in tests. In production, the pUSD asset would 
+						// be created via governance with treasury funds.
+						let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+						let _ = <asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
+							&psm_account,
+							100_000_000_000_000u128,
+						);
+					})),
+				},
+			)
+			.await;
+		},
+	}
+}

@@ -1433,15 +1433,15 @@ impl pallet_verify_signature::Config for Runtime {
 // PSM configuration.
 parameter_types! {
 	/// The pUSD stablecoin asset ID (trust-backed asset).
-	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 4242;
+	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 1984042;
 	/// Minimum swap amount for PSM operations (1 pUSD).
 	pub const PsmMinSwapAmount: Balance = 1_000_000;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 	/// Fee revenue destination: routes to the treasury account.
 	pub PsmFeeDestination: AccountId = governance::TreasuryAccount::get();
-	/// Maximum pUSD issuance across the system (100 million pUSD).
-	pub const PsmMaximumIssuance: Balance = 100_000_000 * 1_000_000;
+	/// Maximum pUSD issuance across the system (1 million pUSD).
+	pub const PsmMaximumIssuance: Balance = 1_000_000 * 1_000_000;
 }
 
 /// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
