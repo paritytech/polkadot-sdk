@@ -257,12 +257,12 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Sink for unclaimed era rewards.
+		/// Handler for unclaimed era rewards.
 		///
-		/// When era pot accounts are cleaned up after history depth expires, any remaining
-		/// unclaimed rewards are transferred to this sink.
+		/// When era pots are cleaned up past history depth, remaining funds are withdrawn
+		/// and passed to this handler. Typically wired to DAP (same as `Slash`).
 		#[pallet::no_default_bounds]
-		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId, BalanceOf<Self>>;
+		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		/// Provider for general (non-era) reward pot accounts.
 		///
@@ -491,8 +491,8 @@ pub mod pallet {
 			type HistoryDepth = ConstU32<84>;
 			type RewardRemainder = ();
 			type Slash = ();
+			type UnclaimedRewardHandler = ();
 			type Reward = ();
-			type UnclaimedRewardSink = ();
 			type GeneralPots = crate::Seed<StakingAsyncPalletId>;
 			type EraPots = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;

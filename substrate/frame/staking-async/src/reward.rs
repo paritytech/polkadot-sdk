@@ -26,11 +26,11 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::Preservation,
-		Defensive,
+		Defensive, OnUnbalanced,
 	},
 };
 use sp_runtime::traits::Zero;
-use sp_staking::{EraIndex, UnclaimedRewardSink};
+use sp_staking::EraIndex;
 
 /// Manager for era reward allocation and distribution.
 ///

@@ -432,6 +432,7 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
 	type Slash = Dap;
+	type UnclaimedRewardHandler = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -439,7 +440,6 @@ impl pallet_staking_async::Config for Runtime {
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type GeneralPots = pallet_staking_async::Seed<StakingPalletId>;
-	type UnclaimedRewardSink = Dap;
 	type EraPots = pallet_staking_async::Seed<StakingPalletId>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;

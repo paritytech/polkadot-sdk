@@ -500,6 +500,7 @@ impl Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type RewardRemainder = RewardRemainderMock;
 	type Slash = Dap;
+	type UnclaimedRewardHandler = Dap;
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
@@ -508,7 +509,6 @@ impl Config for Test {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type GeneralPots = SequentialTest;
-	type UnclaimedRewardSink = Dap;
 	type EraPots = SequentialTest;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;

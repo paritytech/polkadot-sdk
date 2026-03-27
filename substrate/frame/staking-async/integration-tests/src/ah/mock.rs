@@ -466,10 +466,10 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
-	type UnclaimedRewardSink = Dap;
 	type GeneralPots = pallet_staking_async::SequentialTest;
 	type EraPots = pallet_staking_async::SequentialTest;
 	type Slash = Dap;
+	type UnclaimedRewardHandler = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxPruningItems = MaxPruningItems;
 
