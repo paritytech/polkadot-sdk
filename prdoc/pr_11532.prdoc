@@ -1,0 +1,27 @@
+title: '[pallet-revive] add log index field to call tracer output'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    Adds a monotonic `index` field to `CallLog` in the call tracer output, matching Geth v1.17.0+ behavior ([go-ethereum#33629](https://github.com/ethereum/go-ethereum/pull/33629)).
+
+    The `index` represents the transaction-level log index (matching `logIndex` in receipts), distinct from the existing `position` field which tracks ordering relative to subcalls within the same trace frame.
+
+    Closes https://github.com/paritytech/contract-issues/issues/277
+
+    Companion PR: https://github.com/paritytech/evm-test-suite/pull/145
+
+    ## Changes
+
+    - `CallLog`: new `index: u32` field with hex serialization
+    - `CallTracer`: new `log_count` counter incremented on each `log_event` call
+    - Updated `call_tracing_works` test to verify correct monotonic indices across nested call depths
+
+    ## Test plan
+
+    - [x] All 9 tracing tests pass
+    - [ ] evm-test-suite snapshots need regenerating against Geth v1.17.0 (companion PR: paritytech/evm-test-suite#TBD)
+crates:
+- name: pallet-revive
+  bump: minor
