@@ -32,6 +32,7 @@ pub fn expand_outer_dispatch(
 	let mut query_call_part_macros = Vec::new();
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
+	let mut pallet_indices = Vec::new();
 	let system_path = &system_pallet.path;
 
 	let pallets_with_call = pallet_decls.iter().filter(|decl| decl.exists_part("Call"));
@@ -51,6 +52,7 @@ pub fn expand_outer_dispatch(
 		variant_patterns.push(quote!(RuntimeCall::#name(call)));
 		pallet_names.push(name);
 		pallet_attrs.push(attr);
+		pallet_indices.push(index);
 		query_call_part_macros.push(quote! {
 			#path::__substrate_call_check::is_call_part_defined!(#name);
 		});
@@ -156,6 +158,12 @@ pub fn expand_outer_dispatch(
 				&[#(
 					#pallet_attrs
 					stringify!(#pallet_names),
+				)*]
+			}
+
+			fn get_module_indices() -> &'static [u8] {
+				&[#(
+					#pallet_indices,
 				)*]
 			}
 

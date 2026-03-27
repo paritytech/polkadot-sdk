@@ -719,24 +719,29 @@ fn get_call_names() {
 }
 
 #[test]
-fn get_module_names() {
+fn get_module_names_and_indices() {
 	use frame_support::traits::GetCallMetadata;
 	let module_names = RuntimeCall::get_module_names();
+	let module_indices = RuntimeCall::get_module_indices();
 	assert_eq!(
-		[
-			"Module1_6",
-			"Module1_7",
-			"Module1_4",
-			"Module1_8",
-			"Module1_9",
-			"System",
-			"Module1_1",
-			"Module2",
-			"Module1_2",
-			"NestedModule3",
-			"Module3",
+		vec![
+			("Module1_6", 1),
+			("Module1_7", 2),
+			("Module1_4", 3),
+			("Module1_8", 12),
+			("Module1_9", 13),
+			("System", 30),
+			("Module1_1", 31),
+			("Module2", 32),
+			("Module1_2", 33),
+			("NestedModule3", 34),
+			("Module3", 35),
 		],
 		module_names
+			.iter()
+			.copied()
+			.zip(module_indices.iter().copied())
+			.collect::<Vec<_>>()
 	);
 }
 
