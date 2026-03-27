@@ -1197,7 +1197,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			// Align with the SlashDeferDuration > 0 branch: accept offences from at most
 			// BondingDuration - 1 distinct eras, ensuring the count fits within the
 			// OffenceQueueEras bound.
-			active_era.index.saturating_sub(T::BondingDuration::get()).saturating_add(2)
+			active_era.index.saturating_sub(T::BondingDuration::get().saturating_sub(2))
 		} else {
 			// slashes are deffered, so we only accept offences that are not older than the
 			// defferal duration.

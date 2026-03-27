@@ -2150,10 +2150,8 @@ mod paged_slashing {
 
 #[test]
 fn old_offences_rejected_with_zero_slash_defer_duration() {
-	// Regression test: with SlashDeferDuration=0, the previous formula
-	// `oldest_reportable = active_era - BondingDuration` would have accepted era 3 here,
-	// which would cause OffenceQueueEras to go out of sync with OffenceQueue. The fix
-	// narrows the window to `active_era - BondingDuration + 2`.
+	// Regression test: with SlashDeferDuration=0, the oldest reportable offence era is
+	// `active_era - (BondingDuration - 2)`. Offences older than that are rejected.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		assert_eq!(SlashDeferDuration::get(), 0);
 		assert_eq!(BondingDuration::get(), 3);
@@ -2168,6 +2166,7 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 		let offence_era = 3u32;
 
 		// WHEN: reporting offence for era 3 (outside the valid window).
+		// oldest_reportable = 5 - (3 - 2) = 4, so era 3 < 4 is too old.
 		add_slash_in_era(11, offence_era, Perbill::from_percent(10));
 
 		// THEN: correctly rejected as too old.
@@ -2184,7 +2183,7 @@ fn old_offences_rejected_with_zero_slash_defer_duration() {
 		assert!(OffenceQueue::<Test>::iter_prefix(offence_era).next().is_none());
 		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&offence_era));
 
-		// WHEN: reporting offence for era 4 (within the valid window).
+		// WHEN: reporting offence for era 4 (within the valid window, 4 >= 4).
 		add_slash_in_era(21, 4, Perbill::from_percent(10));
 
 		// THEN: offence is accepted and stored consistently.
