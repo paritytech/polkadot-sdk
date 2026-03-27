@@ -41,6 +41,12 @@ pub trait IssuanceCurve<Balance> {
 	fn issue(total_issuance: Balance, elapsed_millis: u64) -> Balance;
 }
 
+impl<Balance: Default> IssuanceCurve<Balance> for () {
+	fn issue(_total_issuance: Balance, _elapsed_millis: u64) -> Balance {
+		Default::default()
+	}
+}
+
 /// A recipient of inflation budget.
 ///
 /// Pallets that want a share of inflation implement this trait, providing a unique key
