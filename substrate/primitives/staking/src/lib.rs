@@ -726,7 +726,6 @@ pub trait DelegationMigrator {
 	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
-
 /// Handler for determining how much of a balance should be paid out on the current era.
 ///
 /// Used by `pallet-staking` (legacy). New code should use [`InflationCurve`] instead,

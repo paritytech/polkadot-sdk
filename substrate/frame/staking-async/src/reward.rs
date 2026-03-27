@@ -76,9 +76,7 @@ impl<T: Config> EraRewardManager<T> {
 	///
 	/// # Returns
 	/// The allocation breakdown showing amounts transferred into each era pot.
-	pub(crate) fn snapshot_era_rewards(
-		era: EraIndex,
-	) -> EraRewardAllocation<BalanceOf<T>> {
+	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> EraRewardAllocation<BalanceOf<T>> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
 		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 
@@ -143,10 +141,7 @@ impl<T: Config> EraRewardManager<T> {
 			 validator_incentive={actual_incentive:?}"
 		);
 
-		EraRewardAllocation {
-			staker_rewards: actual_staker,
-			validator_incentive: actual_incentive,
-		}
+		EraRewardAllocation { staker_rewards: actual_staker, validator_incentive: actual_incentive }
 	}
 
 	/// Destroys an era pot account by withdrawing unclaimed rewards and removing the provider.
