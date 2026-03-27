@@ -380,8 +380,7 @@ pub mod pallet {
 			}
 
 			// Allocation must sum to exactly 100%.
-			let total_parts: u64 =
-				allocation.values().map(|p| p.deconstruct() as u64).sum();
+			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
 			ensure!(
 				total_parts == Perbill::one().deconstruct() as u64,
 				"BudgetAllocation does not sum to 100%"
