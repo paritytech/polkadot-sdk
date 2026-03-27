@@ -2617,7 +2617,7 @@ pub mod pallet {
 		///
 		/// NOTE: Changes take effect in the next era when rewards are calculated.
 		#[pallet::call_index(33)]
-		#[pallet::weight(T::DbWeight::get().writes(3))]
+		#[pallet::weight(T::WeightInfo::set_validator_self_stake_incentive_config())]
 		pub fn set_validator_self_stake_incentive_config(
 			origin: OriginFor<T>,
 			optimum_self_stake: ConfigOp<BalanceOf<T>>,

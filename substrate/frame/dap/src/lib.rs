@@ -35,6 +35,9 @@
 
 pub mod migrations;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 #[cfg(test)]
 pub(crate) mod mock;
 #[cfg(test)]
