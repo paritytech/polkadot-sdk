@@ -57,7 +57,7 @@ parameter_types! {
 
 /// Returns 100 per 60_000ms elapsed (proportional).
 pub struct TestIssuanceCurve;
-impl sp_staking::budget::IssuanceCurve<u64> for TestIssuanceCurve {
+impl sp_staking::IssuanceCurve<u64> for TestIssuanceCurve {
 	fn issue(_total_issuance: u64, elapsed_millis: u64) -> u64 {
 		// 100 per minute (60_000ms)
 		(100u128 * elapsed_millis as u128 / 60_000u128) as u64
@@ -89,9 +89,9 @@ impl frame_support::traits::Time for MockTime {
 
 /// Test budget recipient: staker rewards pot (account 500).
 pub struct TestStakerRecipient;
-impl sp_staking::budget::BudgetRecipient<AccountId> for TestStakerRecipient {
-	fn budget_key() -> sp_staking::budget::BudgetKey {
-		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+impl sp_staking::BudgetRecipient<AccountId> for TestStakerRecipient {
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec())
 	}
 	fn pot_account() -> AccountId {
 		500
@@ -100,9 +100,9 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestStakerRecipient {
 
 /// Test budget recipient: validator incentive pot (account 501).
 pub struct TestValidatorIncentiveRecipient;
-impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient {
-	fn budget_key() -> sp_staking::budget::BudgetKey {
-		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+impl sp_staking::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient {
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec())
 	}
 	fn pot_account() -> AccountId {
 		501
@@ -123,7 +123,7 @@ impl Config for Test {
 /// Sets a default budget allocation mimicking what the migration would do.
 pub fn set_default_budget_allocation() {
 	use sp_runtime::{BoundedBTreeMap, Perbill};
-	use sp_staking::budget::BudgetRecipient;
+	use sp_staking::BudgetRecipient;
 
 	let mut map = BoundedBTreeMap::new();
 	map.try_insert(Dap::budget_key(), Perbill::from_percent(15)).unwrap();

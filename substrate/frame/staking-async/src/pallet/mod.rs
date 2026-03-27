@@ -19,10 +19,9 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -86,8 +85,11 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning single-entry storages: ErasTotalStake and ErasNominatorsSlashable
+		/// Pruning single-entry storages: ErasTotalStake, ErasTotalValidatorWeight,
+		/// ErasNominatorsSlashable, and ErasValidatorIncentiveAllocation
 		SingleEntryCleanups,
+		/// Pruning ErasValidatorIncentive storage
+		ErasValidatorIncentive,
 		/// Pruning ValidatorSlashInEra storage
 		ValidatorSlashInEra,
 	}
@@ -255,10 +257,28 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The payout for validators and the system for the current era.
-		/// See [Era payout](./index.html#era-payout).
-		#[pallet::no_default]
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		/// Handler for unclaimed era rewards.
+		///
+		/// When era pots are cleaned up past history depth, remaining funds are withdrawn
+		/// and passed to this handler. Typically wired to DAP (same as `Slash`).
+		#[pallet::no_default_bounds]
+		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
+		/// Provider for general (non-era) reward pot accounts.
+		///
+		/// DAP drips inflation into these pots. At era boundaries, staking snapshots
+		/// and transfers the balances to era-specific pots.
+		///
+		/// Use [`crate::Seed`] in production with a pallet ID.
+		/// Use [`crate::SequentialTest`] for testing with predictable sequential IDs.
+		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
+
+		/// Provider for generating era pot account IDs.
+		///
+		/// Use [`crate::Seed`] in production with a pallet ID.
+		/// Use [`crate::SequentialTest`] for testing with predictable sequential IDs.
+		#[pallet::no_default_bounds]
+		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -342,16 +362,6 @@ pub mod pallet {
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
 		/// Maximum allowed era duration in milliseconds.
-		///
-		/// This provides a defensive upper bound to cap the effective era duration, preventing
-		/// excessively long eras from causing runaway inflation (e.g., due to bugs). If the actual
-		/// era duration exceeds this value, it will be clamped to this maximum.
-		///
-		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
-		/// this can be set to 604,800,000 ms (7 days).
-		#[pallet::constant]
-		type MaxEraDuration: Get<u64>;
-
 		/// Maximum number of storage items that can be pruned in a single call.
 		///
 		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
@@ -374,6 +384,67 @@ pub mod pallet {
 		/// another way (such as pools).
 		type Filter: Contains<Self::AccountId>;
 
+		/// Calculator for staker rewards including validator self-stake incentives.
+		///
+		/// This determines:
+		/// - How validator self-stake is weighted for distributing self-stake incentive rewards
+		/// - How staking rewards are distributed between validators and nominators
+		#[pallet::no_default_bounds]
+		type StakerRewardCalculator: sp_staking::StakerRewardCalculator<
+			Self::AccountId,
+			BalanceOf<Self>,
+		>;
+
+		/// Total duration of vesting for validator self-stake incentive rewards, in relay
+		/// chain (RC) blocks.
+		///
+		/// Incentive rewards are not paid out immediately. Instead, they are accumulated
+		/// under a hold ([`HoldReason::IncentiveVesting`]) for [`Config::BondingDuration`]
+		/// eras, then batch-converted to a vesting schedule. This avoids exhausting
+		/// `MaxVestingSchedules` (typically 28) by creating at most
+		/// `vesting_eras / BondingDuration` schedules over the full vesting period, where
+		/// `vesting_eras = VestingDuration / (BlocksPerSession * SessionsPerEra)`.
+		///
+		/// At conversion time, the fraction `BondingDuration / vesting_eras` is released
+		/// as liquid (retroactive unlock), and the remainder is vested over the remaining
+		/// blocks.
+		///
+		/// Denominated in RC blocks (not parachain blocks, which are variable). This
+		/// matches the block number provider used in the vesting trait implementation.
+		///
+		/// Set to `0` to pay the incentive as liquid funds immediately (no vesting or hold).
+		#[pallet::constant]
+		#[pallet::no_default]
+		type VestingDuration: Get<BlockNumberFor<Self>>;
+
+		/// Number of relay chain (RC) blocks per session.
+		///
+		/// Used together with [`Config::SessionsPerEra`] and [`Config::VestingDuration`]
+		/// to derive the vesting duration in eras
+		/// (`VestingDuration / (BlocksPerSession * SessionsPerEra)`) and compute the
+		/// retroactive unlock fraction at batch conversion time.
+		///
+		/// Denominated in RC blocks (not parachain blocks, which are variable). This
+		/// matches the block number provider used in the vesting trait implementation.
+		#[pallet::constant]
+		#[pallet::no_default]
+		type BlocksPerSession: Get<BlockNumberFor<Self>>;
+
+		/// Mechanism for paying out validator self-stake incentive rewards.
+		///
+		/// Used during batch conversion to create vesting schedules from accumulated
+		/// incentive holds. See [`HoldReason::IncentiveVesting`] for the full lifecycle.
+		///
+		/// Use [`crate::ImmediateIncentivePayout`] for liquid payouts (no vesting).
+		/// Use [`crate::VestedIncentivePayout`] to vest over [`Config::VestingDuration`] blocks.
+		#[pallet::no_default_bounds]
+		#[pallet::no_default]
+		type ValidatorIncentivePayout: crate::ValidatorIncentivePayout<
+			Self::AccountId,
+			BalanceOf<Self>,
+			BlockNumberFor<Self>,
+		>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -384,6 +455,13 @@ pub mod pallet {
 		/// Funds on stake by a nominator or a validator.
 		#[codec(index = 0)]
 		Staking,
+		/// Validator incentive rewards awaiting conversion to a vesting schedule.
+		///
+		/// Incentive rewards are accumulated under this hold for [`Config::BondingDuration`]
+		/// eras, then batch-converted to a vesting schedule to avoid exhausting
+		/// `MaxVestingSchedules`.
+		#[codec(index = 1)]
+		IncentiveVesting,
 	}
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -400,6 +478,7 @@ pub mod pallet {
 			pub const BondingDuration: EraIndex = 3;
 			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
+			pub const StakingAsyncPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stka ");
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -412,7 +491,10 @@ pub mod pallet {
 			type HistoryDepth = ConstU32<84>;
 			type RewardRemainder = ();
 			type Slash = ();
+			type UnclaimedRewardHandler = ();
 			type Reward = ();
+			type GeneralPots = crate::Seed<StakingAsyncPalletId>;
+			type EraPots = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -422,10 +504,11 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
-			type MaxEraDuration = ();
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
+			type StakerRewardCalculator =
+				crate::reward::DefaultStakerRewardCalculator<TestDefaultConfig>;
 			type WeightInfo = ();
 		}
 	}
@@ -457,6 +540,44 @@ pub mod pallet {
 	/// If set to `0`, no limit exists.
 	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// The maximum commission that validators can set.
+	///
+	/// If not set, defaults to `Perbill::one()` (100%), i.e. no upper limit.
+	#[pallet::storage]
+	pub type MaxCommission<T: Config> = StorageValue<_, Perbill, ValueQuery, MaxCommissionDefault>;
+
+	/// Default for MaxCommission: 100% (no restriction).
+	pub struct MaxCommissionDefault;
+	impl Get<Perbill> for MaxCommissionDefault {
+		fn get() -> Perbill {
+			Perbill::one()
+		}
+	}
+
+	/// Optimum self-stake threshold for validators.
+	///
+	/// Validators with self-stake below this value receive full weightage in the validator
+	/// self-stake incentive reward curve. Above this threshold, diminishing returns apply based
+	/// on the slope factor.
+	#[pallet::storage]
+	pub type OptimumSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Hard cap on effective validator self-stake.
+	///
+	/// Self-stake above this value receives no additional reward benefit in the validator
+	/// self-stake incentive system (rewards plateau at this level).
+	#[pallet::storage]
+	pub type HardCapSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Slope factor controlling the discouragement rate for self-stake between optimum and cap.
+	///
+	/// Value between 0 and 1:
+	/// - k=1 means no discouragement above optimum
+	/// - k=0 means immediate plateau at optimum
+	/// - k=0.5 provides moderate discouragement
+	#[pallet::storage]
+	pub type SelfStakeSlopeFactor<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -735,11 +856,24 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
+	/// Total staker reward budget for each era in `[active_era - HistoryDepth, active_era]`.
 	///
-	/// Eras that haven't finished yet or has been removed doesn't have reward.
+	/// This covers both validator and nominator rewards (not just validator despite the legacy
+	/// storage name which is kept for backward compatibility).
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// Era allocation for validator self-stake incentive for the last [`Config::HistoryDepth`]
+	/// eras.
+	///
+	/// This value is snapshotted at era end to ensure consistent calculations across all
+	/// validator payouts within the era. Without snapshotting, the allocation would decrease
+	/// with each payout, resulting in unfair distribution among validators.
+	///
+	/// If not set or removed, 0 is returned.
+	#[pallet::storage]
+	pub type ErasValidatorIncentiveAllocation<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
@@ -752,6 +886,26 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+
+	/// The total validator self-stake weight for the last [`Config::HistoryDepth`] eras.
+	/// Used for distributing validator self-stake incentive rewards proportionally.
+	/// If total hasn't been set or has been removed then 0 weight is returned.
+	#[pallet::storage]
+	pub type ErasTotalValidatorWeight<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+
+	/// Individual validator self-stake weight for the last [`Config::HistoryDepth`] eras.
+	/// Stored during era planning to avoid recalculating during payouts.
+	#[pallet::storage]
+	pub type ErasValidatorIncentive<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		T::AccountId,
+		BalanceOf<T>,
+		OptionQuery,
+	>;
 
 	/// Mode of era forcing.
 	#[pallet::storage]
@@ -894,6 +1048,16 @@ pub mod pallet {
 	/// Tracks the current step of era pruning process for each era being lazily pruned.
 	#[pallet::storage]
 	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
+
+	/// Era after which legacy minting is permanently disabled.
+	///
+	/// Set to the first era where reward provider is active. Once set, this value can only be
+	/// updated to a lower value (ensuring write-once semantics in production).
+	///
+	/// We use this as a way to hard deprecate minting tokens in this pallet and rely on
+	/// era pot transfers for staking rewards.
+	#[pallet::storage]
+	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -1109,12 +1273,13 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
+		// Deprecated: Only emitted for `HistoryDepth` eras while transitioning to RewardProvider.
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
 			remainder: BalanceOf<T>,
 		},
-		/// The nominator has been rewarded by this amount to this destination.
+		/// The staker has been rewarded by this amount to this destination.
 		Rewarded {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
@@ -1250,6 +1415,35 @@ pub mod pallet {
 		EraPruned {
 			index: EraIndex,
 		},
+		/// Validator incentive has been transferred from the era pot and placed under
+		/// an [`HoldReason::IncentiveVesting`] hold, awaiting batch conversion to a
+		/// vesting schedule.
+		ValidatorIncentiveHeld {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
+		/// Accumulated validator incentive hold has been converted to a vesting schedule.
+		///
+		/// The `liquid` portion was released immediately (retroactive unlock for the
+		/// accumulation period), and `vested` was placed under a vesting schedule.
+		IncentiveVestingConverted {
+			validator_stash: T::AccountId,
+			liquid: BalanceOf<T>,
+			vested: BalanceOf<T>,
+		},
+		/// The validator has been paid their self-stake incentive bonus.
+		///
+		/// This is separate from staker rewards (`Rewarded`) and represents
+		/// an additional bonus paid from the validator incentive pot based on the validator's
+		/// self-stake weight.
+		ValidatorIncentivePaid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1259,12 +1453,16 @@ pub mod pallet {
 	/// diagnosing issues in production or test environments.
 	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
 	pub enum UnexpectedKind {
-		/// Emitted when calculated era duration exceeds the configured maximum.
-		EraDurationBoundExceeded,
 		/// Received a validator activation event that is not recognized.
 		UnknownValidatorActivation,
 		/// Failed to proceed paged election due to weight limits
 		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
+		/// Validator incentive allocation exists but total validator weight is zero for the era.
+		ValidatorIncentiveWeightMismatch { era: EraIndex },
+		/// Transfer of validator incentive failed unexpectedly.
+		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Active staker (validator or nominator) with payout due has no payee set.
+		ValidatorMissingPayee { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1348,6 +1546,19 @@ pub mod pallet {
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
 		CancelledSlash,
+		/// Era reward pot not found and legacy minting is disabled.
+		///
+		/// This is an internal error caused by a potential bug. If observed, please create an
+		/// issue in `https://github.com/paritytech/polkadot-sdk/issues`.
+		LegacyMintingDisabled,
+		/// Optimum self-stake cannot be greater than hard cap.
+		OptimumGreaterThanCap,
+		/// Commission is higher than the allowed maximum `MaxCommission`.
+		CommissionTooHigh,
+		/// Cannot exit staking while incentive hold is pending conversion to a vesting schedule.
+		///
+		/// Free a vesting slot, claim pending rewards, then retry.
+		IncentiveVestingPending,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1451,10 +1662,22 @@ pub mod pallet {
 				},
 				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
-					// Also clean up ErasNominatorsSlashable
+					ErasTotalValidatorWeight::<T>::remove(era);
 					ErasNominatorsSlashable::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+					ErasValidatorIncentiveAllocation::<T>::remove(era);
+					EraPruningState::<T>::insert(era, PruningStep::ErasValidatorIncentive);
 					T::WeightInfo::prune_era_single_entry_cleanups()
+				},
+				PruningStep::ErasValidatorIncentive => {
+					// Clear ErasValidatorIncentive entries for this era
+					let result = ErasValidatorIncentive::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+					}
+
+					T::WeightInfo::prune_era_validator_slash_in_era(items_deleted)
 				},
 				PruningStep::ValidatorSlashInEra => {
 					// Clear ValidatorSlashInEra entries for this era
@@ -1817,6 +2040,7 @@ pub mod pallet {
 
 			// ensure their commission is correct.
 			ensure!(prefs.commission >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+			ensure!(prefs.commission <= MaxCommission::<T>::get(), Error::<T>::CommissionTooHigh);
 
 			// Only check limits if they are not already a validator.
 			if !Validators::<T>::contains_key(stash) {
@@ -1954,6 +2178,9 @@ pub mod pallet {
 				}),
 				Error::<T>::ControllerDeprecated
 			);
+
+			// Move any incentive hold from old payout account to the new one.
+			Self::migrate_incentive_hold_on_payee_change(&ledger.stash, &payee)?;
 
 			let _ = ledger
 				.set_payee(payee)
@@ -2097,7 +2324,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash)?;
+			// Force: releases incentive hold as liquid if vesting conversion fails.
+			Self::force_kill_stash(&stash)?;
 
 			Ok(())
 		}
@@ -2374,6 +2602,65 @@ pub mod pallet {
 			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
 			Ok(())
 		}
+
+		/// Update validator self-stake incentive parameters.
+		///
+		/// * `optimum_self_stake`: The target self-stake threshold for validators. Validators with
+		///   self-stake below this value receive full weightage. Above this, diminishing returns
+		///   apply based on the slope factor.
+		/// * `hard_cap_self_stake`: Maximum effective self-stake. Self-stake above this value
+		///   receives no additional reward benefit (rewards plateau).
+		/// * `self_stake_slope_factor`: Controls the discouragement rate between optimum and cap
+		///   (value between 0 and 1). k=1 means no discouragement, k=0 means immediate plateau.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		///
+		/// NOTE: Changes take effect in the next era when rewards are calculated.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::set_validator_self_stake_incentive_config())]
+		pub fn set_validator_self_stake_incentive_config(
+			origin: OriginFor<T>,
+			optimum_self_stake: ConfigOp<BalanceOf<T>>,
+			hard_cap_self_stake: ConfigOp<BalanceOf<T>>,
+			self_stake_slope_factor: ConfigOp<Perbill>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Validate that optimum <= cap if both will be set after this operation
+			let new_optimum = match optimum_self_stake {
+				ConfigOp::Noop => OptimumSelfStake::<T>::get(),
+				ConfigOp::Set(v) => v,
+				ConfigOp::Remove => BalanceOf::<T>::zero(),
+			};
+
+			let new_cap = match hard_cap_self_stake {
+				ConfigOp::Noop => HardCapSelfStake::<T>::get(),
+				ConfigOp::Set(v) => v,
+				ConfigOp::Remove => BalanceOf::<T>::zero(),
+			};
+
+			// Only validate if both will be non-zero (both configured)
+			if !new_optimum.is_zero() && !new_cap.is_zero() {
+				ensure!(new_optimum <= new_cap, Error::<T>::OptimumGreaterThanCap);
+			}
+
+			macro_rules! config_op_exp {
+				($storage:ty, $op:ident) => {
+					match $op {
+						ConfigOp::Noop => (),
+						ConfigOp::Set(v) => <$storage>::put(v),
+						ConfigOp::Remove => <$storage>::kill(),
+					}
+				};
+			}
+
+			config_op_exp!(OptimumSelfStake<T>, optimum_self_stake);
+			config_op_exp!(HardCapSelfStake<T>, hard_cap_self_stake);
+			config_op_exp!(SelfStakeSlopeFactor<T>, self_stake_slope_factor);
+
+			Ok(())
+		}
+
 		/// Declare a `controller` to stop participating as either a validator or nominator.
 		///
 		/// Effects will be felt at the beginning of the next era.
@@ -2465,9 +2752,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force a validator to have at least the minimum commission. This will not affect a
-		/// validator who already has a commission greater than or equal to the minimum. Any account
-		/// can call this.
+		/// Force a validator's commission to be within the allowed range
+		/// [`MinCommission`, `MaxCommission`]. Any account can call this.
 		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::force_apply_min_commission())]
 		pub fn force_apply_min_commission(
@@ -2476,12 +2762,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
+			let max_commission = MaxCommission::<T>::get();
 			Validators::<T>::try_mutate_exists(validator_stash, |maybe_prefs| {
 				maybe_prefs
 					.as_mut()
 					.map(|prefs| {
-						(prefs.commission < min_commission)
-							.then(|| prefs.commission = min_commission)
+						prefs.commission = prefs.commission.clamp(min_commission, max_commission);
 					})
 					.ok_or(Error::<T>::NotStash)
 			})?;
@@ -2496,7 +2782,21 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_min_commission())]
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(new <= MaxCommission::<T>::get(), Error::<T>::CommissionTooHigh);
 			MinCommission::<T>::put(new);
+			Ok(())
+		}
+
+		/// Sets the maximum commission that validators can set.
+		///
+		/// This call has lower privilege requirements than `set_staking_config` and can be called
+		/// by the `T::AdminOrigin`. Root can always call this.
+		#[pallet::call_index(35)]
+		#[pallet::weight(T::WeightInfo::set_max_commission())]
+		pub fn set_max_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(new >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+			MaxCommission::<T>::put(new);
 			Ok(())
 		}
 

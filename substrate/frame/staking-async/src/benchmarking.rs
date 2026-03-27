@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
+use sp_staking::{currency_to_vote::CurrencyToVote, StakerRewardCalculator};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -118,11 +118,32 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	ErasRewardPoints::<T>::insert(planned_era, reward);
 
-	// Create reward pool
-	let total_payout = asset::existential_deposit::<T>()
-		.saturating_mul(upper_bound.into())
-		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
+	// Fund general pots and snapshot into era pots.
+	let ed = asset::existential_deposit::<T>();
+	let reward_amount = ed.saturating_mul(1000u32.into());
+	let incentive_amount = ed.saturating_mul(100u32.into());
+	let general_staker_pot =
+		T::GeneralPots::general_pot_account(crate::GeneralPotType::StakerRewards);
+	let general_incentive_pot =
+		T::GeneralPots::general_pot_account(crate::GeneralPotType::ValidatorIncentive);
+	let _ = asset::mint_creating::<T>(&general_staker_pot, reward_amount);
+	let _ = asset::mint_creating::<T>(&general_incentive_pot, incentive_amount);
+
+	let allocation = crate::reward::EraRewardManager::<T>::snapshot_era_rewards(planned_era);
+	<ErasValidatorReward<T>>::insert(planned_era, allocation.staker_rewards);
+
+	// Configure validator incentive so the benchmark exercises the incentive transfer path.
+	let validator_bond = asset::staked::<T>(&v_stash);
+	OptimumSelfStake::<T>::put(validator_bond);
+	HardCapSelfStake::<T>::put(validator_bond.saturating_mul(2u32.into()));
+	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
+
+	// Set per-validator weight and era totals so incentive payout is exercised.
+	let validator_weight =
+		T::StakerRewardCalculator::calculate_validator_incentive_weight(validator_bond);
+	ErasValidatorIncentive::<T>::insert(planned_era, &v_stash, validator_weight);
+	Eras::<T>::add_total_validator_weight(planned_era, validator_weight);
+	Eras::<T>::set_validator_incentive_allocation(planned_era, allocation.validator_incentive);
 
 	Ok((v_stash, nominators, planned_era))
 }
@@ -937,6 +958,31 @@ mod benchmarks {
 		_(RawOrigin::Root, min_commission);
 
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
+	}
+
+	#[benchmark]
+	fn set_max_commission() {
+		let max_commission = Perbill::max_value();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, max_commission);
+
+		assert_eq!(MaxCommission::<T>::get(), Perbill::from_percent(100));
+	}
+
+	#[benchmark]
+	fn set_validator_self_stake_incentive_config() {
+		#[extrinsic_call]
+		_(
+			RawOrigin::Root,
+			ConfigOp::Set(30_000u32.into()),
+			ConfigOp::Set(100_000u32.into()),
+			ConfigOp::Set(Perbill::from_percent(50)),
+		);
+
+		assert_eq!(OptimumSelfStake::<T>::get(), 30_000u32.into());
+		assert_eq!(HardCapSelfStake::<T>::get(), 100_000u32.into());
+		assert_eq!(SelfStakeSlopeFactor::<T>::get(), Perbill::from_percent(50));
 	}
 
 	#[benchmark]

@@ -191,6 +191,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
+pub mod reward;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
@@ -214,7 +215,7 @@ use sp_runtime::{
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{EraPayout, Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
 // public exports
@@ -223,6 +224,241 @@ pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking-async";
+
+/// Identifies different types of era pot accounts for reward distribution.
+///
+/// Each era can have multiple pot accounts for different reward purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum EraPotType {
+	/// Pot for staker rewards (nominators + validators).
+	StakerRewards,
+	/// Pot for validator self-stake incentive.
+	ValidatorSelfStake,
+}
+
+/// Trait for generating era pot account IDs.
+///
+/// Implementors define how to generate account IDs for era reward pots.
+/// This trait is local to staking-async and used primarily for testing flexibility.
+pub trait EraPotAccountProvider<AccountId> {
+	/// Generate an era pot account ID for the given era and pot type.
+	///
+	/// # Parameters
+	/// - `era`: The era index
+	/// - `pot_type`: The type of reward pot
+	///
+	/// # Returns
+	/// The account ID for this era's reward pot of the specified type
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId;
+}
+
+/// Seed-based pot account provider for production use.
+///
+/// Generates deterministic account IDs using a seed (typically a pallet ID).
+pub struct Seed<S>(core::marker::PhantomData<S>);
+
+impl<AccountId, S> EraPotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating((era, pot_type))
+	}
+}
+
+/// Sequential pot account provider for testing.
+///
+/// Generates simple sequential account IDs for predictable testing.
+/// Base 100_000: era 0 → 100000, 100001; era 1 → 100010, 100011, etc.
+#[cfg(feature = "std")]
+pub struct SequentialTest;
+
+#[cfg(feature = "std")]
+impl<AccountId> EraPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		let pot_type_offset = match pot_type {
+			EraPotType::StakerRewards => 0,
+			EraPotType::ValidatorSelfStake => 1,
+		};
+		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
+	}
+}
+
+#[cfg(feature = "std")]
+impl<AccountId> GeneralPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
+		let offset = match pot_type {
+			GeneralPotType::StakerRewards => 0,
+			GeneralPotType::ValidatorIncentive => 1,
+		};
+		AccountId::from(200_000 + offset)
+	}
+}
+
+/// Identifies the two general (non-era-specific) reward pots.
+///
+/// DAP drips inflation into these accounts continuously. At era boundaries,
+/// staking snapshots the balances and transfers them to era-specific pots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum GeneralPotType {
+	/// General pot for staker rewards.
+	StakerRewards,
+	/// General pot for validator self-stake incentive.
+	ValidatorIncentive,
+}
+
+/// Trait that provides general (non-era-specific) pot accounts.
+///
+/// These pots receive continuous inflation drips from DAP. At era boundaries,
+/// staking snapshots their balances into era-specific pots.
+///
+/// This is a separate trait rather than PalletId derivation because small AccountId types
+/// (e.g., u64 in tests) don't have enough bytes for PalletId sub-account derivation
+/// to produce unique accounts.
+pub trait GeneralPotAccountProvider<AccountId> {
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId;
+}
+
+/// PalletId-based implementation of [`GeneralPotAccountProvider`].
+impl<AccountId, S> GeneralPotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating(pot_type)
+	}
+}
+
+/// Budget recipient for staker rewards.
+///
+/// Exposes the general staker reward pot so DAP can drip inflation into it.
+/// `G` implements [`GeneralPotAccountProvider`] to derive the pot account.
+pub struct StakerRewardRecipient<G>(core::marker::PhantomData<G>);
+
+impl<AccountId, G> sp_staking::BudgetRecipient<AccountId> for StakerRewardRecipient<G>
+where
+	G: GeneralPotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		G::general_pot_account(GeneralPotType::StakerRewards)
+	}
+}
+
+/// Budget recipient for validator self-stake incentive.
+///
+/// Exposes the general validator incentive pot so DAP can drip inflation into it.
+/// `G` implements [`GeneralPotAccountProvider`] to derive the pot account.
+pub struct ValidatorIncentiveRecipient<G>(core::marker::PhantomData<G>);
+
+impl<AccountId, G> sp_staking::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<G>
+where
+	G: GeneralPotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::BudgetKey {
+		sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		G::general_pot_account(GeneralPotType::ValidatorIncentive)
+	}
+}
+
+/// Handles paying out the validator self-stake incentive reward.
+///
+/// Implementations define how the incentive is delivered to the validator. The pallet
+/// may call this with `source == dest` (self-transfer) when converting accumulated
+/// incentive holds into a vesting schedule.
+///
+/// ## Implementations
+///
+/// - [`ImmediateIncentivePayout`]: liquid transfer (no vesting).
+/// - [`VestedIncentivePayout`]: creates a linear vesting schedule via `pallet-vesting`.
+pub trait ValidatorIncentivePayout<AccountId, Balance, BlockNumber> {
+	/// Pay `amount` from `source` to `dest`.
+	///
+	/// `vesting_duration` is the number of blocks over which to vest the payment. May be
+	/// called with `source == dest` for self-transfer patterns.
+	fn payout(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		vesting_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError>;
+}
+
+/// Pays validator incentive immediately as liquid funds (no vesting).
+pub struct ImmediateIncentivePayout<Currency>(core::marker::PhantomData<Currency>);
+
+impl<AccountId, Balance, BlockNumber, Currency>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for ImmediateIncentivePayout<Currency>
+where
+	AccountId: Eq,
+	Currency: frame_support::traits::fungible::Mutate<AccountId, Balance = Balance>,
+	Balance: Copy + sp_runtime::traits::Zero,
+{
+	fn payout(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		_vesting_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		Currency::transfer(
+			source,
+			dest,
+			amount,
+			frame_support::traits::tokens::Preservation::Expendable,
+		)?;
+		Ok(amount)
+	}
+}
+
+/// Pays validator incentive via a linear vesting schedule.
+///
+/// Incentive pay is accumulated under [`HoldReason::IncentiveVesting`] for the first
+/// [`Config::BondingDuration`] eras (the accumulation period). At the end of each
+/// accumulation period, the hold is released: a retroactive fraction is paid as liquid,
+/// and the remainder is placed under a vesting schedule that unlocks per-block over the
+/// remaining vesting duration.
+///
+/// The pallet calls this as a self-transfer (`source == dest`): the `Currency::transfer`
+/// is a no-op and only the vesting lock is created.
+///
+/// Type parameter:
+/// - `Vesting`: a [`frame_support::traits::tokens::VestedPayout`] implementor (e.g.
+///   `pallet_vesting::Pallet<T>`).
+pub struct VestedIncentivePayout<Vesting>(core::marker::PhantomData<Vesting>);
+
+impl<AccountId, Balance, BlockNumber, Vesting>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for VestedIncentivePayout<Vesting>
+where
+	Balance: Copy + sp_runtime::traits::Zero,
+	Vesting:
+		frame_support::traits::tokens::VestedPayout<AccountId, Balance, BlockNumber = BlockNumber>,
+{
+	fn payout(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		vesting_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		Vesting::vested_transfer(source, dest, amount, vesting_duration)?;
+		Ok(amount)
+	}
+}
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -488,8 +724,6 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 		MAX
 	}
 }
-
-pub use sp_staking::EraPayout;
 
 /// Mode of era-forcing.
 #[derive(

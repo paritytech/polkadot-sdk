@@ -96,7 +96,7 @@ use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, snowbridge::EthereumNetwork, time::*,
 };
-use westend_runtime_constants::time::DAYS as RC_DAYS;
+use westend_runtime_constants::time::{DAYS as RC_DAYS, HOURS as RC_HOURS};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
 	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
@@ -1548,6 +1548,37 @@ parameter_types! {
 	);
 }
 
+/// Provides the initial `LastIssuanceTimestamp` for DAP migration.
+pub struct DapLastIssuanceTimestamp;
+impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
+	fn get() -> u64 {
+		pallet_staking_async::ActiveEra::<Runtime>::get()
+			.and_then(|era| era.start)
+			.unwrap_or(0)
+	}
+}
+
+/// Default budget: 85% staker rewards, 15% buffer, 0% validator incentive.
+///
+/// Keys are read from `BudgetRecipients` registered in the runtime config.
+pub struct DefaultDapBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		use sp_runtime::Perbill;
+		use sp_staking::BudgetRecipientList;
+
+		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
+		// [dap, StakerRewardRecipient, ValidatorIncentiveRecipient]
+		let percentages = [Perbill::from_percent(15), Perbill::from_percent(85), Perbill::zero()];
+
+		let mut map = pallet_dap::BudgetAllocationMap::new();
+		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
+			let _ = map.try_insert(key, perbill);
+		}
+		map
+	}
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1587,6 +1618,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// unreleased
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2862,6 +2895,19 @@ fn ensure_key_ss58() {
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
+}
+
+#[test]
+fn issuance_cadence_smaller_than_era_length() {
+	use crate::staking::{RelaySessionDuration, SessionsPerEra};
+	let era_length_ms = SessionsPerEra::get() as u64 *
+		RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
+	let cadence = <Runtime as pallet_dap::Config>::IssuanceCadence::get();
+	assert!(
+		cadence < era_length_ms,
+		"IssuanceCadence ({cadence}ms) must be smaller than era length ({era_length_ms}ms)"
+	);
 }
 
 #[test]

@@ -27,17 +27,20 @@ use frame_support::{
 };
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
+use pallet_staking_async::{
+	ActiveEra, CurrentEra, Forcing, GeneralPotAccountProvider, GeneralPotType, SequentialTest,
+};
 use pallet_staking_async_rc_client::{
 	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{BudgetRecipient, SessionIndex};
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
 use xcm_executor::{
 	traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset},
 	AssetsInHolding,
 };
+
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -59,6 +62,7 @@ construct_runtime! {
 		MultiBlockUnsigned: multi_block::unsigned,
 
 		Dap: pallet_dap,
+		Vesting: pallet_vesting,
 	}
 }
 
@@ -83,6 +87,8 @@ pub fn roll_next() {
 		RcClient::on_initialize(next),
 		DispatchClass::Mandatory,
 	);
+	// Drip inflation into budget recipients.
+	Dap::on_initialize(next);
 
 	let mut meter = NextPollWeight::take()
 		.map(WeightMeter::with_limit)
@@ -457,13 +463,14 @@ impl pallet_staking_async::Config for Runtime {
 
 	type ElectionProvider = MultiBlock;
 
-	type EraPayout = ();
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
+	type GeneralPots = pallet_staking_async::SequentialTest;
+	type EraPots = pallet_staking_async::SequentialTest;
 	type Slash = Dap;
+	type UnclaimedRewardHandler = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
-	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;
@@ -478,6 +485,12 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 
 	type RcClientInterface = RcClient;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+
+	type VestingDuration = ConstU64<600>;
+	type BlocksPerSession = ConstU64<10>;
+	type ValidatorIncentivePayout = pallet_staking_async::VestedIncentivePayout<Vesting>;
 
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
@@ -509,19 +522,100 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-	pub const DapIssuanceCadence: u64 = 60_000;
-	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+}
+
+pub struct TestIssuanceCurve;
+impl sp_staking::IssuanceCurve<Balance> for TestIssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		// 1 token per millisecond elapsed
+		if elapsed_millis == 0 {
+			10_000
+		} else {
+			elapsed_millis as Balance
+		}
+	}
+}
+
+/// Mock time provider backed by block number (1 block = 6000ms).
+pub struct MockTime;
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		(System::block_number() as u64) * 6_000
+	}
+}
+
+pub fn general_staker_pot() -> AccountId {
+	SequentialTest::general_pot_account(GeneralPotType::StakerRewards)
+}
+
+pub fn general_incentive_pot() -> AccountId {
+	SequentialTest::general_pot_account(GeneralPotType::ValidatorIncentive)
+}
+
+pub fn staker_reward_key() -> sp_staking::BudgetKey {
+	<pallet_staking_async::StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub fn validator_incentive_key() -> sp_staking::BudgetKey {
+	<pallet_staking_async::ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<
+		AccountId,
+	>>::budget_key()
+}
+
+pub fn buffer_key() -> sp_staking::BudgetKey {
+	<Dap as BudgetRecipient<AccountId>>::budget_key()
+}
+
+/// Build a DAP budget allocation map from `(key, percent)` pairs.
+pub fn build_budget(entries: &[(sp_staking::BudgetKey, u32)]) -> pallet_dap::BudgetAllocationMap {
+	let mut budget = BoundedBTreeMap::new();
+	for (key, pct) in entries {
+		budget.try_insert(key.clone(), Perbill::from_percent(*pct)).unwrap();
+	}
+	budget
+}
+
+/// Build the default 50/50 staker/buffer budget used by most tests.
+pub fn default_budget() -> pallet_dap::BudgetAllocationMap {
+	build_budget(&[(staker_reward_key(), 50), (buffer_key(), 50)])
+}
+
+parameter_types! {
+	pub const TestIssuanceCadence: u64 = 0; // drip every block
+	pub const TestMaxElapsedPerDrip: u64 = 600_000; // 10 minutes
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type IssuanceCurve = ();
-	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
-	type Time = pallet_timestamp::Pallet<Runtime>;
-	type IssuanceCadence = DapIssuanceCadence;
-	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
-	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type IssuanceCurve = TestIssuanceCurve;
+	type BudgetRecipients = (
+		Dap,
+		pallet_staking_async::StakerRewardRecipient<SequentialTest>,
+		pallet_staking_async::ValidatorIncentiveRecipient<SequentialTest>,
+	);
+	type Time = MockTime;
+	type IssuanceCadence = TestIssuanceCadence;
+	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
+	type BudgetOrigin = EnsureRoot<AccountId>;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = 1;
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = frame_support::sp_runtime::traits::ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = ();
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
 parameter_types! {
@@ -817,6 +911,9 @@ impl ExtBuilder {
 		use frame_support::sp_runtime::traits::AccountIdConversion;
 		let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
 		balances.push((dap_buffer, 1));
+		// Fund general pot accounts with ED so they stay alive.
+		balances.push((general_staker_pot(), 1));
+		balances.push((general_incentive_pot(), 1));
 
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
@@ -835,6 +932,14 @@ impl ExtBuilder {
 		let mut state: TestState = t.into();
 
 		state.execute_with(|| {
+			// Set budget allocation: 50% staker rewards, 50% buffer (must sum to 100%).
+			pallet_dap::BudgetAllocation::<Runtime>::put(default_budget());
+			// Initialize DAP's LastIssuanceTimestamp.
+			pallet_dap::LastIssuanceTimestamp::<Runtime>::put(
+				<MockTime as frame_support::traits::Time>::now(),
+			);
+			// Disable legacy minting from era 0.
+			pallet_staking_async::DisableLegacyMintingEra::<Runtime>::put(0u32);
 			// initialises events
 			roll_next();
 		});
@@ -882,6 +987,114 @@ pub(crate) fn election_events_since_last_call() -> Vec<multi_block::Event<T>> {
 	let seen = ElectionEventsIndex::get();
 	ElectionEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
+}
+
+/// Read the incentive hold balance for an account.
+pub(crate) fn incentive_held(who: AccountId) -> Balance {
+	use frame_support::traits::fungible::hold::Inspect as HoldInspect;
+	<Balances as HoldInspect<AccountId>>::balance_on_hold(
+		&pallet_staking_async::HoldReason::IncentiveVesting.into(),
+		&who,
+	)
+}
+
+/// Fill all vesting schedule slots for an account with dummy schedules.
+pub(crate) fn fill_vesting_slots(who: AccountId) {
+	use frame_support::traits::fungible::Mutate;
+	use pallet_vesting::VestingInfo;
+
+	let funder: AccountId = 9999;
+	Balances::mint_into(&funder, 1_000_000).unwrap();
+
+	let max_schedules = <Runtime as pallet_vesting::Config>::MAX_VESTING_SCHEDULES;
+	let existing = Vesting::vesting(who).map_or(0, |v| v.len() as u32);
+
+	for i in existing..max_schedules {
+		let schedule = VestingInfo::new(100, 1, System::block_number() + 1000 + i as u64);
+		frame_support::assert_ok!(Vesting::force_vested_transfer(
+			RuntimeOrigin::root(),
+			funder,
+			who,
+			schedule,
+		));
+	}
+}
+
+/// Advance eras by sending session reports until `target_era` is reached.
+///
+/// Unlike `roll_until_next_active`, this does not assert the validator set composition,
+/// so it works even when the active set changes (e.g. after unbonding a validator).
+pub(crate) fn advance_eras_until(target_era: sp_staking::EraIndex) {
+	use pallet_staking_async::session_rotation::Rotator;
+
+	let mut iterations = 0;
+	while Rotator::<Runtime>::active_era() < target_era {
+		iterations += 1;
+		assert!(iterations < 200, "advance_eras_until: stuck after 200 iterations");
+
+		let planning = CurrentEra::<T>::get().unwrap();
+		let active = Rotator::<Runtime>::active_era();
+
+		if planning > active {
+			// Election started. Roll blocks until it completes.
+			if !OutgoingValidatorSet::<T>::exists() {
+				roll_next();
+				continue;
+			}
+
+			// Election done, outgoing set ready. Send session to export it.
+			let end_index =
+				pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
+					.unwrap_or_default() +
+					1;
+			assert_ok!(pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+				RuntimeOrigin::root(),
+				SessionReport {
+					end_index,
+					activation_timestamp: None,
+					leftover: false,
+					validator_points: vec![],
+				},
+			));
+			roll_next();
+
+			// Outgoing set should be exported now. Send activation.
+			if !OutgoingValidatorSet::<T>::exists() {
+				let end_index =
+					pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
+						.unwrap_or_default() +
+						1;
+				assert_ok!(
+					pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+						RuntimeOrigin::root(),
+						SessionReport {
+							end_index,
+							activation_timestamp: Some((planning as u64 * 1000, planning as u32,)),
+							leftover: false,
+							validator_points: vec![],
+						},
+					)
+				);
+				roll_next();
+			}
+		} else {
+			// No election in progress. Send a session report to trigger one.
+			let end_index =
+				pallet_staking_async_rc_client::LastSessionReportEndingIndex::<Runtime>::get()
+					.unwrap_or_default() +
+					1;
+			assert_ok!(pallet_staking_async_rc_client::Pallet::<Runtime>::relay_session_report(
+				RuntimeOrigin::root(),
+				SessionReport {
+					end_index,
+					activation_timestamp: None,
+					leftover: false,
+					validator_points: vec![],
+				},
+			));
+			roll_next();
+		}
+	}
 }
 
 pub(crate) enum AssertSessionType {

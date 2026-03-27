@@ -24,7 +24,7 @@ mod on_unbalanced;
 
 use crate::BudgetAllocationMap;
 use sp_runtime::{BoundedBTreeMap, Perbill};
-use sp_staking::budget::BudgetKey;
+use sp_staking::BudgetKey;
 
 fn key(name: &[u8]) -> BudgetKey {
 	BudgetKey::truncate_from(name.to_vec())

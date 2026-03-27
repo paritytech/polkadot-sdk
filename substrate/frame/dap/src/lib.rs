@@ -24,7 +24,7 @@
 //! - **Issuance Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
 //!   based on an [`IssuanceCurve`].
 //! - **Budget Distribution**: Distributes minted issuance across registered
-//!   [`sp_staking::budget::BudgetRecipient`]s according to a governance-updatable
+//!   [`sp_staking::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
 //! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
 //!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
@@ -52,12 +52,13 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		tokens::Preservation,
 		Imbalance, OnUnbalanced, Time,
 	},
 	PalletId,
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
-use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
+use sp_staking::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
 
@@ -426,7 +427,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 
 /// DAP exposes its buffer as a budget recipient so it can receive an explicit
 /// allocation share (in addition to the implicit remainder).
-impl<T: Config> sp_staking::budget::BudgetRecipient<T::AccountId> for Pallet<T> {
+impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
 	fn budget_key() -> BudgetKey {
 		BudgetKey::truncate_from(b"buffer".to_vec())
 	}
