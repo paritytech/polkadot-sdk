@@ -34,12 +34,20 @@ pub struct CallTracer {
 	code_with_salt: Option<(Code, bool)>,
 	/// The tracer configuration.
 	config: CallTracerConfig,
+	/// Monotonic log counter across the entire transaction (for the `index` field).
+	log_count: u32,
 }
 
 impl CallTracer {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(config: CallTracerConfig) -> Self {
-		Self { traces: Vec::new(), code_with_salt: None, current_stack: Vec::new(), config }
+		Self {
+			traces: Vec::new(),
+			code_with_salt: None,
+			current_stack: Vec::new(),
+			config,
+			log_count: 0,
+		}
 	}
 
 	/// Collect the traces and return them.
@@ -140,11 +148,15 @@ impl Tracing for CallTracer {
 		let current_index = self.current_stack.last().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(*current_index) {
+			let index = self.log_count;
+			self.log_count += 1;
+
 			let log = CallLog {
 				address,
 				topics: topics.to_vec(),
 				data: data.to_vec().into(),
 				position: trace.child_call_count,
+				index,
 			};
 
 			trace.logs.push(log);

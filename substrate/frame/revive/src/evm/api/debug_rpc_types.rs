@@ -873,6 +873,10 @@ pub struct CallLog {
 	/// See <https://github.com/ethereum/go-ethereum/pull/28389> for details
 	#[serde(with = "super::hex_serde")]
 	pub position: u32,
+	/// Monotonic log index within the transaction, matching `logIndex` in receipts.
+	/// See <https://github.com/ethereum/go-ethereum/pull/33629> for details
+	#[serde(with = "super::hex_serde")]
+	pub index: u32,
 }
 
 /// A transaction trace
