@@ -18,9 +18,11 @@ use async_trait::async_trait;
 use polkadot_primitives::{
 	async_backing::{self, Constraints},
 	runtime_api::ParachainHost,
-	slashing, ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
 	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
 	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
@@ -368,6 +370,15 @@ pub trait RuntimeApiSubsystemClient {
 	// == v16 ==
 	/// Fetch the maximum relay parent session age allowed for parachain blocks.
 	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, ApiError>;
+
+	/// Look up relay parent info for an **ancestor** block. A block is not in its
+	/// own `AllowedRelayParents`, so querying a block about itself returns `None`.
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+		relay_parent: Hash,
+	) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -675,6 +686,17 @@ where
 
 	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, ApiError> {
 		self.client.runtime_api().max_relay_parent_session_age(at)
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+		relay_parent: Hash,
+	) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, ApiError> {
+		self.client
+			.runtime_api()
+			.ancestor_relay_parent_info(at, session_index, relay_parent)
 	}
 }
 

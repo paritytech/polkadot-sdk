@@ -167,3 +167,15 @@ macro_rules! create_pool_with_wnd_on {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! asset_exists_on {
+	( $chain:ident, $id:expr ) => {
+		emulated_integration_tests_common::impls::paste::paste! {
+			<$chain>::execute_with(|| {
+				type Assets = <$chain as [<$chain Pallet>]>::Assets;
+				<Assets as frame_support::traits::fungibles::Inspect<_>>::asset_exists($id)
+			})
+		}
+	};
+}

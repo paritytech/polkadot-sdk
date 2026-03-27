@@ -115,11 +115,13 @@
 
 use crate::{
 	async_backing::{BackingState, Constraints},
-	slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -326,5 +328,20 @@ sp_api::decl_runtime_apis! {
 		/// Retrieve the maximum relay parent session age allowed for parachain blocks.
 		#[api_version(16)]
 		fn max_relay_parent_session_age() -> u32;
+
+		/// Look up relay parent info for a block that is an **ancestor** of the block
+		/// this API is called at. Returns `None` if the relay parent is not found
+		/// in the allowed relay parents for the given session.
+		///
+		/// NOTE: A block is not in its own `AllowedRelayParents` storage (it gets
+		/// added during the next block's inherent). Querying a block about itself
+		/// will always return `None`. Use the node-side `check_relay_parent_session`
+		/// utility for a general-purpose check that handles both the self and
+		/// ancestor cases.
+		#[api_version(16)]
+		fn ancestor_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<RelayParentInfo<Hash, BlockNumber>>;
 	}
 }

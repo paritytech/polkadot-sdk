@@ -335,6 +335,16 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn max_relay_parent_session_age(&self, _: Hash) -> Result<u32, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		_: Hash,
+		_: SessionIndex,
+		_: Hash,
+	) -> Result<Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>>, ApiError>
+	{
+		todo!("Not required for tests")
+	}
 }
 
 #[test]

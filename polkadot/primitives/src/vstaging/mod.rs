@@ -23,6 +23,26 @@ use sp_arithmetic::Perbill;
 
 use crate::v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE;
 
+/// Information about a relay parent.
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct RelayParentInfo<Hash, BlockNumber> {
+	/// The block number of the relay parent.
+	pub number: BlockNumber,
+	/// The state root of the relay parent.
+	pub state_root: Hash,
+}
+
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 ///
 /// Vstaging: removed `ttl` and `max_availability_timeouts` fields.

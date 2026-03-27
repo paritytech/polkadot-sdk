@@ -44,9 +44,10 @@ use polkadot_node_primitives::{
 use polkadot_primitives::{
 	self,
 	async_backing::{self, Constraints},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceiptV2 as CandidateReceipt,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
@@ -295,7 +296,7 @@ pub enum CollatorProtocolMessage {
 	/// We recommended a particular candidate to be seconded, but it was invalid; penalize the
 	/// collator.
 	///
-	/// The hash is the relay parent.
+	/// The hash is the scheduling parent.
 	Invalid(Hash, CandidateReceipt),
 	/// The candidate we recommended to be seconded was validated successfully.
 	///
@@ -837,6 +838,14 @@ pub enum RuntimeApiRequest {
 	/// Get the maximum relay parent session age allowed for parachain blocks.
 	/// `V16`
 	MaxRelayParentSessionAge(SessionIndex, RuntimeApiSender<u32>),
+	/// Look up relay parent info for an **ancestor** block. A block is not in its
+	/// own `AllowedRelayParents`, so querying a block about itself returns `None`.
+	/// Use the node-side `check_relay_parent_session` utility for the general case. `V16`
+	AncestorRelayParentInfo(
+		SessionIndex,
+		Hash,
+		RuntimeApiSender<Option<RelayParentInfo<Hash, BlockNumber>>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -895,6 +904,9 @@ impl RuntimeApiRequest {
 
 	/// `MaxRelayParentSessionAge`
 	pub const MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT: u32 = 16;
+
+	/// `AncestorRelayParentInfo`
+	pub const ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
 }
 
 /// A message to the Runtime API subsystem.
@@ -1330,8 +1342,8 @@ pub enum HypotheticalCandidate {
 		candidate_para: ParaId,
 		/// The claimed head-data hash of the candidate.
 		parent_head_data_hash: Hash,
-		/// The claimed relay parent of the candidate.
-		candidate_relay_parent: Hash,
+		/// The claimed scheduling parent of the candidate.
+		candidate_scheduling_parent: Hash,
 	},
 }
 
@@ -1364,14 +1376,18 @@ impl HypotheticalCandidate {
 		}
 	}
 
-	/// Get candidate's relay parent.
-	pub fn relay_parent(&self) -> Hash {
+	/// Get candidate's scheduling parent.
+	///
+	/// For `Complete` candidates, this is the scheduling parent from the descriptor
+	/// (which equals relay_parent for V1/V2 descriptors).
+	/// For `Incomplete` candidates, this is the claimed scheduling parent.
+	pub fn scheduling_parent(&self) -> Hash {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } => {
-				receipt.descriptor.relay_parent()
+				receipt.descriptor.scheduling_parent()
 			},
-			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } => {
-				candidate_relay_parent
+			HypotheticalCandidate::Incomplete { candidate_scheduling_parent, .. } => {
+				candidate_scheduling_parent
 			},
 		}
 	}

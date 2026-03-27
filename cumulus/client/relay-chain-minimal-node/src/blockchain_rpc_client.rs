@@ -486,6 +486,21 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn max_relay_parent_session_age(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_max_relay_parent_session_age(at).await?)
 	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+		relay_parent: Hash,
+	) -> Result<
+		Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>>,
+		sp_api::ApiError,
+	> {
+		Ok(self
+			.rpc_client
+			.parachain_host_ancestor_relay_parent_info(at, session_index, relay_parent)
+			.await?)
+	}
 }
 
 #[async_trait::async_trait]
