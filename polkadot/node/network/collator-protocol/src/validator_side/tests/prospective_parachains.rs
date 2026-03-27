@@ -4293,6 +4293,7 @@ fn v3_sanity_check_uses_scheduling_session_not_relay_parent_session() {
 		relay_parent,
 		core,
 		relay_parent_session,
+		relay_parent_session,
 		Hash::zero(),
 		Hash::zero(),
 		Hash::zero(),
