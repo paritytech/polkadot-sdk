@@ -22,9 +22,9 @@ use std::str::FromStr;
 /// Parameters used to config runtime.
 #[derive(Debug, Clone, Args)]
 pub struct RuntimeParams {
-	/// The size of the instances cache for each runtime [max: 32].
+	/// The size of the instances cache for each runtime [max: 128].
 	///
-	/// Values higher than 32 are illegal.
+	/// Values higher than 128 are illegal.
 	#[arg(long, default_value_t = 8, value_parser = parse_max_runtime_instances)]
 	pub max_runtime_instances: usize,
 
@@ -37,8 +37,8 @@ fn parse_max_runtime_instances(s: &str) -> Result<usize, String> {
 	let max_runtime_instances = usize::from_str(s)
 		.map_err(|_err| format!("Illegal `--max-runtime-instances` value: {s}"))?;
 
-	if max_runtime_instances > 32 {
-		Err(format!("Illegal `--max-runtime-instances` value: {max_runtime_instances} is more than the allowed maximum of `32` "))
+	if max_runtime_instances > 128 {
+		Err(format!("Illegal `--max-runtime-instances` value: {max_runtime_instances} is more than the allowed maximum of `128` "))
 	} else {
 		Ok(max_runtime_instances)
 	}
