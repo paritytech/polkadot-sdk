@@ -29,7 +29,7 @@ use cumulus_client_collator::{
 };
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use cumulus_primitives_core::{
-	relay_chain::BlockId as RBlockId, CollectCollationInfo, SchedulingProof, SchedulingV3EnabledApi,
+	relay_chain::BlockId as RBlockId, CollectCollationInfo,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
@@ -107,7 +107,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + SchedulingV3EnabledApi<Block>,
+		AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
 	RClient: RelayChainInterface + Send + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,
@@ -258,56 +258,18 @@ where
 
 			let allowed_pov_size = (validation_data.max_pov_size / 2) as usize;
 
-			// Check if V3 scheduling is enabled for this parachain
-			let v3_enabled = params
-				.para_client
-				.runtime_api()
-				.scheduling_v3_enabled(parent_hash)
-				.unwrap_or(false);
-
-			let maybe_collation = if v3_enabled {
-				// For V3, build the scheduling proof (header chain from scheduling_parent to
-				// relay_parent). For initial submission, scheduling_parent == relay_parent, so
-				// the header chain contains just the relay_parent header.
-				let scheduling_proof = SchedulingProof {
-					header_chain: vec![relay_parent_header.clone()],
-					// Initial submission: no signature needed, core selection from UMP signals
-					signed_scheduling_info: None,
-				};
-
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					relay_parent = ?request.relay_parent(),
-					"Building V3 collation with scheduling proof",
-				);
-
-				try_request!(
-					collator
-						.collate_v3(
-							&parent_header,
-							&claim,
-							None,
-							(parachain_inherent_data, other_inherent_data),
-							params.authoring_duration,
-							allowed_pov_size,
-							scheduling_proof,
-						)
-						.await
-				)
-			} else {
-				try_request!(
-					collator
-						.collate(
-							&parent_header,
-							&claim,
-							None,
-							(parachain_inherent_data, other_inherent_data),
-							params.authoring_duration,
-							allowed_pov_size,
-						)
-						.await
-				)
-			};
+			let maybe_collation = try_request!(
+				collator
+					.collate(
+						&parent_header,
+						&claim,
+						None,
+						(parachain_inherent_data, other_inherent_data),
+						params.authoring_duration,
+						allowed_pov_size,
+					)
+					.await
+			);
 
 			if let Some((collation, block_data)) = maybe_collation {
 				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {

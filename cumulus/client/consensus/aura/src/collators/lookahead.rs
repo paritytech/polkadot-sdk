@@ -37,8 +37,7 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData, SchedulingProof,
-	SchedulingV3EnabledApi,
+	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
@@ -173,7 +172,6 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ CollectCollationInfo<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ SchedulingV3EnabledApi<Block>
 		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
@@ -228,7 +226,6 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ CollectCollationInfo<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ SchedulingV3EnabledApi<Block>
 		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
@@ -455,52 +452,16 @@ where
 					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
-				// Check if V3 scheduling is enabled for this parachain
-				let v3_enabled = params
-					.para_client
-					.runtime_api()
-					.scheduling_v3_enabled(parent_hash)
-					.unwrap_or(false);
-
-				let collation_result = if v3_enabled {
-					// For V3, build the scheduling proof (header chain from scheduling_parent to
-					// relay_parent) For initial submission, scheduling_parent == relay_parent,
-					// so the header chain contains just the relay_parent header.
-					let scheduling_proof = SchedulingProof {
-						header_chain: vec![relay_parent_header.clone()],
-						// Initial submission: no signature needed, core selection from UMP signals
-						signed_scheduling_info: None,
-					};
-
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						?relay_parent,
-						"Building V3 collation with scheduling proof",
-					);
-
-					collator
-						.collate_v3(
-							&parent_header,
-							&slot_claim,
-							None,
-							(parachain_inherent_data, other_inherent_data),
-							params.authoring_duration,
-							allowed_pov_size,
-							scheduling_proof,
-						)
-						.await
-				} else {
-					collator
-						.collate(
-							&parent_header,
-							&slot_claim,
-							None,
-							(parachain_inherent_data, other_inherent_data),
-							params.authoring_duration,
-							allowed_pov_size,
-						)
-						.await
-				};
+				let collation_result = collator
+					.collate(
+						&parent_header,
+						&slot_claim,
+						None,
+						(parachain_inherent_data, other_inherent_data),
+						params.authoring_duration,
+						allowed_pov_size,
+					)
+					.await;
 
 				match collation_result {
 					Ok(Some((collation, block_data))) => {
