@@ -467,10 +467,15 @@ pub trait ExtendedDispatchable<Call: Dispatchable>: DispatchExtension<Call> {
 impl<T, Call, Origin> ExtendedDispatchable<Call> for T
 where
 	T: DispatchExtension<Call>,
-	Origin: Into<<Call as Dispatchable>::RuntimeOrigin>,
+	Origin: Into<<Call as Dispatchable>::RuntimeOrigin> + OriginTrait,
 	Call: Dispatchable<RuntimeOrigin = Origin> + UnfilteredDispatchable<RuntimeOrigin = Origin>,
 {
 	fn dispatch_with_extension(origin: Origin, call: Call) -> DispatchResultWithPostInfo {
+		// Root origin bypasses the extension.
+		if origin.caller().is_root() {
+			return UnfilteredDispatchable::dispatch_bypass_filter(call, origin);
+		}
+
 		let pre = with_transaction(|| {
 			let result = T::pre_dispatch(&origin, &call);
 			TransactionOutcome::Rollback(result)
@@ -506,7 +511,7 @@ pub trait DispatchExtension<Call: Dispatchable> {
 
 	/// Called after dispatch. Cannot fail. Storage writes persist.
 	/// Receives the pre-dispatch data and the dispatch result.
-	fn post_dispatch(pre: Self::Pre, result: &DispatchResultWithPostInfo);
+	fn post_dispatch(_pre: Self::Pre, _result: &DispatchResultWithPostInfo) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]

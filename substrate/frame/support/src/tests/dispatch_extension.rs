@@ -348,6 +348,36 @@ fn dispatch_with_extension_post_dispatch_runs_on_failed_call() {
 }
 
 #[test]
+fn root_bypasses_extension_even_when_rejecting() {
+	new_test_ext().execute_with(|| {
+		DispatchExt1ShouldFail::set(true);
+		let origin = RuntimeOrigin::root();
+		// A signed origin would be rejected; root must succeed.
+		assert_ok!(
+			<TestDispatchExtension as ExtendedDispatchable<RuntimeCall>>::dispatch_with_extension(
+				origin,
+				CALL.clone(),
+			)
+		);
+	});
+}
+
+#[test]
+fn root_bypasses_extension_skips_post_dispatch() {
+	new_test_ext().execute_with(|| {
+		PostDispatchCalled::set(false);
+		let origin = RuntimeOrigin::root();
+		assert_ok!(
+			<TestDispatchExtension as ExtendedDispatchable<RuntimeCall>>::dispatch_with_extension(
+				origin,
+				CALL.clone(),
+			)
+		);
+		assert!(!PostDispatchCalled::get());
+	});
+}
+
+#[test]
 fn get_dispatch_info_includes_extension_weight() {
 	use crate::dispatch::GetDispatchInfo;
 
