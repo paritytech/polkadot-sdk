@@ -93,7 +93,7 @@ use sp_core::Get;
 use sp_runtime::{
 	traits::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
-		One, TrailingZeroInput, Zero,
+		MaybeSerializeDeserialize, One, TrailingZeroInput, Zero,
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
@@ -128,7 +128,7 @@ pub mod pallet {
 
 		/// Type of asset class, sourced from [`Config::Assets`], utilized to offer liquidity to a
 		/// pool.
-		type AssetKind: Parameter + MaxEncodedLen;
+		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize;
 
 		/// Registry of assets utilized for providing liquidity to pools.
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
@@ -206,6 +206,38 @@ pub mod pallet {
 	/// This gets incremented whenever a new lp pool is created.
 	#[pallet::storage]
 	pub type NextPoolAssetId<T: Config> = StorageValue<_, T::PoolAssetId, OptionQuery>;
+
+	/// Genesis config for the asset conversion pallet.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Pools to create at genesis with initial liquidity.
+		///
+		/// Each entry is `(asset1, asset2, liquidity_provider, amount1, amount2)`.
+		/// The `liquidity_provider` must hold sufficient balances of both assets
+		/// (e.g. via `pallet_balances` / `pallet_assets` genesis configs).
+		/// Set both amounts to zero to create a pool without initial liquidity.
+		/// No pool setup fee is charged at genesis.
+		pub pools: Vec<(T::AssetKind, T::AssetKind, T::AccountId, T::Balance, T::Balance)>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for (asset1, asset2, lp_provider, amount1, amount2) in &self.pools {
+				Pallet::<T>::setup_pool_from_genesis(
+					asset1,
+					asset2,
+					lp_provider,
+					*amount1,
+					*amount2,
+				)
+				.unwrap_or_else(|e| {
+					panic!("Genesis pool ({asset1:?}, {asset2:?}) setup failed: {e:?}")
+				});
+			}
+		}
+	}
 
 	// Pallet's events.
 	#[pallet::event]
@@ -546,6 +578,70 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Create a pool at genesis, bypassing the setup fee.
+		///
+		/// The `lp_provider` must already hold sufficient balances of both assets.
+		/// If both `amount1` and `amount2` are non-zero, initial liquidity is added.
+		/// Returns the LP token amount minted to `lp_provider` (zero if no liquidity).
+		pub(crate) fn setup_pool_from_genesis(
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
+			lp_provider: &T::AccountId,
+			amount1: T::Balance,
+			amount2: T::Balance,
+		) -> Result<T::Balance, DispatchError> {
+			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
+
+			let pool_id = T::PoolLocator::pool_id(asset1, asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			ensure!(!Pools::<T>::contains_key(&pool_id), Error::<T>::PoolExists);
+
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			// Allocate LP token ID.
+			let lp_token = NextPoolAssetId::<T>::get()
+				.or(T::PoolAssetId::initial_value())
+				.ok_or(Error::<T>::IncorrectPoolAssetId)?;
+			let next_lp_token_id = lp_token.increment().ok_or(Error::<T>::IncorrectPoolAssetId)?;
+			NextPoolAssetId::<T>::set(Some(next_lp_token_id));
+
+			// Create LP token asset.
+			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), false, 1u32.into())?;
+
+			// Touch asset accounts for the pool account.
+			if T::Assets::should_touch(asset1.clone(), &pool_account) {
+				T::Assets::touch(asset1.clone(), &pool_account, lp_provider)?;
+			}
+			if T::Assets::should_touch(asset2.clone(), &pool_account) {
+				T::Assets::touch(asset2.clone(), &pool_account, lp_provider)?;
+			}
+			if T::PoolAssets::should_touch(lp_token.clone(), &pool_account) {
+				T::PoolAssets::touch(lp_token.clone(), &pool_account, lp_provider)?;
+			}
+
+			// Register pool.
+			Pools::<T>::insert(pool_id, PoolInfo { lp_token: lp_token.clone() });
+
+			// Add initial liquidity if amounts are non-zero.
+			if !amount1.is_zero() && !amount2.is_zero() {
+				T::Assets::transfer(asset1.clone(), lp_provider, &pool_account, amount1, Preserve)?;
+				T::Assets::transfer(asset2.clone(), lp_provider, &pool_account, amount2, Preserve)?;
+
+				let lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
+				T::PoolAssets::mint_into(
+					lp_token.clone(),
+					&pool_account,
+					T::MintMinLiquidity::get(),
+				)?;
+				T::PoolAssets::mint_into(lp_token, lp_provider, lp_token_amount)?;
+
+				Ok(lp_token_amount)
+			} else {
+				Ok(Zero::zero())
+			}
+		}
+
 		/// Create a new liquidity pool.
 		///
 		/// **Warning**: The storage must be rolled back on error.

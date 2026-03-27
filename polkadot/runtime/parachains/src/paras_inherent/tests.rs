@@ -1783,7 +1783,7 @@ mod enter {
 
 			// Verify first candidate is V3 with cross-session relay parent.
 			assert_eq!(
-				para_inherent_data.backed_candidates[0].descriptor().version(true),
+				para_inherent_data.backed_candidates[0].descriptor().version(),
 				CandidateDescriptorVersion::V3,
 			);
 			assert_eq!(
@@ -1956,7 +1956,7 @@ mod enter {
 
 			// Verify all candidates have V3 descriptors (version=1)
 			for candidate in &para_inherent_data.backed_candidates {
-				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+				assert_eq!(candidate.descriptor().version(), CandidateDescriptorVersion::V3);
 			}
 
 			let mut inherent_data = InherentData::new();
@@ -1970,7 +1970,7 @@ mod enter {
 
 			// Verify the filtered candidates are still V3
 			for candidate in &filtered.backed_candidates {
-				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+				assert_eq!(candidate.descriptor().version(), CandidateDescriptorVersion::V3);
 			}
 		});
 	}
@@ -2036,10 +2036,8 @@ mod enter {
 		});
 	}
 
-	// Test that V3 descriptors with UMP signals are rejected when CandidateReceiptV3 is NOT
-	// enabled. When v3_enabled=false, V3 descriptors (with non-zero scheduling_parent) are
-	// detected as V1. Since V1 forbids UMP signals and V3 requires them, valid V3 candidates are
-	// rejected as invalid V1 (UMPSignalWithV1Descriptor). This protects old nodes from slashing.
+	// Test that V3 descriptors are rejected when CandidateReceiptV3 is NOT enabled.
+	// The runtime's consistency check and V3 gating reject these candidates.
 	#[test]
 	fn v3_descriptors_rejected_as_v1_when_disabled() {
 		let config = default_config();
@@ -2071,10 +2069,13 @@ mod enter {
 
 			// Verify descriptor version detection behavior
 			for candidate in &para_inherent_data.backed_candidates {
-				// With v3_enabled=true, we correctly see V3
-				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
-				// With v3_enabled=false, V3 (non-zero scheduling_parent) is detected as V1
-				assert_eq!(candidate.descriptor().version(false), CandidateDescriptorVersion::V1);
+				// version() always uses relaxed (v3) logic
+				assert_eq!(candidate.descriptor().version(), CandidateDescriptorVersion::V3);
+				// Under old rules, V3 (non-zero scheduling_parent) is detected as V1
+				assert_eq!(
+					candidate.descriptor().version_old_rules(),
+					CandidateDescriptorVersion::V1
+				);
 			}
 
 			let mut inherent_data = InherentData::new();
@@ -2150,7 +2151,7 @@ mod enter {
 
 			// Verify the first candidate is V2.
 			assert_eq!(
-				para_inherent_data.backed_candidates[0].descriptor().version(true),
+				para_inherent_data.backed_candidates[0].descriptor().version(),
 				CandidateDescriptorVersion::V2,
 			);
 
@@ -2581,7 +2582,7 @@ mod enter {
 				descriptor: CandidateDescriptorV2::new(
 					backed_candidate.descriptor().para_id(),
 					backed_candidate.descriptor().relay_parent(),
-					backed_candidate.descriptor().core_index(false).unwrap(),
+					backed_candidate.descriptor().core_index().unwrap(),
 					100,
 					backed_candidate.descriptor().persisted_validation_data_hash(),
 					backed_candidate.descriptor().pov_hash(),
@@ -2690,6 +2691,82 @@ mod enter {
 					.unwrap_err()
 					.error,
 				Error::<Test>::InherentDataFilteredDuringExecution.into()
+			);
+		});
+	}
+
+	/// Verifies that a V3-capable runtime (CandidateReceiptV3 enabled) correctly accepts V1
+	/// descriptors from non-upgraded collators: not filtered, backed, and placed in
+	/// `PendingAvailability`.
+	#[test]
+	fn v1_descriptor_accepted_by_v3_capable_runtime() {
+		let config = MockGenesisConfig::default();
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
+				approved_peer_signal: None,
+				candidate_modifier: None,
+			});
+
+			let expected_para_inherent_data = scenario.data.clone();
+
+			assert_eq!(expected_para_inherent_data.bitfields.len(), 2);
+			assert_eq!(expected_para_inherent_data.backed_candidates.len(), 2);
+
+			for candidate in &expected_para_inherent_data.backed_candidates {
+				assert_eq!(candidate.descriptor().version(), CandidateDescriptorVersion::V1);
+				assert!(candidate.descriptor().session_index().is_none());
+			}
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
+				.unwrap();
+
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap(),
+				expected_para_inherent_data
+			);
+
+			assert_eq!(
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
+				2
+			);
+
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(0)]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![CoreIndex(1)]
 			);
 		});
 	}
@@ -4754,7 +4831,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedSchedulingParents::<Test>::get(),
-					false,
 				);
 				assert_eq!(expected_backed_candidates_with_core, before);
 			});
@@ -4815,7 +4891,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedSchedulingParents::<Test>::get(),
-					false,
 				);
 				assert_eq!(before.len(), expected_backed_candidates_with_core.len());
 
@@ -4896,7 +4971,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedSchedulingParents::<Test>::get(),
-					false,
 				);
 
 				assert_eq!(expected_backed_candidates_with_core.len(), 1);
@@ -4928,7 +5002,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedSchedulingParents::<Test>::get(),
-					false,
 				);
 
 				untouched.get_mut(&ParaId::from(1)).unwrap().remove(1);
@@ -4950,7 +5023,6 @@ mod sanitizers {
 					filter_backed_statements_from_disabled_validators::<Test>(
 						&mut expected_backed_candidates_with_core,
 						&shared::AllowedSchedulingParents::<Test>::get(),
-						false,
 					);
 
 					untouched.remove(&ParaId::from(1)).unwrap();
@@ -4993,7 +5065,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedSchedulingParents::<Test>::get(),
-					false,
 				);
 
 				untouched.remove(&ParaId::from(1)).unwrap();
@@ -5034,7 +5105,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedSchedulingParents::<Test>::get(),
-					false,
 				);
 
 				let candidate_receipt_with_backing_validator_indices =
@@ -5042,7 +5112,6 @@ mod sanitizers {
 						&shared::AllowedSchedulingParents::<Test>::get(),
 						&expected_backed_candidates_with_core,
 						scheduler::Pallet::<Test>::group_validators,
-						false,
 					)
 					.unwrap();
 
