@@ -18,7 +18,7 @@
 #![allow(missing_docs)]
 
 use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
-use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, collections::BTreeSet, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
@@ -1318,6 +1318,227 @@ impl<T: 'static, const BOUND: u32> IntoIterator for BoundedOneOrMany<T, BOUND> {
 			BoundedOneOrMany::One(item) => Box::new(core::iter::once(item)) as _,
 			BoundedOneOrMany::Many(bounded_vec) => Box::new(bounded_vec.into_iter()) as _,
 		}
+	}
+}
+
+/// A mapping from account addresses to their state overrides, used to temporarily modify account
+/// state during `eth_call` and similar simulation methods without affecting on-chain data.
+///
+/// Each entry maps an [`Address`] to a [`StateOverride`] that specifies which parts of the
+/// account's state to replace for the duration of the call.
+///
+/// Conforms to the [Geth state override set specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct StateOverrideSet(pub BTreeMap<Address, StateOverride>);
+
+impl StateOverrideSet {
+	/// Creates an empty state override set.
+	pub fn new() -> Self {
+		Self(BTreeMap::new())
+	}
+
+	/// Inserts an override for the given address, returning the previous override if one existed.
+	pub fn insert(&mut self, address: Address, overrides: StateOverride) -> Option<StateOverride> {
+		self.0.insert(address, overrides)
+	}
+
+	/// Returns a reference to the override for the given address, if any.
+	pub fn get(&self, address: &Address) -> Option<&StateOverride> {
+		self.0.get(address)
+	}
+
+	/// Returns `true` if the set contains no overrides.
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+
+	/// Returns the number of overridden accounts.
+	pub fn len(&self) -> usize {
+		self.0.len()
+	}
+
+	/// Returns an iterator over the address-override pairs.
+	pub fn iter(&self) -> impl Iterator<Item = (&Address, &StateOverride)> {
+		self.0.iter()
+	}
+
+	/// Adds an override for the given address, consuming and returning `self` for chaining.
+	pub fn with_override(mut self, address: Address, overrides: StateOverride) -> Self {
+		self.0.insert(address, overrides);
+		self
+	}
+
+	/// Sets the balance override for the given address, creating the entry if it doesn't exist.
+	/// Consumes and returns `self` for chaining.
+	pub fn with_balance(mut self, address: Address, balance: U256) -> Self {
+		self.0.entry(address).or_default().balance = Some(balance);
+		self
+	}
+
+	/// Sets the nonce override for the given address, creating the entry if it doesn't exist.
+	/// Consumes and returns `self` for chaining.
+	pub fn with_nonce(mut self, address: Address, nonce: U256) -> Self {
+		self.0.entry(address).or_default().nonce = Some(nonce);
+		self
+	}
+
+	/// Sets the code override for the given address, creating the entry if it doesn't exist.
+	/// Consumes and returns `self` for chaining.
+	pub fn with_code(mut self, address: Address, code: impl Into<Bytes>) -> Self {
+		self.0.entry(address).or_default().code = Some(code.into());
+		self
+	}
+
+	/// Sets the full storage replacement for the given address, creating the entry if it doesn't
+	/// exist. Consumes and returns `self` for chaining.
+	///
+	/// When set, the account's entire storage is replaced by this mapping. Any existing slots
+	/// not present in the mapping are effectively zeroed out.
+	pub fn with_state(mut self, address: Address, state: BTreeMap<H256, H256>) -> Self {
+		self.0.entry(address).or_default().storage = Some(StorageOverride::State(state));
+		self
+	}
+
+	/// Sets partial storage overrides for the given address, creating the entry if it doesn't
+	/// exist. Consumes and returns `self` for chaining.
+	///
+	/// Only the specified slots are modified; all other existing slots remain unchanged.
+	pub fn with_state_diff(mut self, address: Address, state_diff: BTreeMap<H256, H256>) -> Self {
+		self.0.entry(address).or_default().storage = Some(StorageOverride::StateDiff(state_diff));
+		self
+	}
+
+	/// Sets the move-precompile-to-address override for the given address, creating the entry if
+	/// it doesn't exist. Consumes and returns `self` for chaining.
+	pub fn with_move_precompile_to_address(
+		mut self,
+		address: Address,
+		move_to: Address,
+	) -> Self {
+		self.0.entry(address).or_default().move_precompile_to_address = Some(move_to);
+		self
+	}
+}
+
+impl IntoIterator for StateOverrideSet {
+	type IntoIter = alloc::collections::btree_map::IntoIter<Address, StateOverride>;
+	type Item = (Address, StateOverride);
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.into_iter()
+	}
+}
+
+impl<'a> IntoIterator for &'a StateOverrideSet {
+	type IntoIter = alloc::collections::btree_map::Iter<'a, Address, StateOverride>;
+	type Item = (&'a Address, &'a StateOverride);
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.iter()
+	}
+}
+
+impl FromIterator<(Address, StateOverride)> for StateOverrideSet {
+	fn from_iter<I: IntoIterator<Item = (Address, StateOverride)>>(iter: I) -> Self {
+		Self(BTreeMap::from_iter(iter))
+	}
+}
+
+/// Specifies how an account's storage should be overridden during a simulated call.
+///
+/// The Geth state override specification mandates that `state` and `stateDiff` are mutually
+/// exclusive. This enum encodes that constraint at the type level.
+#[derive(Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum StorageOverride {
+	/// Completely replaces the account's storage with the provided mapping. Any existing slots
+	/// not present in the mapping are effectively zeroed out.
+	State(BTreeMap<H256, H256>),
+	/// Patches individual storage slots without affecting the rest of the account's storage.
+	/// Only the specified slots are modified; all other existing slots remain unchanged.
+	StateDiff(BTreeMap<H256, H256>),
+}
+
+/// Per-account state overrides applied during `eth_call` and similar simulation methods.
+///
+/// All fields are optional. Only the fields that are set will be overridden; the rest of the
+/// account's state is read from the chain as normal.
+///
+/// Conforms to the [Geth state override object specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct StateOverride {
+	/// Fake balance to set for the account before executing the call.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub balance: Option<U256>,
+	/// Fake nonce to set for the account before executing the call.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub nonce: Option<U256>,
+	/// Fake EVM bytecode to inject into the account before executing the call.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub code: Option<Bytes>,
+	/// Storage override specifying either a full replacement or a partial diff. These two modes
+	/// are mutually exclusive per the Geth specification.
+	#[serde(flatten)]
+	pub storage: Option<StorageOverride>,
+	/// Moves the precompile at the account's address to the specified address. Useful for
+	/// overriding a precompile's code with custom logic while still being able to invoke the
+	/// original precompile at a different address.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub move_precompile_to_address: Option<Address>,
+}
+
+impl StateOverride {
+	/// Creates an empty state override with no fields set.
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Sets the balance override, consuming and returning `self` for chaining.
+	pub fn with_balance(mut self, balance: U256) -> Self {
+		self.balance = Some(balance);
+		self
+	}
+
+	/// Sets the nonce override, consuming and returning `self` for chaining.
+	pub fn with_nonce(mut self, nonce: U256) -> Self {
+		self.nonce = Some(nonce);
+		self
+	}
+
+	/// Sets the code override, consuming and returning `self` for chaining.
+	pub fn with_code(mut self, code: impl Into<Bytes>) -> Self {
+		self.code = Some(code.into());
+		self
+	}
+
+	/// Sets the full storage replacement, consuming and returning `self` for chaining.
+	///
+	/// When set, the account's entire storage is replaced by this mapping. Any existing slots
+	/// not present in the mapping are effectively zeroed out. Replaces any previously set
+	/// storage diff.
+	pub fn with_state(mut self, state: BTreeMap<H256, H256>) -> Self {
+		self.storage = Some(StorageOverride::State(state));
+		self
+	}
+
+	/// Sets partial storage overrides, consuming and returning `self` for chaining.
+	///
+	/// Only the specified slots are modified; all other existing slots remain unchanged.
+	/// Replaces any previously set full storage replacement.
+	pub fn with_state_diff(mut self, state_diff: BTreeMap<H256, H256>) -> Self {
+		self.storage = Some(StorageOverride::StateDiff(state_diff));
+		self
+	}
+
+	/// Sets the move-precompile-to-address override, consuming and returning `self` for chaining.
+	pub fn with_move_precompile_to_address(mut self, address: Address) -> Self {
+		self.move_precompile_to_address = Some(address);
+		self
 	}
 }
 

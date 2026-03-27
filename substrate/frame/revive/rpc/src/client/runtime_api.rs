@@ -16,21 +16,21 @@
 // limitations under the License.
 
 use crate::{
-	ClientError,
 	client::Balance,
 	subxt_client::{self, SrcChainConfig},
+	ClientError,
 };
-use futures::{StreamExt, TryFutureExt, stream};
+use futures::{stream, StreamExt, TryFutureExt};
 use pallet_revive::{
-	DryRunConfig, EthTransactInfo,
 	evm::{
-		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, Trace, U256,
+		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
+		Trace, H160, U256,
 	},
+	DryRunConfig, EthTransactInfo,
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
-use subxt::{Error::Metadata, OnlineClient, error::MetadataError, ext::subxt_rpcs::UserError};
+use subxt::{error::MetadataError, ext::subxt_rpcs::UserError, Error::Metadata, OnlineClient};
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
