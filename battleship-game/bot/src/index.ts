@@ -40,6 +40,7 @@ async function main() {
 		let statementStore: StatementStoreClient | undefined;
 		if (statementChain) {
 			statementStore = new StatementStoreClient(statementChain);
+			await statementStore.waitReady();
 			console.log(`[${label}] Statement store initialized`);
 		}
 

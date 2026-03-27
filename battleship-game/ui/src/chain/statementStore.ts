@@ -224,9 +224,17 @@ export class StatementStoreClient {
   private joinRequestCallbacks: ((req: JoinRequest) => void)[] = [];
   private gameCreatedCallbacks: ((notification: GameCreatedNotification) => void)[] = [];
 
+  private readyResolve!: () => void;
+  private readyPromise: Promise<void>;
+
   constructor(chain: SmoldotChain) {
     this.chain = chain;
+    this.readyPromise = new Promise((r) => { this.readyResolve = r; });
     this.startListening();
+  }
+
+  async waitReady(): Promise<void> {
+    return this.readyPromise;
   }
 
   private async startListening(): Promise<void> {
@@ -235,8 +243,8 @@ export class StatementStoreClient {
     const topicHex = toHex(GAME_LOBBY_TOPIC);
     const subscribeId = String(rpcId++);
     this.pendingRequests.set(subscribeId, {
-      resolve: (result) => console.log("Statement subscribe OK:", result),
-      reject: (err) => console.error("Statement subscribe FAILED:", err.message),
+      resolve: (result) => { console.log("Statement subscribe OK:", result); this.readyResolve(); },
+      reject: (err) => { console.error("Statement subscribe FAILED:", err.message); this.readyResolve(); },
     });
     this.chain.sendJsonRpc(JSON.stringify({
       jsonrpc: "2.0", id: subscribeId, method: "statement_subscribe", params: [[topicHex]]
@@ -554,6 +562,11 @@ export class StatementStoreClient {
       }
     }
     return result.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  removeAnnouncement(creator: string, gameTimestamp: number): void {
+    const key = `${creator}:${gameTimestamp}`;
+    this.receivedAnnouncements.delete(key);
   }
 
   clearPingState(creator: string, gameTimestamp: number): void {

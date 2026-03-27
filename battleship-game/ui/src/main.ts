@@ -31,9 +31,12 @@ class BattleshipApp {
   private selectedPotAmount: bigint = 0n;
   private lobbyRefreshInterval: number | null = null;
   private statementStore: StatementStoreClient | null = null;
+  private playedGameKeys: Set<string> = new Set();
   private buttonAbortController: AbortController | null = null;
   private username = "";
   private opponentName = "";
+  private activeGameCreator = "";
+  private activeGameTimestamp = 0;
   private fireworksCanvas: HTMLCanvasElement | null = null;
   private fireworksCtx: CanvasRenderingContext2D | null = null;
   private fireworksParticles: Array<{ x: number; y: number; vx: number; vy: number; life: number; color: string }> = [];
@@ -321,8 +324,8 @@ class BattleshipApp {
         console.log(`[refreshGamesList] announcements: ${announcements.length}, myAddr: ${this.currentAccount.address.slice(0, 8)}...`);
 
         for (const ann of announcements) {
-          // Skip our own games
           if (ann.creator === this.currentAccount.address) continue;
+          if (this.playedGameKeys.has(`${ann.creator}:${ann.timestamp}`)) continue;
 
           // Send a liveness ping (fire-and-forget)
           this.statementStore.sendLivenessPing(
@@ -491,6 +494,8 @@ class BattleshipApp {
         timestamp,
       };
       await this.statementStore.announceGame(announcement, this.currentAccount.publicKey!, this.currentAccount.rawSign!);
+      this.activeGameCreator = this.currentAccount.address;
+      this.activeGameTimestamp = timestamp;
       console.log("[createGame] Game announced via statement store");
 
       // Auto-respond to liveness pings while waiting
@@ -509,7 +514,8 @@ class BattleshipApp {
       this.statementStore.onJoinRequest(async (req) => {
         if (req.creator !== this.currentAccount!.address) return;
         if (req.gameTimestamp !== timestamp) return;
-        if (this._pendingGameId !== null) return; // Already processing a join
+        if (this.playedGameKeys.has(`${req.creator}:${req.gameTimestamp}`)) return;
+        if (this._pendingGameId !== null) return;
 
         console.log(`[createGame] Received join request from ${req.joiner.slice(0, 8)}...`);
         this.opponentName = req.joinerName || this.truncateAddress(req.joiner);
@@ -671,6 +677,8 @@ class BattleshipApp {
       // Send join request via statement store
       console.log(`[handleJoinGame] Sending join request to ${creator.slice(0, 8)}...`);
       this.opponentName = creatorName || this.truncateAddress(creator);
+      this.activeGameCreator = creator;
+      this.activeGameTimestamp = gameTimestamp;
       await this.statementStore.sendJoinRequest(
         creator,
         gameTimestamp,
@@ -1019,6 +1027,13 @@ class BattleshipApp {
 
   private handleGameEnd(winner: Player | null, reason: string): void {
     console.log(`Game ended: winner=${winner}, reason=${reason}`);
+    if (this.activeGameCreator && this.activeGameTimestamp) {
+      const key = `${this.activeGameCreator}:${this.activeGameTimestamp}`;
+      this.playedGameKeys.add(key);
+      this.statementStore?.removeAnnouncement(this.activeGameCreator, this.activeGameTimestamp);
+      this.activeGameCreator = "";
+      this.activeGameTimestamp = 0;
+    }
     if (winner === "player") {
       this.startVictoryFireworks();
     }
@@ -1122,6 +1137,8 @@ class BattleshipApp {
     );
 
     const canAttack = this.game.canAttack();
+    const enemyCanvas = document.getElementById("enemy-board");
+    if (enemyCanvas) enemyCanvas.dataset.canAttack = String(canAttack);
     this.renderer.renderEnemyBoard(
       this.enemyCtx,
       this.game.getOpponentBoard(),

@@ -141,17 +141,23 @@ export class StatementStoreClient {
     pingCallbacks = [];
     joinRequestCallbacks = [];
     gameCreatedCallbacks = [];
+    readyResolve;
+    readyPromise;
     constructor(chain) {
         this.chain = chain;
+        this.readyPromise = new Promise((r) => { this.readyResolve = r; });
         this.startListening();
+    }
+    async waitReady() {
+        return this.readyPromise;
     }
     async startListening() {
         this.listening = true;
         const topicHex = toHex(GAME_LOBBY_TOPIC);
         const subscribeId = String(rpcId++);
         this.pendingRequests.set(subscribeId, {
-            resolve: (result) => console.log("Statement subscribe OK:", result),
-            reject: (err) => console.error("Statement subscribe FAILED:", err.message),
+            resolve: (result) => { console.log("Statement subscribe OK:", result); this.readyResolve(); },
+            reject: (err) => { console.error("Statement subscribe FAILED:", err.message); this.readyResolve(); },
         });
         this.chain.sendJsonRpc(JSON.stringify({
             jsonrpc: "2.0", id: subscribeId, method: "statement_subscribe", params: [[topicHex]]

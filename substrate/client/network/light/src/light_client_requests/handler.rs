@@ -174,15 +174,32 @@ where
 		peer: &PeerId,
 		request: &schema::v1::light::RemoteCallRequest,
 	) -> Result<schema::v1::light::Response, HandleRequestError> {
-		trace!("Remote call request from {} ({} at {:?}).", peer, request.method, request.block,);
+		log::debug!(
+			target: LOG_TARGET,
+			"Remote call request from {} ({} at {:?}).",
+			peer,
+			request.method,
+			request.block,
+		);
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
 		let response = match self.client.execution_proof(block, &request.method, &request.data) {
-			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
+			Ok((_, proof)) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Remote call request from {} ({} at {:?}) succeeded, proof_size={}",
+					peer,
+					request.method,
+					request.block,
+					proof.encoded_size(),
+				);
+				schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) }
+			},
 			Err(e) => {
-				trace!(
-					"remote call request from {} ({} at {:?}) failed with: {}",
+				log::warn!(
+					target: LOG_TARGET,
+					"Remote call request from {} ({} at {:?}) FAILED: {}",
 					peer,
 					request.method,
 					request.block,
@@ -220,8 +237,9 @@ where
 			match self.client.read_proof(block, &mut request.keys.iter().map(AsRef::as_ref)) {
 				Ok(proof) => schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
 				Err(error) => {
-					trace!(
-						"remote read request from {} ({} at {:?}) failed with: {}",
+					log::warn!(
+						target: LOG_TARGET,
+						"Remote read request from {} ({} at {:?}) FAILED: {}",
 						peer,
 						fmt_keys(request.keys.first(), request.keys.last()),
 						request.block,

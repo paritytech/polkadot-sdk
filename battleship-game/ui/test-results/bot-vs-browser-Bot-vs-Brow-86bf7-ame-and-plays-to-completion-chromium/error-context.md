@@ -3,8 +3,8 @@
 ```yaml
 - generic [ref=e2]:
   - generic [ref=e3]:
-    - heading "Browser Player vs Bot-5EfU1U" [level=1] [ref=e4]
-    - generic [ref=e5]: Your turn - click enemy waters to attack!
+    - heading "Browser Player vs Bot-5E1WHL" [level=1] [ref=e4]
+    - generic [ref=e5]: Waiting for opponent to reveal...
     - generic [ref=e6]: Your turn - click enemy waters to attack!
   - generic [ref=e7]:
     - heading "Your Fleet" [level=2] [ref=e9]

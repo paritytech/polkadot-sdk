@@ -681,6 +681,7 @@ export class OnchainGame {
   }
 
   private pollErrorCount = 0;
+  private nullGameCount = 0;
   private readonly MAX_POLL_ERRORS = 10;
 
   private async pollGameState(): Promise<void> {
@@ -707,15 +708,26 @@ export class OnchainGame {
     this.pollErrorCount = 0;
     
     if (!game) {
+      if ((this.phase as string) === "finished") return;
       console.log(`[${this.player}] Game #${this.gameId} returned null from getGame`);
       if (this.phase !== "menu") {
         const cached = this.battleshipClient.getCachedGameEndedEvent(this.gameId);
         if (cached) {
           this.handleGameEndedEvent(cached);
+        } else {
+          this.nullGameCount = (this.nullGameCount || 0) + 1;
+          if (this.nullGameCount >= 3) {
+            console.log(`[${this.player}] Game cleaned up on-chain, treating as ended`);
+            this.setPhase("finished");
+            this.setMessage("Game ended.");
+            this.stopPolling();
+            this.onGameEndCallback?.(null, "game_cleaned_up");
+          }
         }
       }
       return;
     }
+    this.nullGameCount = 0;
 
     await this.processGameState(game);
   }

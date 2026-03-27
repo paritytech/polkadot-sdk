@@ -13,12 +13,15 @@ interface GameState {
   opponentAddress: string;
   myGrid: any[];
   myRoot: Uint8Array;
+  myProofs: Uint8Array[][];
   opponentHits: Set<string>;
   myAttacks: Map<string, boolean>;
   round: number;
   committed: boolean;
   lastAttackRound: number;
-  lastRevealCoord: string;
+  lastAttackTime: number;
+  lastAttackTarget: { x: number; y: number } | null;
+  lastRevealRound: number;
   lastRevealTime: number;
   amIPlayer1: boolean;
   notFoundCount: number;
@@ -96,34 +99,17 @@ export class BattleshipBot {
   async run(): Promise<void> {
     console.log(`[Bot] Starting as "${this.botName}" with address ${this.account.address}`);
 
-    const client = await getClient();
-    const bestBlocks$ = (client as any).bestBlocks$ as import("rxjs").Observable<unknown[]>;
-
-    return new Promise<void>((_, reject) => {
-      let processing = false;
-      const subscription = bestBlocks$.subscribe({
-        next: async () => {
-          if (processing) return;
-          processing = true;
-          try {
-            if (this.games.size === 0) {
-              await this.findOrCreateGame();
-            }
-            await this.playActiveGames();
-          } catch (e) {
-            console.error("[Bot] Error in main loop:", e);
-          } finally {
-            processing = false;
-          }
-        },
-        error: (err) => {
-          console.error("[Bot] bestBlocks$ error:", err);
-          reject(err);
-        },
-      });
-
-      this.cleanup = () => subscription.unsubscribe();
-    });
+    while (true) {
+      try {
+        if (this.games.size === 0) {
+          await this.findOrCreateGame();
+        }
+        await this.playActiveGames();
+      } catch (e) {
+        console.error("[Bot] Error in main loop:", e);
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
   }
 
   private async findOrCreateGame(): Promise<void> {
@@ -196,21 +182,23 @@ export class BattleshipBot {
 
     // Place ships and generate merkle tree
     const myGrid = placeShipsRandomly();
-    const { root } = buildMerkleTree(myGrid);
+    const { root, proofs } = buildMerkleTree(myGrid);
 
-    // Store game state
     const state: GameState = {
       gameId,
       myAddress,
       opponentAddress: opponentAddress || "",
       myGrid,
       myRoot: root,
+      myProofs: proofs,
       opponentHits: new Set(),
       myAttacks: new Map(),
       round: 0,
       committed: false,
       lastAttackRound: -1,
-      lastRevealCoord: "",
+      lastAttackTime: 0,
+      lastAttackTarget: null,
+      lastRevealRound: -1,
       lastRevealTime: 0,
       amIPlayer1,
       notFoundCount: 0,
@@ -251,6 +239,8 @@ export class BattleshipBot {
     if (phase === "Finished") {
       console.log(`[Bot] Game ${gameId} finished`);
       this.games.delete(gameId);
+      this.announcementTimestamp = null;
+      this.waitingForJoin = false;
       return;
     }
 
@@ -318,10 +308,10 @@ export class BattleshipBot {
     const pendingAttack = playingPhase.pending_attack;
 
     // Detect fork: round went backwards or state doesn't match our tracking
-    if (currentRound < state.lastAttackRound) {
-      console.log(`[Bot] Fork detected in game ${gameId}: round ${state.lastAttackRound} -> ${currentRound}, resetting state`);
+    if (currentRound < state.lastRevealRound || currentRound < state.lastAttackRound) {
+      console.log(`[Bot] Fork detected in game ${gameId}: round went backwards to ${currentRound}, resetting`);
       state.lastAttackRound = -1;
-      state.lastRevealCoord = "";
+      state.lastRevealRound = -1;
       resetLocalNonce(state.myAddress);
     }
 
@@ -330,36 +320,18 @@ export class BattleshipBot {
     const isMyTurn = currentTurn === myTurnType;
 
     // If there's a pending attack and I'm the defender (NOT current_turn), I must reveal
-    if (pendingAttack && !isMyTurn) {
+    const revealStale = state.lastRevealRound === currentRound && (Date.now() - (state.lastRevealTime || 0)) > 5000;
+    if (pendingAttack && !isMyTurn && (state.lastRevealRound < currentRound || revealStale)) {
       const { x, y } = pendingAttack;
-      const coordKey = `${x},${y}`;
-      
-      // Skip if we recently revealed this exact coordinate (prevent rapid duplicate reveals)
-      // But retry after 15s in case the tx went stale
-      if (state.lastRevealCoord === coordKey) {
-        const elapsed = Date.now() - state.lastRevealTime;
-        if (elapsed < 15_000) {
-          return;
-        }
-        console.log(`[Bot] Retrying stale reveal for (${x}, ${y}) after ${(elapsed / 1000).toFixed(0)}s`);
-        resetLocalNonce(state.myAddress);
-      }
-
       console.log(`[Bot] Need to reveal (${x}, ${y}) in game ${gameId}, round ${currentRound}`);
-      await this.revealAttackedCell(gameId, state, { x, y }, currentRound);
-      state.lastRevealCoord = coordKey;
+      state.lastRevealRound = currentRound;
       state.lastRevealTime = Date.now();
+      await this.revealAttackedCell(gameId, state, { x, y }, currentRound);
       return;
     }
 
-    // Clear last reveal coord if no pending attack
-    if (!pendingAttack) {
-      state.lastRevealCoord = "";
-      state.lastRevealTime = 0;
-    }
-
-    // If no pending attack and it's my turn, I should attack
-    if (!pendingAttack && isMyTurn && state.lastAttackRound < currentRound) {
+    const attackStale = state.lastAttackRound === currentRound && (Date.now() - state.lastAttackTime) > 5000;
+    if (!pendingAttack && isMyTurn && (state.lastAttackRound < currentRound || attackStale)) {
       console.log(`[Bot] My turn to attack in game ${gameId}, round ${currentRound}`);
       await this.makeAttack(gameId, state, currentRound);
       return;
@@ -367,7 +339,9 @@ export class BattleshipBot {
   }
 
   private async makeAttack(gameId: bigint, state: GameState, round: number): Promise<void> {
-    const target = selectAttackTarget(state.myAttacks);
+    const target = (state.lastAttackRound === round && state.lastAttackTarget)
+      ? state.lastAttackTarget
+      : selectAttackTarget(state.myAttacks);
     
     console.log(`[Bot] Attacking (${target.x}, ${target.y}) in game ${gameId}, round ${round}`);
     
@@ -379,8 +353,10 @@ export class BattleshipBot {
       round
     );
 
+    state.lastAttackRound = round;
+    state.lastAttackTime = Date.now();
+    state.lastAttackTarget = target;
     if (success) {
-      state.lastAttackRound = round;
       state.myAttacks.set(`${target.x},${target.y}`, false);
       console.log(`[Bot] Attack submitted for round ${round}`);
     }
@@ -399,8 +375,7 @@ export class BattleshipBot {
     const isHit = cell.isOccupied;
     console.log(`[Bot] Revealing (${x}, ${y}): ${isHit ? 'HIT ○' : 'MISS ×'} in game ${gameId}, round ${round}`);
 
-    const { proofs } = buildMerkleTree(state.myGrid);
-    const proof = proofs[index];
+    const proof = state.myProofs[index];
 
     const success = await this.client.revealCell(
       this.account.signer,

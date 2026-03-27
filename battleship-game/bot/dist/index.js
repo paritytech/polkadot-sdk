@@ -32,6 +32,7 @@ async function main() {
         let statementStore;
         if (statementChain) {
             statementStore = new StatementStoreClient(statementChain);
+            await statementStore.waitReady();
             console.log(`[${label}] Statement store initialized`);
         }
         const bot = new BattleshipBot(battleshipClient, account, statementStore);

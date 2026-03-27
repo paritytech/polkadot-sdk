@@ -79,7 +79,7 @@ const localNonceMap = new Map();
 export function resetLocalNonce(address) {
     localNonceMap.delete(address);
 }
-async function submitTx(tx, signer, client, label, api) {
+async function submitTxFast(tx, signer, client, label, api) {
     const pubkey = signer.publicKey;
     const address = AccountId().dec(pubkey);
     const request = client._request;
@@ -93,47 +93,31 @@ async function submitTx(tx, signer, client, label, api) {
     catch { }
     const cachedNonce = localNonceMap.get(address) ?? 0;
     let nonce = Math.max(storageNonce, cachedNonce);
-    let accepted = false;
     for (const tryNonce of [nonce, nonce + 1]) {
         try {
             const signedTx = await tx.sign(signer, { mortality: { mortal: false }, nonce: tryNonce });
             await request("author_submitExtrinsic", [bytesToHex(signedTx)]);
-            console.log(`[${label}] Accepted nonce=${tryNonce}`);
-            nonce = tryNonce;
-            accepted = true;
-            break;
+            console.log(`[${label}] Submitted nonce=${tryNonce}`);
+            localNonceMap.set(address, tryNonce + 1);
+            return true;
         }
         catch (e) {
             const msg = String(e);
-            if (msg.includes("1010") || msg.includes("Stale")) {
+            if (msg.includes("1010") || msg.includes("Stale"))
                 continue;
+            if (msg.includes("1014") || msg.includes("Priority") || msg.includes("Already")) {
+                localNonceMap.set(address, tryNonce + 1);
+                return true;
             }
-            else if (msg.includes("1014") || msg.includes("Priority") || msg.includes("Already")) {
-                nonce = tryNonce;
-                accepted = true;
-                break;
-            }
-            else if (msg.includes("1012") || msg.includes("Future")) {
-                nonce = tryNonce - 1;
-                accepted = true;
-                break;
-            }
-            else {
-                console.error(`[${label}] Error nonce=${tryNonce}:`, msg.slice(0, 120));
-                if (tryNonce === nonce)
-                    continue;
-                throw e;
-            }
+            if (msg.includes("1012") || msg.includes("Future"))
+                continue;
+            console.error(`[${label}] Error nonce=${tryNonce}:`, msg.slice(0, 200));
+            if (tryNonce === nonce)
+                continue;
+            return false;
         }
     }
-    if (!accepted) {
-        const lastNonce = nonce + 2;
-        const signedTx = await tx.sign(signer, { mortality: { mortal: false }, nonce: lastNonce });
-        await request("author_submitExtrinsic", [bytesToHex(signedTx)]);
-        nonce = lastNonce;
-    }
-    localNonceMap.set(address, nonce + 1);
-    return true;
+    return false;
 }
 export class BattleshipClient {
     api;
@@ -149,30 +133,25 @@ export class BattleshipClient {
         try {
             const nextId = await this.api.query.Battleship.NextGameId.getValue({ at: "best" });
             const predictedId = typeof nextId === "bigint" ? nextId : BigInt(nextId);
-            // Get current player game BEFORE creating (to detect new game)
             const pubkey = signer.publicKey;
             const address = AccountId().dec(pubkey);
             const oldPlayerGame = await this.api.query.Battleship.PlayerGame.getValue(address, { at: "best" });
             const oldGameId = oldPlayerGame ? (typeof oldPlayerGame === "bigint" ? oldPlayerGame : BigInt(oldPlayerGame)) : null;
             const tx = this.api.tx.Battleship.create_game({ pot_amount: potAmount });
-            await submitTx(tx, signer, this.client, "create_game", this.api);
-            // Poll for NEW game (different from old)
-            for (let i = 0; i < 20; i++) {
-                await new Promise(r => setTimeout(r, 1500));
+            await submitTxFast(tx, signer, this.client, "create_game", this.api);
+            for (let i = 0; i < 60; i++) {
+                await new Promise(r => setTimeout(r, 500));
                 const playerGame = await this.api.query.Battleship.PlayerGame.getValue(address, { at: "best" });
                 if (playerGame !== null && playerGame !== undefined) {
                     const gameId = typeof playerGame === "bigint" ? playerGame : BigInt(playerGame);
-                    // Only return if it's a NEW game or no old game existed
                     if (oldGameId === null || gameId !== oldGameId) {
-                        console.log(`[create_game] Confirmed NEW gameId=${gameId}`);
+                        console.log(`[create_game] Confirmed gameId=${gameId}`);
                         return gameId;
                     }
                 }
             }
-            // Fallback: assume the predicted ID if NextGameId increased
             const newNextId = await this.api.query.Battleship.NextGameId.getValue({ at: "best" });
             const newNext = typeof newNextId === "bigint" ? newNextId : BigInt(newNextId);
-            console.log(`[create_game] Fallback check: newNext=${newNext}, predictedId=${predictedId}`);
             if (newNext > predictedId) {
                 console.log(`[create_game] Using predicted gameId=${predictedId}`);
                 return predictedId;
@@ -188,10 +167,9 @@ export class BattleshipClient {
     async joinGame(signer, gameId) {
         try {
             const tx = this.api.tx.Battleship.join_game({ game_id: gameId });
-            await submitTx(tx, signer, this.client, "join_game", this.api);
-            // Poll for confirmation
-            for (let i = 0; i < 20; i++) {
-                await new Promise(r => setTimeout(r, 1500));
+            await submitTxFast(tx, signer, this.client, "join_game", this.api);
+            for (let i = 0; i < 60; i++) {
+                await new Promise(r => setTimeout(r, 500));
                 const game = await this.api.query.Battleship.Games.getValue(gameId, { at: "best" });
                 if (game && game.phase?.type !== "WaitingForOpponent") {
                     console.log(`[join_game] Confirmed, phase=${game.phase?.type}`);
@@ -210,7 +188,7 @@ export class BattleshipClient {
             const rawCallData = encodeCommitGridCall(gameId, gridRoot);
             const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
             const dummyTx = this.api.tx.Battleship.surrender({ game_id: gameId });
-            await submitTx(dummyTx, wrappedSigner, this.client, "commit_grid", this.api);
+            await submitTxFast(dummyTx, wrappedSigner, this.client, "commit_grid", this.api);
             return true;
         }
         catch (e) {
@@ -225,7 +203,7 @@ export class BattleshipClient {
                 coordinate: { x, y },
                 expected_round: round,
             });
-            await submitTx(tx, signer, this.client, "attack", this.api);
+            await submitTxFast(tx, signer, this.client, "attack", this.api);
             return true;
         }
         catch (e) {
@@ -238,7 +216,7 @@ export class BattleshipClient {
             const rawCallData = encodeRevealCellCall(gameId, cell, proof, coord, round);
             const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
             const dummyTx = this.api.tx.Battleship.surrender({ game_id: gameId });
-            await submitTx(dummyTx, wrappedSigner, this.client, "reveal_cell", this.api);
+            await submitTxFast(dummyTx, wrappedSigner, this.client, "reveal_cell", this.api);
             return true;
         }
         catch (e) {
@@ -251,7 +229,7 @@ export class BattleshipClient {
             const rawCallData = encodeRevealWinnerGridCall(gameId, cells);
             const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
             const dummyTx = this.api.tx.Battleship.surrender({ game_id: gameId });
-            await submitTx(dummyTx, wrappedSigner, this.client, "reveal_winner_grid", this.api);
+            await submitTxFast(dummyTx, wrappedSigner, this.client, "reveal_winner_grid", this.api);
             return true;
         }
         catch (e) {
@@ -262,7 +240,7 @@ export class BattleshipClient {
     async surrender(signer, gameId) {
         try {
             const tx = this.api.tx.Battleship.surrender({ game_id: gameId });
-            await submitTx(tx, signer, this.client, "surrender", this.api);
+            await submitTxFast(tx, signer, this.client, "surrender", this.api);
             return true;
         }
         catch (e) {

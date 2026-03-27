@@ -35,6 +35,8 @@ function initSmoldot(): SmoldotClient {
 				const levelNames = ["", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"];
 				if (level <= 3) {
 					console.log(`[smoldot:${levelNames[level]}:${target}] ${message.slice(0, 300)}`);
+				} else if (level === 4 && (target.includes("network") || target.includes("sync-service") || target.includes("json-rpc"))) {
+					console.log(`[smoldot:${levelNames[level]}:${target}] ${message.slice(0, 300)}`);
 				}
 			},
 		});
