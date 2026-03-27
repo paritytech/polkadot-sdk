@@ -28,7 +28,6 @@ use std::{
 };
 
 use crate::{
-	inclusion_emulator::RelayChainBlockInfo,
 	request_session_index_for_child,
 	runtime::{self, fetch_scheduling_lookahead, recv_runtime},
 	LOG_TARGET,
@@ -94,26 +93,6 @@ struct BlockInfo {
 	// until they catch up.
 	maybe_allowed_relay_parents: Option<AllowedRelayParents>,
 	parent_hash: Hash,
-}
-
-/// Information about a relay-chain block, to be used when calling this module from prospective
-/// parachains.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BlockInfoProspectiveParachains {
-	/// The hash of the relay-chain block.
-	pub hash: Hash,
-	/// The hash of the parent relay-chain block.
-	pub parent_hash: Hash,
-	/// The number of the relay-chain block.
-	pub number: BlockNumber,
-	/// The storage-root of the relay-chain block.
-	pub storage_root: Hash,
-}
-
-impl From<BlockInfoProspectiveParachains> for RelayChainBlockInfo {
-	fn from(value: BlockInfoProspectiveParachains) -> Self {
-		Self { hash: value.hash, number: value.number, storage_root: value.storage_root }
-	}
 }
 
 impl View {
