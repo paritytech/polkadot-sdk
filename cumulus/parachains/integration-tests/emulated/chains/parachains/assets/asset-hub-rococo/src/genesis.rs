@@ -23,8 +23,8 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators,
 	snowbridge::{ETHER_MIN_BALANCE, WETH},
 	xcm_emulator::ConvertLocation,
-	PenpalALocation, PenpalAPen2TeleportableAssetLocation, PenpalASiblingSovereignAccount,
-	PenpalBLocation, PenpalBPen2TeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	PenpalALocation, PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
+	PenpalBLocation, PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
 	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
@@ -99,19 +99,16 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_rococo_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// PenpalA's native asset representation
-				(PenpalALocation::get(), PenpalASiblingSovereignAccount::get(), true, ED),
-				// PenpalB's native asset representation
-				(PenpalBLocation::get(), PenpalBSiblingSovereignAccount::get(), true, ED),
+				// PenpalA's teleportable asset representation
 				(
-					PenpalAPen2TeleportableAssetLocation::get(),
+					PenpalATeleportableAssetLocation::get(),
 					PenpalASiblingSovereignAccount::get(),
 					false,
 					ED,
 				),
 				// PenpalB's teleportable asset representation
 				(
-					PenpalBPen2TeleportableAssetLocation::get(),
+					PenpalBTeleportableAssetLocation::get(),
 					PenpalBSiblingSovereignAccount::get(),
 					false,
 					ED,
@@ -119,8 +116,9 @@ pub fn genesis() -> Storage {
 				// Ether
 				(
 					EthereumLocation::get(),
-					// Emulate double bridging; WAH is the owner of assets from Ethereum on RAH.
-					AssetHubWestendSovereignAccount::get(),
+					AssetHubWestendSovereignAccount::get(), /* To emulate double bridging, where
+					                                         * WAH is the owner of assets from
+					                                         * Ethereum on RAH */
 					true,
 					ETHER_MIN_BALANCE,
 				),
@@ -139,14 +137,12 @@ pub fn genesis() -> Storage {
 				),
 			],
 			reserves: vec![
-				(PenpalALocation::get(), vec![(PenpalALocation::get(), true).into()]),
-				(PenpalBLocation::get(), vec![(PenpalBLocation::get(), true).into()]),
 				(
-					PenpalAPen2TeleportableAssetLocation::get(),
+					PenpalATeleportableAssetLocation::get(),
 					vec![(PenpalALocation::get(), true).into()],
 				),
 				(
-					PenpalBPen2TeleportableAssetLocation::get(),
+					PenpalBTeleportableAssetLocation::get(),
 					vec![(PenpalBLocation::get(), true).into()],
 				),
 				(EthereumLocation::get(), vec![(AssetHubWestendLocation::get(), false).into()]),

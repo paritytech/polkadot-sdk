@@ -13,7 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	imports::*,
+	imports::{
+		penpal_emulated_chain::penpal_runtime::xcm_config::{
+			CheckingAccount, TELEPORTABLE_ASSET_ID,
+		},
+		*,
+	},
 	tests::{
 		assert_bridge_hub_rococo_message_received, assert_bridge_hub_westend_message_accepted,
 		asset_hub_rococo_location, asset_hub_westend_global_location, bridged_roc_at_ah_westend,
@@ -51,7 +56,7 @@ use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
-const INITIAL_FUND: u128 = 6_000_000_000_000;
+const INITIAL_FUND: u128 = 5_000_000_000_000;
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
@@ -209,7 +214,7 @@ fn send_weth_from_ethereum_to_penpal() {
 
 	// Create asset on the Penpal parachain.
 	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::force_create(
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			weth_asset_location.clone(),
 			asset_hub_sovereign.into(),
@@ -217,7 +222,7 @@ fn send_weth_from_ethereum_to_penpal() {
 			1000,
 		));
 
-		assert!(<PenpalB as PenpalBPallet>::Assets::asset_exists(weth_asset_location));
+		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(weth_asset_location));
 	});
 
 	// Send the token
@@ -267,7 +272,7 @@ fn send_weth_from_ethereum_to_penpal() {
 		assert_expected_events!(
 			PenpalB,
 			vec![
-				RuntimeEvent::Assets(pallet_assets::Event::Deposited { .. }) => {},
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { .. }) => {},
 			]
 		);
 	});
@@ -731,7 +736,7 @@ fn send_token_from_ethereum_to_penpal() {
 
 	// Create asset on the Penpal parachain.
 	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::force_create(
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			<PenpalB as Chain>::RuntimeOrigin::root(),
 			weth_asset_location.clone(),
 			asset_hub_sovereign.clone().into(),
@@ -739,7 +744,9 @@ fn send_token_from_ethereum_to_penpal() {
 			1000,
 		));
 
-		assert!(<PenpalB as PenpalBPallet>::Assets::asset_exists(weth_asset_location.clone()));
+		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone()
+		));
 	});
 
 	BridgeHubWestend::execute_with(|| {
@@ -786,7 +793,7 @@ fn send_token_from_ethereum_to_penpal() {
 		assert_expected_events!(
 			PenpalB,
 			vec![
-				RuntimeEvent::Assets(pallet_assets::Event::Deposited { .. }) => {},
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { .. }) => {},
 			]
 		);
 	});
@@ -1136,9 +1143,10 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 	let wnd_reserve = vec![(asset_hub_westend_global_location(), false).into()];
 	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true, wnd_reserve);
-	create_foreign_pool_with_parent_native_on!(
+	create_pool_with_native_on!(
 		AssetHubRococo,
 		bridged_wnd_at_asset_hub_rococo.clone(),
+		true,
 		AssetHubRococoSender::get()
 	);
 
@@ -1423,6 +1431,22 @@ fn transfer_penpal_native_asset() {
 
 	let token_id = TokenIdOf::convert_location(&pal_after_reanchored).unwrap();
 
+	let asset_owner = PenpalAssetOwner::get();
+
+	AssetHubWestend::force_create_foreign_asset(
+		pal_at_asset_hub.clone(),
+		asset_owner.clone().into(),
+		true,
+		1,
+		vec![],
+	);
+	// Set "pal" as teleportable between Penpal and AH, using the asset owner account
+	AssetHubWestend::set_foreign_asset_reserves(
+		pal_at_asset_hub.clone(),
+		asset_owner.into(),
+		vec![(pal_at_asset_hub.clone(), true).into()],
+	);
+
 	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 	);
@@ -1444,7 +1468,7 @@ fn transfer_penpal_native_asset() {
 	});
 
 	PenpalB::execute_with(|| {
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			Location::parent(),
 			&PenpalBSender::get(),
 			INITIAL_FUND,
@@ -1502,7 +1526,7 @@ fn transfer_penpal_native_asset() {
 
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::Assets(pallet_assets::Event::Withdrawn{ .. }) => {},]
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Withdrawn{ .. }) => {},]
 		);
 	});
 
@@ -1608,7 +1632,8 @@ fn transfer_penpal_teleport_enabled_asset() {
 	);
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
-	let asset_location_on_penpal = PenpalB::execute_with(|| PenpalLocalPen2Asset::get());
+	let asset_location_on_penpal =
+		PenpalB::execute_with(|| PenpalLocalTeleportableToAssetHub::get());
 
 	let pal_at_asset_hub = Location::new(1, [Junction::Parachain(PenpalB::para_id().into())])
 		.appended_with(asset_location_on_penpal.clone())
@@ -1645,14 +1670,14 @@ fn transfer_penpal_teleport_enabled_asset() {
 	});
 
 	// Fund on Penpal
-	PenpalB::fund_accounts(vec![(PenpalCheckingAccount::get(), INITIAL_FUND)]);
+	PenpalB::fund_accounts(vec![(CheckingAccount::get(), INITIAL_FUND)]);
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
-			PenpalLocalPen2Asset::get(),
+			TELEPORTABLE_ASSET_ID,
 			&PenpalBSender::get(),
 			INITIAL_FUND,
 		));
-		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
+		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			Location::parent(),
 			&PenpalBSender::get(),
 			INITIAL_FUND,
@@ -1710,7 +1735,7 @@ fn transfer_penpal_teleport_enabled_asset() {
 
 		assert_expected_events!(
 			PenpalB,
-			vec![RuntimeEvent::Assets(pallet_assets::Event::Withdrawn{ .. }) => {},]
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Withdrawn{ .. }) => {},]
 		);
 
 		assert_expected_events!(
