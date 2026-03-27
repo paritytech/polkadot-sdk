@@ -331,7 +331,6 @@ use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 };
-#[allow(deprecated)]
 pub use sp_staking::{EraPayout, Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
@@ -981,7 +980,6 @@ impl<AccountId> SessionInterface<AccountId> for () {
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
-#[allow(deprecated)]
 impl<Balance, T> sp_staking::EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,

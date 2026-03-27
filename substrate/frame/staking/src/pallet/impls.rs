@@ -41,9 +41,8 @@ use sp_runtime::{
 	},
 	ArithmeticError, DispatchResult, Perbill, Percent,
 };
-#[allow(deprecated)]
-use sp_staking::EraPayout;
 use sp_staking::{
+	EraPayout,
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
@@ -580,7 +579,6 @@ impl<T: Config> Pallet<T> {
 			let staked = ErasTotalStake::<T>::get(&active_era.index);
 			let issuance = asset::total_issuance::<T>();
 
-			#[allow(deprecated)]
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
 

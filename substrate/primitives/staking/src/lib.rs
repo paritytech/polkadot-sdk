@@ -735,26 +735,10 @@ pub struct EraRewardAllocation<Balance> {
 	pub validator_incentive: Balance,
 }
 
-/// Trait for receiving unclaimed staking rewards.
-///
-/// When era pot accounts are cleaned up, any remaining balance is deposited into the sink.
-/// The implementor handles both the transfer and any bookkeeping (e.g. deactivation).
-pub trait UnclaimedRewardSink<AccountId, Balance> {
-	/// Transfer unclaimed rewards from `source` to the sink.
-	fn deposit(source: &AccountId, amount: Balance) -> DispatchResult;
-}
-
-impl<AccountId, Balance> UnclaimedRewardSink<AccountId, Balance> for () {
-	fn deposit(_source: &AccountId, _amount: Balance) -> DispatchResult {
-		Ok(())
-	}
-}
-
 /// Handler for determining how much of a balance should be paid out on the current era.
 ///
-/// Used by `pallet-staking` (legacy). New code should use [`IssuanceCurve`] instead,
-/// which decouples issuance from staking state.
-#[deprecated(note = "Use `IssuanceCurve` instead, which decouples issuance from staking state")]
+/// [`IssuanceCurve`] is the successor to this trait, decoupling issuance computation from
+/// staking state.
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -767,7 +751,6 @@ pub trait EraPayout<Balance> {
 	) -> (Balance, Balance);
 }
 
-#[allow(deprecated)]
 impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,
