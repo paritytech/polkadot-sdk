@@ -2529,8 +2529,8 @@ fn multi_asset_bounty_accounts_differ_from_legacy_bounty_accounts() {
 		let old_bounty_account: u128 =
 			BountyPalletId::get().into_sub_account_truncating(("bt", bounty_id));
 		// New derivation (what multi-asset-bounties uses with [u8; 3])
-		let new_bounty_account: u128 =
-			BountyPalletId::get().into_sub_account_truncating((BountyAccountPrefix::get(), bounty_id));
+		let new_bounty_account: u128 = BountyPalletId::get()
+			.into_sub_account_truncating((BountyAccountPrefix::get(), bounty_id));
 
 		assert_ne!(
 			old_bounty_account, new_bounty_account,
@@ -2541,8 +2541,11 @@ fn multi_asset_bounty_accounts_differ_from_legacy_bounty_accounts() {
 		let child_bounty_id: BountyIndex = 0;
 
 		// Old derivation (what pallet-child-bounties uses with &str)
-		let old_child_account: u128 = BountyPalletId::get()
-			.into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id));
+		let old_child_account: u128 = BountyPalletId::get().into_sub_account_truncating((
+			"cb",
+			parent_bounty_id,
+			child_bounty_id,
+		));
 		// New derivation (what multi-asset-bounties uses with [u8; 3])
 		let new_child_account: u128 = BountyPalletId::get().into_sub_account_truncating((
 			ChildBountyAccountPrefix::get(),
