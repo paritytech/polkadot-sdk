@@ -3732,6 +3732,54 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 	test_state.assert_no_messages().await;
 }
 
+#[tokio::test]
+// Regression test for checking that the core is computed correctly
+// for ancestors.
+async fn core_assignment_uses_ancestor_not_leaf() {
+	let mut test_state = TestState::default();
+	// Rotate groups every block so block 9 and block 10 have different
+	// core assignments.
+	test_state
+		.session_info
+		.get_mut(&1)
+		.unwrap()
+		.group_rotation_info
+		.group_rotation_frequency = 1;
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, get_hash(10)).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_id = PeerId::random();
+	// Core 2 is the correct one for the SP 10. Given the group rotation
+	// math the core index for block 10 is 1. If we were to still compute the CoreIndex
+	// for the ancestors based on leaf then this candidate would be rejected and
+	// the collator slashed.
+	let (ccr, adv) = dummy_candidate_v3(
+		get_hash(8),
+		get_hash(9),
+		600.into(),
+		peer_id,
+		CoreIndex(2),
+		1,
+		dummy_pvd().hash(),
+	);
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, peer_id, 600.into()).await;
+
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, get_hash(8))
+		.await;
+	assert!(db.witnessed_slash().is_none());
+}
+
 // Launching new collations:
 // - multiple candidates per relay parent (including from implicit view and which occupy future
 //   claims, including which will make claims across different leaves)
