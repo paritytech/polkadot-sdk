@@ -19,7 +19,7 @@ use crate::{
 	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{Client, SubscriptionType, connect},
+	client::{Client, ClientError, SubscriptionType, connect},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -380,6 +380,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			if eth_pruning.is_archive() {
 				futures.push(Box::pin(client.sync_backward()));
 			}
+
+			// Backfill missed blocks.
+			let gap_fill_rx = client
+				.gap_filler()
+				.take_rx()
+				.await
+				.expect("gap filler receiver must be available at startup");
+			futures.push(Box::pin(async {
+				client.run_gap_filler(gap_fill_rx).await;
+				Ok::<_, ClientError>(())
+			}));
 
 			if let Err(err) = futures::future::try_join_all(futures).await {
 				panic!("Block subscription task failed: {err:?}",)

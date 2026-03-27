@@ -64,7 +64,7 @@ use subxt::{
 	ext::subxt_rpcs::rpc_params,
 };
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -204,6 +204,8 @@ const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 const REVERT_CODE: i32 = 3;
 
 const NOTIFIER_CAPACITY: usize = 16;
+const GAP_FILL_QUEUE_CAPACITY: usize = 16;
+
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
@@ -258,6 +260,59 @@ pub struct Client {
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
+	/// Channel for background gap-fill requests.
+	gap_filler: GapFiller,
+}
+
+/// A request to backfill a range of missed blocks.
+pub(crate) struct GapFillRequest {
+	pub from: SubstrateBlockNumber,
+	pub to: SubstrateBlockNumber,
+}
+
+/// Processes gap-fill requests.
+#[derive(Clone)]
+pub(crate) struct GapFiller {
+	tx: mpsc::Sender<GapFillRequest>,
+	rx: Arc<Mutex<Option<mpsc::Receiver<GapFillRequest>>>>,
+}
+
+impl GapFiller {
+	fn new(capacity: usize) -> Self {
+		let (tx, rx) = mpsc::channel(capacity);
+		Self { tx, rx: Arc::new(Mutex::new(Some(rx))) }
+	}
+
+	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
+	pub fn detect_and_queue(
+		&self,
+		current: SubstrateBlockNumber,
+		last: Option<SubstrateBlockNumber>,
+	) {
+		let Some(last) = last else { return };
+		if current.saturating_sub(last) <= 1 {
+			return;
+		}
+
+		let from = current.saturating_sub(1);
+		let to = last.saturating_add(1);
+		let blocks = from.saturating_sub(to) + 1;
+		match self.tx.try_send(GapFillRequest { from, to }) {
+			Ok(_) => log::info!(target: LOG_TARGET,
+				"🔄 Queued gap fill: #{from} down to #{to} ({blocks} blocks)"),
+			Err(mpsc::error::TrySendError::Full(_)) => log::warn!(target: LOG_TARGET,
+					"🔄 Gap fill queue full, dropping #{from}..#{to} ({blocks} blocks)"),
+			Err(mpsc::error::TrySendError::Closed(_)) => {
+				log::warn!(target: LOG_TARGET,
+					"🔄 Gap fill queue closed, dropping #{from}..#{to} ({blocks} blocks)")
+			},
+		}
+	}
+
+	/// Take the receiver. Returns `None` if already taken.
+	pub async fn take_rx(&self) -> Option<mpsc::Receiver<GapFillRequest>> {
+		self.rx.lock().await.take()
+	}
 }
 
 /// Returns the first EVM block number for main and test nets, `None` otherwise.
@@ -367,9 +422,14 @@ impl Client {
 			log_subscription_tx: tokio::sync::broadcast::channel(1000).0,
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
+			gap_filler: GapFiller::new(GAP_FILL_QUEUE_CAPACITY),
 		};
 
 		Ok(client)
+	}
+
+	pub(crate) fn gap_filler(&self) -> &GapFiller {
+		&self.gap_filler
 	}
 
 	/// Mark historic backfill as complete.
@@ -431,6 +491,8 @@ impl Client {
 			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
 		})?;
 
+		let mut last_processed_block: Option<SubstrateBlockNumber> = None;
+
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
 				Ok(block) => block,
@@ -457,6 +519,12 @@ impl Client {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
 			} else {
 				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
+			}
+
+			// Detect gaps and update tracking for finalized blocks only.
+			if subscription_type == SubscriptionType::FinalizedBlocks {
+				self.gap_filler.detect_and_queue(block_number, last_processed_block);
+				last_processed_block = Some(block_number);
 			}
 		}
 
@@ -930,6 +998,11 @@ impl Client {
 						.receipt_provider
 						.receipts_from_block(&block)
 						.await
+						.inspect_err(|err| {
+							log::trace!(target: LOG_TARGET,
+								"Failed to extract receipts for block #{}: {err:?}",
+								block.number());
+						})
 						.unwrap_or_default()
 						.into_iter()
 						.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))

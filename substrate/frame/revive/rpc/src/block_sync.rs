@@ -19,9 +19,10 @@
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, SubstrateBlockNumber},
+	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
+use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
 
@@ -85,6 +86,8 @@ struct BackwardSyncRange {
 	set_head: bool,
 	/// Checkpoint `Tail` label periodically and at end.
 	checkpoint_tail: bool,
+	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
+	discover_first_evm_block: bool,
 }
 
 impl Client {
@@ -215,6 +218,7 @@ impl Client {
 			to: first_evm,
 			set_head: true,
 			checkpoint_tail: true,
+			discover_first_evm_block: true,
 		})
 		.await
 	}
@@ -238,6 +242,7 @@ impl Client {
 					to: head.block_number.saturating_add(1),
 					set_head: false,
 					checkpoint_tail: false,
+					discover_first_evm_block: false,
 				})
 				.await?;
 
@@ -258,6 +263,7 @@ impl Client {
 					to: first_evm,
 					set_head: false,
 					checkpoint_tail: true,
+					discover_first_evm_block: true,
 				})
 				.await?;
 			} else {
@@ -275,7 +281,13 @@ impl Client {
 	/// Stops early if a non-EVM block is discovered (auto-discovery of first EVM block).
 	async fn sync_backward_range(
 		&self,
-		BackwardSyncRange { from, to, set_head, checkpoint_tail }: BackwardSyncRange,
+		BackwardSyncRange {
+			from,
+			to,
+			set_head,
+			checkpoint_tail,
+			discover_first_evm_block,
+		}: BackwardSyncRange,
 	) -> Result<(), ClientError> {
 		if from < to {
 			log::debug!(target: LOG_TARGET,	"⬇️ Backward sync: nothing to sync (#{from}..#{to})");
@@ -338,13 +350,18 @@ impl Client {
 					}
 				},
 				None => {
-					let first_evm_block = block_number.saturating_add(1);
-					log::debug!(target: LOG_TARGET,
-						"🔍 No EVM hash at #{block_number}, setting first_evm_block to #{first_evm_block}");
-					if let Err(err) =
-						self.receipt_provider().set_first_evm_block(first_evm_block).await
-					{
-						log::warn!(target: LOG_TARGET, "Failed to persist first-evm-block: {err:?}");
+					if discover_first_evm_block {
+						let first_evm_block = block_number.saturating_add(1);
+						log::debug!(target: LOG_TARGET,
+							"🔍 No EVM hash at #{block_number}, setting first_evm_block to #{first_evm_block}");
+						if let Err(err) =
+							self.receipt_provider().set_first_evm_block(first_evm_block).await
+						{
+							log::warn!(target: LOG_TARGET, "Failed to persist first-evm-block: {err:?}");
+						}
+					} else {
+						log::debug!(target: LOG_TARGET,
+							"🔍 No EVM hash at #{block_number}, skipping first EVM block update");
 					}
 
 					break Ok(());
@@ -384,5 +401,30 @@ impl Client {
 			 (requested #{from}..#{to})");
 
 		loop_result
+	}
+
+	/// Run the background gap-filler loop, processing requests sequentially from the queue.
+	pub(crate) async fn run_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
+		log::info!(target: LOG_TARGET, "🔄 Gap filler task started");
+
+		while let Some(GapFillRequest { from, to }) = rx.recv().await {
+			log::info!(target: LOG_TARGET, "🔄 Gap filler: processing #{from} down to #{to}");
+			if let Err(err) = self
+				.sync_backward_range(BackwardSyncRange {
+					from,
+					to,
+					set_head: false,
+					checkpoint_tail: false,
+					discover_first_evm_block: false,
+				})
+				.await
+			{
+				log::error!(target: LOG_TARGET, "🔄 Gap fill failed for #{from}..#{to}: {err:?}");
+			} else {
+				log::info!(target: LOG_TARGET, "🔄 Gap filler: done with #{from}..#{to}");
+			}
+		}
+
+		log::info!(target: LOG_TARGET, "🔄 Gap filler task stopped");
 	}
 }
