@@ -372,6 +372,17 @@ where
 				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
 					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
 				},
+				DroppedReason::Viewless => {
+					if let Some(tx) = mempool.get_by_hash(tx_hash).await {
+						trace!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"dropped_monitor_task: transaction became viewless, marking for unban"
+						);
+						tx.set_needs_unban();
+					}
+					continue;
+				},
 			};
 
 			mempool.remove_transactions(&[tx_hash]).await;
