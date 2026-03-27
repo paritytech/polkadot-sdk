@@ -19,8 +19,8 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockInfoProvider, ChainMetadata, EthRpcClient, ReceiptExtractor, ReceiptProvider,
-	SubxtBlockInfoProvider, SyncLabel,
+	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
+	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{Client, connect},
 	example::TransactionBuilder,
@@ -40,7 +40,7 @@ use pallet_revive::{
 		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
 		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
 		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		TransactionInfo, TransactionUnsigned, U256,
+		Trace, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
 use sp_runtime::BoundedVec;
@@ -325,6 +325,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
 		test_block_hash_for_tag_with_block_tags_works,
+		test_earliest_block_tag,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
@@ -731,6 +732,94 @@ async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 
 		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
 	}
+
+	Ok(())
+}
+
+/// Validate that all RPC methods accept the `earliest` block tag and return correct data.
+async fn test_earliest_block_tag() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let tx = GenericTransaction {
+		from: Some(account.address()),
+		to: Some(account.address()),
+		..Default::default()
+	};
+
+	// eth_getBlockByNumber
+	let block = client
+		.get_block_by_number(BlockTag::Earliest.into(), false)
+		.await?
+		.expect("earliest block should exist");
+	assert_eq!(block.number, U256::zero(), "earliest block number should be 0");
+
+	// eth_getBalance
+	let balance = client.get_balance(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(balance > U256::zero(), "dev account should have a non-zero balance at genesis");
+
+	// eth_getTransactionCount
+	let nonce = client
+		.get_transaction_count(account.address(), BlockTag::Earliest.into())
+		.await?;
+	assert_eq!(nonce, U256::zero(), "nonce at genesis should be 0");
+
+	// eth_getCode
+	let code = client.get_code(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(code.is_empty(), "EOA should have no code");
+
+	// eth_getStorageAt
+	let storage = client
+		.get_storage_at(account.address(), U256::zero(), BlockTag::Earliest.into())
+		.await?;
+	assert!(storage.0.iter().all(|&b| b == 0), "EOA should have zero storage");
+
+	// eth_getBlockTransactionCountByNumber
+	let tx_count = client
+		.get_block_transaction_count_by_number(Some(BlockTag::Earliest.into()))
+		.await?;
+	assert_eq!(tx_count, Some(U256::zero()), "genesis block should have no transactions");
+
+	// eth_getTransactionByBlockNumberAndIndex
+	let tx_by_index = client
+		.get_transaction_by_block_number_and_index(BlockTag::Earliest.into(), U256::zero())
+		.await?;
+	assert!(tx_by_index.is_none(), "genesis block should have no transactions");
+
+	// eth_call
+	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(call_result.is_empty(), "calling an EOA should return empty bytes");
+
+	// eth_estimateGas
+	let gas = client.estimate_gas(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(gas > U256::zero(), "gas estimate should be non-zero");
+
+	// eth_feeHistory
+	let fee = client.fee_history(U256::from(1), BlockTag::Earliest.into(), None).await?;
+	assert_eq!(fee.oldest_block, U256::zero(), "feeHistory oldest_block should be 0");
+	assert!(!fee.base_fee_per_gas.is_empty(), "feeHistory should include base fee");
+
+	// eth_getLogs
+	let filter = Filter {
+		from_block: Some(BlockTag::Earliest.into()),
+		to_block: Some(BlockTag::Earliest.into()),
+		..Default::default()
+	};
+	let logs = client.get_logs(Some(filter)).await?;
+	assert_eq!(logs, FilterResults::default(), "genesis block should have no logs");
+
+	// debug_traceBlockByNumber
+	let traces =
+		DebugRpcClient::trace_block_by_number(&*client, BlockTag::Earliest.into(), None).await?;
+	assert!(traces.is_empty(), "genesis block should have no traces");
+
+	// debug_traceCall
+	let trace =
+		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
+	assert!(
+		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		"traceCall should return a trace"
+	);
 
 	Ok(())
 }

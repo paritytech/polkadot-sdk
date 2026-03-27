@@ -423,8 +423,16 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		Ok(bytes.unwrap_or([0u8; 32].into()).into())
+		let bytes = match runtime_api.get_storage(address, storage_slot.to_big_endian()).await {
+			Ok(value) => value.unwrap_or([0u8; 32].into()),
+			// Per Ethereum spec, return zero for non-contract addresses.
+			Err(ClientError::ContractNotFound) => {
+				log::trace!(target: LOG_TARGET, "get_storage_at: ContractNotFound for {address:?}, returning zero");
+				[0u8; 32].into()
+			},
+			Err(err) => return Err(err.into()),
+		};
+		Ok(bytes.into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(

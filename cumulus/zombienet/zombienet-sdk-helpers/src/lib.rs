@@ -64,6 +64,38 @@ pub async fn assert_para_throughput(
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 ) -> Result<(), anyhow::Error> {
+	let ranges = expected_candidate_ranges.into();
+	let valid_para_ids: Vec<ParaId> = ranges.keys().cloned().collect();
+
+	assert_para_throughput_with(relay_client, stop_after, ranges, |receipt| {
+		let para_id = receipt.descriptor.para_id();
+		if !valid_para_ids.contains(&para_id) {
+			return Err(anyhow!("Invalid ParaId detected: {}", para_id));
+		}
+
+		Ok(true)
+	})
+	.await
+}
+
+/// Like [`assert_para_throughput`], but accepts a closure to validate each backed candidate
+/// receipt.
+///
+/// The closure receives each [`CandidateReceiptV2`] and should return:
+/// - `Ok(true)` to count the candidate,
+/// - `Ok(false)` to skip it,
+/// - `Err(e)` to fail immediately.
+///
+/// Only receipts for para IDs present in `expected_candidate_ranges` are passed to the closure.
+pub async fn assert_para_throughput_with<F>(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	stop_after: u32,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+	validate: F,
+) -> Result<(), anyhow::Error>
+where
+	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
+{
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
 	let mut current_block_count = 0;
@@ -104,8 +136,12 @@ pub async fn assert_para_throughput(
 			log::debug!("Block backed for para_id {para_id}");
 
 			if !valid_para_ids.contains(&para_id) {
-				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
-			};
+				continue;
+			}
+
+			if !validate(&receipt)? {
+				continue;
+			}
 
 			*(candidate_count.entry(para_id).or_default()) += 1;
 		}
