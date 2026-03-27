@@ -1,7 +1,7 @@
 title: Raise offence queue eras bound limit
 doc:
 - audience: Runtime Dev
-  description: Raise offence queue `BondingDuration` limit to ensure no loss of offences.
+  description: Fixes a bug where OffenceQueueEras bound (BondingDuration) was incorrect when SlashDeferDuration=0. The oldest reportable offence era formula allowed more eras than the bound could hold.
 crates:
 - name: pallet-staking-async
   bump: minor
