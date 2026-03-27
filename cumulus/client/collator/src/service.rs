@@ -59,18 +59,7 @@ pub trait ServiceInterface<Block: BlockT> {
 		parent_header: &Block::Header,
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
-	) -> Option<(Collation, ParachainBlockData<Block>)>;
-
-	/// Build a full [`Collation`] from a given [`ParachainCandidate`] with V3 scheduling proof.
-	///
-	/// This is like `build_collation` but creates a `ParachainBlockData::V2` with the
-	/// provided scheduling proof for V3 candidates.
-	fn build_collation_v3(
-		&self,
-		parent_header: &Block::Header,
-		block_hash: Block::Hash,
-		candidate: ParachainCandidate<Block>,
-		scheduling_proof: SchedulingProof,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Inform networking systems that the block should be announced after a signal has
@@ -234,6 +223,7 @@ where
 		parent_header: &Block::Header,
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		let block = candidate.block;
 
@@ -261,119 +251,50 @@ where
 			.ok()
 			.flatten()?;
 
-		// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
-		//
-		// We are always using the `api_version` of the parent block. The `api_version` can only
-		// change with a runtime upgrade and this is when we want to observe the old `api_version`.
-		// Because this old `api_version` is the one used to validate this block. Otherwise we
-		// already assume the `api_version` is higher than what the relay chain will use and this
-		// will lead to validation errors.
-		let api_version = self
-			.runtime_api
-			.runtime_api()
-			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
-			.ok()
-			.flatten()?;
-
-		let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
-
-		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
-			block_data: BlockData(if api_version >= 3 {
-				block_data.encode()
-			} else {
-				let block_data = block_data.as_v0();
-
-				if block_data.is_none() {
-					tracing::error!(
-						target: LOG_TARGET,
-						"Trying to submit a collation with multiple blocks is not supported by the current runtime."
-					);
-				}
-
-				block_data?.encode()
-			}),
-		});
-
-		let upward_messages = collation_info
-			.upward_messages
-			.try_into()
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-				)
-			})
-			.ok()?;
-		let horizontal_messages = collation_info
-			.horizontal_messages
-			.try_into()
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-				)
-			})
-			.ok()?;
-
-		let collation = Collation {
-			upward_messages,
-			new_validation_code: collation_info.new_validation_code,
-			processed_downward_messages: collation_info.processed_downward_messages,
-			horizontal_messages,
-			hrmp_watermark: collation_info.hrmp_watermark,
-			head_data: collation_info.head_data,
-			proof_of_validity: MaybeCompressedPoV::Compressed(pov),
+		let is_v3 = scheduling_proof.is_some();
+		let block_data = if let Some(scheduling_proof) = scheduling_proof {
+			// V3: ParachainBlockData::V2 with scheduling proof
+			ParachainBlockData::<Block>::V2 {
+				blocks: vec![block],
+				proof: compact_proof,
+				scheduling_proof,
+			}
+		} else {
+			ParachainBlockData::<Block>::new(vec![block], compact_proof)
 		};
 
-		Some((collation, block_data))
-	}
-
-	/// Build a full [`Collation`] from a given [`ParachainCandidate`] with V3 scheduling proof.
-	pub fn build_collation_v3(
-		&self,
-		parent_header: &Block::Header,
-		block_hash: Block::Hash,
-		candidate: ParachainCandidate<Block>,
-		scheduling_proof: SchedulingProof,
-	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		let block = candidate.block;
-
-		let compact_proof = match candidate
-			.proof
-			.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root())
-		{
-			Ok(proof) => proof,
-			Err(e) => {
-				tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
-				return None
-			},
-		};
-
-		// Create the parachain block data for the validators.
-		let (collation_info, _api_version) = self
-			.fetch_collation_info(block_hash, block.header())
-			.map_err(|e| {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Failed to collect collation info.",
-				)
+		let pov = if is_v3 {
+			// V3 always uses the latest encoding
+			polkadot_node_primitives::maybe_compress_pov(PoV {
+				block_data: BlockData(block_data.encode()),
 			})
-			.ok()
-			.flatten()?;
+		} else {
+			// Legacy path: check api_version for backwards compatibility
+			// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
+			let api_version = self
+				.runtime_api
+				.runtime_api()
+				.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+				.ok()
+				.flatten()?;
 
-		// Create V2 ParachainBlockData with scheduling proof
-		let block_data = ParachainBlockData::<Block>::V2 {
-			blocks: vec![block],
-			proof: compact_proof,
-			scheduling_proof,
+			polkadot_node_primitives::maybe_compress_pov(PoV {
+				block_data: BlockData(if api_version >= 3 {
+					block_data.encode()
+				} else {
+					let block_data = block_data.as_v0();
+
+					if block_data.is_none() {
+						tracing::error!(
+							target: LOG_TARGET,
+							"Trying to submit a collation with multiple blocks is not supported by the current runtime."
+						);
+					}
+
+					block_data?.encode()
+				}),
+			})
 		};
-
-		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
-			block_data: BlockData(block_data.encode()),
-		});
 
 		let upward_messages = collation_info
 			.upward_messages
@@ -439,24 +360,9 @@ where
 		parent_header: &Block::Header,
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
+		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		CollatorService::build_collation(self, parent_header, block_hash, candidate)
-	}
-
-	fn build_collation_v3(
-		&self,
-		parent_header: &Block::Header,
-		block_hash: Block::Hash,
-		candidate: ParachainCandidate<Block>,
-		scheduling_proof: SchedulingProof,
-	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		CollatorService::build_collation_v3(
-			self,
-			parent_header,
-			block_hash,
-			candidate,
-			scheduling_proof,
-		)
+		CollatorService::build_collation(self, parent_header, block_hash, candidate, scheduling_proof)
 	}
 
 	fn announce_with_barrier(

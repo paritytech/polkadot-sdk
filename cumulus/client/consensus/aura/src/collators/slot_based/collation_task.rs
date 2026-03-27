@@ -134,30 +134,14 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	let number = *parachain_candidate.block.header().number();
 	// Derive scheduling_parent from the proof's header chain.
 	let scheduling_parent = scheduling_proof.as_ref().and_then(|p| p.scheduling_parent());
-	let (collation, block_data) = if let Some(scheduling_proof) = scheduling_proof {
-		// V3 candidate with scheduling proof
-		match collator_service.build_collation_v3(
-			&parent_header,
-			hash,
-			parachain_candidate,
-			scheduling_proof,
-		) {
-			Some(collation) => collation,
-			None => {
-				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build V3 collation.");
-				return;
-			},
-		}
-	} else {
-		// Legacy candidate
-		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
+	let (collation, block_data) =
+		match collator_service.build_collation(&parent_header, hash, parachain_candidate, scheduling_proof) {
 			Some(collation) => collation,
 			None => {
 				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
 				return;
 			},
-		}
-	};
+		};
 
 	block_data.log_size_info();
 
