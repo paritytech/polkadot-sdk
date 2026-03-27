@@ -319,9 +319,12 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
 		})?;
 
-		let receipt_data = (self.fetch_receipt_data)(block.hash())
-			.await
-			.ok_or(ClientError::ReceiptDataNotFound)?;
+		let receipt_data = (self.fetch_receipt_data)(block.hash()).await.ok_or_else(|| {
+			log::debug!(target: LOG_TARGET,
+				"Receipt data not found for block #{} ({:?})",
+				block.number(), block.hash());
+			ClientError::ReceiptDataNotFound
+		})?;
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
 			.enumerate()

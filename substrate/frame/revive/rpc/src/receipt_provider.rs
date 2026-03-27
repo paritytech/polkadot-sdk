@@ -196,14 +196,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	// Get block hash and transaction index by transaction hash
 	pub async fn find_transaction(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
-		let transaction_hash = transaction_hash.as_ref();
+		let transaction_hash_bytes = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
 			FROM transaction_hashes
 			WHERE transaction_hash = $1
 			"#,
-			transaction_hash
+			transaction_hash_bytes
 		)
 		.fetch_optional(&self.pool)
 		.await
@@ -549,7 +549,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		if result.exists {
 			log::trace!(target: LOG_TARGET,
 				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
-				 mapping already exists. Receipts count: {count}",
+				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
 				count = receipts.len(),
 			);
 		} else {
