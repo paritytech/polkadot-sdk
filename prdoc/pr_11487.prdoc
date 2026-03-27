@@ -1,0 +1,15 @@
+title: 'statement-store: defer statement protocol connections during major sync'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Nodes drop all statements received from peers during major sync because of the `is_major_syncing()` guard.
+
+    - Fixes permanent statement loss during major sync by deferring statement protocol connections until sync completes
+    - When major sync starts, disconnects all statement protocol peers
+    - When major sync ends, reconnects all peers
+    - Added new zombienet + unit tests
+crates:
+- name: sc-network-statement
+  bump: patch
