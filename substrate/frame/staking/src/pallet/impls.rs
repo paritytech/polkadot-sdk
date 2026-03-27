@@ -42,10 +42,9 @@ use sp_runtime::{
 	ArithmeticError, DispatchResult, Perbill, Percent,
 };
 use sp_staking::{
-	EraPayout,
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, EraPayout, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
