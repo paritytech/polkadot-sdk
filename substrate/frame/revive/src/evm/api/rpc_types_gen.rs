@@ -18,7 +18,11 @@
 #![allow(missing_docs)]
 
 use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
-use alloc::{boxed::Box, collections::BTreeMap, collections::BTreeSet, vec::Vec};
+use alloc::{
+	boxed::Box,
+	collections::{BTreeMap, BTreeSet},
+	vec::Vec,
+};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
@@ -1412,11 +1416,7 @@ impl StateOverrideSet {
 
 	/// Sets the move-precompile-to-address override for the given address, creating the entry if
 	/// it doesn't exist. Consumes and returns `self` for chaining.
-	pub fn with_move_precompile_to_address(
-		mut self,
-		address: Address,
-		move_to: Address,
-	) -> Self {
+	pub fn with_move_precompile_to_address(mut self, address: Address, move_to: Address) -> Self {
 		self.0.entry(address).or_default().move_precompile_to_address = Some(move_to);
 		self
 	}

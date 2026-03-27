@@ -47,10 +47,10 @@ use sp_core::{H160, U256};
 ///    `substrate/primitives/api/proc-macro/src/impl_runtime_apis.rs`.
 ///
 /// 2. **Old RPC, new runtime (missing bytes are defaulted):** A new runtime expecting more fields
-///    than an old RPC provides would hit EOF during decoding and fail. To guard against this,
-///    this type uses a **custom `Decode` implementation** that falls back to `Default` for any
-///    trailing fields that are absent from the input. This ensures that an old RPC sending a
-///    shorter encoding is handled gracefully.
+///    than an old RPC provides would hit EOF during decoding and fail. To guard against this, this
+///    type uses a **custom `Decode` implementation** that falls back to `Default` for any trailing
+///    fields that are absent from the input. This ensures that an old RPC sending a shorter
+///    encoding is handled gracefully.
 ///
 /// ## Constraints
 ///
@@ -75,11 +75,7 @@ pub struct DryRunConfig<Moment> {
 
 impl<Moment> Default for DryRunConfig<Moment> {
 	fn default() -> Self {
-		Self {
-			timestamp_override: None,
-			perform_balance_checks: Some(true),
-			state_overrides: None,
-		}
+		Self { timestamp_override: None, perform_balance_checks: Some(true), state_overrides: None }
 	}
 }
 
@@ -87,8 +83,7 @@ impl<Moment: Decode> Decode for DryRunConfig<Moment> {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let timestamp_override = Option::<Moment>::decode(input)?;
 		let perform_balance_checks = Option::<bool>::decode(input)?;
-		let state_overrides =
-			Option::<StateOverrideSet>::decode(input).unwrap_or_default();
+		let state_overrides = Option::<StateOverrideSet>::decode(input).unwrap_or_default();
 		Ok(Self { timestamp_override, perform_balance_checks, state_overrides })
 	}
 }
