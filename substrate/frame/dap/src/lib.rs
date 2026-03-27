@@ -287,7 +287,7 @@ pub mod pallet {
 			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(2, 1);
+				return T::DbWeight::get().reads_writes(2, 2);
 			}
 
 			// Apply safety ceiling on elapsed time.
@@ -305,19 +305,19 @@ pub mod pallet {
 
 			if issuance.is_zero() {
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(3, 1);
+				return T::DbWeight::get().reads_writes(3, 3);
 			}
 
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			if budget.is_empty() {
-				// TODO(ank4n): Add defensive! panic once budget is always configured.
+				// TODO: Add defensive! panic once budget is always configured.
 				log::warn!(
 					target: LOG_TARGET,
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(4, 1);
+				return T::DbWeight::get().reads_writes(4, 4);
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
