@@ -1264,44 +1264,62 @@ fn vested_transfer_impl_works() {
 }
 
 #[test]
-fn vested_payout_zero_duration_is_liquid_transfer() {
-	use frame_support::traits::tokens::VestedPayout;
+fn vested_payout_edge_cases() {
+	use frame_support::{hypothetically, traits::tokens::VestedPayout};
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		let alice = 3; // no vesting schedule
-		let bob = 4; // no vesting schedule
+		let alice = 3;
+		let bob = 4;
+
 		let alice_balance_before = Balances::free_balance(&alice);
 		let bob_balance_before = Balances::free_balance(&bob);
-		let amount = ED * 5;
 
-		// WHEN: zero duration transfer
-		assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(&alice, &bob, amount, 0));
+		// WHEN: zero amount, THEN: no-op.
+		hypothetically!({
+			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(&alice, &bob, 0, 10));
+			assert_eq!(Balances::free_balance(&bob), bob_balance_before);
+			assert!(VestingStorage::<Test>::get(&bob).is_none());
+		});
 
-		// THEN: liquid transfer, no vesting schedule created.
-		assert_eq!(Balances::free_balance(&alice), alice_balance_before - amount);
-		assert_eq!(Balances::free_balance(&bob), bob_balance_before + amount);
-		assert!(VestingStorage::<Test>::get(&bob).is_none());
+		// WHEN: zero duration, THEN: liquid transfer, no vesting schedule.
+		hypothetically!({
+			let amount = ED * 5;
+			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
+				&alice, &bob, amount, 0
+			));
+			assert_eq!(Balances::free_balance(&alice), alice_balance_before - amount);
+			assert_eq!(Balances::free_balance(&bob), bob_balance_before + amount);
+			assert!(VestingStorage::<Test>::get(&bob).is_none());
+		});
 	});
 }
 
 #[test]
-fn vested_payout_with_duration_creates_schedule() {
+fn vested_payout_creates_schedule() {
 	use frame_support::traits::tokens::VestedPayout;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		let alice = 3; // no vesting schedule
-		let bob = 4; // no vesting schedule
-		let amount = ED * 10;
-		let duration = 20u64;
+		let alice = 3;
+		let bob = 4;
+
+		// Use amount that doesn't evenly divide by duration to test rounding.
+		// amount=1024, duration=30: floor division would give per_block=34, needing 31 blocks.
+		// Rounding up gives per_block=35, completing in 30 blocks (within duration).
+		let amount = ED * 4; // 1024
+		let duration = 30u64;
 
 		// WHEN
 		assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
 			&alice, &bob, amount, duration
 		));
 
-		// THEN: vesting schedule is created. per_block = amount / duration = 128.
+		// THEN: per_block is rounded up to 35, not floored to 34.
 		let schedule = VestingStorage::<Test>::get(&bob).unwrap();
 		assert_eq!(schedule.len(), 1);
 		assert_eq!(schedule[0].locked(), amount);
-		assert_eq!(schedule[0].per_block(), amount / duration); // 128
+		assert_eq!(schedule[0].per_block(), 35);
+
+		// Vesting completes within duration: ceil(1024/35) = 30 blocks <= 30.
+		let ending = schedule[0].ending_block_as_balance::<Identity>();
+		assert!(ending <= schedule[0].starting_block() + duration);
 	});
 }
 
