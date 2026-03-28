@@ -27,6 +27,7 @@ use pallet_revive::{
 		Trace, H160, U256,
 	},
 	DryRunConfig, EthTransactInfo,
+	evm::StateOverrideSet,
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
@@ -143,6 +144,7 @@ impl RuntimeApi {
 		&self,
 		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let timestamp_override = match block {
 			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
@@ -151,12 +153,13 @@ impl RuntimeApi {
 			_ => None,
 		};
 
+		let config = DryRunConfig::new()
+			.with_timestamp_override(timestamp_override)
+			.with_state_overrides(state_overrides);
+
 		let payload = subxt_client::apis()
 			.revive_api()
-			.eth_transact_with_config(
-				tx.clone().into(),
-				DryRunConfig::new().with_timestamp_override(timestamp_override).into(),
-			)
+			.eth_transact_with_config(tx.clone().into(), config.into())
 			.unvalidated();
 
 		let result = self

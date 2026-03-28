@@ -41,6 +41,7 @@ use crate::{
 	storage::{AccountInfo, ContractInfo},
 	vm::ContractBlob,
 };
+use alloc::{format, vec::Vec};
 use frame_support::traits::Get;
 use sp_core::{H160, U256};
 use sp_runtime::DispatchError;

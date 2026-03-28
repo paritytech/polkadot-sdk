@@ -19,15 +19,20 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
-	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, connect},
+	client::{connect, Client},
 	example::TransactionBuilder,
 	subxt_client::{
-		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
+		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
 	},
+	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
+	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 };
+use alloy_network::EthereumWallet;
+use alloy_primitives::{Address as AlloyAddress, Bytes as AlloyBytes, B256, U256 as AlloyU256};
+use alloy_provider::{Provider, ProviderBuilder};
+use alloy_rpc_types::{TransactionRequest, state::{AccountOverride, StateOverride}};
+use alloy_signer_local::PrivateKeySigner;
 use anyhow::anyhow;
 use clap::Parser;
 use jsonrpsee::{
@@ -38,19 +43,19 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
-		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		Trace, TransactionInfo, TransactionUnsigned, U256,
+		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, HashesOrTransactionInfos, Log,
+		SubscriptionItem, SubscriptionKind, SubscriptionOptions, Trace, TransactionInfo,
+		TransactionUnsigned, H256, U256,
 	},
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
-	OnlineClient,
 	backend::rpc::RpcClient,
 	ext::subxt_rpcs::rpc_params,
 	tx::{SubmittableTransaction, TxStatus},
+	OnlineClient,
 };
 use subxt_signer::eth::Keypair;
 
@@ -119,6 +124,22 @@ impl SharedResources {
 
 	fn node_rpc_url() -> &'static str {
 		"ws://localhost:45789"
+	}
+
+	/// Creates an alloy HTTP provider connected to the test eth-rpc server, configured with the
+	/// default dev account (alith) wallet for signing transactions.
+	///
+	/// Using alloy's provider in tests ensures that our JSON-RPC types (especially state
+	/// overrides, transaction requests, and call responses) are wire-compatible with the models
+	/// used by the wider Ethereum ecosystem. If alloy can successfully serialize a request and
+	/// deserialize our response, external tooling built on alloy will work with our RPC.
+	fn provider() -> impl Provider {
+		let secret_key = subxt_signer::eth::dev::alith().secret_key();
+		let signer = PrivateKeySigner::from_bytes(&secret_key.into()).expect("valid dev key");
+		let wallet = EthereumWallet::from(signer);
+		ProviderBuilder::new()
+			.wallet(wallet)
+			.connect_http("http://localhost:45788".parse().unwrap())
 	}
 }
 
@@ -346,6 +367,30 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_sync_resume_interrupted,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
+		test_state_override_balance,
+		test_state_override_code_empty_to_evm,
+		test_state_override_code_empty_to_pvm,
+		test_state_override_code_eoa_to_evm,
+		test_state_override_code_eoa_to_pvm,
+		test_state_override_code_evm_to_evm,
+		test_state_override_code_evm_to_pvm,
+		test_state_override_code_pvm_to_evm,
+		test_state_override_storage_state_diff,
+		test_state_override_storage_full_replacement,
+		test_state_override_storage_full_clears_unspecified,
+		test_state_override_storage_diff_preserves_unspecified,
+		test_state_override_storage_multiple_slots,
+		test_state_override_storage_full_empty_map_clears_all,
+		test_state_override_storage_diff_zero_value,
+		test_state_override_nonce,
+		test_state_override_code_and_storage_combined,
+		test_state_override_balance_on_from_account,
+		test_state_override_multiple_accounts,
+		test_state_override_combined_balance_and_code,
+		test_state_override_does_not_persist,
+		test_state_override_empty_set,
+		test_state_override_storage_on_eoa_fails,
+		test_state_override_balance_zero,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -2066,6 +2111,1090 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
 		finalized2.number(),
 		client2.receipt_provider().first_evm_block().unwrap_or(0),
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding the balance of an unfunded EOA allows an `eth_call` that transfers
+/// value from it to succeed. Without the override the call would fail due to insufficient funds.
+async fn test_state_override_balance() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let sender = AlloyAddress::from([0xAA; 20]);
+	let recipient = AlloyAddress::from([0xBB; 20]);
+
+	let tx = TransactionRequest::default()
+		.from(sender)
+		.to(recipient)
+		.value(AlloyU256::from(1_000u64));
+
+	let overrides = StateOverride::from_iter([(
+		sender,
+		AccountOverride::default()
+			.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(result.is_ok(), "eth_call with balance override should succeed: {result:?}");
+
+	Ok(())
+}
+
+/// Verifies that injecting EVM bytecode onto an untouched address (no prior state) via a code
+/// override allows calling functions on that address as if it were a deployed contract.
+async fn test_state_override_code_empty_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xCC; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(42u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(42u64),
+		"echo(42) should return 42 via EVM code override on empty address"
+	);
+
+	Ok(())
+}
+
+/// Deploys a contract via the alloy provider and returns the deployed address.
+///
+/// Uses the provider's configured wallet (alith) to sign and send a deployment transaction,
+/// then computes the contract address from the deployer's address and nonce. Constructor
+/// arguments, if any, should be ABI-encoded and passed via `constructor_args`.
+async fn deploy_contract(
+	provider: &(impl Provider + 'static),
+	fixture_name: &str,
+	fixture_type: pallet_revive_fixtures::FixtureType,
+	constructor_args: &[u8],
+) -> anyhow::Result<AlloyAddress> {
+	let (bytecode, _) =
+		pallet_revive_fixtures::compile_module_with_type(fixture_name, fixture_type)?;
+	let input: Vec<u8> = bytecode.into_iter().chain(constructor_args.iter().copied()).collect();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let nonce = provider.get_transaction_count(from).await?;
+	let deploy_tx = TransactionRequest::default()
+		.from(from)
+		.input(AlloyBytes::from(input).into())
+		.create();
+	provider.send_transaction(deploy_tx).await?.get_receipt().await?;
+	Ok(from.create(nonce))
+}
+
+/// Verifies that replacing an existing EVM contract's code with different EVM code via override
+/// causes the overridden code to execute instead of the original.
+async fn test_state_override_code_evm_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = deploy_contract(
+		&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[],
+	).await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(99u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(99u64),
+		"echo(99) should return 99 via EVM code override on EVM contract"
+	);
+
+	Ok(())
+}
+
+/// Verifies that injecting PVM bytecode onto an untouched address (no prior state) via a code
+/// override allows calling Solidity ABI functions on it.
+async fn test_state_override_code_empty_to_pvm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xC1; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(42u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(42u64),
+		"echo(42) should return 42 via PVM code override on empty address"
+	);
+
+	Ok(())
+}
+
+/// Verifies that injecting EVM bytecode onto a funded EOA (has balance, no code) via a code
+/// override promotes it to a contract and allows calling functions on it.
+async fn test_state_override_code_eoa_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let eoa = AlloyAddress::from([0xC2; 20]);
+
+	// Fund the EOA to make it a real EOA (not just an empty address)
+	let fund_tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.value(AlloyU256::from(1_000_000_000_000u128));
+	provider.send_transaction(fund_tx).await?.get_receipt().await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(55u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		eoa,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(55u64),
+		"echo(55) should return 55 via EVM code override on funded EOA"
+	);
+
+	Ok(())
+}
+
+/// Verifies that injecting PVM bytecode onto a funded EOA (has balance, no code) via a code
+/// override promotes it to a contract and allows calling Solidity ABI functions on it.
+async fn test_state_override_code_eoa_to_pvm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let eoa = AlloyAddress::from([0xC3; 20]);
+
+	// Fund the EOA to make it a real EOA (not just an empty address)
+	let fund_tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.value(AlloyU256::from(1_000_000_000_000u128));
+	provider.send_transaction(fund_tx).await?.get_receipt().await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(55u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		eoa,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(55u64),
+		"echo(55) should return 55 via PVM code override on funded EOA"
+	);
+
+	Ok(())
+}
+
+/// Verifies that replacing an existing EVM contract's code with PVM bytecode via override causes
+/// the PVM code to execute at that address.
+async fn test_state_override_code_evm_to_pvm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = deploy_contract(
+		&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[],
+	).await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(88u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(88u64),
+		"echo(88) should return 88 via PVM code override on EVM contract"
+	);
+
+	Ok(())
+}
+
+/// Verifies that replacing an existing PVM contract's code with EVM bytecode via override
+/// causes the EVM code to execute at that address.
+async fn test_state_override_code_pvm_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = deploy_contract(
+		&provider, "Counter", pallet_revive_fixtures::FixtureType::Resolc, &[],
+	).await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(77u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(77u64),
+		"echo(77) should return 77 via EVM code override on PVM contract"
+	);
+
+	Ok(())
+}
+
+/// Verifies that patching a single storage slot via `stateDiff` changes the value returned by
+/// a contract's getter while leaving unrelated storage intact.
+async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+
+	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		counter_address,
+		AccountOverride::default().with_state_diff([(
+			B256::ZERO,
+			B256::from(AlloyU256::from(999u64)),
+		)]),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(999u64),
+		"number() should return the overridden value 999, not the original 3"
+	);
+
+	Ok(())
+}
+
+/// Verifies that a full storage replacement via `state` writes specified slots and that the
+/// getter returns the replaced value.
+async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+
+	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		counter_address,
+		AccountOverride::default().with_state([(
+			B256::ZERO,
+			B256::from(AlloyU256::from(123u64)),
+		)]),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(123u64),
+		"number() should return 123 from the full storage replacement"
+	);
+
+	Ok(())
+}
+
+/// Verifies that a full storage replacement via `state` zeroes out slots not included in the
+/// override. Deploys `TwoSlots(10, 20)`, then overrides with `state` containing only slot 0.
+/// Slot 0 should reflect the override, slot 1 should be zero.
+async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let mut constructor_args = Vec::new();
+	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
+	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	let slot_0 = B256::ZERO;
+
+	// Override with `state` containing only slot 0 = 42.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_state([(slot_0, B256::from(AlloyU256::from(42u64)))]),
+	)]);
+
+	// Act — read first() via eth_call with override
+	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider
+		.call(first_tx.clone())
+		.overrides(overrides.clone())
+		.await?;
+	let first_value =
+		AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+
+	// Act — read second() via eth_call with same override
+	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider
+		.call(second_tx.clone())
+		.overrides(overrides)
+		.await?;
+	let second_value =
+		AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+
+	// Assert
+	assert_eq!(
+		first_value,
+		AlloyU256::from(42u64),
+		"first() should return the overridden value 42"
+	);
+	assert_eq!(
+		second_value,
+		AlloyU256::ZERO,
+		"second() should be zero because full state replacement cleared unspecified slots"
+	);
+
+	Ok(())
+}
+
+/// Verifies that `stateDiff` only patches the specified slots and leaves unspecified slots
+/// untouched. Deploys `TwoSlots(10, 20)`, then overrides slot 0 via `stateDiff`. Slot 0
+/// should reflect the override, slot 1 should retain its original value of 20.
+async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let mut constructor_args = Vec::new();
+	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
+	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	let slot_0 = B256::ZERO;
+
+	// Override only slot 0 via stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_state_diff([(slot_0, B256::from(AlloyU256::from(99u64)))]),
+	)]);
+
+	// Act — read first() with override
+	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider
+		.call(first_tx.clone())
+		.overrides(overrides.clone())
+		.await?;
+	let first_value =
+		AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+
+	// Act — read second() with same override
+	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider
+		.call(second_tx.clone())
+		.overrides(overrides)
+		.await?;
+	let second_value =
+		AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+
+	// Assert
+	assert_eq!(
+		first_value,
+		AlloyU256::from(99u64),
+		"first() should return the overridden value 99"
+	);
+	assert_eq!(
+		second_value,
+		AlloyU256::from(20u64),
+		"second() should retain its original value 20 since stateDiff didn't touch it"
+	);
+
+	Ok(())
+}
+
+/// Verifies that multiple storage slots can be overridden in a single `stateDiff`. Deploys
+/// `TwoSlots(10, 20)`, then overrides both slots via `stateDiff` to different values.
+async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let mut constructor_args = Vec::new();
+	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
+	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	let slot_0 = B256::ZERO;
+	let slot_1 = B256::from(AlloyU256::from(1u64));
+
+	// Override both slots in one stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_state_diff([
+			(slot_0, B256::from(AlloyU256::from(111u64))),
+			(slot_1, B256::from(AlloyU256::from(222u64))),
+		]),
+	)]);
+
+	// Act — read first()
+	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider
+		.call(first_tx.clone())
+		.overrides(overrides.clone())
+		.await?;
+	let first_value =
+		AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+
+	// Act — read second()
+	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider
+		.call(second_tx.clone())
+		.overrides(overrides)
+		.await?;
+	let second_value =
+		AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+
+	// Assert
+	assert_eq!(
+		first_value,
+		AlloyU256::from(111u64),
+		"first() should return the overridden value 111"
+	);
+	assert_eq!(
+		second_value,
+		AlloyU256::from(222u64),
+		"second() should return the overridden value 222"
+	);
+
+	Ok(())
+}
+
+/// Verifies that passing `state: {}` (an empty map) clears all storage. Deploys
+/// `TwoSlots(10, 20)`, overrides with an empty `state` map, and asserts both slots are zero.
+async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let mut constructor_args = Vec::new();
+	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
+	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	// Override with empty `state` map — should clear everything.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_state(std::iter::empty()),
+	)]);
+
+	// Act — read first()
+	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider
+		.call(first_tx.clone())
+		.overrides(overrides.clone())
+		.await?;
+	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+
+	// Act — read second()
+	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider
+		.call(second_tx.clone())
+		.overrides(overrides)
+		.await?;
+	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+
+	// Assert
+	assert_eq!(first_value, AlloyU256::ZERO, "first() should be zero after empty state override");
+	assert_eq!(
+		second_value, AlloyU256::ZERO,
+		"second() should be zero after empty state override"
+	);
+
+	Ok(())
+}
+
+/// Verifies that setting a storage slot to zero via `stateDiff` results in the getter returning
+/// zero. Deploys `TwoSlots(10, 20)`, overrides slot 0 to zero, and asserts `first()` returns 0
+/// while `second()` retains its original value.
+async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let mut constructor_args = Vec::new();
+	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
+	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	// Override slot 0 to zero via stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_state_diff([(B256::ZERO, B256::ZERO)]),
+	)]);
+
+	// Act — read first()
+	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider
+		.call(first_tx.clone())
+		.overrides(overrides.clone())
+		.await?;
+	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+
+	// Act — read second()
+	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider
+		.call(second_tx.clone())
+		.overrides(overrides)
+		.await?;
+	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+
+	// Assert
+	assert_eq!(first_value, AlloyU256::ZERO, "first() should return zero after stateDiff to zero");
+	assert_eq!(
+		second_value,
+		AlloyU256::from(20u64),
+		"second() should retain its original value 20"
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding the nonce of the `from` account works correctly. The overridden
+/// nonce should be used when the transaction doesn't specify one (auto-filled from state).
+/// This also validates that the nonce override survives the `prepare_dry_run` nonce bump.
+async fn test_state_override_nonce() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let recipient = AlloyAddress::from([0xBB; 20]);
+
+	// A simple transfer call — we don't care about the result, only that the overridden nonce
+	// is accepted and doesn't cause a failure.
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(recipient)
+		.nonce(42);
+
+	let overrides = StateOverride::from_iter([(
+		from,
+		AccountOverride::default()
+			.with_nonce(42)
+			.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(
+		result.is_ok(),
+		"eth_call with matching nonce override should succeed: {result:?}"
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding both code and storage on the same account in a single override
+/// works correctly. The code override promotes the address to a contract, enabling the
+/// subsequent storage override to write slots. This tests the ordering guarantee in
+/// `apply_single_account_override` (code before storage).
+async fn test_state_override_code_and_storage_combined() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xC4; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	// Override: inject TwoSlots runtime code AND set slot 0 = 77 via stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_code(AlloyBytes::from(code))
+			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(77u64)))]),
+	)]);
+
+	// Act — read first() which reads slot 0
+	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(77u64),
+		"first() should return 77 from storage override on code-injected address"
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding the balance of the `from` account (the transaction sender) works
+/// correctly and is not clobbered by `prepare_dry_run`. A sender with zero on-chain balance
+/// but an overridden balance should be able to make a value-transferring call.
+async fn test_state_override_balance_on_from_account() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let sender = AlloyAddress::from([0xD1; 20]);
+	let recipient = AlloyAddress::from([0xD2; 20]);
+
+	// sender has no on-chain balance — the override provides it.
+	let tx = TransactionRequest::default()
+		.from(sender)
+		.to(recipient)
+		.value(AlloyU256::from(500u64));
+
+	let overrides = StateOverride::from_iter([(
+		sender,
+		AccountOverride::default()
+			.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(
+		result.is_ok(),
+		"balance override on from account should survive prepare_dry_run: {result:?}"
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding state of two different accounts in a single `eth_call` works.
+/// Both a sender (needing balance) and a target (needing code) are overridden simultaneously.
+async fn test_state_override_multiple_accounts() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let sender = AlloyAddress::from([0xDD; 20]);
+	let target = AlloyAddress::from([0xEE; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(7u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(sender)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([
+		(
+			sender,
+			AccountOverride::default()
+				.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+		),
+		(
+			target,
+			AccountOverride::default().with_code(AlloyBytes::from(code)),
+		),
+	]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(7u64),
+		"echo(7) should work with sender balance + target code overridden"
+	);
+
+	Ok(())
+}
+
+/// Verifies that applying both a balance and code override to the same account works.
+async fn test_state_override_combined_balance_and_code() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xFF; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
+	call_data.extend_from_slice(&AlloyU256::from(7u64).to_be_bytes::<32>());
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_balance(AlloyU256::from(1_000_000u64))
+			.with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(7u64),
+		"echo(7) should work with combined balance + code override on same account"
+	);
+
+	Ok(())
+}
+
+/// Verifies that state overrides are ephemeral: a call with overrides sees the overridden state,
+/// but a subsequent call without overrides sees the original on-chain state.
+async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+
+	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		counter_address,
+		AccountOverride::default().with_state_diff([(
+			B256::ZERO,
+			B256::from(AlloyU256::from(999u64)),
+		)]),
+	)]);
+
+	// Act — call with override
+	let overridden_result = provider.call(tx.clone()).overrides(overrides).await?;
+	let overridden_value =
+		AlloyU256::from_be_slice(&overridden_result[overridden_result.len() - 32..]);
+
+	// Act — call without override
+	let normal_result = provider.call(tx.clone()).await?;
+	let normal_value =
+		AlloyU256::from_be_slice(&normal_result[normal_result.len() - 32..]);
+
+	// Assert
+	assert_eq!(
+		overridden_value,
+		AlloyU256::from(999u64),
+		"overridden call should return 999"
+	);
+	assert_eq!(
+		normal_value,
+		AlloyU256::from(3u64),
+		"subsequent call without override should return original value 3"
+	);
+
+	Ok(())
+}
+
+/// Verifies that an empty state override set behaves identically to passing no overrides.
+async fn test_state_override_empty_set() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+
+	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let empty_overrides = StateOverride::default();
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(empty_overrides).await?;
+
+	// Assert
+	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	assert_eq!(
+		returned_value,
+		AlloyU256::from(3u64),
+		"empty override set should return the original constructor value 3"
+	);
+
+	Ok(())
+}
+
+/// Verifies that attempting to override storage on an EOA (without a code override) fails,
+/// since EOAs have no contract storage trie.
+async fn test_state_override_storage_on_eoa_fails() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let eoa = AlloyAddress::from([0x11; 20]);
+
+	let from = AlloyAddress::from(Account::default().address().0);
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa);
+
+	let overrides = StateOverride::from_iter([(
+		eoa,
+		AccountOverride::default().with_state_diff([(
+			B256::ZERO,
+			B256::from(AlloyU256::from(42u64)),
+		)]),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(result.is_err(), "storage override on EOA without code should fail: {result:?}");
+
+	Ok(())
+}
+
+/// Verifies that overriding balance to zero on a funded account prevents value transfers.
+async fn test_state_override_balance_zero() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let ethan_alloy = AlloyAddress::from(ethan.address().0);
+	let recipient = AlloyAddress::from([0xBB; 20]);
+
+	let tx = TransactionRequest::default()
+		.from(ethan_alloy)
+		.to(recipient)
+		.value(AlloyU256::from(1u64));
+
+	let overrides = StateOverride::from_iter([(
+		ethan_alloy,
+		AccountOverride::default().with_balance(AlloyU256::ZERO),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(
+		result.is_err(),
+		"call transferring value with balance overridden to zero should fail: {result:?}"
 	);
 
 	Ok(())
