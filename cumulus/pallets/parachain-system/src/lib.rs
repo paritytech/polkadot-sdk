@@ -301,35 +301,16 @@ pub mod pallet {
 		///
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingV3Enabled: Get<bool>;
-
-		/// Maximum additional claim queue offset for async backing flexibility.
-		///
-		/// This determines how far "into the future" collators target when selecting cores
-		/// from the claim queue. The effective claim queue depth is:
-		/// `RelayParentOffset + MaxClaimQueueOffset`
-		///
-		/// Collators may use lower offsets (down to 0) for optimistic scenarios where
-		/// execution is fast or earlier slots are available (e.g., chain startup, previous
-		/// author missed their slot).
-		///
-		/// # Security Rationale
-		///
-		/// This constraint prevents collators from claiming cores too far in the future,
-		/// which could waste intermediate slots. With V3 scheduling and the scheduling_parent
-		/// architecture, larger offsets are rarely needed since the execution context
-		/// (relay_parent) is decoupled from the scheduling context (scheduling_parent).
-		///
-		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
-		///
-		/// # Recommended Value
-		///
-		/// Default of 1 is recommended for almost all parachains. This provides:
-		/// - Offset 0: Synchronous opportunity (backing in next relay block)
-		/// - Offset 1: Asynchronous opportunity (backing in relay block after next)
-		///
-		/// There is rarely any reason to change this value.
-		type MaxClaimQueueOffset: Get<u8>;
 	}
+
+	/// Maximum claim queue offset for async backing flexibility.
+	///
+	/// This limits how far "into the future" collators can target when selecting cores
+	/// from the claim queue. The effective claim queue depth is:
+	/// `relay_parent_offset + MAX_CLAIM_QUEUE_OFFSET`
+	///
+	/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+	pub const MAX_CLAIM_QUEUE_OFFSET: u8 = 2;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -660,7 +641,7 @@ pub mod pallet {
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
 					let max_allowed_offset =
-						T::RelayParentOffset::get() as u8 + T::MaxClaimQueueOffset::get();
+						T::RelayParentOffset::get() as u8 + MAX_CLAIM_QUEUE_OFFSET;
 					assert!(
 						core_info.claim_queue_offset.0 <= max_allowed_offset,
 						"claim_queue_offset {} exceeds maximum allowed {} (relay_parent_offset {} + max_claim_queue_offset {}). \
@@ -668,7 +649,7 @@ pub mod pallet {
 						core_info.claim_queue_offset.0,
 						max_allowed_offset,
 						T::RelayParentOffset::get(),
-						T::MaxClaimQueueOffset::get()
+						MAX_CLAIM_QUEUE_OFFSET
 					);
 				},
 				CoreInfoExistsAtMaxOnce::NotFound => {},
@@ -1191,7 +1172,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This is used by the runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
-		T::MaxClaimQueueOffset::get()
+		MAX_CLAIM_QUEUE_OFFSET
 	}
 }
 

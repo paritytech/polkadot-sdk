@@ -150,7 +150,6 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCE
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 /// Maximum claim queue offset.
-const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
 
 /// Scheduling V3 candidates flag.
 const SCHEDULING_V3_ENABLED: bool = false;
@@ -972,7 +971,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
-	type MaxClaimQueueOffset = ConstU8<MAX_CLAIM_QUEUE_OFFSET>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -1857,7 +1855,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn max_claim_queue_offset() -> u8 {
-			MAX_CLAIM_QUEUE_OFFSET
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
 		}
 	}
 

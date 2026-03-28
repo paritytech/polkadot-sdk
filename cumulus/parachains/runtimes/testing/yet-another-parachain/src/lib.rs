@@ -108,7 +108,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
 const SCHEDULING_V3_ENABLED: bool = false;
 
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
@@ -376,7 +375,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type MaxClaimQueueOffset = ConstU8<MAX_CLAIM_QUEUE_OFFSET>;
 	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
 }
 
@@ -769,7 +767,7 @@ impl_runtime_apis! {
 		}
 
 		fn max_claim_queue_offset() -> u8 {
-			MAX_CLAIM_QUEUE_OFFSET
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
 		}
 	}
 

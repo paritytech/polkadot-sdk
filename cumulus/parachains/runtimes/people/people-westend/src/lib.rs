@@ -168,7 +168,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
-const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
 const SCHEDULING_V3_ENABLED: bool = false;
 
 /// The version information used to identify this runtime when compiled natively.
@@ -307,7 +306,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
-	type MaxClaimQueueOffset = ConstU8<MAX_CLAIM_QUEUE_OFFSET>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -701,7 +699,7 @@ impl_runtime_apis! {
 		}
 
 		fn max_claim_queue_offset() -> u8 {
-			MAX_CLAIM_QUEUE_OFFSET
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
 		}
 	}
 
