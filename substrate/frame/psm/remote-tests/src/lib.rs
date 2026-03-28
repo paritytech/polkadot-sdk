@@ -33,7 +33,7 @@ use frame_support::{
 		Get,
 	},
 };
-use remote_externalities::{Builder, Mode, OnlineConfig, RemoteExternalities};
+use remote_externalities::{Builder, Mode, OnlineConfig};
 use sp_runtime::{
 	traits::{AccountIdConversion, Block as BlockT, Zero},
 	DeserializeOwned, Permill,
@@ -62,40 +62,24 @@ pub struct PsmTestConfig {
 	pub pre_create_hook: Option<Box<dyn Fn()>>,
 }
 
+/// Amount of external stablecoin to swap in tests (1000 units with 6 decimals).
+const SWAP_AMOUNT: u128 = 1_000_000_000;
+/// Amount of external stablecoin to fund the test caller with (2000 units with 6 decimals).
+const FUND_AMOUNT: u128 = 2_000_000_000;
+/// Seed amount for pre-funding pUSD asset accounts.
+const SEED_AMOUNT: u128 = 1;
+
 /// Common test state returned by [`setup`].
 struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
 	asset_id: Runtime::AssetId,
 	caller: Runtime::AccountId,
+	psm_account: Runtime::AccountId,
 	swap_amount: BalanceOf<Runtime>,
 }
 
-/// Shared setup: fetch live state, create pUSD if needed, configure PSM, fund accounts.
-async fn setup<Runtime, Block>(
-	ws_url: String,
-	config: &PsmTestConfig,
-) -> RemoteExternalities<Block>
-where
-	Runtime: pallet_psm::Config + frame_system::Config,
-	Block: BlockT + DeserializeOwned,
-	Block::Header: DeserializeOwned,
-	Runtime::AssetId: From<u32>,
-	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
-	Runtime::Fungibles:
-		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-{
-	Builder::<Block>::new()
-		.mode(Mode::Online(OnlineConfig {
-			transport_uris: vec![ws_url],
-			pallets: vec![config.assets_pallet_name.clone()],
-			..Default::default()
-		}))
-		.build()
-		.await
-		.unwrap()
-}
-
-/// Configure PSM state and fund test accounts. Must be called inside `execute_with`.
-fn configure_psm<Runtime>(config: &PsmTestConfig) -> TestEnv<Runtime>
+/// Create pUSD if needed, configure PSM, and fund test accounts.
+/// Must be called inside `execute_with`.
+fn setup<Runtime>(config: &PsmTestConfig) -> TestEnv<Runtime>
 where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Runtime::AssetId: From<u32>,
@@ -134,7 +118,6 @@ where
 		let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
 		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
 
-		// Ensure the fee destination account exists in the system.
 		let fee_dest = Runtime::FeeDestination::get();
 		let _ = frame_system::Pallet::<Runtime>::inc_providers(&fee_dest);
 
@@ -175,19 +158,17 @@ where
 		stable_decimals, external_decimals,
 	);
 
-	// Set the PSM debt ceiling.
+	// Configure PSM via governance dispatchables.
 	assert_ok!(pallet_psm::Pallet::<Runtime>::set_max_psm_debt(
 		frame_system::RawOrigin::Root.into(),
 		Permill::from_percent(50),
 	));
 
-	// Approve the external asset.
 	assert_ok!(pallet_psm::Pallet::<Runtime>::add_external_asset(
 		frame_system::RawOrigin::Root.into(),
 		asset_id,
 	));
 
-	// Set its ceiling weight.
 	assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_ceiling_weight(
 		frame_system::RawOrigin::Root.into(),
 		asset_id,
@@ -210,7 +191,7 @@ where
 	// Pre-fund accounts with pUSD so they have asset accounts (needed for
 	// non-sufficient assets where holding requires an existing account).
 	let seed_amount: BalanceOf<Runtime> =
-		1u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
+		SEED_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
 	let _ = <Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
 		stable_asset_id, &caller, seed_amount,
 	);
@@ -218,17 +199,16 @@ where
 		stable_asset_id, &fee_dest, seed_amount,
 	);
 
-	// Fund the test caller with 2000 external stablecoin (2000 * 10^decimals).
 	let fund_amount: BalanceOf<Runtime> =
-		2_000_000_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
+		FUND_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
 	assert_ok!(<Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
 		asset_id, &caller, fund_amount,
 	));
 
 	let swap_amount: BalanceOf<Runtime> =
-		1_000_000_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
+		SWAP_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
 
-	TestEnv { asset_id, caller, swap_amount }
+	TestEnv { asset_id, caller, psm_account, swap_amount }
 }
 
 /// Fetch live state and test that minting and redeeming through the PSM works
@@ -250,12 +230,19 @@ where
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
 {
-	let mut ext = setup::<Runtime, Block>(ws_url, &config).await;
+	let mut ext = Builder::<Block>::new()
+		.mode(Mode::Online(OnlineConfig {
+			transport_uris: vec![ws_url],
+			pallets: vec![config.assets_pallet_name.clone()],
+			..Default::default()
+		}))
+		.build()
+		.await
+		.unwrap();
 
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, swap_amount } = configure_psm::<Runtime>(&config);
-
-		let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+		let TestEnv { asset_id, caller, psm_account, swap_amount } =
+			setup::<Runtime>(&config);
 
 		let balance_before =
 			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
@@ -324,14 +311,12 @@ where
 		// The remaining debt is backed by external stablecoin still held in the PSM.
 		//
 		// With 0.5% default fee.
-		let swap = 1_000_000_000u128;
-		let seed = 1u128;
-		let mint_fee = Permill::from_parts(5_000).mul_ceil(swap);
-		let pusd_minted = swap - mint_fee;
-		let total_pusd = pusd_minted + seed;
+		let mint_fee = Permill::from_parts(5_000).mul_ceil(SWAP_AMOUNT);
+		let pusd_minted = SWAP_AMOUNT - mint_fee;
+		let total_pusd = pusd_minted + SEED_AMOUNT;
 		let spend_fee = Permill::from_parts(5_000).mul_ceil(total_pusd);
 		let returned = total_pusd - spend_fee;
-		let expected_debt: BalanceOf<Runtime> = (swap - returned)
+		let expected_debt: BalanceOf<Runtime> = (SWAP_AMOUNT - returned)
 			.try_into()
 			.unwrap_or_else(|_| panic!("balance conversion failed"));
 
@@ -340,7 +325,7 @@ where
 
 		// Verify fees were collected at the fee destination.
 		// Total fees = mint_fee + spend_fee + seed (pre-funded).
-		let expected_fee_balance: BalanceOf<Runtime> = (mint_fee + spend_fee + seed)
+		let expected_fee_balance: BalanceOf<Runtime> = (mint_fee + spend_fee + SEED_AMOUNT)
 			.try_into()
 			.unwrap_or_else(|_| panic!("balance conversion failed"));
 		let fee_dest = Runtime::FeeDestination::get();
@@ -375,10 +360,18 @@ where
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
 {
-	let mut ext = setup::<Runtime, Block>(ws_url, &config).await;
+	let mut ext = Builder::<Block>::new()
+		.mode(Mode::Online(OnlineConfig {
+			transport_uris: vec![ws_url],
+			pallets: vec![config.assets_pallet_name.clone()],
+			..Default::default()
+		}))
+		.build()
+		.await
+		.unwrap();
 
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, swap_amount } = configure_psm::<Runtime>(&config);
+		let TestEnv { asset_id, caller, swap_amount, .. } = setup::<Runtime>(&config);
 
 		// Mint some pUSD first so we have something to redeem later.
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
