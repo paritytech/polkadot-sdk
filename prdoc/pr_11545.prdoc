@@ -112,8 +112,8 @@ doc:
     \ is accepted but silently ignored."
 crates:
 - name: pallet-revive-eth-rpc
-  bump: minor
+  bump: major
 - name: pallet-revive
-  bump: minor
+  bump: major
 - name: pallet-revive-fixtures
   bump: minor
