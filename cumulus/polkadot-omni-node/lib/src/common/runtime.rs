@@ -232,7 +232,8 @@ impl MetadataInspector {
 		// present.
 		if let Some(ty_id) = self.storage_entry_type_id(DEFAULT_AURA_PALLET_NAME, "Authorities") {
 			let authorities_ty = self.metadata.types().resolve(ty_id)?;
-			let authority_ty_id = authorities_ty.type_params.get(0).and_then(|p| p.ty).map(|ty| ty.id);
+			let authority_ty_id =
+				authorities_ty.type_params.get(0).and_then(|p| p.ty).map(|ty| ty.id);
 			if let Some(id) = authority_ty_id.and_then(|id| self.resolve_aura_id_from_type_id(id)) {
 				return Some(id);
 			}
@@ -322,7 +323,8 @@ mod tests {
 
 	fn extract_code_from_spec_json(path: std::path::PathBuf) -> Vec<u8> {
 		let file = std::fs::File::open(path).expect("failed to open spec file");
-		let json: serde_json::Value = serde_json::from_reader(file).expect("failed to parse spec JSON");
+		let json: serde_json::Value =
+			serde_json::from_reader(file).expect("failed to parse spec JSON");
 
 		let code_hex = if let Some(code) = json.pointer("/genesis/runtimeGenesis/code") {
 			code.as_str().expect("code is not a string")
