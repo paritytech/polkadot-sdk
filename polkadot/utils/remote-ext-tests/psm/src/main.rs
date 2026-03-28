@@ -40,6 +40,32 @@ struct Cli {
 	asset_id: u32,
 }
 
+fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestConfig {
+	use asset_hub_westend_runtime::{Runtime, TrustBackedAssetsInstance};
+	let stable_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
+	pallet_psm_remote_tests::PsmTestConfig {
+		external_asset_id: asset_id,
+		stable_asset_id,
+		assets_pallet_name: "Assets".to_string(),
+		pre_create_hook: Some(Box::new(move || {
+			pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(
+				stable_asset_id,
+			);
+			// Fund the PSM account with native balance for the asset creation
+			// deposit.
+			//
+			// This is only needed in tests. In production, the pUSD asset would
+			// be created via governance with treasury funds.
+			let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+			let _ =
+				<asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
+					&psm_account,
+					100_000_000_000_000u128,
+				);
+		})),
+	}
+}
+
 #[tokio::main]
 async fn main() {
 	let options = Cli::parse();
@@ -54,32 +80,17 @@ async fn main() {
 
 	match options.runtime {
 		Runtime::AssetHubWestend => {
-			use asset_hub_westend_runtime::{
-				Block, Runtime, TrustBackedAssetsInstance,
-			};
-			let stable_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
+			use asset_hub_westend_runtime::{Block, Runtime};
+
 			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block>(
+				options.uri.clone(),
+				asset_hub_westend_config(options.asset_id),
+			)
+			.await;
+
+			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block>(
 				options.uri,
-				pallet_psm_remote_tests::PsmTestConfig {
-					external_asset_id: options.asset_id,
-					stable_asset_id,
-					assets_pallet_name: "Assets".to_string(),
-					pre_create_hook: Some(Box::new(move || {
-						pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(
-							stable_asset_id,
-						);
-						// Fund the PSM account with native balance for the asset creation
-						// deposit. 
-						//
-						// This is only needed in tests. In production, the pUSD asset would 
-						// be created via governance with treasury funds.
-						let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
-						let _ = <asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
-							&psm_account,
-							100_000_000_000_000u128,
-						);
-					})),
-				},
+				asset_hub_westend_config(options.asset_id),
 			)
 			.await;
 		},
