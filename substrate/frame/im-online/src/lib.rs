@@ -396,53 +396,7 @@ pub mod pallet {
 		#[pallet::weight_of_authorize(<T as Config>::WeightInfo::authorize_heartbeat(
 			heartbeat.validators_len,
 		))]
-		#[pallet::authorize(|_source: TransactionSource,
-			heartbeat: &Heartbeat<BlockNumberFor<T>>,
-			signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
-		| -> TransactionValidityWithRefund {
-			if Pallet::<T>::is_online(heartbeat.authority_index) {
-				// we already received a heartbeat for this authority
-				return Err(InvalidTransaction::Stale.into());
-			}
-
-			// check if session index from heartbeat is recent
-			let current_session = T::ValidatorSet::session_index();
-			if heartbeat.session_index != current_session {
-				return Err(InvalidTransaction::Stale.into());
-			}
-
-			// verify that the incoming (unverified) pubkey is actually an authority id
-			let keys = Keys::<T>::get();
-			if keys.len() as u32 != heartbeat.validators_len {
-				return Err(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into());
-			}
-			let authority_id = match keys.get(heartbeat.authority_index as usize) {
-				Some(id) => id,
-				None => return Err(InvalidTransaction::BadProof.into()),
-			};
-
-			// check signature (this is expensive so we do it last).
-			let signature_valid = heartbeat.using_encoded(|encoded_heartbeat| {
-				authority_id.verify(&encoded_heartbeat, signature)
-			});
-
-			if !signature_valid {
-				return Err(InvalidTransaction::BadProof.into());
-			}
-
-			ValidTransaction::with_tag_prefix("ImOnline")
-				.priority(T::UnsignedPriority::get())
-				.and_provides((current_session, authority_id))
-				.longevity(
-					TryInto::<u64>::try_into(
-						T::NextSessionRotation::average_session_length() / 2u32.into(),
-					)
-					.unwrap_or(64_u64),
-				)
-				.propagate(true)
-				.build()
-				.map(|v| (v, Weight::zero()))
-		})]
+		#[pallet::authorize(Self::authorize_heartbeat_call)]
 		pub fn heartbeat(
 			origin: OriginFor<T>,
 			heartbeat: Heartbeat<BlockNumberFor<T>>,
@@ -727,6 +681,59 @@ impl<T: Config> Pallet<T> {
 				.expect("More than the maximum number of keys provided");
 			Keys::<T>::put(bounded_keys);
 		}
+	}
+
+	/// Authorization callback for the `heartbeat` call.
+	///
+	/// Validates that the heartbeat is from a recognized authority in the current session
+	/// and that the signature is correct. Cheap checks (staleness, session index, authority
+	/// membership) run first; the expensive signature verification runs last.
+	fn authorize_heartbeat_call(
+		_source: TransactionSource,
+		heartbeat: &Heartbeat<BlockNumberFor<T>>,
+		signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
+	) -> TransactionValidityWithRefund {
+		if Pallet::<T>::is_online(heartbeat.authority_index) {
+			// we already received a heartbeat for this authority
+			return Err(InvalidTransaction::Stale.into());
+		}
+
+		// check if session index from heartbeat is recent
+		let current_session = T::ValidatorSet::session_index();
+		if heartbeat.session_index != current_session {
+			return Err(InvalidTransaction::Stale.into());
+		}
+
+		// verify that the incoming (unverified) pubkey is actually an authority id
+		let keys = Keys::<T>::get();
+		if keys.len() as u32 != heartbeat.validators_len {
+			return Err(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into());
+		}
+		let authority_id = match keys.get(heartbeat.authority_index as usize) {
+			Some(id) => id,
+			None => return Err(InvalidTransaction::BadProof.into()),
+		};
+
+		// check signature (this is expensive so we do it last).
+		let signature_valid = heartbeat
+			.using_encoded(|encoded_heartbeat| authority_id.verify(&encoded_heartbeat, signature));
+
+		if !signature_valid {
+			return Err(InvalidTransaction::BadProof.into());
+		}
+
+		ValidTransaction::with_tag_prefix("ImOnline")
+			.priority(T::UnsignedPriority::get())
+			.and_provides((current_session, authority_id))
+			.longevity(
+				TryInto::<u64>::try_into(
+					T::NextSessionRotation::average_session_length() / 2u32.into(),
+				)
+				.unwrap_or(64_u64),
+			)
+			.propagate(true)
+			.build()
+			.map(|v| (v, Weight::zero()))
 	}
 
 	#[cfg(test)]
