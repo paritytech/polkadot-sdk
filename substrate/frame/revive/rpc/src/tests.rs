@@ -19,19 +19,22 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	cli::{self, CliCommand},
-	client::{connect, Client},
-	example::TransactionBuilder,
-	subxt_client::{
-		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
-	},
 	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
+	cli::{self, CliCommand},
+	client::{Client, connect},
+	example::TransactionBuilder,
+	subxt_client::{
+		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
+	},
 };
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address as AlloyAddress, Bytes as AlloyBytes, B256, U256 as AlloyU256};
+use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
 use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_types::{TransactionRequest, state::{AccountOverride, StateOverride}};
+use alloy_rpc_types::{
+	TransactionRequest,
+	state::{AccountOverride, StateOverride},
+};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::anyhow;
 use clap::Parser;
@@ -43,19 +46,19 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, HashesOrTransactionInfos, Log,
-		SubscriptionItem, SubscriptionKind, SubscriptionOptions, Trace, TransactionInfo,
-		TransactionUnsigned, H256, U256,
+		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
+		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
+		Trace, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
+	OnlineClient,
 	backend::rpc::RpcClient,
 	ext::subxt_rpcs::rpc_params,
 	tx::{SubmittableTransaction, TxStatus},
-	OnlineClient,
 };
 use subxt_signer::eth::Keypair;
 
@@ -2131,8 +2134,7 @@ async fn test_state_override_balance() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		sender,
-		AccountOverride::default()
-			.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+		AccountOverride::default().with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
 	)]);
 
 	// Act
@@ -2214,9 +2216,9 @@ async fn test_state_override_code_evm_to_evm() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let target = deploy_contract(
-		&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[],
-	).await?;
+	let target =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
 
 	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
 		"Callee",
@@ -2390,9 +2392,9 @@ async fn test_state_override_code_evm_to_pvm() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let target = deploy_contract(
-		&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[],
-	).await?;
+	let target =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
 
 	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
 		"Callee",
@@ -2432,9 +2434,9 @@ async fn test_state_override_code_pvm_to_evm() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let target = deploy_contract(
-		&provider, "Counter", pallet_revive_fixtures::FixtureType::Resolc, &[],
-	).await?;
+	let target =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Resolc, &[])
+			.await?;
 
 	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
 		"Callee",
@@ -2474,7 +2476,9 @@ async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
 
 	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
 	let tx = TransactionRequest::default()
@@ -2484,10 +2488,8 @@ async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		counter_address,
-		AccountOverride::default().with_state_diff([(
-			B256::ZERO,
-			B256::from(AlloyU256::from(999u64)),
-		)]),
+		AccountOverride::default()
+			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(999u64)))]),
 	)]);
 
 	// Act
@@ -2510,7 +2512,9 @@ async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
 
 	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
 	let tx = TransactionRequest::default()
@@ -2520,10 +2524,7 @@ async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		counter_address,
-		AccountOverride::default().with_state([(
-			B256::ZERO,
-			B256::from(AlloyU256::from(123u64)),
-		)]),
+		AccountOverride::default().with_state([(B256::ZERO, B256::from(AlloyU256::from(123u64)))]),
 	)]);
 
 	// Act
@@ -2564,8 +2565,7 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 	// Override with `state` containing only slot 0 = 42.
 	let overrides = StateOverride::from_iter([(
 		target,
-		AccountOverride::default()
-			.with_state([(slot_0, B256::from(AlloyU256::from(42u64)))]),
+		AccountOverride::default().with_state([(slot_0, B256::from(AlloyU256::from(42u64)))]),
 	)]);
 
 	// Act — read first() via eth_call with override
@@ -2574,12 +2574,8 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
-	let first_result = provider
-		.call(first_tx.clone())
-		.overrides(overrides.clone())
-		.await?;
-	let first_value =
-		AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
 
 	// Act — read second() via eth_call with same override
 	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
@@ -2587,12 +2583,8 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
-	let second_result = provider
-		.call(second_tx.clone())
-		.overrides(overrides)
-		.await?;
-	let second_value =
-		AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
 
 	// Assert
 	assert_eq!(
@@ -2633,8 +2625,7 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 	// Override only slot 0 via stateDiff.
 	let overrides = StateOverride::from_iter([(
 		target,
-		AccountOverride::default()
-			.with_state_diff([(slot_0, B256::from(AlloyU256::from(99u64)))]),
+		AccountOverride::default().with_state_diff([(slot_0, B256::from(AlloyU256::from(99u64)))]),
 	)]);
 
 	// Act — read first() with override
@@ -2643,12 +2634,8 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
-	let first_result = provider
-		.call(first_tx.clone())
-		.overrides(overrides.clone())
-		.await?;
-	let first_value =
-		AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
 
 	// Act — read second() with same override
 	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
@@ -2656,12 +2643,8 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
-	let second_result = provider
-		.call(second_tx.clone())
-		.overrides(overrides)
-		.await?;
-	let second_value =
-		AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
 
 	// Assert
 	assert_eq!(
@@ -2714,12 +2697,8 @@ async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
-	let first_result = provider
-		.call(first_tx.clone())
-		.overrides(overrides.clone())
-		.await?;
-	let first_value =
-		AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
 
 	// Act — read second()
 	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
@@ -2727,12 +2706,8 @@ async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
-	let second_result = provider
-		.call(second_tx.clone())
-		.overrides(overrides)
-		.await?;
-	let second_value =
-		AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
 
 	// Assert
 	assert_eq!(
@@ -2779,10 +2754,7 @@ async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Resu
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
-	let first_result = provider
-		.call(first_tx.clone())
-		.overrides(overrides.clone())
-		.await?;
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
 	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
 
 	// Act — read second()
@@ -2791,18 +2763,12 @@ async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Resu
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
-	let second_result = provider
-		.call(second_tx.clone())
-		.overrides(overrides)
-		.await?;
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
 	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
 
 	// Assert
 	assert_eq!(first_value, AlloyU256::ZERO, "first() should be zero after empty state override");
-	assert_eq!(
-		second_value, AlloyU256::ZERO,
-		"second() should be zero after empty state override"
-	);
+	assert_eq!(second_value, AlloyU256::ZERO, "second() should be zero after empty state override");
 
 	Ok(())
 }
@@ -2838,10 +2804,7 @@ async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
-	let first_result = provider
-		.call(first_tx.clone())
-		.overrides(overrides.clone())
-		.await?;
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
 	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
 
 	// Act — read second()
@@ -2850,10 +2813,7 @@ async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
-	let second_result = provider
-		.call(second_tx.clone())
-		.overrides(overrides)
-		.await?;
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
 	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
 
 	// Assert
@@ -2878,10 +2838,7 @@ async fn test_state_override_nonce() -> anyhow::Result<()> {
 
 	// A simple transfer call — we don't care about the result, only that the overridden nonce
 	// is accepted and doesn't cause a failure.
-	let tx = TransactionRequest::default()
-		.from(from)
-		.to(recipient)
-		.nonce(42);
+	let tx = TransactionRequest::default().from(from).to(recipient).nonce(42);
 
 	let overrides = StateOverride::from_iter([(
 		from,
@@ -2894,10 +2851,7 @@ async fn test_state_override_nonce() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await;
 
 	// Assert
-	assert!(
-		result.is_ok(),
-		"eth_call with matching nonce override should succeed: {result:?}"
-	);
+	assert!(result.is_ok(), "eth_call with matching nonce override should succeed: {result:?}");
 
 	Ok(())
 }
@@ -2961,8 +2915,7 @@ async fn test_state_override_balance_on_from_account() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		sender,
-		AccountOverride::default()
-			.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+		AccountOverride::default().with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
 	)]);
 
 	// Act
@@ -3001,13 +2954,9 @@ async fn test_state_override_multiple_accounts() -> anyhow::Result<()> {
 	let overrides = StateOverride::from_iter([
 		(
 			sender,
-			AccountOverride::default()
-				.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+			AccountOverride::default().with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
 		),
-		(
-			target,
-			AccountOverride::default().with_code(AlloyBytes::from(code)),
-		),
+		(target, AccountOverride::default().with_code(AlloyBytes::from(code))),
 	]);
 
 	// Act
@@ -3071,7 +3020,9 @@ async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
 
 	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
 	let tx = TransactionRequest::default()
@@ -3081,10 +3032,8 @@ async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		counter_address,
-		AccountOverride::default().with_state_diff([(
-			B256::ZERO,
-			B256::from(AlloyU256::from(999u64)),
-		)]),
+		AccountOverride::default()
+			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(999u64)))]),
 	)]);
 
 	// Act — call with override
@@ -3094,15 +3043,10 @@ async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
 
 	// Act — call without override
 	let normal_result = provider.call(tx.clone()).await?;
-	let normal_value =
-		AlloyU256::from_be_slice(&normal_result[normal_result.len() - 32..]);
+	let normal_value = AlloyU256::from_be_slice(&normal_result[normal_result.len() - 32..]);
 
 	// Assert
-	assert_eq!(
-		overridden_value,
-		AlloyU256::from(999u64),
-		"overridden call should return 999"
-	);
+	assert_eq!(overridden_value, AlloyU256::from(999u64), "overridden call should return 999");
 	assert_eq!(
 		normal_value,
 		AlloyU256::from(3u64),
@@ -3117,7 +3061,9 @@ async fn test_state_override_empty_set() -> anyhow::Result<()> {
 	// Arrange
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
-	let counter_address = deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[]).await?;
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
 
 	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
 	let tx = TransactionRequest::default()
@@ -3149,16 +3095,12 @@ async fn test_state_override_storage_on_eoa_fails() -> anyhow::Result<()> {
 	let eoa = AlloyAddress::from([0x11; 20]);
 
 	let from = AlloyAddress::from(Account::default().address().0);
-	let tx = TransactionRequest::default()
-		.from(from)
-		.to(eoa);
+	let tx = TransactionRequest::default().from(from).to(eoa);
 
 	let overrides = StateOverride::from_iter([(
 		eoa,
-		AccountOverride::default().with_state_diff([(
-			B256::ZERO,
-			B256::from(AlloyU256::from(42u64)),
-		)]),
+		AccountOverride::default()
+			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(42u64)))]),
 	)]);
 
 	// Act
