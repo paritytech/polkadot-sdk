@@ -256,6 +256,15 @@ jobs:
           cargo update --workspace --offline || cargo update --workspace
           echo "Cargo.lock updated"
 
+      - name: Verify workspace compiles
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+        env:
+          SKIP_WASM_BUILD: 1
+        run: |
+          echo "Checking that rewritten manifests compile (WASM build skipped)..."
+          cargo check --workspace --all-targets 2>&1
+          echo "Workspace compiles successfully"
+
       - name: Commit version bumps
         if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         shell: bash
@@ -284,7 +293,7 @@ jobs:
 
           if [ "$REGISTRY" = "staging.crates.io" ]; then
             cat >> ~/.cargo/config.toml << 'EOF'
-          [registries.crates-io]
+          [registries.staging]
           index = "sparse+https://index.staging.crates.io/"
           EOF
           else
@@ -298,7 +307,8 @@ jobs:
         if: inputs.resume_from != 'push'
         shell: bash
         env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_STAGING_CRATESIO_TOKEN: ${{ secrets.STAGING_CRATES_IO_API_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
           PUBLISH_JOBS: ${{ inputs.publish_jobs }}
@@ -306,16 +316,21 @@ jobs:
           PARALLEL_ARGS=""
           if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
             echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
-            PARALLEL_ARGS="-j $PUBLISH_JOBS"
+            PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
+          fi
+
+          STAGING_ARG=""
+          if [ "$REGISTRY" = "staging.crates.io" ]; then
+            STAGING_ARG="--staging"
           fi
 
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $PARALLEL_ARGS
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $PARALLEL_ARGS
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
 
@@ -342,6 +357,7 @@ jobs:
         if: failure()
         env:
           CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
           # Restore origin to the fork repo in case it was changed by the upstream push step

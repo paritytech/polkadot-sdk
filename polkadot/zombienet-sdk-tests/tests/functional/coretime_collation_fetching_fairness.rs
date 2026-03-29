@@ -6,8 +6,8 @@
 //! verify that the block production respect the proportion.
 
 use crate::utils::{
-	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
+	assert_nodes_are_validators, create_force_register_call, env_or_default,
+	fetch_header_and_validation_code, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -43,12 +43,7 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for validator in &validator_nodes {
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {} role check failed: {e}", validator.name()))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	log::info!("Register paras");

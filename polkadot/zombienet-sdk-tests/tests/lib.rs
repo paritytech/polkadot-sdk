@@ -6,9 +6,10 @@ mod disabling;
 mod elastic_scaling;
 #[cfg(feature = "zombie-ci")]
 mod functional;
-// Temporarily disabled - missing metadata file
-// #[cfg(feature = "zombie-ci")]
-// mod parachains;
+#[cfg(feature = "zombie-ci")]
+mod misc;
+#[cfg(feature = "zombie-ci")]
+mod parachains;
 #[cfg(feature = "zombie-ci")]
 mod smoke;
 #[cfg(feature = "zombie-ci")]

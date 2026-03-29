@@ -28,7 +28,7 @@ use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	TaskManager,
 	config::{BasePath, PrometheusConfig, RpcConfiguration},
-	start_rpc_servers,
+	create_rpc_runtime, start_rpc_servers,
 };
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use std::path::PathBuf;
@@ -356,11 +356,16 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
+	let rpc_runtime = create_rpc_runtime(rpc_config.max_connections)
+		.map_err(|e| anyhow::anyhow!("Failed to create RPC runtime: {}", e))?;
+
+	let rpc_api = rpc_module(is_dev, client.clone(), allow_unprotected_txs)?;
 	let rpc_server_handle = start_rpc_servers(
 		&rpc_config,
 		prometheus_registry,
 		tokio_handle,
-		|| rpc_module(is_dev, client.clone(), allow_unprotected_txs),
+		rpc_api,
+		rpc_runtime,
 		None,
 	)?;
 
