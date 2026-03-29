@@ -590,7 +590,8 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for OffenceQueueErasBound<T> {
 		fn get() -> u32 {
 			let bonding_duration = T::BondingDuration::get();
-			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding 10 eras to add headroom to
+			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding OFFENCE_QUEUE_ERAS_BOUND eras
+			                                                 // to add headroom to
 			                                                 // the bound for runtime upgrades that
 			                                                 // lower BondingDuration so we avoid
 			                                                 // the try_into trap.
