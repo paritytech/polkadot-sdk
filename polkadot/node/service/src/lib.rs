@@ -436,10 +436,11 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 	let is_polkadot = config.chain_spec.is_polkadot();
 
 	params.overseer_message_channel_capacity_override =
-		params.overseer_message_channel_capacity_override.inspect(move |_| {
+		params.overseer_message_channel_capacity_override.map(move |capacity| {
 			if is_polkadot {
 				gum::warn!("Channel capacity should _never_ be tampered with on polkadot!");
 			}
+			capacity
 		});
 
 	match config.network.network_backend {
