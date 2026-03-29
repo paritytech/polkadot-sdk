@@ -1,0 +1,19 @@
+title: '[sp-arithmetic] Fix PerThing Display approximate percent for non-power-of-ten
+  types'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    Fixes incorrect percentage in `Display` for `PerThing` types where `$max` is not a power of ten: the code divided `self.0` by itself instead of by `$max`, so the approximate percent was always 100%.
+
+    ## Change
+
+    - Use `($max as f64)` as the denominator when computing the approximate percentage for debug/display output.
+
+    ## Testing
+
+    `SKIP_WASM_BUILD=1 cargo check -p sp-arithmetic --all-features`
+crates:
+- name: sp-arithmetic
+  bump: patch
