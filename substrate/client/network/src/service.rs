@@ -344,7 +344,12 @@ where
 				TransportConfig::Normal { .. } => false,
 			};
 
-			transport::build_transport(local_identity.clone().into(), config_mem)
+			transport::build_transport(
+				local_identity.clone().into(),
+				config_mem,
+				network_config.tls_private_key_der.clone(),
+				network_config.tls_certificate_chain_der.clone(),
+			)
 		};
 
 		let (to_notifications, from_protocol_controllers) =
@@ -510,11 +515,14 @@ where
 				config
 			};
 
+			// TODO: DCUtR/Relay/AutoNAT 暂时禁用，WSS 连接验证后再启用。
+
 			let behaviour = {
 				let result = Behaviour::new(
 					protocol,
 					user_agent,
 					local_public.into(),
+					local_peer_id,
 					discovery_config,
 					request_response_protocols,
 					Arc::clone(&peer_store_handle),

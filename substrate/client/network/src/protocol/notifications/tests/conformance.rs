@@ -92,7 +92,7 @@ fn setup_libp2p(
 			command_stream,
 		)),
 	);
-	let transport = crate::transport::build_transport(local_key.clone().into(), false);
+	let transport = crate::transport::build_transport(local_key.clone().into(), false, None, None);
 
 	let mut swarm = {
 		struct SpawnImpl {}

@@ -481,7 +481,7 @@ where
 ///
 /// `pre_runtime` is a parameter that allows a custom additional pre-runtime digest to be inserted
 /// for blocks being built. This can encode authorship information, or just be a graffiti.
-pub fn start_mining_worker<Block, C, S, Algorithm, E, SO, L, CIDP>(
+pub fn start_mining_worker<Block, C, S, Algorithm, E, SO, L, CIDP, SP>(
 	block_import: BoxBlockImport<Block>,
 	client: Arc<C>,
 	select_chain: S,
@@ -493,6 +493,7 @@ pub fn start_mining_worker<Block, C, S, Algorithm, E, SO, L, CIDP>(
 	create_inherent_data_providers: CIDP,
 	timeout: Duration,
 	build_time: Duration,
+	should_propose: SP,
 ) -> (
 	MiningHandle<Block, Algorithm, L, <E::Proposer as Proposer<Block>>::Proof>,
 	impl Future<Output = ()>,
@@ -509,6 +510,7 @@ where
 	SO: SyncOracle + Clone + Send + Sync + 'static,
 	L: sc_consensus::JustificationSyncLink<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()>,
+	SP: Fn() -> bool + Send + Sync + 'static,
 {
 	let mut timer = UntilImportedOrTimeout::new(client.import_notification_stream(), timeout);
 	let worker = MiningHandle::new(algorithm.clone(), block_import, justification_sync_link);
@@ -523,6 +525,12 @@ where
 			if sync_oracle.is_major_syncing() {
 				debug!(target: LOG_TARGET, "Skipping proposal due to sync.");
 				worker.on_major_syncing();
+				continue
+			}
+
+			// 调用外部回调判断是否应该 propose（如交易池是否为空）。
+			if !should_propose() {
+				debug!(target: LOG_TARGET, "Skipping proposal: should_propose returned false.");
 				continue
 			}
 

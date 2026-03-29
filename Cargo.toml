@@ -1579,3 +1579,9 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+# 本地 patch libp2p-websocket：公开 tls::Config 的 client 字段，
+# 以支持在 transport.rs 中替换为自定义 TLS 客户端（跳过 CA 校验，
+# 用于 P2P 自签证书场景——身份认证由 Noise 协议保证）。
+[patch.crates-io]
+libp2p-websocket = { path = "substrate/client/network/libp2p-websocket-patch" }

@@ -183,7 +183,7 @@ pub struct NetworkParams {
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
-		default_value_t = NetworkBackendType::Litep2p,
+		default_value_t = NetworkBackendType::Libp2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
@@ -205,28 +205,19 @@ impl NetworkParams {
 	) -> NetworkConfiguration {
 		let port = self.port.unwrap_or(default_listen_port);
 
+		// 默认监听地址统一使用 WSS（WebSocket Secure），
+		// 所有节点（验证者和非验证者）都使用同一套 WSS 协议。
 		let listen_addresses = if self.listen_addr.is_empty() {
-			if is_validator || is_dev {
-				vec![
-					Multiaddr::empty()
-						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
-						.with(Protocol::Tcp(port)),
-					Multiaddr::empty()
-						.with(Protocol::Ip4([0, 0, 0, 0].into()))
-						.with(Protocol::Tcp(port)),
-				]
-			} else {
-				vec![
-					Multiaddr::empty()
-						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
-						.with(Protocol::Tcp(port))
-						.with(Protocol::Ws(Cow::Borrowed("/"))),
-					Multiaddr::empty()
-						.with(Protocol::Ip4([0, 0, 0, 0].into()))
-						.with(Protocol::Tcp(port))
-						.with(Protocol::Ws(Cow::Borrowed("/"))),
-				]
-			}
+			vec![
+				Multiaddr::empty()
+					.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
+					.with(Protocol::Tcp(port))
+					.with(Protocol::Wss(Cow::Borrowed("/"))),
+				Multiaddr::empty()
+					.with(Protocol::Ip4([0, 0, 0, 0].into()))
+					.with(Protocol::Tcp(port))
+					.with(Protocol::Wss(Cow::Borrowed("/"))),
+			]
 		} else {
 			self.listen_addr.clone()
 		};
@@ -285,6 +276,8 @@ impl NetworkParams {
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
+			tls_private_key_der: None,
+			tls_certificate_chain_der: None,
 		}
 	}
 }
