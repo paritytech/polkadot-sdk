@@ -288,13 +288,13 @@ where
 			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
 			let max_claim_queue_offset =
 				para_client.runtime_api().max_claim_queue_offset(best_hash).unwrap_or(1);
-			let (claim_queue_relay_block, claim_queue_depth, claim_queue_offset) = if v3_enabled {
-				// V3: look up at scheduling_parent (fresh tip), use max_claim_queue_offset
-				(descendants_start, max_claim_queue_offset as u32, max_claim_queue_offset)
+			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
+				// V3: look up at scheduling_parent (fresh tip)
+				(descendants_start, max_claim_queue_offset)
 			} else {
-				// V1/V2: look up at relay_parent, use relay_parent_offset + max_claim_queue_offset
+				// V1/V2: look up at relay_parent, add relay_parent_offset
 				let total_offset = relay_parent_offset as u8 + max_claim_queue_offset;
-				(relay_parent, total_offset as u32, total_offset)
+				(relay_parent, total_offset)
 			};
 
 			// Retrieve the core.
@@ -304,7 +304,6 @@ where
 				&relay_parent_header,
 				para_id,
 				parent_header,
-				claim_queue_depth,
 				claim_queue_offset,
 			)
 			.await
@@ -682,27 +681,9 @@ impl Core {
 
 /// Determine the core for the given `para_id`.
 ///
-/// # Parameters
-///
-/// - `relay_chain_data_cache`: Cache for relay chain data.
-/// - `claim_queue_relay_block`: The relay block hash to look up the claim queue at. For V3: this is
-///   the scheduling_parent (fresh tip). For V1/V2: this is the relay_parent.
-/// - `relay_parent`: The relay parent header (used for checking if relay parent changed).
-/// - `para_id`: The parachain ID.
-/// - `para_parent`: The parachain parent header.
-/// - `claim_queue_depth`: The depth in the claim queue to look up cores. For V3: this is
-///   max_claim_queue_offset. For V1/V2: this is relay_parent_offset + max_claim_queue_offset.
-/// - `claim_queue_offset`: The claim_queue_offset value to use in the result CoreInfo. This is what
-///   gets sent to the relay chain via UMP signals.
-///
-/// # Claim Queue Offset Design
-///
-/// The claim_queue_offset determines how far "into the future" the collator targets in the
-/// claim queue. The runtime enforces: `claim_queue_offset <= relay_parent_offset +
-/// max_claim_queue_offset`
-///
-/// Collators may use lower offsets for optimistic scenarios (fast execution, catching up after
-/// missed slots). Higher offsets are not allowed to prevent slot skipping.
+/// Looks up the claim queue at `claim_queue_relay_block` at depth `claim_queue_offset`
+/// to find which cores are assigned. Uses the `CoreSelector` round-robin to pick the
+/// next core in sequence.
 ///
 /// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static>(
@@ -711,14 +692,13 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
 	para_parent: &H,
-	claim_queue_depth: u32,
 	claim_queue_offset: u8,
 ) -> Result<Option<Core>, ()> {
 	let cores_at_offset = &relay_chain_data_cache
 		.get_mut_relay_chain_data(claim_queue_relay_block)
 		.await?
 		.claim_queue
-		.iter_claims_at_depth_for_para(claim_queue_depth as usize, para_id)
+		.iter_claims_at_depth_for_para(claim_queue_offset as usize, para_id)
 		.collect::<Vec<_>>();
 
 	let is_new_relay_parent = if para_parent.number().is_zero() {

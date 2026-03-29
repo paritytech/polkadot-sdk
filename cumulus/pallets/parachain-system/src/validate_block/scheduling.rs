@@ -9,7 +9,7 @@
 
 use cumulus_primitives_core::SchedulingProof;
 use polkadot_parachain_primitives::primitives::ValidationParamsExtension;
-use sp_runtime::traits::{BlakeTwo256, Hash as HashT, Header as HeaderT};
+use sp_runtime::traits::Header as HeaderT;
 
 /// Hash type for relay chain.
 pub type RelayHash = sp_core::H256;
@@ -134,7 +134,7 @@ pub fn validate_scheduling(
 	// 2. Verify header chain forms a valid chain
 	// First header's hash must equal scheduling_parent
 	if !header_chain.is_empty() {
-		let first_header_hash = BlakeTwo256::hash_of(&header_chain[0]);
+		let first_header_hash = header_chain[0].hash();
 		if first_header_hash != scheduling_parent {
 			return Err(SchedulingValidationError::SchedulingParentMismatch);
 		}
@@ -143,7 +143,7 @@ pub fn validate_scheduling(
 	// Each header's parent_hash must match the hash of the next header
 	for i in 0..header_chain.len().saturating_sub(1) {
 		let current_parent = header_chain[i].parent_hash();
-		let next_hash = BlakeTwo256::hash_of(&header_chain[i + 1]);
+		let next_hash = header_chain[i + 1].hash();
 		if *current_parent != next_hash {
 			return Err(SchedulingValidationError::BrokenHeaderChain { index: i });
 		}
@@ -163,7 +163,7 @@ pub fn validate_scheduling(
 	// or be an ancestor of it, but not somewhere between scheduling_parent and
 	// internal_scheduling_parent)
 	for header in header_chain.iter() {
-		let header_hash = BlakeTwo256::hash_of(header);
+		let header_hash = header.hash();
 		if relay_parent == header_hash {
 			return Err(SchedulingValidationError::RelayParentInHeaderChain);
 		}
@@ -257,7 +257,7 @@ mod tests {
 				parent_hash,
 				Default::default(),
 			);
-			parent_hash = BlakeTwo256::hash_of(&header);
+			parent_hash = header.hash();
 			headers.push(header);
 		}
 
@@ -274,7 +274,7 @@ mod tests {
 	fn valid_header_chain_length_3() {
 		// Test: A valid 3-header chain should validate successfully.
 		let (headers, relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		let result = validate_scheduling(&proof, relay_parent, scheduling_parent, 3);
@@ -301,7 +301,7 @@ mod tests {
 	fn valid_single_header_chain() {
 		// Test: Single header chain (offset=1).
 		let (headers, relay_parent) = make_header_chain(1);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		let result = validate_scheduling(&proof, relay_parent, scheduling_parent, 1);
@@ -318,7 +318,7 @@ mod tests {
 	fn reject_wrong_header_chain_length_too_short() {
 		// Test: Chain shorter than expected should be rejected.
 		let (headers, relay_parent) = make_header_chain(2);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		// Expect 3, but only 2 provided
@@ -334,7 +334,7 @@ mod tests {
 	fn reject_wrong_header_chain_length_too_long() {
 		// Test: Chain longer than expected should be rejected.
 		let (headers, relay_parent) = make_header_chain(4);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		// Expect 3, but 4 provided
@@ -370,7 +370,7 @@ mod tests {
 	fn reject_broken_header_chain() {
 		// Test: Headers must form a valid chain via parent_hash linkage.
 		let (mut headers, relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		// Corrupt the middle header's parent_hash to break the chain
 		headers[1] = RelayHeader::new(
@@ -397,9 +397,9 @@ mod tests {
 		// Test: relay_parent must not be one of the headers in the chain.
 		// It should either equal internal_scheduling_parent or be an ancestor of it.
 		let (headers, _correct_relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 		// Use the middle header's hash as relay_parent (invalid)
-		let relay_parent_in_chain = BlakeTwo256::hash_of(&headers[1]);
+		let relay_parent_in_chain = headers[1].hash();
 
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		let result = validate_scheduling(&proof, relay_parent_in_chain, scheduling_parent, 3);
@@ -417,7 +417,7 @@ mod tests {
 		// optionally include signed_scheduling_info. This is legal because collators
 		// should refuse to acknowledge blocks with invalid scheduling info anyway.
 		let (headers, relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		let signed_info = SignedSchedulingInfo {
 			core_selector: CoreSelector(0),
@@ -440,7 +440,7 @@ mod tests {
 		// Test: Resubmission (relay_parent != internal_scheduling_parent) requires
 		// signed_scheduling_info to prove the resubmitting collator's eligibility.
 		let (headers, _internal_scheduling_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 		// Use an unrelated hash as relay_parent (simulates resubmission)
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
@@ -455,7 +455,7 @@ mod tests {
 		// Test: Resubmission with signed_scheduling_info passes validation
 		// (signature verification happens separately).
 		let (headers, internal_scheduling_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 		// Use an unrelated hash as relay_parent (simulates resubmission where
 		// relay_parent is an ancestor of internal_scheduling_parent)
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
@@ -481,7 +481,7 @@ mod tests {
 	fn initial_submission_is_not_resubmission() {
 		// Test: Initial submission has is_resubmission = false
 		let (headers, relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		let result = validate_scheduling(&proof, relay_parent, scheduling_parent, 3);
@@ -595,10 +595,9 @@ mod tests {
 	) -> (ValidationParamsExtension, SchedulingProof, SchedulingValidationResult) {
 		let (headers, relay_parent) = make_header_chain(chain_len as usize);
 		let scheduling_parent =
-			if headers.is_empty() { relay_parent } else { BlakeTwo256::hash_of(&headers[0]) };
+			if headers.is_empty() { relay_parent } else { headers[0].hash() };
 
-		let extension =
-			ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
+		let extension = ValidationParamsExtension::V3 { relay_parent, scheduling_parent };
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 		let expected = SchedulingValidationResult {
 			internal_scheduling_parent: relay_parent,
@@ -662,14 +661,12 @@ mod tests {
 	#[test]
 	fn v3_enabled_valid_resubmission() {
 		let (headers, relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 		// Use an unrelated hash as relay_parent to simulate a resubmission
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
-		let ext = ValidationParamsExtension::V3 {
-			relay_parent: older_relay_parent,
-			scheduling_parent,
-		};
+		let ext =
+			ValidationParamsExtension::V3 { relay_parent: older_relay_parent, scheduling_parent };
 		let proof = SchedulingProof {
 			header_chain: headers,
 			signed_scheduling_info: Some(SignedSchedulingInfo {
@@ -689,13 +686,11 @@ mod tests {
 	#[should_panic(expected = "V3 scheduling validation failed")]
 	fn v3_enabled_resubmission_without_signature_panics() {
 		let (headers, _relay_parent) = make_header_chain(3);
-		let scheduling_parent = BlakeTwo256::hash_of(&headers[0]);
+		let scheduling_parent = headers[0].hash();
 		let older_relay_parent = RelayHash::repeat_byte(0xBB);
 
-		let ext = ValidationParamsExtension::V3 {
-			relay_parent: older_relay_parent,
-			scheduling_parent,
-		};
+		let ext =
+			ValidationParamsExtension::V3 { relay_parent: older_relay_parent, scheduling_parent };
 		let proof = SchedulingProof { header_chain: headers, signed_scheduling_info: None };
 
 		// Should panic because resubmission requires signed_scheduling_info
