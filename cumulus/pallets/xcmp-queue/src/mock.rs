@@ -21,7 +21,7 @@ use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{BatchesFootprints, ConstU32, Everything, OriginTrait},
+	traits::{BatchesFootprints, ConstBool, ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
