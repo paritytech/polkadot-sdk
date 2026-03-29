@@ -1,6 +1,8 @@
 ### Changelog for `Node Dev`
 
-**ℹ️ These changes are relevant to:**  Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol itself.
+**ℹ️ These changes are relevant to:**  Those who build around the client side code. Alternative client builders,
+SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the
+meta-protocol, not the protocol itself.
 
 
 #### [#10763]: Make some BEEFY keystore logic more generic
@@ -9,9 +11,10 @@ This PR:
 - `sign()`
 - `public_keys()`
    This is done by implementing the specific logic in the `BeefyAuthorityId`.
-2. Removes the `BeefyAuthorityId::SignatureHasher` since for some algorithms it doesn't make sense to have a hasher.
+1. Removes the `BeefyAuthorityId::SignatureHasher` since for some algorithms it doesn't make sense to have a hasher.
 
-Also since now the `BeefyAuthorityId` implements both the signing and the verification logic, we should have better consistency.
+Also since now the `BeefyAuthorityId` implements both the signing and the verification logic, we should have better
+consistency.
 
 Related to https://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834
 
@@ -51,7 +54,8 @@ A given peer ("A") can connect before the new authority keys are received via `U
   - We don't have this key stored and therefore return `ShouldAdvertiseTo::NotAuthority`
 - T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])
 
-At this point, we have the collation, peer A wants to collation, we know peer A is an authority but we never send the collation back. Then, the collation will expire with "Collation wasn't advertised".
+At this point, we have the collation, peer A wants to collation, we know peer A is an authority but we never send the
+collation back. Then, the collation will expire with "Collation wasn't advertised".
 
 To close the gap, the `UpdatedAuthorityIds` events will trigger a re-advertisement of collations
 - note: if the advertisement was already sent, the logic does not resend it (achieved in should_advertise_to).
@@ -60,7 +64,8 @@ Part of the stabilization of:
 - https://github.com/paritytech/polkadot-sdk/issues/10425
 
 #### [#10658]: Omninode instant seal: Support relay parent offset
-This brings support for relay parent offset to the omni-node instant seal consensus engine. Before instant seal was not working with relay parent offsets bigger than `0`.
+This brings support for relay parent offset to the omni-node instant seal consensus engine. Before instant seal was not
+working with relay parent offsets bigger than `0`.
 
 #### [#10770]: Statement-store: Follow-up improvements from PR #10718 review
 This follow-up PR addresses review comments from PR #10718:
@@ -75,12 +80,15 @@ Bumps `trie-db` to 0.31.0 and `trie-bench` to 0.42.1.
 #### [#10998]: Cumulus: Simplify parent search for block-building
 While reviewing #10973 I found once more that our parent search is totally overengineered:
 - It offers the option to search branches that do not contain the pending block -> These branches can never be taken
-- It returns a list of potential parents -> Nobody uses the list, we only care about the latest block that we should build on
+- It returns a list of potential parents -> Nobody uses the list, we only care about the latest block that we should
+  build on
 
-By eliminating these two annoyances, the code is a lot more simple and easier to follow. There are still some defensive checks that are not strictly necessary, but does not hurt to keep them.
+By eliminating these two annoyances, the code is a lot more simple and easier to follow. There are still some defensive
+checks that are not strictly necessary, but does not hurt to keep them.
 
 #### [#11004]: Statementstore: Forward statements to light clients
-Forward statements to light clients. For now only done for testing purposes. Later on this needs to be improved to not overwhelm light clients.
+Forward statements to light clients. For now only done for testing purposes. Later on this needs to be improved to not
+overwhelm light clients.
 
 #### [#10755]: Fix Polkadot-omni-node dev mode slot mismatch panic
 Fixes a panic when running Polkadot-omni-node in dev mode with parachains
@@ -134,7 +142,8 @@ Use correct target and ensure we log when we did not find any parent.
 #### [#11008]: Collator protocol revamp - update `calculate_delay`
 A followup from https://github.com/paritytech/polkadot-sdk/pull/8541 with changes requested by @eskimor:
 - Adjust the protocol parameters and add comments about the picked values
-- Simpler fetch mechanism - advertisements from unknown collators (those with 0 reputation) are delayed. Everything else is fetched immediately.
+- Simpler fetch mechanism - advertisements from unknown collators (those with 0 reputation) are delayed. Everything else
+  is fetched immediately.
 
 #### [#10678]: Add relay chain state proof API for parachains
 Collators now query the runtime for additional relay chain keys to prove. Adds
@@ -165,21 +174,25 @@ For 300,000 statements, this reduces the processing time from ~2.5 seconds to ~0
 This PR closes missing body gaps in the database for non-archive nodes.
 
 
-Effectively, a missing body gap cannot be closed on the DB side if the node is non-archive. Since execution is already skipped, the node will close the memory gap in the sync engine; however, the gap remains open in the db.
+Effectively, a missing body gap cannot be closed on the DB side if the node is non-archive. Since execution is already
+skipped, the node will close the memory gap in the sync engine; however, the gap remains open in the db.
 
 This leads to wasting resources at every startup:
 - client info contains a gap that cannot be filled (since we don't have the state around for execution)
 - blocks are fetched from the connected peers
 - gap is filled by ignoring blocks in the sync engine
 
-Further, for collators on origin master this causes an infinite loop of sync engine restarts that get punished via banning and disconnecting. For more details and root cause check:
+Further, for collators on origin master this causes an infinite loop of sync engine restarts that get punished via
+banning and disconnecting. For more details and root cause check:
 - https://github.com/paritytech/polkadot-sdk/pull/11330
 
 Part of:
 - https://github.com/paritytech/polkadot-sdk/issues/11299
 
 #### [#11095]: `prefix_logs_with`: Ensure the macro works correctly for futures
-When setting up a tracing span in an async future, it may gets invalidated by any `await` point. The problem is that after continuing a future, it may runs on a different thread where the `span` isn't active anymore. The solution for this is to `instrument` the future properly.
+When setting up a tracing span in an async future, it may gets invalidated by any `await` point. The problem is that
+after continuing a future, it may runs on a different thread where the `span` isn't active anymore. The solution for
+this is to `instrument` the future properly.
 
 #### [#11139]: make subscription return statement event instead of bytes
 Changes the statement subscription RPC to return `StatementEvent` instead of raw `Bytes`.
@@ -189,10 +202,13 @@ an empty batch is sent.
 
 
 #### [#10906]: collator-protocol: Remove stale pending collations from the waiting queue
-This PR removes the stale pending collations from the waiting queue when the peer that advertised the collation disconnects.
+This PR removes the stale pending collations from the waiting queue when the peer that advertised the collation
+disconnects.
 
 When the peer reconnects, the peer data is freshly created without any prior information about advertised collations.
-Then the state-pending collation is picked from the queue. The network request will not be emitted since the `fn fetch_collation`  sees no prior advertisement via `peer_data.has_advertised` and returns `Err(FetchError::NotAdvertised)`.
+Then the state-pending collation is picked from the queue. The network request will not be emitted since the `fn
+fetch_collation`  sees no prior advertisement via `peer_data.has_advertised` and returns
+`Err(FetchError::NotAdvertised)`.
 
 To avoid this, remove the stale entries immediately when the peer disconnects.
 
@@ -224,7 +240,8 @@ Part of:
 #### [#11046]: Collator protocol revamp: Change collation hold-off timing to start at leaf activation
 https://github.com/paritytech/polkadot-sdk/issues/11022
 
-The hold-off delay should be measured from when the relay parent (leaf) is activated, not when the advertisement message arrives. This prevents artificially delaying messages that already arrived late.
+The hold-off delay should be measured from when the relay parent (leaf) is activated, not when the advertisement message
+arrives. This prevents artificially delaying messages that already arrived late.
 
 
  Changes
@@ -255,8 +272,10 @@ detected by the stricter rustdoc in Rust 1.93.
 #### [#10846]: net/metrics: Add metrics for inbound/outbound traffic
 This PR adds a new metric for inbound / outbound traffic for individual request-response protocols.
 
-- the PR is motivated by https://github.com/paritytech/polkadot-sdk/issues/10765 which shows a significant number of bytes as downloaded (4-5 MiB/s). This is suspicious for a fully synced validator, 1-2 blocks to the tip of the chain.
-- It suggests a protocol is internally consuming too much bandwidth leading to network inefficiencies, wasted CPU, and in the case of the issue to OOM kills
+- the PR is motivated by https://github.com/paritytech/polkadot-sdk/issues/10765 which shows a significant number of
+  bytes as downloaded (4-5 MiB/s). This is suspicious for a fully synced validator, 1-2 blocks to the tip of the chain.
+- It suggests a protocol is internally consuming too much bandwidth leading to network inefficiencies, wasted CPU, and
+  in the case of the issue to OOM kills
 
 cc @paritytech/sdk-node
 
@@ -266,8 +285,10 @@ Validation now happens on the node side via direct signature verification
 and storage reads for account quotas.
 
 #### [#10662]: Bulletin as parachain missing features
-- Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
-- Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
+- Node developers/operators could enable the transaction storage inherent data provider setup by using
+  --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
+- Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful
+  in the context of bulletin chain.
 
 
 #### [#10223]: Removed dependency to `sp-consensus-grandpa` from `sc-network-sync`
@@ -322,10 +343,12 @@ of statement propagation and validation under various conditions.
 
 
 #### [#11108]: Polkadot-runtime-api-cache: Only cache validation code that exists
-Otherwise there is the possibility that nodes cache `None` and some later `force_set_code` enacts the code. Then the nodes that have cached `None` do not know that the validation code now actually exists on chain.
+Otherwise there is the possibility that nodes cache `None` and some later `force_set_code` enacts the code. Then the
+nodes that have cached `None` do not know that the validation code now actually exists on chain.
 
 #### [#10960]: Warn when dropping an out of view candidate
-This changes a debug log to a warning. The other log messages around the candidate state are also partially warnings. A candidate that is directly out of view counts clearly as a warning. Besides that this pull request also increases
+This changes a debug log to a warning. The other log messages around the candidate state are also partially warnings. A
+candidate that is directly out of view counts clearly as a warning. Besides that this pull request also increases
  the lookahead for Westend + Rococo to `5` to align it with Kusama.
 
 #### [#11027]: Add functions to control statement store per-account allowances
@@ -341,7 +364,8 @@ newly submitted statements are marked as recent, avoiding redundant gossip after
 Add statement allowance enforcement to statement store client
 
 #### [#10965]: fatxpool: Do not remove listener for finalized view
-The transaction pool is now able to handle events for active but finalized views. This improves transaction handling for manual-seal nodes which immediately finalize.
+The transaction pool is now able to handle events for active but finalized views. This improves transaction handling for
+manual-seal nodes which immediately finalize.
 
 #### [#10796]: Fix size limit mismatch in process_initial_sync_burst
 Fixes a debug assertion failure in `process_initial_sync_burst` where the size filter
@@ -357,22 +381,28 @@ function that both locations now use, ensuring consistent size limits.
 
 
 #### [#11051]: Add rate-limiter for statement networking
-Adds a rate limiter for the statement networking protocol to prevent peers from bypassing the known-statements LRU cache by continuously sending valid statements, which would hit the slower statement-store index.
+Adds a rate limiter for the statement networking protocol to prevent peers from bypassing the known-statements LRU cache
+by continuously sending valid statements, which would hit the slower statement-store index.
 
 #### [#10807]: Omni-node: Move timestamps closer to now
-Blocks produced with Omni-nodes dev-mode are now closer to the current time. Previously they were starting at `UNIX_EPOCH`.
+Blocks produced with Omni-nodes dev-mode are now closer to the current time. Previously they were starting at
+`UNIX_EPOCH`.
 
 #### [#11239]: collator-protocol: check v3 candidate against last finished slot block
 This PR achieves the following:
-1) removes the assumption that the scheduling parent sent with a candidate descriptor is an active leaf on the collator-side
-2) removes the reputation penalty for collators sending a candidate with a scheduling parent that's corresponding to an in progress slot
-3) checks on the validator_side that the candidate descriptor's scheduling parent is the rc block corresponding to the last finished rc slot's block.
+1) removes the assumption that the scheduling parent sent with a candidate descriptor is an active leaf on the
+collator-side
+2) removes the reputation penalty for collators sending a candidate with a scheduling parent that's corresponding to an
+in progress slot
+3) checks on the validator_side that the candidate descriptor's scheduling parent is the rc block corresponding to the
+last finished rc slot's block.
 4) improves the testing coverage for V3 candidates descriptor throughout collator-protocol and paras_inherent.
 
 #### [#9880]: ah-westend: Elastic Scaling with 3 cores on AssetHub Westend
 This PR enables elastic scaling on AssetHubWestend with 3 bulk cores.
 
-Guideline for enablement: https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/enable_elastic_scaling/index.html
+Guideline for enablement:
+https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/enable_elastic_scaling/index.html
 
 ### Next Steps
 - [x] Ensure collators are running with 2509 or newer
@@ -382,7 +412,9 @@ Guideline for enablement: https://paritytech.github.io/polkadot-sdk/master/polka
 cc @paritytech/sdk-node @sandreim
 
 #### [#10973]: Cumulus: Remove `max_depth` for the parent search
-We were just incrementing this number all the time and there is actually no need to have it, as the search is already automatically bounded. For chains with 500ms blocks and relay offset of 1 we easily go above this limit and this then leads to forks.
+We were just incrementing this number all the time and there is actually no need to have it, as the search is already
+automatically bounded. For chains with 500ms blocks and relay offset of 1 we easily go above this limit and this then
+leads to forks.
 
 So, let's remove the value.
 
@@ -451,9 +483,11 @@ Implementation:
 
   `PersistentDb` wraps the existing `Db` and adds persistence on top:
 
-    - All reputation logic (scoring, decay, LRU) stays in `Db`
-    - Persistence layer handles disk I/O and serialization
-    - Per-para data stored in parachains_db
+```
+- All reputation logic (scoring, decay, LRU) stays in `Db`
+- Persistence layer handles disk I/O and serialization
+- Per-para data stored in parachains_db
+```
 
 Tests:
 
@@ -461,36 +495,44 @@ Tests:
   - `pruning.rs`: Validates automatic cleanup on parachain deregistration
 
 #### [#10974]: slot_timer: Downgrade spammy log to debug
-The log is quite spammy with 12core setup since the last ~2 blocks will be skipped in the last second of block production.
+The log is quite spammy with 12core setup since the last ~2 blocks will be skipped in the last second of block
+production.
 
 
 #### [#11496]: Don't bubble up errors during collator score parsing in collator protocol
-When starting the node with a warp sync and we hit a period near the `WARP_SYNC_TARGET_BLOCK` (each 512 blocks) we might not be able to call a runtime apis for some blocks, which will yield an error in the collator protocol revamp.
+When starting the node with a warp sync and we hit a period near the `WARP_SYNC_TARGET_BLOCK` (each 512 blocks) we might
+not be able to call a runtime apis for some blocks, which will yield an error in the collator protocol revamp.
 
 Don't bubble up such errors to prevent the subsystem from exiting.
 
 #### [#10827]: Add more buckets to histogram for bitfields sent
-# Description
+**Description**
 
-<img width="858" height="387" alt="image" src="https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a" />
+<img width="858" height="387" alt="image"
+src="https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a" />
 On Kusama the chart already goes to infinity, so we need to adjust it to the desired value.
 
-## Integration
+**Integration**
 
 Should not affect downstream projects.
 
 #### [#10893]: Do not prune blocks with GrandPa justifications
-Warp sync requires GRANDPA justifications at authority set change boundaries to construct proofs. When block pruning is enabled, all block bodies are removed regardless of whether they contain important justifications. The pruned nodes can then not be used to fetch warp proofs.
-We now have the capability to filter which blocks can be safely pruned. For parachain nodes, everything can be pruned, solochain nodes using grandpa keep blocks with justifications. This ensures warp sync ability within the network.
+Warp sync requires GRANDPA justifications at authority set change boundaries to construct proofs. When block pruning is
+enabled, all block bodies are removed regardless of whether they contain important justifications. The pruned nodes can
+then not be used to fetch warp proofs.
+We now have the capability to filter which blocks can be safely pruned. For parachain nodes, everything can be pruned,
+solochain nodes using grandpa keep blocks with justifications. This ensures warp sync ability within the network.
 
 #### [#11152]: Warp sync: Warp proof block import should not mark as leaf
 While warp syncing a node, I saw some huge stalls. What happens:
 
 - During warp sync we store warp proofs
 - After warp sync we start gap sync
-- Problem: Once gap sync finishes, node starts looking for displaced leaves from all the warp proof blocks, which was over 2500 in my observed case. This led to a 30minutes stall.
+- Problem: Once gap sync finishes, node starts looking for displaced leaves from all the warp proof blocks, which was
+  over 2500 in my observed case. This led to a 30minutes stall.
 
-In this PR I propose to import the blocks during warp sync with a Disconnected state, which does not add them as leaves. This fixes the downtime.
+In this PR I propose to import the blocks during warp sync with a Disconnected state, which does not add them as leaves.
+This fixes the downtime.
 
 #### [#11316]: cargo: Update litep2p to v0.13.3
 Update litep2p to latest 0.13.3 version
@@ -513,15 +555,21 @@ Implement retry mechanism in bridges equivocation loop
 #### [#10513]: Extract parachain types into a dedicated crate
 Closes https://github.com/paritytech/polkadot-sdk/issues/10512.
 
-Moves the common parachain primitives (accounts, balances, hashes, opaque block types) into a new `parachains-common-types` crate. The existing `parachains-common` crate re-exports these definitions, and `polkadot-omni-node-lib` now depends on the lightweight types crate to avoid pulling runtime pallets into omni-node builds.
+Moves the common parachain primitives (accounts, balances, hashes, opaque block types) into a new
+`parachains-common-types` crate. The existing `parachains-common` crate re-exports these definitions, and
+`polkadot-omni-node-lib` now depends on the lightweight types crate to avoid pulling runtime pallets into omni-node
+builds.
 
 #### [#11020]: Block Response Handler: Take protocol overhead better into account
 We now take the protobuf overhead into account.
 
 #### [#11085]: Sync: Gracefully handle blocks from an unknown fork
-There is the possibility that node A connects to node B. Both are at the same best block (20). Shortly after this, node B announces a block 21 that is from a completely different fork (started at e.g. block 15). Right now this leads to node A downloading this block 21 and then failing to import it because it doesn't have the parent block.
+There is the possibility that node A connects to node B. Both are at the same best block (20). Shortly after this, node
+B announces a block 21 that is from a completely different fork (started at e.g. block 15). Right now this leads to node
+A downloading this block 21 and then failing to import it because it doesn't have the parent block.
 
-This pull request solves this situation by putting the peer into ancestry search when it detects a fork that is "unknown".
+This pull request solves this situation by putting the peer into ancestry search when it detects a fork that is
+"unknown".
 
 #### [#10718]: Statement-store: Propagate all statements to newly connected peers
 When a new node connects, we now propagate all statements in our store to them. This happens in bursts of ~1MiB messages
@@ -537,9 +585,12 @@ version mismatch and relay parent mismatch) are correctly applied after fetching
 
 
 #### [#11273]: grandpa: Ensure to send `Commit` message before rebuilding the voter
-When there is an authority change, grandpa internally rebuilds the `voter`. This leads to the node not sending the `Commit` message for the finalized block. Light clients that follow these commit messages then need to wait for a justification.
+When there is an authority change, grandpa internally rebuilds the `voter`. This leads to the node not sending the
+`Commit` message for the finalized block. Light clients that follow these commit messages then need to wait for a
+justification.
 
-This pull request fixes the issue by directly sending a commit message, when an authority set change is detected. The message is send before the voter is rebuild.
+This pull request fixes the issue by directly sending a commit message, when an authority set change is detected. The
+message is send before the voter is rebuild.
 
 Closes: https://github.com/paritytech/polkadot-sdk/issues/9300
 
@@ -552,7 +603,8 @@ Includes a storage migration (v12 -> v13) that initialises the new field to zero
 
 
 #### [#6029]: Implementation of RFC-123
-Store a runtime upgrade in `:pending_code` before moving it to `:code` in the next block. It's gated by `system_version` of the runtime
+Store a runtime upgrade in `:pending_code` before moving it to `:code` in the next block. It's gated by `system_version`
+of the runtime
 and is activated for runtimes with `system_version` >= 3.
 
 #### [#11417]: Decrease the log level for claim queue inconsistency in `ClaimQueueState`
@@ -573,12 +625,15 @@ Moved submission failures from JSON-RPC errors into structured result types:
 - Runtime API wasn't changed.
 
 #### [#10493]: add external transient_storage to pallet_revive::ExecConfig
-# Description
+**Description**
 
-This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during execution.
-This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover
+This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during
+execution.
+This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we
+need to carryover
 the transient storage to other following calls as they happen within an external tx.
-For example this is required to support more testing scenarious inside `foundry-polkadot` because only a subset of execution happens on `pallet-revive`.
+For example this is required to support more testing scenarious inside `foundry-polkadot` because only a subset of
+execution happens on `pallet-revive`.
 e.g:
 ```solidity
 fn example_test() { // this entrypoint is executed on the side of `foundry-polkadot`
@@ -594,10 +649,12 @@ assertEq(5, result); // fails without this PR with `5 != 0`
 }
 ```
 link for the test-file inside `foundry-polkadot`:
-- [click me](https://github.com/paritytech/foundry-polkadot/blob/3ff8bf9fae5505e9a72335e33d4e816dbc6bea41/testdata/default/revive/TransientStorage.t.sol)
+- [click
+  me](https://github.com/paritytech/foundry-polkadot/blob/3ff8bf9fae5505e9a72335e33d4e816dbc6bea41/testdata/default/revive/TransientStorage.t.sol)
 
 #### [#11214]: Kanas/migrating async std to tokio
-Migrates bridge relay crates from the deprecated `async-std` to `tokio`. This includes updating sync primitives, task spawning, and channels across several bridge-related crates to ensure compatibility with modern tokio-based runtimes.
+Migrates bridge relay crates from the deprecated `async-std` to `tokio`. This includes updating sync primitives, task
+spawning, and channels across several bridge-related crates to ensure compatibility with modern tokio-based runtimes.
 
 #### [#10882]: statement-store: make encode/hash faster
 Optimizes statement encoding and hashing by pre-allocating memory for the encoded buffer.
@@ -607,7 +664,8 @@ from 16 peers.
 
 
 #### [#11053]: tracing-subscriber: Pin version to prevent ANSI colour code issues
-Latest version of tracing-subscriber right now doesn't support ASNI colour codes correctly: https://github.com/tokio-rs/tracing/issues/3378
+Latest version of tracing-subscriber right now doesn't support ASNI colour codes correctly:
+https://github.com/tokio-rs/tracing/issues/3378
 
 So, the workaround right now is to pin it to `0.3.19`.
 
@@ -615,7 +673,12 @@ So, the workaround right now is to pin it to `0.3.19`.
 Closes: https://github.com/paritytech/polkadot-sdk/issues/11030
 
 #### [#9947]: Proposer/BlockBuilder: Accept proof recorder & extensions
-This pull request fundamentally changes how `Proposer` and `BlockBuilder` are handling the proof recorder and extensions. Before this pull request the proof recorder was initialized by the `BlockBuilder` and the proposer statically enabled proof recording or disabled it. With this pull request the proof recorder is passed from the the caller down to the block builder. This also moves the responsibility for extracting the final storage proof to the caller and is not part of the block builder logic anymore. The extensions are now also configurable by the caller and are not longer "guessed" by the block builder.
+This pull request fundamentally changes how `Proposer` and `BlockBuilder` are handling the proof recorder and
+extensions. Before this pull request the proof recorder was initialized by the `BlockBuilder` and the proposer
+statically enabled proof recording or disabled it. With this pull request the proof recorder is passed from the the
+caller down to the block builder. This also moves the responsibility for extracting the final storage proof to the
+caller and is not part of the block builder logic anymore. The extensions are now also configurable by the caller and
+are not longer "guessed" by the block builder.
 
 This pull request also remvoes the `cumulus-client-proposer` crate as it is not really required anymore.
 
@@ -641,7 +704,8 @@ write benchmarking paths.
 
 ### Changelog for `Runtime Dev`
 
-**ℹ️ These changes are relevant to:**  All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM, not the meta-protocol (client).)
+**ℹ️ These changes are relevant to:**  All of those who rely on the runtime. A parachain team that is using a pallet. A
+DApp that is using a pallet. These are people who care about the protocol (WASM, not the meta-protocol (client).)
 
 
 #### [#9086]: Make HRMP advancement rule more restrictive
@@ -655,13 +719,19 @@ The xcm executor's code is now cleaner in how it handles origin manipulation and
 Add tracing for selfdestruct
 
 #### [#10831]: Fix fee handling of pay-over-xcm trait(s)
-Changed how pay-over-xcm is handling delivery fees. The old behavior was effectively allowing free delivery for any origin, and it was either burning innexistent tokens (noop at the end of the day), or it was minting "protocol fees" into the treasury account out of thin air.
+Changed how pay-over-xcm is handling delivery fees. The old behavior was effectively allowing free delivery for any
+origin, and it was either burning innexistent tokens (noop at the end of the day), or it was minting "protocol fees"
+into the treasury account out of thin air.
 
-In practice, the traits were always used with waived fees configuration so this bug was never exploitable in production, but it was there nonetheless.
+In practice, the traits were always used with waived fees configuration so this bug was never exploitable in production,
+but it was there nonetheless.
 
-Changed transfer-over-xcm and pay-over-xcm implementations to use the runtime's XCM config, rather than custom Router and FeeHandler. This reduces the opportunity for misconfiguration since it relies on the message delivery and fee handling configurations at consolidated at the runtime configuration level.
+Changed transfer-over-xcm and pay-over-xcm implementations to use the runtime's XCM config, rather than custom Router
+and FeeHandler. This reduces the opportunity for misconfiguration since it relies on the message delivery and fee
+handling configurations at consolidated at the runtime configuration level.
 
-Waived locations for some system pallets were also correctly configured to explicitly allow what was previously implicitly allowed by the buggy code.
+Waived locations for some system pallets were also correctly configured to explicitly allow what was previously
+implicitly allowed by the buggy code.
 
 #### [#10869]: [pallet-assets] add ForeignAssetIdExtractor to assets precompile
 fixes https://github.com/paritytech/polkadot-sdk/issues/8659
@@ -669,18 +739,24 @@ fixes https://github.com/paritytech/polkadot-sdk/issues/8659
 Adds ForeignAssetIdExtractor which converts a u32 asset id to an XCM Location type.
 
 #### [#11151]: [pallet-revive] Fix evm_sized and update call stipend
-# Description
+**Description**
 
   Fix evm_sized benchmark helper to use proper EVM init code instead of raw runtime bytecode.
 
-  Previously, `evm_sized(size)`created a Vec of size `STOP` opcodes and passed it directly as the contract code. However, in the EVM deployment model the code supplied is init code (constructor), not runtime code. The EVM executes the init code and whatever it `RETURN`s becomes the stored runtime code. Passing raw `STOP` bytes meant the init code would immediately halt and return nothing, resulting in an empty contract, not a contract of the requested size.
+  Previously, `evm_sized(size)`created a Vec of size `STOP` opcodes and passed it directly as the contract code.
+  However, in the EVM deployment model the code supplied is init code (constructor), not runtime code. The EVM executes
+  the init code and whatever it `RETURN`s becomes the stored runtime code. Passing raw `STOP` bytes meant the init code
+  would immediately halt and return nothing, resulting in an empty contract, not a contract of the requested size.
 
- This PR replaces the implementation with proper EVM init code (PUSH3 size, PUSH1 0, RETURN) that returns size bytes from zero-initialized memory, producing a runtime code blob of exactly size bytes (all 0x00 / STOP opcodes). This makes the benchmark helper behave correctly and produce contracts whose `PristineCode` actually matches the requested size.
+ This PR replaces the implementation with proper EVM init code (PUSH3 size, PUSH1 0, RETURN) that returns size bytes
+ from zero-initialized memory, producing a runtime code blob of exactly size bytes (all 0x00 / STOP opcodes). This makes
+ the benchmark helper behave correctly and produce contracts whose `PristineCode` actually matches the requested size.
 
-# Integration
-  No integration changes required. This only affects test/benchmark code behind `#[cfg(any(test, feature = "runtime-benchmarks"))]`.
+**Integration**
+  No integration changes required. This only affects test/benchmark code behind `#[cfg(any(test, feature =
+  "runtime-benchmarks"))]`.
 
-# Review Notes
+**Review Notes**
   The new init code is 7 bytes:
 ```
   PUSH3 <b1> <b2> <b3>   // push the desired runtime code size (up to 16M)
@@ -688,25 +764,30 @@ Adds ForeignAssetIdExtractor which converts a u32 asset id to an XCM Location ty
   RETURN                  // return size bytes from offset 0
 ```
 
-  EVM memory is zero-initialized, so RETURN(0, size) produces size bytes of 0x00 (STOP opcode). This runtime code is what gets stored in PristineCode and loaded on every subsequent call.
+  EVM memory is zero-initialized, so RETURN(0, size) produces size bytes of 0x00 (STOP opcode). This runtime code is
+  what gets stored in PristineCode and loaded on every subsequent call.
 The size is encoded as 3 bytes (PUSH3), supporting sizes up to ~16M which is well above any practical benchmark need.
 
-## Call stipend
+**Call stipend**
   Changed `determine_call_stipend()` to `CALL_STIPEND + DepositEvent` weight so the stipend
   covers emitting a LOG event on top of the base 2300 gas operations. Added reentrancy tests
   verifying that the stipend prevents a malicious receiver from calling back into the sender.
 
-## Regenerated benchmark weights
+**Regenerated benchmark weights**
   Regenerated pallet-revive weights from CI benchmarks.
 
-## Expected test failures
+**Expected test failures**
   12 revert.sol differential tests added to the expectations file. These fail due to CI
   benchmark noise amplifying `ref_time_per_fuel`, reducing the PVM fuel budget per extrinsic.
 
 #### [#10383]: Enable force debug in revive dev node
-This change ensures that all types that implement `RuntimeDebug` are fully displayed in log output of the revive dev node, instead of just showing `<wasm:stripped>`.
+This change ensures that all types that implement `RuntimeDebug` are fully displayed in log output of the revive dev
+node, instead of just showing `<wasm:stripped>`.
 
-Unfortunately, the trait `RuntimeDebugNoBound`, that we also use frequently in pallet-revive, is not affected and will still output `<wasm:stripped>` (it does not check for the `force-debug` feature flag, instead it only fully outputs values when either one of the features `std` or `try_runtime` is enabled – this is something we implement as a general change).
+Unfortunately, the trait `RuntimeDebugNoBound`, that we also use frequently in pallet-revive, is not affected and will
+still output `<wasm:stripped>` (it does not check for the `force-debug` feature flag, instead it only fully outputs
+values when either one of the features `std` or `try_runtime` is enabled – this is something we implement as a general
+change).
 
 #### [#10472]: V3 Candidate Descriptor Support with Explicit Scheduling Parent
 V3 candidate descriptors are validated in the runtime via `check_descriptor_version_and_signals`.
@@ -715,7 +796,8 @@ V3 candidates that violate these rules.
 
 
 #### [#11115]: Remove MaxSessionKeysLength and MaxSessionKeysProofLength
-fixes the issue #11083 where MaxSessionKeysLength and MaxSessionKeysProofLength were unnecessary because there are not stored, just validated.
+fixes the issue #11083 where MaxSessionKeysLength and MaxSessionKeysProofLength were unnecessary because there are not
+stored, just validated.
 
 #### [#10309]: [pallet-revive] evm remove contract storage slot when writing all zero bytes
 fixes https://github.com/paritytech/contract-issues/issues/216
@@ -726,7 +808,7 @@ When writing all zero bytes to a storage item, the item shall be deleted and dep
 Advances #3326
 
 #### [#11322]: [pallet-assets-precompiles] Idiomatic Rust cleanups
-## Summary
+**Summary**
 - Remove explicit `return` statements in favor of idiomatic tail expressions
 - Use `take()` instead of `get()` + `remove()` for atomic map operations
 - Remove redundant type conversions (`.into()`, `H160::from()`)
@@ -737,7 +819,8 @@ Advances #3326
 #### [#11044]: [pallet-assets-precompiles] Add EIP-2612 permit support for gasless approvals
 fixes https://github.com/paritytech/polkadot-sdk/issues/8660
 
-- Implements EIP-2612 permit functionality for ERC20 asset precompiles, enabling gasless token approvals via signed messages
+- Implements EIP-2612 permit functionality for ERC20 asset precompiles, enabling gasless token approvals via signed
+  messages
 - Adds new `permit` pallet to manage nonces and EIP-712 signature verification
 - Extends `IERC20.sol` interface with `permit()`, `nonces()`, and `DOMAIN_SEPARATOR()` functions
 
@@ -760,7 +843,8 @@ This PR removes all pallet::getter occurrences from pallet-sassafras.
 - rename `ahm-test` to `integration-tests`
 
 #### [#11144]: Snowbridge: receipt verification with alloy primitives
-The new verifier checks both the root and the exact receipt key (transaction index), aligning with how proofs are generated and preventing proofs that follow a valid hash chain but reference the wrong key.
+The new verifier checks both the root and the exact receipt key (transaction index), aligning with how proofs are
+generated and preventing proofs that follow a valid hash chain but reference the wrong key.
 
 #### [#10634]: Remove uses of sp-debug-derive/force-debug feature
 Removes the `force-debug` feature flag from `sp-debug-derive` dependencies across the codebase.
@@ -774,11 +858,13 @@ this verified state via `OnSystemEvent::on_relay_state_proof()` hook.
 
 
 #### [#11037]: Consolidate pallet-assets metadata benchmarks into single get_metadata benchmark
-## Summary
+**Summary**
 
-Consolidates the three identical `get_name`, `get_symbol`, and `get_decimals` benchmarks into a single `get_metadata` benchmark. This addresses the follow-up from #10971 where it was noted that these benchmarks perform the same operation (`Pallet::get_metadata()`).
+Consolidates the three identical `get_name`, `get_symbol`, and `get_decimals` benchmarks into a single `get_metadata`
+benchmark. This addresses the follow-up from #10971 where it was noted that these benchmarks perform the same operation
+(`Pallet::get_metadata()`).
 
-## Changes
+**Changes**
 
 ### Benchmarks
 - **`substrate/frame/assets/src/benchmarking.rs`**
@@ -799,9 +885,10 @@ Updated weight implementations in:
 - `asset-hub-rococo`: `pallet_assets_foreign.rs`, `pallet_assets_local.rs`, `pallet_assets_pool.rs`
 - `asset-hub-westend`: `pallet_assets_foreign.rs`, `pallet_assets_local.rs`, `pallet_assets_pool.rs`
 
-## Rationale
+**Rationale**
 
-All three original benchmarks were measuring the exact same operation - a single metadata storage read. Consolidating them:
+All three original benchmarks were measuring the exact same operation - a single metadata storage read. Consolidating
+them:
 1. Reduces code duplication
 2. Simplifies the `WeightInfo` trait
 3. Accurately reflects that `name()`, `symbol()`, and `decimals()` have identical costs
@@ -809,27 +896,35 @@ All three original benchmarks were measuring the exact same operation - a single
 Closes follow-up from https://github.com/paritytech/polkadot-sdk/pull/10971#discussion_r2782977769
 
 #### [#10907]: Update the resolc and retester versions
-## Summary
+**Summary**
 
-This PR allows us to use nightly versions of the resolc compiler in the differential tests CI which include fixes not yet available in the published version of the compiler. It also bumps the commit hash of differential tests used to a version that allows for gas limits to be specified manually to circumvent the issue observed in https://github.com/paritytech/contract-issues/issues/259
+This PR allows us to use nightly versions of the resolc compiler in the differential tests CI which include fixes not
+yet available in the published version of the compiler. It also bumps the commit hash of differential tests used to a
+version that allows for gas limits to be specified manually to circumvent the issue observed in
+https://github.com/paritytech/contract-issues/issues/259
 
 #### [#10359]: Remove invulnerables form staking-async
-The 'staking-async' pallet has inherited the list of invulnerable validators from the 'staking' pallet, but these are no longer used. We can therefore remove them, together with additional clean-up. This includes removing the 'set_invulnerables(...)' call together with the 'Invulnerables<T: Config>' storage type.
+The 'staking-async' pallet has inherited the list of invulnerable validators from the 'staking' pallet, but these are no
+longer used. We can therefore remove them, together with additional clean-up. This includes removing the
+'set_invulnerables(...)' call together with the 'Invulnerables<T: Config>' storage type.
 
 #### [#10524]: Fix Differential Testing CI Flakiness
-# Description
+**Description**
 
-This PR updates the commit hash of the revive differential testing framework that we use to fix the flakiness we observed in CI. It was fixed in the framework by caching the chainspec of the node's we spawn so that the chainspec is only generated once and used for all of the nodes.
+This PR updates the commit hash of the revive differential testing framework that we use to fix the flakiness we
+observed in CI. It was fixed in the framework by caching the chainspec of the node's we spawn so that the chainspec is
+only generated once and used for all of the nodes.
 
 #### [#10922]: [pallet-revive] small improvements
 Small safety and completeness improvements for pallet-revive:
 
 - Add selfdestruct call tracing: Emit terminate trace after successful SELFDESTRUCT
 - Add debug assertions for unsafe bytecode operations: in relative_jump, absolute_jump, and read_slice
-- Remove transmute in i256 sign detection: Replace unsafe { core::mem::transmute } with explicit conditional logic for determining Sign::Zero vs Sign::Plus
+- Remove transmute in i256 sign detection: Replace unsafe { core::mem::transmute } with explicit conditional logic for
+  determining Sign::Zero vs Sign::Plus
 
 #### [#10924]: revive: cap remaining_gas to u64::MAX in Substrate_execution
-## Summary
+**Summary**
 
 - Fixes proxy contract calls failing with OutOfGas when using ReviveApi.call
   (Substrate runtime API)
@@ -837,7 +932,7 @@ Small safety and completeness improvements for pallet-revive:
 
 see https://github.com/paritytech/contract-issues/issues/256
 
-## Problem
+**Problem**
 
 When calculating resource limits for nested calls through
 `substrate_execution::new_nested_meter`, the ratio-based scaling fails when
@@ -850,22 +945,23 @@ The calculation flow:
 4. `nested_weight_limit = ratio × weight_left` ≈ 0
 5. Nested call immediately fails with OutOfGas
 
-## Solution
+**Solution**
 
 Cap `remaining_gas` to `u64::MAX` since Ethereum gas is a u64 value. This ensures
 the ratio is 1.0 when a contract requests all gas, giving the nested call the full
 remaining weight.
 
-## Test plan
+**Test plan**
 
 - [x] Verified fix resolves the issue with proxy contracts (TransparentUpgradeableProxy)
 - [ ] Existing tests pass
 
 
 #### [#10732]: Use the revive-differential-tests reusable action
-# Description
+**Description**
 
-This PR changes how we run differential tests. The `revive-differential-tests` repo now ships with a reusable action which we use to run the differential tests.
+This PR changes how we run differential tests. The `revive-differential-tests` repo now ships with a reusable action
+which we use to run the differential tests.
 
 #### [#10444]: Improve `charge_transaction_payment benchmark` ergonomics
 Adds a `setup_benchmark_environment()` hook to allow runtimes to configure
@@ -877,7 +973,8 @@ computed fee and ensure it meets the existential deposit.
 #### [#10698]: [pallet-revive] added trybuild test for precompile compile-time checks
 fixes https://github.com/paritytech/polkadot-sdk/issues/8364
 
-This PR adds compile-time tests using try_build to validate invariants enforced on registered precompiles. The tests ensure collision detection and related compile-time checks are correctly triggered and remain enforced.
+This PR adds compile-time tests using try_build to validate invariants enforced on registered precompiles. The tests
+ensure collision detection and related compile-time checks are correctly triggered and remain enforced.
 
 #### [#10716]: Migrate `pallet-example-offchain-worker` to use `TransactionExtension` API
 Migrates `pallet-example-offchain-worker` from the deprecated `ValidateUnsigned` trait
@@ -896,7 +993,9 @@ This serves as a reference example for other pallets migrating away from `Valida
 #### [#10567]: [Revive] Fix construction of negative zero SignedGas
 Closes https://github.com/paritytech-secops/srlabs_findings/issues/603
 
-This fixes an issue where a zero `SignedGas` value can be constructed that uses the `Negative` variant. The rest of the code relies on the invariant that zero `SignedGas` has always the `Positive` variant and this is also documented in the code.
+This fixes an issue where a zero `SignedGas` value can be constructed that uses the `Negative` variant. The rest of the
+code relies on the invariant that zero `SignedGas` has always the `Positive` variant and this is also documented in the
+code.
 
 #### [#10816]: Update to Rust 1.93
 Updates the Rust toolchain to version 1.93. This includes fixes for new compiler warnings,
@@ -906,22 +1005,36 @@ detected by the stricter rustdoc in Rust 1.93.
 #### [#11263]: XCMP: implement `ConcatenatedOpaqueVersionedXcm` negotiation
 Follow-up for: https://github.com/paritytech/polkadot-sdk/pull/9588
 
-As part of https://github.com/paritytech/polkadot-sdk/pull/9588 we added a new `ConcatenatedOpaqueVersionedXcm` XCMP page format (which uses double encoded XCMs), but we didn't switch to always using it, since we don't know which parachains support it. This PR introduces a negotiation strategy between parachains in order to switch to using the `ConcatenatedOpaqueVersionedXcm` format when supported.
+As part of https://github.com/paritytech/polkadot-sdk/pull/9588 we added a new `ConcatenatedOpaqueVersionedXcm` XCMP
+page format (which uses double encoded XCMs), but we didn't switch to always using it, since we don't know which
+parachains support it. This PR introduces a negotiation strategy between parachains in order to switch to using the
+`ConcatenatedOpaqueVersionedXcm` format when supported.
 
 The high-level idea is the following:
 - let's say we have an HRMP channel between parachains A and B
 - parachain A is updated and starts supporting `ConcatenatedOpaqueVersionedXcm`
-- when the sending queue is empty, it sends a notification to parachain B that it supports `ConcatenatedOpaqueVersionedXcm`. Basically it sends an empty `ConcatenatedOpaqueVersionedXcm` page. This notification is sent only once during the entire lifetime of the HRMP channel.
-  - if parachain B supports `ConcatenatedOpaqueVersionedXcm`, it starts sending `ConcatenatedOpaqueVersionedXcm` pages to parachain A instead of `ConcatenatedVersionedXcm`
-  - if parachain B doesn't support `ConcatenatedOpaqueVersionedXcm`, it doesn't do anything for the moment and they continue using `ConcatenatedVersionedXcm`. When parachain B is updated, it sends a similar notification to parachain A that it supports `ConcatenatedOpaqueVersionedXcm` (basically it also sends an empty `ConcatenatedOpaqueVersionedXcm` page).
-- when parachain A receives a `ConcatenatedOpaqueVersionedXcm` page from parachain B, it concludes that parachain B also supports `ConcatenatedOpaqueVersionedXcm` and starts using `ConcatenatedOpaqueVersionedXcm` instead of `ConcatenatedVersionedXcm` when sending messages to parachain B
+- when the sending queue is empty, it sends a notification to parachain B that it supports
+  `ConcatenatedOpaqueVersionedXcm`. Basically it sends an empty `ConcatenatedOpaqueVersionedXcm` page. This notification
+  is sent only once during the entire lifetime of the HRMP channel.
+  - if parachain B supports `ConcatenatedOpaqueVersionedXcm`, it starts sending `ConcatenatedOpaqueVersionedXcm` pages
+    to parachain A instead of `ConcatenatedVersionedXcm`
+  - if parachain B doesn't support `ConcatenatedOpaqueVersionedXcm`, it doesn't do anything for the moment and they
+    continue using `ConcatenatedVersionedXcm`. When parachain B is updated, it sends a similar notification to parachain
+    A that it supports `ConcatenatedOpaqueVersionedXcm` (basically it also sends an empty
+    `ConcatenatedOpaqueVersionedXcm` page).
+- when parachain A receives a `ConcatenatedOpaqueVersionedXcm` page from parachain B, it concludes that parachain B also
+  supports `ConcatenatedOpaqueVersionedXcm` and starts using `ConcatenatedOpaqueVersionedXcm` instead of
+  `ConcatenatedVersionedXcm` when sending messages to parachain B
 
-The information of whether a recipient parachain supports `ConcatenatedOpaqueVersionedXcm` or if a notification related to the `ConcatenatedOpaqueVersionedXcm` support was sent to it is stored in `OutboundXcmpStatus` by adding a new `flags` field. For this we also need to do a migration (`cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6`).
+The information of whether a recipient parachain supports `ConcatenatedOpaqueVersionedXcm` or if a notification related
+to the `ConcatenatedOpaqueVersionedXcm` support was sent to it is stored in `OutboundXcmpStatus` by adding a new `flags`
+field. For this we also need to do a migration (`cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6`).
 
 #### [#10849]: pallet-revive: Enable call_invalid_opcode test
 Fixes https://github.com/paritytech/contract-issues/issues/206
 
-This PR enables the call_invalid_opcode test, which verifies that the INVALID opcode consumes all forwarded gas when executed in a nested call. The underlying issue was fixed in the following PRs:
+This PR enables the call_invalid_opcode test, which verifies that the INVALID opcode consumes all forwarded gas when
+executed in a nested call. The underlying issue was fixed in the following PRs:
 https://github.com/paritytech/revive/pull/433
 https://github.com/paritytech/polkadot-sdk/pull/9997
 
@@ -949,22 +1062,28 @@ and sender in signatories. Also, reword extrinsic comments.
 
 
 #### [#10662]: Bulletin as parachain missing features
-This PR adds the required support and features for running Bulletin as a parachain. It is a top-level PR that merges three partial features:
+This PR adds the required support and features for running Bulletin as a parachain. It is a top-level PR that merges
+three partial features:
 
-1. Add transaction_index::HostFunctions with NO-OP impl to the Cumulus ParachainSystem validate_block for Polkadot-prepare/execute-worker
+1. Add transaction_index::HostFunctions with NO-OP impl to the Cumulus ParachainSystem validate_block for
+   Polkadot-prepare/execute-worker
 2. Add custom inherent provider for pallet-transaction-storage to omni node
 3. Configurable RetentionPeriod feeded to the inherent provider over runtime API
 
-This PR also refactors `pallet-transaction-storage` and `sp-transaction-storage-proof` (the `new_data_provider` inherent provider), both of which rely on a hard-coded `DEFAULT_RETENTION_PERIOD`. This PR:
+This PR also refactors `pallet-transaction-storage` and `sp-transaction-storage-proof` (the `new_data_provider` inherent
+provider), both of which rely on a hard-coded `DEFAULT_RETENTION_PERIOD`. This PR:
 - adds a new configurable argument `retention_period` to the `new_data_provider`
 - introduces the `TransactionStorageApi::retention_period` runtime API, which the runtime can specify arbitrary
-- provides an example of using `new_data_provider`, with the node client calling the runtime API when constructing inherent provider data
+- provides an example of using `new_data_provider`, with the node client calling the runtime API when constructing
+  inherent provider data
 
 #### [#10863]: parachain-system: Ensure left-over message budget fits into the PoV
 Ensure we check the buget against the remaining proof size in the block.
 
 #### [#10911]: [pallet-revive] Fix EXTCODESIZE and EXTCODEHASH for mocked addresses
-Fixes EXTCODESIZE and EXTCODEHASH opcodes for mocked addresses. Previously, these opcodes did not check the mock handler, causing them to return values indicating no code exists at mocked addresses. Fixed by adding `mocked_code` method to `MockHandler` trait to provide dummy bytecode.
+Fixes EXTCODESIZE and EXTCODEHASH opcodes for mocked addresses. Previously, these opcodes did not check the mock
+handler, causing them to return values indicating no code exists at mocked addresses. Fixed by adding `mocked_code`
+method to `MockHandler` trait to provide dummy bytecode.
 
 #### [#10328]: pallet-revive: eth-rpc improve submit
 "eth_sendRawTransaction" should only return a tx hash if the transaction is valid.
@@ -979,10 +1098,12 @@ Changes:
 - Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`, `Pallas`, `Vesta` for parachains
 - Add new executor param `EnabledHostFunction` that can be used to enable host function usage.
 
-These were ratified in [RFC 163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing Pasta curves will be added later https://github.com/paritytech/polkadot-sdk/pull/11035. We will use these on the people chain only.
+These were ratified in [RFC 163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing Pasta curves will be
+added later https://github.com/paritytech/polkadot-sdk/pull/11035. We will use these on the people chain only.
 
 #### [#11194]: MBM: Add ForceUnstuck handler
-For chains doing governance we should be force-unstucking the chain on failed MBMs instead of freezing. This is equivalent to single-block-migration error handling.
+For chains doing governance we should be force-unstucking the chain on failed MBMs instead of freezing. This is
+equivalent to single-block-migration error handling.
 Would have been useful for https://github.com/polkadot-fellows/runtimes/pull/1085
 
 Changes:
@@ -1000,31 +1121,46 @@ testing with many accounts without modifying chain specifications.
 
 
 #### [#11441]: [pallet-assets] fix: decrement supply when refund burns balance
-When a user calls `refund` with `allow_burn = true`, their token balance is destroyed, but the asset's total supply was never updated. This caused `total_issuance()` to overcount. The fix decrements supply and emits a `Burned` event, consistent with how every other burn path works.
+When a user calls `refund` with `allow_burn = true`, their token balance is destroyed, but the asset's total supply was
+never updated. This caused `total_issuance()` to overcount. The fix decrements supply and emits a `Burned` event,
+consistent with how every other burn path works.
 
-In production, burning path is rarely triggered. The fungibles trait interface always passes `allow_burn = false`, so only users manually submitting the refund extrinsic with the burn flag would hit it.
+In production, burning path is rarely triggered. The fungibles trait interface always passes `allow_burn = false`, so
+only users manually submitting the refund extrinsic with the burn flag would hit it.
 
-Follow-up issue for migrating the discrepancy (observed on Westend): https://github.com/paritytech/polkadot-sdk/issues/11443.
+Follow-up issue for migrating the discrepancy (observed on Westend):
+https://github.com/paritytech/polkadot-sdk/issues/11443.
 
 Fixes #10412
 
 #### [#10540]: Tighten length estimation during dry running
-The length of the RLP-encoded Ethereum transaction will have an effect on the transaction cost (as pallet-transaction-payment charges a length fee) and therefore the required Ethereum gas.
+The length of the RLP-encoded Ethereum transaction will have an effect on the transaction cost (as
+pallet-transaction-payment charges a length fee) and therefore the required Ethereum gas.
 
-During dry running we need to estimate the length of the actual RLP-encoded Ethereum transaction that will submitted later. Some of the parameters that determine the length will usually not be provided at the dry running stage yet: `gas`, `gas_price` and `max_priority_fee_per_gas`.
+During dry running we need to estimate the length of the actual RLP-encoded Ethereum transaction that will submitted
+later. Some of the parameters that determine the length will usually not be provided at the dry running stage yet:
+`gas`, `gas_price` and `max_priority_fee_per_gas`.
 
-If we underestimate the actual lengths of these parameters, then the gas estimate might be too low and transaction execution will run out of gas. If we over estimate, then the pre-dispatch weight will be unreasonably large and we risk that a transaction that might still fit into a block, won't be put into the block anymore, which leads to lower block utilization.
+If we underestimate the actual lengths of these parameters, then the gas estimate might be too low and transaction
+execution will run out of gas. If we over estimate, then the pre-dispatch weight will be unreasonably large and we risk
+that a transaction that might still fit into a block, won't be put into the block anymore, which leads to lower block
+utilization.
 
-## Current Approach
-The current approach is to just assume that maximal possible length for these fields, which results when they have the maximum possible value, `U256::MAX`, due to how RLP encoding works. This is a gross over estimation.
+**Current Approach**
+The current approach is to just assume that maximal possible length for these fields, which results when they have the
+maximum possible value, `U256::MAX`, due to how RLP encoding works. This is a gross over estimation.
 
-## New Approach
-In practice there won't be gas requirements and gas estimates that are more than `u64::MAX` and therefore we assume this as the maximal value for `gas`.
+**New Approach**
+In practice there won't be gas requirements and gas estimates that are more than `u64::MAX` and therefore we assume this
+as the maximal value for `gas`.
 
-For `gas_price` and `max_priority_fee_per_gas` we assume that the caller will use the current base fee and will scale it be some small amount so that the RLP encoding is at most one byte longer than the RLP encoding of the base fee. We achieve that by determining the RLP encoding of the base fee multiplied by 256.
+For `gas_price` and `max_priority_fee_per_gas` we assume that the caller will use the current base fee and will scale it
+be some small amount so that the RLP encoding is at most one byte longer than the RLP encoding of the base fee. We
+achieve that by determining the RLP encoding of the base fee multiplied by 256.
 
 #### [#10963]: revive-eth-rpc: Use pending block for estimate_gas in dev mode
-Use Pending as the default block for eth_estimateGas in dev mode, matching Anvil/EDR behavior. Non-dev mode continues to use Latest (go-ethereum behavior).
+Use Pending as the default block for eth_estimateGas in dev mode, matching Anvil/EDR behavior. Non-dev mode continues to
+use Latest (go-ethereum behavior).
 
 Refs https://github.com/paritytech/contract-issues/issues/261
 
@@ -1047,38 +1183,50 @@ when LLMs generated code with braces.
 #### [#10302]: Fix termination
 This PR fixes up termination by changing the behavior to:
 
-- The free balance (without ed) should be send away right away to the beneficiary and not be delayed like the contract deletion.
+- The free balance (without ed) should be send away right away to the beneficiary and not be delayed like the contract
+  deletion.
 - The ed and storage deposit will be send away only when terminating but to the origin (delayed).
 - The scheduling of the terminate needs to be reverted if the scheduling frame reverts.
-- `SELFDESTRUCT` should be allowed inside the constructor. The issuing contract will exist as account without code for the remainder of the transaction.
-- The `terminate` pre-compile should revert if delegate called or its caller was delegate called. This is just my opinion but if we are changing semantics we can might as well add some security. We are increasing the attack surface by allowing the destruction of any contract (not only created in the current tx).
+- `SELFDESTRUCT` should be allowed inside the constructor. The issuing contract will exist as account without code for
+  the remainder of the transaction.
+- The `terminate` pre-compile should revert if delegate called or its caller was delegate called. This is just my
+  opinion but if we are changing semantics we can might as well add some security. We are increasing the attack surface
+  by allowing the destruction of any contract (not only created in the current tx).
 
 
-## Other fixes
-- Storage refunds should no longer use `BestEffort`. This is necessary to fail refunds in case some other locks (due to participation in gov for example) prevent sending them away. This is in anticipation of new pre-compiles.
+**Other fixes**
+- Storage refunds should no longer use `BestEffort`. This is necessary to fail refunds in case some other locks (due to
+  participation in gov for example) prevent sending them away. This is in anticipation of new pre-compiles.
 - Moved pre-compile interfaces to sol files and made them available to fixtures
 - Added some Solidity written tests to exercise error cases
 
 
-## Further tests needed
+**Further tests needed**
 
 Those should all be written in Solidity to test both backends at the same time. No more Rust fixtures.
 
 @0xRVE can you take those over as I am ooo.
 
 - Test that checks that scheduled deletions do properly roll back if a frame fails
-- Test that value send to a contract after scheduling for deletion is send to the beneficiary (different from Eth where this balance is lost)
-- Add tests that use `SELFDESTRUCT` to `Terminate.sol`. Need https://github.com/paritytech/devops/issues/4508 but can be tested locally with newest `resolc`.
+- Test that value send to a contract after scheduling for deletion is send to the beneficiary (different from Eth where
+  this balance is lost)
+- Add tests that use `SELFDESTRUCT` to `Terminate.sol`. Need https://github.com/paritytech/devops/issues/4508 but can be
+  tested locally with newest `resolc`.
 
 #### [#10397]: Update the commit hash of the revive-differential-tests
-# Description
+**Description**
 
-This is a PR that updates the commit hash of the revive-differential-tests framework and the compilation caches to a version that includes fixes to certain tests that used hard-coded gas values. The compilation caches required an update since this was a change to the contract's code.
+This is a PR that updates the commit hash of the revive-differential-tests framework and the compilation caches to a
+version that includes fixes to certain tests that used hard-coded gas values. The compilation caches required an update
+since this was a change to the contract's code.
 
 #### [#11389]: Fix: AssetTrapped event with Fungible(0) due to `SwapFirstAssetTrader::buy_weight` for exact trades
-When `PayFees` contained the exact quoted fee, `SwapFirstAssetTrader::buy_weight` produces zero swap change. This 0-amount credit was unconditionally wrapped into an `AssetsInHolding` entry, which propagated through `fees` → `refund_surplus` → `holding` → `drop_assets`, emitting an `AssetsTrapped` event with `Fungible(0)` that fails to decode.
+When `PayFees` contained the exact quoted fee, `SwapFirstAssetTrader::buy_weight` produces zero swap change. This
+0-amount credit was unconditionally wrapped into an `AssetsInHolding` entry, which propagated through `fees` →
+`refund_surplus` → `holding` → `drop_assets`, emitting an `AssetsTrapped` event with `Fungible(0)` that fails to decode.
 
-This PR simply guards that by checking if value is 0 before putting it into the holding, and omitting the step if the value is 0.
+This PR simply guards that by checking if value is 0 before putting it into the holding, and omitting the step if the
+value is 0.
 
 Closes #11388
 
@@ -1094,7 +1242,10 @@ For migration collections, use `nth_migrating_prefixes()` to retrieve prefixes b
 Fix this error after upgrading to rustc 1.92.0:
 
 ```
-  error: panic_immediate_abort is now a real panic strategy! Enable it with `panic = "immediate-abort"` in Cargo.toml, or with the compiler flags `-Zunstable-options -Cpanic=immediate-abort`. In both cases, you still need to build core, e.g. with `-Zbuild-std`
+  error: panic_immediate_abort is now a real panic strategy!
+  Enable it with `panic = "immediate-abort"` in Cargo.toml,
+  or with the compiler flags `-Zunstable-options -Cpanic=immediate-abort`.
+  In both cases, you still need to build core, e.g. with `-Zbuild-std`
     --> /Users/robert/.rustup/toolchains/1.92.0-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/panicking.rs:36:1
 ```
 
@@ -1111,10 +1262,12 @@ it's dropped/burned and resolve it into the buffer account instead.
 tx fees, dust removal, coretime revenue burns and EVM gas rounding burns.
 
 #### [#10902]: [pallet-revive] Enforce weight limit on dry-run RPC calls
-## Summary
+**Summary**
 
-- Makes the `weight_limit` field in `TransactionLimits::EthereumGas` non-optional, enforcing bounded execution on all Ethereum-style calls
-- Updates `dry_run_eth_transact` to use `evm_max_extrinsic_weight()` as the weight limit, preventing unbounded computation during dry-run RPC calls
+- Makes the `weight_limit` field in `TransactionLimits::EthereumGas` non-optional, enforcing bounded execution on all
+  Ethereum-style calls
+- Updates `dry_run_eth_transact` to use `evm_max_extrinsic_weight()` as the weight limit, preventing unbounded
+  computation during dry-run RPC calls
 - Simplifies metering code by removing `Option` handling for weight limits in Ethereum execution mode
 
 #### [#10517]: [pallet-revive] remove disabled host functions terminate and set_code_hash
@@ -1147,7 +1300,7 @@ size limits are respected when multiple blocks are bundled in the same PoV.
 
 
 #### [#11227]: pallet-revive: add zero-value transfer/send stipend tests
-## Summary
+**Summary**
 
 Add tests that verify the `AllowNext` reentrancy path is triggered for zero-value `transfer` and `send` calls.
 
@@ -1163,19 +1316,21 @@ Add tests that verify the `AllowNext` reentrancy path is triggered for zero-valu
 
 The zero-value case is the one detected by our `gas_limit == CALL_STIPEND` heuristic, which triggers `AllowNext`.
 
-## Changes
+**Changes**
 
-- Add `testTransferZero` / `testSendZero` to `Stipends.sol` fixture — these call `transfer(0)` and `send(0)` on EOA, DoNothingReceiver, and SimpleReceiver
+- Add `testTransferZero` / `testSendZero` to `Stipends.sol` fixture — these call `transfer(0)` and `send(0)` on EOA,
+  DoNothingReceiver, and SimpleReceiver
 - Add corresponding Rust tests that exercise the `AllowNext` path
 - Add trace logs to the call stipend match for debugging
 
-## Test plan
+**Test plan**
 
 - [x] `evm_call_stipends_work_for_transfer_zero` passes, logs show `gas_limit=2300` → `AllowNext`
 - [x] `evm_call_stipends_work_for_send_zero` passes, logs show `gas_limit=2300` → `AllowNext`
 
 #### [#10804]: Take the header size into account for the total block size
-The `BlockSize` storage item (formerly `AllExtrinsicsLen`) in `frame-system` now includes the header overhead (digest size and
+The `BlockSize` storage item (formerly `AllExtrinsicsLen`) in `frame-system` now includes the header overhead (digest
+size and
 empty header size) in addition to the extrinsic lengths. This ensures that block size limits
 accurately account for the full block size, not just the extrinsics. Additionally, inherent
 digests are now limited to 20% of the maximum block size to prevent oversized headers.
@@ -1186,19 +1341,20 @@ External code using `frame_system::AllExtrinsicsLen` must be updated to use `fra
 The deprecated `BlockLength::max` and `BlockLength::max_with_normal_ratio` functions have been
 replaced with the new builder pattern across the entire codebase. Use
 `BlockLength::builder().max_length(value).build()` or
-`BlockLength::builder().max_length(value).modify_max_length_for_class(DispatchClass::Normal, |m| *m = ratio * value).build()`
+`BlockLength::builder().max_length(value).modify_max_length_for_class(DispatchClass::Normal, |m| *m = ratio *
+value).build()`
 instead.
 
 
 #### [#10950]: fix(revive): handle transaction hash conflicts during re-org
-## Summary
+**Summary**
 
 Fixes a UNIQUE constraint violation when processing blocks after a re-org:
 ```
 UNIQUE constraint failed: transaction_hashes.transaction_hash
 ```
 
-## Problem
+**Problem**
 
 When a blockchain re-org occurs:
 1. Block A contains transaction TX1 → stored in `transaction_hashes`
@@ -1225,15 +1381,18 @@ OpenZeppelin contracts for better maintainability.
 
 #### [#11457]: eth-rpc: add support for the earliest block tag
 ### Summary
-1. Resolve the earliest block tag to the first known EVM block across RPC methods (eth_getBlockByNumber, eth_call, eth_getLogs, etc.)
-2. Add a known_first_evm_block_for_chain() lookup for Polkadot, Kusama, Paseo, and Westend Asset Hubs so earliest works without historical sync
+1. Resolve the earliest block tag to the first known EVM block across RPC methods (eth_getBlockByNumber, eth_call,
+   eth_getLogs, etc.)
+2. Add a known_first_evm_block_for_chain() lookup for Polkadot, Kusama, Paseo, and Westend Asset Hubs so earliest works
+   without historical sync
 3. Fix tracing_block to propagate errors and handle genesis (no parent)
 
 Fixes https://github.com/paritytech/polkadot-sdk/issues/11383
 
 #### [#10427]: Fix assertion
-# Description
-According to assertion message and comment("at least"), `T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE` should be changed into `T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE`
+**Description**
+According to assertion message and comment("at least"), `T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE` should be
+changed into `T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE`
 ```rust
 // Debug buffer should at least be large enough to accommodate a simple error message
 const MIN_DEBUG_BUF_SIZE: u32 = 256;
@@ -1244,7 +1403,10 @@ assert!(
 	T::MaxDebugBufferLen::get(),
 );
 ```
-For this assertion, the assertion message indicates assertion will fail when max_storage_size > storage_size_limit,  which means it requires max_storage_size <= storage_size_limit, but assertion predicate is `max_storage_size < storage_size_limit`. Based on the code semantics, assertion predicate should be changed into `max_storage_size <= storage_size_limit`.
+For this assertion, the assertion message indicates assertion will fail when max_storage_size > storage_size_limit,
+which means it requires max_storage_size <= storage_size_limit, but assertion predicate is `max_storage_size <
+storage_size_limit`. Based on the code semantics, assertion predicate should be changed into `max_storage_size <=
+storage_size_limit`.
 ```rust
 assert!(
 	max_storage_size < storage_size_limit,
@@ -1271,7 +1433,10 @@ Benchmark opcode was using the invalid opcode instead of defining a new one.
 
 
 #### [#10448]: wasm-builder: Only overwrite wasm files if they changed
-When running two different `cargo` commands, they may both compile the same wasm files. When the second `cargo` command produces the same wasm files, we are now not gonna overwrite it. This has the advantage that we can run the first command again without it trying to recompile the project. Right now it would lead to the wasm files always getting recreated, which is wasting a lot of time :)
+When running two different `cargo` commands, they may both compile the same wasm files. When the second `cargo` command
+produces the same wasm files, we are now not gonna overwrite it. This has the advantage that we can run the first
+command again without it trying to recompile the project. Right now it would lead to the wasm files always getting
+recreated, which is wasting a lot of time :)
 
 #### [#10184]: Fix coretime partitioning and improve on-demand latency
 Prior to this PR we would statically pre-populate the claim queue by
@@ -1307,71 +1472,85 @@ Breaking changes:
 
 
 #### [#10918]: Fix delegatecall callTracer addresses
-## Summary
+**Summary**
 - Fix address tracking in delegatecall operations for callTracer
 
-## Changes
+**Changes**
 - Update callTracer to correctly track addresses during delegatecall operations
 
-## Test plan
+**Test plan**
 - Existing tests should pass
 - Verify callTracer correctly reports addresses for delegatecall operations
 
 #### [#10399]: Limit the authority to adjust nomination pool deposits
-Up until this point, when EDs of chains using nomination pools were reduced, the subsequent reward account funds in exces could be claimed by anyone, despite the fact that they had been typically provided at the beginning by the pool owner. We therefore limit access to these funds only to the pool owner and the (optional) root account when EDs get reduced. The restriction does not apply to the increase in EDs, as these imply that funds are transferred into the pool rather than out of it.
+Up until this point, when EDs of chains using nomination pools were reduced, the subsequent reward account funds in
+exces could be claimed by anyone, despite the fact that they had been typically provided at the beginning by the pool
+owner. We therefore limit access to these funds only to the pool owner and the (optional) root account when EDs get
+reduced. The restriction does not apply to the increase in EDs, as these imply that funds are transferred into the pool
+rather than out of it.
 
 #### [#10454]: staking: do not remove an invulnerable in case of bad solution
 Invulnerables are not automatically removed from the Invulnerables storage when their solution is rejected.
 Removal should occur only through governance, not automatically.
-An operational or network issue that leads to an incomplete submission is much more likely than a bad faith action from an invulnerable.
+An operational or network issue that leads to an incomplete submission is much more likely than a bad faith action from
+an invulnerable.
 
 #### [#9184]: FixedPoint: Support parsing `x.y` format
 This makes it easier to declare a fixed point value. The old format is also still supported.
 
 #### [#10510]: [pallet-revive] fix delegate_call_contract in evm-test-suites
-evm-test-suite was not correctly executing delegate_call_contract causing pallet-revive to silently reject the delegatecall. After evm-test-suite was fixed we found that the trace for delegate calls is incorrect. This fixes it.
+evm-test-suite was not correctly executing delegate_call_contract causing pallet-revive to silently reject the
+delegatecall. After evm-test-suite was fixed we found that the trace for delegate calls is incorrect. This fixes it.
 
 #### [#10919]: Add revive Substrate runtime-api integration tests for call & instantiate
-## Summary
+**Summary**
 - Add integration tests for revive runtime API
 - Test Fibonacci contract deployment and execution via Substrate APIs
 
-## Changes
+**Changes**
 - Add test for Fibonacci contract call via runtime API
 - Add test to verify large Fibonacci values run out of gas as expected
 - Update dev-node runtime configuration for testing
 
-## Test plan
+**Test plan**
 - Run new integration tests
 - Verify runtime API correctly handles contract deployment
 - Verify gas limits are enforced correctly
 
 #### [#10340]: Remove "SolutionImprovementThreshold" logic
-The threshold mechanism used by the `election-provider-multi-block` verifier pallet is no longer relevant. There are no queued solutions to compare during the initial verification. Solutions are subsequently processed in order of decreasing score, with the first verified solution being selected, while any remaining solutions are not verified.
+The threshold mechanism used by the `election-provider-multi-block` verifier pallet is no longer relevant. There are no
+queued solutions to compare during the initial verification. Solutions are subsequently processed in order of decreasing
+score, with the first verified solution being selected, while any remaining solutions are not verified.
 
 #### [#10451]: Accept custom capacity for block notifier buffer
 Add a setter for a custom block notifier
 
 #### [#10928]: [pallet-revive] Fix gas_cost and weight_cost for nested calls in execution tracer
-# Description
+**Description**
 
-This PR fixes `gasCost` and `weightCost` calculations in execution tracing (structLogs) for opcodes that spawn child calls (CALL, DELEGATECALL, CREATE, etc.). Previously,  was  and  reflected pre-execution state rather than actual consumption for any parent call.
+This PR fixes `gasCost` and `weightCost` calculations in execution tracing (structLogs) for opcodes that spawn child
+calls (CALL, DELEGATECALL, CREATE, etc.). Previously,  was  and  reflected pre-execution state rather than actual
+consumption for any parent call.
 
 This PR:
-  - Computes  and `weightCost` in  as the cost of executing the opcode itself, excluding gas/weight consumed by child calls
+  - Computes  and `weightCost` in  as the cost of executing the opcode itself, excluding gas/weight consumed by child
+    calls
   - Tracks child call consumption via a `PendingStep` stack and subtracts it when the parent opcode completes
   - Adds test coverage for nested call gas tracking in both EVM and PVM modes
 
 
-## Difference from Ethereum/Geth
-  In Geth's opcode tracing,  for CALL-like opcodes includes the opcode's intrinsic cost plus all gas forwarded to child calls. In **our implementation**, `gasCost` reports only the opcode's intrinsic cost, **excluding forwarded gas**. The intrinsic cost includes:
+**Difference from Ethereum/Geth**
+  In Geth's opcode tracing,  for CALL-like opcodes includes the opcode's intrinsic cost plus all gas forwarded to child
+  calls. In **our implementation**, `gasCost` reports only the opcode's intrinsic cost, **excluding forwarded gas**. The
+  intrinsic cost includes:
   - The *CALL opcode's base cost
   - Post-call costs such as copying return data back to the caller's memory (e.g., CopyToContract)
 
 #### [#10471]: [Revive] Change default value of eth_getStorageAt
 Closes https://github.com/paritytech/contract-issues/issues/230
 
-With this change `eth_getStorageAt` of the eth rpc always returns a 32 byte array. If the storage slot has never been written before, it returns the 32 byte zero value as the default value. Before that it was the empty array.
+With this change `eth_getStorageAt` of the eth rpc always returns a 32 byte array. If the storage slot has never been
+written before, it returns the 32 byte zero value as the default value. Before that it was the empty array.
 
 #### [#10580]: Fix eth-rpc publish
 Use the update subxt macro to generate the metadata in OUT_DIR;
@@ -1382,59 +1561,75 @@ not doing so generates the following error when we try to publish the package:
 error: failed to publish to registry at https://crates.io
 
 Caused by:
-  the remote server responded with an error (status 403 Forbidden): this crate exists but you don't seem to be an owner. If you believe this is a mistake, perhaps you need to accept an invitation to be an owner before publishing.
+  the remote server responded with an error (status 403 Forbidden):
+  this crate exists but you don't seem to be an owner.
+  If you believe this is a mistake, perhaps you need to accept an
+  invitation to be an owner before publishing.
 
 ```
 
 see related subxt changes: https://github.com/paritytech/subxt/pull/2142
 
 #### [#10393]: Add configuration to set Ethereum gas scale
-This PR adds a new configuration parameter (`GasScale`) to pallet-revive that allows to change the scale of the Ethereum gas and of the Ethereum gas price.
+This PR adds a new configuration parameter (`GasScale`) to pallet-revive that allows to change the scale of the Ethereum
+gas and of the Ethereum gas price.
 
-Before this PR, the Ethereum gas price is simply the next fee multiplier of pallet-transaction-payment multiplied by `NativeToEthRatio`. Thus, on Polkadot this is 100_000_000 when the multiplier has its default value of 1.
+Before this PR, the Ethereum gas price is simply the next fee multiplier of pallet-transaction-payment multiplied by
+`NativeToEthRatio`. Thus, on Polkadot this is 100_000_000 when the multiplier has its default value of 1.
 
-The required gas of a transaction is its total cost divided by the gas price, where the total cost is the sum of the transaction fee and the storage deposit.
+The required gas of a transaction is its total cost divided by the gas price, where the total cost is the sum of the
+transaction fee and the storage deposit.
 
-This leads to a situation where the required gas for a transaction on revive is usually orders of magnitude larger than the required amount of gas on Ethereum. This can lead to issues with tools or systems that interact with revive and hard code expected gas amounts or upper limits of gas amounts.
+This leads to a situation where the required gas for a transaction on revive is usually orders of magnitude larger than
+the required amount of gas on Ethereum. This can lead to issues with tools or systems that interact with revive and hard
+code expected gas amounts or upper limits of gas amounts.
 
 Setting `GasScale` has two effects:
 - revive's Ethereum gas price is scaled up by the factor `GasScale`
 - resulting used/estimated gas amounts get scaled down by the factor `GasScale`.
 
-## Technical Details
-Internally, revive uses exactly the same gas price and gas units as before. Only at the interface these amounts and prices get scaled by `GasScale`.
+**Technical Details**
+Internally, revive uses exactly the same gas price and gas units as before. Only at the interface these amounts and
+prices get scaled by `GasScale`.
 
-## Recommended
+**Recommended**
 This PR sets `GasScale` for the dev-node to 50_000.
 
-This is motivated by the fact that storing a value in a contract storage slot costs `DepositPerChildTrieItem + DepositPerByte * 32`, which is `2_000_000_000 + 10_000_000 * 32` (= `2_320_000_000`) plancks. Before this change the gas price was 1_000_000 wei, so that this
+This is motivated by the fact that storing a value in a contract storage slot costs `DepositPerChildTrieItem +
+DepositPerByte * 32`, which is `2_000_000_000 + 10_000_000 * 32` (= `2_320_000_000`) plancks. Before this change the gas
+price was 1_000_000 wei, so that this
 equated to 2_320_000_000 gas units. In EVM this operation requires 22_100 gas only.
 
 Thus, `GasScale` would need to be about 100_000 in order for `SSTORE` to have similar worst case gas requirements.
 
-## Resolved Issues
+**Resolved Issues**
 
-This PR addresses https://github.com/paritytech/contract-issues/issues/18 but we also need to find an appropriate `GasScale` for a mainnet installment of pallet-revive.
+This PR addresses https://github.com/paritytech/contract-issues/issues/18 but we also need to find an appropriate
+`GasScale` for a mainnet installment of pallet-revive.
 
 #### [#10905]: Bump pallet-staking-reward-fn
 sp-arithmetic was bumped in a previous PR but not published yet on crates.io.
-Both Polkadot-runtime-common (already bumped and not released in a previous PR) and pallet-staking-reward-fn depend on it.
+Both Polkadot-runtime-common (already bumped and not released in a previous PR) and pallet-staking-reward-fn depend on
+it.
 Bump pallet-staking-reward-fn so that Parity-publish CI job can correctly resolve sp-arithmetic.
-Without this fix, we would end up with a dependency graph with two versions of sp-arithmetic with one of the two missing a trait impl needed by Polkadot-runtime-common.
+Without this fix, we would end up with a dependency graph with two versions of sp-arithmetic with one of the two missing
+a trait impl needed by Polkadot-runtime-common.
 
 #### [#10554]: [pallet-revive] add EVM gas call syscalls
 This PR adds two new syscalls for calls accepting EVM gas instead of Weight and Deposit.
 
-This is an important change for the initial release as it will align PVM contracts closer to EVM (the problem can't be solved in the Solidity compiler).
+This is an important change for the initial release as it will align PVM contracts closer to EVM (the problem can't be
+solved in the Solidity compiler).
 
 #### [#11282]: [CI] Download resolc from GitHub release instead of artifact
-## Summary
+**Summary**
 
-- Replace the hardcoded artifact-by-ID download of `resolc` in `tests-evm.yml` with a download from the GitHub release (`v1.0.0`)
+- Replace the hardcoded artifact-by-ID download of `resolc` in `tests-evm.yml` with a download from the GitHub release
+  (`v1.0.0`)
 - Artifact IDs expire and break CI; release assets are stable and versioned
 - Installs `resolc` to `/usr/local/bin` and verifies the version before running tests
 
-## Test plan
+**Test plan**
 
 - [ ] Verify the `tests-evm` workflow passes with the new download method
 
@@ -1442,24 +1637,29 @@ This is an important change for the initial release as it will align PVM contrac
 Kill `Stalled::<T>` only if `schedule_change()` has succeeded
 
 #### [#10686]: Weight: Put `must_use` above some of the functions
-Some functions return the modified weight and the user must use this or the changes are lost. This way the compiler informs the user.
+Some functions return the modified weight and the user must use this or the changes are lost. This way the compiler
+informs the user.
 
 #### [#10505]: pallet-aura: Extend `try_state` to also check `CurrentSlot`
-This ensures that `CurrentSlot` matches `timestamp / slot_duration`. Which is especially important to ensure that no one changed the `SlotDuration`.
+This ensures that `CurrentSlot` matches `timestamp / slot_duration`. Which is especially important to ensure that no one
+changed the `SlotDuration`.
 
 #### [#11054]: pallet-revive: minor cleanups and fixes
-## Summary
+**Summary**
 
 Preparatory cleanup PR extracted from the EIP-7702 branch to simplify review.
 
-- **Counter.sol uint64**: Change `uint256` to `uint64` in Counter/NestedCounter fixtures, to avoid U256 conversion in tests.
+- **Counter.sol uint64**: Change `uint256` to `uint64` in Counter/NestedCounter fixtures, to avoid U256 conversion in
+  tests.
 - **Remove k256 dependency**: Replace `k256::ecdsa::SigningKey` with `sp_core::ecdsa::Pair` in benchmark signing helpers
 - **Debug log**: Add debug log for `eth_transact` Substrate tx hash
 - **Formatting**: Fix indentation in call.rs closure body, remove stray blank line in lib.rs
-- **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed incorrect `gas_price` field at index 4, aligned with encoder)
+- **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed incorrect `gas_price` field at index 4, aligned
+  with encoder)
 
 #### [#10385]: Disable polkavm logging in `pallet-revive`
-This PR adds configurable control over PolkaVM logging in `pallet-revive` to address performance degradation (details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
+This PR adds configurable control over PolkaVM logging in `pallet-revive` to address performance degradation (details:
+https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
 
   - Upgrades PolkaVM to v0.30.0 which provides `set_imperfect_logger_filtering_workaround()`
   - Adds `pvm_logs` flag to `DebugSettings` to control PolkaVM interpreter logging
@@ -1492,7 +1692,9 @@ Key changes:
 
 
 #### [#11193]: [eth-rpc]: cap block_number_to_hashes map size
-When keep_latest_n_blocks (cache-size) is None, every processed block is inserted into the BTreeMap used for detecting reorgs, but never removed, except during reorgs. Since reorgs deeper than 256 blocks are unlikely, cap the map at 256 to prevent unbounded growth.
+When keep_latest_n_blocks (cache-size) is None, every processed block is inserted into the BTreeMap used for detecting
+reorgs, but never removed, except during reorgs. Since reorgs deeper than 256 blocks are unlikely, cap the map at 256 to
+prevent unbounded growth.
 
 #### [#10558]: pin solc version to 0.8.30 in tests-misc.yml
 pin solc version to 0.8.30 in tests-misc.yml
@@ -1516,7 +1718,8 @@ Fixes #10652
 #### [#9452]: Add comprehensive test data for Ethereum trie root validation
 ### Summary
 
-This PR adds comprehensive test data for validating Ethereum transaction and receipt trie root calculations in the `revive` crate. It includes real-world Ethereum blocks covering all supported transaction types.
+This PR adds comprehensive test data for validating Ethereum transaction and receipt trie root calculations in the
+`revive` crate. It includes real-world Ethereum blocks covering all supported transaction types.
 
 ---
 
@@ -1541,7 +1744,8 @@ Builds on top of: https://github.com/paritytech/polkadot-sdk/pull/9418
 Part of: https://github.com/paritytech/contract-issues/issues/139
 
 #### [#10022]: Aura: Support automatic slot migration
-This brings support to `pallet-aura` for automatically migrated the `Slot` on a change of `SlotDuration`. This is done by `on_runtime_upgrade` of `pallet-aura`.
+This brings support to `pallet-aura` for automatically migrated the `Slot` on a change of `SlotDuration`. This is done
+by `on_runtime_upgrade` of `pallet-aura`.
 
 #### [#11035]: Add Pallas and Vesta curve host functions to sp-crypto-ec-utils
 Add host function modules for the Pallas and Vesta elliptic curves,
@@ -1565,57 +1769,70 @@ build and deploy eth-rpc docker image for stable branches
 
 
 #### [#8175]: Snowbridge V2: Generic inbound message processing
-# Description
+**Description**
 
 This PR adds a new `MessageProcessor` type to the `inbound-queue-v2` pallet's config.
 
-This type allows to make the processing of inbound messages more generic, via the (also new) `MessageProcessor` trait, which contains the following functions:
+This type allows to make the processing of inbound messages more generic, via the (also new) `MessageProcessor` trait,
+which contains the following functions:
 
-- `can_process_message`: a custom (light) preliminary check to ensure that the message can be processed without the need of entering the full `process_message` implementation yet.
+- `can_process_message`: a custom (light) preliminary check to ensure that the message can be processed without the need
+  of entering the full `process_message` implementation yet.
 - `process_message`: actually performs the custom inbound message processing logic.
 
-## Motivation
+**Motivation**
 
-At the moment of inbound message processing, it might be the case that, for instance, there is no need to perform any XCM related logic, as it could happen in solo-chain contexts.
-By making use of the functionality included in this PR, projects using Snowbridge can leverage this customization, implementing any kind of processing they need for inbound queue messages in a more flexible way.
+At the moment of inbound message processing, it might be the case that, for instance, there is no need to perform any
+XCM related logic, as it could happen in solo-chain contexts.
+By making use of the functionality included in this PR, projects using Snowbridge can leverage this customization,
+implementing any kind of processing they need for inbound queue messages in a more flexible way.
 
-## Note: XcmPayload's name change
+**Note: XcmPayload's name change**
 
-In this PR I also included a small name change for the `XcmPayload` enum. The proposed name it's just a plain `Payload`, and it still contains the same fields as before.
-The reason for this change is to generalize the concept of "raw" bytes we receive in the first variant. At the moment of processing an inbound message, this bytes could be used not only as XCM but also as other kind of data.
+In this PR I also included a small name change for the `XcmPayload` enum. The proposed name it's just a plain `Payload`,
+and it still contains the same fields as before.
+The reason for this change is to generalize the concept of "raw" bytes we receive in the first variant. At the moment of
+processing an inbound message, this bytes could be used not only as XCM but also as other kind of data.
 This change doesn't imply further changes on the current Snowbridge smart contract implementations.
 
 #### [#11203]: asset-hub-westend: restrict StakingOperator proxy to explicit utility  batch calls
 Replace the RuntimeCall::Utility { .. } wildcard with explicit batch, batch_all, and force_batch calls only.
-The wildcard unnecessarily exposed as_derivative, dispatch_as, and with_weight which have no legitimate use for staking operations, and future utility pallet additions would be automatically exposed.
+The wildcard unnecessarily exposed as_derivative, dispatch_as, and with_weight which have no legitimate use for staking
+operations, and future utility pallet additions would be automatically exposed.
 
 #### [#10721]: Integrate asset test utilities for asset hub westend
-The PR migrates exchange_asset tests from integration tests to unit tests in the AssetHubWestend runtime and introduces a shared helper to reduce duplication.
+The PR migrates exchange_asset tests from integration tests to unit tests in the AssetHubWestend runtime and introduces
+a shared helper to reduce duplication.
 
 #### [#10693]: refund deposit_eth_extrinsic_revert_event on the base_weight
 When an eth transaction succeed we refund the pre-charged revert_event.
-The refund should be done on the base weight and not the weight_consumed, as the latest could be lower than the cost of the revert_event
+The refund should be done on the base weight and not the weight_consumed, as the latest could be lower than the cost of
+the revert_event
 
 #### [#11184]: Fix `burn` call weight in balances pallet
 Fix burn call weight in balances pallet
 
 #### [#10982]: Meta Transactions - Benchmarking update
-Update of benchmarking logic to remove possibility of `quadratic complexity` not being weighted when executed. Introducing witness parameter that would define length of `meta_tx` encoded size.
+Update of benchmarking logic to remove possibility of `quadratic complexity` not being weighted when executed.
+Introducing witness parameter that would define length of `meta_tx` encoded size.
 
 Update of weight annotation to `saturating add` instead of `add`.
 
 #### [#10697]: [frame-support] remove error reporting in `remote_transfer_xcm` for paid execution
-The reason is that it is broken and will result in spamming errors until we fix it properly: https://github.com/paritytech/polkadot-sdk/issues/10078.
+The reason is that it is broken and will result in spamming errors until we fix it properly:
+https://github.com/paritytech/polkadot-sdk/issues/10078.
 
 #### [#10366]: [pallet-revive] update evm create benchmark
 Add a benchmark for the EVM CREATE instruction.
 
-We are currently reusing the `seal_instantiate` benchmark from PVM instantiation, which is incorrect because instantiating an EVM contract takes different arguments and  follows a different code path than creating a PVM contract.
+We are currently reusing the `seal_instantiate` benchmark from PVM instantiation, which is incorrect because
+instantiating an EVM contract takes different arguments and  follows a different code path than creating a PVM contract.
 
 This benchmark performs the following steps:
 
 - Generates init bytecode of size i, optionally including a balance with dust.
-- Executes the init code that triggers a single benchmark opcode returning a runtime code of the maximum allowed size (qrevm::primitives::eip170::MAX_CODE_SIZE`).
+- Executes the init code that triggers a single benchmark opcode returning a runtime code of the maximum allowed size
+  (qrevm::primitives::eip170::MAX_CODE_SIZE`).
 
 
 #### [#10712]: [pallet-revive] remove code related to stable and unstable_hostfn
@@ -1689,18 +1906,22 @@ With `--features on-chain-release-build`:
 | glutton-westend-runtime | 545,344 | 548,753 | +3,409 | +0.63% |
 
 
-This shows that the size increase is neglectable and not worth the increased hassle when it comes to debuggin inside wasm.
+This shows that the size increase is neglectable and not worth the increased hassle when it comes to debuggin inside
+wasm.
 
 Closes: https://github.com/paritytech/polkadot-sdk/issues/3005
 
 #### [#9722]: [pallet-revive] opcode tracer
-This PR introduces a **Geth-compatible execution tracer** ([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger)) for pallet-revive
+This PR introduces a **Geth-compatible execution tracer**
+([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger)) for
+pallet-revive
 
 The tracer can be used to capture both EVM opcode and PVM syscall.
 It can be used with  the same RPC endpoint as Geth StructLogger.
 
 
-Since it can be quite resource intensive, It can only be queried from the node when the **DebugSettings** are enabled (This is turned on now by default in the dev-node)
+Since it can be quite resource intensive, It can only be queried from the node when the **DebugSettings** are enabled
+(This is turned on now by default in the dev-node)
 
 Tested in https://github.com/paritytech/evm-test-suite/pull/138
 
@@ -1799,9 +2020,13 @@ This PR introduces the try_state hook to pallet-assets to verify key storage inv
 The PR aligns common functions between Bulletin and SDK.
 
 #### [#11468]: Add a call to `.unvalidated()` for all eth-rpc interactions
-# Description
+**Description**
 
-This PR updates the `eth-rpc` so that all interactions with subxt are unvalidated. This change was made to allow us to use any `eth-rpc` version with any version of pallet revive given that there's no actual interface differences in the runtime functions that we called. Before this change, we would get a lot of metadata mismatch errors for slightly older versions of revive. Our assumption is that this happened due to us adding more runtime functions into pallet-revive's runtime API which lead to the hash of the metadata being different, thus to the metadata mismatch.
+This PR updates the `eth-rpc` so that all interactions with subxt are unvalidated. This change was made to allow us to
+use any `eth-rpc` version with any version of pallet revive given that there's no actual interface differences in the
+runtime functions that we called. Before this change, we would get a lot of metadata mismatch errors for slightly older
+versions of revive. Our assumption is that this happened due to us adding more runtime functions into pallet-revive's
+runtime API which lead to the hash of the metadata being different, thus to the metadata mismatch.
 
 #### [#10475]: try state check for pallet authority discovery
 This PR introduces the try_state hook to pallet-authority-discovery to verify key storage invariants.
@@ -1811,8 +2036,10 @@ closes part of https://github.com/paritytech/polkadot-sdk/issues/239
 #### [#10771]: Snowbridge: Describe the token location with the length field included to avoid collisions
 For GeneralKey, two XCM junctions that differ only in length can currently produce the same description bytes,
 and therefore the same TokenId. To avoid such collisions, this PR includes the length field in the describe function.
-We do have several PNAs registered that could be affected by this change. However, these tokens are not currently in use,
-there have been no transfers and no tokens minted so far. As a result, simply re-registering these tokens should be sufficient,
+We do have several PNAs registered that could be affected by this change. However, these tokens are not currently in
+use,
+there have been no transfers and no tokens minted so far. As a result, simply re-registering these tokens should be
+sufficient,
 without requiring a runtime storage migration.
 
 #### [#10682]: add must_use attributes
@@ -1825,13 +2052,17 @@ It also adds follow-up tests to #10779 to check `Client` construction from valid
 
 
 #### [#10920]: [pallet-revive] Fix storage deposit refunds in nested contract calls
-fixes https://github.com/paritytech/contract-issues/issues/213 where storage deposit refunds failed in nested/reentrant calls.
+fixes https://github.com/paritytech/contract-issues/issues/213 where storage deposit refunds failed in nested/reentrant
+calls.
 
 Problem
-Storage refunds were calculated incorrectly when a contract allocated storage, then performed a nested call that cleared it. Pending storage changes lived only in the parent FrameMeter, so child frames could not see them and refunds were skipped.
+Storage refunds were calculated incorrectly when a contract allocated storage, then performed a nested call that cleared
+it. Pending storage changes lived only in the parent FrameMeter, so child frames could not see them and refunds were
+skipped.
 
 Solution
-Apply pending storage deposit changes to a cloned ContractInfo before creating nested frames. This makes the parent’s storage state visible to child frames during refund calculation.
+Apply pending storage deposit changes to a cloned ContractInfo before creating nested frames. This makes the parent’s
+storage state visible to child frames during refund calculation.
 
 Implementation
 - Added apply_pending_changes_to_contract() to apply pending diffs to ContractInfo
@@ -1843,46 +2074,75 @@ Implementation
 - Turn off runtime logging in bench bot to reduce spam log output
 
 #### [#10166]: Implement general gas tracking
-This PR implements [the general gas tracking spec](https://shade-verse-e97.notion.site/Revive-Resource-Management-2928532a7ab5808381b4e688fcc58838?pvs=74).
+This PR implements [the general gas tracking
+spec](https://shade-verse-e97.notion.site/Revive-Resource-Management-2928532a7ab5808381b4e688fcc58838?pvs=74).
 
-This PR ballooned into something much bigger than I expected. Many of the changes are due to the fact that all tests and a lot of the other logic has some touch points with the resource management logic. Most of the actual changes in logic are just in the folder `metering` of pallet-revive.
+This PR ballooned into something much bigger than I expected. Many of the changes are due to the fact that all tests and
+a lot of the other logic has some touch points with the resource management logic. Most of the actual changes in logic
+are just in the folder `metering` of pallet-revive.
 
 The main changes are that
-- Metering now works differently depending on whether the transaction as a whole defines weight and deposit limits ("Substrate execution mode") or just an Ethereum gas limit ("Ethereum execution mode"). The Ethereum execution mode is used for all `eth_transact` extrinsics.
-- There is a third resource (in addition to weight and storage deposits): Ethereum gas. In the Ethereum execution mode this is a shared resource (consumable through weight and through storage deposits).
+- Metering now works differently depending on whether the transaction as a whole defines weight and deposit limits
+  ("Substrate execution mode") or just an Ethereum gas limit ("Ethereum execution mode"). The Ethereum execution mode is
+  used for all `eth_transact` extrinsics.
+- There is a third resource (in addition to weight and storage deposits): Ethereum gas. In the Ethereum execution mode
+  this is a shared resource (consumable through weight and through storage deposits).
 
 **Metering logic**
-Almost all changes in this PR are confined to the folder `metering` of pallet-revive. Before this PR there were two meters: a weight meter and a gas meter. They have now been combined into a main meter called `ResourceMeter`. Outside code only interacts with the `ResourceMeter` and not individually with the gas or storage meter. The reason is that in Ethereum execution mode gas is a shared resource and interacting with one meter influences the limits of the other meter.
+Almost all changes in this PR are confined to the folder `metering` of pallet-revive. Before this PR there were two
+meters: a weight meter and a gas meter. They have now been combined into a main meter called `ResourceMeter`. Outside
+code only interacts with the `ResourceMeter` and not individually with the gas or storage meter. The reason is that in
+Ethereum execution mode gas is a shared resource and interacting with one meter influences the limits of the other
+meter.
 
 Here are some finer points:
 - The previous code of the gas and deposit meters has been moved to the `metering` folder
-- Since outside code interacts only with the `ResourceMeter`, most functions now don't use a separate gas meter and deposit meter anymore but just a `ResourceMeter`
-- Similar to the two two kinds of deposits meters (`Root` and `Nested`), there are two kind of `ResourceMeter`: the top-level `TransactionMeter` used at the beginning of a transaction and a `FrameMeter` used once per frame
-- The limits of a `TransactionMeter` are specified through the `TransactionLimits` type, which distinguishes between Substrate and Ethereum execution mode.
-- The limits of a `FrameMeter` is specified through the type `CallResources`, which can either be a) no limits (e.g., in the case of contract creation), or b) a weight and deposit, or c) a gas limit.
+- Since outside code interacts only with the `ResourceMeter`, most functions now don't use a separate gas meter and
+  deposit meter anymore but just a `ResourceMeter`
+- Similar to the two two kinds of deposits meters (`Root` and `Nested`), there are two kind of `ResourceMeter`: the
+  top-level `TransactionMeter` used at the beginning of a transaction and a `FrameMeter` used once per frame
+- The limits of a `TransactionMeter` are specified through the `TransactionLimits` type, which distinguishes between
+  Substrate and Ethereum execution mode.
+- The limits of a `FrameMeter` is specified through the type `CallResources`, which can either be a) no limits (e.g., in
+  the case of contract creation), or b) a weight and deposit, or c) a gas limit.
 - The top level name of functions in the meters has been changed to be a bit more explicit about their purpose.
   - This applied particularly to the methods at the end of the lifecycle:
     - `enforce_limit` has been renamed to `finalize` as that describes the semantics better
     - `try_into_deposit` has been renamed to `execute_postponed_deposits`
 - For absorbing a frame meter into its parent meter, there are two different absorption functions:
-  - `absorb_weight_meter_only`: when a frame reverts. In this case we ignore all storage deposits from the reverting frame. We still need to absorb the observed maximum deposit so that we determine the correct maximum deposit during dry running.
+  - `absorb_weight_meter_only`: when a frame reverts. In this case we ignore all storage deposits from the reverting
+    frame. We still need to absorb the observed maximum deposit so that we determine the correct maximum deposit during
+    dry running.
   - `absorb_all_meters`: when a frame was successful
-- The weight meter now has an `effective_weight_limit`, which needs to be recalculated whenever the deposit meter changes and is for optimization purposes.
-- The limits of the gas meter and deposit meters are now an `Option<...>`. When it is `None`, then this represents unlimited meters and this is only used for Ethereum style executions (the meters are not really unlimited, there will be a gas limit that effectively limits the resource usages of the weight and deposit meters).
-- In the weight meters, the `sync_to_executor` and `sync_from_executor` are a bit simplified and there is no need for `engine_fuel_left` anymore.
+- The weight meter now has an `effective_weight_limit`, which needs to be recalculated whenever the deposit meter
+  changes and is for optimization purposes.
+- The limits of the gas meter and deposit meters are now an `Option<...>`. When it is `None`, then this represents
+  unlimited meters and this is only used for Ethereum style executions (the meters are not really unlimited, there will
+  be a gas limit that effectively limits the resource usages of the weight and deposit meters).
+- In the weight meters, the `sync_to_executor` and `sync_from_executor` are a bit simplified and there is no need for
+  `engine_fuel_left` anymore.
 
 **Other Changes**
 - The old name `gas` for weights has been consistently replaced by `weight`
-- `eth_call` and `eth_instantiate_with_code` now take a `weight_limit` (used to ensure that weight does not exceed the max extrinsic weight) and an `eth_gas_limit` (the new externally defined limit)
-- The numeric calculation in `compute_max_integer_quotient` and `compute_max_integer_pair_quotient` (defined in `substrate/frame/revive/src/evm/frees.rs`) are meant to divide a number by the next fee multiplier
-- The call tracer does not take a `GasMapper` anymore as it will now be fed directly with the Ethereum gas values instead of weights
+- `eth_call` and `eth_instantiate_with_code` now take a `weight_limit` (used to ensure that weight does not exceed the
+  max extrinsic weight) and an `eth_gas_limit` (the new externally defined limit)
+- The numeric calculation in `compute_max_integer_quotient` and `compute_max_integer_pair_quotient` (defined in
+  `substrate/frame/revive/src/evm/frees.rs`) are meant to divide a number by the next fee multiplier
+- The call tracer does not take a `GasMapper` anymore as it will now be fed directly with the Ethereum gas values
+  instead of weights
 - Re-entrancy protection now has three modes: no protection, `Strict` protection and `AllowNext`
-  - `AllowNext` allows to re-enter the same contract but only for the next frame. This is required to implement reentrancy protection for simple transfers with call stipends
-  - For `Strict` protection we set `allows_reentry` of the caller to `false` before the creation of the new frame, for `AllowNext` we to it after the creation
+  - `AllowNext` allows to re-enter the same contract but only for the next frame. This is required to implement
+    reentrancy protection for simple transfers with call stipends
+  - For `Strict` protection we set `allows_reentry` of the caller to `false` before the creation of the new frame, for
+    `AllowNext` we to it after the creation
 - We define the max block gas as `u64::MAX` (as discussed with @pgherveou)
-- I now calculate the maximal required storage deposits during dry running (called `max_storage_deposit` in the deposit meter). For example, if a transaction encounters a storage deposit that is later refunded, then the total storage deposit is zero. However, the caller needs to provide enough resources so that temporarily the execution does not run out of gas and terminates the call prematurely.
+- I now calculate the maximal required storage deposits during dry running (called `max_storage_deposit` in the deposit
+  meter). For example, if a transaction encounters a storage deposit that is later refunded, then the total storage
+  deposit is zero. However, the caller needs to provide enough resources so that temporarily the execution does not run
+  out of gas and terminates the call prematurely.
 - The function `try_upload_code` now always takes a meter and records the storage deposit charge there
-- In this PR I added logic to correctly handle call stipends (this fixes https://github.com/paritytech/contract-issues/issues/215)
+- In this PR I added logic to correctly handle call stipends (this fixes
+  https://github.com/paritytech/contract-issues/issues/215)
 
 **Fixes**
 This fixes a couple of issues
@@ -1895,13 +2155,17 @@ This fixes a couple of issues
 
 #### [#11153]: [eth-rpc]: add resumable block sync and improve CLI arguments
 **Resumable block sync**
-- New block_sync module syncs backward from the latest finalized block to the first EVM block, with restart-safe checkpoint tracking via a sync_state SQLite table.
-- On restart, fills only the top gap (new blocks) and bottom gap (remaining backfill) without re-syncing completed ranges.
+- New block_sync module syncs backward from the latest finalized block to the first EVM block, with restart-safe
+  checkpoint tracking via a sync_state SQLite table.
+- On restart, fills only the top gap (new blocks) and bottom gap (remaining backfill) without re-syncing completed
+  ranges.
 - Auto-discovers and persists `first_evm_block` — the lowest block with EVM support on the chain.
-- Chain identity verification: validates stored genesis hash on startup to detect database reuse across different chains; verifies sync boundary hashes to detect pruned blocks on the connected node.
+- Chain identity verification: validates stored genesis hash on startup to detect database reuse across different
+  chains; verifies sync boundary hashes to detect pruned blocks on the connected node.
 
 **CLI rework**
-New `--eth-pruning` flag replaces `--database-url`, `--cache-size`, `--index-last-n-blocks`, and `--earliest-receipt-block`:
+New `--eth-pruning` flag replaces `--database-url`, `--cache-size`, `--index-last-n-blocks`, and
+`--earliest-receipt-block`:
 - `--eth-pruning archive` (default): persistent on-disk DB with backward historical sync.
 - `--eth-pruning <N>`: in-memory DB keeping the latest N blocks.
 
@@ -1910,17 +2174,26 @@ New `--eth-pruning` flag replaces `--database-url`, `--cache-size`, `--index-las
 Fixing two issues:
 
 1. Build on rustc >= 1.92 was broken despite https://github.com/paritytech/polkadot-sdk/pull/10749. That PR was broken.
-2. The nested cargo didn't properly inherit the parent toolchain (an older error). Leading to the situation where a `1.88` was only applied to the parent toolchain
+2. The nested cargo didn't properly inherit the parent toolchain (an older error). Leading to the situation where a
+   `1.88` was only applied to the parent toolchain
 
 Replacement for https://github.com/paritytech/polkadot-sdk/pull/10778.
 
 #### [#11158]: Add timeout + people-westend to check-runtime CI
-@Polkadot-api/check-runtime hangs in case the RPC endpoint is not reachable. A timeout is added to handle this case gracefully.
+@Polkadot-api/check-runtime hangs in case the RPC endpoint is not reachable. A timeout is added to handle this case
+gracefully.
 
 Driven-by: add support for metadata-hash extension on `people-westend`  and add it to the list of chains to check.
 
 #### [#10396]: `ExecuteBlock` split up seal verification and actual execution
-`ExecuteBlock` exposes the `execute_block` function that is used by `validate_block` to execute a block. In case auf AuRa the block execution includes the verification of the seal and the removal of the seal. To verify the seal, the block executor needs to load the current authority set. The problem is that when we have storage proof reclaim enabled and the host function is used in `on_initialize` before `pallet_aura_ext::on_initialize` (this is where we fetch the authority set to ensure it appears in the proof) is called, it leads to `validate_block` returning a different size and thus, breaking the block. To solve this issue `ExecuteBlock` is now split into seal verification and execution of the verified block. In `validate_block` the seal verification is then run outside of the block execution, not leading to the issues of reporting different proof sizes.
+`ExecuteBlock` exposes the `execute_block` function that is used by `validate_block` to execute a block. In case auf
+AuRa the block execution includes the verification of the seal and the removal of the seal. To verify the seal, the
+block executor needs to load the current authority set. The problem is that when we have storage proof reclaim enabled
+and the host function is used in `on_initialize` before `pallet_aura_ext::on_initialize` (this is where we fetch the
+authority set to ensure it appears in the proof) is called, it leads to `validate_block` returning a different size and
+thus, breaking the block. To solve this issue `ExecuteBlock` is now split into seal verification and execution of the
+verified block. In `validate_block` the seal verification is then run outside of the block execution, not leading to the
+issues of reporting different proof sizes.
 
 
 #### [#10511]: Minor pallet-scheduler documentation/unit test additions
@@ -1958,17 +2231,21 @@ move from XCM registers to other parts of the stack (e.g. deposited to accounts,
 
 
 #### [#10373]: Block import improvements
-This PR fixes block import during Warp sync, which was failing due to "Unknown parent" errors - a typical case during Warp sync.
+This PR fixes block import during Warp sync, which was failing due to "Unknown parent" errors - a typical case during
+Warp sync.
 
 Changes
  - Relaxed verification for Warp synced blocks:
-The fix relaxes verification requirements for Warp synced blocks by not performing full verification, with the assumption that these blocks are part of the finalized chain and have already been verified using the provided warp sync proof.
+The fix relaxes verification requirements for Warp synced blocks by not performing full verification, with the
+assumption that these blocks are part of the finalized chain and have already been verified using the provided warp sync
+proof.
 - New `BlockOrigin` variants:
 For improved clarity, two additional `BlockOrigin` items have been introduced:
   - `WarpSync`
   - `GapSync`
 - Gap sync improvements:
-Warp synced blocks are now skipped during the gap sync block import phase, which required improvements to gap handling when committing the block import operation in the database.
+Warp synced blocks are now skipped during the gap sync block import phase, which required improvements to gap handling
+when committing the block import operation in the database.
 - Enhanced testing:
 The Warp sync zombienet test has been modified to more thoroughly assert both warp and gap sync phases.
 
@@ -1984,13 +2261,17 @@ o process statements in parallel, improving throughput when statement store is e
 
 
 #### [#10662]: Bulletin as parachain missing features
-- Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
-- Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
+- Node developers/operators could enable the transaction storage inherent data provider setup by using
+  --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
+- Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful
+  in the context of bulletin chain.
 
 
 #### [#10752]:   Gap Sync: Skip Body Requests for Non-Archive Nodes
 ### Summary
-This PR optimizes gap sync bandwidth usage by skipping body requests for non-archive nodes. Bodies are unnecessary during gap sync when the node doesn't maintain full block history, while archive nodes continue to request bodies to preserve complete history.
+This PR optimizes gap sync bandwidth usage by skipping body requests for non-archive nodes. Bodies are unnecessary
+during gap sync when the node doesn't maintain full block history, while archive nodes continue to request bodies to
+preserve complete history.
 It reduces bandwidth consumption and database size significantly for typical validator/full nodes.
 
 Additionally added some gap sync statistics for observability:
@@ -2014,7 +2295,8 @@ Both values then need to be feed into `set_keys` as part of the transaction.
 `author_rotateKeysWithOwner` is a replacement for `author_rotateKeys`.
 
 #### [#10978]: Omni-node supports Polkadot-asset-hub
-The `polkadot-omni-node` binary now supports Polkadot-asset-hub. Other system chains where already supported, but PAH uses Ed25519, which makes it a special case.
+The `polkadot-omni-node` binary now supports Polkadot-asset-hub. Other system chains where already supported, but PAH
+uses Ed25519, which makes it a special case.
 
 
 #### [#10196]: Improve Warp Sync Logging
@@ -2026,32 +2308,41 @@ Introduce new CLI args to control statement store parameters.
 Rework the statement store configuration, consolidating all parameters into a single structure.
 
 #### [#10893]: Do not prune blocks with GrandPa justifications
-Warp sync requires GRANDPA justifications at authority set change boundaries to construct proofs. When block pruning is enabled, all block bodies are removed regardless of whether they contain important justifications. The pruned nodes can then not be used to fetch warp proofs.
-We now have the capability to filter which blocks can be safely pruned. For parachain nodes, everything can be pruned, solochain nodes using grandpa keep blocks with justifications. This ensures warp sync ability within the network.
+Warp sync requires GRANDPA justifications at authority set change boundaries to construct proofs. When block pruning is
+enabled, all block bodies are removed regardless of whether they contain important justifications. The pruned nodes can
+then not be used to fetch warp proofs.
+We now have the capability to filter which blocks can be safely pruned. For parachain nodes, everything can be pruned,
+solochain nodes using grandpa keep blocks with justifications. This ensures warp sync ability within the network.
 
 
 ### Changelog for `Runtime User`
 
-**ℹ️ These changes are relevant to:**  Anyone using the runtime. This can be a token holder or a dev writing a front end for a chain.
+**ℹ️ These changes are relevant to:**  Anyone using the runtime. This can be a token holder or a dev writing a front end
+for a chain.
 
 
 #### [#10828]: [pallet-broker] add extrinsic to forcefully remove the potential renewal
-Add an extrinsic allowing to forcefully remove the existing potential renewal from chain without the need to directly manipulate the storage.
+Add an extrinsic allowing to forcefully remove the existing potential renewal from chain without the need to directly
+manipulate the storage.
 
 #### [#10767]: Fix auto-renew core tracking on immediate renew
 **Summary**
-Fix auto-renew tracking when `do_enable_auto_renew` triggers an immediate renewal. The auto-renew record now follows the new core index returned by `do_renew`, preventing a stale core from being
+Fix auto-renew tracking when `do_enable_auto_renew` triggers an immediate renewal. The auto-renew record now follows the
+new core index returned by `do_renew`, preventing a stale core from being
 renewed in the next sale rotation.
 
 Discovered by the Darwinia Network team while attempting a renew.
 
 **Problem**
-When enabling auto-renew during the renewal window (`PotentialRenewals` at `sale.region_begin`), `do_enable_auto_renew` immediately calls `do_renew`. That call can allocate a *different* core
-index, but the auto-renew record was stored with the **old** core. On the next rotation, `renew_cores` attempts to renew that stale core and emits `AutoRenewalFailed`, even though the workload has
+When enabling auto-renew during the renewal window (`PotentialRenewals` at `sale.region_begin`), `do_enable_auto_renew`
+immediately calls `do_renew`. That call can allocate a *different* core
+index, but the auto-renew record was stored with the **old** core. On the next rotation, `renew_cores` attempts to renew
+that stale core and emits `AutoRenewalFailed`, even though the workload has
 already moved to the new core.
 
 **Fix**
-Capture the returned core index from `do_renew` inside `do_enable_auto_renew`, and store that core in `AutoRenewals` (and the enable event).
+Capture the returned core index from `do_renew` inside `do_enable_auto_renew`, and store that core in `AutoRenewals`
+(and the enable event).
 
 **Tests**
 - Added `enable_auto_renew_immediate_updates_core_and_renews`
@@ -2061,7 +2352,9 @@ Capture the returned core index from `do_renew` inside `do_enable_auto_renew`, a
 Closes: https://github.com/paritytech/polkadot-sdk/issues/10006
 
 #### [#10697]: [frame-support] remove error reporting in `remote_transfer_xcm` for paid execution
-The reason is that it is broken and will result in spamming errors until we fix it properly: https://github.com/paritytech/polkadot-sdk/issues/10078.
+The reason is that it is broken and will result in spamming errors until we fix it properly:
+https://github.com/paritytech/polkadot-sdk/issues/10078.
 
 #### [#10856]: [pallet-broker] add extrinsic to force transfer a region
-Add an extrinsic to `pallet-broker` which allows a privileged origin (`AdminOrigin` or `Root`) to forcefully transfer a region, ignoring its current owner.
+Add an extrinsic to `pallet-broker` which allows a privileged origin (`AdminOrigin` or `Root`) to forcefully transfer a
+region, ignoring its current owner.
