@@ -371,29 +371,15 @@ impl<
 
 	/// Take the Submission Deposit from `self`, if there is one and it's in a valid state to be
 	/// taken. Returns an `Err` if `self` is not in a valid state for the Submission Deposit to be
-	/// refunded.
+	/// taken.
 	pub fn take_submission_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			// Can only refund deposit if it's approved or cancelled.
-			Approved(_, s, _) | Cancelled(_, s, _) => Ok(s.take()),
-			// Cannot refund deposit if Ongoing as this breaks assumptions.
-			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),
-		}
-	}
-
-	/// Take the Submission Deposit from `self` to have it slashed, if there is one and it's in a
-	/// valid state to be taken. Returns an `Err` if `self` is not in a valid state for the
-	/// Submission Deposit to be slashed.
-	pub fn take_slash_submission_deposit(
-		&mut self,
-	) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
-		use ReferendumInfo::*;
-		match self {
-			// Can only slash deposit if it's rejected or timed out.
-			Rejected(_, s, _) | TimedOut(_, s, _) => Ok(s.take()),
-			// Cannot slash deposit if Ongoing as this breaks assumptions.
-			Ongoing(..) | Approved(..) | Cancelled(..) | Killed(..) => Err(()),
+			Approved(_, s, _) | Cancelled(_, s, _) | Rejected(_, s, _) | TimedOut(_, s, _) => {
+				Ok(s.take())
+			},
+			// Cannot take deposit if Ongoing as this breaks assumptions.
+			Ongoing(..) | Killed(..) => Err(()),
 		}
 	}
 }

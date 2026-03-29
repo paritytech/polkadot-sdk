@@ -703,6 +703,11 @@ pub mod pallet {
 			ensure_signed_or_root(origin)?;
 			let mut info =
 				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
+			// Can only refund deposit if it's approved or cancelled.
+			ensure!(
+				matches!(info, ReferendumInfo::Approved(..) | ReferendumInfo::Cancelled(..)),
+				Error::<T, I>::BadStatus
+			);
 			let deposit = info
 				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
@@ -734,8 +739,13 @@ pub mod pallet {
 			ensure_signed_or_root(origin)?;
 			let mut info =
 				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
+			// Can only slash deposit if it's rejected or timed out.
+			ensure!(
+				matches!(info, ReferendumInfo::Rejected(..) | ReferendumInfo::TimedOut(..)),
+				Error::<T, I>::BadStatus
+			);
 			let deposit = info
-				.take_slash_submission_deposit()
+				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
 			Self::slash_deposit(Some(deposit));
