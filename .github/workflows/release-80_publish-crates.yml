@@ -279,7 +279,7 @@ jobs:
 
           if [ "$REGISTRY" = "staging.crates.io" ]; then
             cat >> ~/.cargo/config.toml << 'EOF'
-          [registries.crates-io]
+          [registries.staging]
           index = "sparse+https://index.staging.crates.io/"
           EOF
           else
@@ -293,18 +293,31 @@ jobs:
         if: inputs.resume_from != 'push'
         shell: bash
         env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_STAGING_CRATESIO_TOKEN: ${{ secrets.STAGING_CRATES_IO_API_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
         run: |
 
+          STAGING_ARG=""
+          if [ "$REGISTRY" = "staging.crates.io" ]; then
+            STAGING_ARG="--staging"
+          fi
+
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
+<<<<<<< HEAD
             parity-publish apply -p -d
           else
             echo "Publishing crates to $REGISTRY..."
             parity-publish apply -p
+=======
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
+          else
+            echo "Publishing crates to $REGISTRY..."
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
+>>>>>>> 3e8d20ea ([Release|CI] - Support releasing crates to staging.crates.io (#11461))
             echo "Crates published successfully to $REGISTRY!"
           fi
 
