@@ -69,10 +69,20 @@ impl<'a, I: codec::Input> codec::Input for PrependBytesInput<'a, I> {
 /// passed to the parachain validation Wasm blob to be validated.
 #[derive(Clone)]
 pub enum ParachainBlockData<Block> {
-	V0 { block: [Block; 1], proof: CompactProof },
-	V1 { blocks: Vec<Block>, proof: CompactProof },
+	V0 {
+		block: [Block; 1],
+		proof: CompactProof,
+	},
+	V1 {
+		blocks: Vec<Block>,
+		proof: CompactProof,
+	},
 	/// V2 adds scheduling proof for V3 candidates.
-	V2 { blocks: Vec<Block>, proof: CompactProof, scheduling_proof: crate::SchedulingProof },
+	V2 {
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: crate::SchedulingProof,
+	},
 }
 
 impl<Block: Encode> Encode for ParachainBlockData<Block> {
@@ -219,7 +229,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 			},
 			Self::V2 { blocks, proof, .. } => {
 				if blocks.len() != 1 {
-					return None
+					return None;
 				}
 
 				blocks
@@ -311,9 +321,7 @@ mod tests {
 
 	#[test]
 	fn decoding_encoding_v2_works() {
-		let scheduling_proof = crate::SchedulingProof {
-			header_chain: vec![make_relay_header(5)],
-		};
+		let scheduling_proof = crate::SchedulingProof { header_chain: vec![make_relay_header(5)] };
 
 		let v2 = ParachainBlockData::<TestBlock>::V2 {
 			blocks: vec![TestBlock::new(
@@ -358,9 +366,7 @@ mod tests {
 
 	#[test]
 	fn v2_into_inner_drops_scheduling_proof() {
-		let scheduling_proof = crate::SchedulingProof {
-			header_chain: vec![make_relay_header(5)],
-		};
+		let scheduling_proof = crate::SchedulingProof { header_chain: vec![make_relay_header(5)] };
 
 		let v2 = ParachainBlockData::<TestBlock>::V2 {
 			blocks: vec![TestBlock::new(Header::new_from_number(10), vec![])],
@@ -375,9 +381,7 @@ mod tests {
 
 	#[test]
 	fn v2_as_v0_works_with_single_block() {
-		let scheduling_proof = crate::SchedulingProof {
-			header_chain: vec![make_relay_header(5)],
-		};
+		let scheduling_proof = crate::SchedulingProof { header_chain: vec![make_relay_header(5)] };
 
 		// V2 with single block can be converted to V0
 		let v2_single = ParachainBlockData::<TestBlock>::V2 {

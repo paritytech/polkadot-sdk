@@ -28,9 +28,7 @@ use cumulus_client_collator::{
 	relay_chain_driven::CollationRequest, service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
-use cumulus_primitives_core::{
-	relay_chain::BlockId as RBlockId, CollectCollationInfo,
-};
+use cumulus_primitives_core::{relay_chain::BlockId as RBlockId, CollectCollationInfo};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
 
@@ -106,8 +104,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
+	Client::Api: AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
 	RClient: RelayChainInterface + Send + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,

@@ -362,7 +362,13 @@ where
 		candidate: ParachainCandidate<Block>,
 		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		CollatorService::build_collation(self, parent_header, block_hash, candidate, scheduling_proof)
+		CollatorService::build_collation(
+			self,
+			parent_header,
+			block_hash,
+			candidate,
+			scheduling_proof,
+		)
 	}
 
 	fn announce_with_barrier(

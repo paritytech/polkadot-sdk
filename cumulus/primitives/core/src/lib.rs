@@ -35,7 +35,6 @@ pub mod parachain_block_data;
 pub mod scheduling;
 
 pub use parachain_block_data::ParachainBlockData;
-pub use scheduling::{SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo};
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
@@ -45,6 +44,7 @@ pub use polkadot_primitives::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, ClaimQueueOffset, CoreSelector,
 	PersistedValidationData,
 };
+pub use scheduling::{SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo};
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,

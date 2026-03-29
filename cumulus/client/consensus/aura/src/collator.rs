@@ -361,9 +361,12 @@ where
 		let Some(candidate) = maybe_candidate else { return Ok(None) };
 
 		let hash = candidate.block.header().hash();
-		if let Some((collation, block_data)) =
-			self.collator_service.build_collation(parent_header, hash, candidate.into(), scheduling_proof)
-		{
+		if let Some((collation, block_data)) = self.collator_service.build_collation(
+			parent_header,
+			hash,
+			candidate.into(),
+			scheduling_proof,
+		) {
 			block_data.log_size_info();
 
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
