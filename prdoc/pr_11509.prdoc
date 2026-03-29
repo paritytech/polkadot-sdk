@@ -1,0 +1,15 @@
+title: '[pallet-delegated-staking] fix: map defensive checked_sub to Underflow on
+  release'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    In `release_delegation`, the defensive branch for a failing `checked_sub` on the delegation balance used `ArithmeticError::Overflow`. A failed subtraction here indicates the amount would go negative (underflow), so the error should be `ArithmeticError::Underflow`.
+
+    ## Testing
+
+    `SKIP_WASM_BUILD=1 cargo check -p pallet-delegated-staking --all-features`
+crates:
+- name: pallet-delegated-staking
+  bump: patch
