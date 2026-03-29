@@ -66,14 +66,14 @@ pub mod async_backing {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 }
 
-pub mod async_backing_v3_disabled {
+pub mod async_backing_v3 {
 	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_disabled.rs"));
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3.rs"));
 }
 
-pub mod elastic_scaling_v3_disabled {
+pub mod elastic_scaling_v3 {
 	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3_disabled.rs"));
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3.rs"));
 }
 
 pub mod slot_duration_18s {
@@ -388,18 +388,10 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 #[cfg(not(feature = "relay-parent-offset"))]
 const RELAY_PARENT_OFFSET: u32 = 0;
 
-#[cfg(any(
-	feature = "sync-backing",
-	feature = "async-backing-v3-disabled",
-	feature = "elastic-scaling-v3-disabled",
-))]
-const SCHEDULING_V3_ENABLED: bool = false;
-#[cfg(not(any(
-	feature = "sync-backing",
-	feature = "async-backing-v3-disabled",
-	feature = "elastic-scaling-v3-disabled",
-)))]
+#[cfg(any(feature = "async-backing-v3", feature = "elastic-scaling-v3"))]
 const SCHEDULING_V3_ENABLED: bool = true;
+#[cfg(not(any(feature = "async-backing-v3", feature = "elastic-scaling-v3")))]
+const SCHEDULING_V3_ENABLED: bool = false;
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,

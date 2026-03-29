@@ -143,22 +143,22 @@ pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	)
 }
 
-// Async backing with async backing v3 disabled.
-pub fn get_async_backing_v3_disabled_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+// Async backing with scheduling V3 enabled.
+pub fn get_async_backing_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::async_backing_v3_disabled::WASM_BINARY
+		cumulus_test_runtime::async_backing_v3::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 	)
 }
 
-// Elastic scaling with async backing v3 disabled.
-pub fn get_elastic_scaling_v3_disabled_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
+// Elastic scaling with scheduling V3 enabled.
+pub fn get_elastic_scaling_v3_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 	get_chain_spec_with_extra_endowed(
 		id,
 		Default::default(),
-		cumulus_test_runtime::elastic_scaling_v3_disabled::WASM_BINARY
+		cumulus_test_runtime::elastic_scaling_v3::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 	)
 }
