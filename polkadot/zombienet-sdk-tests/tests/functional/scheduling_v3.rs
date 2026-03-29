@@ -13,7 +13,7 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
-use crate::utils::assert_candidates_version;
+use crate::utils::{assert_candidates_version, assert_validator_backed_candidates};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error> {
@@ -45,8 +45,18 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..5).fold(r, |acc, i| {
+			let r = (1..5).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			});
+
+			// Experimental collator protocol validators.
+			(5..9).fold(r, |acc, i| {
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						("-lparachain=debug,parachain::collator-protocol=trace").into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
 			})
 		})
 		.with_parachain(|p| {
@@ -82,6 +92,12 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 		20,
 	)
 	.await?;
+
+	assert_validator_backed_candidates(relay_node, 10).await?;
+	for i in 5..=8 {
+		let node = network.get_node(format!("validator-{i}"))?;
+		assert_validator_backed_candidates(node, 10).await?;
+	}
 
 	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
 
@@ -125,8 +141,18 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| {
+			let r = (1..6).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			});
+
+			// Experimental collator protocol validators.
+			(6..10).fold(r, |acc, i| {
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						("-lparachain=debug,parachain::collator-protocol=trace").into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
 			})
 		})
 		.with_parachain(|p| {
@@ -165,6 +191,12 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 		20,
 	)
 	.await?;
+
+	assert_validator_backed_candidates(relay_node, 30).await?;
+	for i in 6..=9 {
+		let node = network.get_node(format!("validator-{i}"))?;
+		assert_validator_backed_candidates(node, 30).await?;
+	}
 
 	assert_finality_lag(&para_node.wait_client().await?, 15).await?;
 
