@@ -321,7 +321,10 @@ mod tests {
 
 	#[test]
 	fn decoding_encoding_v2_works() {
-		let scheduling_proof = crate::SchedulingProof { header_chain: vec![make_relay_header(5)] };
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			signed_scheduling_info: None,
+		};
 
 		let v2 = ParachainBlockData::<TestBlock>::V2 {
 			blocks: vec![TestBlock::new(
@@ -366,7 +369,10 @@ mod tests {
 
 	#[test]
 	fn v2_into_inner_drops_scheduling_proof() {
-		let scheduling_proof = crate::SchedulingProof { header_chain: vec![make_relay_header(5)] };
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			signed_scheduling_info: None,
+		};
 
 		let v2 = ParachainBlockData::<TestBlock>::V2 {
 			blocks: vec![TestBlock::new(Header::new_from_number(10), vec![])],
@@ -381,7 +387,10 @@ mod tests {
 
 	#[test]
 	fn v2_as_v0_works_with_single_block() {
-		let scheduling_proof = crate::SchedulingProof { header_chain: vec![make_relay_header(5)] };
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			signed_scheduling_info: None,
+		};
 
 		// V2 with single block can be converted to V0
 		let v2_single = ParachainBlockData::<TestBlock>::V2 {
