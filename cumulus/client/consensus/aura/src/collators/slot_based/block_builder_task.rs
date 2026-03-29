@@ -270,22 +270,14 @@ where
 			let unincluded_segment_len =
 				parent_header.number().saturating_sub(*included_header.number());
 
-			// Determine claim queue lookup parameters based on V3 scheduling mode.
+			// Determine claim queue lookup parameters.
 			//
-			// For V3 (with scheduling_parent):
-			//   - Look up claim queue at scheduling_parent (relay_best_hash, the fresh tip)
-			//   - Use depth = max_claim_queue_offset (typically 1)
-			//   - claim_queue_offset = max_claim_queue_offset
+			// V3: look up at scheduling_parent (fresh RC tip), offset is just
+			// max_claim_queue_offset since the claim queue is already at the tip.
 			//
-			// For V1/V2 (without scheduling_parent):
-			//   - Look up claim queue at relay_parent
-			//   - Use depth = relay_parent_offset + max_claim_queue_offset
-			//   - claim_queue_offset = relay_parent_offset + max_claim_queue_offset
-			//
-			// Collators may use lower offsets for optimistic scenarios. The runtime
-			// enforces: claim_queue_offset <= relay_parent_offset + max_claim_queue_offset
-			//
-			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
+			// V1/V2: look up at relay_parent which is relay_parent_offset blocks
+			// behind the tip, so the offset includes relay_parent_offset to
+			// compensate.
 			let max_claim_queue_offset =
 				para_client.runtime_api().max_claim_queue_offset(best_hash).unwrap_or(1);
 			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {

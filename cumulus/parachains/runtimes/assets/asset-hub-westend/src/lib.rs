@@ -149,8 +149,6 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCE
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
-/// Maximum claim queue offset.
-
 /// Scheduling V3 candidates flag.
 const SCHEDULING_V3_ENABLED: bool = false;
 

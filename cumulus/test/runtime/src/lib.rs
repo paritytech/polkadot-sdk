@@ -172,7 +172,7 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
-#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing"),))]
+#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
 #[cfg(feature = "slot-duration-18s")]
@@ -573,7 +573,6 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			// This is false for sync-backing, since it doesn't support V3 candidate descriptors.
 			SCHEDULING_V3_ENABLED
 		}
 	}

@@ -105,7 +105,7 @@ impl SchedulingInfo {
 	///   slot is still in progress, falls back to its parent.
 	/// - V2 (`v3_enabled = false`): uses `relay_best_hash` directly.
 	///
-	/// Requires [`Self::fetch_relay_best_hash`] to have been called first.
+	/// Calls [`Self::fetch_relay_best_hash`] internally.
 	pub async fn descendants_start<RelayClient>(
 		&mut self,
 		relay_client: &RelayClient,

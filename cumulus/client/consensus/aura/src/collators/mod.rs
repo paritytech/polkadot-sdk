@@ -700,7 +700,8 @@ impl RelayParentData {
 	}
 
 	/// Returns a reference to the descendants list.
-	/// They are ordered from oldest to newest.
+	///
+	/// List is ordered from oldest to newest.
 	pub fn descendants(&self) -> &[RelayHeader] {
 		&self.descendants
 	}

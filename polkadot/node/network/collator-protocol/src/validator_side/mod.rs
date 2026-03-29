@@ -1538,7 +1538,6 @@ fn is_slot_available(
 		.per_scheduling_parent
 		.get(scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
-
 	let current_core = per_scheduling_parent.current_core;
 
 	gum::trace!(
