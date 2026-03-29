@@ -285,8 +285,8 @@ pub mod pallet {
 		///
 		/// When enabled, this changes how building on older relay parents is enforced:
 		/// - The old `relay_parent_descendants` validation in the inherent is disabled
-		/// - V3 scheduling validation is used instead, with the header chain provided
-		///   via PVF parameters
+		/// - V3 scheduling validation is used instead, with the header chain provided via PVF
+		///   parameters
 		///
 		/// # Migration Guide
 		///
@@ -625,31 +625,26 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
-			// We need to ensure that `CoreInfo` digest exists only once and validate claim_queue_offset.
+			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
 			//
-			// The claim_queue_offset determines how far "into the future" the collator is targeting
-			// in the claim queue. The maximum allowed offset is:
-			//   relay_parent_offset + max_claim_queue_offset
-			//
-			// Collators may use lower offsets for optimistic scenarios (fast execution, catching up
-			// after missed slots, chain startup). Higher offsets are not allowed to prevent
-			// collators from skipping slots.
-			//
-			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
+			// With V3: the collator looks up the claim queue at the scheduling parent
+			// (fresh tip), so the max offset is just MAX_CLAIM_QUEUE_OFFSET.
+			// Without V3: the collator looks up at the relay parent which is offset
+			// behind the tip, so the effective max includes relay_parent_offset.
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					let max_allowed_offset =
-						T::RelayParentOffset::get() as u8 + MAX_CLAIM_QUEUE_OFFSET;
+					let max_allowed_offset = if T::SchedulingV3Enabled::get() {
+						MAX_CLAIM_QUEUE_OFFSET
+					} else {
+						T::RelayParentOffset::get() as u8 + MAX_CLAIM_QUEUE_OFFSET
+					};
 					assert!(
 						core_info.claim_queue_offset.0 <= max_allowed_offset,
-						"claim_queue_offset {} exceeds maximum allowed {} (relay_parent_offset {} + max_claim_queue_offset {}). \
-						See: https://github.com/paritytech/polkadot-sdk/issues/8893",
+						"claim_queue_offset {} exceeds maximum allowed {}",
 						core_info.claim_queue_offset.0,
 						max_allowed_offset,
-						T::RelayParentOffset::get(),
-						MAX_CLAIM_QUEUE_OFFSET
 					);
 				},
 				CoreInfoExistsAtMaxOnce::NotFound => {},
@@ -716,8 +711,6 @@ pub mod pallet {
 				relay_chain_state.clone(),
 			)
 			.expect("Invalid relay chain state proof");
-
-
 
 			// Relay parent offset validation:
 			// When SchedulingV3Enabled is false: validate relay_parent_descendants (old mechanism)
