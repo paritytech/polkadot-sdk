@@ -15,7 +15,7 @@ Also since now the `BeefyAuthorityId` implements both the signing and the verifi
 
 Related to https://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834
 
-#### [#11463]: Report back when candidate is rejected.
+#### [#11463]: Report back when candidate is rejected
 When the backing subsystem rejects a candidate due to descriptor version
 acceptance failure, it now sends `CollatorProtocolMessage::Invalid` back to
 the collator protocol so the collator's reputation is penalized. Previously
@@ -48,7 +48,7 @@ A given peer ("A") can connect before the new authority keys are received via `U
 - T1: peer A sends its current view `PeerViewChange`
   - Peer A wants the block N
 - T2: `validator_group.should_advertise_to`: checks peer A for key nK (the new key)
-  -  We don't have this key stored and therefore return `ShouldAdvertiseTo::NotAuthority`
+  - We don't have this key stored and therefore return `ShouldAdvertiseTo::NotAuthority`
 - T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])
 
 At this point, we have the collation, peer A wants to collation, we know peer A is an authority but we never send the collation back. Then, the collation will expire with "Collation wasn't advertised".
@@ -82,8 +82,8 @@ By eliminating these two annoyances, the code is a lot more simple and easier to
 #### [#11004]: Statementstore: Forward statements to light clients
 Forward statements to light clients. For now only done for testing purposes. Later on this needs to be improved to not overwhelm light clients.
 
-#### [#10755]: Fix polkadot-omni-node dev mode slot mismatch panic
-Fixes a panic when running polkadot-omni-node in dev mode with parachains
+#### [#10755]: Fix Polkadot-omni-node dev mode slot mismatch panic
+Fixes a panic when running Polkadot-omni-node in dev mode with parachains
 that have slot durations different from the relay chain (e.g., 12s vs 6s).
 The mock relay chain data now correctly accounts for the slot duration ratio.
 
@@ -252,7 +252,7 @@ Updates the Rust toolchain to version 1.93. This includes fixes for new compiler
 updated UI test expectations, and fixes for broken rustdoc intra-doc links that are now
 detected by the stricter rustdoc in Rust 1.93.
 
-#### [#10846]: net/metrics: Add metrics for inbound/outbound traffic 
+#### [#10846]: net/metrics: Add metrics for inbound/outbound traffic
 This PR adds a new metric for inbound / outbound traffic for individual request-response protocols.
 
 - the PR is motivated by https://github.com/paritytech/polkadot-sdk/issues/10765 which shows a significant number of bytes as downloaded (4-5 MiB/s). This is suspicious for a fully synced validator, 1-2 blocks to the tip of the chain.
@@ -266,8 +266,8 @@ Validation now happens on the node side via direct signature verification
 and storage reads for account quotas.
 
 #### [#10662]: Bulletin as parachain missing features
-* Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
-* Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
+- Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
+- Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
 
 
 #### [#10223]: Removed dependency to `sp-consensus-grandpa` from `sc-network-sync`
@@ -321,7 +321,7 @@ Adds a benchmark for the statement store networking to measure performance
 of statement propagation and validation under various conditions.
 
 
-#### [#11108]: polkadot-runtime-api-cache: Only cache validation code that exists
+#### [#11108]: Polkadot-runtime-api-cache: Only cache validation code that exists
 Otherwise there is the possibility that nodes cache `None` and some later `force_set_code` enacts the code. Then the nodes that have cached `None` do not know that the validation code now actually exists on chain.
 
 #### [#10960]: Warn when dropping an out of view candidate
@@ -329,7 +329,7 @@ This changes a debug log to a warning. The other log messages around the candida
  the lookahead for Westend + Rococo to `5` to align it with Kusama.
 
 #### [#11027]: Add functions to control statement store per-account allowances
-The functions currently residing in `individuality` are moved to Substrate to unify storage allowance control. 
+The functions currently residing in `individuality` are moved to Substrate to unify storage allowance control.
 
 #### [#11117]: statement-store: do not populate recent on restart
 Previously, on node restart all statements loaded from the database were added to the
@@ -381,7 +381,7 @@ Guideline for enablement: https://paritytech.github.io/polkadot-sdk/master/polka
 
 cc @paritytech/sdk-node @sandreim
 
-#### [#10973]: cumulus: Remove `max_depth` for the parent search
+#### [#10973]: Cumulus: Remove `max_depth` for the parent search
 We were just incrementing this number all the time and there is actually no need to have it, as the search is already automatically bounded. For chains with 500ms blocks and relay offset of 1 we easily go above this limit and this then leads to forks.
 
 So, let's remove the value.
@@ -412,7 +412,7 @@ The API surface has been reduced to two main functions: `submit` and `subscribe_
   simplified submit/subscribe interface.
 
 
-#### [#11102]: polkadot-omni-node-lib: emit warnings for aura authority id type assumptions
+#### [#11102]: Polkadot-omni-node-lib: emit warnings for aura authority id type assumptions
 closes https://github.com/paritytech/polkadot-sdk/issues/11026
 
 This PR adds explicit warnings at node startup to surface these assumptions:
@@ -525,7 +525,7 @@ This pull request solves this situation by putting the peer into ancestry search
 
 #### [#10718]: Statement-store: Propagate all statements to newly connected peers
 When a new node connects, we now propagate all statements in our store to them. This happens in bursts of ~1MiB messages
-over time to not completley use up all resources. If multiple peers are connecting, round robin between them. 
+over time to not completley use up all resources. If multiple peers are connecting, round robin between them.
 
 
 #### [#11393]: Add relay parent to V3 collation protocol advertisement
@@ -576,10 +576,10 @@ Moved submission failures from JSON-RPC errors into structured result types:
 # Description
 
 This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during execution.
-This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover 
+This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover
 the transient storage to other following calls as they happen within an external tx.
 For example this is required to support more testing scenarious inside `foundry-polkadot` because only a subset of execution happens on `pallet-revive`.
-e.g: 
+e.g:
 ```solidity
 fn example_test() { // this entrypoint is executed on the side of `foundry-polkadot`
 Example contract = new Example(); // happens on pallet-revive
@@ -647,7 +647,7 @@ write benchmarking paths.
 #### [#9086]: Make HRMP advancement rule more restrictive
 This PR improves `check_enough_messages_included()` and makes the advancement rule more restrictive for HRMP.
 
-#### [#11320]: Refactor XCM executor, introduce process_holding_transaction macro.
+#### [#11320]: Refactor XCM executor, introduce process_holding_transaction macro
 The xcm executor's code is now cleaner in how it handles origin manipulation and transactionality.
 
 
@@ -673,14 +673,14 @@ Adds ForeignAssetIdExtractor which converts a u32 asset id to an XCM Location ty
 
   Fix evm_sized benchmark helper to use proper EVM init code instead of raw runtime bytecode.
 
-  Previously, `evm_sized(size) `created a Vec of size `STOP` opcodes and passed it directly as the contract code. However, in the EVM deployment model the code supplied is init code (constructor), not runtime code. The EVM executes the init code and whatever it `RETURN`s becomes the stored runtime code. Passing raw `STOP` bytes meant the init code would immediately halt and return nothing, resulting in an empty contract, not a contract of the requested size.
+  Previously, `evm_sized(size)`created a Vec of size `STOP` opcodes and passed it directly as the contract code. However, in the EVM deployment model the code supplied is init code (constructor), not runtime code. The EVM executes the init code and whatever it `RETURN`s becomes the stored runtime code. Passing raw `STOP` bytes meant the init code would immediately halt and return nothing, resulting in an empty contract, not a contract of the requested size.
 
  This PR replaces the implementation with proper EVM init code (PUSH3 size, PUSH1 0, RETURN) that returns size bytes from zero-initialized memory, producing a runtime code blob of exactly size bytes (all 0x00 / STOP opcodes). This makes the benchmark helper behave correctly and produce contracts whose `PristineCode` actually matches the requested size.
 
- # Integration
+# Integration
   No integration changes required. This only affects test/benchmark code behind `#[cfg(any(test, feature = "runtime-benchmarks"))]`.
 
-  # Review Notes
+# Review Notes
   The new init code is 7 bytes:
 ```
   PUSH3 <b1> <b2> <b3>   // push the desired runtime code size (up to 16M)
@@ -747,7 +747,7 @@ amount of Native balance and specific relevant Assets.
 This fixes an issue where closed bounties would not refund any balance to the treasury because
 assets were blocking the withdrawal through account references.
 
-#### [#10612]: revive eth-rpc Add polkadot_postDispatchWeight rpc methods
+#### [#10612]: revive eth-rpc Add Polkadot_postDispatchWeight rpc methods
 Add a new RPC method to return the post-dispatch weight of a transaction
 
 
@@ -828,7 +828,7 @@ Small safety and completeness improvements for pallet-revive:
 - Add debug assertions for unsafe bytecode operations: in relative_jump, absolute_jump, and read_slice
 - Remove transmute in i256 sign detection: Replace unsafe { core::mem::transmute } with explicit conditional logic for determining Sign::Zero vs Sign::Plus
 
-#### [#10924]: revive: cap remaining_gas to u64::MAX in substrate_execution
+#### [#10924]: revive: cap remaining_gas to u64::MAX in Substrate_execution
 ## Summary
 
 - Fixes proxy contract calls failing with OutOfGas when using ReviveApi.call
@@ -951,7 +951,7 @@ and sender in signatories. Also, reword extrinsic comments.
 #### [#10662]: Bulletin as parachain missing features
 This PR adds the required support and features for running Bulletin as a parachain. It is a top-level PR that merges three partial features:
 
-1. Add transaction_index::HostFunctions with NO-OP impl to the cumulus ParachainSystem validate_block for polkadot-prepare/execute-worker
+1. Add transaction_index::HostFunctions with NO-OP impl to the Cumulus ParachainSystem validate_block for Polkadot-prepare/execute-worker
 2. Add custom inherent provider for pallet-transaction-storage to omni node
 3. Configurable RetentionPeriod feeded to the inherent provider over runtime API
 
@@ -1267,7 +1267,7 @@ This PR introduces the try_state hook to pallet-babe to verify all key storage i
 closes part of https://github.com/paritytech/polkadot-sdk/issues/239
 
 #### [#10380]: pallet-revive benchmark opcode fix
-Benchmark opcode was using the invalid opcode instead of defining a new one. 
+Benchmark opcode was using the invalid opcode instead of defining a new one.
 
 
 #### [#10448]: wasm-builder: Only overwrite wasm files if they changed
@@ -1331,10 +1331,10 @@ This makes it easier to declare a fixed point value. The old format is also stil
 #### [#10510]: [pallet-revive] fix delegate_call_contract in evm-test-suites
 evm-test-suite was not correctly executing delegate_call_contract causing pallet-revive to silently reject the delegatecall. After evm-test-suite was fixed we found that the trace for delegate calls is incorrect. This fixes it.
 
-#### [#10919]: Add revive substrate runtime-api integration tests for call & instantiate
+#### [#10919]: Add revive Substrate runtime-api integration tests for call & instantiate
 ## Summary
 - Add integration tests for revive runtime API
-- Test Fibonacci contract deployment and execution via substrate APIs
+- Test Fibonacci contract deployment and execution via Substrate APIs
 
 ## Changes
 - Add test for Fibonacci contract call via runtime API
@@ -1418,9 +1418,9 @@ This PR addresses https://github.com/paritytech/contract-issues/issues/18 but we
 
 #### [#10905]: Bump pallet-staking-reward-fn
 sp-arithmetic was bumped in a previous PR but not published yet on crates.io.
-Both polkadot-runtime-common (already bumped and not released in a previous PR) and pallet-staking-reward-fn depend on it.
-Bump pallet-staking-reward-fn so that parity-publish CI job can correctly resolve sp-arithmetic.
-Without this fix, we would end up with a dependency graph with two versions of sp-arithmetic with one of the two missing a trait impl needed by polkadot-runtime-common.
+Both Polkadot-runtime-common (already bumped and not released in a previous PR) and pallet-staking-reward-fn depend on it.
+Bump pallet-staking-reward-fn so that Parity-publish CI job can correctly resolve sp-arithmetic.
+Without this fix, we would end up with a dependency graph with two versions of sp-arithmetic with one of the two missing a trait impl needed by Polkadot-runtime-common.
 
 #### [#10554]: [pallet-revive] add EVM gas call syscalls
 This PR adds two new syscalls for calls accepting EVM gas instead of Weight and Deposit.
@@ -1454,7 +1454,7 @@ Preparatory cleanup PR extracted from the EIP-7702 branch to simplify review.
 
 - **Counter.sol uint64**: Change `uint256` to `uint64` in Counter/NestedCounter fixtures, to avoid U256 conversion in tests.
 - **Remove k256 dependency**: Replace `k256::ecdsa::SigningKey` with `sp_core::ecdsa::Pair` in benchmark signing helpers
-- **Debug log**: Add debug log for `eth_transact` substrate tx hash
+- **Debug log**: Add debug log for `eth_transact` Substrate tx hash
 - **Formatting**: Fix indentation in call.rs closure body, remove stray blank line in lib.rs
 - **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed incorrect `gas_price` field at index 4, aligned with encoder)
 
@@ -1501,11 +1501,11 @@ pin solc version to 0.8.30 in tests-misc.yml
 fixes https://github.com/paritytech/polkadot-sdk/issues/8566
 
 #### [#10713]: Fix off-by-one error in child bounty limit validation
-Fixes an off-by-one error in `pallet-child-bounties` where the `add_child_bounty` 
-function allowed creating `MaxActiveChildBountyCount + 1` child bounties instead of 
+Fixes an off-by-one error in `pallet-child-bounties` where the `add_child_bounty`
+function allowed creating `MaxActiveChildBountyCount + 1` child bounties instead of
 being capped at `MaxActiveChildBountyCount`.
 
-The validation check used `<=` instead of `<`, allowing the count to exceed the limit 
+The validation check used `<=` instead of `<`, allowing the count to exceed the limit
 by one. This fix changes the comparison to `<` and removes an unnecessary type cast.
 
 This is a bug fix that ensures runtime configuration limits are properly enforced.
@@ -1567,7 +1567,7 @@ build and deploy eth-rpc docker image for stable branches
 #### [#8175]: Snowbridge V2: Generic inbound message processing
 # Description
 
-This PR adds a new `MessageProcessor` type to the `inbound-queue-v2` pallet's config. 
+This PR adds a new `MessageProcessor` type to the `inbound-queue-v2` pallet's config.
 
 This type allows to make the processing of inbound messages more generic, via the (also new) `MessageProcessor` trait, which contains the following functions:
 
@@ -1654,7 +1654,6 @@ I compared multiple builds which each other:
 | glutton-westend-runtime | 2,502,303 | 2,514,727 | +12,424 | +0.50% |
 
 
-
 | Runtime | RuntimeDebug .compact.compressed.wasm | Debug .compact.compressed.wasm | Δ bytes | Δ % |
 |---------|--------------------------------------|--------------------------------|---------|-----|
 | westend-runtime | 1,911,531 | 1,918,414 | +6,883 | +0.36% |
@@ -1677,7 +1676,6 @@ With `--features on-chain-release-build`:
 | people-westend-runtime | 5,640,009 | 5,661,591 | +21,582 | +0.38% |
 | coretime-westend-runtime | 5,689,735 | 5,689,735 | 0 | 0.00% |
 | glutton-westend-runtime | 2,504,593 | 2,517,004 | +12,411 | +0.50% |
-
 
 
 | Runtime | RuntimeDebug .compact.compressed.wasm | Debug .compact.compressed.wasm | Δ bytes | Δ % |
@@ -1811,14 +1809,14 @@ This PR introduces the try_state hook to pallet-authority-discovery to verify ke
 closes part of https://github.com/paritytech/polkadot-sdk/issues/239
 
 #### [#10771]: Snowbridge: Describe the token location with the length field included to avoid collisions
-For GeneralKey, two XCM junctions that differ only in length can currently produce the same description bytes, 
+For GeneralKey, two XCM junctions that differ only in length can currently produce the same description bytes,
 and therefore the same TokenId. To avoid such collisions, this PR includes the length field in the describe function.
-We do have several PNAs registered that could be affected by this change. However, these tokens are not currently in use, 
-there have been no transfers and no tokens minted so far. As a result, simply re-registering these tokens should be sufficient, 
+We do have several PNAs registered that could be affected by this change. However, these tokens are not currently in use,
+there have been no transfers and no tokens minted so far. As a result, simply re-registering these tokens should be sufficient,
 without requiring a runtime storage migration.
 
 #### [#10682]: add must_use attributes
-Add must_use attributes on arithmetic fns 
+Add must_use attributes on arithmetic fns
 
 
 #### [#10866]: Extend remote externalities `Client` and child storage query unit tests
@@ -1917,7 +1915,7 @@ Fixing two issues:
 Replacement for https://github.com/paritytech/polkadot-sdk/pull/10778.
 
 #### [#11158]: Add timeout + people-westend to check-runtime CI
-@polkadot-api/check-runtime hangs in case the RPC endpoint is not reachable. A timeout is added to handle this case gracefully.
+@Polkadot-api/check-runtime hangs in case the RPC endpoint is not reachable. A timeout is added to handle this case gracefully.
 
 Driven-by: add support for metadata-hash extension on `people-westend`  and add it to the list of chains to check.
 
@@ -1986,8 +1984,8 @@ o process statements in parallel, improving throughput when statement store is e
 
 
 #### [#10662]: Bulletin as parachain missing features
-* Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
-* Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
+- Node developers/operators could enable the transaction storage inherent data provider setup by using --enable-tx-storage-idp flag. This is especially useful in the context of bulletin chain.
+- Node developers will set up the network `idle_connection_timeout` to 1h when using `--ipfs-server` flag, again, useful in the context of bulletin chain.
 
 
 #### [#10752]:   Gap Sync: Skip Body Requests for Non-Archive Nodes
@@ -2015,8 +2013,8 @@ A new rpc `author_rotateKeysWithOwner` is provided to generate the `SessionKeys`
 Both values then need to be feed into `set_keys` as part of the transaction.
 `author_rotateKeysWithOwner` is a replacement for `author_rotateKeys`.
 
-#### [#10978]: Omni-node supports polkadot-asset-hub
-The `polkadot-omni-node` binary now supports polkadot-asset-hub. Other system chains where already supported, but PAH uses Ed25519, which makes it a special case.
+#### [#10978]: Omni-node supports Polkadot-asset-hub
+The `polkadot-omni-node` binary now supports Polkadot-asset-hub. Other system chains where already supported, but PAH uses Ed25519, which makes it a special case.
 
 
 #### [#10196]: Improve Warp Sync Logging
