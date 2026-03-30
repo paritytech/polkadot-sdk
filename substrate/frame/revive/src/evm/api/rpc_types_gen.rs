@@ -17,7 +17,7 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
+use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
 use alloc::{
 	boxed::Box,
 	collections::{BTreeMap, BTreeSet},
@@ -27,7 +27,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error};
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
