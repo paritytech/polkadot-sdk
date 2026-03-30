@@ -454,10 +454,14 @@ pub trait VestedPayout<AccountId, Balance> {
 
 	/// Transfer `amount` from `source` to `dest`, locked under a linear vesting schedule
 	/// that completes within at most `duration` blocks.
+	///
+	/// If `start_at` is `Some`, the vesting schedule begins at that block number;
+	/// otherwise it begins at the current block.
 	fn vested_transfer(
 		source: &AccountId,
 		dest: &AccountId,
 		amount: Balance,
 		duration: Self::BlockNumber,
+		start_at: Option<Self::BlockNumber>,
 	) -> sp_runtime::DispatchResult;
 }
