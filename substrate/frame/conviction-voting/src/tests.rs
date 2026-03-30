@@ -1077,16 +1077,10 @@ fn empty_tally_approval_is_zero() {
 		);
 
 		let only_ayes = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(10, 0, 10);
-		assert_eq!(
-			<TallyOf<Test> as VoteTally<u64, u8>>::approval(&only_ayes, 0),
-			Perbill::one(),
-		);
+		assert_eq!(<TallyOf<Test> as VoteTally<u64, u8>>::approval(&only_ayes, 0), Perbill::one(),);
 
 		let only_nays = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(0, 10, 0);
-		assert_eq!(
-			<TallyOf<Test> as VoteTally<u64, u8>>::approval(&only_nays, 0),
-			Perbill::zero(),
-		);
+		assert_eq!(<TallyOf<Test> as VoteTally<u64, u8>>::approval(&only_nays, 0), Perbill::zero(),);
 
 		let mixed = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(3, 7, 3);
 		assert_eq!(
