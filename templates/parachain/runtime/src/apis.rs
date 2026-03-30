@@ -85,7 +85,7 @@ impl_runtime_apis! {
 		}
 
 		fn max_claim_queue_offset() -> u8 {
-			parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+			ParachainSystem::max_claim_queue_offset()
 		}
 	}
 
