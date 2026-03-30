@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! API trait for the bitswap RPC method.
+//! API trait for the bitswap RPC methods.
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 

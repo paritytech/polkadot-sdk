@@ -32,7 +32,7 @@ pub enum Error {
 	/// Node is performing major sync.
 	#[error("Node is major syncing")]
 	MajorSyncing,
-	/// Internal error.
+	/// Internal error. Never emitted in practice
 	///
 	/// Do not render the wrapped error to not expose the internal state to the remote caller.
 	#[error("Internal error")]
@@ -68,6 +68,8 @@ impl From<Error> for ErrorObject<'static> {
 				Some(ErrorData { variant: "MajorSyncing" }),
 			),
 			Error::Internal(_) => {
+				// This error is never emitted in practice and is only needed to cover all
+				// compile-type variants that `BlockBackend::indexed_transaction` returns.
 				// It is unclear what error category to use in case of internal errors, let's use
 				// `FAIL_RETRY_BACKOFF`.
 				ErrorObject::owned(FAIL_RETRY_BACKOFF, msg, Some(ErrorData { variant: "Internal" }))

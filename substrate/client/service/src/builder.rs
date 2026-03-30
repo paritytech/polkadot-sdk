@@ -943,7 +943,7 @@ where
 	.into_rpc();
 
 	// Bitswap RPC-v2.
-	let bitswap_v1 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
+	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
@@ -968,7 +968,7 @@ where
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
-	rpc_api.merge(bitswap_v1).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(bitswap_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;

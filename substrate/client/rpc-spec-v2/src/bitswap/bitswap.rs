@@ -94,6 +94,9 @@ where
 				}
 			},
 			Err(err) => {
+				// Note: this never happens in practice, because `indexed_transaction`
+				// implementation in `substrate/client/db` always returns Ok(_), and is only
+				// needed to handle possible future API changes.
 				log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
 
 				Err(Error::Internal(err).into())
