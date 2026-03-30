@@ -60,8 +60,8 @@ impl ValidateUnsignedDef {
 		let warning = if item.attrs.iter().any(|attr| attr == &allow_dep) {
 			None
 		} else {
-			const DEPRECATION_MSG: &str = "#[pallet::validate_unsigned] has been deprecated. \
-				Please migrate to using the `TransactionExtension` trait instead.";
+			const DEPRECATION_MSG: &str = "#[pallet::validate_unsigned] will be removed after \
+				April 2027. Use `#[pallet::authorize]` with `frame_system::AuthorizeCall` instead.";
 			const REFERENCE_LINK: &str = "https://github.com/paritytech/polkadot-sdk/issues/2415";
 			let count = COUNTER.with(|counter| counter.borrow_mut().inc());
 			let warning = proc_macro_warning::FormattedWarning::new_deprecated(
