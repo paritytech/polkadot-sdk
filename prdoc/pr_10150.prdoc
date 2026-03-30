@@ -13,7 +13,7 @@ crates:
   - name: frame-support
     bump: patch
   - name: frame-support-procedural
-    bump: minor
+    bump: patch
   - name: polkadot-runtime-common
     bump: patch
   - name: polkadot-runtime-parachains
