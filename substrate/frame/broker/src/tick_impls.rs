@@ -338,15 +338,13 @@ impl<T: Config> Pallet<T> {
 						task: record.task,
 						next_renewal: sale.region_end,
 					}),
-					Ok(DoRenewResult::BidPlaced { id }) => {
+					Ok(DoRenewResult::BidPlaced { .. }) => {
 						// We don't support auto-renewals when market doesn't allow purchasing
 						// regions right away.
 						Self::deposit_event(Event::<T>::AutoRenewalFailed {
 							core: record.core,
 							payer: Some(payer),
 						});
-
-						let _ = Self::close_bid(id, None);
 
 						None
 					},

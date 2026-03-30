@@ -72,14 +72,12 @@ pub trait Market<T: Config> {
 		recorded_price: BalanceOf<T>,
 	) -> Result<RenewalOrderResult<T, Self::BidId>, Self::Error>;
 
-	/// Close the bid given its `BidId`.
-	///
-	/// If the market logic allows creating the bids this method allows to close any bids (either
-	/// forcefully if `maybe_check_owner` is `None` or checking the bid owner if it's `Some`).
-	fn close_bid(
+	fn raise_bid(
+		block_number: RelayBlockNumberOf<T>,
 		id: Self::BidId,
-		maybe_check_owner: Option<T::AccountId>,
-	) -> Result<CloseBidResult<T>, Self::Error>;
+		who: &T::AccountId,
+		new_price: BalanceOf<T>,
+	) -> Result<RaiseBidResult<T>, Self::Error>;
 
 	/// Logic that gets called in `on_initialize` hook.
 	fn tick(now: RelayBlockNumberOf<T>, weight_meter: &mut WeightMeter) -> Vec<TickAction<T>>;
@@ -116,6 +114,10 @@ pub enum RenewalOrderResult<T: Config, BidId> {
 pub struct CloseBidResult<T: Config> {
 	pub owner: T::AccountId,
 	pub refund: BalanceOf<T>,
+}
+
+pub struct RaiseBidResult<T: Config> {
+	pub payment_due: BalanceOf<T>,
 }
 
 pub enum TickAction<T: Config> {
@@ -281,10 +283,12 @@ impl<T: Config> Market<T> for Pallet<T> {
 		});
 	}
 
-	fn close_bid(
+	fn raise_bid(
+		_block_number: RelayBlockNumberOf<T>,
 		_id: Self::BidId,
-		_maybe_check_owner: Option<AccountIdFor<T>>,
-	) -> Result<CloseBidResult<T>, Self::Error> {
+		_who: &AccountIdFor<T>,
+		_new_price: BalanceOf<T>,
+	) -> Result<RaiseBidResult<T>, Self::Error> {
 		Err(MarketError::BidNotExist)
 	}
 
