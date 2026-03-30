@@ -537,12 +537,10 @@ impl Client {
 
 			let block_number = block.number();
 
-			// Detect gaps in finalized blocks only (best blocks can be reorged).
-			// Increment `pending` before the callback can advance the head.
+			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
 				self.gap_filler.detect_and_queue(block_number, last_finalized_seen);
-				// Updated unconditionally: the block was received, so there is no gap.
-				// A callback failure is a processing error, not a missing block.
+				// Update unconditionally — a callback failure doesn't mean the block was missed.
 				last_finalized_seen = Some(block_number);
 			}
 
