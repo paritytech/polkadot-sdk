@@ -221,7 +221,7 @@ pub(super) async fn spawn_network(
 		})
 		.with_parachain(|p| {
 			let p = p
-				.with_id(2400)
+				.with_id(1004)
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
@@ -289,7 +289,7 @@ pub(super) async fn spawn_network_sudo(
 		})
 		.with_parachain(|p| {
 			let p = p
-				.with_id(2101)
+				.with_id(1004)
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
