@@ -74,12 +74,14 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
 
+	let alice_rpc = alice.rpc().await?;
 	let bob_rpc = bob.rpc().await?;
 	let charlie_rpc = charlie.rpc().await?;
 	let dave_rpc = dave.rpc().await?;
 
 	// Concurrent multi-account propagation
 	let topic: Topic = [10u8; 32].into();
+	let mut alice_sub = subscribe_topic(&alice_rpc, topic).await?;
 	let mut bob_sub = subscribe_topic(&bob_rpc, topic).await?;
 	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic).await?;
 	let mut dave_sub = subscribe_topic(&dave_rpc, topic).await?;
@@ -92,13 +94,16 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 		})
 		.collect();
 
+	// Distribute submissions across all nodes (round-robin) to test multi-source concurrent ingress
+	let nodes = [&alice, &bob, &charlie, &dave];
 	let mut handles = Vec::new();
 	for (i, stmt) in statements.iter().enumerate() {
-		let alice_rpc = alice.rpc().await?;
+		let target = nodes[i % nodes.len()];
+		let rpc = target.rpc().await?;
 		let stmt = stmt.clone();
 		let idx = i + 1;
 		handles.push(tokio::spawn(async move {
-			let result = submit_statement(&alice_rpc, &stmt).await?;
+			let result = submit_statement(&rpc, &stmt).await?;
 			assert_eq!(result, SubmitResult::New, "Participant {} should be accepted", idx);
 			Ok::<_, anyhow::Error>(())
 		}));
@@ -109,23 +114,35 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 	}
 	info!("All 8 concurrent submissions accepted");
 
-	for (name, sub) in
-		[("bob", &mut bob_sub), ("charlie", &mut charlie_sub), ("dave", &mut dave_sub)]
-	{
+	// Verify content identity: every node must receive exactly the 8 submitted statements
+	let mut expected_encoded: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
+	expected_encoded.sort();
+
+	for (name, sub) in [
+		("alice", &mut alice_sub),
+		("bob", &mut bob_sub),
+		("charlie", &mut charlie_sub),
+		("dave", &mut dave_sub),
+	] {
 		let received = expect_statements_unordered(sub, 8, 60).await?;
 		assert_eq!(received.len(), 8, "Expected 8 statements on {}", name);
-		info!("{} received all 8 statements", name);
+		let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+		received_bytes.sort();
+		assert_eq!(received_bytes, expected_encoded, "Statement content mismatch on {}", name);
+		info!("{} received all 8 statements with correct content", name);
 	}
 
-	for (name, sub) in
-		[("bob", &mut bob_sub), ("charlie", &mut charlie_sub), ("dave", &mut dave_sub)]
-	{
+	for (name, sub) in [
+		("alice", &mut alice_sub),
+		("bob", &mut bob_sub),
+		("charlie", &mut charlie_sub),
+		("dave", &mut dave_sub),
+	] {
 		assert_no_more_statements(sub, 10).await?;
 		info!("No extra statements on {}", name);
 	}
 
 	// Quota enforcement and priority eviction
-	let alice_rpc = alice.rpc().await?;
 	let quota_topic: Topic = [2u8; 32].into();
 	let keypair_0 = get_keypair(0);
 
@@ -151,10 +168,11 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 		submit_statement(&alice_rpc, &no_allow).await?,
 		SubmitResult::Rejected(RejectionReason::NoAllowance)
 	));
-	info!("NoAllowance verified");
 
 	// Priority eviction: seq=150 evicts seq=100 → store: [150, 200, 300]
-	let mut bob_sub = subscribe_topic(&bob_rpc, quota_topic).await?;
+	let mut bob_evict_sub = subscribe_topic(&bob_rpc, quota_topic).await?;
+	let mut charlie_evict_sub = subscribe_topic(&charlie_rpc, quota_topic).await?;
+	let mut dave_evict_sub = subscribe_topic(&dave_rpc, quota_topic).await?;
 
 	let mid = create_test_statement(&keypair_0, &[quota_topic], None, vec![15], u32::MAX, 150);
 	assert_eq!(submit_statement(&alice_rpc, &mid).await?, SubmitResult::New);
@@ -170,7 +188,15 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 		SubmitResult::Rejected(RejectionReason::AccountFull { .. })
 	));
 
-	let _received = expect_one_statement(&mut bob_sub, 30).await?;
+	// Verify eviction-triggered statements propagate to all nodes
+	for (name, sub) in [
+		("bob", &mut bob_evict_sub),
+		("charlie", &mut charlie_evict_sub),
+		("dave", &mut dave_evict_sub),
+	] {
+		let received = expect_statements_unordered(sub, 1, 30).await?;
+		info!("{}: eviction statements propagated ({} received)", name, received.len());
+	}
 
 	network.detach().await;
 	Ok(())
