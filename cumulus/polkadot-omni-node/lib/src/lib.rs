@@ -34,7 +34,7 @@ pub use nodes::NODE_VERSION;
 /// This module is only available when the `node-conformance-tests` feature is enabled.
 /// Use the [`instantiate_conformance_tests!`] macro to run all conformance tests
 /// for a given binary.
-#[cfg(any(test, feature = "node-conformance-tests"))]
+#[cfg(feature = "node-conformance-tests")]
 pub mod tests {
 	/// Common utility functions and helpers for conformance tests.
 	///

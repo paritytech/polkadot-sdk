@@ -204,7 +204,7 @@ impl MetadataInspector {
 	}
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "node-conformance-tests"))]
 mod tests {
 	use crate::runtime::{
 		BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,

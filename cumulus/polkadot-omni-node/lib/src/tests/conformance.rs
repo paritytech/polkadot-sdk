@@ -173,8 +173,6 @@ pub async fn purge_chain_works(binary_path: &Path) {
 /// Benchmark storage conformance test.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn benchmark_storage_works(binary_path: &Path) {
-	use std::process::Command;
-
 	static RUNTIMES: [&str; 1] = ["asset-hub-westend"];
 
 	for runtime in RUNTIMES {
