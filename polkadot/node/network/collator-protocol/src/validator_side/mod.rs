@@ -348,7 +348,7 @@ impl PeerData {
 		on_scheduling_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		per_scheduling_parent: &PerSchedulingParent,
+		_per_scheduling_parent: &PerSchedulingParent,
 		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
