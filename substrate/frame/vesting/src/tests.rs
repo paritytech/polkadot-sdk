@@ -1283,7 +1283,9 @@ fn vested_payout_edge_cases() {
 		// WHEN: zero duration, THEN: liquid transfer, no vesting schedule.
 		hypothetically!({
 			let amount = ED * 5;
-			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(&alice, &bob, amount, 0, None));
+			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
+				&alice, &bob, amount, 0, None
+			));
 			assert_eq!(Balances::free_balance(&alice), alice_balance_before - amount);
 			assert_eq!(Balances::free_balance(&bob), bob_balance_before + amount);
 			assert!(VestingStorage::<Test>::get(&bob).is_none());
@@ -1296,7 +1298,11 @@ fn vested_payout_edge_cases() {
 			let duration = 10u64;
 			let future_block = 100u64;
 			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
-				&alice, &bob, amount, duration, Some(future_block)
+				&alice,
+				&bob,
+				amount,
+				duration,
+				Some(future_block)
 			));
 			let schedule = VestingStorage::<Test>::get(&bob).unwrap();
 			assert_eq!(schedule.len(), 1);
