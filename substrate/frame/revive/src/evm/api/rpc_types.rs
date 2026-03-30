@@ -79,6 +79,14 @@ impl<Moment> Default for DryRunConfig<Moment> {
 	}
 }
 
+/// A custom implementation of [`Decode`] to ensure forward and backward compatibility of the
+/// [`DryRunConfig`] type.
+///
+/// # Backwards Compatibility
+///
+/// Please review the documentation on the [`DryRunConfig`] for more information about how we
+/// manage and handle compatibility for this type and instructions on what you should do when adding
+/// a new field to this type.
 impl<Moment: Decode> Decode for DryRunConfig<Moment> {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let timestamp_override = Option::<Moment>::decode(input)?;
