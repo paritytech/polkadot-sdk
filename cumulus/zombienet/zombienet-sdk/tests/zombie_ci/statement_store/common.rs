@@ -159,7 +159,7 @@ pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
 	base_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
-	let chain_spec_template = include_str!("../people-westend-local-spec.json");
+	let chain_spec_template = include_str!("people-westend-local-spec.json");
 	let mut chain_spec: serde_json::Value = serde_json::from_str(chain_spec_template)
 		.map_err(|e| anyhow!("Failed to parse chain spec JSON: {}", e))?;
 	let genesis = chain_spec
@@ -273,6 +273,11 @@ pub(super) async fn spawn_network_sudo(
 
 	let participant_count = allowance_items.len();
 
+	let chain_spec_template = include_str!("runtimes/people-westend-spec.json");
+	let chain_spec_path = base_dir.join("people-westend-local-spec.json");
+	std::fs::write(&chain_spec_path, chain_spec_template)
+		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
+
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
@@ -285,7 +290,7 @@ pub(super) async fn spawn_network_sudo(
 		.with_parachain(|p| {
 			let p = p
 				.with_id(2101)
-				.with_chain_spec_path("https://raw.githubusercontent.com/paritytech/chainspecs/denzelpenzel/versi-people-2101/versi/parachain/versi-people-2101/chainspec.json")
+				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
