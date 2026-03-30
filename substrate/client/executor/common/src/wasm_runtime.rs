@@ -96,3 +96,20 @@ pub enum HeapAllocStrategy {
 		maximum_pages: Option<u32>,
 	},
 }
+
+impl HeapAllocStrategy {
+	/// Double this heap allocation strategy.
+	pub const fn double(self) -> Self {
+		match self {
+			Self::Static { extra_pages } => {
+				Self::Static { extra_pages: extra_pages.saturating_mul(2) }
+			},
+			Self::Dynamic { maximum_pages } => Self::Dynamic {
+				maximum_pages: match maximum_pages {
+					Some(p) => Some(p.saturating_mul(2)),
+					None => None,
+				},
+			},
+		}
+	}
+}
