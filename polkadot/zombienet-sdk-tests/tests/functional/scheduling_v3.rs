@@ -60,7 +60,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(2500)
+			p.with_id(2700)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("async-backing-v3")
@@ -68,7 +68,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug,aura::cumulus=trace").into(),
 					"--authoring=slot-based".into(),
 				])
-				.with_collator(|n| n.with_name("collator-2500"))
+				.with_collator(|n| n.with_name("collator-2700"))
 		})
 		.build()
 		.map_err(|e| {
@@ -80,7 +80,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2500")?;
+	let para_node = network.get_node("collator-2700")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
@@ -156,7 +156,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(2800)
+			p.with_id(2900)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-v3")
@@ -164,7 +164,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug,aura::cumulus=trace").into(),
 					"--authoring=slot-based".into(),
 				])
-				.with_collator(|n| n.with_name("collator-2800"))
+				.with_collator(|n| n.with_name("collator-2900"))
 		})
 		.build()
 		.map_err(|e| {
@@ -176,7 +176,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2800")?;
+	let para_node = network.get_node("collator-2900")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
