@@ -76,7 +76,7 @@ use sc_rpc::{
 };
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
-    bitswap::BitswapApiServer,
+	bitswap::BitswapApiServer,
 	chain_head::ChainHeadApiServer,
 	chain_spec::ChainSpecApiServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
@@ -943,11 +943,7 @@ where
 	.into_rpc();
 
 	// Bitswap RPC-v2.
-	let bitswap_v1 = sc_rpc_spec_v2::bitswap::Bitswap::new(
-		client.clone(),
-		sync_oracle,
-	)
-	.into_rpc();
+	let bitswap_v1 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
