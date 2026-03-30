@@ -75,17 +75,13 @@ pub async fn assert_para_throughput(
 	expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>>,
 ) -> Result<(), anyhow::Error> {
 	let ranges = expected_candidate_ranges.into();
+	let expected_number_of_blocks = expected_number_of_blocks.into();
 	let valid_para_ids: Vec<ParaId> = ranges.keys().cloned().collect();
 
-	assert_para_throughput_with(relay_client, stop_after, ranges, |receipt| {
-		let para_id = receipt.descriptor.para_id();
-		if !valid_para_ids.contains(&para_id) {
-			return Err(anyhow!("Invalid ParaId detected: {}", para_id));
-		}
+	let candidate_count =
+		collect_para_throughput(relay_client, stop_after, ranges, |_| Ok(true)).await?;
 
-		Ok(true)
-	})
-	.await
+	assert_expected_number_of_blocks(candidate_count, expected_number_of_blocks).await
 }
 
 /// Like [`assert_para_throughput`], but accepts a closure to validate each backed candidate
@@ -106,12 +102,25 @@ pub async fn assert_para_throughput_with<F>(
 where
 	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
 {
+	collect_para_throughput(relay_client, stop_after, expected_candidate_ranges, validate)
+		.await
+		.map(|_| ())
+}
+
+async fn collect_para_throughput<F>(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	stop_after: u32,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+	validate: F,
+) -> Result<HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>, anyhow::Error>
+where
+	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
+{
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>> = HashMap::new();
 	let mut current_block_count = 0;
 
 	let expected_candidate_ranges = expected_candidate_ranges.into();
-	let expected_number_of_blocks = expected_number_of_blocks.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	log::info!(
@@ -180,6 +189,13 @@ where
 		}
 	}
 
+	Ok(candidate_count)
+}
+
+async fn assert_expected_number_of_blocks(
+	candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>,
+	expected_number_of_blocks: HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>,
+) -> Result<(), anyhow::Error> {
 	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks {
 		let receipts = candidate_count
 			.get(&para_id)
@@ -196,7 +212,8 @@ where
 			let mut core_info = None;
 
 			loop {
-				let block = para_client.blocks().at(next_para_block_hash).await?;
+				let block: Block<PolkadotConfig, OnlineClient<PolkadotConfig>> =
+					para_client.blocks().at(next_para_block_hash).await?;
 
 				// Genesis block is not part of a candidate :)
 				if block.number() == 0 {
