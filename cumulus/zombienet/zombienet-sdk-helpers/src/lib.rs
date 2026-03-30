@@ -225,7 +225,6 @@ async fn assert_expected_number_of_blocks(
 				// If the core changes or the relay identifier, we found all blocks for the
 				// candidate.
 				if *relay_identifier.get_or_insert(ri.clone()) != ri ||
-
 					*core_info.get_or_insert(ci.clone()) != ci
 				{
 					break;
