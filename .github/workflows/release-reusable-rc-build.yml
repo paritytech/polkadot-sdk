@@ -211,7 +211,15 @@ jobs:
 
        - name: Set dynamic library path
          run: |
-           LLVM_PATH=$(brew --prefix llvm)
+           LLVM_PATH=$(brew --prefix llvm@21)
+           echo "LLVM_PATH resolved to: $LLVM_PATH"
+           ls -la "$LLVM_PATH/lib/libclang.dylib" || echo "libclang.dylib not found at $LLVM_PATH/lib/"
+           # Fallback: try unversioned path
+           if [ ! -f "$LLVM_PATH/lib/libclang.dylib" ]; then
+             LLVM_PATH=$(brew --prefix llvm)
+             echo "Falling back to: $LLVM_PATH"
+             ls -la "$LLVM_PATH/lib/libclang.dylib" || echo "libclang.dylib not found at $LLVM_PATH/lib/ either"
+           fi
            echo "LIBCLANG_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
            echo "LDFLAGS=-L$LLVM_PATH/lib" >> $GITHUB_ENV
            echo "CPPFLAGS=-I$LLVM_PATH/include" >> $GITHUB_ENV
