@@ -273,7 +273,7 @@ pub(super) async fn spawn_network_sudo(
 
 	let participant_count = allowance_items.len();
 
-	let chain_spec_template = include_str!("runtimes/people-westend-spec.json");
+	let chain_spec_template = include_str!("people-westend-local-spec.json");
 	let chain_spec_path = base_dir.join("people-westend-local-spec.json");
 	std::fs::write(&chain_spec_path, chain_spec_template)
 		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
