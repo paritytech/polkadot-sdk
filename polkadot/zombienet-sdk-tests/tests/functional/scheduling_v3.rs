@@ -37,7 +37,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"max_validators_per_core": 2,
+								"max_validators_per_core": 3,
 							},
 							"node_features": node_features_with_v3,
 						}
@@ -88,7 +88,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
-		HashMap::from([(ParaId::from(2500), 15..21)]),
+		HashMap::from([(ParaId::from(2700), 15..21)]),
 		20,
 	)
 	.await?;
@@ -133,7 +133,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 							"scheduler_params": {
 								// 2 extra cores to assign, plus 1 auto-assigned by zombienet
 								"num_cores": 2,
-								"max_validators_per_core": 1,
+								"max_validators_per_core": 2,
 							},
 							"node_features": node_features_with_v3,
 						}
