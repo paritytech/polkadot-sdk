@@ -285,7 +285,11 @@ where
 
 	/// The effective time offset, which is zero when V3 scheduling is enabled.
 	fn effective_time_offset(&self) -> Duration {
-		if self.v3_enabled { Duration::ZERO } else { self.time_offset }
+		if self.v3_enabled {
+			Duration::ZERO
+		} else {
+			self.time_offset
+		}
 	}
 
 	/// Returns the slot and how much time left until the next block production attempt.
