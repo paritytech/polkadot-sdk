@@ -25,6 +25,8 @@ mod benchmarking;
 mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+pub mod market;
+
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
