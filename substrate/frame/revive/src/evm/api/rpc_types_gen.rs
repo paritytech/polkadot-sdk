@@ -17,7 +17,7 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
+use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
 use alloc::{
 	boxed::Box,
 	collections::{BTreeMap, BTreeSet},
@@ -27,7 +27,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Deserializer, Serialize, de::Error};
+use serde::{de::Error, Deserialize, Deserializer, Serialize};
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
@@ -1340,7 +1340,7 @@ pub struct StateOverrideSet(pub BTreeMap<Address, StateOverride>);
 impl StateOverrideSet {
 	/// Creates an empty state override set.
 	pub fn new() -> Self {
-		Self(BTreeMap::new())
+		Default::default()
 	}
 
 	/// Inserts an override for the given address, returning the previous override if one existed.
