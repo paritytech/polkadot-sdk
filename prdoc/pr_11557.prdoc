@@ -1,0 +1,20 @@
+title: Double max memory on block import
+
+doc:
+  - audience: Node Dev
+    description: |
+      `CallContext::Onchain` now carries an `import: bool` field.
+      When `import: true` (block import), the WASM executor allocates double
+      the configured heap pages. When `import: false` (block building), behavior
+      is unchanged.
+
+      This is a breaking change for any code that constructs or matches on
+      `CallContext::Onchain`.
+
+crates:
+  - name: sp-core
+    bump: major
+  - name: sc-executor
+    bump: minor
+  - name: sc-executor-common
+    bump: minor
