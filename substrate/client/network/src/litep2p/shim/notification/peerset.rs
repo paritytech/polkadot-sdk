@@ -931,6 +931,36 @@ impl Peerset {
 		}
 	}
 
+	/// Report connected peer counts to metrics, split by direction and reservation status.
+	fn update_slot_metrics(&self) {
+		let (mut in_reserved, mut in_non_reserved) = (0usize, 0usize);
+		let (mut out_reserved, mut out_non_reserved) = (0usize, 0usize);
+		for state in self.peers.values() {
+			match state {
+				PeerState::Connected { direction: Direction::Inbound(Reserved::Yes) } => {
+					in_reserved += 1
+				},
+				PeerState::Connected { direction: Direction::Inbound(Reserved::No) } => {
+					in_non_reserved += 1
+				},
+				PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) } => {
+					out_reserved += 1
+				},
+				PeerState::Connected { direction: Direction::Outbound(Reserved::No) } => {
+					out_non_reserved += 1
+				},
+				_ => {},
+			}
+		}
+		self.metrics.set_peerset_num_connected(
+			&self.protocol,
+			in_reserved,
+			in_non_reserved,
+			out_reserved,
+			out_non_reserved,
+		);
+	}
+
 	/// Connect to all reserved peers.
 	///
 	/// Under the following conditions:
