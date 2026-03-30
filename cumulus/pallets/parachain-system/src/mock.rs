@@ -154,7 +154,8 @@ impl XcmpMessageSource for FromThreadLocal {
 		maximum_channels: usize,
 		excluded_recipients: &[ParaId],
 	) -> Vec<(ParaId, Vec<u8>)> {
-		let mut ids = std::collections::BTreeSet::<ParaId>::from_iter(excluded_recipients.iter().copied());
+		let mut ids =
+			std::collections::BTreeSet::<ParaId>::from_iter(excluded_recipients.iter().copied());
 		let mut taken_messages = 0;
 		let mut taken_bytes = 0;
 		let mut result = Vec::new();

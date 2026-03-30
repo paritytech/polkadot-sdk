@@ -1057,8 +1057,9 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 4;
-	let max_per_candidate = 100;
-	let recipient = ParaId::from(300);
+	let msgs_per_block: u32 = 25;
+	let max_per_candidate = msgs_per_block * blocks_per_pov;
+	let first_recipient = 300u32;
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
 	let mut sproof_builder =
@@ -1066,10 +1067,12 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 	sproof_builder.host_config.hrmp_max_message_num_per_candidate = max_per_candidate;
 	sproof_builder.para_id = ParaId::from(100);
 
-	let channel = sproof_builder.upsert_outbound_channel(recipient);
-	channel.max_capacity = blocks_per_pov;
-	channel.max_total_size = blocks_per_pov * max_per_candidate * 256;
-	channel.max_message_size = 256;
+	for i in 0..max_per_candidate {
+		let channel = sproof_builder.upsert_outbound_channel(ParaId::from(first_recipient + i));
+		channel.max_capacity = blocks_per_pov;
+		channel.max_total_size = blocks_per_pov * max_per_candidate * 256;
+		channel.max_message_size = 256;
+	}
 
 	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
 		&client,
@@ -1077,10 +1080,14 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 		sproof_builder,
 		blocks_per_pov,
 		|i| {
+			let block_first_recipient = ParaId::from(first_recipient + i * msgs_per_block);
 			vec![generate_extrinsic_with_pair(
 				&client,
 				Charlie.into(),
-				TestPalletCall::queue_hrmp_messages { n: max_per_candidate, recipient },
+				TestPalletCall::queue_hrmp_messages_to_n_recipients {
+					n: msgs_per_block,
+					first_recipient: block_first_recipient,
+				},
 				Some(i),
 			)]
 		},
@@ -1189,9 +1196,6 @@ fn validate_block_hrmp_duplicate_recipient_across_blocks_in_bundle() {
 	channel.max_total_size = 10 * 256;
 	channel.max_message_size = 256;
 
-	// PoV 1: Two blocks both queue HRMP messages to the same recipient.
-	// Only one message per recipient is allowed per candidate, so the first PoV
-	// should contain exactly 1 HRMP message. The second message stays pending.
 	let TestBlockData { block: pov1_block, validation_data: pov1_vdata } =
 		build_multiple_blocks_with_witness(
 			&client,
@@ -1224,12 +1228,10 @@ fn validate_block_hrmp_duplicate_recipient_across_blocks_in_bundle() {
 	assert_eq!(
 		pov1_result.horizontal_messages.len(),
 		1,
-		"PoV 1: expected 1 HRMP message, got {} (duplicate recipient)",
+		"PoV 1: expected 1 HRMP message, got {}",
 		pov1_result.horizontal_messages.len(),
 	);
 
-	// PoV 2: A single block with no new HRMP extrinsics. The pending message from PoV 1
-	// should now be sent.
 	let pov2_parent_head = pov1_block.blocks().last().unwrap().header().clone();
 	sproof_builder.current_slot = 2.into();
 	sproof_builder.included_para_head = Some(HeadData(pov2_parent_head.encode()));

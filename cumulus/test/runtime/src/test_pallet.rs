@@ -78,13 +78,16 @@ pub mod pallet {
 			excluded_recipients: &[ParaId],
 		) -> alloc::vec::Vec<(ParaId, alloc::vec::Vec<u8>)> {
 			PendingOutboundHrmpMessages::<T>::mutate(|messages| {
-				let mut taken = 0;
+				let mut taken_recipients = alloc::vec::Vec::new();
 				let mut result = alloc::vec::Vec::new();
 				messages.retain(|(recipient, data)| {
-					if taken >= maximum_channels || excluded_recipients.contains(recipient) {
+					if result.len() >= maximum_channels ||
+						excluded_recipients.contains(recipient) ||
+						taken_recipients.contains(recipient)
+					{
 						return true;
 					}
-					taken += 1;
+					taken_recipients.push(*recipient);
 					result.push((*recipient, data.clone()));
 					false
 				});
@@ -233,6 +236,22 @@ pub mod pallet {
 			PendingOutboundHrmpMessages::<T>::mutate(|messages| {
 				for i in 0..n {
 					messages.push((recipient, vec![(i % 256) as u8]));
+				}
+			});
+			Ok(())
+		}
+
+		/// Queues one HRMP message each to `n` consecutive recipients starting from
+		/// `first_recipient`.
+		#[pallet::weight(0)]
+		pub fn queue_hrmp_messages_to_n_recipients(
+			_: OriginFor<T>,
+			n: u32,
+			first_recipient: ParaId,
+		) -> DispatchResult {
+			PendingOutboundHrmpMessages::<T>::mutate(|messages| {
+				for i in 0..n {
+					messages.push((ParaId::from(u32::from(first_recipient) + i), vec![i as u8]));
 				}
 			});
 			Ok(())
