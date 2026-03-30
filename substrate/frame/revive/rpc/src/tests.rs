@@ -42,6 +42,8 @@ use jsonrpsee::{
 	core::ClientError,
 	ws_client::{WsClient, WsClientBuilder},
 };
+use pallet_revive::precompiles::alloy::sol_types::{SolCall, SolConstructor};
+use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive::{
 	create1,
 	evm::{
@@ -2159,8 +2161,7 @@ async fn test_state_override_code_empty_to_evm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(42u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 42 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2176,12 +2177,8 @@ async fn test_state_override_code_empty_to_evm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(42u64),
-		"echo(42) should return 42 via EVM code override on empty address"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 42u64, "echo(42) should return 42 via EVM code override on empty address");
 
 	Ok(())
 }
@@ -2225,8 +2222,7 @@ async fn test_state_override_code_evm_to_evm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(99u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 99 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2242,12 +2238,8 @@ async fn test_state_override_code_evm_to_evm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(99u64),
-		"echo(99) should return 99 via EVM code override on EVM contract"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 99u64, "echo(99) should return 99 via EVM code override on EVM contract");
 
 	Ok(())
 }
@@ -2265,8 +2257,7 @@ async fn test_state_override_code_empty_to_pvm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::Resolc,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(42u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 42 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2282,12 +2273,8 @@ async fn test_state_override_code_empty_to_pvm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(42u64),
-		"echo(42) should return 42 via PVM code override on empty address"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 42u64, "echo(42) should return 42 via PVM code override on empty address");
 
 	Ok(())
 }
@@ -2312,8 +2299,7 @@ async fn test_state_override_code_eoa_to_evm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(55u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 55 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2329,12 +2315,8 @@ async fn test_state_override_code_eoa_to_evm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(55u64),
-		"echo(55) should return 55 via EVM code override on funded EOA"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 55u64, "echo(55) should return 55 via EVM code override on funded EOA");
 
 	Ok(())
 }
@@ -2359,8 +2341,7 @@ async fn test_state_override_code_eoa_to_pvm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::Resolc,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(55u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 55 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2376,12 +2357,8 @@ async fn test_state_override_code_eoa_to_pvm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(55u64),
-		"echo(55) should return 55 via PVM code override on funded EOA"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 55u64, "echo(55) should return 55 via PVM code override on funded EOA");
 
 	Ok(())
 }
@@ -2401,8 +2378,7 @@ async fn test_state_override_code_evm_to_pvm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::Resolc,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(88u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 88 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2418,12 +2394,8 @@ async fn test_state_override_code_evm_to_pvm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(88u64),
-		"echo(88) should return 88 via PVM code override on EVM contract"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 88u64, "echo(88) should return 88 via PVM code override on EVM contract");
 
 	Ok(())
 }
@@ -2443,8 +2415,7 @@ async fn test_state_override_code_pvm_to_evm() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(77u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 77 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -2460,12 +2431,8 @@ async fn test_state_override_code_pvm_to_evm() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(77u64),
-		"echo(77) should return 77 via EVM code override on PVM contract"
-	);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 77u64, "echo(77) should return 77 via EVM code override on PVM contract");
 
 	Ok(())
 }
@@ -2480,7 +2447,7 @@ async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
 		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
 			.await?;
 
-	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let call_data = Counter::numberCall {}.abi_encode();
 	let tx = TransactionRequest::default()
 		.from(from)
 		.to(counter_address)
@@ -2489,19 +2456,15 @@ async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
 	let overrides = StateOverride::from_iter([(
 		counter_address,
 		AccountOverride::default()
-			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(999u64)))]),
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&999u64.to_be_bytes()))]),
 	)]);
 
 	// Act
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(999u64),
-		"number() should return the overridden value 999, not the original 3"
-	);
+	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 999, "number() should return the overridden value 999, not the original 3");
 
 	Ok(())
 }
@@ -2516,7 +2479,7 @@ async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
 		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
 			.await?;
 
-	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let call_data = Counter::numberCall {}.abi_encode();
 	let tx = TransactionRequest::default()
 		.from(from)
 		.to(counter_address)
@@ -2524,19 +2487,15 @@ async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		counter_address,
-		AccountOverride::default().with_state([(B256::ZERO, B256::from(AlloyU256::from(123u64)))]),
+		AccountOverride::default().with_state([(B256::ZERO, B256::left_padding_from(&123u64.to_be_bytes()))]),
 	)]);
 
 	// Act
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(123u64),
-		"number() should return 123 from the full storage replacement"
-	);
+	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 123, "number() should return 123 from the full storage replacement");
 
 	Ok(())
 }
@@ -2549,9 +2508,8 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let mut constructor_args = Vec::new();
-	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
-	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let constructor_args =
+		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2565,36 +2523,31 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 	// Override with `state` containing only slot 0 = 42.
 	let overrides = StateOverride::from_iter([(
 		target,
-		AccountOverride::default().with_state([(slot_0, B256::from(AlloyU256::from(42u64)))]),
+		AccountOverride::default().with_state([(slot_0, B256::left_padding_from(&42u64.to_be_bytes()))]),
 	)]);
 
 	// Act — read first() via eth_call with override
-	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_data = TwoSlots::firstCall {}.abi_encode();
 	let first_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
 	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
-	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
 
 	// Act — read second() via eth_call with same override
-	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_data = TwoSlots::secondCall {}.abi_encode();
 	let second_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
 	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
-	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
 
 	// Assert
+	assert_eq!(first_value, 42, "first() should return the overridden value 42");
 	assert_eq!(
-		first_value,
-		AlloyU256::from(42u64),
-		"first() should return the overridden value 42"
-	);
-	assert_eq!(
-		second_value,
-		AlloyU256::ZERO,
+		second_value, 0,
 		"second() should be zero because full state replacement cleared unspecified slots"
 	);
 
@@ -2609,9 +2562,8 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let mut constructor_args = Vec::new();
-	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
-	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let constructor_args =
+		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2625,36 +2577,31 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 	// Override only slot 0 via stateDiff.
 	let overrides = StateOverride::from_iter([(
 		target,
-		AccountOverride::default().with_state_diff([(slot_0, B256::from(AlloyU256::from(99u64)))]),
+		AccountOverride::default().with_state_diff([(slot_0, B256::left_padding_from(&99u64.to_be_bytes()))]),
 	)]);
 
 	// Act — read first() with override
-	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_data = TwoSlots::firstCall {}.abi_encode();
 	let first_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
 	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
-	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
 
 	// Act — read second() with same override
-	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_data = TwoSlots::secondCall {}.abi_encode();
 	let second_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
 	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
-	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
 
 	// Assert
+	assert_eq!(first_value, 99, "first() should return the overridden value 99");
 	assert_eq!(
-		first_value,
-		AlloyU256::from(99u64),
-		"first() should return the overridden value 99"
-	);
-	assert_eq!(
-		second_value,
-		AlloyU256::from(20u64),
+		second_value, 20,
 		"second() should retain its original value 20 since stateDiff didn't touch it"
 	);
 
@@ -2668,9 +2615,8 @@ async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let mut constructor_args = Vec::new();
-	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
-	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let constructor_args =
+		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2680,46 +2626,38 @@ async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
 	.await?;
 
 	let slot_0 = B256::ZERO;
-	let slot_1 = B256::from(AlloyU256::from(1u64));
+	let slot_1 = B256::left_padding_from(&1u64.to_be_bytes());
 
 	// Override both slots in one stateDiff.
 	let overrides = StateOverride::from_iter([(
 		target,
 		AccountOverride::default().with_state_diff([
-			(slot_0, B256::from(AlloyU256::from(111u64))),
-			(slot_1, B256::from(AlloyU256::from(222u64))),
+			(slot_0, B256::left_padding_from(&111u64.to_be_bytes())),
+			(slot_1, B256::left_padding_from(&222u64.to_be_bytes())),
 		]),
 	)]);
 
 	// Act — read first()
-	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_data = TwoSlots::firstCall {}.abi_encode();
 	let first_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
 	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
-	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
 
 	// Act — read second()
-	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_data = TwoSlots::secondCall {}.abi_encode();
 	let second_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
 	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
-	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
 
 	// Assert
-	assert_eq!(
-		first_value,
-		AlloyU256::from(111u64),
-		"first() should return the overridden value 111"
-	);
-	assert_eq!(
-		second_value,
-		AlloyU256::from(222u64),
-		"second() should return the overridden value 222"
-	);
+	assert_eq!(first_value, 111, "first() should return the overridden value 111");
+	assert_eq!(second_value, 222, "second() should return the overridden value 222");
 
 	Ok(())
 }
@@ -2731,9 +2669,8 @@ async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Resu
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let mut constructor_args = Vec::new();
-	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
-	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let constructor_args =
+		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2749,26 +2686,26 @@ async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Resu
 	)]);
 
 	// Act — read first()
-	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_data = TwoSlots::firstCall {}.abi_encode();
 	let first_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
 	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
-	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
 
 	// Act — read second()
-	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_data = TwoSlots::secondCall {}.abi_encode();
 	let second_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
 	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
-	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
 
 	// Assert
-	assert_eq!(first_value, AlloyU256::ZERO, "first() should be zero after empty state override");
-	assert_eq!(second_value, AlloyU256::ZERO, "second() should be zero after empty state override");
+	assert_eq!(first_value, 0, "first() should be zero after empty state override");
+	assert_eq!(second_value, 0, "second() should be zero after empty state override");
 
 	Ok(())
 }
@@ -2781,9 +2718,8 @@ async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let mut constructor_args = Vec::new();
-	constructor_args.extend_from_slice(&AlloyU256::from(10u64).to_be_bytes::<32>());
-	constructor_args.extend_from_slice(&AlloyU256::from(20u64).to_be_bytes::<32>());
+	let constructor_args =
+		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2799,30 +2735,26 @@ async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
 	)]);
 
 	// Act — read first()
-	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_data = TwoSlots::firstCall {}.abi_encode();
 	let first_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(first_data).into());
 	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
-	let first_value = AlloyU256::from_be_slice(&first_result[first_result.len() - 32..]);
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
 
 	// Act — read second()
-	let second_data = sp_core::keccak_256(b"second()")[..4].to_vec();
+	let second_data = TwoSlots::secondCall {}.abi_encode();
 	let second_tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
 		.input(AlloyBytes::from(second_data).into());
 	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
-	let second_value = AlloyU256::from_be_slice(&second_result[second_result.len() - 32..]);
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
 
 	// Assert
-	assert_eq!(first_value, AlloyU256::ZERO, "first() should return zero after stateDiff to zero");
-	assert_eq!(
-		second_value,
-		AlloyU256::from(20u64),
-		"second() should retain its original value 20"
-	);
+	assert_eq!(first_value, 0, "first() should return zero after stateDiff to zero");
+	assert_eq!(second_value, 20, "second() should retain its original value 20");
 
 	Ok(())
 }
@@ -2876,11 +2808,11 @@ async fn test_state_override_code_and_storage_combined() -> anyhow::Result<()> {
 		target,
 		AccountOverride::default()
 			.with_code(AlloyBytes::from(code))
-			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(77u64)))]),
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&77u64.to_be_bytes()))]),
 	)]);
 
 	// Act — read first() which reads slot 0
-	let first_data = sp_core::keccak_256(b"first()")[..4].to_vec();
+	let first_data = TwoSlots::firstCall {}.abi_encode();
 	let tx = TransactionRequest::default()
 		.from(from)
 		.to(target)
@@ -2888,12 +2820,8 @@ async fn test_state_override_code_and_storage_combined() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(77u64),
-		"first() should return 77 from storage override on code-injected address"
-	);
+	let returned_value = TwoSlots::firstCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 77, "first() should return 77 from storage override on code-injected address");
 
 	Ok(())
 }
@@ -2943,8 +2871,7 @@ async fn test_state_override_multiple_accounts() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(7u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 7 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(sender)
@@ -2963,10 +2890,9 @@ async fn test_state_override_multiple_accounts() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
 	assert_eq!(
-		returned_value,
-		AlloyU256::from(7u64),
+		returned_value, 7u64,
 		"echo(7) should work with sender balance + target code overridden"
 	);
 
@@ -2985,8 +2911,7 @@ async fn test_state_override_combined_balance_and_code() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut call_data = sp_core::keccak_256(b"echo(uint64)")[..4].to_vec();
-	call_data.extend_from_slice(&AlloyU256::from(7u64).to_be_bytes::<32>());
+	let call_data = Callee::echoCall { _data: 7 }.abi_encode();
 
 	let tx = TransactionRequest::default()
 		.from(from)
@@ -3004,10 +2929,9 @@ async fn test_state_override_combined_balance_and_code() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
 	assert_eq!(
-		returned_value,
-		AlloyU256::from(7u64),
+		returned_value, 7u64,
 		"echo(7) should work with combined balance + code override on same account"
 	);
 
@@ -3024,7 +2948,7 @@ async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
 		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
 			.await?;
 
-	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let call_data = Counter::numberCall {}.abi_encode();
 	let tx = TransactionRequest::default()
 		.from(from)
 		.to(counter_address)
@@ -3033,25 +2957,20 @@ async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
 	let overrides = StateOverride::from_iter([(
 		counter_address,
 		AccountOverride::default()
-			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(999u64)))]),
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&999u64.to_be_bytes()))]),
 	)]);
 
 	// Act — call with override
 	let overridden_result = provider.call(tx.clone()).overrides(overrides).await?;
-	let overridden_value =
-		AlloyU256::from_be_slice(&overridden_result[overridden_result.len() - 32..]);
+	let overridden_value = Counter::numberCall::abi_decode_returns(&overridden_result)?;
 
 	// Act — call without override
 	let normal_result = provider.call(tx.clone()).await?;
-	let normal_value = AlloyU256::from_be_slice(&normal_result[normal_result.len() - 32..]);
+	let normal_value = Counter::numberCall::abi_decode_returns(&normal_result)?;
 
 	// Assert
-	assert_eq!(overridden_value, AlloyU256::from(999u64), "overridden call should return 999");
-	assert_eq!(
-		normal_value,
-		AlloyU256::from(3u64),
-		"subsequent call without override should return original value 3"
-	);
+	assert_eq!(overridden_value, 999, "overridden call should return 999");
+	assert_eq!(normal_value, 3, "subsequent call without override should return original value 3");
 
 	Ok(())
 }
@@ -3065,7 +2984,7 @@ async fn test_state_override_empty_set() -> anyhow::Result<()> {
 		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
 			.await?;
 
-	let call_data = sp_core::keccak_256(b"number()")[..4].to_vec();
+	let call_data = Counter::numberCall {}.abi_encode();
 	let tx = TransactionRequest::default()
 		.from(from)
 		.to(counter_address)
@@ -3077,12 +2996,8 @@ async fn test_state_override_empty_set() -> anyhow::Result<()> {
 	let result = provider.call(tx.clone()).overrides(empty_overrides).await?;
 
 	// Assert
-	let returned_value = AlloyU256::from_be_slice(&result[result.len() - 32..]);
-	assert_eq!(
-		returned_value,
-		AlloyU256::from(3u64),
-		"empty override set should return the original constructor value 3"
-	);
+	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 3, "empty override set should return the original constructor value 3");
 
 	Ok(())
 }
@@ -3100,7 +3015,7 @@ async fn test_state_override_storage_on_eoa_fails() -> anyhow::Result<()> {
 	let overrides = StateOverride::from_iter([(
 		eoa,
 		AccountOverride::default()
-			.with_state_diff([(B256::ZERO, B256::from(AlloyU256::from(42u64)))]),
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&42u64.to_be_bytes()))]),
 	)]);
 
 	// Act
