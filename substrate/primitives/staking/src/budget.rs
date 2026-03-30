@@ -75,6 +75,60 @@ impl<AccountId> BudgetRecipientList<AccountId> for Tuple {
 	fn recipients() -> Vec<(BudgetKey, AccountId)> {
 		let mut v = Vec::new();
 		for_tuples!( #( v.push((Tuple::budget_key(), Tuple::pot_account())); )* );
+		debug_assert!({
+			let mut keys: Vec<_> = v.iter().map(|(k, _)| k.clone()).collect();
+			keys.sort();
+			keys.windows(2).all(|w| w[0] != w[1])
+		}, "Duplicate BudgetRecipient key detected");
 		v
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	struct RecipientA;
+	impl BudgetRecipient<u64> for RecipientA {
+		fn budget_key() -> BudgetKey {
+			BudgetKey::truncate_from(b"alpha".to_vec())
+		}
+		fn pot_account() -> u64 {
+			1
+		}
+	}
+
+	struct RecipientB;
+	impl BudgetRecipient<u64> for RecipientB {
+		fn budget_key() -> BudgetKey {
+			BudgetKey::truncate_from(b"beta".to_vec())
+		}
+		fn pot_account() -> u64 {
+			2
+		}
+	}
+
+	// Duplicate key: same as RecipientA.
+	struct RecipientDuplicate;
+	impl BudgetRecipient<u64> for RecipientDuplicate {
+		fn budget_key() -> BudgetKey {
+			BudgetKey::truncate_from(b"alpha".to_vec())
+		}
+		fn pot_account() -> u64 {
+			3
+		}
+	}
+
+	#[test]
+	fn unique_keys_work() {
+		let recipients = <(RecipientA, RecipientB) as BudgetRecipientList<u64>>::recipients();
+		assert_eq!(recipients.len(), 2);
+	}
+
+	#[test]
+	#[should_panic(expected = "Duplicate BudgetRecipient key detected")]
+	fn duplicate_keys_panics() {
+		let _ =
+			<(RecipientA, RecipientDuplicate) as BudgetRecipientList<u64>>::recipients();
 	}
 }
