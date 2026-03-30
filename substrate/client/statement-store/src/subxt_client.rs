@@ -275,6 +275,5 @@ pub async fn set_allowances_via_sudo(
 		.wait_for_finalized_success()
 		.await?;
 
-	log::info!("Statement allowances set and finalized");
 	Ok(())
 }

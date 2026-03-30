@@ -189,8 +189,6 @@ pub(super) fn create_chain_spec_with_allowances(
 	std::fs::write(&chain_spec_path, chain_spec_json)
 		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
 
-	info!("Created custom chain spec at: {}", chain_spec_path.display());
-
 	Ok(chain_spec_path)
 }
 

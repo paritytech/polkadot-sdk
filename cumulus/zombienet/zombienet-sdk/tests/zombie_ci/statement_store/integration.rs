@@ -63,8 +63,7 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 	let allowance = StatementAllowance { max_count: 100, max_size: 1_000_000 };
 	let items = create_uniform_allowance_items(10, allowance);
 
-	let network =
-		spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
+	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -131,9 +130,8 @@ async fn statement_store_quota_and_eviction() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let items = create_allowance_items(&[
-		(0, StatementAllowance { max_count: 3, max_size: 10_000 }),
-	]);
+	let items =
+		create_allowance_items(&[(0, StatementAllowance { max_count: 3, max_size: 10_000 })]);
 
 	let network = spawn_network_sudo(&["alice", "bob"], items).await?;
 
