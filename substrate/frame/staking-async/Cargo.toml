@@ -17,19 +17,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-election-provider-support.workspace = true
-frame-support.workspace = true
-frame-system.workspace = true
+frame-election-provider-support = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 log = { workspace = true }
-pallet-staking-async-rc-client.workspace = true
+pallet-staking-async-rc-client = { workspace = true }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
-sp-core.workspace = true
-sp-io.workspace = true
-sp-npos-elections.workspace = true
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-npos-elections = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 

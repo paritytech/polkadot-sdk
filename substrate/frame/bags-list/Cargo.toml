@@ -17,11 +17,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # parity
 codec = { features = ["derive"], workspace = true }
-frame-election-provider-support.workspace = true
-frame-support.workspace = true
-frame-system.workspace = true
+frame-election-provider-support = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-runtime.workspace = true
+sp-runtime = { workspace = true }
 
 # third party
 aquamarine = { workspace = true }

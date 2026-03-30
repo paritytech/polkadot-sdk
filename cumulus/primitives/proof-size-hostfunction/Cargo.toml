@@ -12,9 +12,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-sp-externalities.workspace = true
-sp-runtime-interface.workspace = true
-sp-trie.workspace = true
+sp-externalities = { workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-trie = { workspace = true }
 
 [dev-dependencies]
 sp-core = { default-features = true, workspace = true }

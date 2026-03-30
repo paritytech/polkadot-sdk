@@ -16,12 +16,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame-support.workspace = true
-pallet-revive.workspace = true
-pallet-xcm.workspace = true
+frame-support = { workspace = true }
+pallet-revive = { workspace = true }
+pallet-xcm = { workspace = true }
 tracing = { workspace = true }
-xcm.workspace = true
-xcm-executor.workspace = true
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 frame-system = { default-features = true, workspace = true }

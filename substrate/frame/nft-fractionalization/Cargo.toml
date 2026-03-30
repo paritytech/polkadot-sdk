@@ -19,8 +19,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
-pallet-assets.workspace = true
-pallet-nfts.workspace = true
+pallet-assets = { workspace = true }
+pallet-nfts = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]

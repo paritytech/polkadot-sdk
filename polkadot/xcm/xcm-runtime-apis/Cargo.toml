@@ -12,12 +12,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame-support.workspace = true
+frame-support = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
-sp-api.workspace = true
-sp-weights.workspace = true
-xcm.workspace = true
-xcm-executor.workspace = true
+sp-api = { workspace = true }
+sp-weights = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 frame-system = { workspace = true, default-features = false }

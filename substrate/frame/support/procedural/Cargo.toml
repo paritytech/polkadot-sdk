@@ -26,14 +26,13 @@ cfg-expr = { workspace = true }
 derive-syn-parse = { workspace = true }
 docify = { workspace = true }
 expander = { workspace = true }
-frame-support-procedural-tools.default-features = true
-frame-support-procedural-tools.workspace = true
+frame-support-procedural-tools = { default-features = true, workspace = true }
 itertools = { workspace = true }
 macro_magic = { features = ["proc_support"], workspace = true }
 proc-macro-warning = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-sp-crypto-hashing.workspace = true
+sp-crypto-hashing = { workspace = true }
 syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]

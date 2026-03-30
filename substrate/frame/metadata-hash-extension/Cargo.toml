@@ -13,8 +13,8 @@ array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 const-hex = { workspace = true }
 docify = { workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }

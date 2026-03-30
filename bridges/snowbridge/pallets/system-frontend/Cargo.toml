@@ -20,18 +20,18 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-asset-conversion.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-asset-conversion = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-snowbridge-core.workspace = true
-sp-core.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
-sp-std.workspace = true
+snowbridge-core = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 tracing = { workspace = true }
-xcm.workspace = true
-xcm-executor.workspace = true
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
