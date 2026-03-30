@@ -19,7 +19,6 @@ use core::cmp;
 use frame_support::{ensure, weights::WeightMeter};
 use frame_system::pallet_prelude::AccountIdFor;
 use sp_arithmetic::FixedPointNumber;
-use sp_core::Get;
 use sp_runtime::{traits::Zero, DispatchError, FixedU64, SaturatedConversion, Saturating};
 
 use crate::{
@@ -91,6 +90,8 @@ pub trait CoreCountProvider<T: Config> {
 
 pub trait TimesliceProvider {
 	fn next_timeslice_to_commit() -> Option<Timeslice>;
+
+	fn latest_timeslice_ready_to_commit() -> Option<Timeslice>;
 }
 
 pub enum OrderResult<T: Config, BidId> {
@@ -198,7 +199,8 @@ impl<T: Config> Market<T> for Pallet<T> {
 	) -> Result<SalesStarted<T>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(MarketError::Uninitialized)?;
 
-		let commit_timeslice = latest_timeslice_ready_to_commit::<T>(block_number, &config);
+		let commit_timeslice = Self::TimesliceProvider::latest_timeslice_ready_to_commit()
+			.ok_or(MarketError::Uninitialized)?;
 
 		// Imaginary old sale for bootstrapping the first actual sale:
 		let old_sale = SaleInfoRecord {
@@ -357,16 +359,6 @@ pub(crate) fn leadin_factor_at(when: FixedU64) -> FixedU64 {
 	} else {
 		FixedU64::from(19).saturating_sub(when.saturating_mul(18.into()))
 	}
-}
-
-// TODO: Remove.
-fn latest_timeslice_ready_to_commit<T: Config>(
-	now: RelayBlockNumberOf<T>,
-	config: &ConfigRecordOf<T>,
-) -> Timeslice {
-	let advanced = now.saturating_add(config.advance_notice);
-	let timeslice_period = T::TimeslicePeriod::get();
-	(advanced / timeslice_period).saturated_into()
 }
 
 // TODO: Don't rely on the pallet config?

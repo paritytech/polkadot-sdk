@@ -172,4 +172,9 @@ impl<T: Config> TimesliceProvider for TimesliceProviderImpl<T> {
 			None
 		}
 	}
+
+	fn latest_timeslice_ready_to_commit() -> Option<Timeslice> {
+		let config = Configuration::<T>::get()?;
+		Some(Pallet::<T>::latest_timeslice_ready_to_commit(&config))
+	}
 }
