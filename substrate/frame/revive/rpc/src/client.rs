@@ -42,7 +42,7 @@ use sp_weights::Weight;
 use std::{
 	sync::{
 		Arc,
-		atomic::{AtomicBool, Ordering},
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 	},
 	time::Duration,
 };
@@ -273,14 +273,19 @@ pub(crate) struct GapFillRequest {
 /// Processes gap-fill requests.
 #[derive(Clone)]
 pub(crate) struct GapFiller {
+	/// Sender half of the gap-fill queue.
 	tx: mpsc::Sender<GapFillRequest>,
+	/// Receiver half; taken once at startup.
 	rx: Arc<Mutex<Option<mpsc::Receiver<GapFillRequest>>>>,
+	/// Queued + in-flight gap fills. Channel length alone is insufficient
+	/// because it drops to zero as soon as the receiver dequeues the item.
+	pending: Arc<AtomicUsize>,
 }
 
 impl GapFiller {
 	fn new(capacity: usize) -> Self {
 		let (tx, rx) = mpsc::channel(capacity);
-		Self { tx, rx: Arc::new(Mutex::new(Some(rx))) }
+		Self { tx, rx: Arc::new(Mutex::new(Some(rx))), pending: Arc::new(AtomicUsize::new(0)) }
 	}
 
 	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
@@ -296,17 +301,30 @@ impl GapFiller {
 
 		let from = current.saturating_sub(1);
 		let to = last.saturating_add(1);
-		let blocks = from.saturating_sub(to) + 1;
+		let gap_len = from.saturating_sub(to) + 1;
 		match self.tx.try_send(GapFillRequest { from, to }) {
-			Ok(_) => log::info!(target: LOG_TARGET,
-				"🔄 Queued gap fill: #{from} down to #{to} ({blocks} blocks)"),
+			Ok(_) => {
+				self.pending.fetch_add(1, Ordering::Release);
+				log::info!(target: LOG_TARGET,
+					"🔄 Queued gap fill: #{from} down to #{to} ({gap_len} blocks)");
+			},
 			Err(mpsc::error::TrySendError::Full(_)) => log::warn!(target: LOG_TARGET,
-					"🔄 Gap fill queue full, dropping #{from}..#{to} ({blocks} blocks)"),
+					"🔄 Gap fill queue full, dropping #{from}..#{to} ({gap_len} blocks)"),
 			Err(mpsc::error::TrySendError::Closed(_)) => {
 				log::warn!(target: LOG_TARGET,
-					"🔄 Gap fill queue closed, dropping #{from}..#{to} ({blocks} blocks)")
+					"🔄 Gap fill queue closed, dropping #{from}..#{to} ({gap_len} blocks)")
 			},
 		}
+	}
+
+	/// Mark one request as processed.
+	pub fn mark_done(&self) {
+		self.pending.fetch_sub(1, Ordering::Release);
+	}
+
+	/// Returns `true` if there are pending gap-fill requests.
+	pub fn has_pending(&self) -> bool {
+		self.pending.load(Ordering::Acquire) > 0
 	}
 
 	/// Take the receiver. Returns `None` if already taken.
@@ -437,9 +455,12 @@ impl Client {
 		self.backfill_complete.store(true, Ordering::Release);
 	}
 
-	/// Whether archive sync is active and backfill has completed.
+	/// Whether it is safe to advance the sync_state head.
+	/// Requires: archive mode, historic backfill complete, and no pending gap fills.
 	fn should_advance_head(&self) -> bool {
-		self.is_archive && self.backfill_complete.load(Ordering::Acquire)
+		self.is_archive &&
+			self.backfill_complete.load(Ordering::Acquire) &&
+			!self.gap_filler.has_pending()
 	}
 
 	/// Creates a block notifier instance.
@@ -491,7 +512,7 @@ impl Client {
 			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
 		})?;
 
-		let mut last_processed_block: Option<SubstrateBlockNumber> = None;
+		let mut last_finalized_seen: Option<SubstrateBlockNumber> = None;
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -500,7 +521,8 @@ impl Client {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
 							target: LOG_TARGET,
-							"The RPC connection was lost and we may have missed a few blocks ({subscription_type:?}): {err:?}"
+							"The RPC connection was lost and we may have missed a few blocks \
+							({subscription_type:?}, last finalized: {last_finalized_seen:?}): {err:?}"
 						);
 						continue;
 					}
@@ -514,17 +536,21 @@ impl Client {
 			let _guard = self.subscription_lock.lock().await;
 
 			let block_number = block.number();
+
+			// Detect gaps before processing so that `pending` is incremented
+			// before the callback can advance the head.
+			if subscription_type == SubscriptionType::FinalizedBlocks {
+				self.gap_filler.detect_and_queue(block_number, last_finalized_seen);
+				// Updated unconditionally: the block was received, so there is no gap.
+				// A callback failure is a processing error, not a missing block.
+				last_finalized_seen = Some(block_number);
+			}
+
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
 			} else {
 				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
-			}
-
-			// Detect gaps and update tracking for finalized blocks only.
-			if subscription_type == SubscriptionType::FinalizedBlocks {
-				self.gap_filler.detect_and_queue(block_number, last_processed_block);
-				last_processed_block = Some(block_number);
 			}
 		}
 

@@ -423,6 +423,7 @@ impl Client {
 			} else {
 				log::info!(target: LOG_TARGET, "🔄 Gap filler: done with #{from}..#{to}");
 			}
+			self.gap_filler().mark_done();
 		}
 
 		log::info!(target: LOG_TARGET, "🔄 Gap filler task stopped");
