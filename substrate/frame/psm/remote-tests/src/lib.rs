@@ -276,16 +276,13 @@ where
 			balance_before,
 		);
 
-		// --- Test: Mint 1000 pUSD (1000 * 10^decimals) ---
+		// Test mint
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
 			asset_id,
 			swap_amount,
 		));
 
-		// Verify exact balances after mint.
-		// Default fee is 0.5%, so: fee = swap_amount * 0.5% (rounded up),
-		// pusd_to_user = swap_amount - fee, total_debt = swap_amount.
 		let balance_after_mint =
 			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 				asset_id, &caller,
@@ -313,7 +310,6 @@ where
 			psm_external,
 		);
 
-		// --- Test: Redeem pUSD ---
 		// Redeem all pUSD the caller has (seed + minted amount).
 		let pusd_balance = Runtime::StableAsset::balance(&caller);
 		let redeem_amount = pusd_balance;
@@ -383,7 +379,7 @@ where
 		let small_redeem: BalanceOf<Runtime> =
 			100_000_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
 
-		// --- Test: MintingDisabled — mint fails, redeem still works ---
+		// Test: MintingDisabled. Mint fails, redeem still works
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
@@ -407,7 +403,7 @@ where
 
 		log::info!(target: LOG_TARGET, "MintingDisabled: mint blocked, redeem allowed");
 
-		// --- Test: AllDisabled — both mint and redeem fail ---
+		// -Test: AllDisabled. Both mint and redeem fail
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
@@ -434,7 +430,7 @@ where
 
 		log::info!(target: LOG_TARGET, "AllDisabled: both mint and redeem blocked");
 
-		// --- Test: Re-enable — both operations resume ---
+		// Test: Re-enable. Both operations resume
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
