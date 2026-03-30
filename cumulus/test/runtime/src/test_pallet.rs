@@ -75,10 +75,20 @@ pub mod pallet {
 	impl<T: Config> XcmpMessageSource for Pallet<T> {
 		fn take_outbound_messages(
 			maximum_channels: usize,
+			excluded_recipients: &[ParaId],
 		) -> alloc::vec::Vec<(ParaId, alloc::vec::Vec<u8>)> {
 			PendingOutboundHrmpMessages::<T>::mutate(|messages| {
-				let to_take = messages.len().min(maximum_channels);
-				messages.drain(..to_take).collect()
+				let mut taken = 0;
+				let mut result = alloc::vec::Vec::new();
+				messages.retain(|(recipient, data)| {
+					if taken >= maximum_channels || excluded_recipients.contains(recipient) {
+						return true;
+					}
+					taken += 1;
+					result.push((*recipient, data.clone()));
+					false
+				});
+				result
 			})
 		}
 	}

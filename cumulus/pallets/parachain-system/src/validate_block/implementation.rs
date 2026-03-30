@@ -351,6 +351,8 @@ where
 			.expect("UMPSignals does not fit in UMPMessages");
 	}
 
+	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
+
 	ValidationResult {
 		head_data: head_data.expect("HeadData not set"),
 		new_validation_code: new_validation_code.map(Into::into),

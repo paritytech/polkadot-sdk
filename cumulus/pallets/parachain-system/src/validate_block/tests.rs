@@ -1107,6 +1107,161 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 }
 
 #[test]
+fn validate_block_hrmp_messages_sorted_across_blocks_in_bundle() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 2;
+	let recipient_a = ParaId::from(200);
+	let recipient_b = ParaId::from(300);
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.hrmp_max_message_num_per_candidate = 10;
+	sproof_builder.para_id = ParaId::from(100);
+
+	for recipient in [recipient_a, recipient_b] {
+		let channel = sproof_builder.upsert_outbound_channel(recipient);
+		channel.max_capacity = blocks_per_pov;
+		channel.max_total_size = blocks_per_pov * 10 * 256;
+		channel.max_message_size = 256;
+	}
+
+	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
+		&client,
+		parent_head.clone(),
+		sproof_builder,
+		blocks_per_pov,
+		|i| {
+			// Block 0 sends to recipient_b (300), block 1 sends to recipient_a (200).
+			// Naive concatenation would produce [300, 200] which violates the
+			// strictly-ascending-by-recipient requirement enforced by the relay chain.
+			let recipient = if i == 0 { recipient_b } else { recipient_a };
+			vec![generate_extrinsic_with_pair(
+				&client,
+				Charlie.into(),
+				TestPalletCall::queue_hrmp_messages { n: 1, recipient },
+				Some(i),
+			)]
+		},
+		|i| {
+			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+				.to_digest_item()]
+		},
+	);
+
+	let result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`");
+
+	assert_eq!(result.horizontal_messages.len(), 2);
+
+	// The relay chain requires strictly ascending recipient order and at most one message
+	// per recipient (see `hrmp::Pallet::check_outbound_hrmp`).
+	assert!(
+		result.horizontal_messages[0].recipient < result.horizontal_messages[1].recipient,
+		"HRMP messages must be strictly sorted by recipient, got {:?} before {:?}",
+		result.horizontal_messages[0].recipient,
+		result.horizontal_messages[1].recipient,
+	);
+}
+
+#[test]
+fn validate_block_hrmp_duplicate_recipient_across_blocks_in_bundle() {
+	sp_tracing::try_init_simple();
+
+	let blocks_per_pov = 2;
+	let recipient = ParaId::from(300);
+	let (client, parent_head) = create_elastic_scaling_test_client();
+
+	let mut sproof_builder =
+		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() };
+	sproof_builder.host_config.hrmp_max_message_num_per_candidate = 10;
+	sproof_builder.para_id = ParaId::from(100);
+
+	let channel = sproof_builder.upsert_outbound_channel(recipient);
+	channel.max_capacity = 10;
+	channel.max_total_size = 10 * 256;
+	channel.max_message_size = 256;
+
+	// PoV 1: Two blocks both queue HRMP messages to the same recipient.
+	// Only one message per recipient is allowed per candidate, so the first PoV
+	// should contain exactly 1 HRMP message. The second message stays pending.
+	let TestBlockData { block: pov1_block, validation_data: pov1_vdata } =
+		build_multiple_blocks_with_witness(
+			&client,
+			parent_head.clone(),
+			sproof_builder.clone(),
+			blocks_per_pov,
+			|i| {
+				vec![generate_extrinsic_with_pair(
+					&client,
+					Charlie.into(),
+					TestPalletCall::queue_hrmp_messages { n: 1, recipient },
+					Some(i),
+				)]
+			},
+			|i| {
+				vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+					.to_digest_item()]
+			},
+		);
+
+	let pov1_result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		pov1_block.clone(),
+		pov1_vdata.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block` for PoV 1");
+
+	assert_eq!(
+		pov1_result.horizontal_messages.len(),
+		1,
+		"PoV 1: expected 1 HRMP message, got {} (duplicate recipient)",
+		pov1_result.horizontal_messages.len(),
+	);
+
+	// PoV 2: A single block with no new HRMP extrinsics. The pending message from PoV 1
+	// should now be sent.
+	let pov2_parent_head = pov1_block.blocks().last().unwrap().header().clone();
+	sproof_builder.current_slot = 2.into();
+	sproof_builder.included_para_head = Some(HeadData(pov2_parent_head.encode()));
+
+	let TestBlockData { block: pov2_block, validation_data: pov2_vdata } =
+		build_multiple_blocks_with_witness(
+			&client,
+			pov2_parent_head.clone(),
+			sproof_builder,
+			1,
+			|_| vec![],
+			|_| vec![],
+		);
+
+	let pov2_result = call_validate_block_validation_result(
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		pov2_parent_head,
+		pov2_block,
+		pov2_vdata.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block` for PoV 2");
+
+	assert_eq!(
+		pov2_result.horizontal_messages.len(),
+		1,
+		"PoV 2: expected 1 HRMP message (the pending one from PoV 1), got {}",
+		pov2_result.horizontal_messages.len(),
+	);
+}
+
+#[test]
 fn validate_block_with_ump_size_constraint_and_4_blocks_per_pov() {
 	sp_tracing::try_init_simple();
 

@@ -125,6 +125,8 @@ pub struct PoVMessages {
 	pub ump_msg_count: u32,
 	/// Cumulative count of HRMP outbound messages sent in this PoV.
 	pub hrmp_outbound_count: u32,
+	/// Recipients already used for HRMP outbound messages in this PoV.
+	pub hrmp_outbound_recipients: Vec<ParaId>,
 }
 
 /// Something that can check the associated relay block number.
@@ -462,12 +464,17 @@ pub mod pallet {
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
 			// been adjusted above to reflect the correct limits in all channels.
-			let outbound_messages =
-				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
-					.into_iter()
-					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
-					.collect::<Vec<_>>();
+			let outbound_messages = T::OutboundXcmpMessageSource::take_outbound_messages(
+				maximum_channels,
+				&pov_tracker.hrmp_outbound_recipients,
+			)
+			.into_iter()
+			.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
+			.collect::<Vec<_>>();
 
+			pov_tracker
+				.hrmp_outbound_recipients
+				.extend(outbound_messages.iter().map(|m| m.recipient));
 			pov_tracker.hrmp_outbound_count =
 				pov_tracker.hrmp_outbound_count.saturating_add(outbound_messages.len() as u32);
 			PoVMessagesTracker::<T>::put(pov_tracker);

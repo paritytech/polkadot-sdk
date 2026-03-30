@@ -1082,7 +1082,10 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 }
 
 impl<T: Config> XcmpMessageSource for Pallet<T> {
-	fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
+	fn take_outbound_messages(
+		maximum_channels: usize,
+		excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)> {
 		let mut statuses = <OutboundXcmpStatus<T>>::get().into_inner();
 		let old_statuses_len = statuses.len();
 		let max_message_count = statuses.len().min(maximum_channels);
@@ -1097,6 +1100,17 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				last_index,
 				flags,
 			} = status;
+
+			if excluded_recipients.contains(para_id) {
+				return true;
+			}
+
+			// This is a hard limit from the host config; not even signals can bypass it.
+			if result.len() == max_message_count {
+				// We check this condition in the beginning of the loop so that we don't include
+				// a message where the limit is 0.
+				return true;
+			}
 
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(*para_id) {
 				ChannelStatus::Closed => {
@@ -1113,13 +1127,6 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				ChannelStatus::Full => return true,
 				ChannelStatus::Ready(max_size_now, max_size_ever) => (max_size_now, max_size_ever),
 			};
-
-			// This is a hard limit from the host config; not even signals can bypass it.
-			if result.len() == max_message_count {
-				// We check this condition in the beginning of the loop so that we don't include
-				// a message where the limit is 0.
-				return true;
-			}
 
 			let page = 'page_fetch: {
 				if *signals_exist {

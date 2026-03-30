@@ -194,12 +194,20 @@ pub enum ChannelStatus {
 
 /// A means of figuring out what outbound XCMP messages should be being sent.
 pub trait XcmpMessageSource {
-	/// Take a single XCMP message from the queue for the given `dest`, if one exists.
-	fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)>;
+	/// Take outbound XCMP messages from the queue.
+	///
+	/// `excluded_recipients` contains para IDs that must be skipped.
+	fn take_outbound_messages(
+		maximum_channels: usize,
+		excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)>;
 }
 
 impl XcmpMessageSource for () {
-	fn take_outbound_messages(_maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
+	fn take_outbound_messages(
+		_maximum_channels: usize,
+		_excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)> {
 		Vec::new()
 	}
 }
