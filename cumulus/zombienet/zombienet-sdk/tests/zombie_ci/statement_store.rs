@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use sp_core::{Bytes, Encode};
-use sp_statement_store::{SubmitResult, Topic, TopicFilter};
+use sp_statement_store::{StatementEvent, SubmitResult, Topic, TopicFilter};
 use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 
 use crate::zombie_ci::statement_store_bench::{get_keypair, spawn_network};
@@ -39,7 +39,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	// Subscribe to statements with topic "topic" to dave.
 	let stop_after_secs = 20;
 	let mut subscription = dave_rpc
-		.subscribe::<Bytes>(
+		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
 			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
 			"statement_unsubscribeStatement",
@@ -50,14 +50,27 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let _: SubmitResult =
 		charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
 
-	let statement_bytes =
-		tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
-			.await
-			.expect("Should not timeout")
-			.expect("Should receive")
-			.expect("Should not error");
+	loop {
+		let subscribe_item =
+			tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
+				.await
+				.expect("Should not timeout")
+				.expect("Should receive")
+				.expect("Should not error");
 
-	assert_eq!(statement_bytes, statement);
+		let statement_bytes = match subscribe_item {
+			StatementEvent::NewStatements { statements: mut batch, .. } => {
+				if batch.is_empty() {
+					continue;
+				}
+				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
+				batch.remove(0)
+			},
+		};
+		assert_eq!(statement_bytes, statement);
+
+		break;
+	}
 	// Now make sure no more statements are received.
 	assert!(tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
 		.await

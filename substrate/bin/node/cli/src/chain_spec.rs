@@ -472,7 +472,7 @@ pub(crate) mod tests {
 					config,
 					None,
 					false,
-					1,
+					Default::default(),
 					|_, _| (),
 				)?;
 			Ok(sc_service_test::TestNetComponents::new(

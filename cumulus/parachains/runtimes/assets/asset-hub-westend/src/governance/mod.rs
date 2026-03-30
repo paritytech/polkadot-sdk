@@ -43,8 +43,6 @@ parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = prod_or_fast!(7 * RC_DAYS, 1);
 }
 
-mod impls;
-
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
 	type RuntimeEvent = RuntimeEvent;
@@ -138,6 +136,8 @@ impl pallet_treasury::Config for Runtime {
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
+	// NOTE: Treasury burn is currently disabled. If ever enabled (`Burn > 0`), wire
+	// `BurnDestination = Dap` so burned funds flow to the DAP buffer instead of being destroyed.
 	type Burn = ();
 	type BurnDestination = ();
 	type MaxApprovals = MaxApprovals;
