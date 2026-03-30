@@ -16,21 +16,21 @@
 // limitations under the License.
 
 use crate::{
-	ClientError,
 	client::Balance,
 	subxt_client::{self, SrcChainConfig},
+	ClientError,
 };
-use futures::{StreamExt, TryFutureExt, stream};
+use futures::{stream, StreamExt, TryFutureExt};
 use pallet_revive::{
-	DryRunConfig, EthTransactInfo,
 	evm::{
-		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, StateOverrideSet, Trace, U256,
+		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
+		StateOverrideSet, Trace, H160, U256,
 	},
+	DryRunConfig, EthTransactInfo,
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
-use subxt::{Error::Metadata, OnlineClient, error::MetadataError, ext::subxt_rpcs::UserError};
+use subxt::{error::MetadataError, ext::subxt_rpcs::UserError, Error::Metadata, OnlineClient};
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
@@ -95,7 +95,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_estimate_gas(
 						tx.clone().into(),
-						DryRunConfig::new().with_timestamp_override(timestamp_override).into(),
+						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
 					)
 					.unvalidated();
 				self.0.call(payload).await.map(|value| value.map(|value| value.0))
@@ -106,7 +106,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_transact_with_config(
 						tx.clone().into(),
-						DryRunConfig::new().with_timestamp_override(timestamp_override).into(),
+						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
 					)
 					.unvalidated();
 				self.0.call(payload).await.map(|value| value.map(|value| value.eth_gas))
@@ -152,7 +152,7 @@ impl RuntimeApi {
 			_ => None,
 		};
 
-		let config = DryRunConfig::new()
+		let config = DryRunConfig::default()
 			.with_timestamp_override(timestamp_override)
 			.with_state_overrides(state_overrides);
 
