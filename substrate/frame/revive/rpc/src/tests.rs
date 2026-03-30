@@ -279,14 +279,13 @@ async fn verify_transactions_in_single_block(
 
 #[tokio::test]
 async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
-	// Set up a 2-minute timeout for the entire test
-	let timeout_duration = tokio::time::Duration::from_secs(120);
+	let timeout_duration = tokio::time::Duration::from_secs(300);
 	let result = tokio::time::timeout(timeout_duration, run_all_eth_rpc_tests_inner()).await;
 
 	match result {
 		Ok(inner_result) => inner_result,
 		Err(_) => {
-			log::error!(target: LOG_TARGET, "Test timed out after 2 minutes!");
+			log::error!(target: LOG_TARGET, "Test timed out after {}s!", timeout_duration.as_secs());
 			std::process::exit(1);
 		},
 	}
@@ -346,6 +345,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_sync_resume_interrupted,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
+		test_gap_filler_backfills_queued_range,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -1716,16 +1716,15 @@ async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<
 async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 	let ws_client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
-	let transactions = prepare_evm_transactions(
-		ws_client.clone(),
-		Account::default(),
-		ethan.address(),
-		U256::from(1_000_000_000_000u128),
-		count,
-	)
-	.await?;
-	let submitted = submit_evm_transactions(transactions).await?;
-	submitted[0].2.wait_for_receipt().await?;
+	for _ in 0..count {
+		let tx = TransactionBuilder::new(Arc::clone(&ws_client))
+			.signer(Account::default())
+			.value(U256::from(1_000_000_000_000u128))
+			.to(ethan.address())
+			.send()
+			.await?;
+		tx.wait_for_receipt().await?;
+	}
 	Ok(())
 }
 
@@ -2067,6 +2066,85 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 		finalized2.number(),
 		client2.receipt_provider().first_evm_block().unwrap_or(0),
 	);
+
+	Ok(())
+}
+
+/// Verify that the gap filler backfills blocks for a manually queued range.
+async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
+	submit_evm_transfers(1).await?;
+
+	let sync_client = create_sync_test_client().await?;
+	sync_client.sync_backward().await?;
+
+	let head_after_sync = sync_client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should be set after sync")
+		.block_number;
+
+	// Produce new blocks on-chain; the in-memory test DB has no record of them.
+	submit_evm_transfers(3).await?;
+
+	// Query the chain directly; the sync_client's cached finalized block is stale
+	// because this client doesn't run subscriptions.
+	let new_finalized_number = sync_client.api().blocks().at_latest().await?.number();
+	assert!(
+		new_finalized_number > head_after_sync,
+		"New finalized #{new_finalized_number} should be higher than synced head #{head_after_sync}"
+	);
+
+	let gap_block = head_after_sync + 1;
+	let unsynced_block = sync_client
+		.block_provider()
+		.block_by_number(gap_block)
+		.await?
+		.expect("Block should exist on chain");
+
+	// The unsynced block should NOT have a hash mapping yet.
+	assert!(
+		sync_client
+			.receipt_provider()
+			.get_ethereum_hash(&unsynced_block.hash())
+			.await
+			.is_none(),
+		"Block #{gap_block} should not be in DB before gap fill"
+	);
+
+	// Spawn the gap filler loop, then queue the fill request.
+	let rx = sync_client.gap_filler().take_rx().await.expect("rx should be available");
+	let bg_client = sync_client.clone();
+	let gap_filler_handle = tokio::spawn(async move { bg_client.run_gap_filler(rx).await });
+
+	assert!(!sync_client.gap_filler().has_pending());
+	sync_client
+		.gap_filler()
+		.detect_and_queue(new_finalized_number, Some(head_after_sync));
+	assert!(sync_client.gap_filler().has_pending());
+
+	// Wait for the pending request to be processed.
+	let timeout_secs = 10;
+	let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(timeout_secs);
+	while sync_client.gap_filler().has_pending() {
+		if tokio::time::Instant::now() > deadline {
+			anyhow::bail!("Gap filler did not complete within {timeout_secs}s");
+		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+	}
+
+	// The unsynced block should now have a hash mapping.
+	assert!(
+		sync_client
+			.receipt_provider()
+			.get_ethereum_hash(&unsynced_block.hash())
+			.await
+			.is_some(),
+		"Block #{gap_block} should be in DB after gap fill"
+	);
+
+	// bg_client holds the channel sender, so abort instead of dropping.
+	gap_filler_handle.abort();
 
 	Ok(())
 }
