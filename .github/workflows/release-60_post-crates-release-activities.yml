@@ -178,14 +178,6 @@ jobs:
 
           reorder_prdocs "$VERSION"
 
-      - name: Replace path dependencies
-        run: |
-          echo "Running replace-all-path-deps.sh..."
-          bash scripts/release/replace-all-path-deps.sh
-
-          # Show git diff to see what changed
-          git diff --stat
-
       - name: Remove versions where path deps are present
         run: |
           echo "Running delete-versions-if-path-is-present.sh..."
@@ -209,19 +201,7 @@ jobs:
       - name: Run Zepter - check issues
         run: |
           echo "Running zepter run check to identify issues..."
-          zepter run check || echo "Zepter found issues that need to be fixed"
-
-      - name: Run Zepter - fix issues
-        run: |
-          echo "Running zepter to fix issues..."
-          zepter || echo "Zepter fix completed"
-          # Show git diff to see what changed
-          git diff --stat
-
-      - name: Run Zepter - verify fixes
-        run: |
-          echo "Running zepter run check again to verify fixes..."
-          zepter run check || echo "There are still issues to fix manually"
+          zepter run check || echo "Zepter found issues - these should be fixed in a separate PR"
 
       - name: Run taplo - check formatting
         run: |
