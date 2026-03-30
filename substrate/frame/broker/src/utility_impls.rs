@@ -19,7 +19,7 @@ use super::*;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::Balanced,
+		fungible::{Balanced, MutateHold},
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
 		OnUnbalanced,
 	},
@@ -63,13 +63,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn lock_funds(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		T::Currency::withdraw(&who, amount, Exact, Expendable, Polite)?;
-		Ok(())
+		T::Currency::hold(&HoldReason::CoretimeBid.into(), who, amount)
 	}
 
 	pub(crate) fn refund(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		T::Currency::deposit(&who, amount, Exact)?;
-		Ok(())
+		T::Currency::release(&HoldReason::CoretimeBid.into(), who, amount, Exact).map(|_| ())
 	}
 
 	pub fn issue(
