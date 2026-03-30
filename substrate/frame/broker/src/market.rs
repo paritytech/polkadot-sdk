@@ -116,7 +116,7 @@ pub trait Market<T: Config> {
 		new_price: Option<BalanceOf<T>>,
 	) -> Result<AdjustBidResult<T>, Self::Error>;
 
-	/// Executes time-based market logic.
+	/// Execute time-based market logic.
 	///
 	/// This function is called from the `on_initialize` hook by `pallet-broker`.
 	///
@@ -223,11 +223,11 @@ pub enum AdjustBidResult<T: Config> {
 /// Outcome of [`Market::tick`].
 ///
 /// When `pallet-broker` calls [`Market::tick`], it receives a list of [`TickAction`]s
-/// which must be executed in order.
+/// which will be executed in order.
 ///
-/// These actions are **not** executed by the market itself. Instead, the market
-/// relies on `pallet-broker` to perform them (e.g., transferring balances,
-/// updating region ownership).
+/// These actions are **not** executed by the market itself as they don't fall into the scope of the
+/// market logic(e.g., transferring balances, updating region ownership). Instead, the market
+/// relies on `pallet-broker` to execute them.
 pub enum TickAction<T: Config> {
 	/// Sell a region to an account.
 	SellRegion {
