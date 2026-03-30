@@ -1,74 +1,13 @@
 title: Align Tally::approval() with VoteTally trait semantics
 doc:
-- audience: Todo
-  description: |-
-    # Description
-
-    Aligns `Tally::approval()` in `pallet-conviction-voting` with the `VoteTally` trait semantics by
-    returning `Perbill::zero()` when no aye or nay votes have been cast. This makes the production
-    implementation consistent with the existing behavior in the `pallet-referenda` test mock
-    (`substrate/frame/referenda/src/mock.rs:263-269`).
-
-    Additionally, the `VoteTally::approval()` trait doc in `frame-support` is updated to explicitly
-    document the expected return value when no votes have been cast, preventing future implementors
-    from diverging on this behavior.
-
-    ## Integration
-
-    Downstream projects that implement `VoteTally::approval()` should ensure they handle the case where
-    no votes have been cast (i.e. `ayes + nays == 0`) by returning `Perbill::zero()`, as now documented
-    in the trait definition.
-
-    No breaking changes to the public API. The `Tally` struct and its fields remain unchanged.
-
-    ## Review Notes
-
-    Two changes:
-
-    **1. Trait documentation** (`substrate/frame/support/src/traits/voting.rs`):
-
-    ```diff
-    -    /// Returns the approval ratio (positive to total votes) for the tally.
-    +    /// Returns the approval ratio (positive to total votes) for the tally and returns 0% (`Perbill::zero()`)
-    +    /// if no votes have been cast (i.e. `ayes + nays == 0`).
-         fn approval(&self, class: Class) -> Perbill;
-    ```
-
-    **2. Implementation fix** (`substrate/frame/conviction-voting/src/types.rs`):
-
-    ```diff
-     fn approval(&self, _: Class) -> Perbill {
-    -    Perbill::from_rational(self.ayes, self.ayes.saturating_add(self.nays))
-    +    let total = self.ayes.saturating_add(self.nays);
-    +    if total.is_zero() {
-    +        Perbill::zero()
-    +    } else {
-    +        Perbill::from_rational(self.ayes, total)
-    +    }
-     }
-    ```
-
-    A new test `empty_tally_approval_is_zero` is added covering four scenarios:
-
-    | Scenario    | ayes | nays | Expected approval |
-    |-------------|------|------|-------------------|
-    | No votes    | 0    | 0    | 0%                |
-    | Only ayes   | 10   | 0    | 100%              |
-    | Only nays   | 0    | 10   | 0%                |
-    | Mixed votes | 3    | 7    | 30%               |
-
-    All 25 existing `pallet-conviction-voting` tests continue to pass with no regressions.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
-    * [x] I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
+- audience: Runtime Dev
+  description: |
+    `Tally::approval()` in `pallet-conviction-voting` now returns `Perbill::zero()`
+    when no aye or nay votes have been cast, consistent with the `pallet-referenda`
+    test mock. The `VoteTally::approval()` trait doc is also updated
+    to document this expected behavior.
 crates:
 - name: pallet-conviction-voting
-  bump: major
+  bump: patch
 - name: frame-support
-  bump: major
+  bump: patch
