@@ -15242,7 +15242,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "29.0.0"
+version = "29.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
