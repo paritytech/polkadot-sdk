@@ -37,8 +37,9 @@ use subxt::{
 		TransactionExtensions,
 	},
 	dynamic::Value,
-	ext::frame_decode,
+	ext::{frame_decode, scale_value::value},
 	transactions::Signer,
+	tx::DynamicPayload,
 	utils::H256,
 	OnlineClient,
 };
@@ -233,4 +234,47 @@ pub async fn get_account_nonce(
 ) -> Result<u64, anyhow::Error> {
 	let nonce = client.tx().await?.account_nonce(account_id).await?;
 	Ok(nonce)
+}
+
+/// Creates a `Sudo::sudo(System::set_storage(...))` call to inject storage items at runtime
+pub fn create_set_storage_call(items: Vec<(Vec<u8>, Vec<u8>)>) -> DynamicPayload<Vec<Value>> {
+	let items_value: Vec<Value> = items
+		.into_iter()
+		.map(|(key, value)| value!((Value::from_bytes(key), Value::from_bytes(value))))
+		.collect();
+
+	subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			System(set_storage { items: items_value })
+		}],
+	)
+}
+
+/// Sets statement allowances at runtime via a sudo extrinsic signed by Alice
+pub async fn set_allowances_via_sudo(
+	ws_uri: &str,
+	items: Vec<(Vec<u8>, Vec<u8>)>,
+) -> Result<(), anyhow::Error> {
+	log::info!("Setting {} statement allowances via sudo...", items.len());
+
+	let client = OnlineClient::<CustomConfig>::from_insecure_url_with_config(
+		CustomConfig::default(),
+		ws_uri,
+	)
+	.await?;
+	let alice = subxt_signer::sr25519::dev::alice();
+	let call = create_set_storage_call(items);
+
+	client
+		.tx()
+		.await?
+		.sign_and_submit_then_watch_default(&call, &alice)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	log::info!("Statement allowances set and finalized");
+	Ok(())
 }

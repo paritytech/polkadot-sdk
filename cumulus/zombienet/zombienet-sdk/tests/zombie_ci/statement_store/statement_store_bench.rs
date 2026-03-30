@@ -10,16 +10,13 @@ use log::{debug, info};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, Bytes, Pair};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
-use std::{cell::Cell, collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
-use zombienet_sdk::{
-	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
-	LocalFileSystem, Network, NetworkConfigBuilder,
-};
+use zombienet_sdk::subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params};
 
-use super::common::{create_chain_spec_with_allowances, get_keypair};
+use sc_statement_store::test_utils::get_keypair;
 
-const RPC_POOL_SIZE: usize = 10000;
+use super::common::{spawn_network, RPC_POOL_SIZE};
 
 /// Memory stress benchmark.
 ///
@@ -202,74 +199,6 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	}
 
 	Ok(())
-}
-
-/// Spawns a network using a custom chain spec with injected statement allowances.
-pub async fn spawn_network(
-	collators: &[&str],
-	participant_count: u32,
-) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(collators.len() >= 2);
-	let images = zombienet_sdk::environment::get_images_from_env();
-
-	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
-		.ok()
-		.map(PathBuf::from)
-		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombienet-{}", std::process::id())));
-	std::fs::create_dir_all(&base_dir)
-		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
-
-	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	// Headroom for the ~5,000 subscriptions that
-	// actually end up on each pooled conn (500 participants * 10 subscriptions each)
-	let max_subs_per_conn = participant_count / RPC_POOL_SIZE as u32 * 16;
-
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("westend-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_validator(|node| node.with_name("validator-0"))
-				.with_validator(|node| node.with_name("validator-1"))
-		})
-		.with_parachain(|p| {
-			let p = p
-				.with_id(2400)
-				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"--force-authoring".into(),
-					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
-					"--enable-statement-store".into(),
-					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
-					format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}")
-						.as_str()
-						.into(),
-				])
-				// Have to set outside of the loop below, so that `p` has the right type.
-				.with_collator(|n| n.with_name(collators[0]));
-
-			collators[1..]
-				.iter()
-				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
-		})
-		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
-		})
-		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})?;
-
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
-	assert!(network.wait_until_is_up(60).await.is_ok());
-
-	Ok(network)
 }
 
 struct LatencyBenchConfig {
