@@ -22,9 +22,9 @@ use crate::{
 	},
 };
 
-use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 /// Value update interval.
 const UPDATE_INTERVAL: Duration = Duration::from_secs(300);
