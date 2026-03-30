@@ -151,7 +151,7 @@ where
 			})?;
 
 			let mut runtime_api = self.client.runtime_api();
-			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: true });
 			let slot_duration =
 				runtime_api.slot_duration(parent_hash).map_err(|e| e.to_string())?;
 

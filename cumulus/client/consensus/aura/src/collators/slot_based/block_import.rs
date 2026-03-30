@@ -110,7 +110,7 @@ where
 		{
 			let mut runtime_api = self.client.runtime_api();
 
-			runtime_api.set_call_context(CallContext::Onchain);
+			runtime_api.set_call_context(CallContext::Onchain { import: true });
 
 			runtime_api.record_proof();
 			let recorder = runtime_api

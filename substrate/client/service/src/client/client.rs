@@ -847,7 +847,7 @@ where
 			// block.
 			(true, None, Some(ref body)) => {
 				let mut runtime_api = self.runtime_api();
-				let call_context = CallContext::Onchain;
+				let call_context = CallContext::Onchain { import: true };
 				runtime_api.set_call_context(call_context);
 
 				if self.config.enable_import_proof_recording {

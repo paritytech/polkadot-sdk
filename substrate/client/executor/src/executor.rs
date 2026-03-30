@@ -82,6 +82,17 @@ fn unwrap_heap_pages(pages: Option<HeapAllocStrategy>) -> HeapAllocStrategy {
 	pages.unwrap_or_else(|| DEFAULT_HEAP_ALLOC_STRATEGY)
 }
 
+fn double_heap_alloc_strategy(strategy: HeapAllocStrategy) -> HeapAllocStrategy {
+	match strategy {
+		HeapAllocStrategy::Static { extra_pages } => {
+			HeapAllocStrategy::Static { extra_pages: extra_pages.saturating_mul(2) }
+		},
+		HeapAllocStrategy::Dynamic { maximum_pages } => {
+			HeapAllocStrategy::Dynamic { maximum_pages: maximum_pages.map(|p| p.saturating_mul(2)) }
+		},
+	}
+}
+
 /// Builder for creating a [`WasmExecutor`] instance.
 pub struct WasmExecutorBuilder<H = sp_io::SubstrateHostFunctions> {
 	_phantom: PhantomData<H>,
@@ -519,7 +530,10 @@ where
 
 		let heap_alloc_strategy = match context {
 			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => {
+				double_heap_alloc_strategy(on_chain_heap_alloc_strategy)
+			},
 		};
 
 		let result = self.with_instance(
@@ -688,7 +702,10 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 
 		let heap_alloc_strategy = match context {
 			CallContext::Offchain => self.wasm.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => {
+				double_heap_alloc_strategy(on_chain_heap_alloc_strategy)
+			},
 		};
 
 		let mut used_native = false;

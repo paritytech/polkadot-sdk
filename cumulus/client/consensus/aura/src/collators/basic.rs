@@ -205,7 +205,7 @@ where
 				};
 
 			let mut runtime_api = params.para_client.runtime_api();
-			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 			let slot_duration = match runtime_api.slot_duration(parent_hash) {
 				Ok(d) => d,
 				Err(e) => reject_with_error!(e),
