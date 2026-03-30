@@ -43,6 +43,18 @@ pub mod mock;
 #[cfg(all(test, feature = "runtime-benchmarks"))]
 mod tests;
 
+fn caller_account_id<T: Config>(
+	env: &impl Ext<T = T>,
+	context: &str,
+) -> Result<T::AccountId, Error> {
+	env.caller()
+		.account_id()
+		.map_err(|e| {
+			Error::Revert(alloc::format!("{context}: caller has no account id: {e:?}").into())
+		})
+		.cloned()
+}
+
 /// Minimal pallet providing a `Pallet<T>` type for the FRAME benchmarking machinery.
 #[frame_support::pallet]
 pub mod pallet {
@@ -96,15 +108,7 @@ where
 			},
 			IVestingCalls::vest(IVesting::vestCall {}) => {
 				// Derive the beneficiary from the immediate caller (not the tx origin).
-				let account_id = env
-					.caller()
-					.account_id()
-					.map_err(|e| {
-						Error::Revert(
-							alloc::format!("vest: caller has no account id: {:?}", e).into(),
-						)
-					})?
-					.clone();
+				let account_id = caller_account_id(env, "vest")?;
 
 				// Charge the pallet's own benchmarked dispatch weight.
 				let dispatch_weight =
@@ -125,15 +129,7 @@ where
 				Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into())
 			},
 			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
-				let caller_account = env
-					.caller()
-					.account_id()
-					.map_err(|e| {
-						Error::Revert(
-							alloc::format!("vestOther: caller has no account id: {:?}", e).into(),
-						)
-					})?
-					.clone();
+				let caller_account = caller_account_id(env, "vestOther")?;
 
 				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
 				let target_lookup = T::Lookup::unlookup(target_account);
@@ -156,16 +152,7 @@ where
 			// Some(0) means a schedule exists but all funds are already unlocked. Both
 			// collapse to 0 here — in either case there is nothing left to vest.
 			IVestingCalls::vestingBalance(IVesting::vestingBalanceCall {}) => {
-				let account_id = env
-					.caller()
-					.account_id()
-					.map_err(|e| {
-						Error::Revert(
-							alloc::format!("vestingBalance: caller has no account id: {:?}", e)
-								.into(),
-						)
-					})?
-					.clone();
+				let account_id = caller_account_id(env, "vestingBalance")?;
 
 				env.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(
 					<<T as pallet::Config>::WeightInfo as weights::WeightInfo>::vesting_balance(),
