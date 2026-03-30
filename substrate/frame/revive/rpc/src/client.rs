@@ -42,7 +42,7 @@ use sp_weights::Weight;
 use std::{
 	sync::{
 		Arc,
-		atomic::{AtomicBool, AtomicUsize, Ordering},
+		atomic::{AtomicBool, AtomicIsize, Ordering},
 	},
 	time::Duration,
 };
@@ -279,13 +279,13 @@ pub(crate) struct GapFiller {
 	rx: Arc<Mutex<Option<mpsc::Receiver<GapFillRequest>>>>,
 	/// Queued + in-flight gap fills. Channel length alone is insufficient
 	/// because it drops to zero as soon as the receiver dequeues the item.
-	pending: Arc<AtomicUsize>,
+	pending: Arc<AtomicIsize>,
 }
 
 impl GapFiller {
 	fn new(capacity: usize) -> Self {
 		let (tx, rx) = mpsc::channel(capacity);
-		Self { tx, rx: Arc::new(Mutex::new(Some(rx))), pending: Arc::new(AtomicUsize::new(0)) }
+		Self { tx, rx: Arc::new(Mutex::new(Some(rx))), pending: Arc::new(AtomicIsize::new(0)) }
 	}
 
 	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
@@ -302,24 +302,24 @@ impl GapFiller {
 		let from = current.saturating_sub(1);
 		let to = last.saturating_add(1);
 		let gap_len = from.saturating_sub(to) + 1;
+		self.pending.fetch_add(1, Ordering::Release);
 		match self.tx.try_send(GapFillRequest { from, to }) {
 			Ok(_) => {
-				self.pending.fetch_add(1, Ordering::Release);
 				log::info!(target: LOG_TARGET,
 					"🔄 Queued gap fill: #{from} down to #{to} ({gap_len} blocks)");
 			},
-			Err(mpsc::error::TrySendError::Full(_)) => log::warn!(target: LOG_TARGET,
-					"🔄 Gap fill queue full, dropping #{from}..#{to} ({gap_len} blocks)"),
-			Err(mpsc::error::TrySendError::Closed(_)) => {
+			Err(err) => {
+				self.pending.fetch_sub(1, Ordering::Release);
 				log::warn!(target: LOG_TARGET,
-					"🔄 Gap fill queue closed, dropping #{from}..#{to} ({gap_len} blocks)")
+					"🔄 Gap fill queue error, dropping #{from}..#{to} ({gap_len} blocks): {err}");
 			},
 		}
 	}
 
 	/// Mark one request as processed.
 	pub fn mark_done(&self) {
-		self.pending.fetch_sub(1, Ordering::Release);
+		let prev = self.pending.fetch_sub(1, Ordering::Release);
+		debug_assert!(prev > 0, "mark_done called more times than detect_and_queue");
 	}
 
 	/// Returns `true` if there are pending gap-fill requests.
@@ -537,8 +537,8 @@ impl Client {
 
 			let block_number = block.number();
 
-			// Detect gaps before processing so that `pending` is incremented
-			// before the callback can advance the head.
+			// Detect gaps in finalized blocks only (best blocks can be reorged).
+			// Increment `pending` before the callback can advance the head.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
 				self.gap_filler.detect_and_queue(block_number, last_finalized_seen);
 				// Updated unconditionally: the block was received, so there is no gap.

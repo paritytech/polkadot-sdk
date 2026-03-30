@@ -87,7 +87,7 @@ struct BackwardSyncRange {
 	/// Checkpoint `Tail` label periodically and at end.
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
-	discover_first_evm_block: bool,
+	persist_first_evm_block: bool,
 }
 
 impl Client {
@@ -218,7 +218,7 @@ impl Client {
 			to: first_evm,
 			set_head: true,
 			checkpoint_tail: true,
-			discover_first_evm_block: true,
+			persist_first_evm_block: true,
 		})
 		.await
 	}
@@ -242,7 +242,7 @@ impl Client {
 					to: head.block_number.saturating_add(1),
 					set_head: false,
 					checkpoint_tail: false,
-					discover_first_evm_block: false,
+					persist_first_evm_block: false,
 				})
 				.await?;
 
@@ -263,7 +263,7 @@ impl Client {
 					to: first_evm,
 					set_head: false,
 					checkpoint_tail: true,
-					discover_first_evm_block: true,
+					persist_first_evm_block: true,
 				})
 				.await?;
 			} else {
@@ -286,7 +286,7 @@ impl Client {
 			to,
 			set_head,
 			checkpoint_tail,
-			discover_first_evm_block,
+			persist_first_evm_block,
 		}: BackwardSyncRange,
 	) -> Result<(), ClientError> {
 		if from < to {
@@ -350,7 +350,7 @@ impl Client {
 					}
 				},
 				None => {
-					if discover_first_evm_block {
+					if persist_first_evm_block {
 						let first_evm_block = block_number.saturating_add(1);
 						log::debug!(target: LOG_TARGET,
 							"🔍 No EVM hash at #{block_number}, setting first_evm_block to #{first_evm_block}");
@@ -415,7 +415,7 @@ impl Client {
 					to,
 					set_head: false,
 					checkpoint_tail: false,
-					discover_first_evm_block: false,
+					persist_first_evm_block: false,
 				})
 				.await
 			{
