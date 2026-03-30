@@ -24,8 +24,8 @@ use polkadot_primitives::{
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
 	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionExecutionConfig, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -379,6 +379,14 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 		relay_parent: Hash,
 	) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, ApiError>;
+
+	// == v17 ==
+	/// Get the execution-relevant host configuration for the given session.
+	async fn session_execution_config(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<Option<SessionExecutionConfig>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -697,6 +705,14 @@ where
 		self.client
 			.runtime_api()
 			.ancestor_relay_parent_info(at, session_index, relay_parent)
+	}
+
+	async fn session_execution_config(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<Option<SessionExecutionConfig>, ApiError> {
+		self.client.runtime_api().session_execution_config(at, session_index)
 	}
 }
 

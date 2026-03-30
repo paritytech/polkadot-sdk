@@ -120,8 +120,8 @@ use crate::{
 	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
 	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionExecutionConfig,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -343,5 +343,10 @@ sp_api::decl_runtime_apis! {
 			session_index: SessionIndex,
 			relay_parent: Hash,
 		) -> Option<RelayParentInfo<Hash, BlockNumber>>;
+
+		/***** Added in v17 *****/
+		/// Returns the execution-relevant host configuration for the given session, if stored.
+		#[api_version(17)]
+		fn session_execution_config(session_index: SessionIndex) -> Option<SessionExecutionConfig>;
 	}
 }

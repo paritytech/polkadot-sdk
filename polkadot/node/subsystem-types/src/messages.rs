@@ -846,6 +846,12 @@ pub enum RuntimeApiRequest {
 		Hash,
 		RuntimeApiSender<Option<RelayParentInfo<Hash, BlockNumber>>>,
 	),
+	/// Get the execution-relevant host configuration for the given session.
+	/// `V17`
+	SessionExecutionConfig(
+		SessionIndex,
+		RuntimeApiSender<Option<polkadot_primitives::SessionExecutionConfig>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -907,6 +913,9 @@ impl RuntimeApiRequest {
 
 	/// `AncestorRelayParentInfo`
 	pub const ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
+
+	/// `SessionExecutionConfig`
+	pub const SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT: u32 = 17;
 }
 
 /// A message to the Runtime API subsystem.

@@ -40,8 +40,8 @@ use cumulus_primitives_core::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 		DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
 		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
-		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-		ValidatorId, ValidatorIndex, ValidatorSignature,
+		ScrapedOnChainVotes, SessionExecutionConfig, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -809,6 +809,19 @@ impl RelayChainRpcClient {
 			"ParachainHost_ancestor_relay_parent_info",
 			at,
 			Some((session_index, relay_parent)),
+		)
+		.await
+	}
+
+	pub async fn parachain_host_session_execution_config(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+	) -> Result<Option<SessionExecutionConfig>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_session_execution_config",
+			at,
+			Some(session_index),
 		)
 		.await
 	}

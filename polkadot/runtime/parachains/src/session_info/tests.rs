@@ -24,7 +24,9 @@ use crate::{
 	},
 	util::take_active_subset,
 };
-use polkadot_primitives::{vstaging::SchedulerParams, BlockNumber, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{
+	vstaging::SchedulerParams, BlockNumber, ValidatorId, ValidatorIndex,
+};
 use sp_keyring::Sr25519Keyring;
 
 fn run_to_block(
@@ -207,5 +209,54 @@ fn session_info_active_subsets() {
 			session.assignment_keys,
 			take_active_subset(&active_set, &unscrambled_assignment),
 		);
+	})
+}
+
+#[test]
+fn session_execution_config_is_stored_per_session() {
+	new_test_ext(genesis_config()).execute_with(|| {
+		run_to_block(1, new_session_every_block);
+
+		// Session 1 should have execution config stored
+		let exec_config = SessionExecutionConfigs::<Test>::get(1).unwrap();
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(exec_config.max_code_size, active_config.max_code_size);
+		assert_eq!(exec_config.max_head_data_size, active_config.max_head_data_size);
+		assert_eq!(exec_config.max_pov_size, active_config.max_pov_size);
+
+		// Change max_pov_size
+		Configuration::set_max_pov_size(RuntimeOrigin::root(), 1024).unwrap();
+		// Takes 2 sessions to activate
+		run_to_block(3, new_session_every_block);
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.max_pov_size, 1024);
+
+		let exec_config_3 = SessionExecutionConfigs::<Test>::get(3).unwrap();
+		assert_eq!(exec_config_3.max_pov_size, 1024);
+
+		// Session 1's config should still have the old value
+		let exec_config_1 = SessionExecutionConfigs::<Test>::get(1).unwrap();
+		assert_ne!(exec_config_1.max_pov_size, 1024);
+	})
+}
+
+#[test]
+fn session_execution_config_is_pruned_with_dispute_window() {
+	new_test_ext(genesis_config()).execute_with(|| {
+		// dispute_period = 2
+		let config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(config.dispute_period, 2);
+
+		run_to_block(100, session_changes);
+		// Earliest stored session is 10 - 2 = 8
+		assert_eq!(EarliestStoredSession::<Test>::get(), 8);
+
+		// Session 7 should be pruned
+		assert!(SessionExecutionConfigs::<Test>::get(7).is_none());
+		// Sessions 8 and 9 should still exist
+		assert!(SessionExecutionConfigs::<Test>::get(8).is_some());
+		assert!(SessionExecutionConfigs::<Test>::get(9).is_some());
+		// Current session 10 should exist
+		assert!(SessionExecutionConfigs::<Test>::get(10).is_some());
 	})
 }
