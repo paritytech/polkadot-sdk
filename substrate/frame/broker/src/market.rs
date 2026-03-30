@@ -34,7 +34,6 @@ use crate::{
 /// - There are two types of orders: *purchase* and *renewal*.
 /// - Every successful order either creates a bid or is resolved immediately.
 /// - Coretime regions are equivalent from the user's perspective.
-/// - Once placed, a bid can only be increased (never decreased or canceled).
 ///
 /// ## Market lifecycle
 /// 1. [`Market::start_sales`] — initializes the market (if required).
@@ -99,19 +98,23 @@ pub trait Market<T: Config> {
 		recorded_price: BalanceOf<T>,
 	) -> Result<RenewalOrderResult<T, Self::BidId>, Self::Error>;
 
-	/// Increase the price of an existing bid.
+	/// Adjust the price of an existing bid.
+	///
+	/// This call may fail if the market does not allow increasing, decreasing,
+	/// or withdrawing bids.
 	///
 	/// ### Parameters
 	/// - `block_number`: Current relay chain block number.
-	/// - `id`: Identifier of the bid to increase.
-	/// - `who`: Account increasing the bid.
-	/// - `new_price`: New bid price (must be higher than the current one).
-	fn raise_bid(
+	/// - `id`: The identifier of the bid to adjust.
+	/// - `who`: Account adjusting the bid.
+	/// - `new_price`: The new bid price. If `None` is provided, the bid will be withdrawn (if
+	///   allowed by the market rules).
+	fn adjust_bid(
 		block_number: RelayBlockNumberOf<T>,
 		id: Self::BidId,
 		who: &T::AccountId,
-		new_price: BalanceOf<T>,
-	) -> Result<RaiseBidResult<T>, Self::Error>;
+		new_price: Option<BalanceOf<T>>,
+	) -> Result<AdjustBidResult<T>, Self::Error>;
 
 	/// Executes time-based market logic.
 	///
@@ -203,10 +206,18 @@ pub enum RenewalOrderResult<T: Config, BidId> {
 	},
 }
 
-/// Outcome of [`Market::raise_bid`].
-pub struct RaiseBidResult<T: Config> {
-	/// Additional amount that must be locked.
-	pub payment_due: BalanceOf<T>,
+/// Outcome of [`Market::adjust_bid`].
+pub enum AdjustBidResult<T: Config> {
+	/// Indicates that additional balance must be locked.
+	Lock {
+		/// The additional amount to lock.
+		amount: BalanceOf<T>,
+	},
+	/// Indicates that part or all of the bid should be refunded.
+	Refund {
+		/// The amount to refund.
+		amount: BalanceOf<T>,
+	},
 }
 
 /// Outcome of [`Market::tick`].
