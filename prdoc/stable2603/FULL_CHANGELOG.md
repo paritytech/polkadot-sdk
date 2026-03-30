@@ -701,6 +701,11 @@ iterating over every key is impractical. A shared `select_entries` helper was
 extracted into `keys_selection.rs` to eliminate duplication between the read and
 write benchmarking paths.
 
+#### [11458] Fix per-ancestor core assignment and add regression test
+`get_our_core` was called with the leaf hash instead of the ancestor
+hash when computing core assignments in update_view. This caused all scheduling
+parent to get leaf''s core.
+
 
 ### Changelog for `Runtime Dev`
 
