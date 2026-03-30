@@ -49,20 +49,20 @@ pub trait Market<T: Config> {
 	type Error: Into<DispatchError>;
 	/// Unique ID assigned to every bid.
 	type BidId;
+	/// Data that's used in [`Market::start_sales`] to initialize the market.
+	type InitData;
 	/// Type providing information about the core count to the market.
 	type CoreCountProvider: CoreCountProvider<T>;
 	/// Type providing information about the timeslice scheduling to the market.
 	type TimesliceProvider: TimesliceProvider;
 
-	// TODO: Unify the interface.
 	/// Start the sales on coretime market.
 	///
 	/// - `block_number` - current relay chain block number
-	/// - `end_price` - the price after the leadin period in the first sale. Valid only for the
-	///   pre-RFC-17 implementation.
+	/// - `init_data` - the data specific to the market implementation that's used to initialize it.
 	fn start_sales(
 		block_number: RelayBlockNumberOf<T>,
-		end_price: BalanceOf<T>,
+		init_data: Self::InitData,
 	) -> Result<SalesStarted<T>, Self::Error>;
 
 	/// Place an order for one coretime region purchase.
