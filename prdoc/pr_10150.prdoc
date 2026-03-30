@@ -34,5 +34,7 @@ crates:
     bump: patch
   - name: pallet-mixnet
     bump: patch
+  - name: cumulus-pallet-parachain-system
+    bump: patch
   - name: substrate-test-runtime
     bump: patch

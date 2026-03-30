@@ -1905,8 +1905,7 @@ pub trait GetNodeBlockType {
 /// # Deprecation Notice
 ///
 /// This trait is deprecated and will be removed after April 2027. Use
-/// [`#[pallet::authorize]`](frame_support::pallet_macros::authorize) with
-/// [`frame_system::AuthorizeCall`] transaction extension instead.
+/// `#[pallet::authorize]` with `frame_system::AuthorizeCall` transaction extension instead.
 ///
 /// For more information, see: <https://github.com/paritytech/polkadot-sdk/issues/2415>
 #[deprecated(
