@@ -82,17 +82,36 @@ async fn main() {
 		Runtime::AssetHubWestend => {
 			use asset_hub_westend_runtime::{Block, Runtime};
 
-			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block>(
+			let config = asset_hub_westend_config(options.asset_id);
+
+			// Fetch state once. The first call downloads from RPC and saves a
+			// snapshot; the second call loads from the snapshot instantly.
+			let mut ext = pallet_psm_remote_tests::build_ext::<Block>(
 				options.uri.clone(),
-				asset_hub_westend_config(options.asset_id),
+				config.assets_pallet_name.clone(),
+			)
+			.await;
+
+			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block>(
+				&mut ext,
+				&config,
+			);
+
+			// Build a fresh externalities for the circuit breaker test so it
+			// starts from clean state (loads from the snapshot, no RPC needed).
+			let mut ext = pallet_psm_remote_tests::build_ext::<Block>(
+				options.uri,
+				config.assets_pallet_name.clone(),
 			)
 			.await;
 
 			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block>(
-				options.uri,
-				asset_hub_westend_config(options.asset_id),
-			)
-			.await;
+				&mut ext,
+				&config,
+			);
+
+			// Clean up the snapshot file so the next run fetches fresh state.
+			let _ = std::fs::remove_file(pallet_psm_remote_tests::SNAPSHOT_PATH);
 		},
 	}
 }
