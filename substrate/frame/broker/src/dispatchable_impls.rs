@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_start_sales(
-		end_price: BalanceOf<T>,
+		init_data: MarketInitDataOf<T>,
 		extra_cores: CoreIndex,
 	) -> DispatchResult {
 		// Determine the core count
@@ -127,9 +127,10 @@ impl<T: Config> Pallet<T> {
 		Self::do_request_core_count(core_count)?;
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let sales_started = <Self as Market<T>>::start_sales(now, end_price)?;
+		let sales_started =
+			MarketOf::<T>::start_sales(now, init_data.clone()).map_err(Into::into)?;
 
-		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
+		Self::deposit_event(Event::<T>::SalesStarted { price: init_data.into(), core_count });
 
 		Self::rotate_sale(
 			&sales_started.imaginary_old_sale,

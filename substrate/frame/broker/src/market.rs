@@ -43,11 +43,11 @@ pub trait Market<T: Config> {
 	type BidId;
 	type CoreCount: CoreCountProvider<T>;
 	type TimesliceProvider: TimesliceProvider;
+	type InitData;
 
-	// TODO: Unify the interface.
 	fn start_sales(
 		block_number: RelayBlockNumberOf<T>,
-		end_price: BalanceOf<T>,
+		init_data: Self::InitData,
 	) -> Result<SalesStarted<T>, Self::Error>;
 
 	/// Place an order for one bulk coretime region purchase.
@@ -192,10 +192,11 @@ impl<T: Config> Market<T> for Pallet<T> {
 	type BidId = ();
 	type CoreCount = CoreCountProviderImpl<T>;
 	type TimesliceProvider = TimesliceProviderImpl<T>;
+	type InitData = BalanceOf<T>;
 
 	fn start_sales(
 		block_number: RelayBlockNumberOf<T>,
-		end_price: BalanceOf<T>,
+		end_price: Self::InitData,
 	) -> Result<SalesStarted<T>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(MarketError::Uninitialized)?;
 

@@ -67,7 +67,10 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
+	use sp_runtime::{
+		traits::{Convert, ConvertBack, MaybeConvert},
+		DispatchError,
+	};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
@@ -103,6 +106,22 @@ pub mod pallet {
 
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
+
+		type MarketImpl: Market<
+			Self,
+			InitData: Clone
+			              + Decode
+			              + DecodeWithMemTracking
+			              + Encode
+			              + Eq
+			              + MaxEncodedLen
+			              + PartialEq
+			              + Debug
+			              + TypeInfo
+			              + Into<BalanceOf<Self>>, /* Required for pre-RFC-17 implementation to
+			                                        * emit event in `start_sales`. */
+			Error: Into<DispatchError>,
+		>;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
@@ -726,7 +745,7 @@ pub mod pallet {
 		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			end_price: BalanceOf<T>,
+			end_price: MarketInitDataOf<T>,
 			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;

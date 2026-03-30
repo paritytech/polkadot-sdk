@@ -217,6 +217,7 @@ impl crate::Config for Test {
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
+	type MarketImpl = Pallet<Self>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 

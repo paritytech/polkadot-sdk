@@ -32,6 +32,8 @@ pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Bal
 pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
 pub type BidIdOf<T> = <Pallet<T> as Market<T>>::BidId;
+pub type MarketInitDataOf<T> = <<T as Config>::MarketImpl as Market<T>>::InitData;
+pub type MarketOf<T> = <T as Config>::MarketImpl;
 
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
 pub type Timeslice = u32;
