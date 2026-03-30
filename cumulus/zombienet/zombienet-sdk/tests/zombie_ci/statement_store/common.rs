@@ -305,8 +305,8 @@ pub(super) async fn spawn_network_sudo(
 						"--rpc-max-subscriptions-per-connection={}",
 						(participant_count * 16).max(32)
 					)
-						.as_str()
-						.into(),
+					.as_str()
+					.into(),
 				])
 				.with_collator(|n| n.with_name(collators[0]));
 
