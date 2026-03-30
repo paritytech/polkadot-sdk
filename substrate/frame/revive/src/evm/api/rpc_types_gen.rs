@@ -1337,6 +1337,20 @@ impl<T: 'static, const BOUND: u32> IntoIterator for BoundedOneOrMany<T, BOUND> {
 )]
 pub struct StateOverrideSet(pub BTreeMap<Address, StateOverride>);
 
+impl core::ops::Deref for StateOverrideSet {
+	type Target = BTreeMap<Address, StateOverride>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl core::ops::DerefMut for StateOverrideSet {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
 /// Specifies how an account's storage should be overridden during a simulated call.
 ///
 /// The Geth state override specification mandates that `state` and `stateDiff` are mutually

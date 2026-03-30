@@ -66,7 +66,7 @@ where
 		overrides.len(),
 	);
 
-	for (address, account_override) in overrides {
+	for (address, account_override) in overrides.0 {
 		apply_single_account_override::<T>(address, account_override)?;
 	}
 
