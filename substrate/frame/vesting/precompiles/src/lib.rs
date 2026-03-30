@@ -69,10 +69,6 @@ type VestingBalance<T> =
 impl<T: Config + pallet_vesting::Config + pallet::Config> Precompile for Vesting<T>
 where
 	VestingBalance<T>: Into<U256>,
-	// Weak proxy for type identity: mutual From bounds do not guarantee the types are the same
-	// (e.g. From<u64> for u128 exists in core), but they are the best constraint expressible
-	// in stable Rust without a custom sealed trait. A misconfigured runtime that satisfies
-	// these bounds with distinct types will compile but return wrong-denomination values.
 	VestingBalance<T>: From<<T as Config>::Balance>,
 	<T as Config>::Balance: From<VestingBalance<T>>,
 {
