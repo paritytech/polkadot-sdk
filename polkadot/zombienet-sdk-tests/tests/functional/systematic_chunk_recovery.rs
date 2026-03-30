@@ -6,25 +6,20 @@
 //! chunk mapping feature and check systematic chunk recovery.
 
 use crate::utils::{
-	assert_nodes_are_validators, check_log_lines, check_metrics, env_or_default,
-	initialize_network, MetricCheckSetup, APPROVAL_CHECKING_FINALITY_LAG_METRIC,
+	assert_nodes_are_validators, check_log_lines, check_metrics, enable_node_features,
+	env_or_default, initialize_network, MetricCheckSetup, APPROVAL_CHECKING_FINALITY_LAG_METRIC,
 	APPROVAL_NO_SHOWS_TOTAL_METRIC, AVAILABILITY_RECOVERY_RECOVERIES_FINISHED,
 	BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, DATA_RECOVERY_CHUNKS_PATTERN,
 	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_COMPLETE_PATTERN,
 	DATA_RECOVERY_FROM_SYSTEMATIC_CHUNKS_NOT_POSSIBLE_PATTERN, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::{ops::Range, time::Duration};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{
-	subxt::{ext::scale_value::value, tx},
-	NetworkConfig, NetworkConfigBuilder,
-};
+use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
 
 const PARAS: [u32; 2] = [2000, 2001];
 pub const DATA_RECOVERY_CHUNKS_NOT_POSSIBLE_PATTERN: &str =
@@ -96,22 +91,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	log::info!("All validators pass metric check - {AVAILABILITY_RECOVERY_RECOVERIES_FINISHED}");
 
 	log::info!("Enable the chunk mapping feature.");
-	// Build the sudo call: sudo(Configuration::set_node_feature(2 as u8, true))
-	let sudo_call = tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			Configuration(set_node_feature { index: (2_u8), value: true })
-		}],
-	);
-
-	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&alice_client,
-		&sudo_call,
-		&zombienet_sdk::subxt_signer::sr25519::dev::alice(),
-		600u64,
-	)
-	.await;
+	let res = enable_node_features(&alice_client, &[2]).await;
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Configuration::set_node_feature updated");
 

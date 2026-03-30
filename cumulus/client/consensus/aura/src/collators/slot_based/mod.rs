@@ -77,7 +77,8 @@ use cumulus_primitives_core::{KeyToIncludeInRelayProof, RelayParentOffsetApi, Ta
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData,
+	ValidationCodeHash,
 };
 use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, UsageProvider,
@@ -274,6 +275,6 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on
 	pub core_index: CoreIndex,
-	/// Maximum pov size. Currently needed only for exporting PoV.
-	pub max_pov_size: u32,
+	/// The persisted validation data for this collation.
+	pub validation_data: PersistedValidationData,
 }

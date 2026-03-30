@@ -831,7 +831,7 @@ where
 		proof,
 		validation_code_hash,
 		core_index,
-		max_pov_size: validation_data.max_pov_size,
+		validation_data,
 	}) {
 		tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())
