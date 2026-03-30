@@ -28,7 +28,7 @@
 
 #![deny(unused_crate_dependencies)]
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use fragment_chain::CandidateStorage;
 use futures::{channel::oneshot, prelude::*};
@@ -50,8 +50,9 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	Hash, Header, Id as ParaId, PersistedValidationData,
+	transpose_claim_queue, BlockNumber, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Hash, Header,
+	Id as ParaId, PersistedValidationData,
 };
 
 use crate::{
@@ -71,12 +72,24 @@ use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::prospective-parachains";
 
+type ClaimQueueDepthsByPara = HashMap<ParaId, BTreeSet<usize>>;
+
 struct RelayBlockViewData {
 	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
 	// The relay chain scope containing the relay parent and its allowed ancestors.
 	// This is shared across all paras for this relay parent.
 	relay_chain_scope: fragment_chain::RelayChainScope,
+
+	/// The block number of this relay block (leaf or ancestor).
+	block_number: BlockNumber,
+
+	/// For active leaves only: the depths (0-indexed) at which each para appears
+	/// in the claim queue of this leaf.
+	claim_queue_depths_by_para: Option<ClaimQueueDepthsByPara>,
+
+	/// The scheduling lookahead configured for this session (fetched once per leaf).
+	scheduling_lookahead: Option<usize>,
 }
 
 struct View {
@@ -177,6 +190,54 @@ async fn run_iteration<Context>(
 	}
 }
 
+fn build_claim_queue_depths_by_para(
+	raw_claim_queue: &BTreeMap<CoreIndex, std::collections::VecDeque<ParaId>>,
+) -> ClaimQueueDepthsByPara {
+	let mut result: ClaimQueueDepthsByPara = HashMap::new();
+	for (_core, paras) in raw_claim_queue {
+		for (depth, para_id) in paras.iter().enumerate() {
+			result.entry(*para_id).or_default().insert(depth);
+		}
+	}
+	result
+}
+
+// Check whether a candidate with the given scheduling_parent
+// can be validly scheduled at any leaf that contains it in scope.
+fn validate_claim_queue_position(
+	para_id: ParaId,
+	scheduling_parent_number: BlockNumber,
+	leaf_number: BlockNumber,
+	scheduling_lookahead: usize,
+	claim_queue_depths: &BTreeSet<usize>,
+) -> std::result::Result<(), String> {
+	let offset = leaf_number.saturating_sub(scheduling_parent_number) as usize;
+
+	if offset >= scheduling_lookahead {
+		return Err(format!(
+			"Para {:?}: scheduling_parent offset {} >= scheduling_lookahead {}. \
+			 The relay parent has fallen outside the lookahead window.",
+			para_id, offset, scheduling_lookahead
+		));
+	}
+
+	let valid_depth_end = scheduling_lookahead.saturating_sub(offset).saturating_sub(1);
+
+	// The para must appear at some depth d where d <= valid_depth_end.
+	let has_valid_position = claim_queue_depths.iter().any(|&d| d <= valid_depth_end);
+
+	if !has_valid_position {
+		return Err(format!(
+			"Para {:?}: no valid claim queue position. \
+			 offset={}, lookahead={}, valid_depth_range=[0,{}], \
+			 para depths in CQ={:?}",
+			para_id, offset, scheduling_lookahead, valid_depth_end, claim_queue_depths
+		));
+	}
+
+	Ok(())
+}
+
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn handle_active_leaves_update<Context>(
 	ctx: &mut Context,
@@ -212,8 +273,11 @@ async fn handle_active_leaves_update<Context>(
 
 		let hash = activated.hash;
 
-		let transposed_claim_queue =
-			transpose_claim_queue(fetch_claim_queue(ctx.sender(), hash).await?.0);
+		let raw_claim_queue = fetch_claim_queue(ctx.sender(), hash).await?.0;
+
+		let claim_queue_depths_by_para = build_claim_queue_depths_by_para(&raw_claim_queue);
+
+		let transposed_claim_queue = transpose_claim_queue(raw_claim_queue);
 
 		let block_info = match fetch_block_info(ctx, &mut temp_header_cache, hash).await? {
 			None => {
@@ -236,9 +300,10 @@ async fn handle_active_leaves_update<Context>(
 			.await
 			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
-		let ancestry_len = fetch_scheduling_lookahead(hash, session_index, ctx.sender())
-			.await?
-			.saturating_sub(1);
+		let raw_scheduling_lookahead =
+			fetch_scheduling_lookahead(hash, session_index, ctx.sender()).await?;
+
+		let ancestry_len = raw_scheduling_lookahead.saturating_sub(1);
 
 		let ancestors = fetch_ancestors(
 			ctx,
@@ -393,8 +458,16 @@ async fn handle_active_leaves_update<Context>(
 			fragment_chains.insert(*para, chain);
 		}
 
-		view.per_relay_parent
-			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope });
+		view.per_relay_parent.insert(
+			hash,
+			RelayBlockViewData {
+				fragment_chains,
+				relay_chain_scope,
+				block_number: block_info.number,
+				claim_queue_depths_by_para: Some(claim_queue_depths_by_para),
+				scheduling_lookahead: Some(raw_scheduling_lookahead as usize),
+			},
+		);
 
 		view.active_leaves.insert(hash);
 	}
@@ -548,6 +621,8 @@ async fn handle_introduce_seconded_candidate(
 
 	let candidate_hash = candidate.hash();
 
+	let scheduling_parent = candidate.descriptor.scheduling_parent();
+
 	let candidate_entry = match CandidateEntry::new_seconded(candidate_hash, candidate, pvd) {
 		Ok(candidate) => candidate,
 		Err(err) => {
@@ -572,6 +647,55 @@ async fn handle_introduce_seconded_candidate(
 		let is_active_leaf = view.active_leaves.contains(relay_parent);
 
 		para_scheduled = true;
+
+		if is_active_leaf {
+			// Active leaves always have CQ data.
+			if let (Some(ref cq_depths), Some(lookahead)) =
+				(&rp_data.claim_queue_depths_by_para, rp_data.scheduling_lookahead)
+			{
+				// Look up the scheduling_parent's block number from the relay chain scope.
+				let maybe_sp_number =
+					rp_data.relay_chain_scope.ancestor(&scheduling_parent).map(|info| info.number);
+
+				match maybe_sp_number {
+					None => {},
+					Some(sp_number) => {
+						// Look up which depths this para occupies in the leaf's CQ.
+						match cq_depths.get(&para) {
+							None => {
+								gum::debug!(
+									target: LOG_TARGET,
+									?para,
+									relay_parent = ?relay_parent,
+									?candidate_hash,
+									"Para not found in claim queue depths; skipping CQ check."
+								);
+							},
+							Some(para_depths) => {
+								if let Err(reason) = validate_claim_queue_position(
+									para,
+									sp_number,
+									rp_data.block_number,
+									lookahead,
+									para_depths,
+								) {
+									gum::debug!(
+										target: LOG_TARGET,
+										?para,
+										leaf = ?relay_parent,
+										?candidate_hash,
+										%reason,
+										"Rejecting candidate: claim queue position not reachable \
+										 from scheduling_parent given current leaf offset.",
+									);
+									continue;
+								}
+							},
+						}
+					},
+				}
+			}
+		}
 
 		match chain.try_adding_seconded_candidate(&rp_data.relay_chain_scope, &candidate_entry) {
 			Ok(()) => {
