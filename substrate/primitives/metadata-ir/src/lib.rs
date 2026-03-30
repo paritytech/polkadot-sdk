@@ -119,7 +119,7 @@ mod test {
 				call_ty: meta_type::<()>(),
 				signature_ty: meta_type::<()>(),
 				extra_ty: meta_type::<()>(),
-				extensions_by_version: Default::default(),
+				extensions_by_version: [(0, vec![])].into(),
 				extensions_in_versions: vec![],
 			},
 			ty: meta_type::<()>(),
