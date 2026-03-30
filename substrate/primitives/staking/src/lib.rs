@@ -753,23 +753,33 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	}
 }
 
-/// Result of staker reward calculation.
+/// Result of splitting a validator's staking reward between the validator and their nominators.
+///
+/// Produced by [`StakerRewardCalculator::calculate_staker_reward`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StakerRewardResult<Balance> {
-	/// Total payout for the validator (staking reward + commission).
+	/// Total payout for the validator (commission + proportional stake reward).
 	pub validator_payout: Balance,
-	/// Total payout for all nominators (to be split proportionally by caller).
+	/// Total payout for all nominators, to be split proportionally by the caller.
 	pub nominator_payout: Balance,
 }
 
-/// Calculates staking rewards and validator incentive weights.
+/// Handles two independent reward calculations:
+///
+/// 1. **Staker reward split** ([`Self::calculate_staker_reward`]) — determines how a validator's
+///    staking reward is divided between the validator and their nominators.
+///
+/// 2. **Validator incentive weight** ([`Self::calculate_validator_incentive_weight`]) — determines
+///    a validator's relative share of a separate validator incentive pot, based on self-stake. This
+///    incentive pot is validator-only; nominators do not receive from it.
 pub trait StakerRewardCalculator<Balance> {
-	/// Calculate the reward weight for a validator based on their self-stake.
+	/// Compute a weight for this validator's share of the validator incentive pot.
 	///
-	/// Used for distributing validator self-stake incentive rewards proportionally.
+	/// Called once per validator during era planning. All validators' weights are summed, and
+	/// each validator's incentive payout is proportional to `their_weight / total_weight`.
 	fn calculate_validator_incentive_weight(self_stake: Balance) -> Balance;
 
-	/// Calculate how staking rewards are split between validator and nominators.
+	/// Split a validator's staking reward into validator and nominator portions.
 	fn calculate_staker_reward(
 		validator_total_reward: Balance,
 		validator_commission: Perbill,
