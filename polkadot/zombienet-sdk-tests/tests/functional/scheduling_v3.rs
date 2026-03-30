@@ -181,13 +181,13 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// Assign 2 additional cores to the parachain (zombienet already assigns 1)
-	assign_cores(&relay_client, 2800, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2900, vec![0, 1]).await?;
 
 	// With 3 cores, expect ~3 candidates per 2 relay blocks → ~30 in 20 blocks.
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
-		HashMap::from([(ParaId::from(2800), 24..31)]),
+		HashMap::from([(ParaId::from(2900), 40..61)]),
 		20,
 	)
 	.await?;
