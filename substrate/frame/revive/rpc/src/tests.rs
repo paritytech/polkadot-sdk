@@ -42,8 +42,6 @@ use jsonrpsee::{
 	core::ClientError,
 	ws_client::{WsClient, WsClientBuilder},
 };
-use pallet_revive::precompiles::alloy::sol_types::{SolCall, SolConstructor};
-use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive::{
 	create1,
 	evm::{
@@ -52,7 +50,9 @@ use pallet_revive::{
 		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
 		Trace, TransactionInfo, TransactionUnsigned, U256,
 	},
+	precompiles::alloy::sol_types::{SolCall, SolConstructor},
 };
+use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
@@ -2178,7 +2178,10 @@ async fn test_state_override_code_empty_to_evm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 42u64, "echo(42) should return 42 via EVM code override on empty address");
+	assert_eq!(
+		returned_value, 42u64,
+		"echo(42) should return 42 via EVM code override on empty address"
+	);
 
 	Ok(())
 }
@@ -2239,7 +2242,10 @@ async fn test_state_override_code_evm_to_evm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 99u64, "echo(99) should return 99 via EVM code override on EVM contract");
+	assert_eq!(
+		returned_value, 99u64,
+		"echo(99) should return 99 via EVM code override on EVM contract"
+	);
 
 	Ok(())
 }
@@ -2274,7 +2280,10 @@ async fn test_state_override_code_empty_to_pvm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 42u64, "echo(42) should return 42 via PVM code override on empty address");
+	assert_eq!(
+		returned_value, 42u64,
+		"echo(42) should return 42 via PVM code override on empty address"
+	);
 
 	Ok(())
 }
@@ -2316,7 +2325,10 @@ async fn test_state_override_code_eoa_to_evm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 55u64, "echo(55) should return 55 via EVM code override on funded EOA");
+	assert_eq!(
+		returned_value, 55u64,
+		"echo(55) should return 55 via EVM code override on funded EOA"
+	);
 
 	Ok(())
 }
@@ -2358,7 +2370,10 @@ async fn test_state_override_code_eoa_to_pvm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 55u64, "echo(55) should return 55 via PVM code override on funded EOA");
+	assert_eq!(
+		returned_value, 55u64,
+		"echo(55) should return 55 via PVM code override on funded EOA"
+	);
 
 	Ok(())
 }
@@ -2395,7 +2410,10 @@ async fn test_state_override_code_evm_to_pvm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 88u64, "echo(88) should return 88 via PVM code override on EVM contract");
+	assert_eq!(
+		returned_value, 88u64,
+		"echo(88) should return 88 via PVM code override on EVM contract"
+	);
 
 	Ok(())
 }
@@ -2432,7 +2450,10 @@ async fn test_state_override_code_pvm_to_evm() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 77u64, "echo(77) should return 77 via EVM code override on PVM contract");
+	assert_eq!(
+		returned_value, 77u64,
+		"echo(77) should return 77 via EVM code override on PVM contract"
+	);
 
 	Ok(())
 }
@@ -2464,7 +2485,10 @@ async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 999, "number() should return the overridden value 999, not the original 3");
+	assert_eq!(
+		returned_value, 999,
+		"number() should return the overridden value 999, not the original 3"
+	);
 
 	Ok(())
 }
@@ -2487,7 +2511,8 @@ async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
 
 	let overrides = StateOverride::from_iter([(
 		counter_address,
-		AccountOverride::default().with_state([(B256::ZERO, B256::left_padding_from(&123u64.to_be_bytes()))]),
+		AccountOverride::default()
+			.with_state([(B256::ZERO, B256::left_padding_from(&123u64.to_be_bytes()))]),
 	)]);
 
 	// Act
@@ -2508,8 +2533,7 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let constructor_args =
-		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2523,7 +2547,8 @@ async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result
 	// Override with `state` containing only slot 0 = 42.
 	let overrides = StateOverride::from_iter([(
 		target,
-		AccountOverride::default().with_state([(slot_0, B256::left_padding_from(&42u64.to_be_bytes()))]),
+		AccountOverride::default()
+			.with_state([(slot_0, B256::left_padding_from(&42u64.to_be_bytes()))]),
 	)]);
 
 	// Act — read first() via eth_call with override
@@ -2562,8 +2587,7 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let constructor_args =
-		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2577,7 +2601,8 @@ async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Res
 	// Override only slot 0 via stateDiff.
 	let overrides = StateOverride::from_iter([(
 		target,
-		AccountOverride::default().with_state_diff([(slot_0, B256::left_padding_from(&99u64.to_be_bytes()))]),
+		AccountOverride::default()
+			.with_state_diff([(slot_0, B256::left_padding_from(&99u64.to_be_bytes()))]),
 	)]);
 
 	// Act — read first() with override
@@ -2615,8 +2640,7 @@ async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let constructor_args =
-		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2669,8 +2693,7 @@ async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Resu
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let constructor_args =
-		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2718,8 +2741,7 @@ async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
 	let provider = SharedResources::provider();
 	let from = AlloyAddress::from(Account::default().address().0);
 
-	let constructor_args =
-		TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
 	let target = deploy_contract(
 		&provider,
 		"TwoSlots",
@@ -2821,7 +2843,10 @@ async fn test_state_override_code_and_storage_combined() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = TwoSlots::firstCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 77, "first() should return 77 from storage override on code-injected address");
+	assert_eq!(
+		returned_value, 77,
+		"first() should return 77 from storage override on code-injected address"
+	);
 
 	Ok(())
 }
@@ -2997,7 +3022,10 @@ async fn test_state_override_empty_set() -> anyhow::Result<()> {
 
 	// Assert
 	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
-	assert_eq!(returned_value, 3, "empty override set should return the original constructor value 3");
+	assert_eq!(
+		returned_value, 3,
+		"empty override set should return the original constructor value 3"
+	);
 
 	Ok(())
 }
