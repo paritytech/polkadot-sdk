@@ -80,6 +80,8 @@ pub struct Constraints<N = BlockNumber> {
 	pub max_pov_size: u32,
 	/// The maximum new validation code size allowed, in bytes.
 	pub max_code_size: u32,
+	/// The maximum head-data size, in bytes.
+	pub max_head_data_size: u32,
 	/// The amount of UMP messages remaining.
 	pub ump_remaining: u32,
 	/// The amount of UMP bytes remaining.

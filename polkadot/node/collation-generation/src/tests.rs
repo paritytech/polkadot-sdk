@@ -1057,6 +1057,7 @@ mod helpers {
 			min_relay_parent_number,
 			max_pov_size: 5 * 1024 * 1024,
 			max_code_size: 1_000_000,
+			max_head_data_size: 20480,
 			ump_remaining: 10,
 			ump_remaining_bytes: 1_000,
 			max_ump_num_per_candidate: 10,
