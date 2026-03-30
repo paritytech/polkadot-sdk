@@ -126,7 +126,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 2,
+								"num_cores": 3,
 								"max_validators_per_core": 1
 							},
 							"approval_voting_params": {
