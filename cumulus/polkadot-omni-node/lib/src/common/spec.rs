@@ -383,8 +383,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_handler_proto = node_extra_args.enable_statement_store.then(|| {
-				new_statement_handler_proto(&*client, &parachain_config, &metrics, &mut net_config)
+			let statement_handler_proto = node_extra_args.statement_store_config.map(|config| {
+				let proto = new_statement_handler_proto(
+					&*client,
+					&parachain_config,
+					&metrics,
+					&mut net_config,
+				);
+				(proto, config)
 			});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -405,7 +411,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let peer_id = network.local_peer_id();
 
 			let statement_store = statement_handler_proto
-				.map(|statement_handler_proto| {
+				.map(|(statement_handler_proto, config)| {
 					build_statement_store(
 						&parachain_config,
 						&mut task_manager,
@@ -414,8 +420,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						sync_service.clone(),
 						params.keystore_container.local_keystore(),
 						statement_handler_proto,
-						node_extra_args.statement_network_workers,
-						node_extra_args.statement_rate_limit,
+						config,
 					)
 				})
 				.transpose()?;
