@@ -52,7 +52,7 @@ use sp_core::{H160, U256};
 ///    fields that are absent from the input. This ensures that an old RPC sending a shorter
 ///    encoding is handled gracefully.
 ///
-/// ## Constraints
+/// ## Constraints on fields
 ///
 /// - New fields **must** be appended to the end. Inserting or reordering fields changes the byte
 ///   layout of all subsequent fields, breaking both directions.
@@ -61,6 +61,15 @@ use sp_core::{H160, U256};
 ///   field's type — it does not need to be `Option`.
 /// - This pattern relies on `sp_api` continuing to use `Decode::decode` rather than `decode_all`.
 ///   If that ever changes, a new runtime API method would be needed instead.
+///
+/// ## Constraints on runtime API placement
+///
+/// The trailing-bytes trick described in point 1 above only works because `sp_api` discards
+/// unconsumed bytes **at the end of the entire argument buffer**. This means `DryRunConfig`
+/// must be the **last argument** of any runtime API method that uses it (which is currently
+/// the case for both `eth_transact_with_config` and `eth_estimate_gas`). If it were placed
+/// before another argument, the extra bytes from newly appended fields would shift the
+/// decoding offset and corrupt the subsequent argument.
 #[derive(Debug, Encode, TypeInfo, Clone)]
 pub struct DryRunConfig<Moment> {
 	/// Optional timestamp override for dry-run in pending block.
