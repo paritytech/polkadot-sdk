@@ -18,35 +18,29 @@ crates:
     bump: major
   - name: cumulus-client-consensus-aura
     bump: major
-  - name: polkadot-parachain-primitives
-    bump: major
-  - name: cumulus-pallet-aura-ext
-    bump: major
   - name: cumulus-client-collator
-    bump: major
-  - name: frame-benchmarking-cli
-    bump: major
-  - name: cumulus-pallet-xcmp-queue
     bump: major
   - name: polkadot-omni-node-lib
     bump: major
+  - name: cumulus-pallet-aura-ext
+    bump: patch
   - name: asset-hub-rococo-runtime
-    bump: major
+    bump: patch
   - name: asset-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-rococo-runtime
-    bump: major
+    bump: patch
   - name: bridge-hub-westend-runtime
-    bump: major
+    bump: patch
   - name: collectives-westend-runtime
-    bump: major
+    bump: patch
   - name: coretime-westend-runtime
-    bump: major
+    bump: patch
   - name: people-westend-runtime
-    bump: major
+    bump: patch
   - name: penpal-runtime
-    bump: major
+    bump: patch
   - name: glutton-westend-runtime
-    bump: major
+    bump: patch
   - name: yet-another-parachain-runtime
-    bump: major
+    bump: patch
