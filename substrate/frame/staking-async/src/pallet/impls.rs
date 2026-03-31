@@ -529,7 +529,7 @@ impl<T: Config> Pallet<T> {
 			if let Some((amount, dest)) =
 				Self::make_payout_from_provider(era, &nominator.who, nominator_reward)
 			{
-				nominator_payout_count += 1;
+				nominator_payout_count.saturating_inc();
 				Self::deposit_event(Event::<T>::Rewarded {
 					stash: nominator.who.clone(),
 					dest,
@@ -579,7 +579,7 @@ impl<T: Config> Pallet<T> {
 			if let Some((imbalance, dest)) =
 				Self::make_payout_legacy(&nominator.who, nominator_reward)
 			{
-				nominator_payout_count += 1;
+				nominator_payout_count.saturating_inc();
 				Self::deposit_event(Event::<T>::Rewarded {
 					stash: nominator.who.clone(),
 					dest,
