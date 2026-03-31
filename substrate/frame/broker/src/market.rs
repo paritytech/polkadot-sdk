@@ -259,6 +259,13 @@ pub enum TickAction<T: Config> {
 		/// Recipient.
 		who: T::AccountId,
 	},
+	/// Process the auto renewals which are stored in `pallet-broker`.
+	ProcessAutoRenewals {
+		/// Only auto-renewals allowing renewals after this timeslice should be processed.
+		after_timeslice: Timeslice,
+		/// When the next auto-renewal of this core can be made.
+		next_renewal_at: Timeslice,
+	},
 	/// Indicates that a new sale cycle has started.
 	///
 	/// This allows `pallet-broker` to handle sale boundary transitions.
