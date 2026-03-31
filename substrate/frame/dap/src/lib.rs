@@ -220,7 +220,9 @@ pub mod pallet {
 
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::do_try_state()
+			// TODO(ank4n): Re-enable after this migration is included in runtime.
+			// Self::do_try_state()
+			Ok(())
 		}
 	}
 
@@ -354,16 +356,14 @@ pub mod pallet {
 
 	#[cfg(any(test, feature = "try-runtime"))]
 	impl<T: Config> Pallet<T> {
+		#[allow(dead_code)]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			// TODO(ank4n): Re-enable after this migration is included in runtime.
-			// Self::check_budget_allocation()
-			Ok(())
+			Self::check_budget_allocation()
 		}
 
 		/// Checks that `BudgetAllocation` is consistent:
 		/// - Every key in `BudgetAllocation` must be a registered recipient.
 		/// - Allocation percentages must sum to exactly 100%.
-		#[allow(dead_code)]
 		fn check_budget_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
 			let allocation = BudgetAllocation::<T>::get();
 
