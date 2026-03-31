@@ -144,6 +144,18 @@ pub mod pallet {
 		AllDisabled,
 	}
 
+	impl CircuitBreakerLevel {
+		/// Whether this level allows minting (external → pUSD).
+		pub fn allows_minting(&self) -> bool {
+			matches!(self, CircuitBreakerLevel::AllEnabled)
+		}
+
+		/// Whether this level allows redemption (pUSD → external).
+		pub fn allows_redemption(&self) -> bool {
+			!matches!(self, CircuitBreakerLevel::AllDisabled)
+		}
+	}
+
 	/// Privilege level returned by ManagerOrigin.
 	///
 	/// Enables tiered authorization where different origins have different
@@ -169,6 +181,34 @@ pub mod pallet {
 		/// Emergency access via EmergencyAction origin.
 		/// Can only modify circuit breaker status.
 		Emergency,
+	}
+
+	impl PsmManagerLevel {
+		/// Whether this level allows modifying minting/redemption fees.
+		pub fn can_set_fees(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
+		}
+
+		/// Whether this level allows modifying the circuit breaker status.
+		/// Both Full and Emergency levels can set circuit breaker.
+		pub fn can_set_circuit_breaker(&self) -> bool {
+			true
+		}
+
+		/// Whether this level allows modifying the global PSM debt ratio.
+		pub fn can_set_max_psm_debt(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
+		}
+
+		/// Whether this level allows modifying per-asset ceiling weights.
+		pub fn can_set_asset_ceiling(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
+		}
+
+		/// Whether this level allows adding or removing external assets.
+		pub fn can_manage_assets(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
+		}
 	}
 
 	pub(crate) type BalanceOf<T> = <<T as Config>::Fungibles as FungiblesInspect<
@@ -418,7 +458,7 @@ pub mod pallet {
 			// Check asset is approved and minting is enabled
 			let asset_status =
 				ExternalAssets::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
-			ensure!(asset_status == CircuitBreakerLevel::AllEnabled, Error::<T>::MintingStopped);
+			ensure!(asset_status.allows_minting(), Error::<T>::MintingStopped);
 
 			ensure!(external_amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
@@ -514,7 +554,7 @@ pub mod pallet {
 			// Check asset is approved and redemption is enabled
 			let asset_status =
 				ExternalAssets::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
-			ensure!(asset_status != CircuitBreakerLevel::AllDisabled, Error::<T>::AllSwapsStopped);
+			ensure!(asset_status.allows_redemption(), Error::<T>::AllSwapsStopped);
 
 			ensure!(pusd_amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
@@ -593,7 +633,7 @@ pub mod pallet {
 			fee: Permill,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(level.can_set_fees(), Error::<T>::InsufficientPrivilege);
 			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			let old_value = MintingFee::<T>::get(asset_id);
 			MintingFee::<T>::insert(asset_id, fee);
@@ -623,7 +663,7 @@ pub mod pallet {
 			fee: Permill,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(level.can_set_fees(), Error::<T>::InsufficientPrivilege);
 			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			let old_value = RedemptionFee::<T>::get(asset_id);
 			RedemptionFee::<T>::insert(asset_id, fee);
@@ -648,7 +688,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_max_psm_debt())]
 		pub fn set_max_psm_debt(origin: OriginFor<T>, ratio: Permill) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(level.can_set_max_psm_debt(), Error::<T>::InsufficientPrivilege);
 			let old_value = MaxPsmDebtOfTotal::<T>::get();
 			MaxPsmDebtOfTotal::<T>::put(ratio);
 			Self::deposit_event(Event::MaxPsmDebtOfTotalUpdated { old_value, new_value: ratio });
@@ -722,7 +762,7 @@ pub mod pallet {
 			ratio: Permill,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(level.can_set_asset_ceiling(), Error::<T>::InsufficientPrivilege);
 			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			let old_value = AssetCeilingWeight::<T>::get(asset_id);
 			AssetCeilingWeight::<T>::insert(asset_id, ratio);
@@ -755,7 +795,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::add_external_asset())]
 		pub fn add_external_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
 			ensure!(!ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetAlreadyApproved);
 			let count = ExternalAssets::<T>::count();
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);
@@ -800,7 +840,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_external_asset())]
 		pub fn remove_external_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
 			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			ensure!(PsmDebt::<T>::get(asset_id).is_zero(), Error::<T>::AssetHasDebt);
 			ExternalAssets::<T>::remove(asset_id);
