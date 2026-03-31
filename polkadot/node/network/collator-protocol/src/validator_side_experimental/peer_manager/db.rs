@@ -187,7 +187,6 @@ impl Db {
 					per_para_entry.remove();
 				} else if per_para_entry.get().len() > per_para_limit {
 					// We have exceeded the maximum capacity, in which case we need to prune
-					// the least recently bumped values
 					let diff = per_para_entry.get().len() - per_para_limit;
 					Self::prune_for_para(
 						&para,
@@ -293,7 +292,7 @@ mod tests {
 		assert_eq!(db.processed_finalized_block_number().await, Some(10));
 		assert_eq!(db.len(), 0);
 
-		// Test a query on a non-existant entry.
+		// Test a query on a non-existent entry.
 		assert_eq!(db.query(&PeerId::random(), &ParaId::from(1000)).await, None);
 
 		// Test empty update with decay.
@@ -357,7 +356,7 @@ mod tests {
 		assert_eq!(db.processed_finalized_block_number().await, Some(13));
 		assert_eq!(db.len(), 1);
 		assert_eq!(db.query(&first_peer_id, &first_para_id).await.unwrap(), Score::new(10));
-		// Query a non-existant peer_id for this para.
+		// Query a non-existent peer_id for this para.
 		assert_eq!(db.query(&PeerId::random(), &first_para_id).await, None);
 		// Query this peer's rep for a different para.
 		assert_eq!(db.query(&first_peer_id, &ParaId::from(200)).await, None);
