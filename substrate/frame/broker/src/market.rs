@@ -41,7 +41,7 @@ use crate::{
 pub trait Market<T: Config> {
 	type Error: Into<DispatchError>;
 	/// Unique ID assigned to every bid.
-	type BidId: Clone + Debug + PartialEq + Eq;
+	type BidId: Clone + Debug + Eq;
 	type CoreCount: CoreCountProvider<T>;
 	type TimesliceProvider: TimesliceProvider;
 	type InitData: Parameter;
@@ -137,6 +137,10 @@ pub enum TickAction<T: Config> {
 	Refund {
 		amount: BalanceOf<T>,
 		who: T::AccountId,
+	},
+	ProcessAutoRenewals {
+		region_begin: Timeslice,
+		region_end: Timeslice,
 	},
 	BidClosed {
 		id: BidIdOf<T>,
@@ -334,7 +338,17 @@ pub(crate) fn sale_rotated<T: Config, M: Market<T>>(
 	SaleInfo::<T>::put(&new_sale);
 
 	let start_price = sell_price::<T>(block_number, &new_sale);
-	actions.push(TickAction::SaleRotated { old_sale: sale, new_sale, new_prices, start_price });
+	actions.push(TickAction::SaleRotated {
+		old_sale: sale,
+		new_sale: new_sale.clone(),
+		new_prices,
+		start_price,
+	});
+
+	actions.push(TickAction::ProcessAutoRenewals {
+		region_begin: new_sale.region_begin,
+		region_end: new_sale.region_end,
+	});
 }
 
 fn purchase_core<T: Config>(price: BalanceOf<T>, sale: &mut SaleInfoRecordOf<T>) -> CoreIndex {
