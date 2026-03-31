@@ -594,6 +594,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			let old_value = MintingFee::<T>::get(asset_id);
 			MintingFee::<T>::insert(asset_id, fee);
 			Self::deposit_event(Event::MintingFeeUpdated { asset_id, old_value, new_value: fee });
