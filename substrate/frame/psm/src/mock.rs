@@ -25,7 +25,6 @@ use frame_support::{
 use frame_system::{mocking::MockBlock, EnsureRoot, EnsureSigned, GenesisConfig};
 use sp_io::TestExternalities as TestState;
 use sp_runtime::{BuildStorage, Permill};
-use std::cell::RefCell;
 
 // Test accounts
 pub const ALICE: u64 = 1;
@@ -45,13 +44,12 @@ pub const PUSD_UNIT: u128 = 1_000_000;
 // Initial balances for testing
 pub const INITIAL_BALANCE: u128 = 1_000_000 * PUSD_UNIT; // 1M units
 
-// Thread-local storage for mock VaultsInterface
-thread_local! {
-	static MOCK_MAXIMUM_ISSUANCE: RefCell<u128> = const { RefCell::new(10_000_000 * PUSD_UNIT) };
+parameter_types! {
+	pub static MockMaximumIssuance: u128 = 10_000_000 * PUSD_UNIT;
 }
 
 pub fn set_mock_maximum_issuance(value: u128) {
-	MOCK_MAXIMUM_ISSUANCE.with(|v| *v.borrow_mut() = value);
+	MockMaximumIssuance::set(value);
 }
 
 pub struct MockVaultsInterface;
@@ -60,7 +58,7 @@ impl VaultsInterface for MockVaultsInterface {
 	type Balance = u128;
 
 	fn get_maximum_issuance() -> Self::Balance {
-		MOCK_MAXIMUM_ISSUANCE.with(|v| *v.borrow())
+		MockMaximumIssuance::get()
 	}
 }
 
