@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, Pallet,
-	RCBlockNumberOf, TaskId, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, RCBlockNumberOf,
+	TaskId, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
@@ -31,7 +31,7 @@ pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::Acco
 pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Balance;
 pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
-pub type BidIdOf<T> = <Pallet<T> as Market<T>>::BidId;
+pub type BidIdOf<T> = <MarketOf<T> as Market<T>>::BidId;
 pub type MarketInitDataOf<T> = <<T as Config>::MarketImpl as Market<T>>::InitData;
 pub type MarketOf<T> = <T as Config>::MarketImpl;
 

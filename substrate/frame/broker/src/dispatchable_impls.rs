@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 		price_limit: BalanceOf<T>,
 	) -> Result<(), DispatchError> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		match Self::place_order(now, &who, price_limit)? {
+		match MarketOf::<T>::place_order(now, &who, price_limit).map_err(Into::into)? {
 			OrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
 
@@ -183,11 +183,13 @@ impl<T: Config> Pallet<T> {
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		match Self::place_renewal_order(now, &who, renewal_id, record.price)? {
+		match MarketOf::<T>::place_renewal_order(now, &who, renewal_id, record.price)
+			.map_err(Into::into)?
+		{
 			RenewalOrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
 
-				Self::deposit_event(Event::BidPlaced { bid_id: id, price: bid_price });
+				Self::deposit_event(Event::BidPlaced { bid_id: id.clone(), price: bid_price });
 
 				Ok(DoRenewResult::BidPlaced { id })
 			},
@@ -643,7 +645,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum DoRenewResult<T: Config> {
 	Renewed { new_core: CoreIndex },
 	BidPlaced { id: BidIdOf<T> },

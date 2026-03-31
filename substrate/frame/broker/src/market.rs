@@ -16,10 +16,11 @@
 // limitations under the License.
 
 use core::cmp;
-use frame_support::{ensure, weights::WeightMeter};
+use frame_support::{ensure, weights::WeightMeter, Parameter};
 use frame_system::pallet_prelude::AccountIdFor;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::{traits::Zero, DispatchError, FixedU64, SaturatedConversion, Saturating};
+use std::fmt::Debug;
 
 use crate::{
 	utility_impls::{CoreCountProviderImpl, TimesliceProviderImpl},
@@ -40,10 +41,10 @@ use crate::{
 pub trait Market<T: Config> {
 	type Error: Into<DispatchError>;
 	/// Unique ID assigned to every bid.
-	type BidId;
+	type BidId: Clone + Debug + PartialEq + Eq;
 	type CoreCount: CoreCountProvider<T>;
 	type TimesliceProvider: TimesliceProvider;
-	type InitData;
+	type InitData: Parameter;
 
 	fn start_sales(
 		block_number: RelayBlockNumberOf<T>,

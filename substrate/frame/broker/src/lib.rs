@@ -67,10 +67,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{
-		traits::{Convert, ConvertBack, MaybeConvert},
-		DispatchError,
-	};
+	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
@@ -109,18 +106,8 @@ pub mod pallet {
 
 		type MarketImpl: Market<
 			Self,
-			InitData: Clone
-			              + Decode
-			              + DecodeWithMemTracking
-			              + Encode
-			              + Eq
-			              + MaxEncodedLen
-			              + PartialEq
-			              + Debug
-			              + TypeInfo
-			              + Into<BalanceOf<Self>>, /* Required for pre-RFC-17 implementation to
-			                                        * emit event in `start_sales`. */
-			Error: Into<DispatchError>,
+			InitData: Into<BalanceOf<Self>>, /* Required for pre-RFC-17 implementation to
+			                                  * emit event in `start_sales`. */
 		>;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
