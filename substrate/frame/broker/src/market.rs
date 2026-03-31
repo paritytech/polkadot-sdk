@@ -20,7 +20,8 @@
 //! Contains the [`Market`] trait — an abstraction that allows `pallet-broker` to work with any
 //! market logic implementing [`Market`].
 
-use std::fmt::Debug;
+use alloc::vec::Vec;
+use core::fmt::Debug;
 
 use codec::{Codec, MaxEncodedLen};
 use frame_support::{weights::WeightMeter, Parameter};
