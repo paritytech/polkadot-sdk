@@ -348,9 +348,15 @@ pub mod pallet {
 				T::MaxExternalAssets::get(),
 			);
 			MaxPsmDebtOfTotal::<T>::put(self.max_psm_debt_of_total);
+			let stable_decimals = T::StableAsset::decimals();
 			for (asset_id, (minting_fee, redemption_fee, max_asset_debt_ratio)) in
 				&self.asset_configs
 			{
+				assert!(
+					T::Fungibles::decimals(*asset_id) == stable_decimals,
+					"PSM genesis: asset {:?} decimals do not match stable asset decimals",
+					asset_id,
+				);
 				ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 				MintingFee::<T>::insert(asset_id, minting_fee);
 				RedemptionFee::<T>::insert(asset_id, redemption_fee);
@@ -424,6 +430,8 @@ pub mod pallet {
 		TooManyAssets,
 		/// External asset decimals do not match the stable asset decimals.
 		DecimalsMismatch,
+		/// An unexpected invariant violation occurred. This should be reported.
+		Unexpected,
 	}
 
 	#[pallet::call]
@@ -578,9 +586,11 @@ pub mod pallet {
 			let current_debt = PsmDebt::<T>::get(asset_id);
 			ensure!(current_debt >= external_to_user, Error::<T>::InsufficientReserve);
 
-			// Safety check: reserve should always match debt under normal operation
 			let reserve = Self::get_reserve(asset_id);
-			ensure!(reserve >= external_to_user, Error::<T>::InsufficientReserve);
+			if reserve < external_to_user {
+				defensive!("PSM reserve is less than expected output amount");
+				return Err(Error::<T>::Unexpected.into());
+			}
 
 			// Burn the redeemed portion, then transfer fee to destination.
 			T::StableAsset::burn_from(
