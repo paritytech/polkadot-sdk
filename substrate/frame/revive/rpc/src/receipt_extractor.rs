@@ -320,7 +320,7 @@ impl ReceiptExtractor {
 		})?;
 
 		let receipt_data = (self.fetch_receipt_data)(block.hash()).await.ok_or_else(|| {
-			log::debug!(target: LOG_TARGET,
+			log::trace!(target: LOG_TARGET,
 				"Receipt data not found for block #{} ({:?})",
 				block.number(), block.hash());
 			ClientError::ReceiptDataNotFound
