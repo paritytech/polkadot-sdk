@@ -154,3 +154,8 @@ pub fn build_and_execute(fund_buffer: bool, test: impl FnOnce()) {
 		Dap::do_try_state().unwrap();
 	});
 }
+
+/// Asserts that `do_try_state` fails. Use after intentionally corrupting storage.
+pub fn assert_try_state_invalid() {
+	assert!(Dap::do_try_state().is_err());
+}
