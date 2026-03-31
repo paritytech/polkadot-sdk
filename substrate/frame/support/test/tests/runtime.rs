@@ -759,11 +759,7 @@ fn get_call_names_and_indices() {
 			("aux_4", 4),
 			("operational", 5),
 		],
-		call_names
-			.iter()
-			.copied()
-			.zip(call_indices.iter().copied())
-			.collect::<Vec<_>>()
+		call_names.iter().copied().zip(call_indices.iter().copied()).collect::<Vec<_>>()
 	);
 }
 
