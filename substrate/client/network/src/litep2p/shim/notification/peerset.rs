@@ -938,6 +938,7 @@ impl Peerset {
 	fn update_slot_metrics(&self) {
 		let (mut in_reserved, mut in_non_reserved) = (0usize, 0usize);
 		let (mut out_reserved, mut out_non_reserved) = (0usize, 0usize);
+		let (mut num_disconnected, mut num_backoff) = (0usize, 0usize);
 
 		for state in self.peers.values() {
 			match state {
@@ -953,6 +954,9 @@ impl Peerset {
 				PeerState::Connected { direction: Direction::Outbound(Reserved::No) } => {
 					out_non_reserved += 1
 				},
+				PeerState::Disconnected => num_disconnected += 1,
+				PeerState::Backoff => num_backoff += 1,
+
 				_ => {},
 			}
 		}
@@ -963,6 +967,8 @@ impl Peerset {
 			in_non_reserved,
 			out_reserved,
 			out_non_reserved,
+			num_disconnected,
+			num_backoff,
 		);
 	}
 

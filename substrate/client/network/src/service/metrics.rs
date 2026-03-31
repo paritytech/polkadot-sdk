@@ -374,6 +374,8 @@ impl NotificationMetrics {
 		in_non_reserved: usize,
 		out_reserved: usize,
 		out_non_reserved: usize,
+		num_disconnected: usize,
+		num_backoff: usize,
 	) {
 		if let Some(metrics) = &self.metrics {
 			metrics
@@ -392,6 +394,15 @@ impl NotificationMetrics {
 				.peerset_num_connected
 				.with_label_values(&["out", "non-reserved", protocol])
 				.set(out_non_reserved as u64);
+
+			metrics
+				.peerset_num_state
+				.with_label_values(&["disconnected", protocol])
+				.set(num_disconnected as u64);
+			metrics
+				.peerset_num_state
+				.with_label_values(&["backoff", protocol])
+				.set(num_backoff as u64);
 		}
 	}
 }
@@ -410,6 +421,9 @@ struct InnerNotificationMetrics {
 
 	/// Number of connected peers per direction, reservation status and protocol.
 	pub peerset_num_connected: GaugeVec<U64>,
+
+	/// Number of disconnected and backed off peers.
+	pub peerset_num_state: GaugeVec<U64>,
 }
 
 impl InnerNotificationMetrics {
@@ -456,6 +470,16 @@ impl InnerNotificationMetrics {
 						"Number of connected peers per direction, reservation status and protocol",
 					),
 					&["direction", "kind", "protocol"],
+				)?,
+				registry,
+			)?,
+			peerset_num_state: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_libp2p_peerset_num_state",
+						"Number of peers per state in the peerset manager",
+					),
+					&["state", "protocol"],
 				)?,
 				registry,
 			)?,
