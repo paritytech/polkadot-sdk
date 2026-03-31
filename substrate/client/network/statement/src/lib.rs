@@ -382,6 +382,12 @@ impl StatementHandlerPrototype {
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: is_major_syncing,
 			deferred_peers: Vec::new(),
+			// HACK: fire fake disconnect after 30s
+			hack_disconnect_timer: Box::pin(
+				tokio::time::sleep(std::time::Duration::from_secs(30)).fuse(),
+			),
+			hack_disconnect_at: None,
+			hack_fired: false,
 		};
 
 		Ok(handler)
@@ -430,6 +436,10 @@ pub struct StatementHandler<
 	had_major_syncing: bool,
 	/// Peers whose statement protocol connection was deferred during major sync
 	deferred_peers: Vec<(PeerId, multiaddr::Multiaddr)>,
+	// HACK: timer-based fake major sync for testing remove_peers_from_reserved_set
+	hack_disconnect_timer: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
+	hack_disconnect_at: Option<std::time::Instant>,
+	hack_fired: bool,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -594,6 +604,10 @@ where
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: false,
 			deferred_peers: Vec::new(),
+			// HACK: disabled in tests (never fires)
+			hack_disconnect_timer: Box::pin(pending().fuse()),
+			hack_disconnect_at: None,
+			hack_fired: false,
 		}
 	}
 
@@ -647,6 +661,33 @@ where
 					self.initial_sync_timeout =
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
 				},
+				// HACK: timer-based fake major sync for testing remove_peers_from_reserved_set
+				_ = &mut self.hack_disconnect_timer => {
+					if !self.hack_fired && !self.peers.is_empty() {
+						log::info!(
+							target: LOG_TARGET,
+							"[HACK] Triggering fake major sync disconnect. peers={}, deferred={}",
+							self.peers.len(),
+							self.deferred_peers.len(),
+						);
+						self.on_major_sync_started();
+						self.hack_disconnect_at = Some(std::time::Instant::now());
+						self.hack_fired = true;
+					}
+				},
+			}
+
+			// HACK: reconnect 15s after disconnect
+			if let Some(disconnect_at) = self.hack_disconnect_at {
+				if disconnect_at.elapsed() >= std::time::Duration::from_secs(15) {
+					log::info!(
+						target: LOG_TARGET,
+						"[HACK] Fake major sync complete — reconnecting {} deferred peers",
+						self.deferred_peers.len(),
+					);
+					self.on_major_sync_complete();
+					self.hack_disconnect_at = None;
+				}
 			}
 
 			let currently_syncing = self.sync.is_major_syncing();
@@ -1565,6 +1606,9 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: is_syncing,
 			deferred_peers: Vec::new(),
+			hack_disconnect_timer: Box::pin(futures::future::pending()),
+			hack_disconnect_at: None,
+			hack_fired: false,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
@@ -1774,6 +1818,9 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: false,
 			deferred_peers: Vec::new(),
+			hack_disconnect_timer: Box::pin(futures::future::pending()),
+			hack_disconnect_at: None,
+			hack_fired: false,
 		};
 		(handler, statement_store, network, notification_service)
 	}
