@@ -44,6 +44,8 @@ use crate::{
 	SubscriptionTaskExecutor,
 };
 
+mod metrics;
+
 #[cfg(test)]
 mod tests;
 
@@ -110,21 +112,61 @@ impl<T> StatementStoreApi for T where
 pub struct StatementStore {
 	store: Arc<dyn StatementStoreApi>,
 	executor: SubscriptionTaskExecutor,
+	metrics: metrics::MetricsLink,
 }
 
 impl StatementStore {
 	/// Create new instance of Offchain API.
-	pub fn new(store: Arc<dyn StatementStoreApi>, executor: SubscriptionTaskExecutor) -> Self {
-		StatementStore { store, executor }
+	pub fn new(
+		store: Arc<dyn StatementStoreApi>,
+		executor: SubscriptionTaskExecutor,
+		prometheus_registry: Option<&prometheus_endpoint::Registry>,
+	) -> Self {
+		StatementStore {
+			store,
+			executor,
+			metrics: metrics::MetricsLink::new(prometheus_registry),
+		}
 	}
 }
 
 #[async_trait]
 impl StatementApiServer for StatementStore {
 	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult> {
-		let statement = Decode::decode(&mut &*encoded)
-			.map_err(|e| Error::StatementStore(format!("Error decoding statement: {:?}", e)))?;
-		match self.store.submit(statement, StatementSource::Local) {
+		let _timer = self
+			.metrics
+			.0
+			.as_ref()
+			.as_ref()
+			.map(|m| m.submit_duration_seconds.start_timer());
+
+		let statement = match Decode::decode(&mut &*encoded) {
+			Ok(s) => s,
+			Err(e) => {
+				self.metrics.report(|m| {
+					m.submit_calls_total.with_label_values(&["decode_error"]).inc();
+				});
+				return Err(
+					Error::StatementStore(format!("Error decoding statement: {:?}", e)).into()
+				);
+			},
+		};
+
+		let result = self.store.submit(statement, StatementSource::Local);
+
+		let label = match &result {
+			SubmitResult::New => "new",
+			SubmitResult::Known => "known",
+			SubmitResult::KnownExpired => "known_expired",
+			SubmitResult::Rejected(_) => "rejected",
+			SubmitResult::Invalid(_) => "invalid",
+			SubmitResult::InternalError(_) => "internal_error",
+		};
+		self.metrics.report(|m| {
+			m.submit_calls_total.with_label_values(&[label]).inc();
+		});
+
+		match result {
 			SubmitResult::InternalError(e) => Err(Error::StatementStore(e.to_string()).into()),
 			// We return the result as is but `KnownExpired` should not happen. Expired statements
 			// submitted with `StatementSource::Rpc` should be renewed.
@@ -142,8 +184,17 @@ impl StatementApiServer for StatementStore {
 
 		let (existing_statements, subscription_sender, subscription_stream) =
 			match self.store.subscribe_statement(optimized_topic_filter) {
-				Ok(res) => res,
+				Ok(res) => {
+					self.metrics.report(|m| {
+						m.subscribe_calls_total.with_label_values(&["ok"]).inc();
+						m.active_subscriptions.inc();
+					});
+					res
+				},
 				Err(err) => {
+					self.metrics.report(|m| {
+						m.subscribe_calls_total.with_label_values(&["error"]).inc();
+					});
 					spawn_subscription_task(
 						&self.executor,
 						pending.reject(Error::StatementStore(format!(
@@ -155,11 +206,17 @@ impl StatementApiServer for StatementStore {
 				},
 			};
 
-		spawn_subscription_task(
-			&self.executor,
+		let metrics = self.metrics.clone();
+		let subscription_fut = async move {
 			PendingSubscription::from(pending)
-				.pipe_from_stream(subscription_stream, BoundedVecDeque::new(128)),
-		);
+				.pipe_from_stream(subscription_stream, BoundedVecDeque::new(128))
+				.await;
+			metrics.report(|m| {
+				m.active_subscriptions.dec();
+			});
+		};
+
+		spawn_subscription_task(&self.executor, subscription_fut);
 
 		self.executor.spawn(
 			"statement-store-rpc-send",

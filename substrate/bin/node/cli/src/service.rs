@@ -333,6 +333,7 @@ pub fn new_partial(
 
 		let rpc_backend = backend.clone();
 		let rpc_statement_store = statement_store.clone();
+		let rpc_prometheus_registry = config.prometheus_registry().cloned();
 		let rpc_extensions_builder =
 			move |subscription_executor: node_rpc::SubscriptionTaskExecutor| {
 				let deps = node_rpc::FullDeps {
@@ -363,6 +364,7 @@ pub fn new_partial(
 					statement_store_deps: node_rpc::StatementStoreDeps {
 						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
+						prometheus_registry: rpc_prometheus_registry.clone(),
 					},
 					backend: rpc_backend.clone(),
 					mixnet_api: mixnet_api.as_ref().cloned(),

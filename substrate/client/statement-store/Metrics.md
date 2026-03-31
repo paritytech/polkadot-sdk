@@ -329,3 +329,65 @@ percentiles, making it easy to spot tail latency regressions.
   - Identify network-level bottlenecks
 
 ---
+
+## Dashboard 1 (continued): RPC Operations
+
+These metrics are registered in the RPC handler (`sc-rpc`) rather than the store
+engine. They appear in the **Substrate Statement Store** dashboard under the
+**RPC Operations** row.
+
+### RPC Submit Rate
+- **Metric:** `rate(substrate_sub_statement_store_rpc_submit_calls_total[$__rate_interval])`
+- **Type:** CounterVec (displayed as rate)
+- **Labels:** `result` = `new` | `known` | `known_expired` | `rejected` | `invalid` | `internal_error` | `decode_error`
+- **What it measures:** RPC-level submit throughput, broken down by outcome.
+- **Why it matters:** Shows the actual request rate hitting the node's JSON-RPC endpoint.
+  Unlike the store-level `submitted_statements` counter (which only counts statements
+  that pass decode), this includes decode failures and all store outcomes.
+- **How to read:** Two panels: aggregate rate (total RPS) and stacked breakdown by result.
+  A healthy system shows `new` dominating. Rising `decode_error` indicates malformed
+  clients; rising `rejected`/`invalid` mirrors the store-level rejection panels but
+  from the caller's perspective.
+- **Problems it solves:**
+  - Measure actual RPC load for capacity planning.
+  - Detect decode-level abuse that the store never sees.
+  - Correlate RPC throughput drops with infrastructure events.
+
+### RPC Submit Latency (Percentiles)
+- **Metric:** `substrate_sub_statement_store_rpc_submit_duration_seconds` (histogram)
+- **Buckets:** 10us, 100us, 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s
+- **What it measures:** Wall-clock time from the moment the RPC handler receives the
+  encoded bytes to the moment it returns a result. Includes SCALE decode and `store.submit()`.
+- **Why it matters:** This is the latency callers actually experience. It is always >=
+  the store-level `submit_duration_seconds` because it adds decode overhead.
+- **How to read:** Three lines (green=p50, yellow=p90, red=p99). Thresholds at 100ms
+  (yellow) and 1s (red).
+- **Problems it solves:**
+  - Set SLOs on the public API surface (e.g., "p99 RPC submit < 200ms").
+  - Detect decode overhead vs store overhead by comparing with the store-level panel.
+
+### RPC Subscribe Rate
+- **Metric:** `rate(substrate_sub_statement_store_rpc_subscribe_calls_total[$__rate_interval])`
+- **Type:** CounterVec (displayed as rate)
+- **Labels:** `result` = `ok` | `error`
+- **What it measures:** Rate of new subscription requests.
+- **Why it matters:** High subscribe rates can indicate reconnect storms or misbehaving
+  clients.
+- **How to read:** Line chart with result breakdown. Green = ok, red = error.
+- **Problems it solves:**
+  - Detect reconnect storms from misbehaving clients.
+  - Monitor subscription adoption and usage patterns.
+
+### RPC Active Subscriptions
+- **Metric:** `substrate_sub_statement_store_rpc_active_subscriptions`
+- **Type:** Gauge
+- **What it measures:** Number of currently open statement subscriptions.
+- **Why it matters:** Each subscription holds server-side resources (an async task,
+  a bounded channel). Unbounded growth indicates connection leaks.
+- **How to read:** Single line per node. Correlate with subscribe rate: if rate is high but
+  active count is stable, clients are connecting and quickly disconnecting.
+- **Problems it solves:**
+  - Detect subscription leaks.
+  - Right-size subscription buffer capacity.
+
+---
