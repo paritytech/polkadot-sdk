@@ -42,7 +42,7 @@ use sp_weights::Weight;
 use std::{
 	sync::{
 		Arc,
-		atomic::{AtomicBool, AtomicIsize, Ordering},
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 	},
 	time::Duration,
 };
@@ -204,7 +204,7 @@ const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 const REVERT_CODE: i32 = 3;
 
 const NOTIFIER_CAPACITY: usize = 16;
-const GAP_FILL_QUEUE_CAPACITY: usize = 16;
+const GAP_FILL_QUEUE_CAPACITY: usize = 32;
 
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
@@ -279,22 +279,17 @@ pub(crate) struct GapFiller {
 	rx: Arc<Mutex<Option<mpsc::Receiver<GapFillRequest>>>>,
 	/// Queued + in-flight gap fills. Channel length alone is insufficient
 	/// because it drops to zero as soon as the receiver dequeues the item.
-	pending: Arc<AtomicIsize>,
+	pending: Arc<AtomicUsize>,
 }
 
 impl GapFiller {
 	fn new(capacity: usize) -> Self {
 		let (tx, rx) = mpsc::channel(capacity);
-		Self { tx, rx: Arc::new(Mutex::new(Some(rx))), pending: Arc::new(AtomicIsize::new(0)) }
+		Self { tx, rx: Arc::new(Mutex::new(Some(rx))), pending: Arc::new(AtomicUsize::new(0)) }
 	}
 
 	/// If `current` is not consecutive to `last`, queue a gap-fill for the missing range.
-	pub fn detect_and_queue(
-		&self,
-		current: SubstrateBlockNumber,
-		last: Option<SubstrateBlockNumber>,
-	) {
-		let Some(last) = last else { return };
+	pub fn detect_and_queue(&self, current: SubstrateBlockNumber, last: SubstrateBlockNumber) {
 		if current.saturating_sub(last) <= 1 {
 			return;
 		}
@@ -318,8 +313,13 @@ impl GapFiller {
 
 	/// Mark one request as processed.
 	pub fn mark_done(&self) {
-		let prev = self.pending.fetch_sub(1, Ordering::Release);
-		debug_assert!(prev > 0, "mark_done called more times than detect_and_queue");
+		let res = self
+			.pending
+			.fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_sub(1));
+		if res.is_err() {
+			log::error!(target: LOG_TARGET,
+				"🔄 Gap filler pending counter underflow, delete the database and restart with --eth-pruning=archive to resync");
+		}
 	}
 
 	/// Returns `true` if there are pending gap-fill requests.
@@ -539,7 +539,9 @@ impl Client {
 
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
-				self.gap_filler.detect_and_queue(block_number, last_finalized_seen);
+				if let Some(last) = last_finalized_seen {
+					self.gap_filler.detect_and_queue(block_number, last);
+				}
 				// Update unconditionally — a callback failure doesn't mean the block was missed.
 				last_finalized_seen = Some(block_number);
 			}
