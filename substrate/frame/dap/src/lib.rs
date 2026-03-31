@@ -302,9 +302,10 @@ pub mod pallet {
 
 			let total_issuance = T::Currency::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
+			// Always advance the clock so elapsed time doesn't accumulate across skipped drips.
+			LastIssuanceTimestamp::<T>::put(now);
 
 			if issuance.is_zero() {
-				LastIssuanceTimestamp::<T>::put(now);
 				return T::DbWeight::get().reads_writes(3, 3);
 			}
 
@@ -316,7 +317,6 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
-				LastIssuanceTimestamp::<T>::put(now);
 				return T::DbWeight::get().reads_writes(4, 4);
 			}
 			let recipients = T::BudgetRecipients::recipients();
@@ -340,8 +340,6 @@ pub mod pallet {
 			}
 
 			// Rounding dust from Perbill::mul_floor is not minted.
-
-			LastIssuanceTimestamp::<T>::put(now);
 
 			Self::deposit_event(Event::IssuanceMinted { total_minted, elapsed_millis: elapsed });
 
