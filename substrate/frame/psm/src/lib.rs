@@ -282,6 +282,18 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(!T::MinSwapAmount::get().is_zero(), "MinSwapAmount must be greater than zero");
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	/// pUSD minted through PSM per external asset.
 	#[pallet::storage]
 	pub type PsmDebt<T: Config> =
@@ -917,6 +929,54 @@ pub mod pallet {
 			if !frame_system::Pallet::<T>::account_exists(account) {
 				frame_system::Pallet::<T>::inc_providers(account);
 			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			use sp_runtime::traits::CheckedAdd;
+
+			let stable_decimals = T::StableAsset::decimals();
+
+			// Check 1: All approved assets must have matching decimals.
+			for (asset_id, _) in ExternalAssets::<T>::iter() {
+				ensure!(
+					T::Fungibles::decimals(asset_id) == stable_decimals,
+					"External asset decimals do not match stable asset decimals"
+				);
+			}
+
+			// Check 2: Per-asset reserve must be >= per-asset debt.
+			// The PSM holds 1:1 backing; donated reserves may cause reserve > debt.
+			for (asset_id, _) in ExternalAssets::<T>::iter() {
+				let debt = PsmDebt::<T>::get(asset_id);
+				let reserve = Self::get_reserve(asset_id);
+				ensure!(reserve >= debt, "PSM reserve is less than tracked debt for an asset");
+			}
+
+			// Check 3: Computed total PSM debt must equal sum of per-asset debts.
+			let mut sum = BalanceOf::<T>::zero();
+			for (asset_id, _) in ExternalAssets::<T>::iter() {
+				sum = sum
+					.checked_add(&PsmDebt::<T>::get(asset_id))
+					.ok_or("PSM debt overflow when summing per-asset debts")?;
+			}
+			ensure!(
+				Self::total_psm_debt() == sum,
+				"total_psm_debt() does not match sum of per-asset debts"
+			);
+
+			// Check 4: Per-asset debt should not exceed its ceiling.
+			// (May be transiently violated if governance lowers ceilings, but
+			// should hold under normal operation.)
+			for (asset_id, status) in ExternalAssets::<T>::iter() {
+				if status.allows_minting() {
+					let debt = PsmDebt::<T>::get(asset_id);
+					let ceiling = Self::max_asset_debt(asset_id);
+					ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");
+				}
+			}
+
+			Ok(())
 		}
 	}
 }
