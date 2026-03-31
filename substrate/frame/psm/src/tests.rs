@@ -143,7 +143,7 @@ mod mint {
 	#[test]
 	fn fails_below_minimum() {
 		new_test_ext().execute_with(|| {
-			let below_min = 50 * PUSD_UNIT;
+			let below_min = MinMint::<T>::get() - 1
 
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, below_min),
