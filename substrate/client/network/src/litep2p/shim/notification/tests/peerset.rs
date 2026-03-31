@@ -23,7 +23,7 @@ use crate::{
 			Direction, OpenResult, PeerState, Peerset, PeersetCommand, Reserved,
 		},
 	},
-	service::traits::{self, ValidationResult},
+	service::{metrics::NotificationMetrics, traits::{self, ValidationResult}},
 	ProtocolName,
 };
 
@@ -65,6 +65,7 @@ async fn inbound_substream_for_outbound_peer() {
 		Default::default(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -114,6 +115,7 @@ async fn canceled_peer_gets_banned() {
 		peers.clone(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -168,6 +170,7 @@ async fn peer_added_and_removed_from_peerset() {
 		Default::default(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -290,6 +293,7 @@ async fn set_reserved_peers() {
 		reserved.clone(),
 		Default::default(),
 		Arc::new(peerstore_handle_test()),
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -374,6 +378,7 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 		reserved.clone(),
 		Default::default(),
 		Arc::new(peerstore_handle_test()),
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -478,6 +483,7 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 		reserved.iter().cloned().collect(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -570,6 +576,7 @@ async fn opening_peer_gets_canceled_and_disconnected() {
 		Default::default(),
 		Arc::clone(&num_connected),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0);
 	assert_eq!(peerset.num_out(), 0);
@@ -649,6 +656,7 @@ async fn open_failure_for_canceled_peer() {
 		Default::default(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -713,6 +721,7 @@ async fn peer_disconnected_when_being_validated_then_rejected() {
 		Default::default(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -745,6 +754,7 @@ async fn removed_reserved_peer_kept_due_to_free_slots() {
 		peers.clone(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -815,6 +825,7 @@ async fn set_reserved_peers_but_available_slots() {
 		Default::default(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -919,6 +930,7 @@ async fn set_reserved_peers_move_previously_reserved() {
 		known_peers.clone(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -1058,6 +1070,7 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 		known_peers.clone(),
 		Default::default(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -1157,6 +1170,7 @@ async fn reserved_only_rejects_non_reserved_peers() {
 		reserved_peers.clone(),
 		connected_peers.clone(),
 		peerstore_handle,
+		NotificationMetrics::new(None),
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);

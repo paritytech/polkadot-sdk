@@ -371,6 +371,9 @@ pub struct Peerset {
 
 	/// Next time when [`Peerset`] should perform slot allocation.
 	next_slot_allocation: Delay,
+
+	/// Notification metrics.
+	metrics: NotificationMetrics,
 }
 
 macro_rules! decrement_or_warn {
@@ -415,6 +418,7 @@ impl Peerset {
 		reserved_peers: HashSet<PeerId>,
 		connected_peers: Arc<AtomicUsize>,
 		peerstore_handle: Arc<dyn PeerStoreProvider>,
+		metrics: NotificationMetrics,
 	) -> (Self, TracingUnboundedSender<PeersetCommand>) {
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc-peerset-protocol", 100_000);
 		let peers = reserved_peers
@@ -450,6 +454,7 @@ impl Peerset {
 				connected_peers,
 				pending_backoffs: FuturesUnordered::new(),
 				next_slot_allocation: Delay::new(SLOT_ALLOCATION_FREQUENCY),
+				metrics,
 			},
 			cmd_tx,
 		)
