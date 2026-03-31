@@ -32,7 +32,8 @@ mod impl_fungibles;
 mod limits;
 mod metering;
 mod primitives;
-mod state_overrides;
+#[doc(hidden)]
+pub mod state_overrides;
 mod storage;
 #[cfg(test)]
 mod tests;

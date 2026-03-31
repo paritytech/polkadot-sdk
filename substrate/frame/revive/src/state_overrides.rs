@@ -54,7 +54,7 @@ use sp_runtime::DispatchError;
 ///
 /// This must be called inside a dry-run transaction that will be rolled back, as the mutations are
 /// written directly to storage.
-pub(crate) fn apply_state_overrides<T: Config>(
+pub fn apply_state_overrides<T: Config>(
 	overrides: StateOverrideSet,
 ) -> Result<(), EthTransactError>
 where

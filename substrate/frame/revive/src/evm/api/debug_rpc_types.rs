@@ -121,6 +121,24 @@ impl<'de> Deserialize<'de> for TracerConfig {
 	}
 }
 
+/// Configuration for `debug_traceCall`, extending [`TracerConfig`] with state overrides.
+///
+/// Per the [Geth specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall),
+/// `debug_traceCall` accepts a config object that is a superset of the base tracer config,
+/// adding `stateOverrides` (and optionally `blockOverrides` and `txIndex`, which are not yet
+/// supported).
+#[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize), serde(rename_all = "camelCase"))]
+pub struct TraceCallConfig {
+	/// The base tracer configuration (tracer type, timeout, etc.).
+	#[cfg_attr(feature = "std", serde(flatten))]
+	pub tracer_config: TracerConfig,
+
+	/// Optional state overrides to apply before executing the traced call.
+	#[cfg_attr(feature = "std", serde(default, skip_serializing_if = "Option::is_none"))]
+	pub state_overrides: Option<super::StateOverrideSet>,
+}
+
 /// The configuration for the call tracer.
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
 #[serde(default, rename_all = "camelCase")]
