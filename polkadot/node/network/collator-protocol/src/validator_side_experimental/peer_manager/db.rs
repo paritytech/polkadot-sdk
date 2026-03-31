@@ -188,7 +188,13 @@ impl Db {
 					// We have exceeded the maximum capacity, in which case we need to prune
 					// the least recently bumped values
 					let diff = per_para_entry.get().len() - per_para_limit;
-					Self::prune_for_para(&para, &mut per_para_entry, diff, &mut reported_updates);
+					Self::prune_for_para(
+						&para,
+						&mut per_para_entry,
+						diff,
+						now,
+						&mut reported_updates,
+					);
 				}
 			}
 		}
@@ -196,17 +202,26 @@ impl Db {
 		reported_updates
 	}
 
+	// Evicts the entries with maximum `(entry age in milliseconds)/(entry score)` ratio.
 	fn prune_for_para(
 		para_id: &ParaId,
 		per_para: &mut btree_map::OccupiedEntry<ParaId, HashMap<PeerId, ScoreEntry>>,
 		diff: usize,
+		now: Timestamp,
 		reported_updates: &mut Vec<ReputationUpdate>,
 	) {
 		for _ in 0..diff {
 			let (peer_id_to_remove, score) = per_para
 				.get()
 				.iter()
-				.min_by_key(|(_peer, entry)| entry.last_bumped)
+				.max_by_key(|(_peer, entry)| {
+					let age = now.saturating_sub(entry.last_bumped);
+					let score = u16::from(entry.score);
+					let ratio = age.checked_div(u128::from(score)).unwrap_or(u128::MAX);
+					// Due to the integer division, we might end up with more than one max element.
+					// To stay deterministic we evict the entry with the lower score.
+					(ratio, u16::MAX - score)
+				})
 				.map(|(peer, entry)| (*peer, entry.score))
 				.expect("We know there are enough reps over the limit");
 
@@ -696,5 +711,296 @@ mod tests {
 		db.prune_paras(BTreeSet::new()).await;
 		assert_eq!(db.len(), 0);
 		assert_eq!(db.query(&peer_id, &ParaId::from(300)).await, None);
+	}
+
+	mod peer_pruning {
+		use super::*;
+
+		#[tokio::test]
+		async fn max_score_oldest_first() {
+			use crate::validator_side_experimental::common::MAX_SCORE;
+			use std::time::{SystemTime, UNIX_EPOCH};
+
+			let mut db = Db::new(2).await;
+			let para_id = ParaId::from(100);
+			let peer_old = PeerId::random();
+			let peer_mid = PeerId::random();
+			let peer_new = PeerId::random();
+
+			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+
+			// Inject two existing peers with MAX_SCORE two days apart (ratios: 2636 vs 1318).
+			let mut reputations = HashMap::new();
+			reputations.insert(
+				peer_old,
+				ScoreEntry {
+					score: Score::new(MAX_SCORE),
+					last_bumped: now.saturating_sub(172_800_000),
+				},
+			);
+			reputations.insert(
+				peer_mid,
+				ScoreEntry {
+					score: Score::new(MAX_SCORE),
+					last_bumped: now.saturating_sub(86_400_000),
+				},
+			);
+			db.set_para_reputations(para_id, reputations);
+
+			// Adding peer_new pushes the para over the limit of 2, triggering one eviction.
+			db.process_bumps(
+				1,
+				[(para_id, [(peer_new, Score::new(MAX_SCORE))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await;
+
+			// The oldest peer (smallest last_bumped) should have been evicted.
+			assert_eq!(db.query(&peer_old, &para_id).await, None, "oldest peer should be pruned");
+			assert!(db.query(&peer_mid, &para_id).await.is_some(), "middle peer should remain");
+			assert!(db.query(&peer_new, &para_id).await.is_some(), "newest peer should remain");
+		}
+
+		#[tokio::test]
+		async fn lower_score_over_older_timestamp() {
+			use crate::validator_side_experimental::common::MAX_SCORE;
+			use std::time::{SystemTime, UNIX_EPOCH};
+
+			let mut db = Db::new(2).await;
+			let para_id = ParaId::from(200);
+			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+			let mut reputations = HashMap::new();
+
+			// score=32767, age=100s -> ratio=3
+			let peer_high_score = PeerId::random();
+			reputations.insert(
+				peer_high_score,
+				ScoreEntry {
+					score: Score::new(MAX_SCORE / 2),
+					last_bumped: now.saturating_sub(100_000),
+				},
+			);
+
+			// score=100, age=1s -> ratio=10
+			let peer_low_score = PeerId::random();
+			reputations.insert(
+				peer_low_score,
+				ScoreEntry { score: Score::new(100), last_bumped: now.saturating_sub(1_000) },
+			);
+			db.set_para_reputations(para_id, reputations);
+
+			// score=1, age=0 -> ratio=0
+			let peer_trigger = PeerId::random();
+			db.process_bumps(
+				1,
+				[(para_id, [(peer_trigger, Score::new(1))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await;
+
+			assert!(db.query(&peer_high_score, &para_id).await.is_some(), "ratio=3, survives");
+			assert_eq!(db.query(&peer_low_score, &para_id).await, None, "ratio=10, evicted");
+		}
+
+		// A high-score peer remains in the DB even as low-score peers cycle through it.
+		// When a fresh low-score peer is added and the limit is exceeded, the oldest
+		// low-score peer (highest age/score ratio) is evicted rather than the high-score one.
+		#[tokio::test]
+		async fn high_score_peer_protected_from_low_score_churn() {
+			use std::time::{SystemTime, UNIX_EPOCH};
+
+			let mut db = Db::new(4).await;
+			let para_id = ParaId::from(100);
+			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+			let mut reputations = HashMap::new();
+
+			let peer_high = PeerId::random(); // score=2000, age=5s -> ratio=2
+			reputations.insert(
+				peer_high,
+				ScoreEntry { score: Score::new(2000), last_bumped: now.saturating_sub(5_000) },
+			);
+
+			// score=1, age=30s -> ratio=30_000
+			let peer_old = PeerId::random();
+			reputations.insert(
+				peer_old,
+				ScoreEntry { score: Score::new(1), last_bumped: now.saturating_sub(30_000) },
+			);
+
+			// score=1, age=20s -> ratio=20_000
+			let peer_mid = PeerId::random();
+			reputations.insert(
+				peer_mid,
+				ScoreEntry { score: Score::new(1), last_bumped: now.saturating_sub(20_000) },
+			);
+
+			// score=1, age=10s -> ratio=10_000
+			let peer_recent = PeerId::random();
+			reputations.insert(
+				peer_recent,
+				ScoreEntry { score: Score::new(1), last_bumped: now.saturating_sub(10_000) },
+			);
+			db.set_para_reputations(para_id, reputations);
+
+			// peer_new pushes over the limit of 4, triggering one eviction
+			// score=1, age=0 -> ratio=0
+			let peer_new = PeerId::random();
+			db.process_bumps(
+				1,
+				[(para_id, [(peer_new, Score::new(1))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await;
+
+			assert_eq!(db.query(&peer_old, &para_id).await, None, "ratio=30_000, evicted");
+			assert!(db.query(&peer_high, &para_id).await.is_some(), "ratio=2, survives");
+			assert!(db.query(&peer_mid, &para_id).await.is_some());
+			assert!(db.query(&peer_recent, &para_id).await.is_some());
+			assert!(db.query(&peer_new, &para_id).await.is_some());
+		}
+
+		#[tokio::test]
+		async fn multiple_evictions_correct_order() {
+			use std::time::{SystemTime, UNIX_EPOCH};
+
+			let mut db = Db::new(2).await; // 5 entries → 3 evictions needed
+			let para_id = ParaId::from(100);
+			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+			let mut reputations = HashMap::new();
+
+			// score=1, age=100s -> ratio=100_000
+			let peer_a = PeerId::random();
+			reputations.insert(
+				peer_a,
+				ScoreEntry { score: Score::new(1), last_bumped: now.saturating_sub(100_000) },
+			);
+
+			// score=1, age=50s -> ratio=50_000
+			let peer_b = PeerId::random();
+			reputations.insert(
+				peer_b,
+				ScoreEntry { score: Score::new(1), last_bumped: now.saturating_sub(50_000) },
+			);
+
+			// score=1, age=20s -> ratio=20_000
+			let peer_c = PeerId::random();
+			reputations.insert(
+				peer_c,
+				ScoreEntry { score: Score::new(1), last_bumped: now.saturating_sub(20_000) },
+			);
+
+			// score=2000, age=1000s -> ratio=500
+			let peer_d = PeerId::random();
+			reputations.insert(
+				peer_d,
+				ScoreEntry { score: Score::new(2000), last_bumped: now.saturating_sub(1_000_000) },
+			);
+			db.set_para_reputations(para_id, reputations);
+
+			// score=1, age=0 -> ratio=0
+			let peer_e = PeerId::random();
+			db.process_bumps(
+				// peer_e triggers 3 evictions (5 entries → limit 2)
+				1,
+				[(para_id, [(peer_e, Score::new(1))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await;
+
+			assert_eq!(db.query(&peer_a, &para_id).await, None, "ratio=100_000, evicted");
+			assert_eq!(db.query(&peer_b, &para_id).await, None, "ratio=50_000, evicted");
+			assert_eq!(db.query(&peer_c, &para_id).await, None, "ratio=20_000, evicted");
+			assert!(db.query(&peer_d, &para_id).await.is_some(), "ratio=500, survives");
+			assert!(db.query(&peer_e, &para_id).await.is_some(), "ratio=0,   survives");
+		}
+
+		#[tokio::test]
+		async fn zero_score_works() {
+			use std::time::{SystemTime, UNIX_EPOCH};
+
+			let mut db = Db::new(2).await;
+			let para_id = ParaId::from(100);
+			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+			let mut reputations = HashMap::new();
+
+			// score=0:   checked_div(0) = None → u128::MAX
+			let peer_zero = PeerId::random();
+			reputations.insert(
+				peer_zero,
+				ScoreEntry { score: Score::new(0), last_bumped: now.saturating_sub(1_000) },
+			);
+
+			// score=100, age=10s → ratio=100
+			let peer_normal = PeerId::random();
+			reputations.insert(
+				peer_normal,
+				ScoreEntry { score: Score::new(100), last_bumped: now.saturating_sub(10_000) },
+			);
+			db.set_para_reputations(para_id, reputations);
+
+			let peer_trigger = PeerId::random();
+			db.process_bumps(
+				1,
+				[(para_id, [(peer_trigger, Score::new(1))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await;
+
+			assert_eq!(db.query(&peer_zero, &para_id).await, None, "ratio=u128::MAX, evicted");
+			assert!(db.query(&peer_normal, &para_id).await.is_some(), "ratio=100, survives");
+			assert!(db.query(&peer_trigger, &para_id).await.is_some(), "ratio=0, survives");
+		}
+
+		#[tokio::test]
+		async fn equal_ratio_tiebreaker_evicts_lower_score() {
+			use std::time::{SystemTime, UNIX_EPOCH};
+
+			// Both entries have ratio=100 after integer division. The tiebreaker
+			// `u16::MAX - score` breaks the tie deterministically: lower score → higher
+			// tiebreaker → evicted first.
+			let mut db = Db::new(2).await;
+			let para_id = ParaId::from(100);
+			let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+			let mut reputations = HashMap::new();
+
+			// score=2, age=200ms -> ratio=100, tiebreaker=65533
+			let peer_a = PeerId::random();
+			reputations.insert(
+				peer_a,
+				ScoreEntry { score: Score::new(2), last_bumped: now.saturating_sub(200) },
+			);
+
+			// score=3, age=300ms -> ratio=100, tiebreaker=65532
+			let peer_b = PeerId::random();
+			reputations.insert(
+				peer_b,
+				ScoreEntry { score: Score::new(3), last_bumped: now.saturating_sub(300) },
+			);
+			db.set_para_reputations(para_id, reputations);
+
+			let peer_trigger = PeerId::random();
+			db.process_bumps(
+				1,
+				[(para_id, [(peer_trigger, Score::new(1))].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await;
+
+			assert_eq!(db.query(&peer_a, &para_id).await, None, "lower score wins tie, evicted");
+			assert!(db.query(&peer_b, &para_id).await.is_some(), "peer_b survives");
+			assert!(db.query(&peer_trigger, &para_id).await.is_some(), "peer_trigger survives");
+		}
 	}
 }
