@@ -624,6 +624,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == PsmManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			let old_value = RedemptionFee::<T>::get(asset_id);
 			RedemptionFee::<T>::insert(asset_id, fee);
 			Self::deposit_event(Event::RedemptionFeeUpdated {
