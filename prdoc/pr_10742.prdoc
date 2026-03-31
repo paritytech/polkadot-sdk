@@ -24,23 +24,27 @@ crates:
     bump: major
   - name: cumulus-pallet-aura-ext
     bump: patch
+  - name: frame-benchmarking-cli
+    bump: patch
+  - name: cumulus-pallet-xcmp-queue
+    bump: patch
   - name: asset-hub-rococo-runtime
-    bump: patch
+    bump: minor
   - name: asset-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: bridge-hub-rococo-runtime
-    bump: patch
+    bump: minor
   - name: bridge-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: collectives-westend-runtime
-    bump: patch
+    bump: minor
   - name: coretime-westend-runtime
-    bump: patch
+    bump: minor
   - name: people-westend-runtime
-    bump: patch
+    bump: minor
   - name: penpal-runtime
-    bump: patch
+    bump: minor
   - name: glutton-westend-runtime
-    bump: patch
+    bump: minor
   - name: yet-another-parachain-runtime
-    bump: patch
+    bump: minor
