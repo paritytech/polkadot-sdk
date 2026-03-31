@@ -179,6 +179,19 @@ pub fn expand_outer_dispatch(
 					_ => unreachable!(),
 				}
 			}
+
+			fn get_call_indices(module: &str) -> &'static [u8] {
+				use #scrate::{dispatch::Callable, traits::GetCallIndex};
+				match module {
+					#(
+						#pallet_attrs
+						stringify!(#pallet_names) =>
+							<<#pallet_names as Callable<#runtime>>::RuntimeCall
+								as GetCallIndex>::get_call_indices(),
+					)*
+					_ => unreachable!(),
+				}
+			}
 		}
 		impl #scrate::__private::Dispatchable for RuntimeCall {
 			type RuntimeOrigin = RuntimeOrigin;
