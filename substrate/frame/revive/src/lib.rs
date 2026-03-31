@@ -50,22 +50,21 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction,
+		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
+	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
-	BoundedVec,
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
 		Pays, PostDispatchInfo, RawOrigin,
@@ -74,33 +73,35 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	storage::with_transaction,
 	traits::{
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
 		fungible::{Balanced, Credit, Inspect, Mutate, MutateHold},
 		tokens::Balance,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
 	},
 	weights::WeightMeter,
+	BoundedVec,
 };
 use frame_system::{
-	Pallet as System, ensure_signed,
+	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
+	Pallet as System,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 	traits::{
 		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
 		UniqueSaturatedInto, Zero,
 	},
+	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 
 pub use crate::{
 	address::{
-		AccountId32Mapper, AddressMapper, TestAccountMapper, create1, create2, is_eth_derived,
+		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
 	debug::DebugSettings,
 	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,
-		block_hash::ReceiptGasInfo,
+		block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, DryRunConfig,
+		ReceiptInfo, TracingConfig,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
@@ -117,7 +118,7 @@ pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256, keccak_256};
+pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
@@ -2222,7 +2223,11 @@ impl<T: Config> Pallet<T> {
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let number = BlockNumberFor::<T>::try_from(number).ok()?;
 		let hash = <BlockHash<T>>::get(number);
-		if hash == H256::zero() { None } else { Some(hash) }
+		if hash == H256::zero() {
+			None
+		} else {
+			Some(hash)
+		}
 	}
 
 	/// The details needed to reconstruct the receipt information offchain.
@@ -2874,6 +2879,17 @@ sp_api::decl_runtime_apis! {
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
+		/// Dry run and return the trace of the given call with additional configuration.
+		///
+		/// Like [`Self::trace_call`], but accepts a [`TracingConfig`] that can carry state
+		/// overrides and future extensibility. The config must be the **last argument** for
+		/// backwards compatibility — see [`TracingConfig`] documentation.
+		fn trace_call_with_config(
+			tx: GenericTransaction,
+			tracer_type: TracerType,
+			config: TracingConfig,
+		) -> Result<Trace, EthTransactError>;
+
 		/// The address of the validator that produced the current block.
 		fn block_author() -> H160;
 
@@ -3177,6 +3193,20 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					} else {
 						Ok($crate::Pallet::<Self>::evm_tracer(tracer_type).empty_trace())
 					}
+				}
+
+				fn trace_call_with_config(
+					tx: $crate::evm::GenericTransaction,
+					tracer_type: $crate::evm::TracerType,
+					config: $crate::evm::TracingConfig,
+				) -> Result<$crate::evm::Trace, $crate::EthTransactError> {
+					let $crate::evm::TracingConfig { state_overrides } = config;
+
+					if let Some(overrides) = state_overrides {
+						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
+					}
+
+					Self::trace_call(tx, tracer_type)
 				}
 
 				fn runtime_pallets_address() -> $crate::H160 {
