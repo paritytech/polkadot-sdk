@@ -92,8 +92,6 @@ pub struct StatementStoreDeps {
 	pub statement_store: Arc<dyn sc_rpc::statement::StatementStoreApi>,
 	/// Executor to drive the subscription manager in the statement store RPC handler.
 	pub subscription_executor: SubscriptionTaskExecutor,
-	/// Prometheus registry for RPC metrics
-	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
 }
 
 /// Full client dependencies.
@@ -219,7 +217,6 @@ where
 	let statement_store_rpc = sc_rpc::statement::StatementStore::new(
 		statement_store_deps.statement_store,
 		statement_store_deps.subscription_executor,
-		statement_store_deps.prometheus_registry.as_ref(),
 	)
 	.into_rpc();
 	io.merge(statement_store_rpc)?;

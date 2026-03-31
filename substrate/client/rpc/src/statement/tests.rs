@@ -91,7 +91,7 @@ async fn subscribe_works() {
 	)
 	.expect("Failed to create statement store");
 
-	let api = super::StatementStore::new(Arc::clone(&store) as Arc<_>, executor.clone(), None);
+	let api = super::StatementStore::new(Arc::clone(&store) as Arc<_>, executor.clone());
 	let api_rpc = api.into_rpc();
 	let api_rpc_clone = api_rpc.clone();
 	let submitted = generate_statements();
@@ -229,7 +229,7 @@ async fn subscribe_works_with_raw_json() {
 	)
 	.expect("Failed to create statement store");
 
-	let api = super::StatementStore::new(Arc::clone(&store) as Arc<_>, executor.clone(), None);
+	let api = super::StatementStore::new(Arc::clone(&store) as Arc<_>, executor.clone());
 	let api_rpc = api.into_rpc();
 
 	// Test subscription with raw JSON using "matchAll" filter with 4 topics
@@ -261,7 +261,7 @@ async fn subscribe_rejects_more_than_4_topics_in_match_all() {
 	)
 	.expect("Failed to create statement store");
 
-	let api = super::StatementStore::new(Arc::clone(&store) as Arc<_>, executor.clone(), None);
+	let api = super::StatementStore::new(Arc::clone(&store) as Arc<_>, executor.clone());
 	let api_rpc = api.into_rpc();
 
 	// Test subscription with raw JSON using "matchAll" filter with 5 topics (should be rejected)

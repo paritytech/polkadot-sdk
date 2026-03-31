@@ -76,8 +76,7 @@ where
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
 			if let Some(statement_store) = statement_store {
-				module
-					.merge(StatementStore::new(statement_store, spawn_handle, None).into_rpc())?;
+				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			module.merge(Dev::new(client).into_rpc())?;
 
