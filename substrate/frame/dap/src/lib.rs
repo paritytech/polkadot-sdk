@@ -176,7 +176,7 @@ pub mod pallet {
 	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
 	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
-	/// exactly `Perbill::one()` (100%). All recipients must be explicitly allocated.
+	/// exactly `Perbill::one()` (100%). Recipients not included receive nothing.
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
@@ -229,7 +229,7 @@ pub mod pallet {
 		/// Set the budget allocation map.
 		///
 		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
-		/// must be exactly 100%. Every recipient (including buffer) must be explicitly allocated.
+		/// must be exactly 100%. Recipients not included in the map receive nothing.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_budget_allocation())]
 		pub fn set_budget_allocation(
