@@ -211,7 +211,7 @@ where
 	TestEnv { asset_id, caller, psm_account, swap_amount }
 }
 
-const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
+pub const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
 
 /// Build remote externalities by fetching live chain state.
 ///
