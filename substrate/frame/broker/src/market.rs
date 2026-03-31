@@ -20,7 +20,9 @@
 //! Contains the [`Market`] trait — an abstraction that allows `pallet-broker` to work with any
 //! market logic implementing [`Market`].
 
-use frame_support::weights::WeightMeter;
+use std::fmt::Debug;
+
+use frame_support::{weights::WeightMeter, Parameter};
 use sp_runtime::DispatchError;
 
 use crate::{
@@ -37,7 +39,7 @@ use crate::{
 ///
 /// ## Market lifecycle
 /// 1. [`Market::start_sales`] — initializes the market (if required).
-/// 2. [`Market::place_order`], [`Market::place_renewal_order`], and [`Market::raise_bid`] — users
+/// 2. [`Market::place_order`], [`Market::place_renewal_order`], and [`Market::adjust_bid`] — users
 ///    purchase or bid for coretime regions and renew existing ones.
 /// 3. [`Market::tick`] — called from `on_initialize` hook to execute time-dependent logic.
 pub trait Market<T: Config> {
@@ -45,10 +47,10 @@ pub trait Market<T: Config> {
 	type Error: Into<DispatchError>;
 
 	/// Unique identifier assigned to each bid.
-	type BidId;
+	type BidId: Clone + Debug + PartialEq + Eq;
 
 	/// Initialization data used in [`Market::start_sales`].
-	type InitData;
+	type InitData: Parameter;
 
 	/// Provides information about available core counts.
 	type CoreCountProvider: CoreCountProvider<T>;
