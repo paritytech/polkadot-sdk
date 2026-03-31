@@ -1,0 +1,10 @@
+title: 'collator-protocol revamp: use ratio for peer eviction from DB '
+doc:
+- audience: Node Dev
+  description: |-
+    The current implementation of `prune_for_para` gives edge to new peers because it uses only the timestamp of the last bump when evicting peers to the DB. As a result, a high score collator which is inactive for a while can easily be evicted by new peers with minimal score.
+
+    To fix this we now calculate `time_since_last_bump / score` ratio for each peer and evict the one with the maximum value.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
