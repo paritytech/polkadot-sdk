@@ -3081,13 +3081,9 @@ parameter_types! {
 
 type PsmStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
-/// Stub VaultsInterface that imposes no debt ceiling.
-pub struct NoVaultsCeiling;
-impl frame_support::traits::VaultsInterface for NoVaultsCeiling {
-	type Balance = Balance;
-	fn get_maximum_issuance() -> Balance {
-		Balance::MAX
-	}
+parameter_types! {
+	/// No debt ceiling: maximum possible issuance.
+	pub const NoVaultsCeiling: Balance = Balance::MAX;
 }
 
 /// EnsureOrigin implementation for PSM management that supports privilege levels.
@@ -3139,7 +3135,7 @@ impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
 	type AssetId = u32;
-	type VaultsInterface = NoVaultsCeiling;
+	type MaximumIssuance = NoVaultsCeiling;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
 	type StableAsset = PsmStableAsset;

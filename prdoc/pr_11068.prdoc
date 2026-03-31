@@ -12,8 +12,6 @@ doc:
     - Redemption: burn pUSD to receive an external stablecoin
     - Per-asset circuit breakers to disable minting or all swaps
     - Configurable ceiling weights and maximum PSM debt ratio
-    - Inter-pallet traits (`VaultsInterface`, `PsmInterface`) for coordinating debt ceilings
-      with a companion Vaults pallet
 
 crates:
 - name: pallet-psm

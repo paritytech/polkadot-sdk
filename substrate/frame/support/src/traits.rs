@@ -29,7 +29,7 @@ pub use tokens::{
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
 	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2,
-	stable::{PsmInterface, VaultsInterface},
+	stable::PsmInterface,
 	BalanceStatus, ExistenceRequirement, Locker, WithdrawReasons,
 };
 

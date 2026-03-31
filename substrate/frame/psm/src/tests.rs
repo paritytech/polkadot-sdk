@@ -18,7 +18,7 @@
 use super::mock::*;
 use crate::{
 	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MaxPsmDebtOfTotal,
-	MintingFee, PsmDebt, RedemptionFee, VaultsInterface,
+	MintingFee, PsmDebt, RedemptionFee,
 };
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::{DispatchError, Permill, TokenError};
@@ -231,7 +231,7 @@ mod mint {
 	#[test]
 	fn fails_mint_exceeds_system_wide_issuance() {
 		new_test_ext().execute_with(|| {
-			let maximum_issuance = MockVaultsInterface::get_maximum_issuance();
+			let maximum_issuance = MockMaximumIssuance::get();
 
 			// Simulate Vaults having minted most of the cap (leave only 100 pUSD room)
 			let vault_minted = maximum_issuance - 100 * PUSD_UNIT;

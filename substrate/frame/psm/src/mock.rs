@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::VaultsInterface;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64, EnsureOrigin},
@@ -50,16 +49,6 @@ parameter_types! {
 
 pub fn set_mock_maximum_issuance(value: u128) {
 	MockMaximumIssuance::set(value);
-}
-
-pub struct MockVaultsInterface;
-
-impl VaultsInterface for MockVaultsInterface {
-	type Balance = u128;
-
-	fn get_maximum_issuance() -> Self::Balance {
-		MockMaximumIssuance::get()
-	}
 }
 
 #[frame_support::runtime]
@@ -172,7 +161,7 @@ impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
 impl crate::Config for Test {
 	type Fungibles = Assets;
 	type AssetId = u32;
-	type VaultsInterface = MockVaultsInterface;
+	type MaximumIssuance = MockMaximumIssuance;
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
 	type StableAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;

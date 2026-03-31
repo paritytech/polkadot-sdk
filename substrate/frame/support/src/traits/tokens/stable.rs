@@ -17,18 +17,6 @@
 
 //! Traits for stablecoin inter-pallet communication.
 
-/// Trait for the PSM to query the Vaults pallet for system-wide debt ceiling.
-///
-/// Implemented by the Vaults pallet, called by the PSM pallet when checking
-/// whether a mint would exceed the maximum pUSD issuance.
-pub trait VaultsInterface {
-	/// The balance type.
-	type Balance;
-
-	/// Get the maximum allowed pUSD issuance across the entire system.
-	fn get_maximum_issuance() -> Self::Balance;
-}
-
 /// Trait exposing the PSM pallet's reserved capacity to other pallets.
 ///
 /// Implemented by the PSM pallet, used by the Vaults pallet to account for

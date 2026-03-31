@@ -93,7 +93,7 @@ pub trait BenchmarkHelper<AssetId, AccountId> {
 
 #[frame_support::pallet]
 pub mod pallet {
-	pub use frame_support::traits::tokens::stable::{PsmInterface, VaultsInterface};
+	pub use frame_support::traits::tokens::stable::PsmInterface;
 
 	use alloc::collections::btree_map::BTreeMap;
 	use codec::DecodeWithMemTracking;
@@ -192,8 +192,8 @@ pub mod pallet {
 		/// Asset identifier type.
 		type AssetId: Parameter + Member + Copy + MaybeSerializeDeserialize + MaxEncodedLen + Ord;
 
-		/// Interface to query vaults for debt ceiling.
-		type VaultsInterface: VaultsInterface<Balance = BalanceOf<Self>>;
+		/// Maximum allowed pUSD issuance across the entire system.
+		type MaximumIssuance: Get<BalanceOf<Self>>;
 
 		/// Origin allowed to update PSM parameters.
 		///
@@ -427,7 +427,7 @@ pub mod pallet {
 
 			// Total new issuance = pusd_to_user + fee = external_amount.
 			let current_total_issuance = T::StableAsset::total_issuance();
-			let max_issuance = T::VaultsInterface::get_maximum_issuance();
+			let max_issuance = T::MaximumIssuance::get();
 			ensure!(
 				current_total_issuance.saturating_add(external_amount) <= max_issuance,
 				Error::<T>::ExceedsMaxIssuance
@@ -822,8 +822,8 @@ pub mod pallet {
 		}
 
 		/// Calculate max PSM debt based on system ceiling.
-		pub fn max_psm_debt() -> BalanceOf<T> {
-			let max_issuance = T::VaultsInterface::get_maximum_issuance();
+		pub(crate) fn max_psm_debt() -> BalanceOf<T> {
+			let max_issuance = T::MaximumIssuance::get();
 			MaxPsmDebtOfTotal::<T>::get().mul_floor(max_issuance)
 		}
 

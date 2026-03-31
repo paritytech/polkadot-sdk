@@ -8,7 +8,7 @@ The PSM pallet allows users to swap external stablecoins (e.g., USDC, USDT) for 
 
 - **Reserves are held**: External stablecoins are held in a pallet-derived account (`PalletId`)
 - **pUSD is minted/burned**: Users receive pUSD when depositing external stablecoins, and burn pUSD when redeeming
-- **Fees are routed via `FeeHandler`**: Mint and redeem fees are collected in pUSD and dispatched through a configurable handler
+- **Fees are routed to `FeeDestination`**: Mint and redeem fees are collected in pUSD and transferred to a configurable account
 - **Circuit breaker provides emergency control**: Per-asset circuit breaker can disable minting or all swaps
 
 ## Swap Lifecycle
@@ -19,7 +19,7 @@ mint(origin, asset_id, external_amount)
 ```
 - Deposits external stablecoin into the PSM account
 - Mints pUSD to the user (minus minting fee)
-- Fee is issued as pUSD credit and routed through `FeeHandler`
+- Fee is minted as pUSD and transferred to `FeeDestination`
 - Enforces three-tier debt ceiling: system-wide, aggregate PSM, and per-asset
 - Requires `external_amount >= MinSwapAmount`
 
@@ -29,7 +29,7 @@ redeem(origin, asset_id, pusd_amount)
 ```
 - Burns pUSD from the user equal to the external amount being redeemed
 - Transfers external stablecoin from PSM account to user
-- Redemption fee is withdrawn from the user as pUSD credit and routed through `FeeHandler`
+- Redemption fee is transferred from the user as pUSD to `FeeDestination`
 - Limited by tracked PSM debt (not raw reserve balance)
 - Requires `pusd_amount >= MinSwapAmount`
 
@@ -57,10 +57,10 @@ Setting an asset's weight to 0% disables minting and redistributes its capacity 
 
 ## Fee Structure
 
-Fees are calculated using `Permill::mul_ceil` (rounds up) and handled as pUSD credits via `FeeHandler`:
+Fees are calculated using `Permill::mul_ceil` (rounds up) and transferred as pUSD to `FeeDestination`:
 
-- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)` -- deducted from pUSD output, issued as pUSD credit, and passed to `FeeHandler`
-- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)` -- withdrawn from the user as pUSD credit and passed to `FeeHandler`
+- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)` -- deducted from pUSD output, minted to `FeeDestination`
+- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)` -- transferred from the user to `FeeDestination`
 
 With 0.5% fees on both sides, arbitrage opportunities exist when pUSD trades outside $0.995-$1.005.
 
@@ -114,7 +114,7 @@ Before calling `add_external_asset(asset_id)`:
 impl pallet_psm::Config for Runtime {
     type Fungibles = Assets;
     type AssetId = u32;
-    type VaultsInterface = Vaults;
+    type MaximumIssuance = MaximumIssuance;
     type ManagerOrigin = EnsurePsmManager;
     type WeightInfo = weights::SubstrateWeight<Runtime>;
     type StableAsset = frame_support::traits::fungible::ItemOf<
@@ -122,14 +122,14 @@ impl pallet_psm::Config for Runtime {
         StablecoinAssetId,
         AccountId,
     >;
-    type FeeHandler = ResolveTo<InsuranceFundAccount, Self::StableAsset>;
+    type FeeDestination = InsuranceFundAccount;
     type PalletId = PsmPalletId;
     type MinSwapAmount = MinSwapAmount;
     type MaxExternalAssets = ConstU32<10>;
 }
 ```
 
-`Fungibles` must expose metadata for approved assets, and `StableAsset` must expose metadata for the pUSD asset because `add_external_asset` validates that decimals match before approval.
+`Fungibles` must expose metadata for approved assets, and `StableAsset` must expose metadata for the pUSD asset because `add_external_asset` validates that decimals match before approval. `MaximumIssuance` provides the system-wide pUSD cap (typically from the Vaults pallet or a constant).
 
 ### Parameters (Set via Governance)
 
@@ -149,7 +149,7 @@ impl pallet_psm::Config for Runtime {
 Typical runtime helpers used in the configuration above:
 
 - `StablecoinAssetId`: Runtime constant used by `ItemOf<..., StablecoinAssetId, ...>` to bind `StableAsset` to pUSD
-- `InsuranceFundAccount`: Example fee destination account when using `ResolveTo`
+- `InsuranceFundAccount`: Account that receives pUSD fees via `FeeDestination`
 
 ## Events
 
@@ -178,6 +178,7 @@ Typical runtime helpers used in the configuration above:
 - `InsufficientPrivilege`: Emergency origin tried a Full-only operation
 - `TooManyAssets`: Maximum number of approved external assets reached
 - `DecimalsMismatch`: External asset decimals do not match the stable asset decimals
+- `Unexpected`: An unexpected invariant violation occurred (defensive check)
 
 ## Testing
 
