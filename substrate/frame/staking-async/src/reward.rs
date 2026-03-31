@@ -213,7 +213,7 @@ impl<T: Config> EraRewardManager<T> {
 /// - Standard staking reward distribution (commission + proportional stake split)
 pub struct DefaultStakerRewardCalculator<T>(core::marker::PhantomData<T>);
 
-impl<T: Config> sp_staking::StakerRewardCalculator<T::AccountId, BalanceOf<T>>
+impl<T: Config> sp_staking::StakerRewardCalculator<BalanceOf<T>>
 	for DefaultStakerRewardCalculator<T>
 where
 	BalanceOf<T>: Into<u128> + From<u128>,
