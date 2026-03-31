@@ -60,7 +60,7 @@ use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
 	iter,
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
@@ -381,7 +381,7 @@ impl StatementHandlerPrototype {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: is_major_syncing,
-			deferred_peers: Vec::new(),
+			deferred_peers: BTreeMap::new(),
 		};
 
 		Ok(handler)
@@ -429,7 +429,7 @@ pub struct StatementHandler<
 	/// Whether the node was major syncing in the previous loop iteration
 	had_major_syncing: bool,
 	/// Peers whose statement protocol connection was deferred during major sync
-	deferred_peers: Vec<(PeerId, multiaddr::Multiaddr)>,
+	deferred_peers: BTreeMap<PeerId, multiaddr::Multiaddr>,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -593,7 +593,7 @@ where
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: false,
-			deferred_peers: Vec::new(),
+			deferred_peers: BTreeMap::new(),
 		}
 	}
 
@@ -710,7 +710,7 @@ where
 				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
 					.collect::<multiaddr::Multiaddr>();
 				if self.sync.is_major_syncing() {
-					self.deferred_peers.push((remote, addr));
+					self.deferred_peers.insert(remote, addr);
 				} else {
 					let result = self.network.add_peers_to_reserved_set(
 						self.protocol_name.clone(),
@@ -722,7 +722,7 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
-				self.deferred_peers.retain(|(p, _)| *p != remote);
+				self.deferred_peers.remove(&remote);
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(remote).collect(),
@@ -739,7 +739,7 @@ where
 		for peer_id in connected {
 			let addr = iter::once(multiaddr::Protocol::P2p(peer_id.into()))
 				.collect::<multiaddr::Multiaddr>();
-			self.deferred_peers.push((peer_id, addr));
+			self.deferred_peers.insert(peer_id, addr);
 
 			let result = self.network.remove_peers_from_reserved_set(
 				self.protocol_name.clone(),
@@ -1564,7 +1564,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: is_syncing,
-			deferred_peers: Vec::new(),
+			deferred_peers: BTreeMap::new(),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
@@ -1773,7 +1773,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			had_major_syncing: false,
-			deferred_peers: Vec::new(),
+			deferred_peers: BTreeMap::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2464,7 +2464,7 @@ mod tests {
 
 		// Both peers were moved to deferred list
 		assert_eq!(handler.deferred_peers.len(), 2, "Both peers should be deferred");
-		let deferred_ids: Vec<PeerId> = handler.deferred_peers.iter().map(|(id, _)| *id).collect();
+		let deferred_ids: Vec<PeerId> = handler.deferred_peers.keys().copied().collect();
 		assert!(deferred_ids.contains(&peer_id));
 		assert!(deferred_ids.contains(&peer_id2));
 		assert!(
@@ -2516,7 +2516,7 @@ mod tests {
 
 		// Peer was deferred, not added to reserved set
 		assert_eq!(handler.deferred_peers.len(), 1);
-		assert_eq!(handler.deferred_peers[0].0, new_peer);
+		assert!(handler.deferred_peers.contains_key(&new_peer));
 		assert!(
 			network.reserved_added.lock().unwrap().is_empty(),
 			"Should NOT call add_peers_to_reserved_set during major sync"
@@ -2559,6 +2559,6 @@ mod tests {
 
 		// peer_a removed from deferred list, peer_b remains
 		assert_eq!(handler.deferred_peers.len(), 1);
-		assert_eq!(handler.deferred_peers[0].0, peer_b);
+		assert!(handler.deferred_peers.contains_key(&peer_b));
 	}
 }
