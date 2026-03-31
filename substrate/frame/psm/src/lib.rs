@@ -909,18 +909,19 @@ pub mod pallet {
 		}
 
 		/// Calculate total PSM debt across all approved assets.
-		pub fn total_psm_debt() -> BalanceOf<T> {
+		pub(crate) fn total_psm_debt() -> BalanceOf<T> {
 			PsmDebt::<T>::iter_values()
 				.fold(BalanceOf::<T>::zero(), |acc, debt| acc.saturating_add(debt))
 		}
 
 		/// Check if an asset is approved for PSM swaps.
-		pub fn is_approved_asset(asset_id: &T::AssetId) -> bool {
+		#[cfg(test)]
+		pub(crate) fn is_approved_asset(asset_id: &T::AssetId) -> bool {
 			ExternalAssets::<T>::contains_key(asset_id)
 		}
 
 		/// Get the reserve (balance) of an external asset held by PSM.
-		pub fn get_reserve(asset_id: T::AssetId) -> BalanceOf<T> {
+		pub(crate) fn get_reserve(asset_id: T::AssetId) -> BalanceOf<T> {
 			T::Fungibles::balance(asset_id, &Self::account_id())
 		}
 
