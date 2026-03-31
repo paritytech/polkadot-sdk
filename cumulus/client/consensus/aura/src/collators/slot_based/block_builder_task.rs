@@ -173,6 +173,7 @@ where
 			para_client.clone(),
 			slot_offset,
 			relay_chain_slot_duration,
+			false,
 		);
 
 		let mut collator = {
@@ -218,6 +219,7 @@ where
 			let best_hash = para_client.info().best_hash;
 			let v3_enabled =
 				para_client.runtime_api().scheduling_v3_enabled(best_hash).unwrap_or(false);
+			slot_timer.set_v3_enabled(v3_enabled);
 
 			let Some(descendants_start) = scheduling_info
 				.descendants_start(&relay_client, relay_chain_slot_duration, v3_enabled)

@@ -107,7 +107,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
-const RELAY_PARENT_OFFSET: u32 = 0;
 const SCHEDULING_V3_ENABLED: bool = false;
 
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
