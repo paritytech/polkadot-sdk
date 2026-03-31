@@ -578,7 +578,9 @@ pub fn buffer_key() -> sp_staking::budget::BudgetKey {
 }
 
 /// Build a DAP budget allocation map from `(key, percent)` pairs.
-pub fn build_budget(entries: &[(sp_staking::budget::BudgetKey, u32)]) -> pallet_dap::BudgetAllocationMap {
+pub fn build_budget(
+	entries: &[(sp_staking::budget::BudgetKey, u32)],
+) -> pallet_dap::BudgetAllocationMap {
 	let mut budget = BoundedBTreeMap::new();
 	for (key, pct) in entries {
 		budget.try_insert(key.clone(), Perbill::from_percent(*pct)).unwrap();
