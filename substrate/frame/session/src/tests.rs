@@ -762,6 +762,32 @@ mod externally_set_keys_tracking {
 			assert_local_state(consumers_before);
 		});
 	}
+
+	#[test]
+	fn key_rotation_succeeds_at_max_consumers() {
+		new_test_ext().execute_with(|| {
+			// Given: an account with existing locally-managed session keys.
+			setup_account();
+			set_local(ACCOUNT);
+
+			// Saturate the consumer count so `can_inc_consumer` returns false.
+			while frame_system::Pallet::<Test>::can_inc_consumer(&ACCOUNT) {
+				frame_system::Pallet::<Test>::inc_consumers(&ACCOUNT).unwrap();
+			}
+			assert!(
+				!frame_system::Pallet::<Test>::can_inc_consumer(&ACCOUNT),
+				"pre-condition: consumer slots exhausted"
+			);
+
+			// When: the validator rotates keys (not a first-time registration).
+			let new_key = ACCOUNT + 1;
+			let keys = UintAuthorityId(new_key).into();
+			let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(new_key));
+
+			// Then: the rotation succeeds because it does not need a new consumer ref.
+			assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
+		});
+	}
 }
 
 mod disabling_byzantine_threshold {
