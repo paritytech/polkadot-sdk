@@ -57,9 +57,10 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
-	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
-	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	error::{Error as TxPoolApiError, IntoPoolError},
+	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
+	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
+	TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -736,6 +737,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, ChainApi::Error> {
 		let xt = Arc::from(xt);
+		let tx_hash = self.api.hash_and_length(&xt).0;
 
 		let at_number = self
 			.api
@@ -746,28 +748,65 @@ where
 			.into()
 			.as_u64();
 
+		let Some(external_watcher) =
+			self.view_store.listener.create_external_watcher_for_tx(tx_hash)
+		else {
+			return Err(TxPoolApiError::AlreadyImported(Box::new(tx_hash)).into())
+		};
+
+		let snapshot = self.view_store.most_recent_view_hash();
+
 		let insertion = match self.mempool.push_watched(source, at_number, xt.clone()).await {
 			Ok(result) => result,
-			Err(TxPoolApiError::ImmediatelyDropped) => {
-				self.attempt_transaction_replacement(source, at_number, true, xt.clone())
-					.await?
+			Err(TxPoolApiError::ImmediatelyDropped) =>
+				match self
+					.attempt_transaction_replacement(source, at_number, true, xt.clone())
+					.await
+				{
+					Ok(result) => result,
+					Err(e) => {
+						self.view_store.listener.remove_external_watcher(tx_hash);
+						return Err(e.into());
+					},
+				},
+			Err(e) => {
+				self.view_store.listener.remove_external_watcher(tx_hash);
+				return Err(e.into());
 			},
-			Err(e) => return Err(e.into()),
 		};
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		self.events_metrics_collector.report_submitted(&insertion);
 
 		match self.view_store.submit_and_watch(at, insertion.source, xt).await {
-			Err(e) => {
-				self.mempool.remove_transactions(&[insertion.hash]).await;
-				Err(e.into())
-			},
-			Ok(mut outcome) => {
+			Ok(outcome) => {
 				self.mempool
 					.update_transaction_priority(outcome.hash(), outcome.priority())
 					.await;
-				Ok(outcome.expect_watcher())
+				Ok(external_watcher)
+			},
+			Err(e) => {
+				match e.into_pool_error() {
+					Ok(TxPoolApiError::AlreadyImported(_)) if snapshot != self.view_store.most_recent_view_hash() => {
+						trace!(
+							target: LOG_TARGET,
+							?tx_hash,
+							"submit_and_watch: AlreadyImported due to concurrent \
+							 maintain race, treating as success"
+						);
+						Ok(external_watcher)
+					},
+					Ok(pool_err) => {
+						self.view_store.listener.remove_external_watcher(tx_hash);
+						self.mempool.remove_transactions(&[insertion.hash]).await;
+						Err(pool_err.into())
+					},
+					Err(err) => {
+						self.view_store.listener.remove_external_watcher(tx_hash);
+						self.mempool.remove_transactions(&[insertion.hash]).await;
+						Err(err)
+					},
+				}
 			},
 		}
 	}
@@ -789,6 +828,8 @@ where
 			.as_u64();
 		let view_store = self.view_store.clone();
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
+		let snapshot = self.view_store.most_recent_view_hash();
+
 		let mempool_results = self.mempool.extend_unwatched(source, at_number, &xts).await;
 
 		if view_store.is_empty() {
@@ -868,8 +909,25 @@ where
 						final_results.push(Ok(r.hash()));
 					},
 					Err(e) => {
-						mempool.remove_transactions(&[hash]).await;
-						final_results.push(Err(e));
+						match e.into_pool_error() {
+							Ok(TxPoolApiError::AlreadyImported(_)) if snapshot != self.view_store.most_recent_view_hash() => {
+								trace!(
+									target: LOG_TARGET,
+									?hash,
+									"submit_at: AlreadyImported due to concurrent \
+									 maintain race, treating as success"
+								);
+								final_results.push(Ok(hash));
+							},
+							Ok(pool_err) => {
+								mempool.remove_transactions(&[hash]).await;
+								final_results.push(Err(pool_err.into()));
+							},
+							Err(err) => {
+								mempool.remove_transactions(&[hash]).await;
+								final_results.push(Err(err));
+							},
+						}
 					},
 				},
 				Err(e) => final_results.push(Err(e)),
@@ -1179,6 +1237,8 @@ where
 			.into()
 			.as_u64();
 
+		let snapshot = self.view_store.most_recent_view_hash();
+
 		// note: would be nice to get rid of sync methods one day. See: #8912
 		let result = self
 			.mempool
@@ -1195,18 +1255,35 @@ where
 			_ => result,
 		}?;
 
-		self.view_store
-			.submit_local(xt)
-			.inspect_err(|_| {
-				self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
-			})
-			.map(|outcome| {
+		match self.view_store.submit_local(xt) {
+			Ok(outcome) => {
 				self.mempool
 					.clone()
 					.update_transaction_priority_sync(outcome.hash(), outcome.priority());
-				outcome.hash()
-			})
-			.or_else(|_| Ok(insertion.hash))
+				Ok(outcome.hash())
+			},
+			Err(e) => {
+				match e.into_pool_error() {
+					Ok(TxPoolApiError::AlreadyImported(_)) if snapshot != self.view_store.most_recent_view_hash() => {
+						trace!(
+							target: LOG_TARGET,
+							hash = ?insertion.hash,
+							"submit_local: AlreadyImported due to concurrent \
+							 maintain race, treating as success"
+						);
+						Ok(insertion.hash)
+					},
+					Ok(_) => {
+						self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
+						Ok(insertion.hash)
+					},
+					Err(_) => {
+						self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
+						Ok(insertion.hash)
+					},
+				}
+			},
+		}
 	}
 }
 

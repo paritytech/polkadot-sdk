@@ -795,6 +795,14 @@ where
 		}
 	}
 
+	/// Removes the external watcher controller for a given transaction hash.
+	///
+	/// Used for cleanup when a `submit_and_watch` operation fails after the watcher was
+	/// pre-created.
+	pub(crate) fn remove_external_watcher(&self, tx_hash: ExtrinsicHash<ChainApi>) {
+		self.external_controllers.write().remove(&tx_hash);
+	}
+
 	/// Removes stale controllers.
 	pub(crate) fn remove_stale_controllers(&self) {
 		self.external_controllers.write().retain(|_, c| !c.is_closed());

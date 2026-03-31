@@ -35,10 +35,7 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{
-	error::{Error as PoolError, IntoPoolError},
-	PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
-};
+use sc_transaction_pool_api::{PoolStatus, TransactionTag as Tag, TxInvalidityReportMap};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -284,13 +281,10 @@ where
 		}
 	}
 
-	/// Import a single extrinsic and starts to watch its progress in the pool.
+	/// Import a single extrinsic into every active view.
 	///
-	/// The extrinsic is imported to every view, and the individual streams providing the progress
-	/// of this transaction within every view are added to the multi view listener.
-	///
-	/// The external stream of aggregated/processed events provided by the `MultiViewListener`
-	/// instance is returned.
+	/// The caller is responsible for creating the external watcher beforehand and for
+	/// race-condition detection (comparing `most_recent_view` snapshots).
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::sumbit_and_watch")]
 	pub(super) async fn submit_and_watch(
 		&self,
@@ -299,9 +293,6 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
-		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into());
-		};
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
@@ -322,46 +313,9 @@ where
 			.find_or_first(Result::is_ok);
 
 		match result {
-			Some(Err(error)) => {
-				// No active view accepted the tx. Check if the error is
-				// AlreadyImported — this indicates a race where
-				// update_view_with_mempool() concurrently imported the tx from
-				// mempool into the view before we got here.
-				// The tx IS in the pool, so return success.
-				match error.into_pool_error() {
-					Ok(PoolError::AlreadyImported(_)) => {
-						trace!(
-							target: LOG_TARGET,
-							?tx_hash,
-							"submit_and_watch: tx already imported into view \
-							 (concurrent maintain race), treating as success"
-						);
-						Ok(ViewStoreSubmitOutcome::new(tx_hash, None)
-							.with_watcher(external_watcher))
-					},
-					Ok(pool_err) => {
-						trace!(
-							target: LOG_TARGET,
-							?tx_hash,
-							?pool_err,
-							"submit_and_watch failed"
-						);
-						Err(pool_err.into())
-					},
-					Err(err) => {
-						trace!(
-							target: LOG_TARGET,
-							?tx_hash,
-							"submit_and_watch failed"
-						);
-						Err(err)
-					},
-				}
-			},
-			Some(Ok(result)) => {
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
-			},
-			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
+			Some(Err(error)) => Err(error),
+			Some(Ok(result)) => Ok(ViewStoreSubmitOutcome::from(result)),
+			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
 		}
 	}
 
@@ -373,6 +327,13 @@ where
 	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
+	}
+
+	/// Returns the hash of the most recently processed view, if any.
+	///
+	/// Used for race-condition detection between mempool insertion and view submission.
+	pub(super) fn most_recent_view_hash(&self) -> Option<Block::Hash> {
+		self.most_recent_view.read().as_ref().map(|v| v.at.hash)
 	}
 
 	/// Searches in the view store for the first descendant view by iterating through the fork of
@@ -1072,14 +1033,12 @@ mod tests {
 		(view_store, listener_task)
 	}
 
-	/// Deterministic test for the AlreadyImported fix in submit_and_watch.
+	/// Verifies that submit_and_watch correctly propagates AlreadyImported errors.
 	///
-	/// Simulates the race condition where update_view_with_mempool imports a tx from
-	/// mempool into an active view before view_store.submit_and_watch gets to submit it.
-	/// Without the fix, submit_and_watch would return Err(AlreadyImported). With the fix,
-	/// it returns Ok because the tx IS in the pool.
+	/// Since race detection is now handled by the caller (submit_and_watch_inner),
+	/// the view_store's submit_and_watch should propagate AlreadyImported as an error.
 	#[tokio::test]
-	async fn submit_and_watch_treats_already_imported_from_view_as_success() {
+	async fn submit_and_watch_propagates_already_imported_error() {
 		sp_tracing::try_init_simple();
 
 		let api = Arc::new(TestApi::default());
@@ -1122,16 +1081,14 @@ mod tests {
 
 		// Now call submit_and_watch for the same tx.
 		// The view already has this tx, so view.submit_one will return AlreadyImported.
-		// With the fix, submit_and_watch treats this as success.
+		// submit_and_watch no longer handles this — it propagates the error to the caller.
 		let result = view_store
 			.submit_and_watch(block_hash, TimedTransactionSource::new_external(false), xt)
 			.await;
 
 		assert!(
-			result.is_ok(),
-			"submit_and_watch should succeed when views return AlreadyImported \
-			 (simulated update_view_with_mempool race), got: {:?}",
-			result.err().map(|e| e.to_string())
+			result.is_err(),
+			"submit_and_watch should propagate AlreadyImported (race detection is caller's job)"
 		);
 	}
 }

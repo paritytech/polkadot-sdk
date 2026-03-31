@@ -2742,8 +2742,11 @@ fn fatp_submit_and_watch_handles_already_imported_from_maintain_race() {
 	// active views via view_store.submit_and_watch. A concurrent maintain() can build
 	// a new view and import the tx from mempool (via update_view_with_mempool) before
 	// view_store.submit_and_watch submits to that view. This causes the view to return
-	// AlreadyImported. The fix in view_store.submit_and_watch treats AlreadyImported
-	// as success since the tx IS in the pool.
+	// AlreadyImported.
+	//
+	// The fix detects this race by comparing a snapshot of most_recent_view taken before
+	// mempool insertion with the current most_recent_view after the AlreadyImported error.
+	// If they differ, a new view was created concurrently, confirming the race condition.
 	//
 	// We run multiple iterations with different timing strategies to increase the
 	// probability of hitting the race window. The race is timing-dependent: in
