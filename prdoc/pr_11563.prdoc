@@ -6,4 +6,4 @@ doc:
     and will help to split the pallet-broker logic into independent parts.
 crates:
 - name: pallet-broker
-  bump: patch
+  bump: minor
