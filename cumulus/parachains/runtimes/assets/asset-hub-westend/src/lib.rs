@@ -1566,7 +1566,7 @@ pub struct DefaultDapBudget;
 impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
 	fn get() -> pallet_dap::BudgetAllocationMap {
 		use sp_runtime::Perbill;
-		use sp_staking::BudgetRecipientList;
+		use sp_staking::budget::BudgetRecipientList;
 
 		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
 		// [dap, StakerRewardRecipient, ValidatorIncentiveRecipient]

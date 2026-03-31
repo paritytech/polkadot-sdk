@@ -229,7 +229,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 pub struct PolkadotIssuanceCurve;
-impl sp_staking::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
+impl sp_staking::budget::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
 	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
 		let relative_period =
@@ -368,6 +368,7 @@ impl pallet_dap::Config for Runtime {
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 #[derive(Encode, Decode)]

@@ -46,7 +46,7 @@ use sp_staking::EraPayout;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, EraPayout, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };

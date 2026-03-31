@@ -345,12 +345,12 @@ where
 /// `G` implements [`GeneralPotAccountProvider`] to derive the pot account.
 pub struct StakerRewardRecipient<G>(core::marker::PhantomData<G>);
 
-impl<AccountId, G> sp_staking::BudgetRecipient<AccountId> for StakerRewardRecipient<G>
+impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId> for StakerRewardRecipient<G>
 where
 	G: GeneralPotAccountProvider<AccountId>,
 {
-	fn budget_key() -> sp_staking::BudgetKey {
-		sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
 	}
 
 	fn pot_account() -> AccountId {
@@ -364,12 +364,12 @@ where
 /// `G` implements [`GeneralPotAccountProvider`] to derive the pot account.
 pub struct ValidatorIncentiveRecipient<G>(core::marker::PhantomData<G>);
 
-impl<AccountId, G> sp_staking::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<G>
+impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<G>
 where
 	G: GeneralPotAccountProvider<AccountId>,
 {
-	fn budget_key() -> sp_staking::BudgetKey {
-		sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
 	}
 
 	fn pot_account() -> AccountId {
@@ -455,7 +455,7 @@ where
 		amount: Balance,
 		vesting_duration: BlockNumber,
 	) -> Result<Balance, sp_runtime::DispatchError> {
-		Vesting::vested_transfer(source, dest, amount, vesting_duration)?;
+		Vesting::vested_transfer(source, dest, amount, vesting_duration, None)?;
 		Ok(amount)
 	}
 }

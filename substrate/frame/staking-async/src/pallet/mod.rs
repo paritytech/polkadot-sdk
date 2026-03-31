@@ -391,7 +391,6 @@ pub mod pallet {
 		/// - How staking rewards are distributed between validators and nominators
 		#[pallet::no_default_bounds]
 		type StakerRewardCalculator: sp_staking::StakerRewardCalculator<
-			Self::AccountId,
 			BalanceOf<Self>,
 		>;
 

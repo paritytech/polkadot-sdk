@@ -387,7 +387,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 /// Returns the total inflation for the given elapsed time. The split between stakers,
 /// validator incentive, and buffer is handled by the DAP budget allocation map.
 pub struct PolkadotIssuanceCurve;
-impl sp_staking::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
+impl sp_staking::budget::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
 	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
 		let relative_period =
@@ -517,6 +517,7 @@ impl pallet_dap::Config for Runtime {
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	type WeightInfo = ();
 }
 
 parameter_types! {

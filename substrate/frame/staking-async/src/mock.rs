@@ -39,8 +39,9 @@ use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
-	currency_to_vote::SaturatingCurrencyToVote, BudgetRecipient, IssuanceCurve, OnStakingUpdate,
-	SessionIndex, StakingAccount,
+	budget::{BudgetRecipient, IssuanceCurve},
+	currency_to_vote::SaturatingCurrencyToVote,
+	OnStakingUpdate, SessionIndex, StakingAccount,
 };
 use std::collections::BTreeMap;
 
@@ -148,6 +149,7 @@ impl pallet_dap::Config for Test {
 	type IssuanceCadence = TestIssuanceCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -461,21 +463,21 @@ impl IssuanceCurve<Balance> for OneTokenPerMillisecond {
 	}
 }
 
-pub(crate) fn staker_reward_key() -> sp_staking::BudgetKey {
+pub(crate) fn staker_reward_key() -> sp_staking::budget::BudgetKey {
 	<StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
 }
 
-pub(crate) fn validator_incentive_key() -> sp_staking::BudgetKey {
+pub(crate) fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
 	<ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
 }
 
-pub(crate) fn buffer_key() -> sp_staking::BudgetKey {
+pub(crate) fn buffer_key() -> sp_staking::budget::BudgetKey {
 	<Dap as BudgetRecipient<AccountId>>::budget_key()
 }
 
 /// Build a DAP budget allocation map from `(key, percent)` pairs.
 pub(crate) fn build_budget(
-	entries: &[(sp_staking::BudgetKey, u32)],
+	entries: &[(sp_staking::budget::BudgetKey, u32)],
 ) -> pallet_dap::BudgetAllocationMap {
 	let mut budget = BoundedBTreeMap::new();
 	for (key, pct) in entries {

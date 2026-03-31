@@ -29,7 +29,7 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	BoundedVec, Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
 pub mod budget;
