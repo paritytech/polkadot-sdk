@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use codec::{Compact, Decode, Encode};
-use derive_where::derive_where;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
@@ -45,8 +44,7 @@ pub struct MetadataIR<T: Form = MetaForm> {
 }
 
 /// Metadata of a runtime trait.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	/// Trait name.
 	pub name: T::String,
@@ -75,8 +73,7 @@ impl IntoPortable for RuntimeApiMetadataIR {
 }
 
 /// Metadata of a runtime method.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct RuntimeApiMethodMetadataIR<T: Form = MetaForm> {
 	/// Method name.
 	pub name: T::String,
@@ -105,8 +102,7 @@ impl IntoPortable for RuntimeApiMethodMetadataIR {
 }
 
 /// Metadata of a runtime method parameter.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct RuntimeApiMethodParamMetadataIR<T: Form = MetaForm> {
 	/// Parameter name.
 	pub name: T::String,
@@ -126,8 +122,7 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 }
 
 /// Metadata of a pallet view function method.
-#[derive(Encode, Decode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct PalletViewFunctionMetadataIR<T: Form = MetaForm> {
 	/// Method name.
 	pub name: T::String,
@@ -159,8 +154,7 @@ impl IntoPortable for PalletViewFunctionMetadataIR {
 }
 
 /// Metadata of a pallet view function method argument.
-#[derive(Encode, Decode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct PalletViewFunctionParamMetadataIR<T: Form = MetaForm> {
 	/// Parameter name.
 	pub name: T::String,
@@ -180,8 +174,7 @@ impl IntoPortable for PalletViewFunctionParamMetadataIR {
 }
 
 /// The intermediate representation for a pallet metadata.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletMetadataIR<T: Form = MetaForm> {
 	/// Pallet name.
 	pub name: T::String,
@@ -233,8 +226,7 @@ impl IntoPortable for PalletMetadataIR {
 }
 
 /// Metadata of the extrinsic used by the runtime.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	/// The type of the extrinsic.
 	///
@@ -251,24 +243,8 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	/// The type of the outermost Extra/Extensions enum.
 	// TODO: metadata-v16: remove this, the `implicit` type can be found in `extensions::implicit`.
 	pub extra_ty: T::Type,
-	/// The transaction extensions for each version as a list of index in reference to items in
-	/// `extensions_in_versions` field.
-	pub extensions_by_version: BTreeMap<u8, Vec<u32>>,
-	/// The list of all transaction extensions used in `extensions_by_version`.
-	pub extensions_in_versions: Vec<TransactionExtensionMetadataIR<T>>,
-}
-
-impl<T: Form> ExtrinsicMetadataIR<T> {
-	/// The transaction extensions in the order they appear in the extrinsic for the version 0 if
-	/// defined.
-	pub fn extensions_v0(&self) -> Option<Vec<TransactionExtensionMetadataIR<T>>> {
-		self.extensions_by_version.get(&0).map(|indices| {
-			indices
-				.iter()
-				.map(|i| self.extensions_in_versions[*i as usize].clone())
-				.collect()
-		})
-	}
+	/// The transaction extensions in the order they appear in the extrinsic.
+	pub extensions: Vec<TransactionExtensionMetadataIR<T>>,
 }
 
 impl IntoPortable for ExtrinsicMetadataIR {
@@ -282,15 +258,13 @@ impl IntoPortable for ExtrinsicMetadataIR {
 			call_ty: registry.register_type(&self.call_ty),
 			signature_ty: registry.register_type(&self.signature_ty),
 			extra_ty: registry.register_type(&self.extra_ty),
-			extensions_by_version: self.extensions_by_version,
-			extensions_in_versions: registry.map_into_portable(self.extensions_in_versions),
+			extensions: registry.map_into_portable(self.extensions),
 		}
 	}
 }
 
 /// Metadata of a pallet's associated type.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletAssociatedTypeMetadataIR<T: Form = MetaForm> {
 	/// The name of the associated type.
 	pub name: T::String,
@@ -313,8 +287,7 @@ impl IntoPortable for PalletAssociatedTypeMetadataIR {
 }
 
 /// Metadata of an extrinsic's signed extension.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
 	/// The unique signed extension identifier, which may be different from the type name.
 	pub identifier: T::String,
@@ -337,10 +310,8 @@ impl IntoPortable for TransactionExtensionMetadataIR {
 }
 
 /// All metadata of the pallet's storage.
-///
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 /// The common prefix used by all storage entries.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletStorageMetadataIR<T: Form = MetaForm> {
 	/// The common prefix used by all storage entries.
 	pub prefix: T::String,
@@ -360,8 +331,7 @@ impl IntoPortable for PalletStorageMetadataIR {
 }
 
 /// Metadata about one storage entry.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct StorageEntryMetadataIR<T: Form = MetaForm> {
 	/// Variable name of the storage entry.
 	pub name: T::String,
@@ -427,8 +397,7 @@ pub enum StorageHasherIR {
 }
 
 /// A type of storage value.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub enum StorageEntryTypeIR<T: Form = MetaForm> {
 	/// Plain storage entry (just the value).
 	Plain(T::Type),
@@ -459,8 +428,7 @@ impl IntoPortable for StorageEntryTypeIR {
 }
 
 /// Metadata for all calls in a pallet
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletCallMetadataIR<T: Form = MetaForm> {
 	/// The corresponding enum type for the pallet call.
 	pub ty: T::Type,
@@ -480,8 +448,7 @@ impl IntoPortable for PalletCallMetadataIR {
 }
 
 /// Metadata about the pallet Event type.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// The Event type.
 	pub ty: T::Type,
@@ -501,8 +468,7 @@ impl IntoPortable for PalletEventMetadataIR {
 }
 
 /// Metadata about one pallet constant.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletConstantMetadataIR<T: Form = MetaForm> {
 	/// Name of the pallet constant.
 	pub name: T::String,
@@ -531,8 +497,7 @@ impl IntoPortable for PalletConstantMetadataIR {
 }
 
 /// Metadata about a pallet error.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// The error type information.
 	pub ty: T::Type,
@@ -552,8 +517,7 @@ impl IntoPortable for PalletErrorMetadataIR {
 }
 
 /// The type of the outer enums.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct OuterEnumsIR<T: Form = MetaForm> {
 	/// The type of the outer `RuntimeCall` enum.
 	pub call_enum_ty: T::Type,
@@ -590,8 +554,7 @@ impl IntoPortable for OuterEnumsIR {
 }
 
 /// Deprecation information for generic items.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub enum ItemDeprecationInfoIR<T: Form = MetaForm> {
 	/// Item is not deprecated.
 	NotDeprecated,
@@ -624,8 +587,7 @@ impl IntoPortable for ItemDeprecationInfoIR {
 
 /// Deprecation information for enums in which specific variants can be deprecated.
 /// If the map is empty, then nothing is deprecated.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct EnumDeprecationInfoIR<T: Form = MetaForm>(pub BTreeMap<u8, VariantDeprecationInfoIR<T>>);
 
 impl<T: Form> EnumDeprecationInfoIR<T> {
@@ -655,8 +617,7 @@ impl IntoPortable for EnumDeprecationInfoIR {
 }
 
 /// Deprecation information for an item or variant in the metadata.
-#[derive(Encode)]
-#[derive_where(Clone, PartialEq, Eq, Debug;)]
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub enum VariantDeprecationInfoIR<T: Form = MetaForm> {
 	/// Variant is deprecated without a note.
 	DeprecatedWithoutNote,

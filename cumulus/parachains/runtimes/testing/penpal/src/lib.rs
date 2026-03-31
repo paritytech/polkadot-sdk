@@ -153,10 +153,9 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type ExtensionV0 = TxExtension;
-	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
+	type Extension = TxExtension;
 
-	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
 		(
 			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
