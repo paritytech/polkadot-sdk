@@ -22,7 +22,9 @@
 
 use std::fmt::Debug;
 
+use codec::{Codec, MaxEncodedLen};
 use frame_support::{weights::WeightMeter, Parameter};
+use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 
 use crate::{
@@ -47,7 +49,7 @@ pub trait Market<T: Config> {
 	type Error: Into<DispatchError>;
 
 	/// Unique identifier assigned to each bid.
-	type BidId: Clone + Debug + PartialEq + Eq;
+	type BidId: Copy + Debug + Codec + MaxEncodedLen + TypeInfo + Eq;
 
 	/// Initialization data used in [`Market::start_sales`].
 	type InitData: Parameter;
