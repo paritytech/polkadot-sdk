@@ -51,7 +51,7 @@ use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, H256};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -188,6 +188,53 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
+		// Prevents a "stale parent" race condition that degrades block confidence.
+		//
+		// Block production is driven by two decoupled clocks:
+		//  I. Aura slot (wall clock): Triggers wake-ups and enforces a 1-second hard deadline
+		//     at the end of the slot to safely stop authoring.
+		//  II. Parachain slot: Derived from the imported relay parent, which determines if we
+		//     can build or not.
+		//
+		// Because network imports race against the local wall clock, a node running
+		// elastic scaling can easily desync.
+		//
+		// Timeline of the failure scenario (observed on yap-polkadot):
+		//
+		//  - T0: Aura 803 begins. The relay parent is still old (0xA). The node skips.
+		//
+		//  - T1 (soft failure): Aura 803 last block production opportunity. Relay parent 0xB
+		//    (para slot 803) is picked. However, aura 803 now has < 1000ms remaining. The 1s
+		//    deadline triggers, skipping the block.
+		//
+		//  - T2: Aura 804 begins. The node successfully builds 10 blocks on 0xB. As aura 804
+		//    ends, the 1s deadline triggers again, skipping the final 2 cores.
+		//
+		//  - T3 (critical failure): Aura 805 begins. The wall clock resets, the next aura slot
+		//    arrives in 6000ms. However, the network hasn't delivered a new relay parent yet.
+		//    Because the timer reset, the deadline check passes, and the node erroneously
+		//    builds a stale block on top of 0xB.
+		//
+		// To prevent T1, we rely on the 1-second hard deadline to skip block production.
+		//
+		// To prevent T3, we track the relay parent hash and whether we've already built and
+		// terminated on it. If the relay parent hasn't changed since our last terminated build,
+		// we skip production until the network delivers a new relay block.
+		//
+		// See: https://github.com/paritytech/polkadot-sdk/pull/11453
+		struct ParentTracker {
+			/// Hash of the relay block.
+			hash: Option<H256>,
+			/// True if the collator built a block for the current relay parent.
+			/// Needed so that T1 (first opportunity skip) doesn't wrongfully mark as terminated.
+			has_built: bool,
+			/// True if the slot timer determined there is no time left to build.
+			has_terminated: bool,
+		}
+
+		let mut parent_tracker =
+			ParentTracker { hash: None, has_built: false, has_terminated: false };
+
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
 			keystore.clone(),
@@ -239,6 +286,28 @@ where
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
+
+			// Reset the state of the tracker in case of new blocks or re-orgs.
+			if parent_tracker.hash != Some(relay_parent) {
+				parent_tracker = ParentTracker {
+					hash: Some(relay_parent),
+					has_built: false,
+					has_terminated: false,
+				};
+			}
+
+			// The collator has terminated the building time, the `adjust_authoring_duration` has
+			// determined that there is no time left to build the block. This block must be skipped
+			// to avoid building blocks wrongfully when the import races with
+			// `wait_until_next_slot`.
+			if parent_tracker.has_terminated {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					"Skipping block production on terminated relay parent."
+				);
+				continue;
+			}
 
 			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -438,6 +507,14 @@ where
 					"Not building block due to insufficient authoring duration."
 				);
 
+				// In practice with 12 cores, it is possible that the wall clock (aura_slot) aligns
+				// perfectly with the parachain slot deduced from the relay block. For those cases,
+				// the first block production opportunity will be skipped immediately. This field
+				// ensures the block is marked as terminated only after building.
+				if parent_tracker.has_built {
+					parent_tracker.has_terminated = true;
+				}
+
 				continue;
 			};
 
@@ -460,6 +537,9 @@ where
 				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
 				continue;
 			};
+
+			// Mark the collator has built a block on this relay parent.
+			parent_tracker.has_built = true;
 
 			let new_block_hash = candidate.block.header().hash();
 
