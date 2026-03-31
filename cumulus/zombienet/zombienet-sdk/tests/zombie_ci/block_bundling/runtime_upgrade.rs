@@ -162,6 +162,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
+							"max_code_size": 5242880,
 							"scheduler_params": {
 								"num_cores": 3,
 								"max_validators_per_core": 1
