@@ -445,6 +445,12 @@ fn renewals_affect_price() {
 	let b = 100_000;
 	let config = ConfigRecord {
 		advance_notice: 2,
+		// Region length is in time slices (2 blocks):
+		region_length: 20,
+		contribution_timeout: 5,
+	};
+	let market_config = MarketConfigurationRecord {
+		advance_notice: 2,
 		interlude_length: 10,
 		leadin_length: 20,
 		ideal_bulk_proportion: Perbill::from_percent(100),
@@ -452,9 +458,8 @@ fn renewals_affect_price() {
 		// Region length is in time slices (2 blocks):
 		region_length: 20,
 		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
 	};
-	TestExt::new_with_config(config).endow(1, b).execute_with(|| {
+	TestExt::new_with_config(config, market_config).endow(1, b).execute_with(|| {
 		let price = 910;
 		assert_ok!(Broker::do_start_sales(10, 1));
 		advance_to(11);
@@ -515,6 +520,12 @@ fn renewal_price_adjusts_to_lower_market_end() {
 	let region_length_blocks = 40;
 	let config = ConfigRecord {
 		advance_notice: 2,
+		// Region length is in time slices (2 blocks):
+		region_length: 20,
+		contribution_timeout: 5,
+	};
+	let market_config = MarketConfigurationRecord {
+		advance_notice: 2,
 		interlude_length: 10,
 		leadin_length: 20,
 		ideal_bulk_proportion: Perbill::from_percent(100),
@@ -522,9 +533,9 @@ fn renewal_price_adjusts_to_lower_market_end() {
 		// Region length is in time slices (2 blocks):
 		region_length: 20,
 		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
 	};
-	TestExt::new_with_config(config.clone())
+
+	TestExt::new_with_config(config.clone(), market_config.clone())
 		.endow(1, b)
 		.endow(2, b)
 		.execute_with(|| {
@@ -547,7 +558,7 @@ fn renewal_price_adjusts_to_lower_market_end() {
 			let b = b - price;
 			assert_eq!(balance(1), b);
 			// Ramp up price:
-			advance_to(region_length_blocks + config.interlude_length + 1);
+			advance_to(region_length_blocks + market_config.interlude_length + 1);
 			do_purchase_and_get_region_id(2, u64::max_value()).unwrap();
 
 			advance_to(2 * region_length_blocks);
@@ -557,7 +568,7 @@ fn renewal_price_adjusts_to_lower_market_end() {
 			let b = b - price;
 			assert_eq!(balance(1), b);
 			// Ramp up price again:
-			advance_to(2 * region_length_blocks + config.interlude_length + 1);
+			advance_to(2 * region_length_blocks + market_config.interlude_length + 1);
 			do_purchase_and_get_region_id(2, u64::max_value()).unwrap();
 
 			advance_to(3 * region_length_blocks);
@@ -1877,10 +1888,13 @@ fn config_works() {
 	TestExt::new().execute_with(|| {
 		let mut cfg = new_config();
 		// Good config works:
-		assert_ok!(Broker::configure(Root.into(), cfg.clone()));
+		assert_ok!(Broker::configure(Root.into(), cfg.0.clone(), cfg.1.clone()));
 		// Bad config is a noop:
-		cfg.leadin_length = 0;
-		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
+		cfg.1.leadin_length = 0;
+		assert_noop!(
+			Broker::configure(Root.into(), cfg.0.clone(), cfg.1.clone()),
+			DispatchError::Other("InvalidConfig")
+		);
 	});
 }
 

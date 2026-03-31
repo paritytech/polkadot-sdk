@@ -270,71 +270,82 @@ pub fn attribute<T: codec::Decode>(nft: RegionId, attribute: impl codec::Encode)
 	<Broker as NftInspect<_>>::typed_attribute::<_, T>(&nft.into(), &attribute).unwrap()
 }
 
-pub fn new_config() -> ConfigRecordOf<Test> {
-	ConfigRecord {
-		advance_notice: 2,
-		interlude_length: 1,
-		leadin_length: 1,
-		ideal_bulk_proportion: Default::default(),
-		limit_cores_offered: None,
-		region_length: 3,
-		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
-	}
+pub fn new_config() -> (ConfigRecordOf<Test>, MarketConfigRecordOf<Test>) {
+	(
+		ConfigRecord { advance_notice: 2, region_length: 3, contribution_timeout: 5 },
+		MarketConfigurationRecord {
+			advance_notice: 2,
+			interlude_length: 1,
+			leadin_length: 1,
+			ideal_bulk_proportion: Default::default(),
+			limit_cores_offered: None,
+			region_length: 3,
+			renewal_bump: Perbill::from_percent(10),
+		},
+	)
 }
 
 pub fn endow(who: u64, amount: u64) {
 	assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
 }
 
-pub struct TestExt(ConfigRecordOf<Test>);
+pub struct TestExt {
+	config: ConfigRecordOf<Test>,
+	market_config: MarketConfigRecordOf<Test>,
+}
+
 #[allow(dead_code)]
 impl TestExt {
 	pub fn new() -> Self {
-		Self(new_config())
+		let (config, market_config) = new_config();
+		Self { config, market_config }
 	}
 
-	pub fn new_with_config(config: ConfigRecordOf<Test>) -> Self {
-		Self(config)
+	pub fn new_with_config(
+		config: ConfigRecordOf<Test>,
+		market_config: MarketConfigRecordOf<Test>,
+	) -> Self {
+		Self { config, market_config }
 	}
 
 	pub fn advance_notice(mut self, advance_notice: Timeslice) -> Self {
-		self.0.advance_notice = advance_notice as u64;
+		self.market_config.advance_notice = advance_notice as u64;
 		self
 	}
 
 	pub fn interlude_length(mut self, interlude_length: u64) -> Self {
-		self.0.interlude_length = interlude_length;
+		self.market_config.interlude_length = interlude_length;
 		self
 	}
 
 	pub fn leadin_length(mut self, leadin_length: u64) -> Self {
-		self.0.leadin_length = leadin_length;
+		self.market_config.leadin_length = leadin_length;
 		self
 	}
 
 	pub fn region_length(mut self, region_length: Timeslice) -> Self {
-		self.0.region_length = region_length;
+		self.market_config.region_length = region_length;
+		self.config.region_length = region_length;
 		self
 	}
 
 	pub fn ideal_bulk_proportion(mut self, ideal_bulk_proportion: Perbill) -> Self {
-		self.0.ideal_bulk_proportion = ideal_bulk_proportion;
+		self.market_config.ideal_bulk_proportion = ideal_bulk_proportion;
 		self
 	}
 
 	pub fn limit_cores_offered(mut self, limit_cores_offered: Option<CoreIndex>) -> Self {
-		self.0.limit_cores_offered = limit_cores_offered;
+		self.market_config.limit_cores_offered = limit_cores_offered;
 		self
 	}
 
 	pub fn renewal_bump(mut self, renewal_bump: Perbill) -> Self {
-		self.0.renewal_bump = renewal_bump;
+		self.market_config.renewal_bump = renewal_bump;
 		self
 	}
 
 	pub fn contribution_timeout(mut self, contribution_timeout: Timeslice) -> Self {
-		self.0.contribution_timeout = contribution_timeout;
+		self.config.contribution_timeout = contribution_timeout;
 		self
 	}
 
@@ -345,7 +356,7 @@ impl TestExt {
 
 	pub fn execute_with<R>(self, f: impl Fn() -> R) -> R {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Broker::do_configure(self.0));
+			assert_ok!(Broker::do_configure(self.config, self.market_config));
 			f()
 		})
 	}

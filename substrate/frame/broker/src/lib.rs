@@ -659,13 +659,15 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `config`: The configuration for this pallet.
+		/// - `market_config`: The configuration for the underlying market implementation.
 		#[pallet::call_index(0)]
 		pub fn configure(
 			origin: OriginFor<T>,
 			config: ConfigRecordOf<T>,
+			market_config: MarketConfigRecordOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_configure(config)?;
+			Self::do_configure(config, market_config)?;
 			Ok(Pays::No.into())
 		}
 

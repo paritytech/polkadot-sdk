@@ -15,19 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp;
-use frame_support::{ensure, weights::WeightMeter, Parameter};
+use frame_support::{
+	ensure, pallet_prelude::StorageValue, storage_alias, weights::WeightMeter, Parameter,
+};
 use frame_system::pallet_prelude::AccountIdFor;
+use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
-use sp_runtime::{traits::Zero, DispatchError, FixedU64, SaturatedConversion, Saturating};
+use sp_runtime::{traits::Zero, DispatchError, FixedU64, Perbill, SaturatedConversion, Saturating};
 use std::fmt::Debug;
 
 use crate::{
 	utility_impls::{CoreCountProviderImpl, TimesliceProviderImpl},
 	weights::WeightInfo,
 	AdaptPrice, AdaptedPrices, BalanceOf, BidIdOf, Config, ConfigRecordOf, Configuration,
-	CoreIndex, CoreMask, Pallet, PotentialRenewalId, RegionId, RelayBlockNumberOf, SaleInfo,
-	SaleInfoRecord, SaleInfoRecordOf, SalePerformance, Timeslice,
+	CoreIndex, CoreMask, MarketConfigRecordOf, MarketOf, Pallet, PotentialRenewalId, RegionId,
+	RelayBlockNumberOf, SaleInfo, SaleInfoRecord, SaleInfoRecordOf, SalePerformance, Timeslice,
 };
 
 // TODO: Extend the documentation.
@@ -45,6 +49,9 @@ pub trait Market<T: Config> {
 	type CoreCount: CoreCountProvider<T>;
 	type TimesliceProvider: TimesliceProvider;
 	type InitData: Parameter;
+	type Configuration: Parameter;
+
+	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error>;
 
 	fn start_sales(
 		block_number: RelayBlockNumberOf<T>,
@@ -174,6 +181,7 @@ pub enum MarketError {
 	TooEarly,
 	Unavailable,
 	SoldOut,
+	InvalidConfig,
 }
 
 impl From<MarketError> for DispatchError {
@@ -187,9 +195,43 @@ impl From<MarketError> for DispatchError {
 			MarketError::TooEarly => Self::Other("TooEarly"),
 			MarketError::Unavailable => Self::Other("Unavailable"),
 			MarketError::SoldOut => Self::Other("SoldOut"),
+			MarketError::InvalidConfig => Self::Other("InvalidConfig"),
 		}
 	}
 }
+
+#[derive(
+	Decode, Encode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub struct MarketConfigurationRecord<RelayBlockNumber> {
+	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
+	/// `Coretime::assign` API used to inform the Relay-chain.
+	pub advance_notice: RelayBlockNumber,
+	/// The length in blocks of the Interlude Period for forthcoming sales.
+	pub interlude_length: RelayBlockNumber,
+	/// The length in blocks of the Leadin Period for forthcoming sales.
+	pub leadin_length: RelayBlockNumber,
+	/// The length in timeslices of Regions which are up for sale in forthcoming sales.
+	pub region_length: Timeslice,
+	/// The proportion of cores available for sale which should be sold.
+	///
+	/// If more cores are sold than this, then further sales will no longer be considered in
+	/// determining the sellout price. In other words the sellout price will be the last price
+	/// paid, without going over this limit.
+	pub ideal_bulk_proportion: Perbill,
+	/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
+	/// no more cores will be sold than this.
+	pub limit_cores_offered: Option<CoreIndex>,
+	/// The amount by which the renewal price increases each sale period.
+	pub renewal_bump: Perbill,
+}
+
+#[storage_alias]
+pub(crate) type MarketConfiguration<T: Config> = StorageValue<
+	Pallet<T>,
+	MarketConfigurationRecord<RelayBlockNumberOf<T>>,
+	frame_support::pallet_prelude::OptionQuery,
+>;
 
 impl<T: Config> Market<T> for Pallet<T> {
 	type Error = MarketError;
@@ -198,12 +240,23 @@ impl<T: Config> Market<T> for Pallet<T> {
 	type CoreCount = CoreCountProviderImpl<T>;
 	type TimesliceProvider = TimesliceProviderImpl<T>;
 	type InitData = BalanceOf<T>;
+	type Configuration = MarketConfigurationRecord<RelayBlockNumberOf<T>>;
+
+	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error> {
+		if configuration.leadin_length.is_zero() {
+			return Err(MarketError::InvalidConfig);
+		}
+
+		MarketConfiguration::<T>::put(configuration);
+
+		Ok(())
+	}
 
 	fn start_sales(
 		block_number: RelayBlockNumberOf<T>,
 		end_price: Self::InitData,
 	) -> Result<SalesStarted<T>, Self::Error> {
-		let config = Configuration::<T>::get().ok_or(MarketError::Uninitialized)?;
+		let config = MarketConfiguration::<T>::get().ok_or(MarketError::Uninitialized)?;
 
 		let commit_timeslice = Self::TimesliceProvider::latest_timeslice_ready_to_commit()
 			.ok_or(MarketError::Uninitialized)?;
@@ -266,7 +319,7 @@ impl<T: Config> Market<T> for Pallet<T> {
 		_renewal: PotentialRenewalId,
 		recorded_price: BalanceOf<T>,
 	) -> Result<RenewalOrderResult<T, Self::BidId>, Self::Error> {
-		let config = Configuration::<T>::get().ok_or(MarketError::Uninitialized)?;
+		let config = MarketConfiguration::<T>::get().ok_or(MarketError::Uninitialized)?;
 		let core_count = Self::CoreCount::core_count().ok_or(MarketError::CoreCountUnknown)?;
 		let mut sale = SaleInfo::<T>::get().ok_or(MarketError::NoSales)?;
 
@@ -305,7 +358,7 @@ impl<T: Config> Market<T> for Pallet<T> {
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickAction<T>> {
 		let (Some(config), Some(core_count)) =
-			(Configuration::<T>::get(), Self::CoreCount::core_count())
+			(MarketConfiguration::<T>::get(), Self::CoreCount::core_count())
 		else {
 			return vec![];
 		};
@@ -327,7 +380,7 @@ impl<T: Config> Market<T> for Pallet<T> {
 
 pub(crate) fn sale_rotated<T: Config, M: Market<T>>(
 	sale: SaleInfoRecordOf<T>,
-	config: &ConfigRecordOf<T>,
+	config: &MarketConfigurationRecord<RelayBlockNumberOf<T>>,
 	core_count: CoreIndex,
 	block_number: RelayBlockNumberOf<T>,
 	actions: &mut Vec<TickAction<T>>,
@@ -393,7 +446,7 @@ fn adapt_prices<T: Config>(old_sale: &SaleInfoRecordOf<T>) -> AdaptedPrices<Bala
 
 pub(crate) fn rotate_sale<T: Config>(
 	old_sale: &SaleInfoRecordOf<T>,
-	config: &ConfigRecordOf<T>,
+	config: &MarketConfigurationRecord<RelayBlockNumberOf<T>>,
 	core_count: CoreIndex,
 	reserved_cores: CoreIndex,
 	now: RelayBlockNumberOf<T>,
