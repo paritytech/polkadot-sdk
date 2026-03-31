@@ -788,6 +788,50 @@ mod externally_set_keys_tracking {
 			assert_ok!(Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof));
 		});
 	}
+
+	#[test]
+	fn first_registration_fails_at_max_consumers() {
+		new_test_ext().execute_with(|| {
+			// Given: a fresh account with no session keys and exhausted consumer slots.
+			const FRESH_ACCOUNT: u64 = 2000;
+			frame_system::Pallet::<Test>::inc_providers(&FRESH_ACCOUNT);
+			ValidatorAccounts::mutate(|m| {
+				m.insert(FRESH_ACCOUNT, FRESH_ACCOUNT);
+			});
+			while frame_system::Pallet::<Test>::can_inc_consumer(&FRESH_ACCOUNT) {
+				frame_system::Pallet::<Test>::inc_consumers(&FRESH_ACCOUNT).unwrap();
+			}
+
+			// When/Then: first-time registration is rejected.
+			let keys = UintAuthorityId(FRESH_ACCOUNT).into();
+			let proof = create_set_keys_proof(FRESH_ACCOUNT, &UintAuthorityId(FRESH_ACCOUNT));
+			assert_noop!(
+				Session::set_keys(RuntimeOrigin::signed(FRESH_ACCOUNT), keys, proof),
+				Error::<Test>::NoAccount,
+			);
+		});
+	}
+
+	#[test]
+	fn external_to_local_transition_fails_at_max_consumers() {
+		new_test_ext().execute_with(|| {
+			// Given: an account with externally-set keys and exhausted consumer slots.
+			setup_account();
+			set_remote(ACCOUNT);
+			while frame_system::Pallet::<Test>::can_inc_consumer(&ACCOUNT) {
+				frame_system::Pallet::<Test>::inc_consumers(&ACCOUNT).unwrap();
+			}
+
+			// When/Then: transitioning from external to local is rejected because it
+			// needs a new consumer reference.
+			let keys = UintAuthorityId(ACCOUNT + 1).into();
+			let proof = create_set_keys_proof(ACCOUNT, &UintAuthorityId(ACCOUNT + 1));
+			assert_noop!(
+				Session::set_keys(RuntimeOrigin::signed(ACCOUNT), keys, proof),
+				Error::<Test>::NoAccount,
+			);
+		});
+	}
 }
 
 mod disabling_byzantine_threshold {
