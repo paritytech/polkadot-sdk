@@ -1,0 +1,9 @@
+title: '[pallet-broker] introduce Market trait for a generic coretime market'
+doc:
+- audience: Runtime User
+  description: |-
+    Introduce a market trait that will streamline the RFC-17 implementation 
+    and will help to split the pallet-broker logic into independent parts.
+crates:
+- name: pallet-broker
+  bump: patch
