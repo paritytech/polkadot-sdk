@@ -27,7 +27,7 @@ fn make_participation_request(hash: Hash) -> ParticipationRequest {
 	// make it differ:
 	receipt.commitments_hash = hash;
 	let request_timer = Metrics::default().time_participation_pipeline();
-	ParticipationRequest::new(receipt, 1, Default::default(), request_timer)
+	ParticipationRequest::new(receipt, 1, Default::default(), None, request_timer)
 }
 
 /// Make dummy comparator for request, based on the given block number.
@@ -47,6 +47,7 @@ fn clone_request(request: &ParticipationRequest) -> ParticipationRequest {
 		candidate_hash: request.candidate_hash,
 		session: request.session,
 		executor_params: request.executor_params.clone(),
+		session_execution_config: request.session_execution_config.clone(),
 		request_timer: None,
 	}
 }

@@ -735,6 +735,7 @@ struct RetryApprovalInfo {
 	candidate: CandidateReceipt,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
+	session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
 	core_index: Option<CoreIndex>,
 	session_index: SessionIndex,
 	attempts_remaining: u32,
@@ -1193,6 +1194,7 @@ enum Action {
 		relay_block_hash: Hash,
 		session: SessionIndex,
 		executor_params: ExecutorParams,
+		session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
@@ -1356,6 +1358,8 @@ where
 							let metrics = subsystem.metrics.clone();
 							let retry_info = retry_info.clone();
 							let executor_params = retry_info.executor_params.clone();
+							let session_execution_config =
+								retry_info.session_execution_config.clone();
 							let candidate = retry_info.candidate.clone();
 
 							currently_checking_set
@@ -1374,6 +1378,7 @@ where
 											block_hash,
 											retry_info.backing_group,
 											executor_params,
+											session_execution_config,
 											retry_info.core_index,
 											retry_info,
 										)
@@ -1605,6 +1610,7 @@ async fn handle_actions<
 				relay_block_hash,
 				session,
 				executor_params,
+				session_execution_config,
 				candidate,
 				backing_group,
 				distribute_assignment,
@@ -1647,6 +1653,7 @@ async fn handle_actions<
 							candidate: candidate.clone(),
 							backing_group,
 							executor_params: executor_params.clone(),
+							session_execution_config: session_execution_config.clone(),
 							core_index,
 							session_index: session,
 							attempts_remaining: max_approval_retries,
@@ -1669,6 +1676,7 @@ async fn handle_actions<
 										block_hash,
 										backing_group,
 										executor_params,
+										session_execution_config,
 										core_index,
 										retry,
 									)
@@ -1911,7 +1919,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											.descriptor()
 											.session_index()
 											.unwrap_or(block_entry.session());
-										let ExtendedSessionInfo { ref executor_params, .. } =
+										let extended_info =
 											match get_extended_session_info_by_index(
 												session_info_provider,
 												sender,
@@ -1933,7 +1941,10 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											assignment_tranche: assignment.tranche(),
 											relay_block_hash: block_hash,
 											session: block_entry.session(),
-											executor_params: executor_params.clone(),
+											executor_params: extended_info.executor_params.clone(),
+											session_execution_config: extended_info
+												.session_execution_config
+												.clone(),
 											candidate: candidate_entry.candidate_receipt().clone(),
 											backing_group: approval_entry.backing_group(),
 											distribute_assignment: false,
@@ -3379,7 +3390,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		// index comes from the candidate descriptor (relay_parent's session), falling back
 		// to the including block's session for V1 descriptors.
 		let session = candidate_receipt.descriptor.session_index().unwrap_or(block_entry.session());
-		let ExtendedSessionInfo { ref executor_params, .. } =
+		let extended_info =
 			match get_extended_session_info_by_index(
 				session_info_provider,
 				sender,
@@ -3426,7 +3437,10 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 						assignment_tranche: tranche,
 						relay_block_hash: relay_block,
 						session: block_entry.session(),
-						executor_params: executor_params.clone(),
+						executor_params: extended_info.executor_params.clone(),
+						session_execution_config: extended_info
+							.session_execution_config
+							.clone(),
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
@@ -3497,6 +3511,7 @@ async fn launch_approval<
 	block_hash: Hash,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
+	session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
 	core_index: Option<CoreIndex>,
 	retry: RetryApprovalInfo,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
@@ -3582,6 +3597,7 @@ async fn launch_approval<
 								candidate,
 								backing_group,
 								executor_params,
+								session_execution_config,
 								core_index,
 								session_index,
 								attempts_remaining: retry.attempts_remaining - 1,
@@ -3655,6 +3671,7 @@ async fn launch_approval<
 				candidate_receipt: candidate.clone(),
 				pov: available_data.pov,
 				executor_params,
+				session_execution_config,
 				exec_kind: PvfExecKind::Approval,
 				response_sender: val_tx,
 			})

@@ -33,9 +33,9 @@ use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
 	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
-	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
+	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionExecutionConfig, SessionIndex,
+	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -43,10 +43,10 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::{
 	request_availability_cores, request_candidate_events, request_claim_queue,
 	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
-	request_node_features, request_on_chain_votes, request_session_executor_params,
-	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
-	request_unapplied_slashes, request_unapplied_slashes_v2, request_validation_code_by_hash,
-	request_validator_groups,
+	request_node_features, request_on_chain_votes, request_session_execution_config,
+	request_session_executor_params, request_session_index_for_child, request_session_info,
+	request_submit_report_dispute_lost, request_unapplied_slashes, request_unapplied_slashes_v2,
+	request_validation_code_by_hash, request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -104,6 +104,8 @@ pub struct ExtendedSessionInfo {
 	pub executor_params: ExecutorParams,
 	/// Node features
 	pub node_features: NodeFeatures,
+	/// Execution-relevant host configuration for this session.
+	pub session_execution_config: Option<SessionExecutionConfig>,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -247,11 +249,38 @@ impl RuntimeInfo {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
 			}
 
+			let session_execution_config =
+				match recv_runtime(
+					request_session_execution_config(parent, session_index, sender).await,
+				)
+				.await
+				{
+					Ok(config) => config,
+					Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
+						gum::debug!(
+							target: LOG_TARGET,
+							?session_index,
+							"Runtime does not support session_execution_config API (< v17)",
+						);
+						None
+					},
+					Err(err) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?session_index,
+							?err,
+							"Failed to retrieve session execution config",
+						);
+						None
+					},
+				};
+
 			let full_info = ExtendedSessionInfo {
 				session_info,
 				validator_info,
 				executor_params,
 				node_features,
+				session_execution_config,
 			};
 
 			self.session_info_cache.insert(session_index, full_info);

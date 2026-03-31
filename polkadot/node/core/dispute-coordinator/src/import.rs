@@ -35,8 +35,8 @@ use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, ExecutorParams, Hash,
-	IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	IndexedVec, SessionExecutionConfig, SessionIndex, SessionInfo, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use crate::LOG_TARGET;
@@ -49,6 +49,8 @@ pub struct CandidateEnvironment<'a> {
 	session: &'a SessionInfo,
 	/// Executor parameters for the session.
 	executor_params: &'a ExecutorParams,
+	/// Execution-relevant host configuration for this session.
+	session_execution_config: Option<&'a SessionExecutionConfig>,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
 	/// Indices of on-chain disabled validators at the `scheduling_parent` combined
@@ -83,13 +85,15 @@ impl<'a> CandidateEnvironment<'a> {
 		// Using the scheduling parent here is fine, because we warm the cache on active leaves
 		// update, thus this call will succeed even if the scheduling parent's state is not
 		// available.
-		let (session, executor_params) = match runtime_info
+		let (session, executor_params, session_execution_config) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), scheduling_parent, session_index)
 			.await
 		{
-			Ok(extended_session_info) => {
-				(&extended_session_info.session_info, &extended_session_info.executor_params)
-			},
+			Ok(extended_session_info) => (
+				&extended_session_info.session_info,
+				&extended_session_info.executor_params,
+				extended_session_info.session_execution_config.as_ref(),
+			),
 			Err(_) => return None,
 		};
 
@@ -115,7 +119,14 @@ impl<'a> CandidateEnvironment<'a> {
 			.get(session_index, &session.validators)
 			.map_or(HashSet::new(), |index| HashSet::from([index]));
 
-		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
+		Some(Self {
+			session_index,
+			session,
+			executor_params,
+			session_execution_config,
+			controlled_indices,
+			disabled_indices,
+		})
 	}
 
 	/// Validators in the candidate's session.
@@ -131,6 +142,11 @@ impl<'a> CandidateEnvironment<'a> {
 	/// Executor parameters for the candidate's session
 	pub fn executor_params(&self) -> &ExecutorParams {
 		&self.executor_params
+	}
+
+	/// Execution-relevant host configuration for the candidate's session.
+	pub fn session_execution_config(&self) -> Option<&SessionExecutionConfig> {
+		self.session_execution_config
 	}
 
 	/// Retrieve `SessionIndex` for this environment.

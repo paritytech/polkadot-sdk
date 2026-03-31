@@ -77,6 +77,7 @@ pub struct ParticipationRequest {
 	candidate_receipt: CandidateReceipt,
 	session: SessionIndex,
 	executor_params: ExecutorParams,
+	session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
 	request_timer: Option<prometheus::HistogramTimer>, // Sends metric data when request is dropped
 }
 
@@ -125,6 +126,7 @@ impl ParticipationRequest {
 		candidate_receipt: CandidateReceipt,
 		session: SessionIndex,
 		executor_params: ExecutorParams,
+		session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
 		request_timer: Option<prometheus::HistogramTimer>,
 	) -> Self {
 		Self {
@@ -132,6 +134,7 @@ impl ParticipationRequest {
 			candidate_receipt,
 			session,
 			executor_params,
+			session_execution_config,
 			request_timer,
 		}
 	}
@@ -147,6 +150,11 @@ impl ParticipationRequest {
 	}
 	pub fn executor_params(&self) -> ExecutorParams {
 		self.executor_params.clone()
+	}
+	pub fn session_execution_config(
+		&self,
+	) -> Option<polkadot_primitives::SessionExecutionConfig> {
+		self.session_execution_config.clone()
 	}
 	pub fn discard_timer(&mut self) {
 		if let Some(timer) = self.request_timer.take() {
@@ -169,6 +177,7 @@ impl PartialEq for ParticipationRequest {
 			candidate_hash,
 			session,
 			executor_params,
+			session_execution_config: _,
 			request_timer: _,
 		} = self;
 		candidate_receipt == other.candidate_receipt() &&

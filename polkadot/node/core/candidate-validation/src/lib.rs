@@ -254,6 +254,7 @@ async fn pre_validate_candidate<Sender>(
 	persisted_validation_data: &PersistedValidationData,
 	pov: &PoV,
 	validation_code_hash: &ValidationCodeHash,
+	session_execution_config: Option<&polkadot_primitives::SessionExecutionConfig>,
 	exec_kind: PvfExecKind,
 	v3_ever_seen: bool,
 ) -> Result<PreValidationOutput, PreValidationError>
@@ -265,9 +266,13 @@ where
 			.await
 			.map_err(PreValidationError::RuntimeError)?;
 
+		let max_pov_size = session_execution_config
+		.map(|c| c.max_pov_size)
+		.unwrap_or(persisted_validation_data.max_pov_size);
+
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
-		persisted_validation_data.max_pov_size,
+		max_pov_size,
 		pov,
 		validation_code_hash,
 	) {
@@ -361,6 +366,7 @@ where
 			candidate_receipt,
 			pov,
 			executor_params,
+			session_execution_config,
 			exec_kind,
 			response_sender,
 			..
@@ -374,6 +380,7 @@ where
 				&validation_data,
 				&pov,
 				&validation_code.hash(),
+				session_execution_config.as_ref(),
 				exec_kind,
 				v3_ever_seen,
 			)

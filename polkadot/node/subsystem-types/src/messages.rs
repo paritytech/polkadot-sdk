@@ -206,6 +206,9 @@ pub enum CandidateValidationMessage {
 		pov: Arc<PoV>,
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
+		/// Execution-relevant host configuration for the candidate's session.
+		/// When available, used instead of `PersistedValidationData` for limit checks.
+		session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
 		/// The sending side of the response channel

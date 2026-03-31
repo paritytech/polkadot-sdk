@@ -776,6 +776,9 @@ async fn request_candidate_validation(
 			candidate_receipt,
 			pov,
 			executor_params,
+			// Backing always operates in the current session, so
+			// PersistedValidationData.max_pov_size is already correct.
+			session_execution_config: None,
 			exec_kind: if is_system {
 				PvfExecKind::BackingSystemParas(scheduling_parent)
 			} else {

@@ -389,6 +389,7 @@ async fn participate(
 			candidate_receipt: req.candidate_receipt().clone(),
 			pov: available_data.pov,
 			executor_params: req.executor_params(),
+			session_execution_config: req.session_execution_config(),
 			exec_kind: PvfExecKind::Dispute,
 			response_sender: validation_tx,
 		})
