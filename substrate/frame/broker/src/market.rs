@@ -139,8 +139,8 @@ pub enum TickAction<T: Config> {
 		who: T::AccountId,
 	},
 	ProcessAutoRenewals {
-		region_begin: Timeslice,
-		region_end: Timeslice,
+		after_timeslice: Timeslice,
+		next_renewal_at: Timeslice,
 	},
 	BidClosed {
 		id: BidIdOf<T>,
@@ -346,8 +346,8 @@ pub(crate) fn sale_rotated<T: Config, M: Market<T>>(
 	});
 
 	actions.push(TickAction::ProcessAutoRenewals {
-		region_begin: new_sale.region_begin,
-		region_end: new_sale.region_end,
+		after_timeslice: new_sale.region_begin,
+		next_renewal_at: new_sale.region_end,
 	});
 }
 

@@ -196,8 +196,8 @@ impl<T: Config> Pallet<T> {
 
 				Self::refund(&who, amount).defensive_ok();
 			},
-			TickAction::ProcessAutoRenewals { region_begin, region_end } => {
-				Self::renew_cores(region_begin, region_end);
+			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
+				Self::renew_cores(after_timeslice, next_renewal_at);
 			},
 			TickAction::SaleRotated { old_sale, new_sale, new_prices, start_price } => {
 				if let Some(status) = Status::<T>::get() {
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.
-	pub(crate) fn renew_cores(region_begin: Timeslice, region_end: Timeslice) {
+	pub(crate) fn renew_cores(after_timeslice: Timeslice, next_renewal_at: Timeslice) {
 		let renewals = AutoRenewals::<T>::get();
 
 		let Ok(auto_renewals) = renewals
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
 			.flat_map(|record| {
 				// Check if the next renewal is scheduled further in the future than the start of
 				// the next region beginning. If so, we skip the renewal for this core.
-				if region_begin < record.next_renewal {
+				if after_timeslice < record.next_renewal {
 					return Some(record);
 				}
 
@@ -337,7 +337,7 @@ impl<T: Config> Pallet<T> {
 					Ok(DoRenewResult::Renewed { new_core }) => Some(AutoRenewalRecord {
 						core: new_core,
 						task: record.task,
-						next_renewal: region_end,
+						next_renewal: next_renewal_at,
 					}),
 					Ok(DoRenewResult::BidPlaced { .. }) => {
 						// We don't support auto-renewals when market doesn't allow purchasing
