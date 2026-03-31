@@ -219,8 +219,10 @@ impl Db {
 					let score = u16::from(entry.score);
 					let ratio = FixedU128::checked_from_rational(u128::from(score), age)
 						.unwrap_or(FixedU128::max_value());
-					// In case of equal ratios, to stay deterministic we evict the entry with the
-					// lower score.
+					// In case of equal ratios, we evict the entry with the lower absolute score.
+					// Note: Multiple peers can have the exact same (ratio, score) if they were
+					// updated in the same batch (sharing the same `last_bumped` timestamp) and
+					// have identical scores. In such cases, the eviction choice is arbitrary.
 					(ratio, score)
 				})
 				.map(|(peer, entry)| (*peer, entry.score))
