@@ -2120,7 +2120,7 @@ async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	assert!(!sync_client.gap_filler().has_pending());
 	sync_client
 		.gap_filler()
-		.detect_and_queue(new_finalized_number, Some(head_after_sync));
+		.detect_and_queue(new_finalized_number, head_after_sync);
 	assert!(sync_client.gap_filler().has_pending());
 
 	// Wait for the pending request to be processed.
