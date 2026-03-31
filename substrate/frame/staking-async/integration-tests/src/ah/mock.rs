@@ -511,6 +511,14 @@ parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 	pub const DapIssuanceCadence: u64 = 60_000;
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+	pub static MockTime: u64 = 0;
+}
+
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		Self::get()
+	}
 }
 
 impl pallet_dap::Config for Runtime {
@@ -518,7 +526,7 @@ impl pallet_dap::Config for Runtime {
 	type PalletId = DapPalletId;
 	type IssuanceCurve = ();
 	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
-	type Time = pallet_timestamp::Pallet<Runtime>;
+	type Time = MockTime;
 	type IssuanceCadence = DapIssuanceCadence;
 	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
