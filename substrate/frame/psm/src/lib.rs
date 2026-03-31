@@ -869,7 +869,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Get the PSM's derived account.
-		pub fn account_id() -> T::AccountId {
+		pub(crate) fn account_id() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
 
@@ -888,7 +888,7 @@ pub mod pallet {
 		/// Ratios act as weights that normalize to fill the PSM ceiling. When an
 		/// asset is disabled, governance should set its ratio to 0% so its ceiling
 		/// allocation is automatically redistributed to other assets.
-		pub fn max_asset_debt(asset_id: T::AssetId) -> BalanceOf<T> {
+		pub(crate) fn max_asset_debt(asset_id: T::AssetId) -> BalanceOf<T> {
 			let asset_ratio = AssetCeilingWeight::<T>::get(asset_id);
 
 			if asset_ratio.is_zero() {
