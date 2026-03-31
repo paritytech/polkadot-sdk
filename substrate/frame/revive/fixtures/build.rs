@@ -23,9 +23,8 @@ mod builder;
 use anyhow::{Context, Result};
 use builder::{
 	collect_entries, compile_solidity_contracts, create_cargo_toml, detect_rustc_minor,
-	generate_fixture_location, invoke_build, write_output, ContractType,
-	OVERRIDE_OPTIMIZE_ENV_VAR, OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR, OVERRIDE_STRIP_ENV_VAR,
-	SKIP_PALLET_REVIVE_FIXTURES,
+	generate_fixture_location, invoke_build, write_output, ContractType, OVERRIDE_OPTIMIZE_ENV_VAR,
+	OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR, OVERRIDE_STRIP_ENV_VAR, SKIP_PALLET_REVIVE_FIXTURES,
 };
 use std::{env, fs, path::PathBuf};
 
