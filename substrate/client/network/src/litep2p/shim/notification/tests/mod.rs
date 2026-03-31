@@ -20,3 +20,5 @@
 mod fuzz;
 #[cfg(test)]
 mod peerset;
+#[cfg(test)]
+mod protocol;

@@ -323,9 +323,20 @@ impl NotificationService for NotificationProtocol {
 						log::trace!(target: LOG_TARGET, "{}: substream closed for {peer:?}", self.protocol);
 
 						self.metrics.register_substream_closed(&self.protocol);
-						self.peerset.report_substream_closed(peer.into());
+						let peer_id = peer.into();
+						self.peerset.report_substream_closed(peer_id);
 
-						if self.pending_cancels.remove(&peer) {
+						let was_pending_cancel = self.pending_cancels.remove(&peer);
+
+						if !was_pending_cancel {
+							if let Some(command) =
+								self.peerset.try_reopen_reserved_peer_after_close(peer_id)
+							{
+								self.on_peerset_command(command).await;
+							}
+						}
+
+						if was_pending_cancel {
 							log::debug!(
 								target: LOG_TARGET,
 								"{}: substream closed to canceled peer ({peer:?})",
@@ -334,7 +345,7 @@ impl NotificationService for NotificationProtocol {
 							continue
 						}
 
-						return Some(SubstrateNotificationEvent::NotificationStreamClosed { peer: peer.into() })
+						return Some(SubstrateNotificationEvent::NotificationStreamClosed { peer: peer_id })
 					}
 					NotificationEvent::NotificationStreamOpenFailure {
 						peer,

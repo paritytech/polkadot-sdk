@@ -23,6 +23,7 @@ use crate::{
 			Direction, OpenResult, PeerState, Peerset, PeersetCommand, Reserved,
 		},
 	},
+	peer_store::PeerStoreProvider,
 	service::traits::{self, ValidationResult},
 	ProtocolName,
 };
@@ -30,6 +31,7 @@ use crate::{
 use futures::prelude::*;
 use litep2p::protocol::notification::NotificationError;
 
+use sc_network_common::types::ReputationChange;
 use sc_network_types::PeerId;
 
 use std::{
@@ -624,9 +626,151 @@ async fn opening_peer_gets_canceled_and_disconnected() {
 
 	// report close event to `Peerset` and verify state
 	peerset.report_substream_closed(peer);
+	assert!(peerset.try_reopen_reserved_peer_after_close(peer).is_none());
 	assert_eq!(peerset.num_out(), 0);
 	assert_eq!(num_connected.load(Ordering::SeqCst), 0);
 	assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Backoff));
+}
+
+#[tokio::test]
+async fn reserved_peer_close_triggers_immediate_reopen() {
+	sp_tracing::try_init_simple();
+
+	let peerstore_handle = Arc::new(peerstore_handle_test());
+	let reserved_peer = PeerId::random();
+	let reserved_peers = HashSet::from_iter([reserved_peer]);
+	let num_connected = Arc::new(Default::default());
+	let (mut peerset, _to_peerset) = Peerset::new(
+		ProtocolName::from("/notif/1"),
+		0,
+		0,
+		true,
+		reserved_peers,
+		Arc::clone(&num_connected),
+		peerstore_handle,
+	);
+
+	match peerset.next().await {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			assert_eq!(command.open_peers, vec![reserved_peer]);
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	assert!(std::matches!(
+		peerset.report_substream_opened(reserved_peer, traits::Direction::Outbound),
+		OpenResult::Accept { .. }
+	));
+	assert_eq!(
+		peerset.peers().get(&reserved_peer),
+		Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
+	);
+	assert_eq!(num_connected.load(Ordering::SeqCst), 1);
+
+	peerset.report_substream_closed(reserved_peer);
+
+	let command = peerset
+		.try_reopen_reserved_peer_after_close(reserved_peer)
+		.expect("reserved peer should be reopened immediately");
+	assert!(command.close_peers.is_empty());
+	assert_eq!(command.open_peers, vec![reserved_peer]);
+	assert_eq!(
+		peerset.peers().get(&reserved_peer),
+		Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) })
+	);
+	assert_eq!(num_connected.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn removed_reserved_peer_close_does_not_immediate_reopen() {
+	sp_tracing::try_init_simple();
+
+	let peerstore_handle = Arc::new(peerstore_handle_test());
+	let reserved_peer = PeerId::random();
+	let reserved_peers = HashSet::from_iter([reserved_peer]);
+	let (mut peerset, to_peerset) = Peerset::new(
+		ProtocolName::from("/notif/1"),
+		0,
+		0,
+		false,
+		reserved_peers,
+		Default::default(),
+		peerstore_handle,
+	);
+
+	match peerset.next().await {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			assert_eq!(command.open_peers, vec![reserved_peer]);
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	assert!(std::matches!(
+		peerset.report_substream_opened(reserved_peer, traits::Direction::Outbound),
+		OpenResult::Accept { .. }
+	));
+
+	to_peerset
+		.unbounded_send(PeersetCommand::RemoveReservedPeers {
+			peers: HashSet::from_iter([reserved_peer]),
+		})
+		.unwrap();
+
+	match peerset.next().await {
+		Some(command) => {
+			assert!(command.open_peers.is_empty());
+			assert_eq!(command.close_peers, vec![reserved_peer]);
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	assert!(!peerset.reserved_peers().contains(&reserved_peer));
+
+	peerset.report_substream_closed(reserved_peer);
+
+	assert!(peerset.try_reopen_reserved_peer_after_close(reserved_peer).is_none());
+	assert_eq!(peerset.peers().get(&reserved_peer), Some(&PeerState::Backoff));
+}
+
+#[tokio::test]
+async fn banned_reserved_peer_close_does_not_immediate_reopen() {
+	sp_tracing::try_init_simple();
+
+	let peerstore_handle = Arc::new(peerstore_handle_test());
+	let reserved_peer = PeerId::random();
+	let reserved_peers = HashSet::from_iter([reserved_peer]);
+	let (mut peerset, _to_peerset) = Peerset::new(
+		ProtocolName::from("/notif/1"),
+		0,
+		0,
+		true,
+		reserved_peers,
+		Default::default(),
+		peerstore_handle.clone(),
+	);
+
+	match peerset.next().await {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			assert_eq!(command.open_peers, vec![reserved_peer]);
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	assert!(std::matches!(
+		peerset.report_substream_opened(reserved_peer, traits::Direction::Outbound),
+		OpenResult::Accept { .. }
+	));
+
+	peerstore_handle.report_peer(reserved_peer, ReputationChange::new_fatal(""));
+	assert!(peerstore_handle.is_banned(&reserved_peer));
+
+	peerset.report_substream_closed(reserved_peer);
+
+	assert!(peerset.try_reopen_reserved_peer_after_close(reserved_peer).is_none());
+	assert_eq!(peerset.peers().get(&reserved_peer), Some(&PeerState::Backoff));
 }
 
 #[tokio::test]

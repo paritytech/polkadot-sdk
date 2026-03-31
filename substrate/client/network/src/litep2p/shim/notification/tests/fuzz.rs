@@ -187,15 +187,31 @@ async fn test_once() {
 					if let Some(peer) = open.keys().choose(&mut rng).copied() {
 						let _ = open.remove(&peer).unwrap();
 						peerset.report_substream_closed(peer);
-						assert!(closed.insert(peer));
+
+						if let Some(command) = peerset.try_reopen_reserved_peer_after_close(peer) {
+							assert!(command.close_peers.is_empty());
+							assert_eq!(command.open_peers, vec![peer]);
+							closed.remove(&peer);
+							opening.insert(peer, Direction::Outbound);
+						} else {
+							assert!(closed.insert(peer));
+						}
 					}
 				},
 				// substream was closed by local node
 				5 => {
 					if let Some(peer) = closing.iter().choose(&mut rng).copied() {
 						assert!(closing.remove(&peer));
-						assert!(closed.insert(peer));
 						peerset.report_substream_closed(peer);
+
+						if let Some(command) = peerset.try_reopen_reserved_peer_after_close(peer) {
+							assert!(command.close_peers.is_empty());
+							assert_eq!(command.open_peers, vec![peer]);
+							closed.remove(&peer);
+							opening.insert(peer, Direction::Outbound);
+						} else {
+							assert!(closed.insert(peer));
+						}
 					}
 				},
 				// random connected peer was disconnected by the protocol
