@@ -2878,6 +2878,158 @@ fn pre_validation_basic_checks() {
 	}
 }
 
+/// Tests that `session_execution_config.max_pov_size` overrides
+/// `persisted_validation_data.max_pov_size` during pre-validation.
+///
+/// A PoV of 800 bytes passes the PVD limit (1024) but fails the session config limit (512).
+#[test]
+fn session_execution_config_overrides_max_pov_size() {
+	// PVD says 1024, session config says 512
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![0; 800]) }; // 800 bytes: passes 1024, fails 512
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	let descriptor = make_valid_candidate_descriptor_v2(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		CoreIndex(1),
+		1,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		dummy_hash(),
+		dummy_hash(),
+	);
+	let candidate_receipt =
+		CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
+
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+	let mock_backend =
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
+			head_data: HeadData(vec![1]),
+			new_validation_code: None,
+			upward_messages: Default::default(),
+			horizontal_messages: Default::default(),
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		}));
+
+	let (response_tx, response_rx) = oneshot::channel();
+
+	// Pass session_execution_config with max_pov_size = 512
+	let task = handle_validation_message(
+		ctx.sender().clone(),
+		mock_backend,
+		Metrics::default(),
+		false,
+		CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data: validation_data.clone(),
+			validation_code: validation_code.clone(),
+			candidate_receipt,
+			pov: Arc::new(pov),
+			executor_params: ExecutorParams::default(),
+			session_execution_config: Some(polkadot_primitives::SessionExecutionConfig {
+				max_pov_size: 512,
+			}),
+			exec_kind: PvfExecKind::Dispute,
+			response_sender: response_tx,
+		},
+	);
+
+	let test_fut = async move {
+		mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
+		// perform_basic_checks fails (800 > 512) — no further calls
+	};
+
+	executor::block_on(future::join(test_fut, task));
+
+	// Should be invalid: PoV too large per session config
+	assert_matches!(
+		executor::block_on(response_rx).unwrap(),
+		Ok(ValidationResult::Invalid(InvalidCandidate::ParamsTooLarge(_)))
+	);
+}
+
+/// Tests that without `session_execution_config`, the PVD limit is used (fallback).
+/// A PoV of 800 bytes passes the PVD limit (1024) and validation succeeds.
+#[test]
+fn no_session_execution_config_uses_pvd_limit() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+	let pov = PoV { block_data: BlockData(vec![0; 800]) }; // 800 < 1024, passes
+	let validation_code = ValidationCode(vec![2; 16]);
+	let head_data = HeadData(vec![1, 1, 1]);
+
+	let descriptor = make_valid_candidate_descriptor_v2(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		CoreIndex(1),
+		1,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+	);
+	let candidate_receipt = CandidateReceipt {
+		descriptor,
+		commitments_hash: CandidateCommitments {
+			head_data,
+			upward_messages: Default::default(),
+			horizontal_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		}
+		.hash(),
+	};
+
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+	let mock_backend =
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
+			head_data: HeadData(vec![1, 1, 1]),
+			new_validation_code: None,
+			upward_messages: Default::default(),
+			horizontal_messages: Default::default(),
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		}));
+
+	let (response_tx, response_rx) = oneshot::channel();
+
+	// No session_execution_config — fallback to PVD
+	let task = handle_validation_message(
+		ctx.sender().clone(),
+		mock_backend,
+		Metrics::default(),
+		false,
+		CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data: validation_data.clone(),
+			validation_code: validation_code.clone(),
+			candidate_receipt,
+			pov: Arc::new(pov),
+			executor_params: ExecutorParams::default(),
+			session_execution_config: None,
+			exec_kind: PvfExecKind::Dispute,
+			response_sender: response_tx,
+		},
+	);
+
+	let test_fut = async move {
+		mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
+		// basic checks pass, PVF runs
+	};
+
+	executor::block_on(future::join(test_fut, task));
+
+	// Should be valid
+	assert_matches!(
+		executor::block_on(response_rx).unwrap(),
+		Ok(ValidationResult::Valid(_, _))
+	);
+}
+
 /// Relay parent session check: for V2 candidates (scheduling_parent == relay_parent),
 /// the `check_relay_parent_session` utility takes the self-query path, verifying the
 /// session via `session_index_for_child` directly.

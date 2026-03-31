@@ -1359,7 +1359,7 @@ where
 							let retry_info = retry_info.clone();
 							let executor_params = retry_info.executor_params.clone();
 							let session_execution_config =
-								retry_info.session_execution_config.clone();
+								retry_info.session_execution_config;
 							let candidate = retry_info.candidate.clone();
 
 							currently_checking_set
@@ -1653,7 +1653,7 @@ async fn handle_actions<
 							candidate: candidate.clone(),
 							backing_group,
 							executor_params: executor_params.clone(),
-							session_execution_config: session_execution_config.clone(),
+							session_execution_config,
 							core_index,
 							session_index: session,
 							attempts_remaining: max_approval_retries,

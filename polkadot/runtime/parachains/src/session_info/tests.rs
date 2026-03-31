@@ -220,8 +220,6 @@ fn session_execution_config_is_stored_per_session() {
 		// Session 1 should have execution config stored
 		let exec_config = SessionExecutionConfigs::<Test>::get(1).unwrap();
 		let active_config = configuration::ActiveConfig::<Test>::get();
-		assert_eq!(exec_config.max_code_size, active_config.max_code_size);
-		assert_eq!(exec_config.max_head_data_size, active_config.max_head_data_size);
 		assert_eq!(exec_config.max_pov_size, active_config.max_pov_size);
 
 		// Change max_pov_size

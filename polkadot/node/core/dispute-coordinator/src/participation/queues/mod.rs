@@ -154,7 +154,7 @@ impl ParticipationRequest {
 	pub fn session_execution_config(
 		&self,
 	) -> Option<polkadot_primitives::SessionExecutionConfig> {
-		self.session_execution_config.clone()
+		self.session_execution_config
 	}
 	pub fn discard_timer(&mut self) {
 		if let Some(timer) = self.request_timer.take() {

@@ -47,7 +47,7 @@ fn clone_request(request: &ParticipationRequest) -> ParticipationRequest {
 		candidate_hash: request.candidate_hash,
 		session: request.session,
 		executor_params: request.executor_params.clone(),
-		session_execution_config: request.session_execution_config.clone(),
+		session_execution_config: request.session_execution_config,
 		request_timer: None,
 	}
 }

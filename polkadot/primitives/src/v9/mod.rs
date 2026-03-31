@@ -985,13 +985,9 @@ pub struct AbridgedHostConfiguration {
 /// `session_info` pallet so that validators can look up the configuration
 /// that was active when a candidate was produced, rather than using the
 /// current configuration.
-#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct SessionExecutionConfig {
-	/// The maximum validation code size, in bytes.
-	pub max_code_size: u32,
-	/// The maximum head-data size, in bytes.
-	pub max_head_data_size: u32,
 	/// The maximum POV block size, in bytes.
 	pub max_pov_size: u32,
 }

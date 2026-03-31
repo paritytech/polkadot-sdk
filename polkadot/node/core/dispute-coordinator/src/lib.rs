@@ -431,7 +431,7 @@ impl DisputeCoordinatorSubsystem {
 							vote_state.votes().candidate_receipt.clone(),
 							session,
 							env.executor_params().clone(),
-							env.session_execution_config().cloned(),
+							env.session_execution_config().copied(),
 							request_timer,
 						),
 					));

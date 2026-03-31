@@ -205,11 +205,7 @@ impl<T: Config> Pallet<T> {
 
 		SessionExecutionConfigs::<T>::insert(
 			&new_session_index,
-			SessionExecutionConfig {
-				max_code_size: config.max_code_size,
-				max_head_data_size: config.max_head_data_size,
-				max_pov_size: config.max_pov_size,
-			},
+			SessionExecutionConfig { max_pov_size: config.max_pov_size },
 		);
 	}
 
