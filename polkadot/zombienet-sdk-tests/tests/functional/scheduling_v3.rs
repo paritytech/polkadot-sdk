@@ -6,6 +6,7 @@
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assign_cores};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
+use rstest::rstest;
 use serde_json::json;
 use std::collections::HashMap;
 use zombienet_sdk::{
@@ -15,8 +16,13 @@ use zombienet_sdk::{
 
 use crate::utils::{assert_candidates_version, assert_validator_backed_candidates};
 
+#[rstest]
+#[case::zero_offset("async-backing-v3")]
+#[case::with_rpo("async-backing-v3-rpo")]
 #[tokio::test(flavor = "multi_thread")]
-async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error> {
+async fn scheduling_v3_collator_with_v3_validators(
+	#[case] para_chain: &str,
+) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -63,7 +69,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 			p.with_id(2700)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("async-backing-v3")
+				.with_chain(para_chain)
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug,aura::cumulus=trace").into(),
 					"--authoring=slot-based".into(),
@@ -101,7 +107,7 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 
 	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
 
-	log::info!("V3 scheduling test finished successfully");
+	log::info!("V3 scheduling test ({para_chain}) finished successfully");
 	Ok(())
 }
 

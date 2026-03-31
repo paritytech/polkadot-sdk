@@ -71,6 +71,11 @@ pub mod async_backing_v3 {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3.rs"));
 }
 
+pub mod async_backing_v3_rpo {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_rpo.rs"));
+}
+
 pub mod elastic_scaling_v3 {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3.rs"));

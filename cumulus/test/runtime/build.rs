@@ -86,6 +86,13 @@ fn main() {
 
 	WasmBuilder::new()
 		.with_current_project()
+		.enable_feature("async-backing-v3-rpo")
+		.import_memory()
+		.set_file_name("wasm_binary_async_backing_v3_rpo.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
 		.enable_feature("elastic-scaling-v3")
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_v3.rs")

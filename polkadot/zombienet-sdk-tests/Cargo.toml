@@ -22,6 +22,7 @@ log = { workspace = true }
 pallet-revive = { workspace = true, features = ["std"] }
 polkadot-primitives = { workspace = true, default-features = true }
 rand = { workspace = true }
+rstest = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -333,6 +333,12 @@ impl SubstrateCli for TestCollatorCli {
 					2700,
 				)))) as Box<_>
 			},
+			"async-backing-v3-rpo" => {
+				tracing::info!("Using async backing V3 with relay parent offset chain spec.");
+				Box::new(cumulus_test_service::get_async_backing_v3_rpo_chain_spec(Some(
+					ParaId::from(2700),
+				))) as Box<_>
+			},
 			"elastic-scaling-v3" => {
 				tracing::info!("Using elastic scaling V3 chain spec.");
 				Box::new(cumulus_test_service::get_elastic_scaling_v3_chain_spec(Some(
