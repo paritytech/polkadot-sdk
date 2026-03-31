@@ -261,12 +261,15 @@ async fn pre_validate_candidate<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let validation_code_bomb_limit =
-		fetch_bomb_limit(&candidate_receipt.descriptor, v3_ever_seen, sender)
-			.await
-			.map_err(PreValidationError::RuntimeError)?;
+	let validation_code_bomb_limit = match session_execution_config {
+		Some(config) => config.validation_code_bomb_limit,
+		None =>
+			fetch_bomb_limit(&candidate_receipt.descriptor, v3_ever_seen, sender)
+				.await
+				.map_err(PreValidationError::RuntimeError)?,
+	};
 
-		let max_pov_size = session_execution_config
+	let max_pov_size = session_execution_config
 		.map(|c| c.max_pov_size)
 		.unwrap_or(persisted_validation_data.max_pov_size);
 

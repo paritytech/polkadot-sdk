@@ -2931,18 +2931,14 @@ fn session_execution_config_overrides_max_pov_size() {
 			executor_params: ExecutorParams::default(),
 			session_execution_config: Some(polkadot_primitives::SessionExecutionConfig {
 				max_pov_size: 512,
+				validation_code_bomb_limit: 30 * 1024 * 1024,
 			}),
 			exec_kind: PvfExecKind::Dispute,
 			response_sender: response_tx,
 		},
 	);
 
-	let test_fut = async move {
-		mock_fetch_bomb_limit_v2(&mut ctx_handle, dummy_hash(), 1).await;
-		// perform_basic_checks fails (800 > 512) — no further calls
-	};
-
-	executor::block_on(future::join(test_fut, task));
+	executor::block_on(task);
 
 	// Should be invalid: PoV too large per session config
 	assert_matches!(

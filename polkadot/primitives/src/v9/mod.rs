@@ -990,6 +990,8 @@ pub struct AbridgedHostConfiguration {
 pub struct SessionExecutionConfig {
 	/// The maximum POV block size, in bytes.
 	pub max_pov_size: u32,
+	/// The maximum decompressed size of validation code, in bytes.
+	pub validation_code_bomb_limit: u32,
 }
 
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be

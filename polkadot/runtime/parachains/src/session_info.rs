@@ -205,7 +205,11 @@ impl<T: Config> Pallet<T> {
 
 		SessionExecutionConfigs::<T>::insert(
 			&new_session_index,
-			SessionExecutionConfig { max_pov_size: config.max_pov_size },
+			SessionExecutionConfig {
+				max_pov_size: config.max_pov_size,
+				validation_code_bomb_limit: config.max_code_size *
+					configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO,
+			},
 		);
 	}
 
