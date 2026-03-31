@@ -21,7 +21,7 @@ use crate::{
 	MintingFee, PsmDebt, RedemptionFee, VaultsInterface,
 };
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::{DispatchError, Permill};
+use sp_runtime::{DispatchError, Permill, TokenError};
 
 mod mint {
 	use super::*;
@@ -143,7 +143,7 @@ mod mint {
 	#[test]
 	fn fails_below_minimum() {
 		new_test_ext().execute_with(|| {
-			let below_min = MinMint::<T>::get() - 1
+			let below_min = MinSwapAmount::get() - 1;
 
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, below_min),
@@ -215,7 +215,10 @@ mod mint {
 			let psm_usdc_before = get_asset_balance(USDC_ASSET_ID, psm_account());
 			let too_much = alice_usdc_before + 1000 * PUSD_UNIT;
 
-			assert_noop!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much).is_err());
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much),
+				TokenError::FundsUnavailable
+			);
 
 			// Verify no state mutation occurred
 			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), 0);
