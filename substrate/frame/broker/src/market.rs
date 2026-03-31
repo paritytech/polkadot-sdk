@@ -55,11 +55,22 @@ pub trait Market<T: Config> {
 	/// Initialization data used in [`Market::start_sales`].
 	type InitData: Parameter;
 
+	/// Configuration of the market.
+	///
+	/// Can be set in the [`Market::configure`].
+	type Configuration: Parameter;
+
 	/// Provides information about available core counts.
 	type CoreCountProvider: CoreCountProvider<T>;
 
 	/// Provides information about timeslice scheduling.
 	type TimesliceProvider: TimesliceProvider;
+
+	/// Set or update the market configuration.
+	///
+	/// ### Parameters
+	/// - `configuration`: a new configuration to use.
+	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error>;
 
 	/// Start the coretime sales.
 	///
