@@ -29,7 +29,7 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	BoundedVec, Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
 pub mod budget;
@@ -743,6 +743,7 @@ pub trait EraPayout<Balance> {
 	) -> (Balance, Balance);
 }
 
+/// Default implementation that returns zero rewards.
 impl<Balance: Default> EraPayout<Balance> for () {
 	fn era_payout(
 		_total_staked: Balance,

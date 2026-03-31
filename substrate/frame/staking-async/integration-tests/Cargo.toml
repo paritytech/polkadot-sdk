@@ -39,6 +39,7 @@ pallet-dap = { workspace = true, default-features = true }
 pallet-election-provider-multi-block = { workspace = true, default-features = true }
 pallet-staking-async = { workspace = true, default-features = true }
 pallet-staking-async-rc-client = { workspace = true, default-features = true }
+pallet-vesting = { workspace = true, default-features = true }
 
 # pallets we need in the RC
 pallet-authorship = { workspace = true, default-features = true }
@@ -64,6 +65,7 @@ try-runtime = [
 
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-staking-async/try-runtime",
+	"pallet-vesting/try-runtime",
 
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",

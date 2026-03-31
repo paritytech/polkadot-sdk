@@ -80,6 +80,22 @@ pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())
 }
 
+/// Balance held under [`HoldReason::IncentiveVesting`] for `who`.
+pub fn incentive_held<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+	T::Currency::balance_on_hold(&HoldReason::IncentiveVesting.into(), who)
+}
+
+/// Place a hold on `amount` under [`HoldReason::IncentiveVesting`].
+pub fn hold_incentive<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+	T::Currency::hold(&HoldReason::IncentiveVesting.into(), who, amount)
+}
+
+/// Release all funds held under [`HoldReason::IncentiveVesting`] for `who`.
+pub fn release_incentive_hold<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+	T::Currency::release_all(&HoldReason::IncentiveVesting.into(), who, Precision::BestEffort)
+		.unwrap_or_default()
+}
+
 /// Slash the value from `who`.
 ///
 /// A negative imbalance is returned which can be resolved to deposit the slashed value.

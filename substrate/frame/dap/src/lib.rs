@@ -82,7 +82,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -263,7 +263,7 @@ pub mod pallet {
 		///
 		/// Collects any burn source wired to it (staking slashes, unclaimed rewards, etc.)
 		/// and its explicit budget allocation share.
-		pub(crate) fn buffer_account() -> T::AccountId {
+		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
 

@@ -39,7 +39,8 @@ use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage, Weight};
 use sp_staking::{
-	currency_to_vote::SaturatingCurrencyToVote, OnStakingUpdate, SessionIndex, StakingAccount,
+	currency_to_vote::SaturatingCurrencyToVote, BudgetRecipient, IssuanceCurve, OnStakingUpdate,
+	SessionIndex, StakingAccount,
 };
 use std::collections::BTreeMap;
 
@@ -52,6 +53,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Dap: pallet_dap,
 	}
 );
 
@@ -81,6 +83,8 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
+	pub static VestingDurationBlocks: BlockNumber = 0;
+	pub static BlocksPerSession: BlockNumber = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub static NominatorFastUnbondDuration: EraIndex = 2;
 	pub static HistoryDepth: u32 = 80;
@@ -105,10 +109,45 @@ impl frame_system::Config for Test {
 }
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = frame_support::traits::ConstU32<1024>;
+	type MaxLocks = ConstU32<1024>;
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const TestIssuanceCadence: u64 = 0; // drip every block
+	pub const TestMaxElapsedPerDrip: u64 = 600_000; // 10 minutes
+}
+
+/// Mock time provider backed by session_mock::Timestamp.
+pub struct MockTime;
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		session_mock::Timestamp::get()
+	}
+}
+
+pub fn general_staker_pot() -> AccountId {
+	SequentialTest::general_pot_account(GeneralPotType::StakerRewards)
+}
+
+pub fn general_incentive_pot() -> AccountId {
+	SequentialTest::general_pot_account(GeneralPotType::ValidatorIncentive)
+}
+
+impl pallet_dap::Config for Test {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
+	type IssuanceCurve = OneTokenPerMillisecond;
+	type BudgetRecipients =
+		(Dap, StakerRewardRecipient<SequentialTest>, ValidatorIncentiveRecipient<SequentialTest>);
+	type Time = MockTime;
+	type IssuanceCadence = TestIssuanceCadence;
+	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
+	type BudgetOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -410,53 +449,81 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
-	pub static MaxEraDuration: u64 = time_per_era() * 7;
 	pub const MaxPruningItems: u32 = 100;
+	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stkng");
 }
+
 pub struct OneTokenPerMillisecond;
-impl EraPayout<Balance> for OneTokenPerMillisecond {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		let total = era_duration_millis as Balance;
-		let remainder = RemainderRatio::get() * total;
-		let stakers = total - remainder;
-		(stakers, remainder)
+impl IssuanceCurve<Balance> for OneTokenPerMillisecond {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		// Return 1 token per millisecond elapsed
+		elapsed_millis as Balance
 	}
 }
 
-impl crate::pallet::pallet::Config for Test {
-	type RuntimeHoldReason = RuntimeHoldReason;
+pub(crate) fn staker_reward_key() -> sp_staking::BudgetKey {
+	<StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn validator_incentive_key() -> sp_staking::BudgetKey {
+	<ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn buffer_key() -> sp_staking::BudgetKey {
+	<Dap as BudgetRecipient<AccountId>>::budget_key()
+}
+
+/// Build a DAP budget allocation map from `(key, percent)` pairs.
+pub(crate) fn build_budget(
+	entries: &[(sp_staking::BudgetKey, u32)],
+) -> pallet_dap::BudgetAllocationMap {
+	let mut budget = BoundedBTreeMap::new();
+	for (key, pct) in entries {
+		budget.try_insert(key.clone(), Perbill::from_percent(*pct)).unwrap();
+	}
+	budget
+}
+
+/// Build the default 50/50 staker/buffer budget used by most tests.
+pub(crate) fn default_budget() -> pallet_dap::BudgetAllocationMap {
+	build_budget(&[(staker_reward_key(), 50), (buffer_key(), 50)])
+}
+
+impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type RewardRemainder = RewardRemainderMock;
-	type Reward = MockReward;
-	type SessionsPerEra = SessionsPerEra;
-	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
-	type EraPayout = OneTokenPerMillisecond;
-	type MaxExposurePageSize = MaxExposurePageSize;
-	type MaxValidatorSet = MaxValidatorSet;
-	type ElectionProvider = TestElectionProvider;
-	type VoterList = VoterBagsList;
-	type TargetList = UseValidatorsMap<Self>;
-	type NominationsQuota = WeightedNominationsQuota<16>;
-	type MaxUnlockingChunks = MaxUnlockingChunks;
-	type HistoryDepth = HistoryDepth;
-	type BondingDuration = BondingDuration;
-	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
-	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type EventListeners = EventListenerMock;
-	type MaxEraDuration = MaxEraDuration;
-	type MaxPruningItems = MaxPruningItems;
-	type PlanningEraOffset = PlanningEraOffset;
-	type Filter = MockedRestrictList;
-	type RcClientInterface = session_mock::Session;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type Slash = ();
+	type ElectionProvider = TestElectionProvider;
+	type NominationsQuota = WeightedNominationsQuota<16>;
+	type HistoryDepth = HistoryDepth;
+	type RewardRemainder = RewardRemainderMock;
+	type Slash = Dap;
+	type UnclaimedRewardHandler = Dap;
+	type Reward = MockReward;
+	type SessionsPerEra = SessionsPerEra;
+	type PlanningEraOffset = PlanningEraOffset;
+	type BondingDuration = BondingDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
+	type SlashDeferDuration = SlashDeferDuration;
+	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
+	type GeneralPots = SequentialTest;
+	type EraPots = SequentialTest;
+	type MaxExposurePageSize = MaxExposurePageSize;
+	type MaxValidatorSet = MaxValidatorSet;
+	type VoterList = VoterBagsList;
+	type TargetList = UseValidatorsMap<Self>;
+	type MaxUnlockingChunks = MaxUnlockingChunks;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type EventListeners = EventListenerMock;
+	type MaxPruningItems = MaxPruningItems;
+	type RcClientInterface = session_mock::Session;
+	type Filter = MockedRestrictList;
+	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
+	type VestingDuration = VestingDurationBlocks;
+	type BlocksPerSession = BlocksPerSession;
+	type ValidatorIncentivePayout = ImmediateIncentivePayout<Balances>;
 	type WeightInfo = ();
 }
 
@@ -627,6 +694,11 @@ impl ExtBuilder {
 		MaxWinnersPerPage::set(max);
 		self
 	}
+
+	/// Should NEVER be used in normal tests!
+	///
+	/// This disables try_state invariant checks, which can hide real bugs in your test setup.
+	/// Only use this when intentionally testing corruption scenarios or recovery mechanisms.
 	pub(crate) fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
 		self
@@ -709,6 +781,28 @@ impl ExtBuilder {
 
 		ext.execute_with(|| {
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
+			// Disable legacy minting from era 0 in tests to catch missing era pots early
+			crate::DisableLegacyMintingEra::<Test>::put(0);
+			// Set budget allocation: 50% stakers, 50% buffer (must sum to 100%).
+			pallet_dap::BudgetAllocation::<Test>::put(default_budget());
+			// Initialize DAP's LastIssuanceTimestamp
+			pallet_dap::LastIssuanceTimestamp::<Test>::put(INIT_TIMESTAMP);
+			// Fund general pot accounts with ED so they stay alive across era snapshots.
+			let ed = ExistentialDeposit::get();
+			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+				&general_staker_pot(),
+				ed,
+			)
+			.expect("mint general staker pot");
+			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+				&general_incentive_pot(),
+				ed,
+			)
+			.expect("mint general incentive pot");
+			// Fund DAP buffer account with ED.
+			let dap_buffer = pallet_dap::Pallet::<Test>::buffer_account();
+			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&dap_buffer, ed)
+				.expect("mint dap buffer");
 			session_mock::Session::roll_until_active_era(1);
 			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {
@@ -765,22 +859,18 @@ pub(crate) fn bond_virtual_nominator(
 }
 
 pub(crate) fn validator_payout_for(duration: u64) -> Balance {
-	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
-		pallet_balances::TotalIssuance::<Test>::get(),
-		duration,
-	);
+	let total_inflation =
+		OneTokenPerMillisecond::issue(pallet_balances::TotalIssuance::<Test>::get(), duration);
+	// Apply budget allocation to get staker portion
+	let budget = pallet_dap::BudgetAllocation::<Test>::get();
+	let staker_pct = budget.get(&staker_reward_key()).copied().unwrap_or(Perbill::zero());
+	let payout = staker_pct.mul_floor(total_inflation);
 	assert!(payout > 0);
 	payout
 }
 
 pub(crate) fn total_payout_for(duration: u64) -> Balance {
-	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-		pallet_staking_async::ErasTotalStake::<Test>::get(active_era()),
-		pallet_balances::TotalIssuance::<Test>::get(),
-		duration,
-	);
-	payout + rest
+	OneTokenPerMillisecond::issue(pallet_balances::TotalIssuance::<Test>::get(), duration)
 }
 
 /// Time it takes to finish a session.
@@ -861,6 +951,18 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 			));
 		}
 	}
+}
+
+/// Configures mock for vesting-based incentive tests.
+///
+/// With default `SessionsPerEra = 3` and `BondingDuration = 3`:
+/// - `blocks_per_era = blocks_per_session * 3`
+/// - `vesting_eras = vesting_blocks / blocks_per_era`
+/// - Batch conversion triggers at eras 3, 6, 9, ...
+/// - Retroactive unlock fraction = `BondingDuration / vesting_eras`
+pub(crate) fn setup_vesting_params(vesting_blocks: BlockNumber, blocks_per_session: BlockNumber) {
+	VestingDurationBlocks::set(vesting_blocks);
+	BlocksPerSession::set(blocks_per_session);
 }
 
 pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> Result<(), String> {

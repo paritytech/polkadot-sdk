@@ -27,10 +27,10 @@ use frame_support::{
 		WhitelistedStorageKeys,
 	},
 };
-use pallet_staking::EraPayout;
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::{self, Alice};
 use sp_runtime::generic::Era;
+use sp_staking::EraPayout;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;

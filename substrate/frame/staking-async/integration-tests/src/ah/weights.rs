@@ -115,22 +115,22 @@ impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockEle
 pub struct StakingAsyncWeightInfo;
 impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn bond() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn bond_extra() -> Weight {
 		unreachable!()
 	}
 	fn unbond() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn withdraw_unbonded_update() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn withdraw_unbonded_kill() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn validate() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn kick(_: u32) -> Weight {
 		unreachable!()
@@ -139,10 +139,10 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn chill() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn set_payee() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn update_payee() -> Weight {
 		unreachable!()
@@ -172,7 +172,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn payout_stakers_alive_staked(_: u32) -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn rebond(_: u32) -> Weight {
 		unreachable!()
@@ -194,6 +194,12 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	}
 	fn set_min_commission() -> Weight {
 		unreachable!()
+	}
+	fn set_max_commission() -> Weight {
+		unreachable!()
+	}
+	fn set_validator_self_stake_incentive_config() -> Weight {
+		Default::default()
 	}
 	fn restore_ledger() -> Weight {
 		unreachable!()
