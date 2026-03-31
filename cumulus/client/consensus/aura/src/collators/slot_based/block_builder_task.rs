@@ -188,40 +188,47 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		// Tracker helper to ensure we do not build an extra block at slot boundaries
-		// with edge-cases of importing blocks after the `slot_timer` ticks.
+		// Prevents a "stale parent" race condition that degrades block confidence.
 		//
-		// The following scenarios are degrading block confidence (happening on the same instance):
+		// Block production is driven by two decoupled clocks:
+		//  I. Aura slot (wall clock): Triggers wake-ups and enforces a 1-second hard deadline
+		//     at the end of the slot to safely stop authoring.
+		//  II. Parachain slot: Derived from the imported relay parent, which determines if we
+		//     can build or not.
 		//
-		//                 [ wall slot | para slot | next wall slot]
-		// opportunity 1:  [ 803       |       803 |         490ms ]
-		// 	  - The wall slot is behind the para slot deduced by the relay block
-		// 	  - The next slot 804 arrives in 490ms leaving no room for the 1s authoring duration
-		//    - collator must skip the building the first block for this relay block
+		// Because network imports race against the local wall clock, a node running
+		// elastic scaling can easily desync.
 		//
-		// 	opportunity 2-10: [ 804       |       803 |         6s ]
-		//    - This is the proper case where we have sufficient time to build and build 10 blocks
+		// Timeline of the failure scenario (observed on yap-polkadot):
 		//
-		//  opportunity 11-12: [ 804      |       803 |         990ms-500ms ]
-		//   - At this point we skip building the last 2 blocks to give room for the 1s authoring
-		//     duration before the next slot arrives.
+		//  - T0: Aura 803 begins. The relay parent is still old (0xA). The node skips.
 		//
-		//  opportunity 13:    [ 805      |       803 |         6s ]
-		//   - The new relay block was not imported soon enough, therefore we detect the same relay
-		//     parent that we just skipped. Since the import of a new block is usually ~15ms after
-		//     the wall slot ticks.
-		//   - We don't want to build on this relay parent and instead skip until the next relay
-		//     block arrives.
+		//  - T1 (soft failure): Aura 803 last block production opportunity. Relay parent 0xB
+		//    (para slot 803) is picked. However, aura 803 now has < 1000ms remaining. The 1s
+		//    deadline triggers, skipping the block.
+		//
+		//  - T2: Aura 804 begins. The node successfully builds 10 blocks on 0xB. As aura 804
+		//    ends, the 1s deadline triggers again, skipping the final 2 cores.
+		//
+		//  - T3 (critical failure): Aura 805 begins. The wall clock resets, the next aura slot
+		//    arrives in 6000ms. However, the network hasn't delivered a new relay parent yet.
+		//    Because the timer reset, the deadline check passes, and the node erroneously
+		//    builds a stale block on top of 0xB.
+		//
+		// To prevent T1, we rely on the 1-second hard deadline to skip block production.
+		//
+		// To prevent T3, we track the relay parent hash and whether we've already built and
+		// terminated on it. If the relay parent hasn't changed since our last terminated build,
+		// we skip production until the network delivers a new relay block.
+		//
+		// See: https://github.com/paritytech/polkadot-sdk/pull/11453
 		struct ParentTracker {
 			/// Hash of the relay block.
 			hash: Option<H256>,
-			/// True if the collator built a block for the current relay parent, false otherwise.
-			///
-			/// This state is needed, otherwise the opportunity 1 might mark the block as
-			/// terminated wrongfully.
+			/// True if the collator built a block for the current relay parent.
+			/// Needed so that T1 (first opportunity skip) doesn't wrongfully mark as terminated.
 			has_built: bool,
-			/// True if the collator adjusted the slot timer and decided there is no time to build
-			/// a block, false otherwise. This is set to true on opportunity 11.
+			/// True if the slot timer determined there is no time left to build.
 			has_terminated: bool,
 		}
 
