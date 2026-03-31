@@ -40,7 +40,10 @@
 
 use crate::{
 	peer_store::{PeerStoreProvider, ProtocolHandle},
-	service::traits::{self, ValidationResult},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{self, ValidationResult},
+	},
 	ProtocolName, ReputationChange as Reputation,
 };
 
@@ -931,10 +934,11 @@ impl Peerset {
 		}
 	}
 
-	/// Report connected peer counts to metrics, split by direction and reservation status.
+	/// Report connected peer counts to metrics.
 	fn update_slot_metrics(&self) {
 		let (mut in_reserved, mut in_non_reserved) = (0usize, 0usize);
 		let (mut out_reserved, mut out_non_reserved) = (0usize, 0usize);
+
 		for state in self.peers.values() {
 			match state {
 				PeerState::Connected { direction: Direction::Inbound(Reserved::Yes) } => {
@@ -952,6 +956,7 @@ impl Peerset {
 				_ => {},
 			}
 		}
+
 		self.metrics.set_peerset_num_connected(
 			&self.protocol,
 			in_reserved,
@@ -1545,9 +1550,13 @@ impl Stream for Peerset {
 				}
 			}
 
-			// start timer for the next allocation and if there were peers which the `Peerset`
+			// Start timer for the next allocation and if there were peers which the `Peerset`
 			// wasn't connected but should be, send command to litep2p to start opening substreams.
 			self.next_slot_allocation = Delay::new(SLOT_ALLOCATION_FREQUENCY);
+
+			// Update metrics on every tick of slot allocation. This ensures metrics are
+			// eventually consistent at 1s intervals.
+			self.update_slot_metrics();
 
 			if !connect_to.is_empty() {
 				log::trace!(
