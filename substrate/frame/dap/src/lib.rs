@@ -261,7 +261,7 @@ pub mod pallet {
 		///
 		/// Collects any burn source wired to it (staking slashes, unclaimed rewards, etc.)
 		/// and its explicit budget allocation share.
-		pub fn buffer_account() -> T::AccountId {
+		pub(crate) fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
 
