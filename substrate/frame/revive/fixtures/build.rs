@@ -22,9 +22,10 @@ mod builder;
 
 use anyhow::{Context, Result};
 use builder::{
-	collect_entries, compile_solidity_contracts, create_cargo_toml, generate_fixture_location,
-	invoke_build, write_output, ContractType, OVERRIDE_OPTIMIZE_ENV_VAR,
-	OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR, OVERRIDE_STRIP_ENV_VAR, SKIP_PALLET_REVIVE_FIXTURES,
+	collect_entries, compile_solidity_contracts, create_cargo_toml, detect_rustc_minor,
+	generate_fixture_location, invoke_build, write_output, ContractType,
+	OVERRIDE_OPTIMIZE_ENV_VAR, OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR, OVERRIDE_STRIP_ENV_VAR,
+	SKIP_PALLET_REVIVE_FIXTURES,
 };
 use std::{env, fs, path::PathBuf};
 
@@ -64,7 +65,15 @@ pub fn main() -> Result<()> {
 			.filter(|e| matches!(e.contract_type, ContractType::Rust))
 			.collect();
 		if !rust_entries.is_empty() {
-			create_cargo_toml(Some(&fixtures_dir), rust_entries.into_iter(), &out_build_dir)?;
+			let toolchain = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR)
+				.or_else(|_| env::var("RUSTUP_TOOLCHAIN"));
+			let minor = detect_rustc_minor(&toolchain)?;
+			create_cargo_toml(
+				Some(&fixtures_dir),
+				rust_entries.into_iter(),
+				&out_build_dir,
+				minor >= 94,
+			)?;
 			invoke_build(&out_build_dir)?;
 			write_output(&out_build_dir, &out_fixtures_dir, entries.clone())?;
 		}

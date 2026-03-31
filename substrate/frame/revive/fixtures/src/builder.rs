@@ -116,10 +116,13 @@ pub fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 /// Create a `Cargo.toml` to compile the given Rust contract entries.
 /// If fixtures_dir is provided, uses cargo metadata to resolve the uapi dependency.
 /// Otherwise, uses a hardcoded path relative to CARGO_MANIFEST_DIR.
+/// If `panic_immediate_abort` is true, sets `panic = "immediate-abort"` in the release profile
+/// (required for rustc >= 1.94 where this is a real panic strategy).
 pub fn create_cargo_toml<'a>(
 	fixtures_dir: Option<&Path>,
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
+	panic_immediate_abort: bool,
 ) -> Result<()> {
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("../build/_Cargo.toml"))?;
 	let uapi_dep = cargo_toml["dependencies"]["uapi"].as_table_mut().unwrap();
@@ -187,10 +190,54 @@ pub fn create_cargo_toml<'a>(
 			.collect::<Vec<_>>(),
 	);
 
-	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
+	if panic_immediate_abort {
+		cargo_toml
+			.as_table_mut()
+			.unwrap()
+			.entry("profile")
+			.or_insert_with(|| toml::Value::Table(Default::default()))
+			.as_table_mut()
+			.unwrap()
+			.entry("release")
+			.or_insert_with(|| toml::Value::Table(Default::default()))
+			.as_table_mut()
+			.unwrap()
+			.insert("panic".to_string(), toml::Value::String("immediate-abort".to_string()));
+	}
+
+	let mut cargo_toml = toml::to_string_pretty(&cargo_toml)?;
+	if panic_immediate_abort {
+		cargo_toml.insert_str(0, "cargo-features = [\"panic-immediate-abort\"]\n\n");
+	}
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml.clone())
 		.with_context(|| format!("Failed to write {cargo_toml:?}"))?;
 	Ok(())
+}
+
+/// Detect the rustc minor version for the active toolchain.
+pub fn detect_rustc_minor(toolchain: &Result<String, env::VarError>) -> Result<u32> {
+	let mut cmd = Command::new("rustc");
+	if let Ok(toolchain) = toolchain {
+		cmd.env("RUSTUP_TOOLCHAIN", toolchain);
+	}
+	let out = cmd.arg("--version").output().context("rustc --version failed")?;
+	let ver = String::from_utf8(out.stdout).context("utf8 from rustc --version failed")?;
+	let ver_num = ver
+		.split_whitespace()
+		.nth(1)
+		.ok_or_else(|| anyhow::anyhow!("unexpected rustc --version output: {ver}"))?;
+	let mut parts = ver_num.split('.');
+	let _major: u32 = parts
+		.next()
+		.ok_or_else(|| anyhow::anyhow!("missing major version"))?
+		.parse()
+		.context("invalid major version")?;
+	let minor: u32 = parts
+		.next()
+		.ok_or_else(|| anyhow::anyhow!("missing minor version"))?
+		.parse()
+		.context("invalid minor version")?;
+	Ok(minor)
 }
 
 /// Invoke cargo build to compile contracts to RISC-V ELF.
@@ -198,34 +245,12 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 	let toolchain =
 		env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR).or_else(|_| env::var("RUSTUP_TOOLCHAIN"));
 
-	// Necessary to make this work with both 1.92+ and versions before 1.92 of rustc.
-	let new_immediate_abort = {
-		let mut cmd = Command::new("rustc");
-		if let Ok(toolchain) = &toolchain {
-			cmd.env("RUSTUP_TOOLCHAIN", toolchain);
-		}
-		let out = cmd.arg("--version").output().context("rustc --version failed")?;
-		let ver = String::from_utf8(out.stdout).context("utf8 from rustc --version failed")?;
-		let ver_num = ver
-			.split_whitespace()
-			.nth(1)
-			.ok_or_else(|| anyhow::anyhow!("unexpected rustc --version output: {ver}"))?;
-		let mut parts = ver_num.split('.');
-		let major: u32 = parts
-			.next()
-			.ok_or_else(|| anyhow::anyhow!("missing major version"))?
-			.parse()
-			.context("invalid major version")?;
-		let minor: u32 = parts
-			.next()
-			.ok_or_else(|| anyhow::anyhow!("missing minor version"))?
-			.parse()
-			.context("invalid minor version")?;
-		major > 1 || (major == 1 && minor >= 92)
-	};
+	let minor = detect_rustc_minor(&toolchain)?;
 
-	// on newer version this is a stable compiler flag
-	let encoded_rustflags = if new_immediate_abort {
+	// >= 1.94: panic_immediate_abort is a real panic strategy set via Cargo.toml profile
+	// >= 1.92: use -Cpanic=immediate-abort rustflag
+	// < 1.92: use -Zbuild-std-features=panic_immediate_abort cargo arg
+	let encoded_rustflags = if minor >= 92 && minor < 94 {
 		["-Dwarnings", "-Zunstable-options", "-Cpanic=immediate-abort"].join("\x1f")
 	} else {
 		["-Dwarnings"].join("\x1f")
@@ -246,8 +271,8 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
 
-	// on older versions this is a unstable cargo cli argument
-	if !new_immediate_abort {
+	// < 1.92: panic_immediate_abort is an unstable cargo cli argument
+	if minor < 92 {
 		build_command.arg("-Zbuild-std-features=panic_immediate_abort");
 	}
 
@@ -275,7 +300,10 @@ fn compile_rust_to_elf(
 ) -> Result<PathBuf> {
 	// Create Cargo.toml with single entry
 	let entry = Entry::new(contract_path.to_path_buf(), ContractType::Rust);
-	create_cargo_toml(None, std::iter::once(&entry), output_dir)?;
+	let toolchain =
+		env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR).or_else(|_| env::var("RUSTUP_TOOLCHAIN"));
+	let minor = detect_rustc_minor(&toolchain)?;
+	create_cargo_toml(None, std::iter::once(&entry), output_dir, minor >= 94)?;
 
 	// Build
 	invoke_build(output_dir)?;
