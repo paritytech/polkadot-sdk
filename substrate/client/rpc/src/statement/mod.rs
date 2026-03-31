@@ -122,11 +122,7 @@ impl StatementStore {
 		executor: SubscriptionTaskExecutor,
 		prometheus_registry: Option<&prometheus_endpoint::Registry>,
 	) -> Self {
-		StatementStore {
-			store,
-			executor,
-			metrics: metrics::MetricsLink::new(prometheus_registry),
-		}
+		StatementStore { store, executor, metrics: metrics::MetricsLink::new(prometheus_registry) }
 	}
 }
 

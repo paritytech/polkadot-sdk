@@ -71,9 +71,7 @@ impl Metrics {
 						"substrate_sub_statement_store_rpc_submit_duration_seconds",
 						"End-to-end latency of the statement RPC submit call",
 					)
-					.buckets(vec![
-						0.000_01, 0.000_1, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0,
-					]),
+					.buckets(vec![0.000_01, 0.000_1, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]),
 				)?,
 				registry,
 			)?,
