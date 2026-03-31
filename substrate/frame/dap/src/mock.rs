@@ -24,7 +24,7 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type AccountId = u128;
+pub type AccountId = u64;
 
 frame_support::construct_runtime!(
 	pub enum Test {

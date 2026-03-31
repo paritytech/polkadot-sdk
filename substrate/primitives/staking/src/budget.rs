@@ -81,11 +81,14 @@ impl<AccountId> BudgetRecipientList<AccountId> for Tuple {
 	fn recipients() -> Vec<(BudgetKey, AccountId)> {
 		let mut v = Vec::new();
 		for_tuples!( #( v.push((Tuple::budget_key(), Tuple::pot_account())); )* );
-		debug_assert!({
-			let mut keys: Vec<_> = v.iter().map(|(k, _)| k.clone()).collect();
-			keys.sort();
-			keys.windows(2).all(|w| w[0] != w[1])
-		}, "Duplicate BudgetRecipient key detected");
+		debug_assert!(
+			{
+				let mut keys: Vec<_> = v.iter().map(|(k, _)| k.clone()).collect();
+				keys.sort();
+				keys.windows(2).all(|w| w[0] != w[1])
+			},
+			"Duplicate BudgetRecipient key detected"
+		);
 		v
 	}
 }
@@ -134,7 +137,6 @@ mod tests {
 	#[test]
 	#[should_panic(expected = "Duplicate BudgetRecipient key detected")]
 	fn duplicate_keys_panics() {
-		let _ =
-			<(RecipientA, RecipientDuplicate) as BudgetRecipientList<u64>>::recipients();
+		let _ = <(RecipientA, RecipientDuplicate) as BudgetRecipientList<u64>>::recipients();
 	}
 }
