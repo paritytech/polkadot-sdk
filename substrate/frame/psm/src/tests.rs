@@ -215,7 +215,7 @@ mod mint {
 			let psm_usdc_before = get_asset_balance(USDC_ASSET_ID, psm_account());
 			let too_much = alice_usdc_before + 1000 * PUSD_UNIT;
 
-			assert!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much).is_err());
+			assert_noop!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much).is_err());
 
 			// Verify no state mutation occurred
 			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), 0);
