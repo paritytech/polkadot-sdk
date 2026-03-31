@@ -479,6 +479,7 @@ members = [
 	"substrate/frame/utility",
 	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
+	"substrate/frame/vesting/fuzzer",
 	"substrate/frame/whitelist",
 	"substrate/primitives/api",
 	"substrate/primitives/api/proc-macro",

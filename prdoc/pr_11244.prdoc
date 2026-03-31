@@ -1,0 +1,20 @@
+title: "pallet-vesting: prevent self vested transfers to avoid storage pollution"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Disallow `vested_transfer` and `force_vested_transfer` when `source == target`.
+
+    When the source and target of a vested transfer are the same account, `Currency::transfer`
+    is a no-op (returns `Ok(())` without moving funds), but the vesting lock is still written
+    to storage.
+
+    This patch adds a `SelfVestedTransfer` error and rejects the operation early in
+    `do_vested_transfer` before any storage writes or currency operations occur.
+
+    A new honggfuzz-based fuzzer (`pallet-vesting-fuzzer`) is also introduced, exercising random
+    sequences of vesting operations and checking storage invariants after every action.
+crates:
+- name: pallet-vesting
+  bump: major
+- name: pallet-vesting-fuzzer
+  bump: minor
