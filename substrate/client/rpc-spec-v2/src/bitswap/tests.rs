@@ -161,7 +161,7 @@ fn make_cid_v0() -> String {
 fn make_cid_v1_short_digest() -> String {
 	let digest = [0u8; 16];
 	let mh = cid::multihash::Multihash::<64>::wrap(BLAKE2B_256, &digest)
-		.expect("16 bytes fits in Multihash<32>");
+		.expect("16 bytes fits in Multihash<64>");
 	let c = cid::Cid::new_v1(0x70, mh);
 	c.to_string()
 }
@@ -170,7 +170,7 @@ fn make_cid_v1_short_digest() -> String {
 fn make_cid_v1_unsupported_hash_function() -> String {
 	let digest = [0u8; 32];
 	let mh = cid::multihash::Multihash::<64>::wrap(0x1b, &digest)
-		.expect("32 bytes fits in Multihash<32>");
+		.expect("32 bytes fits in Multihash<64>");
 	// codec 0x70 = dag-pb
 	let c = cid::Cid::new_v1(0x70, mh);
 	c.to_string()
