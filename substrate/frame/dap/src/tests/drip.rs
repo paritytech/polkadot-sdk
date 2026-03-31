@@ -44,8 +44,8 @@ fn drip_distributes_according_to_budget() {
 			budget_map(&[(b"staker_rewards", 60), (b"validator_incentive", 25), (b"buffer", 15)]);
 		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
 
-		let staker_pot = 500; // TestStakerRecipient
-		let incentive_pot = 501; // TestValidatorIncentiveRecipient
+		let staker_pot = 500; // TestStakerRecipient pot account
+		let incentive_pot = 501; // TestValidatorIncentiveRecipient pot account
 		let buffer = Dap::buffer_account();
 
 		let staker_before = Balances::balance(&staker_pot);
@@ -59,6 +59,10 @@ fn drip_distributes_according_to_budget() {
 		assert_eq!(Balances::balance(&staker_pot) - staker_before, 60);
 		assert_eq!(Balances::balance(&incentive_pot) - incentive_before, 25);
 		assert_eq!(Balances::balance(&buffer) - buffer_before, 15);
+
+		System::assert_has_event(
+			Event::<Test>::IssuanceMinted { total_minted: 100, elapsed_millis: 60_000 }.into(),
+		);
 	});
 }
 
@@ -107,7 +111,7 @@ fn no_drip_when_budget_not_set() {
 
 		// GIVEN: no budget allocation set.
 
-		let staker_pot = 500;
+		let staker_pot = 500; // TestStakerRecipient pot account
 		let balance_before = Balances::balance(&staker_pot);
 
 		// WHEN: drip fires with empty budget — no panic, just early return.

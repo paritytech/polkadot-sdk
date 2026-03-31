@@ -65,8 +65,10 @@ fn set_budget_allocation_rejects_over_100_percent() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
+		// WHEN: allocations sum to 110%.
 		let allocs = budget_map(&[(b"buffer", 50), (b"staker_rewards", 60)]);
 
+		// THEN: rejected.
 		assert_noop!(
 			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
 			Error::<Test>::BudgetNotExact
@@ -79,8 +81,10 @@ fn set_budget_allocation_rejects_under_100_percent() {
 	build_and_execute(true, || {
 		set_default_budget_allocation();
 
+		// WHEN: allocations sum to only 50%.
 		let allocs = budget_map(&[(b"staker_rewards", 50)]);
 
+		// THEN: rejected.
 		assert_noop!(
 			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
 			Error::<Test>::BudgetNotExact
