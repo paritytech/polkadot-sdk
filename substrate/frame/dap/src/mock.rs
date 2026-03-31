@@ -64,20 +64,8 @@ impl sp_staking::budget::IssuanceCurve<u64> for TestIssuanceCurve {
 	}
 }
 
-/// Mock time provider backed by storage.
-pub struct MockTime;
-impl MockTime {
-	pub fn set(millis: u64) {
-		MOCK_TIME.with(|v| *v.borrow_mut() = millis);
-	}
-
-	pub fn get() -> u64 {
-		MOCK_TIME.with(|v| *v.borrow())
-	}
-}
-
-std::thread_local! {
-	static MOCK_TIME: core::cell::RefCell<u64> = core::cell::RefCell::new(0);
+parameter_types! {
+	pub static MockTime: u64 = 0;
 }
 
 impl frame_support::traits::Time for MockTime {
