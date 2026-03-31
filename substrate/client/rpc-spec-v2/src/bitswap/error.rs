@@ -39,12 +39,18 @@ pub enum Error {
 	Internal(#[from] sp_blockchain::Error),
 }
 
-/// Invalid params error category (standard JSON-RPC), according to the spec.
-const INVALID_PARAMS: i32 = -32602;
-/// Fail error category, according to the spec.
-const FAIL: i32 = -32810;
-/// Fail with retry backoff error category, according to the spec.
-const FAIL_RETRY_BACKOFF: i32 = -32812;
+/// Bitswap JSON-RPC error categories, according to the spec.
+#[derive(Debug)]
+enum ErrorCode {
+	/// Invalid CID provided. Must never retry.
+	InvalidParams = -32602,
+	/// Must not retry.
+	Fail = -32810,
+	/// Can retry immediately, but rate limiting is encouraged.
+	_FailRetry = -32811,
+	/// Can retry with a backoff of 1-5 seconds.
+	FailRetryBackoff = -32812,
+}
 
 #[derive(serde::Serialize)]
 struct ErrorData {
@@ -56,14 +62,18 @@ impl From<Error> for ErrorObject<'static> {
 		let msg = e.to_string();
 
 		match e {
-			Error::InvalidCid(_) => {
-				ErrorObject::owned(INVALID_PARAMS, msg, Some(ErrorData { variant: "InvalidCid" }))
-			},
-			Error::NotFound => {
-				ErrorObject::owned(FAIL, msg, Some(ErrorData { variant: "NotFound" }))
-			},
+			Error::InvalidCid(_) => ErrorObject::owned(
+				ErrorCode::InvalidParams as i32,
+				msg,
+				Some(ErrorData { variant: "InvalidCid" }),
+			),
+			Error::NotFound => ErrorObject::owned(
+				ErrorCode::Fail as i32,
+				msg,
+				Some(ErrorData { variant: "NotFound" }),
+			),
 			Error::MajorSyncing => ErrorObject::owned(
-				FAIL_RETRY_BACKOFF,
+				ErrorCode::FailRetryBackoff as i32,
 				msg,
 				Some(ErrorData { variant: "MajorSyncing" }),
 			),
@@ -72,7 +82,11 @@ impl From<Error> for ErrorObject<'static> {
 				// compile-type variants that `BlockBackend::indexed_transaction` returns.
 				// It is unclear what error category to use in case of internal errors, let's use
 				// `FAIL_RETRY_BACKOFF`.
-				ErrorObject::owned(FAIL_RETRY_BACKOFF, msg, Some(ErrorData { variant: "Internal" }))
+				ErrorObject::owned(
+					ErrorCode::FailRetryBackoff as i32,
+					msg,
+					Some(ErrorData { variant: "Internal" }),
+				)
 			},
 		}
 	}

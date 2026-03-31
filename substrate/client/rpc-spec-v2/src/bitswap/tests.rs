@@ -138,9 +138,12 @@ impl sp_consensus::SyncOracle for MockSyncOracle {
 /// Blake2b-256 multihash code.
 const BLAKE2B_256: u64 = 0xb220;
 
+/// Sha2-256 multihash code.
+const SHA2_256: u64 = 0x12;
+
 /// Create a CIDv1 string from a 32-byte hash digest.
-fn make_cid_v1(digest: &[u8; 32]) -> String {
-	let mh = cid::multihash::Multihash::<64>::wrap(BLAKE2B_256, digest)
+fn make_cid_v1(code: u64, digest: &[u8; 32]) -> String {
+	let mh = cid::multihash::Multihash::<64>::wrap(code, digest)
 		.expect("32 bytes fits in Multihash<32>");
 	// codec 0x70 = dag-pb
 	let c = cid::Cid::new_v1(0x70, mh);
@@ -151,7 +154,7 @@ fn make_cid_v1(digest: &[u8; 32]) -> String {
 fn make_cid_v0() -> String {
 	// CIDv0 is a bare base58btc-encoded multihash (SHA2-256)
 	let digest = [0u8; 32];
-	let mh = cid::multihash::Multihash::<64>::wrap(0x12, &digest)
+	let mh = cid::multihash::Multihash::<64>::wrap(SHA2_256, &digest)
 		.expect("32 bytes fits in Multihash<32>");
 	let c = cid::Cid::new_v0(mh).expect("SHA2-256 is valid for CIDv0");
 	c.to_string()
@@ -195,14 +198,28 @@ async fn setup(
 }
 
 #[tokio::test]
-async fn valid_cid_data_found() {
+async fn valid_cid_data_found_sha256() {
+	let (ws_client, _handle, mock_client) = setup(false).await;
+
+	let data = vec![1u8, 2, 3, 4, 5];
+	let digest = sp_crypto_hashing::sha2_256(&data);
+	mock_client.insert_transaction(H256::from(digest), data.clone());
+
+	let cid_str = make_cid_v1(SHA2_256, &digest);
+	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
+
+	assert_eq!(result, crate::hex_string(&data));
+}
+
+#[tokio::test]
+async fn valid_cid_data_found_blake2b() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
 	let data = vec![1u8, 2, 3, 4, 5];
 	let digest = sp_crypto_hashing::blake2_256(&data);
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
-	let cid_str = make_cid_v1(&digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
 	assert_eq!(result, crate::hex_string(&data));
@@ -213,7 +230,7 @@ async fn valid_cid_not_found_not_syncing() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
 	let digest = [42u8; 32];
-	let cid_str = make_cid_v1(&digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 	let err = ws_client
 		.request::<String, _>("bitswap_v1_get", rpc_params![cid_str])
 		.await
@@ -227,7 +244,7 @@ async fn valid_cid_not_found_major_syncing() {
 	let (ws_client, _handle, _mock_client) = setup(true).await;
 
 	let digest = [42u8; 32];
-	let cid_str = make_cid_v1(&digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 	let err = ws_client
 		.request::<String, _>("bitswap_v1_get", rpc_params![cid_str])
 		.await
