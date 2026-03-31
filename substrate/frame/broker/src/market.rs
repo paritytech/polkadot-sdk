@@ -94,12 +94,10 @@ pub trait Market<T: Config> {
 	/// - `block_number`: Current relay chain block number.
 	/// - `who`: Account placing the order.
 	/// - `renewal`: Renewal identifier.
-	/// - `recorded_price`: Price at which the next renewal can be performed.
 	fn place_renewal_order(
 		block_number: RelayBlockNumberOf<T>,
 		who: &T::AccountId,
 		renewal: PotentialRenewalId,
-		recorded_price: BalanceOf<T>,
 	) -> Result<RenewalOrderResult<T, Self::BidId>, Self::Error>;
 
 	/// Adjust the price of an existing bid.
@@ -202,6 +200,8 @@ pub enum RenewalOrderResult<T: Config, BidId> {
 		/// Price paid for the renewal.
 		price: BalanceOf<T>,
 		/// Price for the next renewal.
+		///
+		/// Valid only for the pre-RFC-17 market implementation.
 		next_renewal_price: BalanceOf<T>,
 		/// Identifier of the renewed region.
 		region_id: RegionId,
