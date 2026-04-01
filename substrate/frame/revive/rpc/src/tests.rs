@@ -22,7 +22,7 @@ use crate::{
 	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, connect},
+	client::{Client, GapFillRequest, GapFiller, connect},
 	example::TransactionBuilder,
 	subxt_client::{
 		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
@@ -53,6 +53,7 @@ use subxt::{
 	tx::{SubmittableTransaction, TxStatus},
 };
 use subxt_signer::eth::Keypair;
+use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc-tests";
 
@@ -1734,6 +1735,12 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
+	let (client, _gap_fill_rx) = create_sync_test_client_with_gap_filler().await?;
+	Ok(client)
+}
+
+async fn create_sync_test_client_with_gap_filler()
+-> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -1753,8 +1760,11 @@ async fn create_sync_test_client() -> anyhow::Result<Client> {
 	let receipt_provider =
 		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
 
-	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider, true).await?;
-	Ok(client)
+	let (gap_filler, gap_fill_rx) = GapFiller::new();
+	let client =
+		Client::new(api, rpc_client, rpc, block_provider, receipt_provider, true, gap_filler)
+			.await?;
+	Ok((client, gap_fill_rx))
 }
 
 /// Fresh sync: labels, hash mappings, and re-sync idempotency.
@@ -2074,7 +2084,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let sync_client = create_sync_test_client().await?;
+	let (sync_client, gap_fill_rx) = create_sync_test_client_with_gap_filler().await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
@@ -2113,14 +2123,12 @@ async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	);
 
 	// Spawn the gap filler loop, then queue the fill request.
-	let rx = sync_client.gap_filler().take_rx().await.expect("rx should be available");
 	let bg_client = sync_client.clone();
-	let gap_filler_handle = tokio::spawn(async move { bg_client.run_gap_filler(rx).await });
+	let gap_filler_handle =
+		tokio::spawn(async move { bg_client.run_gap_filler(gap_fill_rx).await });
 
 	assert!(!sync_client.gap_filler().has_pending());
-	sync_client
-		.gap_filler()
-		.detect_and_queue(new_finalized_number, head_after_sync);
+	sync_client.gap_filler().detect_and_queue(new_finalized_number, head_after_sync);
 	assert!(sync_client.gap_filler().has_pending());
 
 	// Wait for the pending request to be processed.

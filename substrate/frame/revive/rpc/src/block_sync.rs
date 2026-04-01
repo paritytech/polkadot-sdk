@@ -407,21 +407,21 @@ impl Client {
 	pub(crate) async fn run_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
 		log::info!(target: LOG_TARGET, "🔄 Gap filler task started");
 
-		while let Some(GapFillRequest { from, to }) = rx.recv().await {
-			log::info!(target: LOG_TARGET, "🔄 Gap filler: processing #{from} down to #{to}");
+		while let Some(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().await {
+			log::info!(target: LOG_TARGET, "🔄 Gap filler: processing #{from_inclusive} down to #{to_inclusive}");
 			if let Err(err) = self
 				.sync_backward_range(BackwardSyncRange {
-					from,
-					to,
+					from: from_inclusive,
+					to: to_inclusive,
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
 				})
 				.await
 			{
-				log::error!(target: LOG_TARGET, "🔄 Gap fill failed for #{from}..#{to}: {err:?}");
+				log::error!(target: LOG_TARGET, "🔄 Gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
 			} else {
-				log::info!(target: LOG_TARGET, "🔄 Gap filler: done with #{from}..#{to}");
+				log::info!(target: LOG_TARGET, "🔄 Gap filler: done with #{from_inclusive}..#{to_inclusive}");
 			}
 			self.gap_filler().mark_done();
 		}

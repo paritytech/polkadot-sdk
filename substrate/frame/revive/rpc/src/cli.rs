@@ -19,7 +19,7 @@ use crate::{
 	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{Client, ClientError, SubscriptionType, connect},
+	client::{Client, ClientError, GapFiller, SubscriptionType, connect},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -222,6 +222,7 @@ fn build_client(
 	max_request_size: u32,
 	max_response_size: u32,
 	abort_signal: Signals,
+	gap_filler: GapFiller,
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc) =
@@ -263,6 +264,7 @@ fn build_client(
 			block_provider,
 			receipt_provider,
 			eth_pruning.is_archive(),
+			gap_filler,
 		)
 		.await?;
 
@@ -337,6 +339,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let tokio_handle = tokio_runtime.handle();
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
 
+	let (gap_filler, gap_fill_rx) = GapFiller::new();
 	let client = build_client(
 		tokio_handle,
 		eth_pruning,
@@ -345,6 +348,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rpc_config.max_request_size * 1024 * 1024,
 		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
+		gap_filler,
 	)?;
 
 	// Prometheus metrics.
@@ -381,12 +385,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				futures.push(Box::pin(client.sync_backward()));
 			}
 
-			// Backfill missed blocks.
-			let gap_fill_rx = client
-				.gap_filler()
-				.take_rx()
-				.await
-				.expect("gap filler receiver must be available at startup");
+			// Backfill gaps caused by subscription reconnects.
 			futures.push(Box::pin(async {
 				client.run_gap_filler(gap_fill_rx).await;
 				Ok::<_, ClientError>(())
