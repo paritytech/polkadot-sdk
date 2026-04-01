@@ -19,7 +19,7 @@
 //! Test utilities for the statement store
 
 use sp_core::{sr25519, Encode, Pair};
-use sp_statement_store::{statement_allowance_key, StatementAllowance};
+use sp_statement_store::{statement_allowance_key, Channel, StatementAllowance, Topic};
 
 /// Generate a deterministic keypair for a given client index
 pub fn get_keypair(idx: u32) -> sr25519::Pair {
@@ -53,4 +53,26 @@ pub fn create_allowance_items(allowances: &[(u32, StatementAllowance)]) -> Vec<(
 		items.push((storage_key.to_vec(), allowance.encode()));
 	}
 	items
+}
+
+/// Creates a signed statement with the given topics, channel, data, and expiry
+pub fn create_test_statement(
+	keypair: &sr25519::Pair,
+	topics: &[Topic],
+	channel: Option<Channel>,
+	data: Vec<u8>,
+	expiry_ts: u32,
+	seq: u32,
+) -> sp_statement_store::Statement {
+	let mut statement = sp_statement_store::Statement::new();
+	for (i, topic) in topics.iter().enumerate() {
+		statement.set_topic(i, *topic);
+	}
+	if let Some(ch) = channel {
+		statement.set_channel(ch);
+	}
+	statement.set_plain_data(data);
+	statement.set_expiry_from_parts(expiry_ts, seq);
+	statement.sign_sr25519_private(keypair);
+	statement
 }

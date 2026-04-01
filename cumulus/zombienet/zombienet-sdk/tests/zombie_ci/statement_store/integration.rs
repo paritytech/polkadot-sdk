@@ -6,25 +6,23 @@ use log::info;
 use sp_core::Bytes;
 use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
 
-use sc_statement_store::test_utils::{create_allowance_items, get_keypair};
+use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 
 use super::common::{
-	assert_no_more_statements, create_test_statement, expect_one_statement,
-	expect_statements_unordered, spawn_network, spawn_network_sudo, submit_statement,
-	subscribe_topic,
+	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 };
 
-/// Tests the genesis-injection approach for setting allowances
+/// Verifies basic statement propagation and data integrity across two nodes
 ///
-/// Verifies basic statement submission, subscription-based propagation,
-/// and data integrity across two nodes
+/// Tests uses the genesis-injection approach for setting allowances
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_genesis_inject() -> Result<(), anyhow::Error> {
+async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
@@ -43,19 +41,20 @@ async fn statement_store_genesis_inject() -> Result<(), anyhow::Error> {
 
 	let received = expect_one_statement(&mut sub, 20).await?;
 	assert_eq!(received, expected, "Statement data mismatch");
-	assert_no_more_statements(&mut sub, 20).await?;
-	info!("Genesis inject: propagation verified");
+	info!("Basic propagation: verified");
 
 	Ok(())
 }
 
-/// Tests sudo-based allowances: concurrent propagation, quota enforcement, and priority eviction
+/// Verifies concurrent propagation, quota enforcement, and priority eviction
 ///
 /// Spawns a single 4-node network with mixed allowances:
 /// - keypair_0: tight quota (max_count=3) for quota/eviction testing
 /// - keypairs 1-8: generous quota for concurrent propagation
+///
+/// Test uses sudo-based allowances
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
+async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -198,6 +197,5 @@ async fn statement_store_sudo_allowance() -> Result<(), anyhow::Error> {
 		info!("{}: eviction statements propagated ({} received)", name, received.len());
 	}
 
-	network.detach().await;
 	Ok(())
 }

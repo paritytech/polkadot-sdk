@@ -13,10 +13,9 @@ use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFi
 use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params};
-
 use sc_statement_store::test_utils::get_keypair;
 
-use super::common::{spawn_network, RPC_POOL_SIZE};
+use super::common::{spawn_network_with_injected_allowances, RPC_POOL_SIZE};
 
 /// Memory stress benchmark.
 ///
@@ -43,7 +42,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	let statements_per_task = submit_capacity / total_tasks as u64;
 
 	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
-	let network = spawn_network(&collator_names, total_tasks).await?;
+	let network = spawn_network_with_injected_allowances(&collator_names, total_tasks).await?;
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
@@ -247,7 +246,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		(0..config.num_nodes).map(|i| format!("collator{i}")).collect();
 	let collator_names: Vec<&str> = collator_names.iter().map(|s| s.as_str()).collect();
 
-	let network = spawn_network(&collator_names, config.num_clients).await?;
+	let network = spawn_network_with_injected_allowances(&collator_names, config.num_clients).await?;
 
 	info!("Starting Latency benchmark");
 	info!("");

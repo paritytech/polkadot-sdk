@@ -39,7 +39,6 @@ use subxt::{
 	dynamic::Value,
 	ext::{frame_decode, scale_value::value},
 	transactions::Signer,
-	tx::DynamicPayload,
 	utils::H256,
 	OnlineClient,
 };
@@ -236,22 +235,6 @@ pub async fn get_account_nonce(
 	Ok(nonce)
 }
 
-/// Creates a `Sudo::sudo(System::set_storage(...))` call to inject storage items at runtime
-pub fn create_set_storage_call(items: Vec<(Vec<u8>, Vec<u8>)>) -> DynamicPayload<Vec<Value>> {
-	let items_value: Vec<Value> = items
-		.into_iter()
-		.map(|(key, value)| value!((Value::from_bytes(key), Value::from_bytes(value))))
-		.collect();
-
-	subxt::tx::dynamic(
-		"Sudo",
-		"sudo",
-		vec![value! {
-			System(set_storage { items: items_value })
-		}],
-	)
-}
-
 /// Sets statement allowances at runtime via a sudo extrinsic signed by Alice
 pub async fn set_allowances_via_sudo(
 	ws_uri: &str,
@@ -265,7 +248,18 @@ pub async fn set_allowances_via_sudo(
 	)
 	.await?;
 	let alice = subxt_signer::sr25519::dev::alice();
-	let call = create_set_storage_call(items);
+
+	let items_value: Vec<Value> = items
+		.into_iter()
+		.map(|(key, value)| value!((Value::from_bytes(key), Value::from_bytes(value))))
+		.collect();
+	let call = subxt::tx::dynamic(
+		"Sudo",
+		"sudo",
+		vec![value! {
+			System(set_storage { items: items_value })
+		}],
+	);
 
 	client
 		.tx()
