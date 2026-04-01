@@ -78,8 +78,6 @@ struct TestConfig {
 	group_size: usize,
 	// whether the local node should be a validator
 	local_validator: LocalRole,
-	// allow v2 descriptors (feature bit)
-	allow_v2_descriptors: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -173,11 +171,7 @@ impl TestState {
 			random_seed: [0u8; 32],
 		};
 
-		let mut node_features = NodeFeatures::new();
-		if config.allow_v2_descriptors {
-			node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
-			node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
-		}
+		let node_features = NodeFeatures::new();
 
 		TestState { config, local, validators, session_info, req_sender, node_features }
 	}
@@ -220,7 +214,7 @@ impl TestState {
 						ParaId::from(i as u32)
 					};
 
-					(para_id, PerParaData::new(1, vec![1, 2, 3].into()))
+					(para_id, PerParaData::new(vec![1, 2, 3].into()))
 				})
 				.collect(),
 			minimum_backing_votes: 2,
@@ -430,13 +424,12 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 }
 
 struct PerParaData {
-	min_relay_parent: BlockNumber,
 	head_data: HeadData,
 }
 
 impl PerParaData {
-	pub fn new(min_relay_parent: BlockNumber, head_data: HeadData) -> Self {
-		Self { min_relay_parent, head_data }
+	pub fn new(head_data: HeadData) -> Self {
+		Self { head_data }
 	}
 }
 
@@ -594,12 +587,74 @@ async fn handle_leaf_activation(
 		number,
 		hash,
 		parent_hash,
-		para_data,
+		para_data: _,
 		session,
 		disabled_validators,
 		minimum_backing_votes,
 		claim_queue,
 	} = leaf;
+
+	// activate_leaf calls fetch_ancestors first
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SessionIndexForChild(tx),
+		)) => {
+			tx.send(Ok(*session)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SchedulingLookahead(_, tx),
+		)) => {
+			// Assuming scheduling lookahead of 2 for tests
+			tx.send(Ok(2)).unwrap();
+		}
+	);
+
+	let ancestors = assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ChainApi(ChainApiMessage::Ancestors {
+			k,
+			response_channel: tx,
+			..
+		}) => {
+			// Calculate ancestors based on block number
+			let mut ancestors = Vec::new();
+			let mut current_hash = *parent_hash;
+			let mut current_number = *number - 1;
+
+			for _ in 0..k {
+				if current_number == 0 {
+					break;
+				}
+				ancestors.push(current_hash);
+				// For tests, generate predictable parent hashes
+				current_hash = Hash::repeat_byte(current_hash.as_ref()[0].wrapping_sub(1));
+				current_number -= 1;
+			}
+
+			tx.send(Ok(ancestors.clone())).unwrap();
+			ancestors
+		}
+	);
+
+	// fetch_ancestors checks session for each returned ancestor
+	for _ in 0..ancestors.len() {
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				tx.send(Ok(*session)).unwrap();
+			}
+		);
+	}
 
 	let header = Header {
 		parent_hash: *parent_hash,
@@ -614,19 +669,6 @@ async fn handle_leaf_activation(
 			ChainApiMessage::BlockHeader(parent, tx)
 		) if parent == *hash => {
 			tx.send(Ok(Some(header))).unwrap();
-		}
-	);
-
-	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
-		.iter()
-		.map(|(para_id, data)| (*para_id, data.min_relay_parent))
-		.collect();
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-		) if parent == *hash => {
-			tx.send(mrp_response).unwrap();
 		}
 	);
 
@@ -914,7 +956,7 @@ fn next_group_index(
 	group_size: usize,
 ) -> GroupIndex {
 	let next_group = group_index.0 + 1;
-	let num_groups =
-		validator_count / group_size + if validator_count % group_size > 0 { 1 } else { 0 };
+	let num_groups = validator_count / group_size +
+		if !validator_count.is_multiple_of(group_size) { 1 } else { 0 };
 	GroupIndex::from(next_group % num_groups as u32)
 }

@@ -81,13 +81,14 @@ where
 			.transpose()?
 			.flatten()
 		{
-			Some(block) =>
+			Some(block) => {
 				if binary {
 					output.write_all(&block.encode())?;
 				} else {
 					serde_json::to_writer(&mut output, &block)
 						.map_err(|e| format!("Error writing JSON: {}", e))?;
-				},
+				}
+			},
 			None => return Poll::Ready(Ok(())),
 		}
 		if (block % 10000u32.into()).is_zero() {

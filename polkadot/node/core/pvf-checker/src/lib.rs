@@ -380,14 +380,15 @@ async fn examine_activation(
 	};
 
 	let new_session_index = match runtime_api::session_index_for_child(sender, leaf_hash).await {
-		Ok(session_index) =>
+		Ok(session_index) => {
 			if state.latest_session.map_or(true, |l| l < session_index) {
 				let signing_credentials =
 					check_signing_credentials(sender, keystore, leaf_hash).await;
 				Some((session_index, signing_credentials))
 			} else {
 				None
-			},
+			}
+		},
 		Err(e) => {
 			gum::warn!(
 				target: LOG_TARGET,

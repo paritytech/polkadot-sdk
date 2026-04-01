@@ -34,7 +34,10 @@ use pallet_staking_async_rc_client::{
 use sp_staking::SessionIndex;
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
-use xcm_executor::traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset};
+use xcm_executor::{
+	traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset},
+	AssetsInHolding,
+};
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -488,6 +491,10 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 	}
 }
 
+parameter_types! {
+	pub static KeyDeposit: Balance = 10;
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
@@ -495,19 +502,35 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
-	type Balance = Balance;
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
+	type Currency = Balances;
+	type KeyDeposit = KeyDeposit;
 	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+	pub static MockTime: u64 = 0;
+}
+
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		Self::get()
+	}
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = MockTime;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -556,7 +579,7 @@ impl FeeManager for BurnFees {
 	fn is_waived(_origin: Option<&Location>, _reason: FeeReason) -> bool {
 		false
 	}
-	fn handle_fee(_fee: Assets, _context: Option<&XcmContext>, _reason: FeeReason) {
+	fn handle_fee(_fee: AssetsInHolding, _context: Option<&XcmContext>, _reason: FeeReason) {
 		// Fees are burned (withdrawn but not deposited anywhere)
 	}
 }
@@ -568,10 +591,12 @@ impl MockXcmExecutor {
 	/// Charge fees from the given origin location.
 	pub fn charge_fees(origin: Location, fees: Assets) -> XcmResult {
 		if !BurnFees::is_waived(Some(&origin), FeeReason::ChargeFees) {
+			let mut withdrawn = AssetsInHolding::new();
 			for asset in fees.inner() {
-				LocalAssetTransactor::withdraw_asset(asset, &origin, None)?;
+				withdrawn
+					.subsume_assets(LocalAssetTransactor::withdraw_asset(asset, &origin, None)?);
 			}
-			BurnFees::handle_fee(fees, None, FeeReason::ChargeFees);
+			BurnFees::handle_fee(withdrawn, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}
@@ -795,11 +820,12 @@ impl ExtBuilder {
 		.map(|(x, y)| (x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Nominator(y)));
 
 		let stakers = validators.chain(nominators).collect::<Vec<_>>();
-		let balances = stakers
-			.clone()
-			.into_iter()
-			.map(|(x, _, _)| (x, INITIAL_BALANCE))
-			.collect::<Vec<_>>();
+		let mut balances: Vec<_> =
+			stakers.clone().into_iter().map(|(x, _, _)| (x, INITIAL_BALANCE)).collect();
+		// Fund DAP buffer account with ED so it can receive slashes.
+		use frame_support::sp_runtime::traits::AccountIdConversion;
+		let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
+		balances.push((dap_buffer, 1));
 
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
@@ -881,10 +907,12 @@ pub(crate) enum AssertSessionType {
 
 pub(crate) fn end_session_with(activate: bool, assert_starting_session: AssertSessionType) {
 	match assert_starting_session {
-		AssertSessionType::ElectionWithImmediateExport =>
-			end_session_and_assert_election(activate, true),
-		AssertSessionType::ElectionWithBufferedExport =>
-			end_session_and_assert_election(activate, false),
+		AssertSessionType::ElectionWithImmediateExport => {
+			end_session_and_assert_election(activate, true)
+		},
+		AssertSessionType::ElectionWithBufferedExport => {
+			end_session_and_assert_election(activate, false)
+		},
 		AssertSessionType::IdleOnlyExport => end_session_and_assert_idle(activate, true),
 		AssertSessionType::IdleNoExport => end_session_and_assert_idle(activate, false),
 	}

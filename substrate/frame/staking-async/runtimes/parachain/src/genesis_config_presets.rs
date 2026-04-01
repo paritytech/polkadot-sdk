@@ -17,7 +17,7 @@
 
 //! # Staking Async Runtime genesis config presets
 
-use crate::*;
+use crate::{staking::DapPalletId, *};
 use alloc::{
 	string::{String, ToString},
 	vec,
@@ -29,6 +29,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::AccountIdConversion;
 use sp_staking::StakerStatus;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
@@ -58,10 +59,13 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 		root,
 		id,
 	} = params;
+	// Fund DAP buffer account with ED so it can receive slashes.
+	let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
+	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
+	balances.push((dap_buffer, STAKING_ASYNC_PARA_ED));
+
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
-		},
+		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),

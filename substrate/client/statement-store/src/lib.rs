@@ -23,8 +23,8 @@
 //!
 //! Constraint management.
 //!
-//! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `global_priority`, 'max_count' and `max_size` for a statement.
+//! The statement store validates statements using node-side signature verification and
+//! static runtime allowance limits.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -50,24 +50,26 @@
 mod metrics;
 mod subscription;
 
+#[cfg(feature = "test-helpers")]
+pub mod subxt_client;
+#[cfg(feature = "test-helpers")]
+pub mod test_utils;
+
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::{lock_api::RwLockUpgradableReadGuard, RwLock};
 use prometheus_endpoint::Registry as PrometheusRegistry;
+use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{
-	crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Bytes, Decode, Encode,
-};
+use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	runtime_api::{
-		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
-	},
+	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, Proof, RejectionReason, Result, Statement, SubmitResult, Topic,
+	OptimizedTopicFilter, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
+	StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
@@ -104,11 +106,12 @@ const MAX_EXPIRY_TIME_PER_ITERATION: Duration = Duration::from_millis(100);
 /// Number of subscription filter worker tasks.
 const NUM_FILTER_WORKERS: usize = 1;
 
-const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
+const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(29);
 
-// Period between checking for expired statements. Different from maintenance period to avoid
-// keeping the lock for too long for maintenance tasks.
-const CHECK_EXPIRATION_PERIOD: std::time::Duration = std::time::Duration::from_secs(33);
+// Period between enforcing limits (checking for expired statements and making sure statements stay
+// within allowances). Different from maintenance period to avoid keeping the lock for too long for
+// maintenance tasks.
+const ENFORCE_LIMITS_PERIOD: std::time::Duration = std::time::Duration::from_secs(31);
 
 mod col {
 	pub const META: u8 = 0;
@@ -155,24 +158,69 @@ struct StatementsForAccount {
 	data_size: usize,
 }
 
-/// Store configuration
-pub struct Options {
-	/// Maximum statement allowed in the store. Once this limit is reached lower-priority
-	/// statements may be evicted.
-	max_total_statements: usize,
-	/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
-	/// statements may be evicted.
-	max_total_size: usize,
-	/// Number of seconds for which removed statements won't be allowed to be added back in.
-	purge_after_sec: u64,
+impl StatementsForAccount {
+	/// Returns an iterator over statements that have expired by `current_time`.
+	fn expired_by_iter(
+		&self,
+		current_time: u64,
+	) -> impl Iterator<Item = (&PriorityKey, &(Option<Channel>, usize))> {
+		let range = PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
+			hash: Hash::default(),
+			expiry: Expiry(current_time << 32),
+		};
+		self.by_priority.range(range)
+	}
 }
 
-impl Default for Options {
+/// Default number of concurrent workers for statement validation.
+pub const DEFAULT_NETWORK_WORKERS: usize = 1;
+
+/// Default maximum statements per second per peer before rate limiting kicks in.
+pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
+
+/// Statement store and network handler configuration.
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+	/// Maximum statements allowed in the store. Once this limit is reached lower-priority
+	/// statements may be evicted.
+	pub max_total_statements: usize,
+	/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
+	/// statements may be evicted.
+	pub max_total_size: usize,
+	/// Number of seconds for which removed statements won't be allowed to be added back in.
+	pub purge_after_sec: u64,
+	/// Number of concurrent workers for statement validation from the network.
+	pub network_workers: usize,
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	pub rate_limit: u32,
+}
+
+impl Config {
+	/// Validate the configuration, returning an error if any values are invalid.
+	pub fn validate(&self) -> Result<()> {
+		if self.max_total_statements == 0 {
+			return Err(Error::InvalidConfig(
+				"max_total_statements must be greater than zero".into(),
+			));
+		}
+		if self.max_total_size == 0 {
+			return Err(Error::InvalidConfig("max_total_size must be greater than zero".into()));
+		}
+		if self.network_workers == 0 {
+			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
+		}
+		Ok(())
+	}
+}
+
+impl Default for Config {
 	fn default() -> Self {
-		Options {
+		Config {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
+			network_workers: DEFAULT_NETWORK_WORKERS,
+			rate_limit: DEFAULT_RATE_LIMIT,
 		}
 	}
 }
@@ -187,35 +235,41 @@ struct Index {
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
-	options: Options,
+	config: Config,
 	total_size: usize,
 }
 
-struct ClientWrapper<Block, Client> {
+struct ClientWrapper<Block, Client, BE> {
 	client: Arc<Client>,
 	_block: std::marker::PhantomData<Block>,
+	_backend: std::marker::PhantomData<BE>,
 }
 
-impl<Block, Client> ClientWrapper<Block, Client>
+impl<Block, Client, BE> ClientWrapper<Block, Client, BE>
 where
 	Block: BlockT,
 	Block::Hash: From<BlockHash>,
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-	Client::Api: ValidateStatement<Block>,
+	BE: Backend<Block> + 'static,
+	Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	fn validate_statement(
+	fn read_allowance(
 		&self,
-		block: Option<BlockHash>,
-		source: StatementSource,
-		statement: Statement,
-	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let api = self.client.runtime_api();
-		let block = block.map(Into::into).unwrap_or_else(|| {
-			// Validate against the finalized state.
-			self.client.info().finalized_hash
-		});
-		api.validate_statement(block, source, statement)
-			.map_err(|_| InvalidStatement::InternalError)?
+		account_id: &AccountId,
+		block_hash: Option<Block::Hash>,
+	) -> Result<Option<StatementAllowance>> {
+		use sp_statement_store::{statement_allowance_key, StatementAllowance};
+
+		let block_hash = block_hash.unwrap_or(self.client.info().finalized_hash);
+		let key = statement_allowance_key(account_id);
+		let storage_key = StorageKey(key);
+		self.client
+			.storage(block_hash, &storage_key)
+			.map_err(|e| Error::Storage(format!("Failed to read allowance: {:?}", e)))?
+			.map(|value| {
+				StatementAllowance::decode(&mut &value.0[..])
+					.map_err(|e| Error::Decode(format!("Failed to decode allowance: {:?}", e)))
+			})
+			.transpose()
 	}
 }
 
@@ -223,16 +277,10 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	subscription_manager: SubscriptionsHandle,
-	validate_fn: Box<
-		dyn Fn(
-				Option<BlockHash>,
-				StatementSource,
-				Statement,
-			) -> std::result::Result<ValidStatement, InvalidStatement>
-			+ Send
-			+ Sync,
+	read_allowance_fn: Box<
+		dyn Fn(&AccountId, Option<BlockHash>) -> Result<Option<StatementAllowance>> + Send + Sync,
 	>,
+	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
 	time_override: Option<u64>,
@@ -246,11 +294,17 @@ enum IndexQuery {
 }
 
 impl Index {
-	fn new(options: Options) -> Index {
-		Index { options, ..Default::default() }
+	fn new(config: Config) -> Index {
+		Index { config, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		is_recent: bool,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -265,7 +319,9 @@ impl Index {
 		}
 		let expiry = Expiry(statement.expiry());
 		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		self.recent.insert(hash);
+		if is_recent {
+			self.recent.insert(hash);
+		}
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -299,10 +355,12 @@ impl Index {
 	) -> Result<()> {
 		match topic {
 			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAll(topics) =>
-				self.iterate_with_match_all(key, topics.iter(), f),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				self.iterate_with_match_any(key, topics.iter(), f),
+			OptimizedTopicFilter::MatchAll(topics) => {
+				self.iterate_with_match_all(key, topics.iter(), f)
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				self.iterate_with_match_any(key, topics.iter(), f)
+			},
 		}
 	}
 
@@ -396,7 +454,7 @@ impl Index {
 		// Purge previously expired messages.
 		let mut purged = Vec::new();
 		self.expired.retain(|hash, timestamp| {
-			if *timestamp + self.options.purge_after_sec <= current_time {
+			if *timestamp + self.config.purge_after_sec <= current_time {
 				purged.push(*hash);
 				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
 				false
@@ -462,7 +520,7 @@ impl Index {
 		hash: Hash,
 		statement: &Statement,
 		account: &AccountId,
-		validation: &ValidStatement,
+		validation: &StatementAllowance,
 		current_time: u64,
 	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();
@@ -554,8 +612,8 @@ impl Index {
 			}
 		}
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
+		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
+			self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -570,7 +628,7 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, true);
 		Ok(evicted)
 	}
 }
@@ -578,9 +636,9 @@ impl Index {
 impl Store {
 	/// Create a new shared store instance. There should only be one per process.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	pub fn new_shared<Block, Client>(
+	pub fn new_shared<Block, Client, BE>(
 		path: &std::path::Path,
-		options: Options,
+		config: Config,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -589,11 +647,11 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-		Client::Api: ValidateStatement<Block>,
+		BE: Backend<Block> + 'static,
+		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let store =
-			Arc::new(Self::new(path, options, client, keystore, prometheus, task_spawner.clone())?);
+			Arc::new(Self::new(path, config, client, keystore, prometheus, task_spawner.clone())?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -602,11 +660,11 @@ impl Store {
 			Some("statement-store"),
 			Box::pin(async move {
 				let mut maintenance_interval = tokio::time::interval(MAINTENANCE_PERIOD);
-				let mut check_expiration_interval = tokio::time::interval(CHECK_EXPIRATION_PERIOD);
+				let mut enforce_limits_interval = tokio::time::interval(ENFORCE_LIMITS_PERIOD);
 				loop {
 					futures::select! {
 						_ = maintenance_interval.tick().fuse() => {worker_store.maintain();}
-						_ = check_expiration_interval.tick().fuse() => {worker_store.check_expiration();}
+						_ = enforce_limits_interval.tick().fuse() => {worker_store.enforce_limits();}
 					}
 				}
 			}),
@@ -618,9 +676,9 @@ impl Store {
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
 	#[doc(hidden)]
-	pub fn new<Block, Client>(
+	pub fn new<Block, Client, BE>(
 		path: &std::path::Path,
-		options: Options,
+		config: Config,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -629,19 +687,21 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-		Client::Api: ValidateStatement<Block>,
+		BE: Backend<Block> + 'static,
+		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
+		config.validate()?;
+
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
 
-		let mut config = parity_db::Options::with_columns(&path, col::COUNT);
+		let mut db_config = parity_db::Options::with_columns(&path, col::COUNT);
 
-		let statement_col = &mut config.columns[col::STATEMENTS as usize];
+		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
 		statement_col.ref_counted = false;
 		statement_col.preimage = true;
 		statement_col.uniform = true;
-		let db = parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?;
+		let db = parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))?;
 		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
 			Some(version) => {
 				let version = u32::from_le_bytes(
@@ -663,15 +723,17 @@ impl Store {
 			},
 		}
 
-		let validator = ClientWrapper { client, _block: Default::default() };
-		let validate_fn = Box::new(move |block, source, statement| {
-			validator.validate_statement(block, source, statement)
-		});
+		let storage_reader =
+			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
+		let read_allowance_fn =
+			Box::new(move |account_id: &AccountId, block_hash: Option<BlockHash>| {
+				storage_reader.read_allowance(account_id, block_hash.map(Into::into))
+			});
 
 		let store = Store {
 			db,
-			index: RwLock::new(Index::new(options)),
-			validate_fn,
+			index: RwLock::new(Index::new(config)),
+			read_allowance_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
@@ -702,7 +764,7 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement);
+							index.insert_new(hash, account_id, &statement, false);
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
@@ -786,26 +848,100 @@ impl Store {
 		Ok(result)
 	}
 
-	// Checks for expired statements and marks them as expired in the index.
+	// Collects expired and over-allowance statement hashes for a single account.
+	fn collect_evictions(
+		&self,
+		account: &AccountId,
+		account_rec: &StatementsForAccount,
+		current_time: u64,
+	) -> Vec<Hash> {
+		let mut to_evict = Vec::new();
+		let mut expired_count = 0usize;
+		let mut expired_size = 0usize;
+		for (key, (_, len)) in account_rec.expired_by_iter(current_time) {
+			to_evict.push(key.hash);
+			expired_count += 1;
+			expired_size += len;
+		}
+
+		// Enforce allowances for remaining (non-expired) statements
+		let allowance = match (self.read_allowance_fn)(account, None) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"No allowance found for account {:?}, treating as zero allowance",
+					HexDisplay::from(account)
+				);
+				StatementAllowance { max_count: 0, max_size: 0 }
+			},
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
+				// Skip allowance enforcement for this account on error
+				return to_evict;
+			},
+		};
+
+		// Calculate remaining count and size after expiring statements
+		let mut remaining_count = account_rec.by_priority.len() - expired_count;
+		let mut remaining_size = account_rec.data_size - expired_size;
+
+		// Evict lowest priority statements that exceed allowance
+		if remaining_count > allowance.max_count as usize ||
+			remaining_size > allowance.max_size as usize
+		{
+			log::debug!(
+				target: LOG_TARGET,
+				"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
+				HexDisplay::from(account),
+				remaining_count,
+				allowance.max_count,
+				remaining_size,
+				allowance.max_size
+			);
+
+			// Skip expired statements (they're at the beginning due to BTreeMap ordering)
+			for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
+				if remaining_count <= allowance.max_count as usize &&
+					remaining_size <= allowance.max_size as usize
+				{
+					break;
+				}
+				to_evict.push(key.hash);
+				remaining_count -= 1;
+				remaining_size -= len;
+				log::debug!(
+					target: LOG_TARGET,
+					"Evicting statement {:?} due to allowance enforcement",
+					HexDisplay::from(&key.hash)
+				);
+			}
+		}
+
+		to_evict
+	}
+
+	// Checks for expired statements and enforces allowances, marking violating statements
+	// as expired in the index.
 	//
-	// This function performs incremental expiration checking to avoid blocking the store
-	// for too long. It processes accounts in batches and stops when any of these limits
-	// are reached:
-	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements found to expire
+	// This function performs incremental checking to avoid blocking the store for too long.
+	// It processes accounts in batches and stops when any of these limits are reached:
+	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements found to expire/evict
 	// - `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked
 	// - `MAX_EXPIRY_TIME_MS_PER_ITERATION` milliseconds elapsed
 	//
 	// The function maintains a list of accounts to check (`accounts_to_check_for_expiry_stmts`).
 	// When this list is empty, it repopulates it with all current accounts and returns early,
-	// deferring the actual expiration check to the next call. This ensures the expiration
-	// process eventually covers all accounts across multiple invocations.
+	// deferring the actual check to the next call. This ensures the process eventually covers
+	// all accounts across multiple invocations.
 	//
 	// Statements are considered expired when their priority (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
-	fn check_expiration(&self) {
+	fn enforce_limits(&self) {
+		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 
-		let (needs_expiry, num_accounts_checked) = {
+		let (to_evict, num_accounts_checked) = {
 			let index = self.index.upgradable_read();
 			if index.accounts_to_check_for_expiry_stmts.is_empty() {
 				let existing_accounts = index.accounts.keys().cloned().collect::<Vec<_>>();
@@ -814,28 +950,17 @@ impl Store {
 				return;
 			}
 
-			let mut needs_expiry = Vec::new();
+			let mut to_evict = Vec::new();
 			let mut num_accounts_checked = 0;
 			let start = Instant::now();
 
 			for account in index.accounts_to_check_for_expiry_stmts.iter().rev() {
 				num_accounts_checked += 1;
 				if let Some(account_rec) = index.accounts.get(account) {
-					needs_expiry.extend(
-						account_rec
-							.by_priority
-							.range(
-								PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..
-									PriorityKey {
-										hash: Hash::default(),
-										expiry: Expiry(current_time << 32),
-									},
-							)
-							.map(|key| key.0.hash),
-					);
+					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
 				}
 
-				if needs_expiry.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
+				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
 					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
 					start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
 				{
@@ -843,10 +968,12 @@ impl Store {
 				}
 			}
 
-			(needs_expiry, num_accounts_checked)
+			(to_evict, num_accounts_checked)
 		};
 
-		for hash in needs_expiry {
+		let mut expired = 0;
+
+		for hash in to_evict {
 			if let Err(e) = self.remove(&hash) {
 				log::debug!(
 					target: LOG_TARGET,
@@ -855,6 +982,7 @@ impl Store {
 					e
 				);
 			} else {
+				expired += 1;
 				log::trace!(
 					target: LOG_TARGET,
 					"Marked statement {:?} as expired",
@@ -862,21 +990,44 @@ impl Store {
 				);
 			}
 		}
+
 		let mut index = self.index.write();
 		let new_len = index
 			.accounts_to_check_for_expiry_stmts
 			.len()
 			.saturating_sub(num_accounts_checked);
 		index.accounts_to_check_for_expiry_stmts.truncate(new_len);
+
+		drop(_start_check_expiration_timer);
+
+		self.metrics.report(|metrics| {
+			metrics.statements_expired_total.inc_by(expired);
+		});
 	}
 
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let (deleted, active_count, expired_count): (Vec<_>, usize, usize) = {
+		let (
+			deleted,
+			active_count,
+			expired_count,
+			total_size,
+			accounts_count,
+			capacity_statements,
+			capacity_bytes,
+		): (Vec<_>, usize, usize, usize, usize, usize, usize) = {
 			let mut index = self.index.write();
 			let deleted = index.maintain(self.timestamp());
-			(deleted, index.entries.len(), index.expired.len())
+			(
+				deleted,
+				index.entries.len(),
+				index.expired.len(),
+				index.total_size,
+				index.accounts.len(),
+				index.config.max_total_statements,
+				index.config.max_total_size,
+			)
 		};
 		let deleted: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
@@ -886,6 +1037,16 @@ impl Store {
 		} else {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
+
+		self.metrics.report(|metrics| {
+			metrics.statements_total.set(active_count as u64);
+			metrics.bytes_total.set(total_size as u64);
+			metrics.accounts_total.set(accounts_count as u64);
+			metrics.expired_total.set(expired_count as u64);
+			metrics.capacity_statements.set(capacity_statements as u64);
+			metrics.capacity_bytes.set(capacity_bytes as u64);
+		});
+
 		log::trace!(
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Active: {}, Expired: {}",
@@ -1139,6 +1300,7 @@ impl StatementStore for Store {
 
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
+		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
 		if self.timestamp() >= statement.get_expiration_timestamp_secs().into() {
@@ -1147,6 +1309,7 @@ impl StatementStore for Store {
 				"Statement is already expired: {:?}",
 				HexDisplay::from(&hash),
 			);
+			self.metrics.report(|metrics| metrics.validations_invalid.inc());
 			return SubmitResult::Invalid(InvalidReason::AlreadyExpired);
 		}
 		let encoded_size = statement.encoded_size();
@@ -1158,6 +1321,7 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
+			self.metrics.report(|metrics| metrics.validations_invalid.inc());
 			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
@@ -1165,14 +1329,16 @@ impl StatementStore for Store {
 		}
 
 		match self.index.read().query(&hash) {
-			IndexQuery::Expired =>
+			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::KnownExpired;
-				},
-			IndexQuery::Exists =>
+				}
+			},
+			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::Known;
-				},
+				}
+			},
 			IndexQuery::Unknown => {},
 		}
 
@@ -1186,16 +1352,9 @@ impl StatementStore for Store {
 			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
-		// Validate.
-		let at_block = if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-			Some(*block_hash)
-		} else {
-			None
-		};
-		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
-		let validation = match validation_result {
-			Ok(validation) => validation,
-			Err(InvalidStatement::BadProof) => {
+		match statement.verify_signature() {
+			SignatureVerificationResult::Valid(_) => {},
+			SignatureVerificationResult::Invalid => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Statement validation failed: BadProof, {:?}",
@@ -1204,17 +1363,49 @@ impl StatementStore for Store {
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
 				return SubmitResult::Invalid(InvalidReason::BadProof);
 			},
-			Err(InvalidStatement::NoProof) => {
+			SignatureVerificationResult::NoSignature => {
+				if let Some(Proof::OnChain { .. }) = statement.proof() {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement with OnChain proof accepted: {:?}",
+						HexDisplay::from(&hash),
+					);
+				} else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement validation failed: NoProof, {:?}",
+						HexDisplay::from(&hash),
+					);
+					self.metrics.report(|metrics| metrics.validations_invalid.inc());
+					return SubmitResult::Invalid(InvalidReason::NoProof);
+				}
+			},
+		};
+
+		let validation = match (self.read_allowance_fn)(
+			&account_id,
+			statement.proof().and_then(|p| match p {
+				Proof::OnChain { block_hash, .. } => Some(*block_hash),
+				_ => None,
+			}),
+		) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Statement validation failed: NoProof, {:?}",
-					HexDisplay::from(&hash),
+					"Account {} has no statement allowance set",
+					HexDisplay::from(&account_id),
 				);
-				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Invalid(InvalidReason::NoProof);
+				return SubmitResult::Rejected(RejectionReason::NoAllowance);
 			},
-			Err(InvalidStatement::InternalError) =>
-				return SubmitResult::InternalError(Error::Runtime),
+			Err(e) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Reading statement allowance for account {} failed",
+					HexDisplay::from(&account_id),
+				);
+				return SubmitResult::InternalError(e);
+			},
 		};
 
 		let current_time = self.timestamp();
@@ -1225,7 +1416,12 @@ impl StatementStore for Store {
 			let evicted =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					Ok(evicted) => evicted,
-					Err(reason) => return SubmitResult::Rejected(reason),
+					Err(reason) => {
+						self.metrics.report(|metrics| {
+							metrics.rejections.with_label_values(&[reason.label()]).inc();
+						});
+						return SubmitResult::Rejected(reason);
+					},
 				};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
@@ -1305,7 +1501,8 @@ impl StatementStoreSubscriptionApi for Store {
 	fn subscribe_statement(
 		&self,
 		topic_filter: OptimizedTopicFilter,
-	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)> {
+	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
+	{
 		// Keep the index read lock until after we have subscribed to avoid missing statements.
 		let mut existing_statements = Vec::new();
 		let index = self.index.read();
@@ -1318,6 +1515,14 @@ impl StatementStoreSubscriptionApi for Store {
 		)?;
 		let (subscription_sender, subscription_stream) =
 			self.subscription_manager.subscribe(topic_filter);
+		if existing_statements.is_empty() {
+			subscription_sender
+				.send_blocking(StatementEvent::NewStatements {
+					statements: vec![],
+					remaining: Some(0),
+				})
+				.ok();
+		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
 	}
 }
@@ -1329,9 +1534,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, SignatureVerificationResult,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, Proof, Statement, StatementSource,
+		StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1346,48 +1550,118 @@ mod tests {
 	#[derive(Clone)]
 	pub(crate) struct TestClient;
 
-	pub(crate) struct RuntimeApi {
-		_inner: TestClient,
-	}
+	pub(crate) type TestBackend = sc_client_api::in_mem::Backend<Block>;
 
-	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
-		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
-			RuntimeApi { _inner: self.clone() }.into()
+	impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
+		fn storage(
+			&self,
+			_hash: Hash,
+			key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+			use sp_statement_store::StatementAllowance;
+
+			assert_eq!(&key.0[0..21], b":statement_allowance:" as &[u8],);
+
+			// Extract account ID (32 bytes) from the storage key
+			let account_bytes = &key.0[21..53];
+			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
+			let allowance = match account_id {
+				// Account 0 has no allowance (used to test eviction of all statements)
+				0 => return Ok(None),
+				1 => StatementAllowance::new(1, 1000),
+				2 => StatementAllowance::new(2, 1000),
+				3 => StatementAllowance::new(3, 1000),
+				4 => StatementAllowance::new(4, 1000),
+				42 => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				_ => StatementAllowance::new(100, 1000),
+			};
+			Ok(Some(sc_client_api::StorageData(allowance.encode())))
 		}
-	}
 
-	sp_api::mock_impl_runtime_apis! {
-		impl ValidateStatement<Block> for RuntimeApi {
-			fn validate_statement(
-				_source: StatementSource,
-				statement: Statement,
-			) -> std::result::Result<ValidStatement, InvalidStatement> {
-				use crate::tests::account;
-				match statement.verify_signature() {
-					SignatureVerificationResult::Valid(_) => Ok(ValidStatement{max_count: 100, max_size: 1000}),
-					SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-					SignatureVerificationResult::NoSignature => {
-						if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-							if block_hash == &CORRECT_BLOCK_HASH {
-								let (max_count, max_size) = match statement.account_id() {
-									Some(a) if a == account(1) => (1, 1000),
-									Some(a) if a == account(2) => (2, 1000),
-									Some(a) if a == account(3) => (3, 1000),
-									Some(a) if a == account(4) => (4, 1000),
-									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
-									_ => (2, 2000),
-								};
-								Ok(ValidStatement{ max_count, max_size })
-							} else {
-								Err(InvalidStatement::BadProof)
-							}
-						} else {
-							Err(InvalidStatement::BadProof)
-						}
-					}
-				}
-			}
+		fn storage_hash(
+			&self,
+			_hash: Hash,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<Hash>> {
+			unimplemented!()
+		}
+
+		fn storage_keys(
+			&self,
+			_hash: Hash,
+			_prefix: Option<&sc_client_api::StorageKey>,
+			_start_key: Option<&sc_client_api::StorageKey>,
+		) -> sp_blockchain::Result<
+			sc_client_api::backend::KeysIter<
+				<TestBackend as sc_client_api::Backend<Block>>::State,
+				Block,
+			>,
+		> {
+			unimplemented!()
+		}
+
+		fn storage_pairs(
+			&self,
+			_hash: Hash,
+			_prefix: Option<&sc_client_api::StorageKey>,
+			_start_key: Option<&sc_client_api::StorageKey>,
+		) -> sp_blockchain::Result<
+			sc_client_api::backend::PairsIter<
+				<TestBackend as sc_client_api::Backend<Block>>::State,
+				Block,
+			>,
+		> {
+			unimplemented!()
+		}
+
+		fn child_storage(
+			&self,
+			_hash: Hash,
+			_child_info: &sc_client_api::ChildInfo,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+			unimplemented!()
+		}
+
+		fn child_storage_keys(
+			&self,
+			_hash: Hash,
+			_child_info: sc_client_api::ChildInfo,
+			_prefix: Option<&sc_client_api::StorageKey>,
+			_start_key: Option<&sc_client_api::StorageKey>,
+		) -> sp_blockchain::Result<
+			sc_client_api::backend::KeysIter<
+				<TestBackend as sc_client_api::Backend<Block>>::State,
+				Block,
+			>,
+		> {
+			unimplemented!()
+		}
+
+		fn child_storage_hash(
+			&self,
+			_hash: Hash,
+			_child_info: &sc_client_api::ChildInfo,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<Hash>> {
+			unimplemented!()
+		}
+
+		fn closest_merkle_value(
+			&self,
+			_hash: Hash,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+			unimplemented!()
+		}
+
+		fn child_closest_merkle_value(
+			&self,
+			_hash: Hash,
+			_child_info: &sc_client_api::ChildInfo,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+			unimplemented!()
 		}
 	}
 
@@ -1426,7 +1700,7 @@ mod tests {
 		let mut path: std::path::PathBuf = temp_dir.path().into();
 		path.push("db");
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-		let store = Store::new(
+		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
 			Default::default(),
 			client,
@@ -1508,7 +1782,7 @@ mod tests {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
-		let unsigned = statement(0, 1, None, 0);
+		let unsigned = statement(1, 1, None, 0);
 		assert_eq!(store.submit(unsigned, StatementSource::Network), SubmitResult::New);
 	}
 
@@ -1530,7 +1804,7 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(
+		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
 			Default::default(),
 			client,
@@ -1625,7 +1899,7 @@ mod tests {
 	fn constraints() {
 		let (store, _temp) = test_store();
 
-		store.index.write().options.max_total_size = 3000;
+		store.index.write().config.max_total_size = 3000;
 		let source = StatementSource::Network;
 		let ok = SubmitResult::New;
 
@@ -1680,7 +1954,7 @@ mod tests {
 			SubmitResult::Rejected(_)
 		));
 		// Should be over the global count limit
-		store.index.write().options.max_total_statements = 4;
+		store.index.write().config.max_total_statements = 4;
 		assert!(matches!(
 			store.submit(statement(1, 1, None, 100), source),
 			SubmitResult::Rejected(_)
@@ -1702,7 +1976,7 @@ mod tests {
 	#[test]
 	fn max_statement_size_for_gossiping() {
 		let (store, _temp) = test_store();
-		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+		store.index.write().config.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
 
 		assert_eq!(
 			store.submit(
@@ -1742,7 +2016,7 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(
+		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
 			Default::default(),
 			client,
@@ -2075,7 +2349,7 @@ mod tests {
 		store.remove_by(account(4)).expect("second remove_by should be a no-op");
 
 		// --- Purge: advance time beyond TTL and run maintenance; expired entries disappear.
-		let purge_after = store.index.read().options.purge_after_sec;
+		let purge_after = store.index.read().config.purge_after_sec;
 		store.set_time(purge_after + 1);
 		store.maintain();
 		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
@@ -2105,7 +2379,7 @@ mod tests {
 		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 
 		// First call to check_expiration should populate the list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Now accounts_to_check_for_expiry_stmts should contain all 3 accounts
 		let accounts = store.index.read().accounts_to_check_for_expiry_stmts.clone();
@@ -2144,14 +2418,14 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 2);
 
 		// First check_expiration populates the account list
-		store.check_expiration();
+		store.enforce_limits();
 		assert!(!store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 
 		// Advance time past the expiry of the first statement
 		store.set_time(1000);
 
 		// Second check_expiration should find and expire the statement
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Check the expired statement is now in the expired list
 		let index = store.index.read();
@@ -2188,7 +2462,7 @@ mod tests {
 		store.submit(stmt3, StatementSource::Network);
 
 		// First call populates the list
-		store.check_expiration();
+		store.enforce_limits();
 		assert_eq!(
 			store.index.read().accounts_to_check_for_expiry_stmts.len(),
 			3,
@@ -2199,7 +2473,7 @@ mod tests {
 		store.set_time(300);
 
 		// Second call should check accounts, expire statements, and remove checked accounts
-		store.check_expiration();
+		store.enforce_limits();
 
 		// The list should now be empty (all accounts checked and removed)
 		assert!(
@@ -2226,11 +2500,11 @@ mod tests {
 		}
 
 		// First call populates the list
-		store.check_expiration();
+		store.enforce_limits();
 		assert_eq!(store.index.read().accounts_to_check_for_expiry_stmts.len(), 5);
 
 		// Second call checks accounts and truncates the list (even though nothing expires)
-		store.check_expiration();
+		store.enforce_limits();
 
 		// The list should now be empty - accounts are removed after being checked
 		assert!(
@@ -2269,11 +2543,11 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 3);
 
 		// First check_expiration populates the account list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time to 250 (stmt1 should expire since 250 > 200)
 		store.set_time(250);
-		store.check_expiration();
+		store.enforce_limits();
 
 		{
 			let index = store.index.read();
@@ -2284,11 +2558,11 @@ mod tests {
 		}
 
 		// Repopulate the account list for next check
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time to 400 (stmt2 should also expire since 400 > 300)
 		store.set_time(400);
-		store.check_expiration();
+		store.enforce_limits();
 
 		{
 			let index = store.index.read();
@@ -2299,9 +2573,9 @@ mod tests {
 		}
 
 		// Repopulate and check again at time 600 (stmt3 should expire since 600 > 500)
-		store.check_expiration();
+		store.enforce_limits();
 		store.set_time(600);
-		store.check_expiration();
+		store.enforce_limits();
 
 		{
 			let index = store.index.read();
@@ -2324,10 +2598,10 @@ mod tests {
 		store.submit(stmt, StatementSource::Network);
 
 		// Populate the account list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Check expiration - nothing should happen
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Statement should still be there
 		let index = store.index.read();
@@ -2356,9 +2630,9 @@ mod tests {
 		}
 
 		// Populate and then expire
-		store.check_expiration();
+		store.enforce_limits();
 		store.set_time(300);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Verify account is removed after its only statement expires
 		{
@@ -2393,9 +2667,9 @@ mod tests {
 		}
 
 		// Populate and then expire
-		store.check_expiration();
+		store.enforce_limits();
 		store.set_time(300);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Verify indexes are cleared
 		{
@@ -2420,10 +2694,10 @@ mod tests {
 		store.set_time(1000);
 
 		// With no statements, check_expiration should not panic
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Second call should also work (empty repopulation)
-		store.check_expiration();
+		store.enforce_limits();
 
 		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 		assert_eq!(store.index.read().entries.len(), 0);
@@ -2447,11 +2721,11 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 1);
 
 		// Populate the accounts list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time past the expiration timestamp
 		store.set_time(2000);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Statement SHOULD be expired because check_expiration now compares
 		// Expiry(2000 << 32) against Expiry(1001 << 32 | 1), and
@@ -2481,11 +2755,11 @@ mod tests {
 		assert!(db_entry.is_some(), "Statement should be in col::STATEMENTS after submit");
 
 		// Populate the accounts list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time past expiry and run check_expiration
 		store.set_time(300);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Verify in-memory state is updated correctly
 		{
@@ -2508,5 +2782,121 @@ mod tests {
 
 		let expired_entry = store.db.get(col::EXPIRED, &hash).unwrap();
 		assert!(expired_entry.is_some(), "Expiration info should be written to col::EXPIRED");
+	}
+
+	#[test]
+	fn enforce_allowances_evicts_excess_statements() {
+		// This test verifies that check_expiration correctly evicts statements
+		// when statements exceed the current allowance. We directly insert into
+		// the index (bypassing submit's validation) to simulate statements that
+		// existed before allowances were reduced.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Account 4 has allowance (4 statements, 1000 bytes) from TestClient
+		let s1 = statement(4, 10, None, 100); // lowest priority - will be evicted
+		let s2 = statement(4, 20, None, 100);
+		let s3 = statement(4, 30, None, 100);
+		let s4 = statement(4, 40, None, 100);
+		let s5 = statement(4, 50, None, 100); // highest priority
+
+		let h1 = s1.hash();
+		let h5 = s5.hash();
+
+		// Directly insert into index, bypassing `submit`'s allowance check
+		{
+			let mut index = store.index.write();
+			for s in [&s1, &s2, &s3, &s4, &s5] {
+				index.insert_new(s.hash(), account(4), s, false);
+			}
+		}
+
+		// Verify initial state - all 5 should be present
+		assert_eq!(store.index.read().entries.len(), 5);
+		assert_eq!(store.index.read().total_size, 500);
+
+		// Run check_expiration which handles both expiration and allowance enforcement
+		// First call populates the accounts list, second call processes them
+		// Since account 4 has max_count=4, one statement should be evicted
+		store.enforce_limits();
+		store.enforce_limits();
+
+		// Should evict the lowest priority statement (s1)
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 4, "Should have 4 statements after eviction");
+		assert!(!index.entries.contains_key(&h1), "Lowest priority should be evicted");
+		assert!(index.entries.contains_key(&h5), "Highest priority should remain");
+		assert_eq!(index.total_size, 400);
+
+		// Evicted statement should be marked as expired
+		assert!(index.expired.contains_key(&h1));
+	}
+
+	#[test]
+	fn enforce_allowances_evicts_all_when_no_allowance_found() {
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Account 0 has NO allowance in TestClient
+		let s1 = statement(0, 10, None, 100);
+		let s2 = statement(0, 20, None, 150);
+
+		let h1 = s1.hash();
+		let h2 = s2.hash();
+
+		// Directly insert statements for account with no allowance
+		{
+			let mut index = store.index.write();
+			index.insert_new(h1, account(0), &s1, false);
+			index.insert_new(h2, account(0), &s2, false);
+		}
+
+		assert_eq!(store.index.read().entries.len(), 2);
+
+		// Run check_expiration - should evict ALL statements since no allowance exists
+		// First call populates the accounts list, second call processes them
+		store.enforce_limits();
+		store.enforce_limits();
+
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
+		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
+		assert!(index.expired.contains_key(&h1));
+		assert!(index.expired.contains_key(&h2));
+	}
+
+	#[test]
+	fn enforce_allowances_based_on_size() {
+		// This test verifies that check_expiration evicts based on size limits.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Account 2 has allowance (2, 1000) from TestClient
+		// Insert 2 statements that together exceed 1000 bytes
+		let s1 = statement(2, 10, None, 600); // lowest priority
+		let s2 = statement(2, 20, None, 600); // higher priority
+
+		let h1 = s1.hash();
+		let h2 = s2.hash();
+
+		// Directly insert both statements (total 1200 bytes > 1000 limit)
+		{
+			let mut index = store.index.write();
+			index.insert_new(h1, account(2), &s1, false);
+			index.insert_new(h2, account(2), &s2, false);
+		}
+
+		assert_eq!(store.index.read().total_size, 1200);
+
+		// Run check_expiration - should evict s1 to get under 1000 bytes
+		// First call populates the accounts list, second call processes them
+		store.enforce_limits();
+		store.enforce_limits();
+
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 1);
+		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
+		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
+		assert_eq!(index.total_size, 600);
 	}
 }

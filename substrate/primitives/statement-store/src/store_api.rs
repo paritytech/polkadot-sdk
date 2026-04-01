@@ -17,7 +17,7 @@
 
 pub use crate::runtime_api::StatementSource;
 use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
-use sp_core::{bounded_vec::BoundedVec, ConstU32};
+use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
 use std::collections::HashSet;
 
 /// Statement store error.
@@ -27,12 +27,15 @@ pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
 	Db(String),
-	/// Error decoding statement structure.
-	#[error("Error decoding statement: {0:?}")]
+	/// Decoding error
+	#[error("Decoding error: {0:?}")]
 	Decode(String),
-	/// Error making runtime call.
-	#[error("Error calling into the runtime")]
-	Runtime,
+	/// Error reading from storage.
+	#[error("Storage error: {0:?}")]
+	Storage(String),
+	/// Invalid configuration.
+	#[error("Invalid configuration: {0}")]
+	InvalidConfig(String),
 }
 
 /// Filter for subscribing to statements with different topics.
@@ -68,11 +71,13 @@ impl OptimizedTopicFilter {
 	pub fn matches(&self, statement: &Statement) -> bool {
 		match self {
 			OptimizedTopicFilter::Any => true,
-			OptimizedTopicFilter::MatchAll(topics) =>
+			OptimizedTopicFilter::MatchAll(topics) => {
 				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
-					topics.len(),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				statement.topics().iter().any(|topic| topics.contains(topic)),
+					topics.len()
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				statement.topics().iter().any(|topic| topics.contains(topic))
+			},
 		}
 	}
 }
@@ -128,6 +133,21 @@ pub enum RejectionReason {
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
+	/// Account has no allowance set.
+	NoAllowance,
+}
+
+impl RejectionReason {
+	/// Returns a short string label suitable for use in metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			RejectionReason::DataTooLarge { .. } => "data_too_large",
+			RejectionReason::ChannelPriorityTooLow { .. } => "channel_priority_too_low",
+			RejectionReason::AccountFull { .. } => "account_full",
+			RejectionReason::StoreFull => "store_full",
+			RejectionReason::NoAllowance => "no_allowance",
+		}
+	}
 }
 
 /// Reason why a statement failed validation.
@@ -167,6 +187,25 @@ pub enum SubmitResult {
 	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
+}
+
+/// An item returned by the statement subscription stream.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "event", content = "data", rename_all = "camelCase"))]
+pub enum StatementEvent {
+	/// A batch of statements matching the subscription filter.
+	NewStatements {
+		/// A batch of statements matching the subscription filter, each entry is a SCALE-encoded
+		/// statement.
+		statements: Vec<Bytes>,
+		/// An optional count of how many more matching statements are in the store after this
+		/// batch. This guarantees to the client that it will receive at least this many more
+		/// statements in the subscription stream, but it may receive more if new statements are
+		/// added to the store that match the filter.
+		#[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+		remaining: Option<u32>,
+	},
 }
 
 /// Result type for `Error`

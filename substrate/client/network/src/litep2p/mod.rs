@@ -26,11 +26,12 @@ use crate::{
 	error::Error,
 	event::{DhtEvent, Event},
 	litep2p::{
+		bitswap::BitswapServer,
 		discovery::{Discovery, DiscoveryEvent},
+		ipfs_dht::IpfsDht,
 		peerstore::Peerstore,
 		service::{Litep2pNetworkService, NetworkServiceCommand},
 		shim::{
-			bitswap::BitswapServer,
 			notification::{
 				config::{NotificationProtocolConfig, ProtocolControlHandle},
 				peerset::PeersetCommand,
@@ -94,7 +95,9 @@ use std::{
 	time::{Duration, Instant},
 };
 
+mod bitswap;
 mod discovery;
+mod ipfs_dht;
 mod peerstore;
 mod service;
 mod shim;
@@ -217,8 +220,9 @@ impl Litep2pNetworkBackend {
 						.map_or(None, |peer| Some((peer, Some(address)))),
 					_ => None,
 				},
-				Some(Protocol::P2p(multihash)) =>
-					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None))),
+				Some(Protocol::P2p(multihash)) => {
+					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None)))
+				},
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -300,8 +304,9 @@ impl Litep2pNetworkBackend {
 
 				match iter.next() {
 					Some(Protocol::Tcp(_)) => match iter.next() {
-						Some(Protocol::Ws(_) | Protocol::Wss(_)) =>
-							Some((None, Some(address.clone()))),
+						Some(Protocol::Ws(_) | Protocol::Wss(_)) => {
+							Some((None, Some(address.clone())))
+						},
 						Some(Protocol::P2p(_)) | None => Some((Some(address.clone()), None)),
 						protocol => {
 							log::error!(
@@ -484,8 +489,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				use sc_network_types::multiaddr::Protocol;
 
 				let address = match address.iter().last() {
-					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
-						address.with(Protocol::P2p(peer.into())),
+					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) => {
+						address.with(Protocol::P2p(peer.into()))
+					},
 					Some(Protocol::P2p(_)) => address,
 					_ => return acc,
 				};
@@ -510,6 +516,23 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
+		// enable Bitswap & IPFS DHT
+		if let Some(config) = params.ipfs_config {
+			config_builder = config_builder.with_libp2p_bitswap(config.bitswap_config);
+
+			if !config.bootnodes.is_empty() {
+				let (ipfs_dht, kad_config) = IpfsDht::new(config.bootnodes, config.block_provider);
+				config_builder = config_builder.with_libp2p_kademlia(kad_config);
+				executor.run(Box::pin(ipfs_dht.run()));
+			} else {
+				log::warn!(
+					target: LOG_TARGET,
+					"Not starting IPFS DHT publisher because no IPFS bootnodes are configured. \
+					 Only direct Bitswap requests will be handled.",
+				);
+			}
+		}
+
 		config_builder = config_builder
 			.with_known_addresses(known_addresses.clone().into_iter())
 			.with_libp2p_ping(ping_config)
@@ -526,10 +549,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		if let Some(config) = maybe_mdns_config {
 			config_builder = config_builder.with_mdns(config);
-		}
-
-		if let Some(config) = params.bitswap_config {
-			config_builder = config_builder.with_libp2p_bitswap(config);
 		}
 
 		let litep2p =
