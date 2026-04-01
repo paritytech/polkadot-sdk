@@ -1085,8 +1085,8 @@ pub mod pallet {
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
 		}
-    
-    /// Add an assignment to the Workplan.
+
+		/// Add an assignment to the Workplan.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `timeslice`: The timeslice at which the assignment should take effect.
@@ -1101,7 +1101,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_add_assignment(timeslice, core, assignment)?;
-    }
+			Ok(())
+		}
 
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
