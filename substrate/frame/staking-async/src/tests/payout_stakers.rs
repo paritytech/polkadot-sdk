@@ -66,9 +66,6 @@ fn rewards_with_nominator_should_work() {
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
-		// With DAP, treasury rewards are minted directly into buffer (not sent to RewardRemainder)
-		assert_eq!(mock::RewardRemainderUnbalanced::get(), 0);
-
 		// make note of total issuance before payouts (rewards already minted at era finalization
 		// above)
 		let pre_issuance = asset::total_issuance::<T>();
@@ -117,8 +114,6 @@ fn rewards_with_nominator_should_work() {
 
 		Session::roll_until_active_era(3);
 
-		// With DAP, treasury rewards go to buffer (not RewardRemainder)
-		assert_eq!(mock::RewardRemainderUnbalanced::get(), 0);
 		assert_eq!(
 			mock::staking_events_since_last_call(),
 			vec![

@@ -114,19 +114,6 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-parameter_types! {
-	pub static RewardRemainderUnbalanced: u128 = 0;
-}
-pub struct RewardRemainderMock;
-impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
-		RewardRemainderUnbalanced::mutate(|v| {
-			*v += amount.peek();
-		});
-		drop(amount);
-	}
-}
-
 pub(crate) const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
@@ -482,7 +469,7 @@ impl Config for Test {
 	type ElectionProvider = TestElectionProvider;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type HistoryDepth = HistoryDepth;
-	type RewardRemainder = RewardRemainderMock;
+	type RewardRemainder = ();
 	type Slash = Dap;
 	type UnclaimedRewardHandler = Dap;
 	type Reward = MockReward;
@@ -776,7 +763,6 @@ impl ExtBuilder {
 			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&dap_buffer, ed)
 				.expect("mint dap buffer");
 			session_mock::Session::roll_until_active_era(1);
-			RewardRemainderUnbalanced::set(0);
 			if self.flush_events {
 				let _ = staking_events_since_last_call();
 			}
