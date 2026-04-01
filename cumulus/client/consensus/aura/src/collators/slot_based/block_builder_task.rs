@@ -203,17 +203,17 @@ where
 		//
 		//  - T0: Aura 803 begins. The relay parent is still old (0xA). The node skips.
 		//
-		//  - T1 (soft failure): Aura 803 last block production opportunity. Relay parent 0xB
-		//    (para slot 803) is picked. However, aura 803 now has < 1000ms remaining. The 1s
-		//    deadline triggers, skipping the block.
+		//  - T1 (soft failure): Aura 803 last block production opportunity. Relay parent 0xB (para
+		//    slot 803) is picked. However, aura 803 now has < 1000ms remaining. The 1s deadline
+		//    triggers, skipping the block.
 		//
-		//  - T2: Aura 804 begins. The node successfully builds 10 blocks on 0xB. As aura 804
-		//    ends, the 1s deadline triggers again, skipping the final 2 cores.
+		//  - T2: Aura 804 begins. The node successfully builds 10 blocks on 0xB. As aura 804 ends,
+		//    the 1s deadline triggers again, skipping the final 2 cores.
 		//
 		//  - T3 (critical failure): Aura 805 begins. The wall clock resets, the next aura slot
 		//    arrives in 6000ms. However, the network hasn't delivered a new relay parent yet.
-		//    Because the timer reset, the deadline check passes, and the node erroneously
-		//    builds a stale block on top of 0xB.
+		//    Because the timer reset, the deadline check passes, and the node erroneously builds a
+		//    stale block on top of 0xB.
 		//
 		// To prevent T1, we rely on the 1-second hard deadline to skip block production.
 		//
@@ -370,7 +370,7 @@ where
 				continue;
 			};
 
-			slot_timer.update_scheduling(core.total_cores().into());
+			slot_timer.update_scheduling(3);
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
