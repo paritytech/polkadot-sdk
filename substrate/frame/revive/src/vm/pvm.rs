@@ -20,13 +20,13 @@
 pub mod env;
 
 use crate::{
+	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
-	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -216,11 +216,7 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
 	fn from(from: &ExecReturnValue) -> Self {
-		if from.flags.contains(ReturnFlags::REVERT) {
-			Self::CalleeReverted
-		} else {
-			Self::Success
-		}
+		if from.flags.contains(ReturnFlags::REVERT) { Self::CalleeReverted } else { Self::Success }
 	}
 }
 
@@ -269,9 +265,7 @@ impl fmt::Display for TrapReason {
 /// We need this access as a macro because sometimes hiding the lifetimes behind
 /// a function won't work out.
 macro_rules! charge_gas {
-	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
-	}};
+	($runtime:expr, $costs:expr) => {{ $runtime.ext.frame_meter_mut().charge_weight_token($costs) }};
 }
 
 /// The kind of call that should be performed.
@@ -846,7 +840,13 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result;
 			}
 		};
-		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
+		crate::tracing::if_tracing(|tracer| {
+			tracer.enter_ecall(crate::tracing::PVM_FUEL_NAME, &[], &self.runtime)
+		});
+		let sync_result =
+			self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas());
+		crate::tracing::if_tracing(|tracer| tracer.exit_step(&self.runtime, None));
+		sync_result?;
 		exec_result
 	}
 

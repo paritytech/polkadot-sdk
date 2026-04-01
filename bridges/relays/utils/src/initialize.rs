@@ -30,7 +30,7 @@ use std::cell::RefCell;
 /// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
 pub static RELAYER_VERSION: Mutex<Option<String>> = Mutex::new(None);
 
-async_std::task_local! {
+std::thread_local! {
 	pub(crate) static LOOP_NAME: RefCell<String> = RefCell::new(String::default());
 }
 

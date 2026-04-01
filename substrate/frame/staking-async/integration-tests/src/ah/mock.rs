@@ -34,7 +34,10 @@ use pallet_staking_async_rc_client::{
 use sp_staking::SessionIndex;
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
-use xcm_executor::traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset};
+use xcm_executor::{
+	traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset},
+	AssetsInHolding,
+};
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -488,6 +491,10 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 	}
 }
 
+parameter_types! {
+	pub static KeyDeposit: Balance = 10;
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
@@ -495,19 +502,35 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
-	type Balance = Balance;
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
+	type Currency = Balances;
+	type KeyDeposit = KeyDeposit;
 	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+	pub static MockTime: u64 = 0;
+}
+
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		Self::get()
+	}
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = MockTime;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -556,7 +579,7 @@ impl FeeManager for BurnFees {
 	fn is_waived(_origin: Option<&Location>, _reason: FeeReason) -> bool {
 		false
 	}
-	fn handle_fee(_fee: Assets, _context: Option<&XcmContext>, _reason: FeeReason) {
+	fn handle_fee(_fee: AssetsInHolding, _context: Option<&XcmContext>, _reason: FeeReason) {
 		// Fees are burned (withdrawn but not deposited anywhere)
 	}
 }
@@ -568,10 +591,12 @@ impl MockXcmExecutor {
 	/// Charge fees from the given origin location.
 	pub fn charge_fees(origin: Location, fees: Assets) -> XcmResult {
 		if !BurnFees::is_waived(Some(&origin), FeeReason::ChargeFees) {
+			let mut withdrawn = AssetsInHolding::new();
 			for asset in fees.inner() {
-				LocalAssetTransactor::withdraw_asset(asset, &origin, None)?;
+				withdrawn
+					.subsume_assets(LocalAssetTransactor::withdraw_asset(asset, &origin, None)?);
 			}
-			BurnFees::handle_fee(fees, None, FeeReason::ChargeFees);
+			BurnFees::handle_fee(withdrawn, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}

@@ -15,12 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{Code, DispatchError, Key, Weight, evm::Bytes, primitives::ExecReturnValue};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
 
 environmental!(tracer: dyn Tracing + 'static);
+
+/// Synthetic syscall name used for tracing PVM interpreter fuel consumption between real syscalls.
+pub const PVM_FUEL_NAME: &str = "pvm_fuel";
 
 /// Trace the execution of the given closure.
 ///

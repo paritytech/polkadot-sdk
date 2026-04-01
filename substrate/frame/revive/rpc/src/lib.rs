@@ -18,15 +18,21 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 use client::ClientError;
+use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
+	core::{RpcResult, async_trait},
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
-use sp_core::{keccak_256, H160, H256, U256};
+use sp_core::{H160, H256, U256, keccak_256};
+use subxt::backend::legacy::rpc_methods::TransactionStatus;
+use subxt_signer::bip39::core::pin::Pin;
 use thiserror::Error;
-use tokio::time::Duration;
+use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 
+mod block_sync;
+pub(crate) use block_sync::{ChainMetadata, SyncLabel, SyncStateKey};
 pub mod cli;
 pub mod client;
 pub mod example;
@@ -162,12 +168,17 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(receipt)
 	}
 
+	/// Performs gas estimations to find the lowest gas limit required to run the transaction.
+	///
+	/// This method implements the same gas estimation logic found in Geth which performs binary
+	/// search with some simple heuristics to find the smallest gas limit for the transaction.
 	async fn estimate_gas(
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
+
 		let block = block.unwrap_or_else(|| {
 			if self.use_pending_for_estimate_gas {
 				BlockTag::Pending.into()
@@ -175,22 +186,27 @@ impl EthRpcServer for EthRpcServerImpl {
 				Default::default()
 			}
 		});
-		let hash = self.client.block_hash_for_tag(block.clone().into()).await?;
-		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, block.into()).await?;
-		log::trace!(target: LOG_TARGET, "estimate_gas result={dry_run:?}");
-		Ok(dry_run.eth_gas)
+		let hash = self.client.block_hash_for_tag(block.into()).await?;
+		let gas_estimate =
+			self.client.runtime_api(hash).estimate_gas(transaction, block.into()).await?;
+
+		log::trace!(
+			target: LOG_TARGET,
+			"estimate_gas result={gas_estimate:?}",
+		);
+		Ok(gas_estimate)
 	}
 
 	async fn call(
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block.clone()).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let dry_run = runtime_api.dry_run(transaction, block).await?;
+		let dry_run = runtime_api.dry_run(transaction, block, state_overrides).await?;
 		Ok(dry_run.data.into())
 	}
 
@@ -235,36 +251,32 @@ impl EthRpcServer for EthRpcServerImpl {
 		let receiver = self.client.block_notifier().map(|sender| sender.subscribe());
 
 		// Submit the transaction
-		self.client.submit(call).await.map_err(|err| {
+		let tx_status = self.client.submit(call).await.map_err(|err| {
 			log::trace!(target: LOG_TARGET, "send_raw_transaction ethereum_hash: {hash:?} failed: {err:?}");
 			err
 		})?;
 
-		log::trace!(target: LOG_TARGET, "send_raw_transaction with hash: {hash:?}");
+		if matches!(tx_status, TransactionStatus::Future) {
+			return Ok(hash);
+		}
 
 		// Wait for the transaction to be included in a block if automine is enabled
 		if let Some(mut receiver) = receiver {
-			if let Err(err) = tokio::time::timeout(Duration::from_millis(500), async {
-				loop {
-					if let Ok(block_hash) = receiver.recv().await {
-						let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
-							log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
-							continue
-						};
-						let Some(evm_block) = self.client.evm_block(block, false).await else {
-							log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
-							continue
-						};
-						if evm_block.transactions.contains_tx(hash) {
-							log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
-							break;
-						}
+			loop {
+				if let Ok(block_hash) = receiver.recv().await {
+					let Ok(Some(block)) = self.client.block_by_hash(&block_hash).await else {
+						log::debug!(target: LOG_TARGET, "Could not find the block with the received hash: {hash:?}.");
+						continue;
+					};
+					let Some(evm_block) = self.client.evm_block(block, false).await else {
+						log::debug!(target: LOG_TARGET, "Failed to get the EVM block for substrate block with hash: {hash:?}");
+						continue;
+					};
+					if evm_block.transactions.contains_tx(hash) {
+						log::debug!(target: LOG_TARGET, "{hash:} was included in a block");
+						break;
 					}
 				}
-			})
-			.await
-			{
-				log::debug!(target: LOG_TARGET, "timeout waiting for new block: {err:?}");
 			}
 		}
 
@@ -412,8 +424,16 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash);
-		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
-		Ok(bytes.unwrap_or([0u8; 32].into()).into())
+		let bytes = match runtime_api.get_storage(address, storage_slot.to_big_endian()).await {
+			Ok(value) => value.unwrap_or([0u8; 32].into()),
+			// Per Ethereum spec, return zero for non-contract addresses.
+			Err(ClientError::ContractNotFound) => {
+				log::trace!(target: LOG_TARGET, "get_storage_at: ContractNotFound for {address:?}, returning zero");
+				[0u8; 32].into()
+			},
+			Err(err) => return Err(err.into()),
+		};
+		Ok(bytes.into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
@@ -485,6 +505,41 @@ impl EthRpcServer for EthRpcServerImpl {
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
 	}
+
+	async fn eth_subscribe(
+		&self,
+		pending: PendingSubscriptionSink,
+		kind: SubscriptionKind,
+		options: Option<SubscriptionOptions>,
+	) {
+		let Some(subscription_parameters) = SubscriptionParameters::new(kind, options) else {
+			return pending
+				.reject(ErrorObjectOwned::owned(
+					jsonrpsee::types::error::INVALID_PARAMS_CODE,
+					"Invalid subscription parameters",
+					None::<()>,
+				))
+				.await;
+		};
+		let Ok(sink) = pending.accept().await else {
+			return;
+		};
+
+		let stream: Pin<
+			Box<dyn Stream<Item = Result<SubscriptionItem, BroadcastStreamRecvError>> + Send>,
+		> = match subscription_parameters {
+			SubscriptionParameters::NewBlockHeaders => Box::pin(
+				BroadcastStream::new(self.client.get_block_subscription_rx())
+					.map_ok(|block| SubscriptionItem::BlockHeader(BlockHeader::from(block))),
+			) as _,
+			SubscriptionParameters::Logs(filter) => Box::pin(
+				BroadcastStream::new(self.client.get_log_subscription_rx())
+					.try_filter(move |log| futures::future::ready(filter.matches(log)))
+					.map_ok(SubscriptionItem::Log),
+			) as _,
+		};
+		let _ = tokio::spawn(Self::handle_subscription_forwarding(sink, stream));
+	}
 }
 
 impl EthRpcServerImpl {
@@ -508,5 +563,39 @@ impl EthRpcServerImpl {
 		};
 
 		Ok(Some(TransactionInfo::new(&receipt, signed_tx)))
+	}
+
+	async fn handle_subscription_forwarding(
+		sink: SubscriptionSink,
+		mut stream: Pin<
+			Box<dyn Stream<Item = Result<SubscriptionItem, BroadcastStreamRecvError>> + Send>,
+		>,
+	) {
+		loop {
+			tokio::select! {
+				_ = sink.closed() => break,
+				item = stream.next() => {
+					match item {
+						// Stream ended.
+						None => break,
+						// Send the item to the subscriber.
+						Some(Ok(sub_item)) => {
+							let msg = SubscriptionMessage::from_json(&sub_item)
+								.expect("SubscriptionItem is serializable; qed");
+							if sink.send(msg).await.is_err() {
+								break;
+							}
+						},
+						// Broadcast receiver lagged behind — missed messages.
+						Some(Err(BroadcastStreamRecvError::Lagged(count))) => {
+							log::warn!(
+								target: LOG_TARGET,
+								"Subscription lagged, skipped {count} messages"
+							);
+						},
+					}
+				}
+			}
+		}
 	}
 }

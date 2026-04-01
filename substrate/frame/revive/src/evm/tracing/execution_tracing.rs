@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	DispatchError, ExecReturnValue, Key, Weight,
 	evm::{
-		tracing::Tracing, Bytes, ExecutionStep, ExecutionStepKind, ExecutionTrace,
-		ExecutionTracerConfig,
+		Bytes, ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracerConfig,
+		tracing::Tracing,
 	},
 	tracing::{EVMFrameTraceInfo, FrameTraceInfo},
-	vm::pvm::env::lookup_syscall_index,
-	DispatchError, ExecReturnValue, Key, Weight,
+	vm::pvm::env::lookup_trace_op_index,
 };
 use alloc::{
 	collections::BTreeMap,
@@ -204,7 +204,7 @@ impl Tracing for ExecutionTracer {
 			return_data,
 			error: None,
 			kind: ExecutionStepKind::PVMSyscall {
-				op: lookup_syscall_index(ecall).unwrap_or_default(),
+				op: lookup_trace_op_index(ecall).unwrap_or_default(),
 				args: syscall_args,
 				returned: None,
 			},
@@ -229,10 +229,10 @@ impl Tracing for ExecutionTracer {
 		let total_weight = trace_info.weight_consumed().saturating_sub(step.weight_cost);
 		step.weight_cost = total_weight.saturating_sub(pending.child_weight);
 
-		if !self.config.disable_syscall_details {
-			if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
-				*ret = returned;
-			}
+		if !self.config.disable_syscall_details &&
+			let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind
+		{
+			*ret = returned;
 		}
 	}
 

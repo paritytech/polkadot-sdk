@@ -16,25 +16,23 @@
 // limitations under the License.
 
 use crate::{
-	assert_refcount,
+	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
+	PristineCode, assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
 	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB},
+	test_utils::{ALICE, ALICE_ADDR, BOB, builder::Contract},
 	tests::{
-		builder,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test, builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
 	tracing::trace,
-	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
-	PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
+use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
 use test_case::test_case;
@@ -177,10 +175,11 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn eth_contract_too_large() {
-	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
-	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
-		.expect("usize value doesn't fit in u32");
-	let code = VmBinaryModule::evm_sized(contract_size).code;
+	// Create EVM init code that is one byte larger than the EIP-3860 limit.
+	// We take valid init code and pad it with STOP opcodes after the RETURN instruction
+	// (unreachable but makes the init code blob itself exceed MAX_INITCODE_SIZE).
+	let mut code = VmBinaryModule::evm_init_code_for_runtime_size(0).code;
+	code.resize(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1, revm::bytecode::opcode::STOP);
 
 	for (allow_unlimited_contract_size, debug_flag) in
 		[(true, false), (true, true), (false, false), (false, true)]
@@ -221,10 +220,10 @@ fn eth_contract_too_large() {
 #[test]
 fn upload_evm_runtime_code_works() {
 	use crate::{
+		Pallet, TransactionMeter,
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
-		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -271,7 +270,7 @@ fn upload_and_remove_code_works_for_evm() {
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		// Upload the code.
-		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128));
 
 		// Ensure the contract was stored.
 		ensure_stored(code_hash);
@@ -292,7 +291,7 @@ fn upload_fails_if_evm_bytecode_disabled() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Upload should fail since support for EVM bytecode is disabled.
 		assert_err!(
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128),
 			<Error<Test>>::CodeRejected
 		);
 	});
@@ -360,8 +359,7 @@ fn prestate_diff_mode_tracing_works() {
 						"nonce": 2,
 						"code": "{{CONTRACT_CODE}}",
 						"storage": {
-							"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
-							"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_7}}"
 						}
 					},
 					"{{CHILD_ADDR}}": {
@@ -396,8 +394,7 @@ fn prestate_diff_mode_tracing_works() {
 							"nonce": 2,
 							"code": "{{CONTRACT_CODE}}",
 							"storage": {
-								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
-								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_7}}"
 							}
 						},
 						"{{CHILD_ADDR}}": {
@@ -417,7 +414,7 @@ fn prestate_diff_mode_tracing_works() {
 							"nonce": 2,
 							"code": "{{CONTRACT_CODE}}",
 							"storage": {
-								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_7}}"
 							}
 						},
 						"{{CHILD_ADDR}}": {
@@ -432,7 +429,7 @@ fn prestate_diff_mode_tracing_works() {
 					"post": {
 						"{{CONTRACT_ADDR}}": {
 							"storage": {
-								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000008"
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{SLOT0_PACKED_8}}"
 							}
 						},
 						"{{CHILD_ADDR}}": {
@@ -460,8 +457,13 @@ fn prestate_diff_mode_tracing_works() {
 			let replace_placeholders = |json: &str| -> String {
 				let alice_balance_post = Pallet::<Test>::evm_balance(&ALICE_ADDR);
 
-				let mut child_addr_bytes = [0u8; 32];
-				child_addr_bytes[12..32].copy_from_slice(child_addr.as_bytes());
+				// Packed slot 0: [4 zero bytes][uint64 number BE][20-byte address]
+				let slot0_packed = |number: u64| -> String {
+					let mut slot = [0u8; 32];
+					slot[4..12].copy_from_slice(&number.to_be_bytes());
+					slot[12..32].copy_from_slice(child_addr.as_bytes());
+					format!("0x{}", hex::encode(slot))
+				};
 
 				json.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
 					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", contract_addr))
@@ -473,10 +475,8 @@ fn prestate_diff_mode_tracing_works() {
 						&format!("0x{}", hex::encode(&contract_runtime_code)),
 					)
 					.replace("{{CHILD_CODE}}", &format!("0x{}", hex::encode(&child_runtime_code)))
-					.replace(
-						"{{CHILD_ADDR_PADDED}}",
-						&format!("0x{}", hex::encode(child_addr_bytes)),
-					)
+					.replace("{{SLOT0_PACKED_7}}", &slot0_packed(7))
+					.replace("{{SLOT0_PACKED_8}}", &slot0_packed(8))
 			};
 
 			let mut tracer = PrestateTracer::<Test>::new(test_case.config.clone());

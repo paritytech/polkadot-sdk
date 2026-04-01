@@ -1067,7 +1067,26 @@ pub mod pallet {
 			Self::do_remove_potential_renewal(core, when)
 		}
 
-		/// Add an assignment to the Workplan.
+		/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
+		///
+		/// This can also be used to recover regions that have been "burned" (e.g., from an
+		/// XCM reserve transfer).
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
+		#[pallet::call_index(28)]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
+		}
+    
+    /// Add an assignment to the Workplan.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `timeslice`: The timeslice at which the assignment should take effect.
@@ -1082,8 +1101,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_add_assignment(timeslice, core, assignment)?;
-			Ok(())
-		}
+    }
 
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]

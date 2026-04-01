@@ -357,4 +357,16 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(21_020_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	/// Storage: `Broker::Regions` (r:1 w:1)
+	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
+	fn force_transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `358`
+		//  Estimated: `3551`
+		// Minimum execution time: 22_968_000 picoseconds.
+		Weight::from_parts(23_878_000, 0)
+			.saturating_add(Weight::from_parts(0, 3551))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

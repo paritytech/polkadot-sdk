@@ -108,6 +108,7 @@ pub trait WeightInfo {
 	fn remove_assignment() -> Weight;
 	fn add_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
+	fn force_transfer() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -387,6 +388,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 20_564_000 picoseconds.
 		Weight::from_parts(21_702_000, 0)
 	}
+	/// Storage: `Broker::Regions` (r:1 w:1)
+	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
+	fn force_transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `496`
+		//  Estimated: `3551`
+		// Minimum execution time: 22_866_000 picoseconds.
+		Weight::from_parts(23_961_000, 3551)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -664,5 +676,16 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 20_564_000 picoseconds.
 		Weight::from_parts(21_702_000, 0)
+	}
+	/// Storage: `Broker::Regions` (r:1 w:1)
+	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
+	fn force_transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `496`
+		//  Estimated: `3551`
+		// Minimum execution time: 22_866_000 picoseconds.
+		Weight::from_parts(23_961_000, 3551)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
