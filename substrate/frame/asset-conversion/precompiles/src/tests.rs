@@ -26,14 +26,21 @@ use frame_support::{
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
-use sp_core::H160;
 use sp_runtime::Weight;
 
-/// Native asset address (first 4 bytes = 0).
-const NATIVE_ADDR: H160 = H160([0u8; 20]);
+/// Convert H160 to alloy Address for use in precompile call encoding.
+fn addr(h: H160) -> alloy::primitives::Address {
+	alloy::primitives::Address::from(h.0)
+}
 
-/// Asset 1 address (first 4 bytes = 1).
-fn asset1_addr() -> H160 {
+/// Convert an account id to an alloy Address.
+fn account_addr(id: &u64) -> alloy::primitives::Address {
+	addr(<Test as pallet_revive::Config>::AddressMapper::to_address(id))
+}
+
+const NATIVE: H160 = H160([0u8; 20]);
+
+fn asset1() -> H160 {
 	asset_to_address(1)
 }
 
@@ -97,8 +104,6 @@ fn swap_exact_tokens_for_tokens_works() {
 		// Give swapper some asset1 to swap.
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
 
-		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
-
 		let swapper_asset1_before =
 			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &swapper);
 		let recipient_native_before =
@@ -106,13 +111,10 @@ fn swap_exact_tokens_for_tokens_works() {
 
 		// Swap 100 asset1 -> native, send to recipient.
 		let data = IAssetConversion::swapExactTokensForTokensCall {
-			path: vec![
-				alloy::primitives::Address::from(asset1_addr().0),
-				alloy::primitives::Address::from(NATIVE_ADDR.0),
-			],
+			path: vec![addr(asset1()), addr(NATIVE)],
 			amountIn: U256::from(100),
 			amountOutMin: U256::from(1),
-			sendTo: alloy::primitives::Address::from(recipient_addr.0),
+			sendTo: account_addr(&recipient),
 			keepAlive: false,
 		}
 		.abi_encode();
@@ -156,8 +158,8 @@ fn quote_exact_tokens_for_tokens_works() {
 		setup_pool(provider, 10_000, 10_000);
 
 		let data = IAssetConversion::quoteExactTokensForTokensCall {
-			asset1: alloy::primitives::Address::from(asset1_addr().0),
-			asset2: alloy::primitives::Address::from(NATIVE_ADDR.0),
+			asset1: addr(asset1()),
+			asset2: addr(NATIVE),
 			amount: U256::from(100),
 			includeFee: true,
 		}
@@ -188,8 +190,8 @@ fn quote_matches_swap() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
 
 		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
-			asset1: alloy::primitives::Address::from(asset1_addr().0),
-			asset2: alloy::primitives::Address::from(NATIVE_ADDR.0),
+			asset1: addr(asset1()),
+			asset2: addr(NATIVE),
 			amount: U256::from(100),
 			includeFee: true,
 		}
@@ -201,16 +203,11 @@ fn quote_matches_swap() {
 		)
 		.unwrap();
 
-		let swapper_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
-
 		let swap_data = IAssetConversion::swapExactTokensForTokensCall {
-			path: vec![
-				alloy::primitives::Address::from(asset1_addr().0),
-				alloy::primitives::Address::from(NATIVE_ADDR.0),
-			],
+			path: vec![addr(asset1()), addr(NATIVE)],
 			amountIn: U256::from(100),
 			amountOutMin: U256::from(1),
-			sendTo: alloy::primitives::Address::from(swapper_addr.0),
+			sendTo: account_addr(&swapper),
 			keepAlive: false,
 		}
 		.abi_encode();
@@ -236,20 +233,15 @@ fn swap_tokens_for_exact_tokens_works() {
 		// Give swapper native balance (already has 1M from genesis) and asset1.
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
 
-		let swapper_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
-
 		let swapper_native_before =
 			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &swapper);
 
 		// Swap native -> asset1, requesting exactly 50 asset1 output.
 		let data = IAssetConversion::swapTokensForExactTokensCall {
-			path: vec![
-				alloy::primitives::Address::from(NATIVE_ADDR.0),
-				alloy::primitives::Address::from(asset1_addr().0),
-			],
+			path: vec![addr(NATIVE), addr(asset1())],
 			amountOut: U256::from(50),
 			amountInMax: U256::from(10_000),
-			sendTo: alloy::primitives::Address::from(swapper_addr.0),
+			sendTo: account_addr(&swapper),
 			keepAlive: false,
 		}
 		.abi_encode();
@@ -289,8 +281,8 @@ fn quote_tokens_for_exact_tokens_works() {
 
 		// Quote: how much native needed to get exactly 100 asset1?
 		let data = IAssetConversion::quoteTokensForExactTokensCall {
-			asset1: alloy::primitives::Address::from(NATIVE_ADDR.0),
-			asset2: alloy::primitives::Address::from(asset1_addr().0),
+			asset1: addr(NATIVE),
+			asset2: addr(asset1()),
 			amount: U256::from(100),
 			includeFee: true,
 		}
@@ -320,16 +312,11 @@ fn swap_fails_with_insufficient_output() {
 		setup_pool(provider, 10_000, 10_000);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
 
-		let swapper_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
-
 		let data = IAssetConversion::swapExactTokensForTokensCall {
-			path: vec![
-				alloy::primitives::Address::from(asset1_addr().0),
-				alloy::primitives::Address::from(NATIVE_ADDR.0),
-			],
+			path: vec![addr(asset1()), addr(NATIVE)],
 			amountIn: U256::from(100),
 			amountOutMin: U256::from(999_999),
-			sendTo: alloy::primitives::Address::from(swapper_addr.0),
+			sendTo: account_addr(&swapper),
 			keepAlive: false,
 		}
 		.abi_encode();
@@ -347,8 +334,8 @@ fn quote_fails_for_nonexistent_pool() {
 		let caller = 1u64;
 
 		let data = IAssetConversion::quoteExactTokensForTokensCall {
-			asset1: alloy::primitives::Address::from(asset_to_address(99).0),
-			asset2: alloy::primitives::Address::from(NATIVE_ADDR.0),
+			asset1: addr(asset_to_address(99)),
+			asset2: addr(NATIVE),
 			amount: U256::from(100),
 			includeFee: true,
 		}
