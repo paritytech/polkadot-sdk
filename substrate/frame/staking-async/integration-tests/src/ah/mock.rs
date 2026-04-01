@@ -625,7 +625,6 @@ impl pallet_vesting::Config for Runtime {
 	type Currency = Balances;
 	type BlockNumberToBalance = frame_support::sp_runtime::traits::ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
->>>>>>> 357f6ecad5c (squash: staking changes from 10844)
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
