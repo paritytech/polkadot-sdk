@@ -20,7 +20,7 @@ use crate::{
 	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MaxPsmDebtOfTotal,
 	MintingFee, PsmDebt, RedemptionFee,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, hypothetically};
 use sp_runtime::{DispatchError, Permill, TokenError};
 
 mod mint {
@@ -436,29 +436,22 @@ mod redeem {
 				let alice_pusd = get_asset_balance(PUSD_ASSET_ID, ALICE);
 				let too_much = alice_pusd + 1000 * PUSD_UNIT;
 
-				let debt_before = PsmDebt::<Test>::get(USDC_ASSET_ID);
-				let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
-				let psm_usdc_before = get_asset_balance(USDC_ASSET_ID, psm_account());
-
-				assert!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much).is_err());
-
-				// Verify no state mutation occurred
-				assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), debt_before);
-				assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), alice_pusd);
-				assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before);
-				assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), psm_usdc_before);
+				assert_noop!(
+					Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much),
+					TokenError::FundsUnavailable
+				);
 			});
 	}
 
 	#[test]
 	fn boundary_reserve_equals_output() {
-		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
+		new_test_ext().execute_with(|| {
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
 
-			let reserve = get_asset_balance(USDC_ASSET_ID, psm_account());
-			fund_pusd(ALICE, reserve);
-
-			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, reserve));
+			let amount = 5000 * PUSD_UNIT;
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, amount));
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, amount));
 
 			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), 0);
 		});
@@ -489,11 +482,16 @@ mod redeem {
 				Error::<Test>::InsufficientReserve
 			);
 
-			// Redeeming exactly the debt should work
-			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, debt));
+			// Verify boundary: exactly debt works, but debt+1 does not
+			hypothetically!({
+				assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, debt));
+				assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), donation);
+			});
 
-			// Donated reserves remain in PSM account (not withdrawable via redeem)
-			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), donation);
+			assert_noop!(
+				Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, debt + 1),
+				Error::<Test>::InsufficientReserve
+			);
 		});
 	}
 }
@@ -953,6 +951,48 @@ mod governance {
 			assert!(Psm::is_approved_asset(&USDC_ASSET_ID));
 		});
 	}
+
+	#[test]
+	fn set_minting_fee_fails_unapproved_asset() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Psm::set_minting_fee(
+					RuntimeOrigin::root(),
+					UNSUPPORTED_ASSET_ID,
+					Permill::from_percent(5)
+				),
+				Error::<Test>::AssetNotApproved
+			);
+		});
+	}
+
+	#[test]
+	fn set_redemption_fee_fails_unapproved_asset() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Psm::set_redemption_fee(
+					RuntimeOrigin::root(),
+					UNSUPPORTED_ASSET_ID,
+					Permill::from_percent(5)
+				),
+				Error::<Test>::AssetNotApproved
+			);
+		});
+	}
+
+	#[test]
+	fn set_asset_ceiling_weight_fails_unapproved_asset() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Psm::set_asset_ceiling_weight(
+					RuntimeOrigin::root(),
+					UNSUPPORTED_ASSET_ID,
+					Permill::from_percent(50)
+				),
+				Error::<Test>::AssetNotApproved
+			);
+		});
+	}
 }
 
 mod helpers {
@@ -1078,27 +1118,34 @@ mod ceiling_redistribution {
 	fn multiple_assets_share_redistributed_ceiling() {
 		new_test_ext().execute_with(|| {
 			// Add a third asset
-			let dai_asset_id = 4u32;
-			create_asset_with_metadata(dai_asset_id);
-			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), dai_asset_id));
+			let bridged_usdc_asset_id = 4u32;
+			create_asset_with_metadata(bridged_usdc_asset_id);
+			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), bridged_usdc_asset_id));
 
-			// Setup: USDC 50%, USDT 25%, DAI 25%
+			// Setup: USDC 50%, USDT 25%, ETH:USDC 25%
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(50));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(25));
-			set_asset_ceiling_weight(dai_asset_id, Permill::from_percent(25));
+			set_asset_ceiling_weight(bridged_usdc_asset_id, Permill::from_percent(25));
 
-			let max_psm = crate::Pallet::<Test>::max_psm_debt();
-			assert_eq!(max_psm, 10_000_000 * PUSD_UNIT);
+			// PSM ceiling = 10M. USDC ceiling = 5M.
+			// Mint 4M against USDC: creating real debt before lowering ceiling.
+			fund_external_asset(USDC_ASSET_ID, ALICE, 4_000_000 * PUSD_UNIT);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				4_000_000 * PUSD_UNIT
+			));
+			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), 4_000_000 * PUSD_UNIT);
 
-			// Disable USDC and set ratio to 0%
+			// Now disable USDC and set ratio to 0%
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(0));
 
-			// Now USDT and DAI split the full ceiling
+			// USDT and ETH:USDC now split the full ceiling
 			// total_ratio_sum = 0% + 25% + 25% = 50%
 			// USDT effective_ratio = 25% / 50% = 50% -> 5M ceiling
-			// DAI effective_ratio = 25% / 50% = 50% -> 5M ceiling
+			// ETH:USDC effective_ratio = 25% / 50% = 50% -> 5M ceiling
 
 			fund_external_asset(USDT_ASSET_ID, ALICE, 6_000_000 * PUSD_UNIT);
 
