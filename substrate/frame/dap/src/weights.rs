@@ -36,9 +36,11 @@ pub trait WeightInfo {
 /// Default weights (not benchmarked).
 impl WeightInfo for () {
 	fn set_budget_allocation() -> Weight {
+		// TODO(ank4n): run bench
 		Weight::zero()
 	}
 	fn drip_issuance() -> Weight {
+		// TODO(ank4n): run bench
 		Weight::zero()
 	}
 }
