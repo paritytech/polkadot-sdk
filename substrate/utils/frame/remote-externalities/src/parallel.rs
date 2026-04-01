@@ -122,10 +122,11 @@ pub(crate) async fn run_workers<W, F, Fut>(
 				let client = conn_manager.get(worker_index).await;
 
 				match processor(worker_index, work, client.clone()).await {
-					ProcessResult::Success { new_work } =>
+					ProcessResult::Success { new_work } => {
 						if !new_work.is_empty() {
 							work_queue.lock().unwrap().extend(new_work);
-						},
+						}
+					},
 					ProcessResult::Retry { work, sleep_duration, recreate_client } => {
 						work_queue.lock().unwrap().push_back(work);
 

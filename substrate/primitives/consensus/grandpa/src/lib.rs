@@ -358,7 +358,7 @@ where
 			if $equivocation.first.0.target_hash == $equivocation.second.0.target_hash &&
 				$equivocation.first.0.target_number == $equivocation.second.0.target_number
 			{
-				return false
+				return false;
 			}
 
 			// check signatures on both votes are valid

@@ -52,11 +52,6 @@ use sp_std::prelude::*;
 /// primitives. Some of types can be configured in low-level pallets, but are constrained
 /// when BEEFY+MMR bundle is used.
 pub trait ChainWithBeefy: Chain {
-	/// The hashing algorithm used to compute the digest of the BEEFY commitment.
-	///
-	/// Corresponds to the hashing algorithm, used by `sc_consensus_beefy::BeefyKeystore`.
-	type CommitmentHasher: sp_runtime::traits::Hash;
-
 	/// The hashing algorithm used to build the MMR.
 	///
 	/// The same algorithm is also used to compute merkle roots in BEEFY
@@ -84,7 +79,7 @@ pub trait ChainWithBeefy: Chain {
 	/// A way to identify a BEEFY validator.
 	///
 	/// Corresponds to the `BeefyId` field of the `pallet-beefy` configuration.
-	type AuthorityId: BeefyAuthorityId<Self::CommitmentHasher> + Parameter;
+	type AuthorityId: BeefyAuthorityId + Parameter;
 
 	/// A way to convert validator id to its raw representation in the BEEFY merkle tree.
 	///
@@ -105,8 +100,6 @@ pub type BeefyValidatorSignatureOf<C> =
 /// Signed BEEFY commitment used by given Substrate chain.
 pub type BeefySignedCommitmentOf<C> =
 	SignedCommitment<BlockNumberOf<C>, BeefyValidatorSignatureOf<C>>;
-/// Hash algorithm, used to compute the digest of the BEEFY commitment before signing it.
-pub type BeefyCommitmentHasher<C> = <C as ChainWithBeefy>::CommitmentHasher;
 /// Hash algorithm used in Beefy MMR construction by given Substrate chain.
 pub type MmrHashingOf<C> = <C as ChainWithBeefy>::MmrHashing;
 /// Hash type, used in MMR construction by given Substrate chain.

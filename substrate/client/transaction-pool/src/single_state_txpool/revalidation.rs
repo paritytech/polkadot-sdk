@@ -83,7 +83,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				?at,
 				"Revalidation skipped: could not get block number"
 			);
-			return
+			return;
 		},
 		Err(error) => {
 			trace!(
@@ -92,7 +92,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				?error,
 				"Revalidation skipped."
 			);
-			return
+			return;
 		},
 	};
 
@@ -231,7 +231,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 					"Skipped adding for revalidation: Already there."
 				);
 
-				continue
+				continue;
 			}
 
 			self.block_ordered

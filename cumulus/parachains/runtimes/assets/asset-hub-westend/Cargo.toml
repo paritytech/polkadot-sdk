@@ -47,6 +47,7 @@ pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
+pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-multi-asset-bounties = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -63,7 +64,7 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-async = { workspace = true }
-pallet-staking-async-rc-client = { workspace = true }
+pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -73,6 +74,7 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-uniques = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-verify-signature = { workspace = true }
 pallet-vesting = { workspace = true }
 pallet-whitelist = { workspace = true }
 sp-api = { workspace = true }
@@ -94,6 +96,12 @@ sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
+# Consensus primitives for Relay Chain SessionKeys validation
+sp-authority-discovery = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-consensus-beefy = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+
 # num-traits feature needed for dex integer sq root:
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
@@ -102,6 +110,7 @@ pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 pallet-xcm-precompiles = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
+polkadot-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 westend-runtime-constants = { workspace = true }
 xcm = { workspace = true }
@@ -142,7 +151,10 @@ alloy-core = { workspace = true, features = ["sol-types"] }
 asset-test-utils = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
+remote-externalities = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["macros"] }
+westend-runtime = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -181,6 +193,7 @@ runtime-benchmarks = [
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -203,6 +216,7 @@ runtime-benchmarks = [
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
@@ -211,12 +225,14 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-pallet-system-frontend/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"westend-runtime-constants/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
@@ -256,6 +272,7 @@ try-runtime = [
 	"pallet-fast-unstake/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-meta-tx/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -278,6 +295,7 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-uniques/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
@@ -289,6 +307,7 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"westend-runtime/try-runtime",
 ]
 std = [
 	"alloy-core/std",
@@ -338,6 +357,7 @@ std = [
 	"pallet-fast-unstake/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
+	"pallet-meta-tx/std",
 	"pallet-migrations/std",
 	"pallet-multi-asset-bounties/std",
 	"pallet-multisig/std",
@@ -364,6 +384,7 @@ std = [
 	"pallet-treasury/std",
 	"pallet-uniques/std",
 	"pallet-utility/std",
+	"pallet-verify-signature/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",
@@ -373,6 +394,7 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
@@ -382,8 +404,12 @@ std = [
 	"snowbridge-runtime-common/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",

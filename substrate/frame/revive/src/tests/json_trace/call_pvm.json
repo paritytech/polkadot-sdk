@@ -1,0 +1,518 @@
+{
+  "gas": 550963499,
+  "weightConsumed": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "baseCallWeight": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "failed": false,
+  "returnValue": "0x000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002a",
+  "structLogs": [
+    {
+      "gas": 249687669902,
+      "gasCost": 67180,
+      "weightCost": {
+        "ref_time": 671800,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249687584404,
+      "gasCost": 31800,
+      "weightCost": {
+        "ref_time": 318000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_size",
+      "returned": "0xe4"
+    },
+    {
+      "gas": 249687552604,
+      "gasCost": 880058,
+      "weightCost": {
+        "ref_time": 8800580,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249686654228,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf960",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249686620428,
+      "gasCost": 114206,
+      "weightCost": {
+        "ref_time": 1142060,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249686487904,
+      "gasCost": 33600,
+      "weightCost": {
+        "ref_time": 336000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "value_transferred",
+      "args": [
+        "0xfffdffa0"
+      ]
+    },
+    {
+      "gas": 249686454304,
+      "gasCost": 356054,
+      "weightCost": {
+        "ref_time": 3560540,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249686079932,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf800",
+        "0x4"
+      ]
+    },
+    {
+      "gas": 249686046132,
+      "gasCost": 295592,
+      "weightCost": {
+        "ref_time": 2955920,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249685732222,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf800",
+        "0x24"
+      ]
+    },
+    {
+      "gas": 249685698422,
+      "gasCost": 248566,
+      "weightCost": {
+        "ref_time": 2485660,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249685431538,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf820",
+        "0x44"
+      ]
+    },
+    {
+      "gas": 249685397738,
+      "gasCost": 618056,
+      "weightCost": {
+        "ref_time": 6180560,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249684761364,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf6a0",
+        "0x84"
+      ]
+    },
+    {
+      "gas": 249684727564,
+      "gasCost": 4044236,
+      "weightCost": {
+        "ref_time": 40442360,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249680665010,
+      "gasCost": 4466,
+      "weightCost": {
+        "ref_time": 44660,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_copy",
+      "args": [
+        "0x200e0",
+        "0x24",
+        "0xa4"
+      ]
+    },
+    {
+      "gas": 249680660544,
+      "gasCost": 1175650,
+      "weightCost": {
+        "ref_time": 11756500,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249679466575,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf7e0",
+        "0x64"
+      ]
+    },
+    {
+      "gas": 249679432775,
+      "gasCost": 2418480,
+      "weightCost": {
+        "ref_time": 24184800,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249676995977,
+      "gasCost": 209080108,
+      "weightCost": {
+        "ref_time": 310100401,
+        "proof_size": 9336
+      },
+      "depth": 1,
+      "op": "call_evm",
+      "args": [
+        "0x8",
+        "0x40040",
+        "0xfffdf820",
+        "0xffffffffffffffff",
+        "0x24000200e0",
+        "0xfffdf80000020040"
+      ],
+      "returned": "0x0"
+    },
+    {
+      "gas": 249467970469,
+      "gasCost": 67180,
+      "weightCost": {
+        "ref_time": 671800,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249467884971,
+      "gasCost": 31800,
+      "weightCost": {
+        "ref_time": 318000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "call_data_size",
+      "returned": "0x24"
+    },
+    {
+      "gas": 249467853171,
+      "gasCost": 880058,
+      "weightCost": {
+        "ref_time": 8800580,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249466954795,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdfce0",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249466920995,
+      "gasCost": 167950,
+      "weightCost": {
+        "ref_time": 1679500,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249466734727,
+      "gasCost": 33600,
+      "weightCost": {
+        "ref_time": 336000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "value_transferred",
+      "args": [
+        "0xfffdffa0"
+      ]
+    },
+    {
+      "gas": 249466701127,
+      "gasCost": 228412,
+      "weightCost": {
+        "ref_time": 2284120,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249466454397,
+      "gasCost": 33800,
+      "weightCost": {
+        "ref_time": 338000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdfca0",
+        "0x4"
+      ]
+    },
+    {
+      "gas": 249466420597,
+      "gasCost": 2814842,
+      "weightCost": {
+        "ref_time": 28148420,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249463587436,
+      "gasCost": 55653,
+      "weightCost": {
+        "ref_time": 556534,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "seal_return",
+      "args": [
+        "0x0",
+        "0x200a0",
+        "0x20"
+      ]
+    },
+    {
+      "gas": 249463531783,
+      "gasCost": 0,
+      "weightCost": {
+        "ref_time": 0,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249463477183,
+      "gasCost": 67180,
+      "weightCost": {
+        "ref_time": 671800,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249463391685,
+      "gasCost": 34200,
+      "weightCost": {
+        "ref_time": 342000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_size",
+      "returned": "0x20"
+    },
+    {
+      "gas": 249463357485,
+      "gasCost": 60462,
+      "weightCost": {
+        "ref_time": 604620,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249463278705,
+      "gasCost": 34200,
+      "weightCost": {
+        "ref_time": 342000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_size",
+      "returned": "0x20"
+    },
+    {
+      "gas": 249463244505,
+      "gasCost": 3224640,
+      "weightCost": {
+        "ref_time": 32246400,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249460001547,
+      "gasCost": 34200,
+      "weightCost": {
+        "ref_time": 342000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_size",
+      "returned": "0x20"
+    },
+    {
+      "gas": 249459967347,
+      "gasCost": 329182,
+      "weightCost": {
+        "ref_time": 3291820,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249459619847,
+      "gasCost": 55247,
+      "weightCost": {
+        "ref_time": 552464,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_copy",
+      "args": [
+        "0x20140",
+        "0xfffdf720",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249459564600,
+      "gasCost": 9452226,
+      "weightCost": {
+        "ref_time": 94522260,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "pvm_fuel"
+    },
+    {
+      "gas": 249450094056,
+      "gasCost": 57554,
+      "weightCost": {
+        "ref_time": 575542,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "seal_return",
+      "args": [
+        "0x0",
+        "0x20160",
+        "0x80"
+      ]
+    },
+    {
+      "gas": 249450036502,
+      "gasCost": 0,
+      "weightCost": {
+        "ref_time": 0,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "pvm_fuel"
+    }
+  ]
+}
