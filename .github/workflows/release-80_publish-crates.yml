@@ -167,15 +167,6 @@ jobs:
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
 
-      - name: Install Rust 1.93
-        shell: bash
-        run: |
-          rustup install 1.93
-          rustup default 1.93
-          echo "Rust version:"
-          rustc --version
-          cargo --version
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
@@ -193,6 +184,39 @@ jobs:
         run: |
           echo "Running parity-publish plan..."
           parity-publish plan --prdoc $PRDOC_PATH
+
+      - name: Set umbrella crate version for new stable release
+        if: inputs.resume_from == 'full' && !inputs.is_patch
+        shell: bash
+        env:
+          STABLE_BRANCH: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
+        run: |
+          # Extract numeric part from stable branch name (e.g., stable2603 -> 2603)
+          VERSION_PREFIX="${STABLE_BRANCH#stable}"
+          UMBRELLA_VERSION="${VERSION_PREFIX}.0.0"
+
+          echo "Setting polkadot-sdk umbrella crate version to ${UMBRELLA_VERSION}"
+
+          # Find the line number of the polkadot-sdk name entry
+          LINE=$(grep -n '^name = "polkadot-sdk"$' Plan.toml | cut -d: -f1)
+          if [ -z "$LINE" ]; then
+            echo "::error::polkadot-sdk entry not found in Plan.toml"
+            exit 1
+          fi
+
+          # The 'to' line is 2 lines after 'name' (name, from, to)
+          TO_LINE=$((LINE + 2))
+
+          # Replace the 'to' version
+          sed -i "${TO_LINE}s/^to = \".*\"/to = \"${UMBRELLA_VERSION}\"/" Plan.toml
+
+          # Insert bump and reason after the 'to' line if not already present
+          if ! sed -n "$((TO_LINE + 1))p" Plan.toml | grep -q '^bump'; then
+            sed -i "${TO_LINE}a bump = \"major\"\nreason = \"changed\"" Plan.toml
+          fi
+
+          echo "polkadot-sdk entry in Plan.toml:"
+          grep -B1 -A6 'name = "polkadot-sdk"' Plan.toml
 
       - name: Save Plan.toml diff
         if: inputs.resume_from == 'full' && inputs.is_patch
@@ -293,7 +317,7 @@ jobs:
 
           if [ "$REGISTRY" = "staging.crates.io" ]; then
             cat >> ~/.cargo/config.toml << 'EOF'
-          [registries.crates-io]
+          [registries.staging]
           index = "sparse+https://index.staging.crates.io/"
           EOF
           else
@@ -307,7 +331,8 @@ jobs:
         if: inputs.resume_from != 'push'
         shell: bash
         env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_STAGING_CRATESIO_TOKEN: ${{ secrets.STAGING_CRATES_IO_API_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
           PUBLISH_JOBS: ${{ inputs.publish_jobs }}
@@ -318,13 +343,18 @@ jobs:
             PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
           fi
 
+          STAGING_ARG=""
+          if [ "$REGISTRY" = "staging.crates.io" ]; then
+            STAGING_ARG="--staging"
+          fi
+
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $PARALLEL_ARGS
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $PARALLEL_ARGS
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
 
