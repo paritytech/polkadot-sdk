@@ -271,6 +271,7 @@ impl ExtBuilder {
 				));
 			}
 			test();
+			crate::Pallet::<Test>::do_try_state().expect("try_state post-condition failed");
 		});
 	}
 }
