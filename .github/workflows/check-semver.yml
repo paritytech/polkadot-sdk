@@ -257,19 +257,3 @@ jobs:
           # If we reach here, all major bumps have validate: false
           echo "⚠️ Backport contains major bumps, but they are all marked with validate: false."
           echo "✅ Semver override accepted. Please ensure justification is documented in the PR description."
-
-  confirm-required-semver-checks-passed:
-    runs-on: ubuntu-latest
-    name: All semver checks passed
-    needs: [check-semver]
-    if: always() && !cancelled()
-    steps:
-      - run: |
-          tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
-          if [ $FAILURES -gt 0 ]; then
-            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          else
-            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
-          fi
