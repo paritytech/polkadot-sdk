@@ -46,7 +46,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
@@ -54,7 +54,10 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Member, Zero},
+	Saturating,
+};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -237,15 +240,19 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((included_header, parent)) =
+			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
 				continue;
 			};
 
-			let parent_hash = parent.hash;
-			let parent_header = &parent.header;
+			let parent_hash = parent_search_result.best_parent_header.hash();
+			let included_header = parent_search_result.included_header;
+			let parent_header = &parent_search_result.best_parent_header;
+			// Distance from included block to best parent (unincluded segment length).
+			let unincluded_segment_len =
+				parent_header.number().saturating_sub(*included_header.number());
 
 			// Retrieve the core.
 			let core = match determine_core(
@@ -310,8 +317,12 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			if let Ok(authorities) = para_client.runtime_api().authorities(parent_hash) {
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
+			{
+				let mut runtime_api = para_client.runtime_api();
+				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
+					connection_helper.update::<P>(para_slot.slot, &authorities).await;
+				}
 			}
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
@@ -329,7 +340,7 @@ where
 				None => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
-						unincluded_segment_len = parent.depth,
+						?unincluded_segment_len,
 						relay_parent = ?relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
 						included_hash = ?included_header_hash,
@@ -344,7 +355,7 @@ where
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				unincluded_segment_len = parent.depth,
+				?unincluded_segment_len,
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
@@ -417,7 +428,7 @@ where
 			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
 				tracing::debug!(
 					target: crate::LOG_TARGET,
-					unincluded_segment_len = parent.depth,
+					?unincluded_segment_len,
 					relay_parent = ?relay_parent,
 					relay_parent_num = %relay_parent_header.number(),
 					included_hash = ?included_header_hash,
@@ -463,7 +474,7 @@ where
 				parachain_candidate: candidate.into(),
 				validation_code_hash,
 				core_index: core.core_index(),
-				max_pov_size: validation_data.max_pov_size,
+				validation_data,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 				return;

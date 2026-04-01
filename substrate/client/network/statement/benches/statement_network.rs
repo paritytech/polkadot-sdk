@@ -24,7 +24,10 @@ use sc_network::{
 	NetworkPeers,
 };
 use sc_network_statement::{
-	config::{MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
+	config::{
+		DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
+		STATEMENTS_BURST_COEFFICIENT,
+	},
 	Peer, StatementHandler,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -32,7 +35,12 @@ use sc_network_types::PeerId;
 use sc_statement_store::Store;
 use sp_core::Pair;
 use sp_statement_store::{Statement, StatementSource, StatementStore};
-use std::{collections::HashMap, num::NonZeroUsize, pin::Pin, sync::Arc};
+use std::{
+	collections::HashMap,
+	num::{NonZeroU32, NonZeroUsize},
+	pin::Pin,
+	sync::Arc,
+};
 use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClientBuilderExt};
 
 const STATEMENT_DATA_SIZE: usize = 256;
@@ -219,7 +227,13 @@ fn build_handler(
 	let mut peers = HashMap::new();
 	peers.insert(
 		peer_id,
-		Peer::new_for_testing(LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap())),
+		Peer::new_for_testing(
+			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst capacity is nonzero"),
+		),
 	);
 
 	for _ in 0..num_threads {
@@ -249,6 +263,8 @@ fn build_handler(
 		peers,
 		statement_store,
 		queue_sender,
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+			.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 	);
 	(handler, peer_id, temp_dir)
 }

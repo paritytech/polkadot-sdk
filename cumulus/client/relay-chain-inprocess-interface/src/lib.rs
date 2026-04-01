@@ -86,7 +86,7 @@ impl RelayChainInProcessInterface {
 #[async_trait]
 impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
-		Ok(self.full_client.runtime_version_at(relay_parent)?)
+		Ok(self.full_client.runtime_version_at(relay_parent, CallContext::Offchain)?)
 	}
 
 	async fn retrieve_dmq_contents(
