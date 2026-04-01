@@ -124,12 +124,7 @@ impl ParticipationRequest {
 		session: SessionIndex,
 		request_timer: Option<prometheus::HistogramTimer>,
 	) -> Self {
-		Self {
-			candidate_hash: candidate_receipt.hash(),
-			candidate_receipt,
-			session,
-			request_timer,
-		}
+		Self { candidate_hash: candidate_receipt.hash(), candidate_receipt, session, request_timer }
 	}
 
 	pub fn candidate_receipt(&'_ self) -> &'_ CandidateReceipt {
@@ -157,12 +152,8 @@ impl ParticipationRequest {
 #[cfg(test)]
 impl PartialEq for ParticipationRequest {
 	fn eq(&self, other: &Self) -> bool {
-		let ParticipationRequest {
-			candidate_receipt,
-			candidate_hash,
-			session,
-			request_timer: _,
-		} = self;
+		let ParticipationRequest { candidate_receipt, candidate_hash, session, request_timer: _ } =
+			self;
 		candidate_receipt == other.candidate_receipt() &&
 			candidate_hash == other.candidate_hash() &&
 			*session == other.session()

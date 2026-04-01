@@ -54,9 +54,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
-	Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
-	ValidatorSignature,
+	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, Hash,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;

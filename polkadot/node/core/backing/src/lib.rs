@@ -107,12 +107,12 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateDescriptorV2,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments,
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
-	PersistedValidationData, SessionIndex, SigningContext, ValidationCode, ValidatorId,
-	ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
+	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
@@ -236,9 +236,6 @@ struct PerSchedulingParentState {
 	claim_queue: ClaimQueueSnapshot,
 	/// The validator index -> group mapping at this scheduling parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
-	/// Session index for this scheduling parent. Used as fallback for V1 candidates
-	/// where session_index is not in the descriptor. For V1, scheduling_parent == relay_parent.
-	session_index: SessionIndex,
 	/// The associated group rotation information.
 	group_rotation_info: GroupRotationInfo,
 }
@@ -1245,7 +1242,6 @@ async fn construct_per_scheduling_parent_state<Context>(
 		n_cores: validator_groups.len() as u32,
 		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group,
-		session_index,
 		group_rotation_info,
 	}))
 }

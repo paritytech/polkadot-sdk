@@ -171,29 +171,21 @@ where
 	}
 }
 
-/// Fetch the validation code bomb limit for a candidate.
+/// Resolve the scheduling parent and session for a candidate.
 ///
-/// NOTE: This method is fetching state from the scheduling parent. Fetching state for the
+/// NOTE: This method uses the scheduling parent to resolve the session. Fetching state for the
 /// scheduling or relay parent of a candidate is not sound in disputes! This is necessary as of now
 /// though, as the provided runtime API does not allow fetching for older sessions. For the time
 /// being, we at least use the scheduling parent as this is more likely to still be around than the
 /// relay parent.
-///
-/// For what session to pick (to be fetched via an active leaf, not scheduling nor relay parent): In
-/// principle both the scheduling session and the execution session would be sensible choices here
-/// for fetching the limit, all that matters is that we have consensus among validators. For
-/// parachain block confidence, decreasing the value would be problematic in both cases. For
-/// increased values, all that matters is consensus.
-async fn fetch_bomb_limit<Sender>(
+async fn resolve_scheduling_context<Sender>(
 	candidate_descriptor: &CandidateDescriptor,
 	v3_ever_seen: bool,
 	sender: &mut Sender,
-) -> Result<u32, String>
+) -> Result<(Hash, SessionIndex), String>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	// NOTE: As noted above, even looking at the scheduling parent in disputes context should be
-	// suspicious normally!
 	let scheduling_parent =
 		candidate_descriptor.scheduling_parent_for_candidate_validation(v3_ever_seen);
 
@@ -209,46 +201,49 @@ where
 			},
 		};
 
-	// Returns a default value if the runtime API is not available for this session,
-	// but errors on unexpected runtime API failures.
-	// NOTE: This is depending on scheduling parent state to still be around!
-	util::runtime::fetch_validation_code_bomb_limit(scheduling_parent, scheduling_session, sender)
-		.await
-		.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".into())
+	Ok((scheduling_parent, scheduling_session))
 }
 
-/// Fetch the executor parameters for the candidate's session.
+/// Fetch session-scoped parameters needed for candidate validation.
 ///
-/// Uses the same session resolution strategy as [`fetch_bomb_limit`]: derive the session
-/// from the candidate descriptor (V2/V3) or fall back to `session_index_for_child` (V1).
-async fn fetch_executor_params<Sender>(
+/// Resolves the scheduling context once and fetches both the validation code
+/// bomb limit and executor parameters in sequence, avoiding duplicate session
+/// resolution for V1 descriptors.
+struct SessionParams {
+	executor_params: ExecutorParams,
+	validation_code_bomb_limit: u32,
+}
+
+async fn fetch_session_params<Sender>(
 	candidate_descriptor: &CandidateDescriptor,
 	v3_ever_seen: bool,
 	sender: &mut Sender,
-) -> Result<ExecutorParams, String>
+) -> Result<SessionParams, String>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let scheduling_parent =
-		candidate_descriptor.scheduling_parent_for_candidate_validation(v3_ever_seen);
+	let (scheduling_parent, scheduling_session) =
+		resolve_scheduling_context(candidate_descriptor, v3_ever_seen, sender).await?;
 
-	let scheduling_session =
-		match candidate_descriptor.scheduling_session_for_candidate_validation(v3_ever_seen) {
-			Some(session) => session,
-			None => {
-				let Some(session) = get_session_index(sender, scheduling_parent).await else {
-					return Err("Cannot fetch session index from the runtime".into());
-				};
-				session
-			},
-		};
+	let executor_params =
+		request_session_executor_params(scheduling_parent, scheduling_session, sender)
+			.await
+			.await
+			.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
+			.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
+			.ok_or_else(|| "Executor params not found for session".to_string())?;
 
-	request_session_executor_params(scheduling_parent, scheduling_session, sender)
-		.await
-		.await
-		.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
-		.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
-		.ok_or_else(|| "Executor params not found for session".into())
+	// Returns a default value if the runtime API is not available for this session,
+	// but errors on unexpected runtime API failures.
+	let validation_code_bomb_limit = util::runtime::fetch_validation_code_bomb_limit(
+		scheduling_parent,
+		scheduling_session,
+		sender,
+	)
+	.await
+	.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())?;
+
+	Ok(SessionParams { executor_params, validation_code_bomb_limit })
 }
 
 /// Output of [`pre_validate_candidate`]: data needed by PVF execution and
@@ -271,43 +266,27 @@ enum PreValidationError {
 
 /// Pre-validate a candidate before PVF execution.
 ///
-/// Performs all checks that don't require running the PVF:
-/// - Fetch validation code bomb limit (fetched from runtime)
-/// - Basic checks: PoV size, PoV hash, validation code hash
-/// - Backing-only (skipped for approval/dispute):
-///   - Scheduling session matches runtime
-///   - Relay parent valid in claimed session (via `check_relay_parent_session` utility)
-///   - Claim queue fetch
+/// Performs backing-only checks that don't require running the PVF:
+/// - Scheduling session matches runtime
+/// - Relay parent valid in claimed session (via `check_relay_parent_session` utility)
+/// - Claim queue fetch
 ///
 /// Backing-only checks are skipped for approval/dispute because the runtime
 /// validates them at backing time and the chain state they depend on may not
 /// be available in disputes.
+///
+/// NOTE: Basic checks (PoV hash, code hash, PoV size) must be run by the
+/// caller before invoking this function.
 async fn pre_validate_candidate<Sender>(
 	sender: &mut Sender,
 	candidate_receipt: &CandidateReceipt,
-	persisted_validation_data: &PersistedValidationData,
-	pov: &PoV,
-	validation_code_hash: &ValidationCodeHash,
+	validation_code_bomb_limit: u32,
 	exec_kind: PvfExecKind,
 	v3_ever_seen: bool,
 ) -> Result<PreValidationOutput, PreValidationError>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let validation_code_bomb_limit =
-		fetch_bomb_limit(&candidate_receipt.descriptor, v3_ever_seen, sender)
-			.await
-			.map_err(PreValidationError::RuntimeError)?;
-
-	if let Err(e) = perform_basic_checks(
-		&candidate_receipt.descriptor,
-		persisted_validation_data.max_pov_size,
-		pov,
-		validation_code_hash,
-	) {
-		return Err(PreValidationError::Invalid(e));
-	}
-
 	let claim_queue = match exec_kind {
 		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let scheduling_parent = candidate_receipt
@@ -400,8 +379,22 @@ where
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
 
-			// Fetch executor params for the candidate's session.
-			let executor_params = match fetch_executor_params(
+			// Phase 1: Pre-validation — cheap checks first, then session param fetch.
+			// Basic checks (PoV hash, code hash, PoV size) are pure and don't need
+			// runtime calls, so they run before we fetch session params.
+			if let Err(e) = perform_basic_checks(
+				&candidate_receipt.descriptor,
+				validation_data.max_pov_size,
+				&pov,
+				&validation_code.hash(),
+			) {
+				let _ = response_sender.send(Ok(ValidationResult::Invalid(e)));
+				return;
+			}
+
+			// Fetch session-scoped params (executor_params + bomb limit) in one
+			// session resolution.
+			let session_params = match fetch_session_params(
 				&candidate_receipt.descriptor,
 				v3_ever_seen,
 				&mut sender,
@@ -415,13 +408,10 @@ where
 				},
 			};
 
-			// Phase 1: Pre-validation — cheap checks, fail fast before PVF.
 			let pre = match pre_validate_candidate(
 				&mut sender,
 				&candidate_receipt,
-				&validation_data,
-				&pov,
-				&validation_code.hash(),
+				session_params.validation_code_bomb_limit,
 				exec_kind,
 				v3_ever_seen,
 			)
@@ -445,7 +435,7 @@ where
 				validation_code,
 				candidate_receipt,
 				pov,
-				executor_params,
+				session_params.executor_params,
 				exec_kind,
 				&metrics,
 				v3_ever_seen,
