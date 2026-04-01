@@ -472,7 +472,7 @@ where
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
-				slot_offset: Duration::from_secs(1),
+				slot_offset: Duration::from_secs(0),
 				block_import_handle: slot_based_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
@@ -704,6 +704,9 @@ impl TestNodeBuilder {
 			self.relay_chain_nodes,
 			false,
 		);
+
+		// relay_chain_config.state_pruning = Some(PruningMode::ArchiveAll);
+		// relay_chain_config.blocks_pruning = BlocksPruning::KeepAll;
 
 		let collator_options = CollatorOptions {
 			relay_chain_mode: self.relay_chain_mode,

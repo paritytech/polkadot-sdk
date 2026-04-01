@@ -261,21 +261,27 @@ where
 /// Use [`cumulus_client_consensus_common::find_parent_for_building`] to find the best parachain
 /// block to build on.
 async fn find_parent<Block>(
+	best_hash: RelayHash,
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
+	relay_parent_offset: u32,
+	block_filter: Option<Box<dyn Fn(&Block::Hash) -> bool + Send>>,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
+	let scheduling_lookahead = scheduling_lookahead(relay_parent, relay_client)
+		.await
+		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD);
+
 	let parent_search_params = ParentSearchParams {
 		relay_parent,
+		best_hash,
 		para_id,
-		ancestry_lookback: scheduling_lookahead(relay_parent, relay_client)
-			.await
-			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-			.saturating_sub(1) as usize,
+		ancestry_lookback: (scheduling_lookahead + relay_parent_offset).saturating_sub(1) as usize,
+		block_filter,
 	};
 
 	match cumulus_client_consensus_common::find_parent_for_building::<Block>(

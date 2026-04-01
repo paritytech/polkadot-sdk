@@ -741,7 +741,8 @@ fn validate_complete_response(
 
 		// Check if `session_index` of relay parent matches candidate descriptor
 		// `session_index`.
-		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
+		if let Some(candidate_session_index) =
+			response.candidate_receipt.descriptor.scheduling_session()
 		{
 			if candidate_session_index != session {
 				gum::debug!(

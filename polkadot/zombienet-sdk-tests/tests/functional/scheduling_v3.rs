@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assign_cores};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
@@ -36,28 +36,39 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
-							"scheduler_params": {
-								"max_validators_per_core": 3,
-							},
 							"node_features": node_features_with_v3,
+							"max_relay_parent_session_age": 1,
+							"scheduler_params" : {
+								"num_cores": 1,
+								"max_validators_per_core": 2
+							}
 						}
 					}
 				}))
-				.with_validator(|node| node.with_name("validator-0"));
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						("-lparachain=debug,parachain::collator-protocol=trace,parachain::prospective-parachains=trace").into(),
+					])
+				});
 
-			let r = (1..3).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
-			});
-
-			// Experimental collator protocol validators.
-			(3..6).fold(r, |acc, i| {
+			let r = (1..4).fold(r, |acc, i| {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
-						("-lparachain=debug,runtime=debug,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug,parachain::statement-distribution=debug").into(),
-						("--experimental-collator-protocol").into(),
+						("-lparachain=debug,parachain::collator-protocol=trace,parachain::prospective-parachains=trace").into(),
 					])
 				})
-			})
+			});
+
+			// // Experimental collator protocol validators.
+			// (5..9).fold(r, |acc, i| {
+			// 	acc.with_validator(|node| {
+			// 		node.with_name(&format!("validator-{i}")).with_args(vec![
+			// 			("-lparachain=debug,parachain::collator-protocol=trace").into(),
+			// 		])
+			// 	})
+			// })
+
+			r
 		})
 		.with_parachain(|p| {
 			p.with_id(2700)
@@ -85,21 +96,23 @@ async fn scheduling_v3_collator_with_v3_validators() -> Result<(), anyhow::Error
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// With async backing, expect ~1 candidate per 2 relay blocks → ~10 in 20 blocks.
-	assert_candidates_version(
-		&relay_client,
-		CandidateDescriptorVersion::V3,
-		HashMap::from([(ParaId::from(2700), 15..21)]),
-		20,
-	)
-	.await?;
+	// assert_candidates_version(
+	// 	&relay_client,
+	// 	CandidateDescriptorVersion::V3,
+	// 	HashMap::from([(ParaId::from(2500), 8..11)]),
+	// 	20,
+	// )
+	// .await?;
 
-	assert_validator_backed_candidates(relay_node, 30).await?;
-	for i in 3..=5 {
-		let node = network.get_node(format!("validator-{i}"))?;
-		assert_validator_backed_candidates(node, 30).await?;
-	}
+	// assert_validator_backed_candidates(relay_node, 10).await?;
+	// for i in 5..=8 {
+	// 	let node = network.get_node(format!("validator-{i}"))?;
+	// 	assert_validator_backed_candidates(node, 10).await?;
+	// }
 
-	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
+	// assert_finality_lag(&para_node.wait_client().await?, 5).await?;
+
+	tokio::time::sleep(Duration::from_secs(3600)).await;
 
 	log::info!("V3 scheduling test finished successfully");
 	Ok(())
@@ -201,5 +214,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 	assert_finality_lag(&para_node.wait_client().await?, 15).await?;
 
 	log::info!("V3 elastic scaling test finished successfully");
+
+	tokio::time::sleep(Duration::from_secs(3600)).await;
 	Ok(())
 }

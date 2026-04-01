@@ -33,15 +33,31 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 const LOG_TARGET: &str = "consensus::common::parent_search";
 
 /// Parameters when searching for suitable parents to build on top of.
-#[derive(Debug)]
-pub struct ParentSearchParams {
+pub struct ParentSearchParams<Block: BlockT> {
 	/// The relay-parent that is intended to be used.
 	pub relay_parent: RelayHash,
+	/// The best scheduling parent we're currently building the candidate for.
+	pub best_hash: RelayHash,
 	/// The ID of the parachain.
 	pub para_id: ParaId,
 	/// A limitation on the age of relay parents for parachain blocks that are being
 	/// considered. This is relative to the `relay_parent` number.
 	pub ancestry_lookback: usize,
+	/// Optional filter: if provided, only parachain blocks for which this returns `true`
+	/// will be considered as potential parents during the DFS. Can be used to skip blocks
+	/// whose scheduling parent is from a stale session.
+	pub block_filter: Option<Box<dyn Fn(&Block::Hash) -> bool + Send>>,
+}
+
+impl<Block: BlockT> std::fmt::Debug for ParentSearchParams<Block> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("ParentSearchParams")
+			.field("relay_parent", &self.relay_parent)
+			.field("para_id", &self.para_id)
+			.field("ancestry_lookback", &self.ancestry_lookback)
+			.field("has_block_filter", &self.block_filter.is_some())
+			.finish()
+	}
 }
 
 /// Result of the parent search, containing the included block and the best parent to build on.
@@ -72,7 +88,7 @@ impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 ///
 /// Returns `None` if no suitable parent can be found (e.g., included block unknown locally).
 pub async fn find_parent_for_building<B: BlockT>(
-	params: ParentSearchParams,
+	params: ParentSearchParams<B>,
 	backend: &impl Backend<B>,
 	relay_client: &impl RelayChainInterface,
 ) -> Result<Option<ParentSearchResult<B>>, RelayChainError> {
@@ -80,7 +96,7 @@ pub async fn find_parent_for_building<B: BlockT>(
 
 	// Get the included block.
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, params.para_id, params.relay_parent)
+		fetch_included_from_relay_chain(relay_client, backend, params.para_id, params.best_hash)
 			.await?
 	else {
 		return Ok(None);
@@ -93,7 +109,7 @@ pub async fn find_parent_for_building<B: BlockT>(
 		// before being returned to us.
 		let pending_header = relay_client
 			.persisted_validation_data(
-				params.relay_parent,
+				params.best_hash,
 				params.para_id,
 				OccupiedCoreAssumption::Included,
 			)
@@ -141,9 +157,36 @@ pub async fn find_parent_for_building<B: BlockT>(
 		build_relay_parent_ancestry(params.ancestry_lookback, params.relay_parent, relay_client)
 			.await?;
 
+	tracing::debug!(
+		target: LOG_TARGET,
+		relay_parent = ?params.relay_parent,
+		best_hash = ?params.best_hash,
+		?start_hash,
+		start_number = ?start_header.number(),
+		included_number = ?included_header.number(),
+		ancestry_len = rp_ancestry.len(),
+		ancestry_lookback = params.ancestry_lookback,
+		"Starting parent search.",
+	);
+
 	// Search for the deepest valid parent starting from the pending/included block.
-	let best_parent_header =
-		find_deepest_valid_parent(start_hash, start_header, backend, &rp_ancestry);
+	let best_parent_header = find_deepest_valid_parent(
+		start_hash,
+		start_header,
+		backend,
+		&rp_ancestry,
+		&params.block_filter,
+	);
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		relay_parent = ?params.relay_parent,
+		best_hash = ?params.best_hash,
+		best_parent_hash = ?best_parent_header.hash(),
+		best_parent_number = ?best_parent_header.number(),
+		included_number = ?included_header.number(),
+		"Parent search result.",
+	);
 
 	Ok(Some(ParentSearchResult { included_header, best_parent_header }))
 }
@@ -204,15 +247,28 @@ async fn build_relay_parent_ancestry(
 ) -> Result<Vec<(RelayHash, RelayHash)>, RelayChainError> {
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
-	let mut required_session = None;
+	let mut first_session = None;
+	let mut sessions_crossed;
 	while ancestry.len() <= ancestry_lookback {
 		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else { break };
 
 		let session = relay_client.session_index_for_child(current_rp).await?;
-		if required_session.get_or_insert(session) != &session {
-			// Respect the relay-chain rule not to cross session boundaries.
-			break;
+		let first = *first_session.get_or_insert(session);
+		if session != first {
+			// Allow crossing into one previous session, but not more.
+			sessions_crossed = first.saturating_sub(session);
+			if sessions_crossed > 2 {
+				break;
+			}
 		}
+
+		tracing::trace!(
+			target: LOG_TARGET,
+			?current_rp,
+			block_number = header.number,
+			session,
+			"Adding relay parent to ancestry.",
+		);
 
 		ancestry.push((current_rp, *header.state_root()));
 		current_rp = *header.parent_hash();
@@ -222,6 +278,15 @@ async fn build_relay_parent_ancestry(
 			break;
 		}
 	}
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		?relay_parent,
+		ancestry_len = ancestry.len(),
+		ancestry_lookback,
+		"Built relay parent ancestry.",
+	);
+
 	Ok(ancestry)
 }
 
@@ -235,6 +300,7 @@ fn find_deepest_valid_parent<Block: BlockT>(
 	start_header: Block::Header,
 	backend: &impl Backend<Block>,
 	rp_ancestry: &[(RelayHash, RelayHash)],
+	block_filter: &Option<Box<dyn Fn(&Block::Hash) -> bool + Send>>,
 ) -> Block::Header {
 	let mut best = start_header;
 
@@ -251,9 +317,39 @@ fn find_deepest_valid_parent<Block: BlockT>(
 	while let Some(hash) = frontier.pop() {
 		let Ok(Some(header)) = backend.blockchain().header(hash) else { continue };
 
+		let relay_parent_of_block = cumulus_primitives_core::extract_relay_parent(header.digest());
+
 		if !is_relay_parent_in_ancestry::<Block>(&header, rp_ancestry) {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?hash,
+				block_number = ?header.number(),
+				?relay_parent_of_block,
+				"DFS: skipping block - relay parent not in ancestry.",
+			);
 			continue;
 		}
+
+		if let Some(filter) = block_filter {
+			if !filter(&hash) {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?hash,
+					block_number = ?header.number(),
+					?relay_parent_of_block,
+					"DFS: skipping block - rejected by block filter.",
+				);
+				continue;
+			}
+		}
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			?hash,
+			block_number = ?header.number(),
+			?relay_parent_of_block,
+			"DFS: accepting block as valid parent candidate.",
+		);
 
 		// This block is valid - update best if it's deeper.
 		if header.number() > best.number() {

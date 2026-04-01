@@ -166,7 +166,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
 #[cfg(feature = "async-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 25;
 
 #[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
@@ -383,10 +383,10 @@ impl pallet_glutton::Config for Runtime {
 }
 
 #[cfg(feature = "relay-parent-offset")]
-const RELAY_PARENT_OFFSET: u32 = 2;
+const RELAY_PARENT_OFFSET: u32 = 8;
 
 #[cfg(not(feature = "relay-parent-offset"))]
-const RELAY_PARENT_OFFSET: u32 = 0;
+const RELAY_PARENT_OFFSET: u32 = 8;
 
 #[cfg(any(feature = "async-backing-v3", feature = "elastic-scaling-v3"))]
 const SCHEDULING_V3_ENABLED: bool = true;

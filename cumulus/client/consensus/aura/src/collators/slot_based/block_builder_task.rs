@@ -59,7 +59,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, Member, Zero},
 	Saturating,
 };
-use std::{collections::VecDeque, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, VecDeque},
+	sync::Arc,
+	time::Duration,
+};
 
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
@@ -203,6 +207,12 @@ where
 
 		let mut scheduling_info = super::scheduling::SchedulingInfo::default();
 
+		// Maps parachain block hash -> scheduling parent session index.
+		// Used to skip blocks with stale scheduling parents during parent search.
+		let scheduling_parent_sessions: Arc<
+			std::sync::RwLock<HashMap<Block::Hash, polkadot_primitives::SessionIndex>>,
+		> = Arc::new(std::sync::RwLock::new(HashMap::new()));
+
 		loop {
 			// We wait here until the next slot arrives.
 			if slot_timer.wait_until_next_slot().await.is_err() {
@@ -258,9 +268,52 @@ where
 			let relay_parent_header = rp_data.relay_parent().clone();
 			let rp_descendants = rp_data.descendants().to_vec();
 
-			let Some(parent_search_result) =
-				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
-					.await
+			// Build a filter that skips parachain blocks whose scheduling parent
+			// is from a previous session. This prevents building on top of blocks
+			// that will never be included after a session change.
+			let block_filter: Option<Box<dyn Fn(&Block::Hash) -> bool + Send>> =
+				if relay_parent_offset > 0 {
+					let current_sp_session = relay_client
+						.session_index_for_child(descendants_start)
+						.await
+						.unwrap_or_default();
+					let sp_sessions = scheduling_parent_sessions.clone();
+					Some(Box::new(move |hash: &Block::Hash| {
+						let sessions = sp_sessions.read().expect("poisoned lock");
+						match sessions.get(hash) {
+							Some(&block_session) => {
+								if block_session < current_sp_session {
+									tracing::debug!(
+										target: "aura::cumulus",
+										?hash,
+										block_session,
+										current_sp_session,
+										"Filtering out block with old scheduling parent session.",
+									);
+									false
+								} else {
+									true
+								}
+							},
+							// Block not in our map — not built by us, allow it
+							// (it's likely the included block or older).
+							None => true,
+						}
+					}))
+				} else {
+					None
+				};
+
+			let Some(parent_search_result) = crate::collators::find_parent(
+				descendants_start,
+				relay_parent,
+				para_id,
+				&*para_backend,
+				&relay_client,
+				relay_parent_offset,
+				block_filter,
+			)
+			.await
 			else {
 				continue;
 			};
@@ -503,6 +556,19 @@ where
 
 			let new_block_hash = candidate.block.header().hash();
 
+			// Record the scheduling parent session for this block so the parent
+			// search can skip it if a session change makes it stale.
+			if relay_parent_offset > 0 {
+				if let Ok(sp_session) =
+					relay_client.session_index_for_child(descendants_start).await
+				{
+					scheduling_parent_sessions
+						.write()
+						.expect("poisoned lock")
+						.insert(new_block_hash, sp_session);
+				}
+			}
+
 			// Announce the newly built block to our peers.
 			collator.collator_service().announce_block(new_block_hash, None);
 
@@ -599,10 +665,11 @@ where
 		return Ok(Some(RelayParentData::new(relay_header)));
 	}
 
-	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
-		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "RC tip is a session change block, skipping.");
-		return Ok(None);
-	}
+	// TODO: add this back if v3 is not enabled.
+	// if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
+	// 	tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number =
+	// relay_header.number(), "RC tip is a session change block, skipping."); 	return Ok(None);
+	// }
 
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
