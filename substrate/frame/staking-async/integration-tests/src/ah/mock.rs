@@ -457,13 +457,15 @@ impl pallet_staking_async::Config for Runtime {
 
 	type ElectionProvider = MultiBlock;
 
-	type EraPayout = ();
+	type UnclaimedRewardHandler = ();
+	type GeneralPots = pallet_staking_async::SequentialTest;
+	type EraPots = pallet_staking_async::SequentialTest;
+	type StakerRewardCalculator = ();
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
 	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
-	type MaxEraDuration = ();
 	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;
