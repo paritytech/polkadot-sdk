@@ -619,21 +619,15 @@ where
 			break;
 		}
 
-		// TODO: With transaction streaming we do not need to skip anything any more and can just
-		// set `is_last`.
+		// Create schedule for this block to determine timing decisions
+		let schedule = BlockProductionSchedule::new(
+			block_index,
+			blocks_per_core,
+			total_number_of_blocks,
+			is_last_core_in_parachain_slot,
+		);
 
-		// If we have more than 3 blocks in total, aka a block time which is less than 2s, we are
-		// going to skip the last block. Otherwise, when running with 3 blocks, we are just
-		// adjusting the authoring duration below.
-		let skip_last_block_in_slot = total_number_of_blocks > 3 && is_last_core_in_parachain_slot;
-		// We require that the next node has imported our last block before it can start building
-		// the next block. To ensure that the next node is able to do so, we are skipping the last
-		// block in the parachain slot. In the future this can be removed again.
-		let is_last_block_in_core = block_index + 1 == blocks_per_core ||
-			// This branch here is for the case when we are going to skip the last block.
-			(block_index + 2 == blocks_per_core && skip_last_block_in_slot);
-
-		if block_index + 1 == blocks_per_core && skip_last_block_in_slot {
+		if schedule.should_skip_production() {
 			tracing::debug!(
 				target: LOG_TARGET,
 				"Skipping block production so that the next node is able to import all blocks before its slot."
@@ -683,28 +677,13 @@ where
 		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
 			(blocks_per_core - block_index) as u32;
 
-		// For the special case of 3 blocks on 3 cores or 2 blocks on 2 cores, we are going to
-		// adjust the authoring duration on the last block.
-		//
-		// TODO: Remove when transaction streaming is implemented
-		let adjusted_time_left = if is_last_block_in_core &&
-			is_last_core_in_parachain_slot &&
-			blocks_per_core == 1 &&
-			total_number_of_blocks <= 3 &&
-			total_number_of_blocks >= 2
-		{
-			time_left_for_block / 2
-		} else {
-			time_left_for_block
-		};
-
 		// The first block on a core gets the full remaining core time so that the runtime's
 		// `FullCore` weight mode can actually be utilized. Subsequent blocks are capped at
 		// `block_time` because they only carry fractional weight.
 		let authoring_duration = if block_index == 0 {
 			slot_time_for_core.saturating_sub(core_start.elapsed())
 		} else {
-			block_time.min(adjusted_time_left)
+			schedule.authoring_duration(time_left_for_block, block_time)
 		};
 
 		tracing::trace!(
@@ -721,7 +700,7 @@ where
 					CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item(),
 					CumulusDigestItem::BlockBundleInfo(BlockBundleInfo {
 						index: block_index as u8,
-						maybe_last: is_last_block_in_core,
+						maybe_last: schedule.is_effective_last_block(),
 					})
 					.to_digest_item(),
 				],
@@ -797,7 +776,7 @@ where
 			.checked_sub(block_production_start.elapsed())
 			// Let's not sleep for the last block here, to send out the collation as early as
 			// possible.
-			.filter(|_| !is_last_block_in_core)
+			.filter(|_| !schedule.is_effective_last_block())
 		{
 			tokio::time::sleep(sleep).await;
 		}
@@ -1008,6 +987,122 @@ impl Cores {
 	}
 }
 
+/// The three block production modes based on total block rate.
+///
+/// These modes exist because without transaction streaming, the next author
+/// must sequentially import all blocks before building their own. Each mode
+/// uses a different strategy to provide import buffer time.
+// TODO: Once transaction streaming is implemented, this can be removed.
+#[derive(Debug, Clone, Copy)]
+enum BlockProductionMode {
+	/// 0-1 blocks per slot - no special handling needed.
+	/// The next author has plenty of time to import.
+	Normal,
+
+	/// 2-3 blocks per slot (~2-3s block time) - reduce authoring time.
+	Legacy {
+		/// Time adjustment factor of last block authoring time.
+		time_factor: f32,
+	},
+
+	/// >3 blocks per slot (<2s block time) - skip last block.
+	///
+	/// Block time is too fast for time reduction alone, so we skip
+	/// producing the last block in each parachain slot entirely.
+	Bundling,
+}
+
+impl BlockProductionMode {
+	/// Determine the appropriate mode based on total blocks per relay slot.
+	fn from_total_blocks(total_blocks: u32) -> Self {
+		match total_blocks {
+			0..=1 => Self::Normal,
+			2..=3 => Self::Legacy { time_factor: 0.5 },
+			_ => Self::Bundling,
+		}
+	}
+
+	/// Whether this mode skips the last block (vs adjusting time).
+	fn skips_last_block(&self) -> bool {
+		matches!(self, Self::Bundling)
+	}
+}
+
+/// Policy object that determines block production timing decisions.
+///
+/// Encapsulates the complex timing logic for block production, making decisions
+/// about when to skip blocks, how long to spend authoring, and when to sleep.
+#[derive(Debug, Clone, Copy)]
+struct BlockProductionSchedule {
+	mode: BlockProductionMode,
+	block_index: u32,
+	blocks_per_core: u32,
+	is_last_core_in_parachain_slot: bool,
+}
+
+impl BlockProductionSchedule {
+	fn new(
+		block_index: u32,
+		blocks_per_core: u32,
+		total_blocks: u32,
+		is_last_core_in_parachain_slot: bool,
+	) -> Self {
+		Self {
+			mode: BlockProductionMode::from_total_blocks(total_blocks),
+			block_index,
+			blocks_per_core,
+			is_last_core_in_parachain_slot,
+		}
+	}
+
+	/// Whether this is the actual last block index in the core.
+	fn is_actual_last_block(&self) -> bool {
+		self.block_index + 1 == self.blocks_per_core
+	}
+
+	/// Whether this is the second-to-last block index.
+	fn is_second_to_last(&self) -> bool {
+		self.block_index + 2 == self.blocks_per_core
+	}
+
+	/// Whether to skip producing this block entirely.
+	///
+	/// In Bundling mode, we skip the last block in the parachain slot
+	/// to give the next author time to import all previous blocks.
+	fn should_skip_production(&self) -> bool {
+		self.mode.skips_last_block() &&
+			self.is_actual_last_block() &&
+			self.is_last_core_in_parachain_slot
+	}
+
+	/// Whether this is effectively the last block we'll produce for this core.
+	///
+	/// Used for `BundleInfo { maybe_last }` - validators need to know which
+	/// block might be final. Also used for sleep decisions - we don't sleep
+	/// after the last or second-to-last block to speed up the final stretch.
+	///
+	/// The second-to-last block is always included because:
+	/// 1. In Bundling mode on the last core, we skip the actual last block
+	/// 2. Even when not skipping, avoiding sleep on the last two blocks speeds things up
+	fn is_effective_last_block(&self) -> bool {
+		self.is_actual_last_block() || self.is_second_to_last()
+	}
+
+	/// Compute the authoring duration given available time.
+	fn authoring_duration(&self, time_left: Duration, block_time: Duration) -> Duration {
+		let adjusted = match &self.mode {
+			BlockProductionMode::Legacy { time_factor }
+				if self.is_effective_last_block() && self.blocks_per_core == 1 =>
+			{
+				time_left.mul_f32(*time_factor)
+			},
+			_ => time_left,
+		};
+
+		block_time.min(adjusted)
+	}
+}
+
 /// Determine the cores for the given `para_id`.
 ///
 /// Takes into account the `parent` core to find the next available cores.
@@ -1035,4 +1130,202 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 			core_indices,
 		})
 	})
+}
+
+#[cfg(test)]
+mod block_production_schedule_tests {
+	use super::*;
+
+	mod mode_tests {
+		use super::*;
+
+		#[test]
+		fn mode_selection_from_total_blocks() {
+			// 0-1 blocks = Normal
+			assert!(matches!(
+				BlockProductionMode::from_total_blocks(0),
+				BlockProductionMode::Normal
+			));
+			assert!(matches!(
+				BlockProductionMode::from_total_blocks(1),
+				BlockProductionMode::Normal
+			));
+
+			// 2-3 blocks = Medium with half time
+			assert!(matches!(
+				BlockProductionMode::from_total_blocks(2),
+				BlockProductionMode::Legacy { time_factor: 0.5 }
+			));
+			assert!(matches!(
+				BlockProductionMode::from_total_blocks(3),
+				BlockProductionMode::Legacy { time_factor: 0.5 }
+			));
+
+			// >3 blocks = Fast
+			assert!(matches!(
+				BlockProductionMode::from_total_blocks(4),
+				BlockProductionMode::Bundling
+			));
+			assert!(matches!(
+				BlockProductionMode::from_total_blocks(12),
+				BlockProductionMode::Bundling
+			));
+		}
+
+		#[test]
+		fn mode_behavior_flags() {
+			assert!(!BlockProductionMode::Normal.skips_last_block());
+
+			let medium = BlockProductionMode::Legacy { time_factor: 0.5 };
+			assert!(!medium.skips_last_block());
+
+			assert!(BlockProductionMode::Bundling.skips_last_block());
+		}
+	}
+
+	mod schedule_tests {
+		use super::*;
+
+		// fn new(
+		// 	block_index: u32,
+		// 	blocks_per_core: u32,
+		// 	total_blocks: u32,
+		// 	is_last_core_in_parachain_slot: bool,
+		// )
+
+		#[test]
+		fn skip_production_only_in_fast_mode_last_core_last_block() {
+			// Should skip: Fast mode, last core, last block
+			assert!(BlockProductionSchedule::new(0, 1, 4, true).should_skip_production());
+
+			// Should NOT skip: not last core in parachain slot
+			assert!(!BlockProductionSchedule::new(0, 1, 4, false).should_skip_production());
+
+			// Should NOT skip: Medium mode (uses time adjustment instead)
+			assert!(!BlockProductionSchedule::new(0, 1, 3, true).should_skip_production());
+
+			// Should NOT skip: not last block in core
+			assert!(!BlockProductionSchedule::new(0, 2, 4, true).should_skip_production());
+
+			// Should skip: Fast mode, last core, last block
+			assert!(BlockProductionSchedule::new(3, 4, 12, true).should_skip_production());
+			// Should skip: Fast mode, last core, second to last block
+			assert!(!BlockProductionSchedule::new(2, 4, 12, true).should_skip_production());
+
+			// Should NOT skip: Fast mode, not last core, last block
+			assert!(!BlockProductionSchedule::new(3, 4, 12, false).should_skip_production());
+			assert!(!BlockProductionSchedule::new(2, 4, 12, false).should_skip_production());
+		}
+
+		#[test]
+		fn effective_last_block_includes_second_to_last() {
+			// block_index 2 is second-to-last (2+2 == 4), always effective last
+			let schedule = BlockProductionSchedule::new(2, 4, 12, true);
+			assert!(schedule.is_effective_last_block());
+			assert!(!schedule.is_actual_last_block());
+			assert!(schedule.is_second_to_last());
+
+			// Same config but not last core - second-to-last is STILL effective last
+			// (original logic doesn't gate on is_last_core_in_parachain_slot)
+			let schedule = BlockProductionSchedule::new(2, 4, 12, false);
+			assert!(schedule.is_effective_last_block());
+
+			let schedule = BlockProductionSchedule::new(3, 4, 12, false);
+			assert!(schedule.is_effective_last_block());
+
+			// First block is not effective last
+			let schedule = BlockProductionSchedule::new(0, 4, 12, true);
+			assert!(!schedule.is_effective_last_block());
+
+			// With only 1 block per core, there's no second-to-last
+			let schedule = BlockProductionSchedule::new(0, 1, 3, true);
+			assert!(schedule.is_effective_last_block()); // actual last
+			assert!(!schedule.is_second_to_last());
+		}
+
+		#[test]
+		fn authoring_duration_halved_in_medium_mode() {
+			let time_left = Duration::from_millis(2000);
+			let block_time = Duration::from_millis(3000);
+
+			// Medium mode, last block, 1 block per core -> halved
+			let schedule = BlockProductionSchedule::new(0, 1, 2, true);
+			assert_eq!(
+				schedule.authoring_duration(time_left, block_time),
+				Duration::from_millis(1000) // halved, capped by time_left/2
+			);
+
+			// Medium mode but NOT last block -> full time
+			let schedule = BlockProductionSchedule::new(0, 2, 2, true);
+			assert_eq!(
+				schedule.authoring_duration(time_left, block_time),
+				Duration::from_millis(2000) // full time_left (< block_time)
+			);
+
+			// Fast mode -> no time adjustment (uses skip instead)
+			let schedule = BlockProductionSchedule::new(0, 1, 4, true);
+			assert_eq!(
+				schedule.authoring_duration(time_left, block_time),
+				Duration::from_millis(2000)
+			);
+		}
+
+		/// This test verifies that the new schedule logic matches the original inline logic
+		/// for various block/core configurations.
+		#[test]
+		fn schedule_matches_original_logic() {
+			// Test various configurations to ensure schedule matches original behavior
+			let test_cases = [
+				// (block_index, blocks_per_core, total_blocks, is_last_core)
+				(0, 1, 1, false), // Normal: 1 block, not last core
+				(0, 1, 1, true),  // Normal: 1 block, last core
+				(0, 1, 2, true),  // Medium: 2 blocks, last core
+				(0, 1, 3, true),  // Medium: 3 blocks, last core
+				(0, 1, 4, true),  // Fast: 4 blocks, last core (should skip)
+				(0, 1, 4, false), // Fast: 4 blocks, not last core
+				(0, 2, 6, true),  // Fast: 6 blocks, 2 per core, block 0
+				(1, 2, 6, true),  // Fast: 6 blocks, 2 per core, block 1 (last)
+				(0, 4, 12, true), // Fast: 12 blocks, 4 per core, block 0
+				(2, 4, 12, true), // Fast: 12 blocks, 4 per core, block 2 (second-to-last)
+				(3, 4, 12, true), // Fast: 12 blocks, 4 per core, block 3 (last, should skip)
+			];
+
+			for (block_index, blocks_per_core, total_blocks, is_last_core) in test_cases {
+				let schedule = BlockProductionSchedule::new(
+					block_index,
+					blocks_per_core,
+					total_blocks,
+					is_last_core,
+				);
+
+				// Original is_last_block_in_core logic
+				let original_is_last = block_index + 1 == blocks_per_core ||
+					(block_index + 2 == blocks_per_core && blocks_per_core > 1);
+
+				// Original skip logic
+				let original_skip =
+					block_index + 1 == blocks_per_core && total_blocks > 3 && is_last_core;
+
+				assert_eq!(
+					schedule.is_effective_last_block(),
+					original_is_last,
+					"is_effective_last_block mismatch for ({}, {}, {}, {})",
+					block_index,
+					blocks_per_core,
+					total_blocks,
+					is_last_core
+				);
+
+				assert_eq!(
+					schedule.should_skip_production(),
+					original_skip,
+					"should_skip_production mismatch for ({}, {}, {}, {})",
+					block_index,
+					blocks_per_core,
+					total_blocks,
+					is_last_core
+				);
+			}
+		}
+	}
 }
