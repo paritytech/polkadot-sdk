@@ -582,13 +582,10 @@ pub async fn wait_for_runtime_upgrade(
 
 	while let Some(Ok(block)) = finalized_blocks.next().await {
 		log::info!("block #: {} ({})", block.number(), block.hash());
-		if block
-			.header()
-			.digest
-			.logs
-			.iter()
-			.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated))
-		{
+		if block.header().digest.logs.iter().any(|d| {
+			log::info!("Digest item: {d:?}");
+			matches!(d, DigestItem::RuntimeEnvironmentUpdated)
+		}) {
 			log::info!("Runtime upgraded in block {:?}", block.hash());
 
 			return Ok(block.hash());
