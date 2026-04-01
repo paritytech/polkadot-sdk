@@ -125,6 +125,8 @@ pub struct PoVMessages {
 	pub ump_msg_count: u32,
 	/// Cumulative count of HRMP outbound messages sent in this PoV.
 	pub hrmp_outbound_count: u32,
+	/// Recipients already used for HRMP outbound messages in this PoV.
+	pub hrmp_outbound_recipients: Vec<ParaId>,
 }
 
 /// Something that can check the associated relay block number.
@@ -367,7 +369,7 @@ pub mod pallet {
 					.map_or(0, |ci| ci.selector.0);
 
 			let current_bundle_index =
-				CumulusDigestItem::find_bundle_info(&frame_system::Pallet::<T>::digest())
+				CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
 					.map_or(0, |bi| bi.index);
 
 			let mut pov_tracker = PoVMessagesTracker::<T>::get()
@@ -438,9 +440,9 @@ pub mod pallet {
 
 				pov_tracker.ump_msg_count = pov_tracker.ump_msg_count.saturating_add(num);
 
-				if let Some(core_info) =
-					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-				{
+				let digest = frame_system::Pallet::<T>::digest();
+
+				if let Some(core_info) = CumulusDigestItem::find_core_info(&digest) {
 					PendingUpwardSignals::<T>::append(
 						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
 							.encode(),
@@ -452,8 +454,11 @@ pub mod pallet {
 					PreviousCoreCount::<T>::put(Compact(1u16));
 				}
 
-				// Send the pending UMP signals.
-				Self::send_ump_signals();
+				// Only send UMP signals on the last block of a bundle.
+				// For single-block PoVs (no BlockBundleInfo), always send signals.
+				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
+					Self::send_ump_signals();
+				}
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -489,12 +494,17 @@ pub mod pallet {
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
 			// been adjusted above to reflect the correct limits in all channels.
-			let outbound_messages =
-				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
-					.into_iter()
-					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
-					.collect::<Vec<_>>();
+			let outbound_messages = T::OutboundXcmpMessageSource::take_outbound_messages(
+				maximum_channels,
+				&pov_tracker.hrmp_outbound_recipients,
+			)
+			.into_iter()
+			.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
+			.collect::<Vec<_>>();
 
+			pov_tracker
+				.hrmp_outbound_recipients
+				.extend(outbound_messages.iter().map(|m| m.recipient));
 			pov_tracker.hrmp_outbound_count =
 				pov_tracker.hrmp_outbound_count.saturating_add(outbound_messages.len() as u32);
 			PoVMessagesTracker::<T>::put(pov_tracker);

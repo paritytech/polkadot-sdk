@@ -117,6 +117,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		&relay_client,
 		2,
 		[(ParaId::from(2000), 2..3), (ParaId::from(2001), 2..3)],
+		[],
 	)
 	.await?;
 
@@ -135,6 +136,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		&relay_client,
 		10,
 		[(ParaId::from(2000), 9..11), (ParaId::from(2001), 9..11)],
+		[],
 	)
 	.await?;
 

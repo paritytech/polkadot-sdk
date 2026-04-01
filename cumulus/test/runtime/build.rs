@@ -98,6 +98,13 @@ fn main() {
 		.set_file_name("wasm_binary_elastic_scaling_v3.rs")
 		.build();
 
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("block-bundling")
+		.import_memory()
+		.set_file_name("wasm_binary_block_bundling.rs")
+		.build();
+
 	WasmBuilder::init_with_defaults()
 		.enable_feature("slot-duration-18s")
 		.enable_feature("increment-spec-version")

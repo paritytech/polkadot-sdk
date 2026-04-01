@@ -113,7 +113,7 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	//  time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
 	log::info!("Checking parachain block production");
 	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 5..15));
-	assert_para_throughput(&relay_client, 40, para_throughput).await?;
+	assert_para_throughput(&relay_client, 40, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
 	log::info!("Test finished successfully");

@@ -18,7 +18,6 @@
 // concluded.
 
 use anyhow::anyhow;
-
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use serde_json::json;
 use tokio::time::Duration;
@@ -108,7 +107,7 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 	let malus = network.get_node("malus")?;
 
 	log::info!("Waiting for parablocks to be produced");
-	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(2000), 10..30)])
+	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(2000), 10..30)], [])
 		.await?;
 
 	let result = malus

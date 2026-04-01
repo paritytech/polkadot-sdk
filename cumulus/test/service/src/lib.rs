@@ -200,7 +200,7 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let (block_import, slot_based_handle) =
+	let (block_import, block_import_handle) =
 		SlotBasedBlockImport::new(client.clone(), client.clone());
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
@@ -245,7 +245,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: (block_import, slot_based_handle),
+		other: (block_import, block_import_handle),
 	};
 
 	Ok(params)
@@ -330,8 +330,7 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other.0;
-	let slot_based_handle = params.other.1;
+	let (block_import, block_import_handle) = params.other;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
@@ -470,10 +469,9 @@ where
 				para_id,
 				proposer,
 				collator_service,
-				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
-				block_import_handle: slot_based_handle,
+				block_import_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
@@ -925,7 +923,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: runtime::TxExtension = (
+	let tx_ext: runtime::TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim::from((
 		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
@@ -937,12 +935,13 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-	)
-		.into();
+		runtime::TestTransactionExtension::<runtime::Runtime>::default(),
+	))
+	.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(

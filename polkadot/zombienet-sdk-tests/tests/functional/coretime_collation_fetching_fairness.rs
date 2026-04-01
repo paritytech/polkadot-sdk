@@ -120,6 +120,7 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 		&relay_client,
 		12,
 		[(ParaId::from(2000), 6..10), (ParaId::from(2001), 2..5)],
+		[],
 	)
 	.await?;
 
