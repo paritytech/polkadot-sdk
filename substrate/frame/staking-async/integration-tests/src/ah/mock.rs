@@ -463,7 +463,6 @@ impl pallet_staking_async::Config for Runtime {
 	type StakerRewardCalculator = ();
 	type EventListeners = ();
 	type Reward = ();
-	type RewardRemainder = ();
 	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxPruningItems = MaxPruningItems;

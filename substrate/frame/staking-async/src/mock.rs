@@ -469,7 +469,6 @@ impl Config for Test {
 	type ElectionProvider = TestElectionProvider;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type HistoryDepth = HistoryDepth;
-	type RewardRemainder = ();
 	type Slash = Dap;
 	type UnclaimedRewardHandler = Dap;
 	type Reward = MockReward;

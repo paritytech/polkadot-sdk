@@ -186,11 +186,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
 
-		/// Tokens have been minted and are unused for validator-reward.
-		/// See [Era payout](./index.html#era-payout).
-		#[pallet::no_default_bounds]
-		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
-
 		/// Handler for the unbalanced reduction when slashing a staker.
 		#[pallet::no_default_bounds]
 		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
@@ -417,7 +412,6 @@ pub mod pallet {
 			type CurrencyToVote = ();
 			type NominationsQuota = crate::FixedNominationsQuota<16>;
 			type HistoryDepth = ConstU32<84>;
-			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
 			type UnclaimedRewardHandler = ();
