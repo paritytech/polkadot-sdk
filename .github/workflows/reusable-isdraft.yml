@@ -1,4 +1,5 @@
 # The workflow is not part of reusable-preflight.yml to allow testing CI in draft.
+# Test: verify which checks are required for .github-only changes
 
 name: Preflight isdraft
 
