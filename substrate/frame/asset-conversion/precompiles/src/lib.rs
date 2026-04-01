@@ -59,6 +59,21 @@ alloy::sol! {
 			bool keepAlive
 		) external returns (uint256 amountOut);
 
+		/// Swap tokens to receive an exact amount of output tokens.
+		/// @param path Ordered list of asset addresses defining the swap route.
+		/// @param amountOut Exact amount of the last asset to receive.
+		/// @param amountInMax Maximum acceptable amount of the first asset to spend.
+		/// @param sendTo Address to receive the output tokens.
+		/// @param keepAlive If true, ensures the sender account stays above existential deposit.
+		/// @return amountIn The amount of input tokens spent.
+		function swapTokensForExactTokens(
+			address[] calldata path,
+			uint256 amountOut,
+			uint256 amountInMax,
+			address sendTo,
+			bool keepAlive
+		) external returns (uint256 amountIn);
+
 		/// Quote the expected output for a given exact input swap.
 		/// @param asset1 Address of the input asset.
 		/// @param asset2 Address of the output asset.
@@ -66,6 +81,19 @@ alloy::sol! {
 		/// @param includeFee Whether to include the pool's LP fee in the quote.
 		/// @return The expected output amount.
 		function quoteExactTokensForTokens(
+			address asset1,
+			address asset2,
+			uint256 amount,
+			bool includeFee
+		) external view returns (uint256);
+
+		/// Quote the required input for a given exact output swap.
+		/// @param asset1 Address of the input asset.
+		/// @param asset2 Address of the output asset.
+		/// @param amount The desired output amount to quote for.
+		/// @param includeFee Whether to include the pool's LP fee in the quote.
+		/// @return The required input amount.
+		function quoteTokensForExactTokens(
 			address asset1,
 			address asset2,
 			uint256 amount,
@@ -115,14 +143,23 @@ where
 		use IAssetConversion::IAssetConversionCalls;
 
 		match input {
-			IAssetConversionCalls::swapExactTokensForTokens(_) if env.is_read_only() => {
+			IAssetConversionCalls::swapExactTokensForTokens(_) |
+			IAssetConversionCalls::swapTokensForExactTokens(_)
+				if env.is_read_only() =>
+			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
 			IAssetConversionCalls::swapExactTokensForTokens(call) => {
 				Self::swap_exact_tokens_for_tokens(call, env)
 			},
+			IAssetConversionCalls::swapTokensForExactTokens(call) => {
+				Self::swap_tokens_for_exact_tokens(call, env)
+			},
 			IAssetConversionCalls::quoteExactTokensForTokens(call) => {
 				Self::quote_exact_tokens_for_tokens(call, env)
+			},
+			IAssetConversionCalls::quoteTokensForExactTokens(call) => {
+				Self::quote_tokens_for_exact_tokens(call, env)
 			},
 		}
 	}
@@ -201,6 +238,53 @@ where
 		)?))
 	}
 
+	fn swap_tokens_for_exact_tokens(
+		call: &IAssetConversion::swapTokensForExactTokensCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		let path_len = call.path.len() as u32;
+		env.charge(
+			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
+				path_len,
+			),
+		)?;
+
+		let caller_h160 = env
+			.caller()
+			.account_id()
+			.map(<Runtime as pallet_revive::Config>::AddressMapper::to_address)
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?;
+		let sender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&caller_h160);
+
+		let path = call
+			.path
+			.iter()
+			.map(|&addr| Converter::address_to_asset_kind(&H160(addr.0 .0)))
+			.collect::<Result<Vec<_>, _>>()?;
+
+		let amount_out = Self::to_balance(call.amountOut)?;
+		let amount_in_max = Self::to_balance(call.amountInMax)?;
+
+		let send_to_h160: H160 = call.sendTo.into_array().into();
+		let send_to = env.to_account_id(&send_to_h160);
+
+		use pallet_asset_conversion::Swap;
+		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
+			<Runtime as frame_system::Config>::AccountId,
+		>>::swap_tokens_for_exact_tokens(
+			sender,
+			path,
+			amount_out,
+			Some(amount_in_max),
+			send_to,
+			call.keepAlive,
+		)?;
+
+		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
+			amount_in,
+		)?))
+	}
+
 	fn quote_exact_tokens_for_tokens(
 		call: &IAssetConversion::quoteExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
@@ -230,6 +314,38 @@ where
 			}))?;
 
 		Ok(IAssetConversion::quoteExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
+			quoted,
+		)?))
+	}
+
+	fn quote_tokens_for_exact_tokens(
+		call: &IAssetConversion::quoteTokensForExactTokensCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		// Quote is read-only. Charge swap weight as a safe overestimate.
+		// TODO: Add proper benchmarks for quote operations.
+		env.charge(
+			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
+				2,
+			),
+		)?;
+
+		let asset1 = Converter::address_to_asset_kind(&H160(call.asset1.0 .0))?;
+		let asset2 = Converter::address_to_asset_kind(&H160(call.asset2.0 .0))?;
+		let amount = Self::to_balance(call.amount)?;
+
+		use pallet_asset_conversion::QuotePrice;
+		let quoted = <pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_tokens_for_exact_tokens(
+			asset1,
+			asset2,
+			amount,
+			call.includeFee,
+		)
+		.ok_or(Error::Revert(Revert {
+			reason: "Pool does not exist or has no liquidity".into(),
+		}))?;
+
+		Ok(IAssetConversion::quoteTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			quoted,
 		)?))
 	}

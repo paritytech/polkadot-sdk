@@ -225,6 +225,92 @@ fn quote_matches_swap() {
 }
 
 #[test]
+fn swap_tokens_for_exact_tokens_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		// Give swapper native balance (already has 1M from genesis) and asset1.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
+
+		let swapper_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
+
+		let swapper_native_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &swapper);
+
+		// Swap native -> asset1, requesting exactly 50 asset1 output.
+		let data = IAssetConversion::swapTokensForExactTokensCall {
+			path: vec![
+				alloy::primitives::Address::from(NATIVE_ADDR.0),
+				alloy::primitives::Address::from(asset1_addr().0),
+			],
+			amountOut: U256::from(50),
+			amountInMax: U256::from(10_000),
+			sendTo: alloy::primitives::Address::from(swapper_addr.0),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let return_data = result.result.expect("swap must succeed");
+		assert!(!return_data.did_revert(), "swap must not revert");
+
+		let amount_in =
+			IAssetConversion::swapTokensForExactTokensCall::abi_decode_returns(&return_data.data)
+				.expect("return data must decode");
+		assert!(amount_in > U256::ZERO, "must spend some tokens");
+
+		// Verify recipient got exactly 50 asset1.
+		let swapper_asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &swapper);
+		// swapper had 1000 asset1, should now have 1050.
+		assert_eq!(swapper_asset1_after, 1_050, "swapper must receive exactly 50 asset1");
+
+		// Verify native was spent.
+		let swapper_native_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &swapper);
+		assert_eq!(
+			U256::from(swapper_native_before - swapper_native_after),
+			amount_in,
+			"spent native must match return value"
+		);
+	});
+}
+
+#[test]
+fn quote_tokens_for_exact_tokens_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		// Quote: how much native needed to get exactly 100 asset1?
+		let data = IAssetConversion::quoteTokensForExactTokensCall {
+			asset1: alloy::primitives::Address::from(NATIVE_ADDR.0),
+			asset2: alloy::primitives::Address::from(asset1_addr().0),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		let return_data = result.result.expect("quote must succeed");
+		assert!(!return_data.did_revert(), "quote must not revert");
+
+		let quoted =
+			IAssetConversion::quoteTokensForExactTokensCall::abi_decode_returns(&return_data.data)
+				.expect("return data must decode");
+		assert!(quoted > U256::ZERO, "quoted input amount must be positive");
+		// Exact-out requires more input than the exact-in output for the same amount,
+		// due to the fee structure. For 100 tokens out from a 10000/10000 pool with 0.3% fee:
+		// amount_in = (100 * 1000 * 10000) / ((10000 - 100) * 997) + 1 = 102
+		assert_eq!(quoted, U256::from(102), "quoted amount must match expected AMM input");
+	});
+}
+
+#[test]
 fn swap_fails_with_insufficient_output() {
 	new_test_ext().execute_with(|| {
 		let provider = 1u64;
