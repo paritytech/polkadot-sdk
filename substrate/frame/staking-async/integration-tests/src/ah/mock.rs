@@ -524,13 +524,14 @@ parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 	pub const DapIssuanceCadence: u64 = 60_000;
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
-	pub static MockTime: u64 = 0;
 }
 
+/// Mock time provider backed by block number (1 block = 6000ms).
+pub struct MockTime;
 impl frame_support::traits::Time for MockTime {
 	type Moment = u64;
 	fn now() -> u64 {
-		Self::get()
+		(System::block_number() as u64) * 6_000
 	}
 }
 
@@ -543,15 +544,6 @@ impl sp_staking::budget::IssuanceCurve<Balance> for TestIssuanceCurve {
 		} else {
 			elapsed_millis as Balance
 		}
-	}
-}
-
-/// Mock time provider backed by block number (1 block = 6000ms).
-pub struct MockTime;
-impl frame_support::traits::Time for MockTime {
-	type Moment = u64;
-	fn now() -> u64 {
-		(System::block_number() as u64) * 6_000
 	}
 }
 

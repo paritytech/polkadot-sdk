@@ -802,7 +802,7 @@ impl ExtBuilder {
 			)
 			.expect("mint general incentive pot");
 			// Fund DAP buffer account with ED.
-			let dap_buffer = pallet_dap::Pallet::<Test>::buffer_account();
+			let dap_buffer = <pallet_dap::Pallet<Test> as sp_staking::budget::BudgetRecipient<AccountId>>::pot_account();
 			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&dap_buffer, ed)
 				.expect("mint dap buffer");
 			session_mock::Session::roll_until_active_era(1);
