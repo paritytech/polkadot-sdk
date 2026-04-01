@@ -19,10 +19,9 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -255,10 +254,28 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The payout for validators and the system for the current era.
-		/// See [Era payout](./index.html#era-payout).
-		#[pallet::no_default]
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		/// Handler for unclaimed era rewards.
+		///
+		/// When era pots are cleaned up past history depth, remaining funds are withdrawn
+		/// and passed to this handler. Typically wired to DAP.
+		#[pallet::no_default_bounds]
+		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
+		/// Provider for general (non-era) reward pot accounts.
+		///
+		/// DAP drips inflation into these pots. At era boundaries, staking snapshots
+		/// and transfers the balances to era-specific pots.
+		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
+
+		/// Provider for generating era pot account IDs.
+		#[pallet::no_default_bounds]
+		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
+
+		/// Calculator for staker rewards.
+		///
+		/// Determines how staking rewards are distributed between validators and nominators.
+		#[pallet::no_default_bounds]
+		type StakerRewardCalculator: sp_staking::StakerRewardCalculator<BalanceOf<Self>>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -341,17 +358,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		/// Maximum allowed era duration in milliseconds.
-		///
-		/// This provides a defensive upper bound to cap the effective era duration, preventing
-		/// excessively long eras from causing runaway inflation (e.g., due to bugs). If the actual
-		/// era duration exceeds this value, it will be clamped to this maximum.
-		///
-		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
-		/// this can be set to 604,800,000 ms (7 days).
-		#[pallet::constant]
-		type MaxEraDuration: Get<u64>;
-
 		/// Maximum number of storage items that can be pruned in a single call.
 		///
 		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
@@ -413,6 +419,10 @@ pub mod pallet {
 			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
+			type UnclaimedRewardHandler = ();
+			type GeneralPots = ();
+			type EraPots = ();
+			type StakerRewardCalculator = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -422,7 +432,6 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
-			type MaxEraDuration = ();
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
@@ -457,6 +466,26 @@ pub mod pallet {
 	/// If set to `0`, no limit exists.
 	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// The maximum commission that validators can set.
+	///
+	/// If not set, defaults to `Perbill::one()` (100%), i.e. no upper limit.
+	#[pallet::storage]
+	pub type MaxCommission<T: Config> = StorageValue<_, Perbill, ValueQuery, MaxCommissionDefault>;
+
+	/// Default for MaxCommission: 100% (no restriction).
+	pub struct MaxCommissionDefault;
+	impl Get<Perbill> for MaxCommissionDefault {
+		fn get() -> Perbill {
+			Perbill::one()
+		}
+	}
+
+	/// The era from which legacy minting (mint-on-payout) is permanently disabled.
+	///
+	/// Once set, all eras >= this value must use reward pot transfers instead of minting.
+	#[pallet::storage]
+	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -1282,6 +1311,8 @@ pub mod pallet {
 		UnknownValidatorActivation,
 		/// Failed to proceed paged election due to weight limits
 		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
+		/// Validator payee is missing when paying rewards.
+		ValidatorMissingPayee { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1337,6 +1368,10 @@ pub mod pallet {
 		TooManyValidators,
 		/// Commission is too low. Must be at least `MinCommission`.
 		CommissionTooLow,
+		/// Commission is higher than the allowed maximum `MaxCommission`.
+		CommissionTooHigh,
+		/// Era has no reward pot but legacy minting is disabled.
+		LegacyMintingDisabled,
 		/// Some bound is not met.
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
@@ -1834,6 +1869,7 @@ pub mod pallet {
 
 			// ensure their commission is correct.
 			ensure!(prefs.commission >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+			ensure!(prefs.commission <= MaxCommission::<T>::get(), Error::<T>::CommissionTooHigh);
 
 			// Only check limits if they are not already a validator.
 			if !Validators::<T>::contains_key(stash) {
@@ -2493,12 +2529,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
+			let max_commission = MaxCommission::<T>::get();
 			Validators::<T>::try_mutate_exists(validator_stash, |maybe_prefs| {
 				maybe_prefs
 					.as_mut()
 					.map(|prefs| {
-						(prefs.commission < min_commission)
-							.then(|| prefs.commission = min_commission)
+						if prefs.commission < min_commission {
+							prefs.commission = min_commission;
+						}
+						if prefs.commission > max_commission {
+							prefs.commission = max_commission;
+						}
 					})
 					.ok_or(Error::<T>::NotStash)
 			})?;
@@ -2834,6 +2875,18 @@ pub mod pallet {
 				actual_weight: Some(actual_weight),
 				pays_fee: frame_support::dispatch::Pays::No,
 			})
+		}
+
+		/// Sets the maximum commission that validators can set.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::WeightInfo::set_max_commission())]
+		pub fn set_max_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(new >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
+			MaxCommission::<T>::put(new);
+			Ok(())
 		}
 	}
 }
