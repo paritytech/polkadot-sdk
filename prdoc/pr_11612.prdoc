@@ -1,0 +1,59 @@
+title: 'fix(multi-asset-bounties): enforce authorization in unassign_curator when
+  parent bounty is not Active'
+doc:
+- audience: Todo
+  description: "# Description\n\nFix an authorization bypass in `pallet-multi-asset-bounties`\
+    \ where any signed account could\nforcibly unassign an active child bounty's curator\
+    \ when the parent bounty was not in `Active` state\n(e.g., `CuratorUnassigned`).\
+    \ This also caused the child curator's native balance hold (deposit) to\nbe permanently\
+    \ leaked \u2014 removed from pallet storage but never released or burned on-chain.\n\
+    \n**Root cause:** In `unassign_curator`, the `BountyStatus::Active` branch's catch-all\
+    \ `Some(sender)`\narm used `if let Some(parent_curator) = parent_curator { ...\
+    \ }` with no `else` clause. When\n`parent_curator` was `None` (parent bounty not\
+    \ Active), the block was silently skipped and execution\nfell through to the state\
+    \ transition \u2014 no `BadOrigin` error was returned.\n\n## Integration\n\nNo\
+    \ integration changes required for downstream projects. This is a bug fix internal\
+    \ to\n`pallet-multi-asset-bounties` with no public API changes. The extrinsic\
+    \ signature and behavior for\nauthorized callers remain identical.\n\n## Review\
+    \ Notes\n\nThe fix restructures the `BountyStatus::Active` arm in `unassign_curator`\
+    \ with two changes:\n\n### 1. Authorization before storage mutation\n\nPreviously,\
+    \ `CuratorDeposit::take()` was called unconditionally at the top of the `Active`\
+    \ arm\n(before verifying the caller). Now it is called inside each `match maybe_sender`\
+    \ arm, only after the\ncaller is confirmed to be authorized. This prevents the\
+    \ deposit from being removed from storage on\nan unauthorized (and reverted) call\
+    \ path.\n\n```diff\n BountyStatus::Active { ref curator, .. } => {\n-    let maybe_curator_deposit\
+    \ =\n-        CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id);\n\
+    \     match maybe_sender {\n         None => {\n-            if let Some(curator_deposit)\
+    \ = maybe_curator_deposit {\n+            if let Some(curator_deposit) =\n+  \
+    \              CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n\
+    +            {\n                 T::Consideration::burn(curator_deposit, curator);\n\
+    \             }\n         },\n```\n\n### 2. Explicit rejection when `parent_curator`\
+    \ is `None`\n\nThe catch-all `Some(sender)` arm now uses `parent_curator.ok_or(BadOrigin)?`\
+    \ followed by an\n`ensure!`. When `parent_curator` is `None`, the call is immediately\n\
+    rejected with `BadOrigin`.\n\n```diff\n         Some(sender) => {\n-         \
+    \   if let Some(parent_curator) = parent_curator {\n-                if sender\
+    \ == parent_curator && *curator != parent_curator {\n-                    if let\
+    \ Some(curator_deposit) = maybe_curator_deposit {\n-                        T::Consideration::burn(curator_deposit,\
+    \ curator);\n-                    }\n-                } else {\n-            \
+    \        return Err(BadOrigin.into());\n-                }\n+            let parent_curator\
+    \ = parent_curator.ok_or(BadOrigin)?;\n+            ensure!(\n+              \
+    \  sender == parent_curator && *curator != parent_curator,\n+                BadOrigin\n\
+    +            );\n+            if let Some(curator_deposit) =\n+              \
+    \  CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)\n+        \
+    \    {\n+                T::Consideration::burn(curator_deposit, curator);\n \
+    \            }\n         },\n```\n\n### Regression test\n\nA comprehensive test\
+    \ (`unprivileged_caller_cannot_unassign_active_child_curator_when_parent_not_active`)\n\
+    is added that:\n\n1. Creates an active child bounty with a separate child curator.\n\
+    2. Has the parent curator voluntarily unassign (putting parent into `CuratorUnassigned`).\n\
+    3. Asserts that an unprivileged attacker is rejected with `BadOrigin`.\n4. Verifies\
+    \ the child bounty remains `Active`, the curator deposit stays in storage, and\
+    \ the\n   balance hold is intact.\n5. Confirms the child curator can still voluntarily\
+    \ unassign themselves and that the deposit is\n   properly released.\n\n# Checklist\n\
+    \n* [x] My PR includes a detailed description as outlined in the \"Description\"\
+    \ and its two subsections above.\n* [x] My PR follows the [labeling requirements]\n\
+    * [x] I have made corresponding changes to the documentation (if applicable)\n\
+    * [x] I have added tests that prove my fix is effective or that my feature works\
+    \ (if applicable)"
+crates:
+- name: pallet-multi-asset-bounties
+  bump: major
