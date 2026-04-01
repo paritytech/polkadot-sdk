@@ -24,10 +24,11 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraPotAccountProvider, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
+	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
+use sp_staking::StakerRewardCalculator;
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -355,7 +356,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// Note: if era has no reward to be claimed, era may be future.
-		let era_payout = Eras::<T>::get_validators_reward(era).ok_or_else(|| {
+		let era_payout = Eras::<T>::get_stakers_reward(era).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
@@ -387,13 +388,6 @@ impl<T: Config> Pallet<T> {
 
 		// Input data seems good, no errors allowed after this point
 
-		// Get Era reward points. It has TOTAL and INDIVIDUAL
-		// Find the fraction of the era reward that belongs to the validator
-		// Take that fraction of the eras rewards to split to nominator and validator
-		//
-		// Then look at the validator, figure out the proportion of their reward
-		// which goes to them and each of their nominators.
-
 		let era_reward_points = Eras::<T>::get_reward_points(era);
 		let total_reward_points = era_reward_points.total;
 		let validator_reward_points =
@@ -410,20 +404,22 @@ impl<T: Config> Pallet<T> {
 			Perbill::from_rational(validator_reward_points, total_reward_points);
 
 		// This is how much validator + nominators are entitled to.
-		let validator_total_payout = validator_total_reward_part * era_payout;
+		let validator_total_payout = validator_total_reward_part.mul_floor(era_payout);
 
 		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
-		// total commission validator takes across all nominator pages
-		let validator_total_commission_payout = validator_commission * validator_total_payout;
 
-		let validator_leftover_payout =
-			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
-		// Now let's calculate how this is split to the validator.
-		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
-		let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
+		// Use the StakerRewardCalculator trait to calculate reward distribution.
+		let reward_split = T::StakerRewardCalculator::calculate_staker_reward(
+			validator_total_payout,
+			validator_commission,
+			exposure.own(),
+			exposure.total(),
+		);
+
 		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
 		// validator commission is paid out in fraction across pages proportional to the page stake.
-		let validator_commission_payout = page_stake_part * validator_total_commission_payout;
+		let validator_staker_payout_for_page =
+			page_stake_part.mul_floor(reward_split.validator_payout);
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -432,63 +428,193 @@ impl<T: Config> Pallet<T> {
 			next: Eras::<T>::get_next_claimable_page(era, &stash),
 		});
 
-		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
-		// We can now make total validator payout:
-		if let Some((imbalance, dest)) =
-			Self::make_payout(&stash, validator_staking_payout + validator_commission_payout)
-		{
-			Self::deposit_event(Event::<T>::Rewarded { stash, dest, amount: imbalance.peek() });
-			total_imbalance.subsume(imbalance);
-		}
+		// Check if this era has a staker rewards pot.
+		let nominator_payout_count: u32 =
+			if crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era) {
+				Self::payout_from_provider(
+					era,
+					&stash,
+					validator_staker_payout_for_page,
+					&exposure,
+					reward_split.nominator_payout,
+				)
+			} else {
+				// LEGACY: Only used for old eras finalised before reward provider impl.
+				if let Some(disable_era) = DisableLegacyMintingEra::<T>::get() {
+					if era >= disable_era {
+						defensive!("Era has no reward pot but legacy minting is disabled!");
+						return Err(Error::<T>::LegacyMintingDisabled.into());
+					}
+				}
 
-		// Track the number of payout ops to nominators. Note:
-		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
-		// out, so we do not need to count their payout op.
-		let mut nominator_payout_count: u32 = 0;
+				Self::payout_legacy_mint(
+					&stash,
+					validator_staker_payout_for_page,
+					&exposure,
+					reward_split.nominator_payout,
+				)
+			};
 
-		// Lets now calculate how this is split to the nominators.
-		// Reward only the clipped exposures. Note this is not necessarily sorted.
-		for nominator in exposure.others().iter() {
-			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
-
-			let nominator_reward: BalanceOf<T> =
-				nominator_exposure_part * validator_leftover_payout;
-			// We can now make nominator payout:
-			if let Some((imbalance, dest)) = Self::make_payout(&nominator.who, nominator_reward) {
-				// Note: this logic does not count payouts for `RewardDestination::None`.
-				nominator_payout_count += 1;
-				let e = Event::<T>::Rewarded {
-					stash: nominator.who.clone(),
-					dest,
-					amount: imbalance.peek(),
-				};
-				Self::deposit_event(e);
-				total_imbalance.subsume(imbalance);
-			}
-		}
-
-		T::Reward::on_unbalanced(total_imbalance);
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
 
 		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
 	}
 
-	/// Chill a stash account.
-	pub(crate) fn chill_stash(stash: &T::AccountId) {
-		let chilled_as_validator = Self::do_remove_validator(stash);
-		let chilled_as_nominator = Self::do_remove_nominator(stash);
-		if chilled_as_validator || chilled_as_nominator {
-			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
+	/// Payout stakers from an era reward pot (transfer-based, no minting).
+	fn payout_from_provider(
+		era: EraIndex,
+		stash: &T::AccountId,
+		validator_payout: BalanceOf<T>,
+		exposure: &crate::PagedExposure<T::AccountId, BalanceOf<T>>,
+		total_nominator_payout: BalanceOf<T>,
+	) -> u32 {
+		let mut nominator_payout_count: u32 = 0;
+
+		if let Some((amount, dest)) =
+			Self::make_payout_from_provider(era, stash, validator_payout)
+		{
+			Self::deposit_event(Event::<T>::Rewarded { stash: stash.clone(), dest, amount });
+		}
+
+		let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
+		for nominator in exposure.others().iter() {
+			let nominator_exposure_part =
+				Perbill::from_rational(nominator.value, total_nominator_stake);
+			let nominator_reward: BalanceOf<T> =
+				nominator_exposure_part.mul_floor(total_nominator_payout);
+
+			if let Some((amount, dest)) =
+				Self::make_payout_from_provider(era, &nominator.who, nominator_reward)
+			{
+				nominator_payout_count.saturating_inc();
+				Self::deposit_event(Event::<T>::Rewarded {
+					stash: nominator.who.clone(),
+					dest,
+					amount,
+				});
+			}
+		}
+
+		nominator_payout_count
+	}
+
+	/// Legacy mint-based payout for pre-upgrade eras.
+	fn payout_legacy_mint(
+		stash: &T::AccountId,
+		validator_payout: BalanceOf<T>,
+		exposure: &crate::PagedExposure<T::AccountId, BalanceOf<T>>,
+		total_nominator_payout: BalanceOf<T>,
+	) -> u32 {
+		let mut nominator_payout_count: u32 = 0;
+		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+
+		if let Some((imbalance, dest)) = Self::make_payout_legacy(stash, validator_payout) {
+			Self::deposit_event(Event::<T>::Rewarded {
+				stash: stash.clone(),
+				dest,
+				amount: imbalance.peek(),
+			});
+			total_imbalance.subsume(imbalance);
+		}
+
+		let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
+		for nominator in exposure.others().iter() {
+			let nominator_exposure_part =
+				Perbill::from_rational(nominator.value, total_nominator_stake);
+			let nominator_reward: BalanceOf<T> =
+				nominator_exposure_part.mul_floor(total_nominator_payout);
+
+			if let Some((imbalance, dest)) =
+				Self::make_payout_legacy(&nominator.who, nominator_reward)
+			{
+				nominator_payout_count.saturating_inc();
+				Self::deposit_event(Event::<T>::Rewarded {
+					stash: nominator.who.clone(),
+					dest,
+					amount: imbalance.peek(),
+				});
+				total_imbalance.subsume(imbalance);
+			}
+		}
+
+		T::Reward::on_unbalanced(total_imbalance);
+		nominator_payout_count
+	}
+
+	/// Determine the payout account from a reward destination.
+	fn payout_account_for_dest(
+		stash: &T::AccountId,
+		dest: &RewardDestination<T::AccountId>,
+	) -> Option<T::AccountId> {
+		match dest {
+			RewardDestination::Stash | RewardDestination::Staked => Some(stash.clone()),
+			RewardDestination::Account(ref dest_account) => Some(dest_account.clone()),
+			RewardDestination::None => None,
+			#[allow(deprecated)]
+			RewardDestination::Controller => Self::bonded(stash),
 		}
 	}
 
-	/// Actually make a payment to a staker. This uses the currency's reward function
-	/// to pay the right payee for the given staker account.
-	fn make_payout(
+	/// Make a payment to a staker from an era reward pot (transfer, not mint).
+	fn make_payout_from_provider(
+		era: EraIndex,
+		stash: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> Option<(BalanceOf<T>, RewardDestination<T::AccountId>)> {
+		use frame_support::traits::{fungible::Mutate as FunMutate, tokens::Preservation};
+
+		if amount.is_zero() {
+			return None;
+		}
+
+		let dest = match Self::payee(Stash(stash.clone())) {
+			Some(d) => d,
+			None => {
+				defensive!("Staker missing payee");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorMissingPayee { era },
+				));
+				return None;
+			},
+		};
+
+		let payout_account = Self::payout_account_for_dest(stash, &dest)?;
+
+		let staker_rewards_pot =
+			T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
+		if let Err(e) = T::Currency::transfer(
+			&staker_rewards_pot,
+			&payout_account,
+			amount,
+			Preservation::Expendable,
+		) {
+			log!(
+				error,
+				"Failed to transfer reward from pot for era {:?}, stash {:?}: {:?}",
+				era, stash, e
+			);
+			return None;
+		}
+
+		// For Staked destination, update ledger.
+		if matches!(dest, RewardDestination::Staked) {
+			if let Ok(mut ledger) = Self::ledger(Stash(stash.clone())) {
+				ledger.active += amount;
+				ledger.total += amount;
+				let _ = ledger
+					.update()
+					.defensive_proof("ledger fetched from storage, so it exists; qed.");
+			}
+		}
+
+		Some((amount, dest))
+	}
+
+	/// Legacy: make a payment to a staker by minting new tokens.
+	fn make_payout_legacy(
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
-		// noop if amount is zero
 		if amount.is_zero() {
 			return None;
 		}
@@ -501,27 +627,31 @@ impl<T: Config> Pallet<T> {
 					ledger.active += amount;
 					ledger.total += amount;
 					let r = asset::mint_into_existing::<T>(stash, amount);
-
 					let _ = ledger
 						.update()
 						.defensive_proof("ledger fetched from storage, so it exists; qed.");
-
 					Ok(r)
 				})
 				.unwrap_or_default(),
 			RewardDestination::Account(ref dest_account) =>
-				Some(asset::mint_creating::<T>(&dest_account, amount)),
+				Some(asset::mint_creating::<T>(dest_account, amount)),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
-			RewardDestination::Controller => Self::bonded(stash)
-					.map(|controller| {
-						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
-						// This should never happen once payees with a `Controller` variant have been migrated.
-						// But if it does, just pay the controller account.
-						asset::mint_creating::<T>(&controller, amount)
-		}),
+			RewardDestination::Controller => Self::bonded(stash).map(|controller| {
+				defensive!("Paying out controller as reward destination which is deprecated.");
+				asset::mint_creating::<T>(&controller, amount)
+			}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
+	}
+
+	/// Chill a stash account.
+	pub(crate) fn chill_stash(stash: &T::AccountId) {
+		let chilled_as_validator = Self::do_remove_validator(stash);
+		let chilled_as_nominator = Self::do_remove_nominator(stash);
+		if chilled_as_validator || chilled_as_nominator {
+			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
+		}
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
