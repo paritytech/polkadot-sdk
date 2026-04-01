@@ -155,7 +155,7 @@ enum DbExtrinsic<B: BlockT> {
 		/// Hashes of all renewed indexed data items.
 		hashes: Vec<DbHash>,
 		/// The full encoded extrinsic (used to reconstruct the block body).
-		header: Vec<u8>,
+		extrinsic: Vec<u8>,
 	},
 }
 
@@ -734,7 +734,7 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
 			Ok(index) => Ok(Some(index.into_iter().flat_map(|ex| match ex {
 				DbExtrinsic::Indexed { hash, .. } => vec![hash],
-				DbExtrinsic::Indexed { hashes, .. } => hashes,
+				DbExtrinsic::MultiRenew { hashes, .. } => hashes,
 				_ => vec![],
 			}))),
 			Err(err) => {
