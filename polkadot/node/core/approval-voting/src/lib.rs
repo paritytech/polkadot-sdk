@@ -55,8 +55,8 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
 	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex,
-	Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
-	ValidatorSignature,
+	Hash, SessionExecutionConfig, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -735,7 +735,7 @@ struct RetryApprovalInfo {
 	candidate: CandidateReceipt,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
-	session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
+	session_execution_config: Option<SessionExecutionConfig>,
 	core_index: Option<CoreIndex>,
 	session_index: SessionIndex,
 	attempts_remaining: u32,
@@ -1194,7 +1194,7 @@ enum Action {
 		relay_block_hash: Hash,
 		session: SessionIndex,
 		executor_params: ExecutorParams,
-		session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
+		session_execution_config: Option<SessionExecutionConfig>,
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
@@ -1943,8 +1943,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											session: block_entry.session(),
 											executor_params: extended_info.executor_params.clone(),
 											session_execution_config: extended_info
-												.session_execution_config
-												.clone(),
+												.session_execution_config,
 											candidate: candidate_entry.candidate_receipt().clone(),
 											backing_group: approval_entry.backing_group(),
 											distribute_assignment: false,
@@ -3390,18 +3389,17 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		// index comes from the candidate descriptor (relay_parent's session), falling back
 		// to the including block's session for V1 descriptors.
 		let session = candidate_receipt.descriptor.session_index().unwrap_or(block_entry.session());
-		let extended_info =
-			match get_extended_session_info_by_index(
-				session_info_provider,
-				sender,
-				relay_block,
-				session,
-			)
-			.await
-			{
-				Some(i) => i,
-				None => return Ok(actions),
-			};
+		let extended_info = match get_extended_session_info_by_index(
+			session_info_provider,
+			sender,
+			relay_block,
+			session,
+		)
+		.await
+		{
+			Some(i) => i,
+			None => return Ok(actions),
+		};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
@@ -3438,9 +3436,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 						relay_block_hash: relay_block,
 						session: block_entry.session(),
 						executor_params: extended_info.executor_params.clone(),
-						session_execution_config: extended_info
-							.session_execution_config
-							.clone(),
+						session_execution_config: extended_info.session_execution_config,
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
@@ -3511,7 +3507,7 @@ async fn launch_approval<
 	block_hash: Hash,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
-	session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
+	session_execution_config: Option<SessionExecutionConfig>,
 	core_index: Option<CoreIndex>,
 	retry: RetryApprovalInfo,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {

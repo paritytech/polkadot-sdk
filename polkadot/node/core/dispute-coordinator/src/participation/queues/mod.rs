@@ -23,7 +23,7 @@ use futures::channel::oneshot;
 use polkadot_node_subsystem::{messages::ChainApiMessage, overseer};
 use polkadot_primitives::{
 	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ExecutorParams, Hash,
-	SessionIndex,
+	SessionExecutionConfig, SessionIndex,
 };
 
 use crate::{
@@ -77,7 +77,7 @@ pub struct ParticipationRequest {
 	candidate_receipt: CandidateReceipt,
 	session: SessionIndex,
 	executor_params: ExecutorParams,
-	session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
+	session_execution_config: Option<SessionExecutionConfig>,
 	request_timer: Option<prometheus::HistogramTimer>, // Sends metric data when request is dropped
 }
 
@@ -126,7 +126,7 @@ impl ParticipationRequest {
 		candidate_receipt: CandidateReceipt,
 		session: SessionIndex,
 		executor_params: ExecutorParams,
-		session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
+		session_execution_config: Option<SessionExecutionConfig>,
 		request_timer: Option<prometheus::HistogramTimer>,
 	) -> Self {
 		Self {
@@ -151,9 +151,7 @@ impl ParticipationRequest {
 	pub fn executor_params(&self) -> ExecutorParams {
 		self.executor_params.clone()
 	}
-	pub fn session_execution_config(
-		&self,
-	) -> Option<polkadot_primitives::SessionExecutionConfig> {
+	pub fn session_execution_config(&self) -> Option<SessionExecutionConfig> {
 		self.session_execution_config
 	}
 	pub fn discard_timer(&mut self) {

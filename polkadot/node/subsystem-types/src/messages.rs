@@ -52,9 +52,9 @@ use polkadot_primitives::{
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	PvfExecKind as RuntimePvfExecKind, SessionExecutionConfig, SessionIndex, SessionInfo,
+	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -208,7 +208,7 @@ pub enum CandidateValidationMessage {
 		executor_params: ExecutorParams,
 		/// Execution-relevant host configuration for the candidate's session.
 		/// When available, used instead of `PersistedValidationData` for limit checks.
-		session_execution_config: Option<polkadot_primitives::SessionExecutionConfig>,
+		session_execution_config: Option<SessionExecutionConfig>,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
@@ -851,10 +851,7 @@ pub enum RuntimeApiRequest {
 	),
 	/// Get the execution-relevant host configuration for the given session.
 	/// `V17`
-	SessionExecutionConfig(
-		SessionIndex,
-		RuntimeApiSender<Option<polkadot_primitives::SessionExecutionConfig>>,
-	),
+	SessionExecutionConfig(SessionIndex, RuntimeApiSender<Option<SessionExecutionConfig>>),
 }
 
 impl RuntimeApiRequest {

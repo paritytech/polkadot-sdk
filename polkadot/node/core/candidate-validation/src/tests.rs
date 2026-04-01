@@ -2900,24 +2900,18 @@ fn session_execution_config_overrides_max_pov_size() {
 		dummy_hash(),
 		dummy_hash(),
 	);
-	let candidate_receipt =
-		CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-	let mock_backend =
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(WasmValidationResult {
-			head_data: HeadData(vec![1]),
-			new_validation_code: None,
-			upward_messages: Default::default(),
-			horizontal_messages: Default::default(),
-			processed_downward_messages: 0,
-			hrmp_watermark: 0,
-		}));
+	let (mut ctx, _ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+	// Mock backend is required by handle_validation_message but never reached
+	// — validation fails at basic checks before PVF execution.
+	let mock_backend = MockValidateCandidateBackend::with_hardcoded_result(Err(
+		ValidationError::Internal(InternalValidationError::HostCommunication("unused".into())),
+	));
 
 	let (response_tx, response_rx) = oneshot::channel();
 
-	// Pass session_execution_config with max_pov_size = 512
 	let task = handle_validation_message(
 		ctx.sender().clone(),
 		mock_backend,
@@ -3020,10 +3014,7 @@ fn no_session_execution_config_uses_pvd_limit() {
 	executor::block_on(future::join(test_fut, task));
 
 	// Should be valid
-	assert_matches!(
-		executor::block_on(response_rx).unwrap(),
-		Ok(ValidationResult::Valid(_, _))
-	);
+	assert_matches!(executor::block_on(response_rx).unwrap(), Ok(ValidationResult::Valid(_, _)));
 }
 
 /// Relay parent session check: for V2 candidates (scheduling_parent == relay_parent),
