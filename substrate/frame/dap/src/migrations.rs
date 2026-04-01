@@ -25,6 +25,9 @@ use frame_support::traits::UncheckedOnRuntimeUpgrade;
 /// - `T`: DAP pallet config
 /// - `P`: `Get<u64>` providing the initial timestamp (e.g. active era start from staking)
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation
+///
+/// NOTE: This migration should be applied when staking changes are integrated to support
+/// budget drip. The storage version bump (V1 → V2) happens at that point.
 pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
@@ -66,7 +69,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		frame_support::ensure!(
 			LastIssuanceTimestamp::<T>::get() == 0 || BudgetAllocation::<T>::get().is_empty(),
-			"Migration not needed: both LastIssuanceTimestamp and BudgetAllocation already set"
+			"Migration not needed: LastIssuanceTimestamp and BudgetAllocation already set"
 		);
 		Ok(alloc::vec::Vec::new())
 	}
@@ -81,9 +84,9 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 		let budget = BudgetAllocation::<T>::get();
 		frame_support::ensure!(!budget.is_empty(), "BudgetAllocation should be non-empty");
 
-		let total: u32 = budget.values().map(|p| p.deconstruct()).sum();
+		let total: u64 = budget.values().map(|p| p.deconstruct() as u64).sum();
 		frame_support::ensure!(
-			total == Perbill::one().deconstruct(),
+			total == Perbill::one().deconstruct() as u64,
 			"BudgetAllocation must sum to 100%"
 		);
 

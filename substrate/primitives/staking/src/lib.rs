@@ -29,9 +29,10 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	BoundedVec, Debug, DispatchError, DispatchResult, Perbill, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
+pub mod budget;
 pub mod offence;
 
 pub mod currency_to_vote;
@@ -728,8 +729,8 @@ pub trait DelegationMigrator {
 
 /// Handler for determining how much of a balance should be paid out on the current era.
 ///
-/// Used by `pallet-staking` (legacy). New code should use [`InflationCurve`] instead,
-/// which decouples inflation from staking state.
+/// [`budget::IssuanceCurve`] is the successor to this trait, decoupling issuance computation
+/// from staking state.
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -753,102 +754,33 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	}
 }
 
-/// Maximum length of a budget key identifier.
-pub const MAX_BUDGET_KEY_LEN: u32 = 32;
-
-/// Identifier for a budget category in the inflation distribution system.
+/// Result of splitting a validator's staking reward between the validator and their nominators.
 ///
-/// Each budget recipient (e.g., staker rewards, validator incentive, buffer) is identified
-/// by a unique key. Keys are bounded to [`MAX_BUDGET_KEY_LEN`] bytes.
-pub type BudgetKey = BoundedVec<u8, sp_core::ConstU32<MAX_BUDGET_KEY_LEN>>;
-
-/// Computes new token issuance for a given time period.
-///
-/// Unlike [`EraPayout`], this trait does not depend on staking state (`total_staked`).
-/// Issuance is purely a function of total supply and elapsed time.
-pub trait IssuanceCurve<Balance> {
-	/// Compute how much new tokens to mint for the given period.
-	///
-	/// # Parameters
-	/// - `total_issuance`: Current total token supply
-	/// - `elapsed_millis`: Time elapsed since last issuance drip, in milliseconds
-	fn issue(total_issuance: Balance, elapsed_millis: u64) -> Balance;
-}
-
-/// A recipient of inflation budget.
-///
-/// Pallets that want a share of inflation implement this trait, providing a unique key
-/// and a pot account where minted funds are deposited.
-pub trait BudgetRecipient<AccountId> {
-	/// Unique identifier for this budget category.
-	fn budget_key() -> BudgetKey;
-	/// The account that receives minted inflation funds.
-	fn pot_account() -> AccountId;
-}
-
-/// Aggregates multiple [`BudgetRecipient`]s into a list.
-///
-/// Implemented for tuples of `BudgetRecipient` types, allowing runtime configuration like:
-/// ```ignore
-/// type BudgetRecipients = (Dap, StakerRewardRecipient, ValidatorIncentiveRecipient);
-/// ```
-pub trait BudgetRecipientList<AccountId> {
-	/// Collect all registered recipients as `(key, account)` pairs.
-	fn recipients() -> Vec<(BudgetKey, AccountId)>;
-}
-
-impl<AccountId> BudgetRecipientList<AccountId> for () {
-	fn recipients() -> Vec<(BudgetKey, AccountId)> {
-		Vec::new()
-	}
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(1, 10)]
-#[tuple_types_custom_trait_bound(BudgetRecipient<AccountId>)]
-impl<AccountId> BudgetRecipientList<AccountId> for Tuple {
-	fn recipients() -> Vec<(BudgetKey, AccountId)> {
-		let mut v = Vec::new();
-		for_tuples!( #( v.push((Tuple::budget_key(), Tuple::pot_account())); )* );
-		v
-	}
-}
-
-/// Result of staker reward calculation.
+/// Produced by [`StakerRewardCalculator::calculate_staker_reward`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StakerRewardResult<Balance> {
-	/// Total payout for the validator (staking reward + commission)
+	/// Total payout for the validator (commission + proportional stake reward).
 	pub validator_payout: Balance,
-	/// Total payout for all nominators (to be split proportionally by caller)
+	/// Total payout for all nominators, to be split proportionally by the caller.
 	pub nominator_payout: Balance,
 }
 
-/// Trait for calculating staking rewards including validator incentives.
+/// Handles two independent reward calculations:
 ///
-/// This trait allows runtimes to customize both:
-/// - How validator self-stake is weighted for self-stake incentive rewards
-/// - How staking rewards are distributed between validators and nominators
-pub trait StakerRewardCalculator<AccountId, Balance> {
-	/// Calculate the reward weight for a validator's self-stake.
+/// 1. **Staker reward split** ([`Self::calculate_staker_reward`]) — determines how a validator's
+///    staking reward is divided between the validator and their nominators.
+///
+/// 2. **Validator incentive weight** ([`Self::calculate_validator_incentive_weight`]) — determines
+///    a validator's relative share of a separate validator incentive pot, based on self-stake. This
+///    incentive pot is validator-only; nominators do not receive from it.
+pub trait StakerRewardCalculator<Balance> {
+	/// Compute a weight for this validator's share of the validator incentive pot.
 	///
-	/// Used for distributing validator self-stake incentive rewards proportionally.
-	/// The implementation defines the curve shape and reads any parameters it needs
-	/// (e.g. optimum, cap, slope) from its own configuration.
+	/// Called once per validator during era planning. All validators' weights are summed, and
+	/// each validator's incentive payout is proportional to `their_weight / total_weight`.
 	fn calculate_validator_incentive_weight(self_stake: Balance) -> Balance;
 
-	/// Calculate how staking rewards are distributed between validator and nominators.
-	///
-	/// This implements the standard staking reward distribution:
-	/// 1. Apply validator commission
-	/// 2. Split remaining between validator and nominators based on stake
-	///
-	/// # Arguments
-	/// * `validator_total_reward` - Total reward allocated to this validator and their nominators
-	/// * `validator_commission` - The validator's commission rate
-	/// * `validator_own_stake` - The validator's own stake amount
-	/// * `total_stake` - Total stake (validator + all nominators)
-	///
-	/// # Returns
-	/// Total payout for validator (staking + commission) and total for all nominators
+	/// Split a validator's staking reward into validator and nominator portions.
 	fn calculate_staker_reward(
 		validator_total_reward: Balance,
 		validator_commission: Perbill,

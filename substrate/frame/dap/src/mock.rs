@@ -24,7 +24,7 @@ use frame_support::{
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type AccountId = u128;
+pub type AccountId = u64;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -57,27 +57,15 @@ parameter_types! {
 
 /// Returns 100 per 60_000ms elapsed (proportional).
 pub struct TestIssuanceCurve;
-impl sp_staking::IssuanceCurve<u64> for TestIssuanceCurve {
+impl sp_staking::budget::IssuanceCurve<u64> for TestIssuanceCurve {
 	fn issue(_total_issuance: u64, elapsed_millis: u64) -> u64 {
 		// 100 per minute (60_000ms)
 		(100u128 * elapsed_millis as u128 / 60_000u128) as u64
 	}
 }
 
-/// Mock time provider backed by storage.
-pub struct MockTime;
-impl MockTime {
-	pub fn set(millis: u64) {
-		MOCK_TIME.with(|v| *v.borrow_mut() = millis);
-	}
-
-	pub fn get() -> u64 {
-		MOCK_TIME.with(|v| *v.borrow())
-	}
-}
-
-std::thread_local! {
-	static MOCK_TIME: core::cell::RefCell<u64> = core::cell::RefCell::new(0);
+parameter_types! {
+	pub static MockTime: u64 = 0;
 }
 
 impl frame_support::traits::Time for MockTime {
@@ -89,9 +77,9 @@ impl frame_support::traits::Time for MockTime {
 
 /// Test budget recipient: staker rewards pot (account 500).
 pub struct TestStakerRecipient;
-impl sp_staking::BudgetRecipient<AccountId> for TestStakerRecipient {
-	fn budget_key() -> sp_staking::BudgetKey {
-		sp_staking::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+impl sp_staking::budget::BudgetRecipient<AccountId> for TestStakerRecipient {
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
 	}
 	fn pot_account() -> AccountId {
 		500
@@ -100,9 +88,9 @@ impl sp_staking::BudgetRecipient<AccountId> for TestStakerRecipient {
 
 /// Test budget recipient: validator incentive pot (account 501).
 pub struct TestValidatorIncentiveRecipient;
-impl sp_staking::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient {
-	fn budget_key() -> sp_staking::BudgetKey {
-		sp_staking::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient {
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
 	}
 	fn pot_account() -> AccountId {
 		501
@@ -118,12 +106,13 @@ impl Config for Test {
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 /// Sets a default budget allocation mimicking what the migration would do.
 pub fn set_default_budget_allocation() {
 	use sp_runtime::{BoundedBTreeMap, Perbill};
-	use sp_staking::BudgetRecipient;
+	use sp_staking::budget::BudgetRecipient;
 
 	let mut map = BoundedBTreeMap::new();
 	map.try_insert(Dap::budget_key(), Perbill::from_percent(15)).unwrap();
@@ -164,4 +153,9 @@ pub fn build_and_execute(fund_buffer: bool, test: impl FnOnce()) {
 	ext.execute_with(|| {
 		Dap::do_try_state().unwrap();
 	});
+}
+
+/// Asserts that `do_try_state` fails. Use after intentionally corrupting storage.
+pub fn assert_try_state_invalid() {
+	assert!(Dap::do_try_state().is_err());
 }

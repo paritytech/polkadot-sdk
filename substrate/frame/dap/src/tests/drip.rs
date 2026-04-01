@@ -44,8 +44,8 @@ fn drip_distributes_according_to_budget() {
 			budget_map(&[(b"staker_rewards", 60), (b"validator_incentive", 25), (b"buffer", 15)]);
 		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
 
-		let staker_pot = 500u128; // TestStakerRecipient
-		let incentive_pot = 501u128; // TestValidatorIncentiveRecipient
+		let staker_pot = 500; // TestStakerRecipient pot account
+		let incentive_pot = 501; // TestValidatorIncentiveRecipient pot account
 		let buffer = Dap::buffer_account();
 
 		let staker_before = Balances::balance(&staker_pot);
@@ -59,6 +59,10 @@ fn drip_distributes_according_to_budget() {
 		assert_eq!(Balances::balance(&staker_pot) - staker_before, 60);
 		assert_eq!(Balances::balance(&incentive_pot) - incentive_before, 25);
 		assert_eq!(Balances::balance(&buffer) - buffer_before, 15);
+
+		System::assert_has_event(
+			Event::<Test>::IssuanceMinted { total_minted: 100, elapsed_millis: 60_000 }.into(),
+		);
 	});
 }
 
@@ -101,14 +105,23 @@ fn drip_fires_after_cadence_reached() {
 }
 
 #[test]
-#[should_panic(expected = "BudgetAllocation is empty")]
 fn no_drip_when_budget_not_set() {
 	build_and_execute(true, || {
 		System::set_block_number(1);
 
-		// GIVEN: no budget set (default empty map)
-		// WHEN: drip fires — triggers defensive panic since empty budget is unexpected.
+		// GIVEN: no budget allocation set.
+
+		let staker_pot = 500; // TestStakerRecipient pot account
+		let balance_before = Balances::balance(&staker_pot);
+
+		// WHEN: drip fires with empty budget — no panic, just early return.
 		advance_time_and_drip(60_000);
+
+		// THEN: no funds distributed.
+		assert_eq!(Balances::balance(&staker_pot), balance_before);
+
+		// Restore for post-test try_state.
+		set_default_budget_allocation();
 	});
 }
 

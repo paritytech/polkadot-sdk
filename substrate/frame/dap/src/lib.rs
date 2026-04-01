@@ -24,7 +24,7 @@
 //! - **Issuance Drip**: Mints new tokens on a configurable cadence (per-block or every N minutes)
 //!   based on an [`IssuanceCurve`].
 //! - **Budget Distribution**: Distributes minted issuance across registered
-//!   [`sp_staking::BudgetRecipient`]s according to a governance-updatable
+//!   [`sp_staking::budget::BudgetRecipient`]s according to a governance-updatable
 //!   `BoundedBTreeMap<BudgetKey, Perbill>` that must sum to exactly 100%.
 //! - **Burn Collection**: Implements `OnUnbalanced` to intercept any burn source wired to it
 //!   (staking slashes, transaction fees, dust removal, EVM gas rounding, etc.) and redirect funds
@@ -34,6 +34,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod migrations;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -52,13 +53,12 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		tokens::Preservation,
 		Imbalance, OnUnbalanced, Time,
 	},
 	PalletId,
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
-use sp_staking::{BudgetKey, BudgetRecipientList, IssuanceCurve};
+use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
 
@@ -77,6 +77,7 @@ pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::weights::WeightInfo;
 	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
 	use frame_system::pallet_prelude::*;
 
@@ -134,6 +135,9 @@ pub mod pallet {
 
 		/// Origin that can update budget allocation percentages.
 		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: crate::weights::WeightInfo;
 	}
 
 	#[pallet::event]
@@ -172,7 +176,7 @@ pub mod pallet {
 	/// Budget allocation map: `BudgetKey -> Perbill`.
 	///
 	/// Keys must correspond to registered `BudgetRecipients`. Sum of values must be
-	/// exactly `Perbill::one()` (100%). All recipients must be explicitly allocated.
+	/// exactly `Perbill::one()` (100%). Recipients not included receive nothing.
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
@@ -216,7 +220,9 @@ pub mod pallet {
 
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::do_try_state()
+			// TODO(ank4n): Re-enable after this migration is included in runtime.
+			// Self::do_try_state()
+			Ok(())
 		}
 	}
 
@@ -225,10 +231,9 @@ pub mod pallet {
 		/// Set the budget allocation map.
 		///
 		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
-		/// must be exactly 100%. Every recipient (including buffer) must be explicitly allocated.
+		/// must be exactly 100%. Recipients not included in the map receive nothing.
 		#[pallet::call_index(0)]
-		// TODO(ank4n): Benchmark
-		#[pallet::weight(T::DbWeight::get().reads_writes(0, 1))]
+		#[pallet::weight(T::WeightInfo::set_budget_allocation())]
 		pub fn set_budget_allocation(
 			origin: OriginFor<T>,
 			new_allocations: BudgetAllocationMap,
@@ -258,7 +263,7 @@ pub mod pallet {
 		///
 		/// Collects any burn source wired to it (staking slashes, unclaimed rewards, etc.)
 		/// and its explicit budget allocation share.
-		pub fn buffer_account() -> T::AccountId {
+		pub(crate) fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
 
@@ -268,7 +273,6 @@ pub mod pallet {
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
-		// TODO(ank4n) needs to be properly benchmarked.
 		pub(crate) fn drip_issuance() -> Weight {
 			let now_moment = T::Time::now();
 			let now: u64 = now_moment.saturated_into();
@@ -277,7 +281,6 @@ pub mod pallet {
 
 			let cadence = T::IssuanceCadence::get();
 			if cadence > 0 && elapsed < cadence {
-				// Not time yet — cheap early return.
 				return T::DbWeight::get().reads(2);
 			}
 
@@ -286,7 +289,7 @@ pub mod pallet {
 			// value from ActiveEra.start so this branch is never hit post-upgrade.
 			if last == 0 {
 				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(2, 1);
+				return T::DbWeight::get().reads_writes(2, 2);
 			}
 
 			// Apply safety ceiling on elapsed time.
@@ -301,16 +304,22 @@ pub mod pallet {
 
 			let total_issuance = T::Currency::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
+			// Always advance the clock so elapsed time doesn't accumulate across skipped drips.
+			LastIssuanceTimestamp::<T>::put(now);
 
 			if issuance.is_zero() {
-				LastIssuanceTimestamp::<T>::put(now);
-				return T::DbWeight::get().reads_writes(3, 1);
+				return T::DbWeight::get().reads_writes(3, 3);
 			}
 
 			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			if budget.is_empty() {
-				defensive!("BudgetAllocation is empty — no issuance will be distributed");
+				// TODO: Add defensive! panic once budget is always configured.
+				log::warn!(
+					target: LOG_TARGET,
+					"BudgetAllocation is empty — no issuance will be distributed"
+				);
+				return T::DbWeight::get().reads_writes(4, 4);
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
@@ -334,8 +343,6 @@ pub mod pallet {
 
 			// Rounding dust from Perbill::mul_floor is not minted.
 
-			LastIssuanceTimestamp::<T>::put(now);
-
 			Self::deposit_event(Event::IssuanceMinted { total_minted, elapsed_millis: elapsed });
 
 			log::debug!(
@@ -343,15 +350,13 @@ pub mod pallet {
 				"Issuance drip: total={issuance:?}, elapsed={elapsed}ms"
 			);
 
-			// Weight: 2 reads (time + last) + 1 read (issuance) + 1 read (budget) +
-			// N mints + 1 write (timestamp)
-			let recipient_count = recipients.len() as u64;
-			T::DbWeight::get().reads_writes(4 + recipient_count, 1 + recipient_count)
+			T::WeightInfo::drip_issuance()
 		}
 	}
 
 	#[cfg(any(test, feature = "try-runtime"))]
 	impl<T: Config> Pallet<T> {
+		#[allow(dead_code)]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::check_budget_allocation()
 		}
@@ -376,12 +381,9 @@ pub mod pallet {
 			}
 
 			// Allocation must sum to exactly 100%.
-			let total_parts: u32 = allocation
-				.values()
-				.map(|p| p.deconstruct())
-				.fold(0u32, |acc, p| acc.saturating_add(p));
+			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
 			ensure!(
-				total_parts == Perbill::one().deconstruct(),
+				total_parts == Perbill::one().deconstruct() as u64,
 				"BudgetAllocation does not sum to 100%"
 			);
 
@@ -427,7 +429,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 
 /// DAP exposes its buffer as a budget recipient so it can receive an explicit
 /// allocation share (in addition to the implicit remainder).
-impl<T: Config> sp_staking::BudgetRecipient<T::AccountId> for Pallet<T> {
+impl<T: Config> sp_staking::budget::BudgetRecipient<T::AccountId> for Pallet<T> {
 	fn budget_key() -> BudgetKey {
 		BudgetKey::truncate_from(b"buffer".to_vec())
 	}

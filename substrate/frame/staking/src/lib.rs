@@ -331,7 +331,7 @@ use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 };
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{EraPayout, Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};

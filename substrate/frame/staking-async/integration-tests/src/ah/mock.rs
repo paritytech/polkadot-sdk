@@ -33,7 +33,7 @@ use pallet_staking_async::{
 use pallet_staking_async_rc_client::{
 	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
 };
-use sp_staking::{BudgetRecipient, SessionIndex};
+use sp_staking::{budget::BudgetRecipient, SessionIndex};
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
 use xcm_executor::{
@@ -522,10 +522,20 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+	pub static MockTime: u64 = 0;
+}
+
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		Self::get()
+	}
 }
 
 pub struct TestIssuanceCurve;
-impl sp_staking::IssuanceCurve<Balance> for TestIssuanceCurve {
+impl sp_staking::budget::IssuanceCurve<Balance> for TestIssuanceCurve {
 	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		// 1 token per millisecond elapsed
 		if elapsed_millis == 0 {
@@ -553,22 +563,24 @@ pub fn general_incentive_pot() -> AccountId {
 	SequentialTest::general_pot_account(GeneralPotType::ValidatorIncentive)
 }
 
-pub fn staker_reward_key() -> sp_staking::BudgetKey {
+pub fn staker_reward_key() -> sp_staking::budget::BudgetKey {
 	<pallet_staking_async::StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
 }
 
-pub fn validator_incentive_key() -> sp_staking::BudgetKey {
+pub fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
 	<pallet_staking_async::ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<
 		AccountId,
 	>>::budget_key()
 }
 
-pub fn buffer_key() -> sp_staking::BudgetKey {
+pub fn buffer_key() -> sp_staking::budget::BudgetKey {
 	<Dap as BudgetRecipient<AccountId>>::budget_key()
 }
 
 /// Build a DAP budget allocation map from `(key, percent)` pairs.
-pub fn build_budget(entries: &[(sp_staking::BudgetKey, u32)]) -> pallet_dap::BudgetAllocationMap {
+pub fn build_budget(
+	entries: &[(sp_staking::budget::BudgetKey, u32)],
+) -> pallet_dap::BudgetAllocationMap {
 	let mut budget = BoundedBTreeMap::new();
 	for (key, pct) in entries {
 		budget.try_insert(key.clone(), Perbill::from_percent(*pct)).unwrap();
@@ -599,6 +611,7 @@ impl pallet_dap::Config for Runtime {
 	type IssuanceCadence = TestIssuanceCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
 	type BudgetOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -612,6 +625,7 @@ impl pallet_vesting::Config for Runtime {
 	type Currency = Balances;
 	type BlockNumberToBalance = frame_support::sp_runtime::traits::ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
+>>>>>>> 357f6ecad5c (squash: staking changes from 10844)
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
