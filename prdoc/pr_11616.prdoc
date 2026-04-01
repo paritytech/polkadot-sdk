@@ -1,0 +1,27 @@
+title: Move era reward minting from staking to DAP
+doc:
+- audience: Runtime Dev
+  description: |-
+    Staking no longer mints tokens during `payout_stakers`. Instead, DAP drips inflation
+    into a general staker reward pot, and staking snapshots that into era-specific pots at
+    each era boundary. Payouts transfer from era pots. A legacy minting fallback is preserved
+    for pre-migration eras.
+
+    Runtimes now provide a `PolkadotIssuanceCurve` to DAP (replacing the old `EraPayout`) and
+    register `StakerRewardRecipient` as a budget recipient.
+
+    DAP storage version bumped to V2 with migration for `LastIssuanceTimestamp` and
+    `BudgetAllocation`.
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-dap
+  bump: minor
+- name: sp-staking
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-ahm-test
+  bump: patch
