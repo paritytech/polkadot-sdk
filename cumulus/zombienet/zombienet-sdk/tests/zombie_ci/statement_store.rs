@@ -127,6 +127,10 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	log::info!("Statement submitted to charlie");
 
 	// Add dave as a late-joining collator
+	// Dave will enter major sync because the chain advanced ~10 blocks while dave was offline.
+	// From dave's perspective, when charlie appears via SyncEvent::PeerConnected, dave's
+	// is_major_syncing() returns true, so charlie is placed in deferred_peers instead of
+	// being added to the statement protocol reserved set immediately
 	log::info!("Adding dave as late-joining collator");
 	let dave_join_time = std::time::Instant::now();
 	network.add_collator("dave", Default::default(), 2400).await?;

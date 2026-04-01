@@ -649,13 +649,7 @@ where
 				},
 			}
 
-			let currently_syncing = self.sync.is_major_syncing();
-			if !self.had_major_syncing && currently_syncing {
-				self.on_major_sync_started();
-			} else if self.had_major_syncing && !currently_syncing {
-				self.on_major_sync_complete();
-			}
-			self.had_major_syncing = currently_syncing;
+			self.check_major_sync_transition();
 		}
 	}
 
@@ -704,12 +698,23 @@ where
 		}
 	}
 
+	/// Check for major sync state transitions and handle deferred peers accordingly
+	fn check_major_sync_transition(&mut self) {
+		let currently_syncing = self.sync.is_major_syncing();
+		if !self.had_major_syncing && currently_syncing {
+			self.on_major_sync_started();
+		} else if self.had_major_syncing && !currently_syncing {
+			self.on_major_sync_complete();
+		}
+		self.had_major_syncing = currently_syncing;
+	}
+
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected(remote) => {
 				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
 					.collect::<multiaddr::Multiaddr>();
-				if self.sync.is_major_syncing() {
+				if self.had_major_syncing {
 					self.deferred_peers.insert(remote, addr);
 				} else {
 					let result = self.network.add_peers_to_reserved_set(
@@ -2435,12 +2440,8 @@ mod tests {
 
 		// Simulate transition: not syncing -> major syncing
 		major_syncing.store(true, std::sync::atomic::Ordering::Relaxed);
-
-		let currently_syncing = handler.sync.is_major_syncing();
-		assert!(currently_syncing);
 		assert!(!handler.had_major_syncing);
-		handler.on_major_sync_started();
-		handler.had_major_syncing = currently_syncing;
+		handler.check_major_sync_transition();
 
 		let removed = network.reserved_removed.lock().unwrap();
 		assert_eq!(
@@ -2473,12 +2474,8 @@ mod tests {
 		);
 
 		major_syncing.store(false, std::sync::atomic::Ordering::Relaxed);
-
-		let currently_syncing = handler.sync.is_major_syncing();
-		assert!(!currently_syncing);
 		assert!(handler.had_major_syncing);
-		handler.on_major_sync_complete();
-		handler.had_major_syncing = currently_syncing;
+		handler.check_major_sync_transition();
 
 		let added = network.reserved_added.lock().unwrap();
 		assert_eq!(
