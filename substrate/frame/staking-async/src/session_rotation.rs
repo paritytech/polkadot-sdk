@@ -806,8 +806,7 @@ impl<T: Config> Rotator<T> {
 
 		// Snapshot general staker reward pot into era-specific pot.
 		// DAP has been dripping inflation into the general pot since the last era boundary.
-		let staker_rewards =
-			reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
 		if staker_rewards.is_zero() {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);

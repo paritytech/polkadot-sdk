@@ -28,7 +28,6 @@ use crate::{
 	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
 	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
-use sp_staking::StakerRewardCalculator;
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -53,7 +52,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, StakerRewardCalculator,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -470,8 +469,7 @@ impl<T: Config> Pallet<T> {
 	) -> u32 {
 		let mut nominator_payout_count: u32 = 0;
 
-		if let Some((amount, dest)) =
-			Self::make_payout_from_provider(era, stash, validator_payout)
+		if let Some((amount, dest)) = Self::make_payout_from_provider(era, stash, validator_payout)
 		{
 			Self::deposit_event(Event::<T>::Rewarded { stash: stash.clone(), dest, amount });
 		}
@@ -580,8 +578,7 @@ impl<T: Config> Pallet<T> {
 
 		let payout_account = Self::payout_account_for_dest(stash, &dest)?;
 
-		let staker_rewards_pot =
-			T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
+		let staker_rewards_pot = T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
 		if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,
@@ -591,7 +588,9 @@ impl<T: Config> Pallet<T> {
 			log!(
 				error,
 				"Failed to transfer reward from pot for era {:?}, stash {:?}: {:?}",
-				era, stash, e
+				era,
+				stash,
+				e
 			);
 			return None;
 		}
@@ -633,8 +632,9 @@ impl<T: Config> Pallet<T> {
 					Ok(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(ref dest_account) =>
-				Some(asset::mint_creating::<T>(dest_account, amount)),
+			RewardDestination::Account(ref dest_account) => {
+				Some(asset::mint_creating::<T>(dest_account, amount))
+			},
 			RewardDestination::None => None,
 			#[allow(deprecated)]
 			RewardDestination::Controller => Self::bonded(stash).map(|controller| {

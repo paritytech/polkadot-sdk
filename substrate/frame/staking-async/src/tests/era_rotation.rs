@@ -227,7 +227,6 @@ fn activation_timestamp_when_era_planning_not_complete() {
 	todo!("what if we receive an activation timestamp when the era planning (election) is not complete?");
 }
 
-
 #[test]
 fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 	ExtBuilder::default().build_and_execute(|| {

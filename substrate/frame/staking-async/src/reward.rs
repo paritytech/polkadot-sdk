@@ -50,8 +50,7 @@ impl<T: Config> EraRewardManager<T> {
 	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> BalanceOf<T> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
 
-		let general_staker_pot =
-			T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_staker_pot = T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
 
 		// Leave ED in the general pot to keep it alive.
 		let staker_balance = T::Currency::reducible_balance(
