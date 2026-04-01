@@ -746,6 +746,24 @@ fn get_module_names_and_indices() {
 }
 
 #[test]
+fn get_call_names_and_indices() {
+	use frame_support::traits::GetCallMetadata;
+	let call_names = RuntimeCall::get_call_names("Module3");
+	let call_indices = RuntimeCall::get_call_indices("Module3");
+	assert_eq!(
+		vec![
+			("fail", 0),
+			("aux_1", 1),
+			("aux_2", 2),
+			("aux_3", 3),
+			("aux_4", 4),
+			("operational", 5),
+		],
+		call_names.iter().copied().zip(call_indices.iter().copied()).collect::<Vec<_>>()
+	);
+}
+
+#[test]
 fn call_subtype_conversion() {
 	use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
 	let call = RuntimeCall::Module3(module3::Call::<Runtime>::fail {});
