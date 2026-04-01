@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use pallet_revive::AddressMapper;
 use crate::mock::{
 	asset_to_address, new_test_ext, precompile_address, AssetConversion as AssetConversionPallet,
 	Assets, NativeAndAssets, RuntimeOrigin, Test,
