@@ -26,10 +26,10 @@ rand_chacha = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
+sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-npos-elections = { workspace = true }
-sp-arithmetic = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
@@ -64,12 +64,12 @@ std = [
 	"pallet-dap/std",
 	"pallet-staking-async-rc-client/std",
 	"pallet-timestamp/std",
-	"sp-arithmetic/std",
 	"rand/std",
 	"rand_chacha/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-application-crypto/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -87,9 +87,9 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-dap/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -99,6 +99,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-dap/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-timestamp/try-runtime"
 ]
