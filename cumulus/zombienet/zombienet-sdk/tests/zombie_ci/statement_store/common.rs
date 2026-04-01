@@ -3,7 +3,7 @@
 
 // The `people-westend-local-spec.json` chain spec template used by these tests
 // was generated using the script at:
-//   https://github.com/paritytech/individuality/blob/main/runtimes/people-westend/chain-spec/create_people_westend_spec.sh
+// https://github.com/paritytech/individuality/blob/main/runtimes/people-westend/chain-spec/create_people_westend_spec.sh
 // To regenerate, run that script and replace the JSON file in this directory.
 
 use std::{
