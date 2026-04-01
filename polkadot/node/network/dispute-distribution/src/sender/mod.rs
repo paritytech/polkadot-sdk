@@ -127,13 +127,14 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		msg: DisputeMessage,
+		v3_ever_seen: bool,
 	) -> Result<()> {
 		let req: DisputeRequest = msg.into();
 		let candidate_hash = req.0.candidate_receipt.hash();
 		match self.disputes.entry(candidate_hash) {
 			Entry::Occupied(_) => {
 				gum::trace!(target: LOG_TARGET, ?candidate_hash, "Dispute sending already active.");
-				return Ok(())
+				return Ok(());
 			},
 			Entry::Vacant(vacant) => {
 				self.rate_limit.limit("in start_sender", candidate_hash).await;
@@ -145,6 +146,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 					NestingSender::new(self.tx.clone(), DisputeSenderMessage::TaskFinish),
 					req,
 					&self.metrics,
+					v3_ever_seen,
 				)
 				.await?;
 				vacant.insert(send_task);
@@ -174,7 +176,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 							?result,
 							"Received `FromSendingTask::Finished` for non existing dispute."
 						);
-						return Ok(())
+						return Ok(());
 					},
 					Some(task) => task,
 				};

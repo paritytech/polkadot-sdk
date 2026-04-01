@@ -92,7 +92,7 @@ pub struct EqualOrGreatestRootCmp;
 impl PrivilegeCmp<OriginCaller> for EqualOrGreatestRootCmp {
 	fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
 		if left == right {
-			return Some(Ordering::Equal)
+			return Some(Ordering::Equal);
 		}
 		match (left, right) {
 			// Root is greater than anything.

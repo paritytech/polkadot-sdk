@@ -50,7 +50,7 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
 	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
@@ -231,7 +231,7 @@ pub mod pallet {
 		/// The payout for validators and the system for the current era.
 		/// See [Era payout](./index.html#era-payout).
 		#[pallet::no_default]
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		type EraPayout: sp_staking::EraPayout<BalanceOf<Self>>;
 
 		/// Something that can estimate the next session change, accurately or as a best effort
 		/// guess.
@@ -1189,17 +1189,17 @@ pub mod pallet {
 			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
+				return Err(Error::<T>::AlreadyBonded.into());
 			}
 
 			// An existing controller cannot become a stash.
 			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
-				return Err(Error::<T>::InsufficientBond.into())
+				return Err(Error::<T>::InsufficientBond.into());
 			}
 
 			let stash_balance = asset::free_to_stake::<T>(&stash);
@@ -1982,7 +1982,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(())
+				return Ok(());
 			}
 
 			if caller != controller {
@@ -2063,7 +2063,7 @@ pub mod pallet {
 		///
 		/// If a validator has more than [`Config::MaxExposurePageSize`] nominators backing
 		/// them, then the list of nominators is paged, with each page being capped at
-		/// [`Config::MaxExposurePageSize`.] If a validator has more than one page of nominators,
+		/// [`Config::MaxExposurePageSize`]. If a validator has more than one page of nominators,
 		/// the call needs to be made for each page separately in order for all the nominators
 		/// backing a validator to receive the reward. The nominators are not sorted across pages
 		/// and so it should not be assumed the highest staker would be on the topmost page and vice

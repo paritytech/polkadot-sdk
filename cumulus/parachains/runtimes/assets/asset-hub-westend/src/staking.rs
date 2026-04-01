@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Staking, and election related pallet configurations.
+/// ! Staking, and election related pallet configurations.
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
@@ -279,7 +279,7 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-	type RewardRemainder = ();
+	type RewardRemainder = Dap;
 	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -327,7 +327,8 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
-	type Balance = Balance;
+	type Currency = Balances;
+	type KeyDeposit = ConstU128<{ 10 * UNITS }>;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
@@ -338,18 +339,28 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
 	// | Total               |         | 193 bytes  | 385 bytes |
 	// We add some buffer for SCALE encoding overhead and future expansions
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
 }
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
+	pub const IssuanceCadence: u64 = 60_000;
+	/// Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.
+	pub const MaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	/// Noop — DAP does not mint until budget drip is enabled.
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = pallet_timestamp::Pallet<Runtime>;
+	type IssuanceCadence = IssuanceCadence;
+	type MaxElapsedPerDrip = MaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 #[derive(Encode, Decode)]
@@ -389,10 +400,12 @@ pub struct KeysMessageToXcm;
 impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
 		let encoded_call = match msg {
-			rc_client::KeysMessage::SetKeys { stash, keys } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }).encode(),
-			rc_client::KeysMessage::PurgeKeys { stash } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode(),
+			rc_client::KeysMessage::SetKeys { stash, keys } => {
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }).encode()
+			},
+			rc_client::KeysMessage::PurgeKeys { stash } => {
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode()
+			},
 		};
 		rc_client::build_transact_xcm(encoded_call)
 	}
@@ -512,7 +525,7 @@ impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = DelegatedStakingPalletId;
 	type Currency = Balances;
-	type OnSlash = ();
+	type OnSlash = Dap;
 	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;

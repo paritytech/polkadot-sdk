@@ -70,6 +70,18 @@ pub enum BlockOrigin {
 	Own,
 	/// Block was imported from a file.
 	File,
+	/// Block from warp sync proof, already cryptographically verified.
+	///
+	/// These blocks have been verified through the warp sync protocol's finality proofs
+	/// and are part of the finalized chain. As such, certain consensus verification steps
+	/// can be safely skipped during import. These are the blocks that are used to verify the era
+	/// changes and not the target block to which the node is warp syncing to.
+	WarpSync,
+	/// Block imported during gap sync to fill historical gaps.
+	///
+	/// Gap sync occurs after warp sync completes, downloading blocks between genesis
+	/// and the warp sync target to fill in the historical chain.
+	GapSync,
 }
 
 /// Environment for a Consensus instance.

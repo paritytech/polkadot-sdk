@@ -331,8 +331,8 @@ impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Hel
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_idx.into(),
-			42,   /* owner */
-			true, /* is_sufficient */
+			42,   // owner
+			true, // is_sufficient
 			1,
 		));
 

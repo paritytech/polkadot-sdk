@@ -37,6 +37,7 @@ use schema::bitswap::{
 	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
 	Message as BitswapMessage,
 };
+use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{io, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
@@ -184,13 +185,13 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 			Some(wantlist) => wantlist,
 			None => {
 				debug!(target: LOG_TARGET, "Unexpected bitswap message from {}", peer);
-				return Err(BitswapError::InvalidWantList)
+				return Err(BitswapError::InvalidWantList);
 			},
 		};
 
 		if wantlist.entries.len() > MAX_WANTED_BLOCKS {
 			trace!(target: LOG_TARGET, "Ignored request: too many entries");
-			return Err(BitswapError::TooManyEntries)
+			return Err(BitswapError::TooManyEntries);
 		}
 
 		for entry in wantlist.entries {
@@ -198,16 +199,16 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 				Ok(cid) => cid,
 				Err(e) => {
 					trace!(target: LOG_TARGET, "Bad CID {:?}: {:?}", entry.block, e);
-					continue
+					continue;
 				},
 			};
 
 			if !is_cid_supported(&cid) {
 				trace!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
-				continue
+				continue;
 			}
 
-			let mut hash = B::Hash::default();
+			let mut hash = H256::default();
 			hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 			let transaction = match self.client.indexed_transaction(hash) {
 				Ok(ex) => ex,

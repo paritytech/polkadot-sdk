@@ -21,6 +21,7 @@ jsonrpsee = { workspace = true, features = ["client-core", "macros", "server-cor
 sc-chain-spec = { workspace = true, default-features = true }
 # Pool for submitting extrinsics required by "transaction"
 array-bytes = { workspace = true, default-features = true }
+cid = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
@@ -37,6 +38,7 @@ schnellru = { workspace = true }
 serde = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
@@ -56,7 +58,7 @@ sc-service = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }

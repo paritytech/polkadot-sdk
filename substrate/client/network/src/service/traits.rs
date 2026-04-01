@@ -900,7 +900,6 @@ pub trait NotificationService: Debug + Send {
 	async fn open_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 
 	/// Instruct `Notifications` to close substream for `peer`.
-	//
 	// NOTE: not offered by the current implementation
 	async fn close_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 

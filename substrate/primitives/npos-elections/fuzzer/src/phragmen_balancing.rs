@@ -59,7 +59,7 @@ fn main() {
 
 				if score.minimal_stake == 0 {
 					// such cases cannot be improved by balancing.
-					return
+					return;
 				}
 				score
 			};

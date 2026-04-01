@@ -27,15 +27,11 @@ pub fn availability_chunk_index(
 	core_index: CoreIndex,
 	validator_index: ValidatorIndex,
 ) -> Result<ChunkIndex, polkadot_erasure_coding::Error> {
-	if node_features
-		.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
-		.map(|bitref| *bitref)
-		.unwrap_or_default()
-	{
+	if node_features::FeatureIndex::AvailabilityChunkMapping.is_set(node_features) {
 		let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
 		let core_start_pos = core_index.0 * systematic_threshold;
 
-		return Ok(ChunkIndex((core_start_pos + validator_index.0) % n_validators as u32))
+		return Ok(ChunkIndex((core_start_pos + validator_index.0) % n_validators as u32));
 	}
 
 	Ok(validator_index.into())
@@ -65,7 +61,7 @@ pub fn availability_chunk_indices(
 			.cycle()
 			.skip(core_start_pos as usize)
 			.take(n_validators)
-			.collect())
+			.collect());
 	}
 
 	Ok(identity.collect())
