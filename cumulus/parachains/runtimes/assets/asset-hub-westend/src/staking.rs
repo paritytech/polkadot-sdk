@@ -287,7 +287,8 @@ impl pallet_staking_async::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type GeneralPots = pallet_staking_async::Seed<StakingPotsPalletId>;
 	type EraPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
