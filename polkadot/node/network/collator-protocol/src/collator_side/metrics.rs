@@ -196,7 +196,9 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_backing_latency",
 						"How many blocks away from the relay parent are collations backed",
 					)
-					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]),
+					.buckets(vec![
+						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0, 25.0, 30.0,
+					]),
 				)?,
 				registry,
 			)?,
@@ -206,7 +208,9 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_inclusion_latency",
 						"How many blocks it takes for a backed collation to be included",
 					)
-					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+					.buckets(vec![
+						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0, 25.0, 30.0,
+					]),
 				)?,
 				registry,
 			)?,
@@ -216,7 +220,9 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_expired",
 						"How many collations expired (not backed or not included)",
 					)
-					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+					.buckets(vec![
+						1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0, 25.0, 30.0,
+					]),
 					&["state"],
 				)?,
 				registry,
