@@ -265,10 +265,11 @@ pub mod pallet {
 		///
 		/// DAP drips inflation into these pots. At era boundaries, staking snapshots
 		/// and transfers the balances to era-specific pots.
+		#[pallet::no_default]
 		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
 
 		/// Provider for generating era pot account IDs.
-		#[pallet::no_default_bounds]
+		#[pallet::no_default]
 		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
 
 		/// Calculator for staker rewards.
@@ -420,8 +421,6 @@ pub mod pallet {
 			type Slash = ();
 			type Reward = ();
 			type UnclaimedRewardHandler = ();
-			type GeneralPots = ();
-			type EraPots = ();
 			type StakerRewardCalculator = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;

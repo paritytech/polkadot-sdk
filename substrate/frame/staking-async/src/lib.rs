@@ -191,6 +191,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
+pub mod reward;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
@@ -542,6 +543,105 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	/// - `false` otherwise.
 	fn contains(account: &T::AccountId) -> bool {
 		Ledger::<T>::contains_key(account)
+	}
+}
+
+/// Identifies the era pot account for staker rewards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum EraPotType {
+	/// Pot for staker rewards (nominators + validators).
+	StakerRewards,
+}
+
+/// Trait for generating era pot account IDs.
+pub trait EraPotAccountProvider<AccountId> {
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId;
+}
+
+/// Seed-based pot account provider for production use.
+pub struct Seed<S>(core::marker::PhantomData<S>);
+
+impl<AccountId, S> EraPotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating((era, pot_type))
+	}
+}
+
+/// Sequential pot account provider for testing.
+#[cfg(feature = "std")]
+pub struct SequentialTest;
+
+#[cfg(feature = "std")]
+impl<AccountId> EraPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		let pot_type_offset = match pot_type {
+			EraPotType::StakerRewards => 0,
+		};
+		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
+	}
+}
+
+/// Identifies the general (non-era-specific) reward pot.
+///
+/// DAP drips inflation into this account continuously. At era boundaries,
+/// staking snapshots the balance and transfers it to an era-specific pot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum GeneralPotType {
+	/// General pot for staker rewards.
+	StakerRewards,
+}
+
+/// Trait that provides general (non-era-specific) pot accounts.
+pub trait GeneralPotAccountProvider<AccountId> {
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId;
+}
+
+impl<AccountId, S> GeneralPotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating(pot_type)
+	}
+}
+
+#[cfg(feature = "std")]
+impl<AccountId> GeneralPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
+		match pot_type {
+			GeneralPotType::StakerRewards => AccountId::from(200_000u64),
+		}
+	}
+}
+
+/// Budget recipient for staker rewards.
+///
+/// Exposes the general staker reward pot so DAP can drip inflation into it.
+pub struct StakerRewardRecipient<G>(core::marker::PhantomData<G>);
+
+impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId> for StakerRewardRecipient<G>
+where
+	G: GeneralPotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		G::general_pot_account(GeneralPotType::StakerRewards)
 	}
 }
 
