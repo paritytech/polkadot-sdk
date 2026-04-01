@@ -239,6 +239,42 @@ pub fn new_test_ext() -> TestState {
 	ext
 }
 
+pub struct ExtBuilder {
+	mint_ops: Vec<(u64, u32, u128)>,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self { mint_ops: vec![] }
+	}
+}
+
+impl ExtBuilder {
+	/// Queue a PSM mint: `who` mints `amount` of USDC.
+	pub fn mints(self, who: u64, amount: u128) -> Self {
+		self.mints_asset(who, USDC_ASSET_ID, amount)
+	}
+
+	/// Queue a PSM mint of a specific asset.
+	pub fn mints_asset(mut self, who: u64, asset_id: u32, amount: u128) -> Self {
+		self.mint_ops.push((who, asset_id, amount));
+		self
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce()) {
+		new_test_ext().execute_with(|| {
+			for (who, asset_id, amount) in self.mint_ops {
+				frame_support::assert_ok!(crate::Pallet::<Test>::mint(
+					RuntimeOrigin::signed(who),
+					asset_id,
+					amount,
+				));
+			}
+			test();
+		});
+	}
+}
+
 pub fn set_minting_fee(asset_id: u32, fee: Permill) {
 	crate::MintingFee::<Test>::insert(asset_id, fee);
 }

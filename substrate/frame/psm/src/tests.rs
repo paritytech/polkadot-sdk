@@ -278,16 +278,9 @@ mod mint {
 mod redeem {
 	use super::*;
 
-	fn setup_for_redeem() {
-		let mint_amount = 5000 * PUSD_UNIT;
-		assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount));
-	}
-
 	#[test]
 	fn success_basic() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
-
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			let redeem_amount = 1000 * PUSD_UNIT;
 			let alice_pusd_before = get_asset_balance(PUSD_ASSET_ID, ALICE);
 			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
@@ -325,8 +318,7 @@ mod redeem {
 
 	#[test]
 	fn fee_zero() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
 
 			let redeem_amount = 1000 * PUSD_UNIT;
@@ -340,8 +332,7 @@ mod redeem {
 
 	#[test]
 	fn fee_nonzero() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(5));
 
 			let redeem_amount = 1000 * PUSD_UNIT;
@@ -360,8 +351,7 @@ mod redeem {
 
 	#[test]
 	fn fee_100_percent() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(100));
 
 			let redeem_amount = 1000 * PUSD_UNIT;
@@ -380,9 +370,7 @@ mod redeem {
 
 	#[test]
 	fn fails_unsupported_asset() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
-
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			assert_noop!(
 				Psm::redeem(RuntimeOrigin::signed(ALICE), UNSUPPORTED_ASSET_ID, 1000 * PUSD_UNIT),
 				Error::<Test>::UnsupportedAsset
@@ -392,8 +380,7 @@ mod redeem {
 
 	#[test]
 	fn fails_asset_all_disabled() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllDisabled);
 
 			assert_noop!(
@@ -405,8 +392,7 @@ mod redeem {
 
 	#[test]
 	fn allows_when_asset_minting_disabled() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 
 			// Redemption should still work when only minting is disabled
@@ -416,9 +402,7 @@ mod redeem {
 
 	#[test]
 	fn fails_below_minimum() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
-
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			let below_min = 50 * PUSD_UNIT;
 
 			assert_noop!(
@@ -445,33 +429,30 @@ mod redeem {
 
 	#[test]
 	fn fails_insufficient_pusd_balance() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default()
+			.mints(ALICE, 5000 * PUSD_UNIT)
+			.mints(BOB, 10_000 * PUSD_UNIT)
+			.build_and_execute(|| {
+				let alice_pusd = get_asset_balance(PUSD_ASSET_ID, ALICE);
+				let too_much = alice_pusd + 1000 * PUSD_UNIT;
 
-			let alice_pusd = get_asset_balance(PUSD_ASSET_ID, ALICE);
-			let too_much = alice_pusd + 1000 * PUSD_UNIT;
+				let debt_before = PsmDebt::<Test>::get(USDC_ASSET_ID);
+				let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
+				let psm_usdc_before = get_asset_balance(USDC_ASSET_ID, psm_account());
 
-			// Fund PSM with extra reserve so InsufficientReserve isn't hit first
-			fund_external_asset(USDC_ASSET_ID, psm_account(), 10_000 * PUSD_UNIT);
+				assert!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much).is_err());
 
-			let debt_before = PsmDebt::<Test>::get(USDC_ASSET_ID);
-			let alice_usdc_before = get_asset_balance(USDC_ASSET_ID, ALICE);
-			let psm_usdc_before = get_asset_balance(USDC_ASSET_ID, psm_account());
-
-			assert!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, too_much).is_err());
-
-			// Verify no state mutation occurred
-			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), debt_before);
-			assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), alice_pusd);
-			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before);
-			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), psm_usdc_before);
-		});
+				// Verify no state mutation occurred
+				assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), debt_before);
+				assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), alice_pusd);
+				assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_usdc_before);
+				assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), psm_usdc_before);
+			});
 	}
 
 	#[test]
 	fn boundary_reserve_equals_output() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
 
 			let reserve = get_asset_balance(USDC_ASSET_ID, psm_account());
@@ -485,14 +466,14 @@ mod redeem {
 
 	#[test]
 	fn fails_when_reserve_exceeds_debt_donated_reserves() {
-		new_test_ext().execute_with(|| {
-			setup_for_redeem();
+		ExtBuilder::default().mints(ALICE, 5000 * PUSD_UNIT).build_and_execute(|| {
 			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
 
 			let debt = PsmDebt::<Test>::get(USDC_ASSET_ID);
 			let donation = 5000 * PUSD_UNIT;
 
-			// Donate extra external stablecoin directly to PSM (bypassing mint)
+			// Defensive path: simulate donated reserves by funding psm_account()
+			// directly, bypassing mint to create a reserve > debt scenario.
 			fund_external_asset(USDC_ASSET_ID, psm_account(), donation);
 
 			let reserve = get_asset_balance(USDC_ASSET_ID, psm_account());
@@ -856,10 +837,7 @@ mod governance {
 
 	#[test]
 	fn remove_external_asset_fails_has_debt() {
-		new_test_ext().execute_with(|| {
-			fund_external_asset(USDC_ASSET_ID, ALICE, 1000 * PUSD_UNIT);
-			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * PUSD_UNIT));
-
+		ExtBuilder::default().mints(ALICE, 1000 * PUSD_UNIT).build_and_execute(|| {
 			assert_noop!(
 				Psm::remove_external_asset(RuntimeOrigin::root(), USDC_ASSET_ID),
 				Error::<Test>::AssetHasDebt
