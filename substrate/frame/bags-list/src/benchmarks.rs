@@ -368,15 +368,12 @@ benchmarks_instance_pallet! {
 		let pending_count = rebag_budget / 3; // Smaller portion for pending
 		let regular_count = rebag_budget + 5;
 
-		// Insert regular nodes with varying scores
+		// Insert all regular nodes into the lowest bag. This is worst-case: every node
+		// is misplaced after the score update below, forcing a full rebag (excise from
+		// old bag + insert into new bag).
 		for i in 0..regular_count {
 			let node: T::AccountId = account("regular_node", i, 0);
-			let score = match i % 3 {
-				0 => low - One::one(),
-				1 => mid - One::one(),
-				_ => high - One::one(),
-			};
-			assert_ok!(List::<T, _>::insert(node.clone(), score));
+			assert_ok!(List::<T, _>::insert(node.clone(), low - One::one()));
 		}
 
 		// Corrupt some nodes to simulate edge cases
@@ -388,7 +385,6 @@ benchmarks_instance_pallet! {
 		// Lock the list and simulate pending rebag insertions
 		<Pallet<T, I>>::lock();
 
-		// Create pending rebag entries (mix of valid and corrupted)
 		for i in 0..pending_count {
 			let pending_node: T::AccountId = account("pending_node", i, 0);
 			let pending_score = match i % 3 {
@@ -397,10 +393,9 @@ benchmarks_instance_pallet! {
 				_ => high + high,
 			};
 
-			// Set score first for most nodes, but skip some to simulate cleanup scenarios
-			if i % 7 != 0 {
-				T::ScoreProvider::set_score_of(&pending_node, pending_score);
-			}
+			// All pending nodes get valid scores so `rebag_internal` inserts them into the
+			// list. Without a score, it would just early-return an error (cheaper).
+			T::ScoreProvider::set_score_of(&pending_node, pending_score);
 
 			let _ = <Pallet<T, I> as SortedListProvider<T::AccountId>>::on_insert(
 				pending_node, pending_score
@@ -426,8 +421,8 @@ benchmarks_instance_pallet! {
 			"Expected exactly {} pending rebag entries",
 			pending_count
 		);
-		// Ensure we have at least three bags populated before rebag
-		assert!(List::<T, _>::get_bags().len() >= 2);
+		// All regular nodes are in the lowest bag; pending nodes are not yet in the list.
+		assert_eq!(List::<T, _>::get_bags().len(), 1);
 	}
 	: {
 		use frame_support::traits::Hooks;
@@ -446,6 +441,8 @@ benchmarks_instance_pallet! {
 			.map(|(_, nodes)| nodes.len())
 			.sum();
 
+		// All regular nodes started in the lowest bag, so only nodes processed by on_idle
+		// (pending insertions + regular rebags) end up in higher bags.
 		let expected = <T as Config<I>>::MaxAutoRebagPerBlock::get() as usize;
 		assert_eq!(total_rebagged, expected, "Expected exactly {:?} rebagged nodes, found {:?}", expected, total_rebagged);
 	}
