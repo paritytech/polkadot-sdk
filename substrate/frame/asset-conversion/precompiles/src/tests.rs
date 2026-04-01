@@ -45,7 +45,8 @@ fn setup_pool(provider: u64, native_amount: u64, asset_amount: u64) {
 
 	// Create asset.
 	assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 1));
-	// Mint extra assets to cover the asset account deposit.
+	// Mint more than needed: add_liquidity will reserve AssetAccountDeposit when creating
+	// the pool's asset account, so the provider needs balance beyond the liquidity amount.
 	assert_ok!(
 		Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, asset_amount * 2,)
 	);
