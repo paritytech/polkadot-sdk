@@ -1076,15 +1076,15 @@ pub mod pallet {
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
 		}
-    
-    /// Directly add or update a potential renewal record.
+
+		/// Directly add or update a potential renewal record.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `core`: The core to which the renewal refers.
 		/// - `when`: The timeslice when the renewal should be available.
 		/// - `price`: The price for renewal.
 		/// - `workload`: The workload completion status.
-		#[pallet::call_index(28)]
+		#[pallet::call_index(30)]
 		pub fn add_potential_renewal(
 			origin: OriginFor<T>,
 			core: CoreIndex,
@@ -1095,7 +1095,7 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_add_potential_renewal(core, when, price, workload)?;
 			Ok(Pays::No.into())
-    }
+		}
 
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
