@@ -3125,18 +3125,11 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 
 	// Act
 	let result = provider
-		.debug_trace_call_callframe(
-			tx,
-			alloy_rpc_types::BlockId::latest(),
-			trace_options,
-		)
+		.debug_trace_call_callframe(tx, alloy_rpc_types::BlockId::latest(), trace_options)
 		.await;
 
 	// Assert
-	assert!(
-		result.is_ok(),
-		"debug_traceCall with state overrides should succeed: {result:?}"
-	);
+	assert!(result.is_ok(), "debug_traceCall with state overrides should succeed: {result:?}");
 	let frame = result.unwrap();
 	assert!(frame.output.is_some(), "trace should have output from echo(42)");
 

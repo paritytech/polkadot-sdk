@@ -121,11 +121,8 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		let TraceCallConfig { tracer_config, state_overrides } =
 			trace_call_config.unwrap_or_default();
 		let TracerConfig { config, timeout } = tracer_config;
-		with_timeout(
-			timeout,
-			self.client.trace_call(transaction, block, config, state_overrides),
-		)
-		.await
+		with_timeout(timeout, self.client.trace_call(transaction, block, config, state_overrides))
+			.await
 	}
 
 	async fn get_automine(&self) -> RpcResult<bool> {

@@ -158,8 +158,8 @@ impl<Moment> DryRunConfig<Moment> {
 ///
 /// - New fields **must** be appended to the end. Inserting or reordering fields breaks the byte
 ///   layout in both directions.
-/// - New fields **must** implement `Default` so the custom `Decode` fallback can produce a
-///   sensible value when the field is absent from the input.
+/// - New fields **must** implement `Default` so the custom `Decode` fallback can produce a sensible
+///   value when the field is absent from the input.
 ///
 /// ## Constraints on runtime API placement
 ///

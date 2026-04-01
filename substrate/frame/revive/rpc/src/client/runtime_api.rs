@@ -279,11 +279,7 @@ impl RuntimeApi {
 			let config = TracingConfig::new().with_state_overrides(overrides);
 			let payload = subxt_client::apis()
 				.revive_api()
-				.trace_call_with_config(
-					transaction.into(),
-					tracer_type.into(),
-					config.into(),
-				)
+				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())
 				.unvalidated();
 			self.0.call(payload).await?
 		} else {
