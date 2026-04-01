@@ -11,5 +11,4 @@ mod pov_recovery;
 mod rpc_collator_build_blocks;
 mod runtime_upgrade;
 mod statement_store;
-mod statement_store_bench;
 mod sync_blocks;
