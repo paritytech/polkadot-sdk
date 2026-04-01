@@ -1449,26 +1449,46 @@ mod tests {
 		TestNotificationService,
 		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
 	) {
+		let (handler, store, network, notif, queue_receiver, _peer_ids) =
+			build_handler_multi_peers(1);
+		(handler, store, network, notif, queue_receiver)
+	}
+
+	fn build_handler_multi_peers(
+		num_peers: usize,
+	) -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		Vec<PeerId>,
+	) {
 		let statement_store = TestStatementStore::new();
-		let (queue_sender, queue_receiver) = async_channel::bounded(2);
+		let (queue_sender, queue_receiver) = async_channel::bounded(100);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
-		let peer_id = PeerId::random();
 		let mut peers = HashMap::new();
-		peers.insert(
-			peer_id,
-			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
-				rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("burst capacity is nonzero"),
-				),
-			},
-		);
+		let mut peer_ids = Vec::with_capacity(num_peers);
+
+		for _ in 0..num_peers {
+			let peer_id = PeerId::random();
+			peer_ids.push(peer_id);
+			peers.insert(
+				peer_id,
+				Peer {
+					known_statements: LruHashSet::new(NonZeroUsize::new(1000).unwrap()),
+					rate_limiter: PeerRateLimiter::new(
+						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+						NonZeroU32::new(
+							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+						)
+							.expect("burst capacity is nonzero"),
+					),
+				},
+			);
+		}
 
 		let handler = StatementHandler {
 			protocol_name: "/statement/1".into(),
@@ -1493,7 +1513,18 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		};
-		(handler, statement_store, network, notification_service, queue_receiver)
+		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
+	}
+
+	fn build_handler_no_peers() -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+	) {
+		let (handler, store, network, notif, _queue_receiver, _peer_ids) =
+			build_handler_multi_peers(0);
+		(handler, store, network, notif)
 	}
 
 	#[tokio::test]
@@ -1664,43 +1695,6 @@ mod tests {
 		let mut expected_hashes = vec![hash1, hash2, hash3];
 		expected_hashes.sort();
 		assert_eq!(sent_hashes, expected_hashes, "Only small statements should be sent");
-	}
-
-	fn build_handler_no_peers() -> (
-		StatementHandler<TestNetwork, TestSync>,
-		TestStatementStore,
-		TestNetwork,
-		TestNotificationService,
-	) {
-		let statement_store = TestStatementStore::new();
-		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
-		let network = TestNetwork::new();
-		let notification_service = TestNotificationService::new();
-
-		let handler = StatementHandler {
-			protocol_name: "/statement/1".into(),
-			notification_service: Box::new(notification_service.clone()),
-			propagate_timeout: (Box::pin(futures::stream::pending())
-				as Pin<Box<dyn Stream<Item = ()> + Send>>)
-				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
-			network: network.clone(),
-			sync: TestSync {},
-			sync_event_stream: (Box::pin(futures::stream::pending())
-				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
-				.fuse(),
-			peers: HashMap::new(),
-			statement_store: Arc::new(statement_store.clone()),
-			queue_sender,
-			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-			metrics: None,
-			initial_sync_timeout: Box::pin(futures::future::pending()),
-			pending_initial_syncs: HashMap::new(),
-			initial_sync_peer_queue: VecDeque::new(),
-		};
-		(handler, statement_store, network, notification_service)
 	}
 
 	#[tokio::test]
@@ -2325,5 +2319,163 @@ mod tests {
 		);
 
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+	}
+
+	#[tokio::test]
+	async fn test_propagation_reaches_all_connected_peers() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver, peer_ids) =
+			build_handler_multi_peers(5);
+
+		// Insert 3 statements into recent_statements for propagation
+		let mut expected_hashes = Vec::new();
+		for i in 0..3u8 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![i; 100]);
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		}
+		expected_hashes.sort();
+
+		handler.propagate_statements().await;
+
+		let sent = notification_service.get_sent_notifications();
+
+		// Group notifications by peer
+		for peer_id in &peer_ids {
+			let peer_notifications: Vec<_> =
+				sent.iter().filter(|(p, _)| p == peer_id).collect();
+			assert!(
+				!peer_notifications.is_empty(),
+				"Peer {peer_id} should have received notifications"
+			);
+
+			let mut received_hashes: Vec<_> = peer_notifications
+				.iter()
+				.flat_map(|(_, notification)| {
+					<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+				})
+				.map(|s| s.hash())
+				.collect();
+			received_hashes.sort();
+
+			assert_eq!(
+				received_hashes, expected_hashes,
+				"Peer {peer_id} should have received all 3 statements"
+			);
+		}
+
+		// Recent statements should be drained
+		assert!(statement_store.recent_statements.lock().unwrap().is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_known_statement_filtering_per_peer() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver, peer_ids) =
+			build_handler_multi_peers(3);
+
+		let peer_a = peer_ids[0];
+		let peer_b = peer_ids[1];
+		let peer_c = peer_ids[2];
+
+		// Create 5 statements
+		let mut hashes = Vec::new();
+		for i in 0..5u8 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![i; 100]);
+			let hash = statement.hash();
+			hashes.push(hash);
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Pre-populate known_statements: peer_a knows s1,s2; peer_b knows s3; peer_c knows none
+		handler.peers.get_mut(&peer_a).unwrap().known_statements.insert(hashes[0]);
+		handler.peers.get_mut(&peer_a).unwrap().known_statements.insert(hashes[1]);
+		handler.peers.get_mut(&peer_b).unwrap().known_statements.insert(hashes[2]);
+
+		handler.propagate_statements().await;
+
+		let sent = notification_service.get_sent_notifications();
+
+		let get_peer_hashes = |peer: PeerId| -> HashSet<sp_statement_store::Hash> {
+			sent.iter()
+				.filter(|(p, _)| *p == peer)
+				.flat_map(|(_, notification)| {
+					<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+				})
+				.map(|s| s.hash())
+				.collect()
+		};
+
+		let peer_a_hashes = get_peer_hashes(peer_a);
+		let peer_b_hashes = get_peer_hashes(peer_b);
+		let peer_c_hashes = get_peer_hashes(peer_c);
+
+		// peer_a already knows s1,s2 → should only get s3,s4,s5
+		assert_eq!(peer_a_hashes.len(), 3, "peer_a should get 3 statements");
+		assert!(!peer_a_hashes.contains(&hashes[0]), "peer_a already knows s1");
+		assert!(!peer_a_hashes.contains(&hashes[1]), "peer_a already knows s2");
+		assert!(peer_a_hashes.contains(&hashes[2]));
+		assert!(peer_a_hashes.contains(&hashes[3]));
+		assert!(peer_a_hashes.contains(&hashes[4]));
+
+		// peer_b already knows s3 → should get s1,s2,s4,s5
+		assert_eq!(peer_b_hashes.len(), 4, "peer_b should get 4 statements");
+		assert!(!peer_b_hashes.contains(&hashes[2]), "peer_b already knows s3");
+
+		// peer_c knows nothing → should get all 5
+		assert_eq!(peer_c_hashes.len(), 5, "peer_c should get all 5 statements");
+	}
+
+	#[tokio::test]
+	async fn test_multiple_peers_send_same_statement_deduplication() {
+		let (mut handler, _statement_store, network, _notification_service, queue_receiver, peer_ids) =
+			build_handler_multi_peers(3);
+
+		let peer_a = peer_ids[0];
+		let peer_b = peer_ids[1];
+		let peer_c = peer_ids[2];
+
+		let mut s1 = Statement::new();
+		s1.set_plain_data(b"shared_statement".to_vec());
+		let s1_hash = s1.hash();
+
+		// Each peer sends the same statement
+		handler.on_statements(peer_a, vec![s1.clone()]);
+		handler.on_statements(peer_b, vec![s1.clone()]);
+		handler.on_statements(peer_c, vec![s1.clone()]);
+
+		// Only one submission should be queued for validation
+		let first = queue_receiver.try_recv();
+		assert!(first.is_ok(), "First submission should be queued");
+		assert_eq!(first.unwrap().0.hash(), s1_hash);
+
+		let second = queue_receiver.try_recv();
+		assert!(second.is_err(), "No duplicate should be queued");
+
+		// All 3 peers should be tracked in pending_statements_peers
+		let peers_for_hash = handler.pending_statements_peers.get(&s1_hash).unwrap();
+		assert!(peers_for_hash.contains(&peer_a), "peer_a should be tracked");
+		assert!(peers_for_hash.contains(&peer_b), "peer_b should be tracked");
+		assert!(peers_for_hash.contains(&peer_c), "peer_c should be tracked");
+
+		let reports = network.get_reports();
+		let any_stmt_reports: Vec<_> = reports
+			.iter()
+			.filter(|(_, rep)| *rep == rep::ANY_STATEMENT)
+			.collect();
+		assert_eq!(
+			any_stmt_reports.len(),
+			3,
+			"All senders of an unknown statement get ANY_STATEMENT"
+		);
+		let dup_reports: Vec<_> = reports
+			.iter()
+			.filter(|(_, rep)| *rep == rep::DUPLICATE_STATEMENT)
+			.collect();
+		assert!(
+			dup_reports.is_empty(),
+			"No DUPLICATE_STATEMENT since each peer is a new sender"
+		);
 	}
 }
