@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::*;
-use pallet_revive::AddressMapper;
 use crate::mock::{
 	asset_to_address, new_test_ext, precompile_address, AssetConversion as AssetConversionPallet,
 	Assets, NativeAndAssets, RuntimeOrigin, Test,
@@ -26,7 +25,7 @@ use frame_support::{
 	assert_ok,
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
-use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
+use pallet_revive::{precompiles::TransactionLimits, AddressMapper, ExecConfig};
 use sp_runtime::Weight;
 
 /// Convert H160 to alloy Address for use in precompile call encoding.
