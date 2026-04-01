@@ -15,25 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the DAP pallet.
+//! Placeholder weights for `pallet_dap`.
+//!
+//! These weights are not benchmarked. Replace with actual benchmarked weights
+//! via `frame-omni-bencher` before deploying to production.
 
-mod budget;
-mod drip;
-mod genesis;
-mod on_unbalanced;
+#![cfg_attr(rustfmt, rustfmt_skip)]
+#![allow(unused_parens)]
+#![allow(unused_imports)]
+#![allow(missing_docs)]
 
-use crate::BudgetAllocationMap;
-use sp_runtime::{BoundedBTreeMap, Perbill};
-use sp_staking::budget::BudgetKey;
+use frame_support::weights::Weight;
 
-fn key(name: &[u8]) -> BudgetKey {
-	BudgetKey::truncate_from(name.to_vec())
+/// Weight functions needed for `pallet_dap`.
+pub trait WeightInfo {
+	fn set_budget_allocation() -> Weight;
+	fn drip_issuance() -> Weight;
 }
 
-fn budget_map(entries: &[(&[u8], u32)]) -> BudgetAllocationMap {
-	let mut map = BoundedBTreeMap::new();
-	for (name, pct) in entries {
-		map.try_insert(key(name), Perbill::from_percent(*pct)).unwrap();
+/// Default weights (not benchmarked).
+impl WeightInfo for () {
+	fn set_budget_allocation() -> Weight {
+		Weight::zero()
 	}
-	map
+	fn drip_issuance() -> Weight {
+		Weight::zero()
+	}
 }
