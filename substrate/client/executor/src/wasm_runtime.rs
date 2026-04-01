@@ -64,8 +64,6 @@ struct VersionedRuntimeId {
 	code_hash: Vec<u8>,
 	/// Wasm runtime type.
 	wasm_method: WasmExecutionMethod,
-	/// The heap allocation strategy this runtime was created with.
-	heap_alloc_strategy: HeapAllocStrategy,
 }
 
 /// A Wasm runtime object along with its cached runtime version.
@@ -235,8 +233,7 @@ impl RuntimeCache {
 	{
 		let code_hash = &runtime_code.hash;
 
-		let versioned_runtime_id =
-			VersionedRuntimeId { code_hash: code_hash.clone(), heap_alloc_strategy, wasm_method };
+		let versioned_runtime_id = VersionedRuntimeId { code_hash: code_hash.clone(), wasm_method };
 
 		let mut runtimes = self.runtimes.lock(); // this must be released prior to calling f
 		let versioned_runtime = if let Some(versioned_runtime) = runtimes.get(&versioned_runtime_id)

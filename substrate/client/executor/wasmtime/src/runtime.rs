@@ -51,6 +51,10 @@ pub(crate) struct StoreData {
 	pub(crate) host_state: Option<HostState>,
 	/// This will be always set once the store is initialized.
 	pub(crate) memory: Option<Memory>,
+	/// Limits for memory growth enforced by the `StoreLimiter`.
+	pub(crate) limits: wasmtime::StoreLimits,
+	/// The effective maximum number of memory pages for the allocator to cap growth requests.
+	pub(crate) memory_max_pages: Option<u32>,
 }
 
 impl StoreData {
@@ -75,11 +79,17 @@ struct InstanceCreator {
 	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instance_counter: Arc<InstanceCounter>,
+	heap_alloc_strategy: HeapAllocStrategy,
 }
 
 impl InstanceCreator {
 	fn instantiate(&mut self) -> Result<InstanceWrapper> {
-		InstanceWrapper::new(&self.engine, &self.instance_pre, self.instance_counter.clone())
+		InstanceWrapper::new(
+			&self.engine,
+			&self.instance_pre,
+			self.instance_counter.clone(),
+			self.heap_alloc_strategy,
+		)
 	}
 }
 
@@ -137,6 +147,7 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
+	heap_alloc_strategy: HeapAllocStrategy,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -146,6 +157,7 @@ impl WasmModule for WasmtimeRuntime {
 				engine: self.engine.clone(),
 				instance_pre: self.instance_pre.clone(),
 				instance_counter: self.instance_counter.clone(),
+				heap_alloc_strategy: self.heap_alloc_strategy,
 			}),
 		};
 
@@ -623,6 +635,7 @@ where
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
+		heap_alloc_strategy: config.semantics.heap_alloc_strategy,
 	})
 }
 
@@ -639,7 +652,7 @@ fn prepare_blob_for_compilation(
 	// now automatically take care of creating the memory for us, and it is also necessary
 	// to enable `wasmtime`'s instance pooling. (Imported memories are ineligible for pooling.)
 	blob.convert_memory_import_into_export()?;
-	blob.setup_memory_according_to_heap_alloc_strategy(semantics.heap_alloc_strategy)?;
+	blob.clear_memory_max_limit()?;
 
 	Ok(blob)
 }
