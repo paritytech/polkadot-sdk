@@ -1908,7 +1908,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
-	type CallbackHandle = ();
+	type CallbackHandle = (pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,);
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2932,9 +2932,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extension = TxExtension;
+	type ExtensionV0 = TxExtension;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
 			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
