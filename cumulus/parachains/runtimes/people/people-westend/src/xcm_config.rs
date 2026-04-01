@@ -14,9 +14,9 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Balance, Balances, ParachainInfo, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, WeightToFee,
-	XcmpQueue,
+	AccountId, AllPalletsWithSystem, Balance, Balances, ForeignAssets, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
+	RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 use crate::{TransactionByteFee, CENTS};
 use frame_support::{
@@ -37,7 +37,7 @@ use parachains_common::{
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, MaybeEquivalence, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
@@ -47,8 +47,9 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, DescribeTerminus, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, HashedDescription, IsConcrete, LocationAsSuperuser, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
+	FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete, LocationAsSuperuser,
+	MatchedConvertedConcreteId, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -68,11 +69,17 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub FellowshipLocation: Location = Location::new(1, Parachain(COLLECTIVES_ID));
+	/// pUSD location as seen from People chain.
+	pub PUsdFromAssetHub: Location = Location::new(
+		1,
+		[Parachain(1000), PalletInstance(50), GeneralIndex(1984042)]
+	);
 	/// The asset ID for the asset that we use to pay for message delivery fees. Just WND.
 	pub FeeAssetId: AssetId = AssetId(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
+	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub RelayTreasuryLocation: Location =
 		(Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
@@ -121,6 +128,47 @@ pub type FungibleTransactor = FungibleAdapter<
 	// We don't track any teleports of `Balances`.
 	(),
 >;
+
+/// Converts the pUSD XCM Location to the local u32 asset ID and back.
+pub struct PUsdLocationToAssetId;
+impl MaybeEquivalence<Location, u32> for PUsdLocationToAssetId {
+	fn convert(location: &Location) -> Option<u32> {
+		if *location == PUsdFromAssetHub::get() {
+			Some(1984042)
+		} else {
+			None
+		}
+	}
+	fn convert_back(id: &u32) -> Option<Location> {
+		if *id == 1984042 {
+			Some(PUsdFromAssetHub::get())
+		} else {
+			None
+		}
+	}
+}
+
+/// Matches pUSD from Asset Hub and converts to local (u32, Balance) pair.
+pub type PUsdConvertedConcreteId = MatchedConvertedConcreteId<
+	u32,
+	Balance,
+	Equals<PUsdFromAssetHub>,
+	PUsdLocationToAssetId,
+	TryConvertInto,
+>;
+
+/// Means for transacting pUSD on this chain.
+pub type ForeignFungiblesTransactor = FungiblesAdapter<
+	ForeignAssets,
+	PUsdConvertedConcreteId,
+	LocationToAccountId,
+	AccountId,
+	NoChecking,
+	CheckingAccount,
+>;
+
+/// Combined asset transactor for WND (native) and pUSD (foreign).
+pub type AssetTransactor = (FungibleTransactor, ForeignFungiblesTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with XCM's `Transact`. There is an `OriginKind` that can
@@ -215,7 +263,11 @@ pub type WaivedLocations = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - WND with the parent Relay Chain and sibling parachains.
-pub type TrustedTeleporters = ConcreteAssetFromSystem<RelayLocation>;
+/// - pUSD from Asset Hub.
+pub type TrustedTeleporters = (
+	ConcreteAssetFromSystem<RelayLocation>,
+	ConcreteAssetFromSystem<PUsdFromAssetHub>,
+);
 
 /// Defines origin aliasing rules for this chain.
 ///
@@ -235,10 +287,9 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	type XcmEventEmitter = PolkadotXcm;
-	type AssetTransactor = FungibleTransactor;
+	type AssetTransactor = AssetTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// People does not recognize a reserve location for any asset. Users must teleport WND
-	// where allowed (e.g. with the Relay Chain).
+	// People does not recognize a reserve location for any asset.
 	type IsReserve = ();
 
 	type IsTeleporter = TrustedTeleporters;

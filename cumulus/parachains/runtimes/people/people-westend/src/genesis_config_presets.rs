@@ -48,6 +48,16 @@ fn people_westend_genesis(
 				.chain(core::iter::once((dap_satellite_account(), PEOPLE_WESTEND_ED)))
 				.collect(),
 		},
+		foreign_assets: ForeignAssetsConfig {
+			assets: vec![(
+				1984042u32,
+				dap_satellite_account(),
+				true,  // is_sufficient
+				70_000, // min_balance (0.07 pUSD, same as USDT on Westend Asset Hub)
+			)],
+			metadata: vec![(1984042u32, b"pUSD".to_vec(), b"pUSD".to_vec(), 6)],
+			accounts: vec![],
+		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),

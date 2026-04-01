@@ -85,6 +85,10 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
+	pub PUsdLocation: Location = Location::new(
+		0,
+		[PalletInstance(TrustBackedAssetsPalletIndex::get()), GeneralIndex(1984042)]
+	);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
@@ -369,11 +373,13 @@ pub type TrustedReserves = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
-/// - WND with the parent Relay Chain and sibling system parachains; and
+/// - WND with the parent Relay Chain and sibling system parachains;
+/// - pUSD with sibling system parachains (e.g. People chain); and
 /// - Sibling parachains' assets according to their configured trusted reserves (teleportable when
 ///   `Here` and `origin` are both trusted reserve locations).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<WestendLocation>,
+	ConcreteAssetFromSystem<PUsdLocation>,
 	IsForeignConcreteAsset<
 		TeleportableAssetWithTrustedReserve<AssetHubParaId, crate::ForeignAssets>,
 	>,
