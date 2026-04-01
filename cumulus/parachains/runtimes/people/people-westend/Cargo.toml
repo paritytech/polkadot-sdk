@@ -49,7 +49,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-verify-signature = { workspace = true }
-<<<<<<< HEAD
+pallet-verify-signature = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 parachain-info = { workspace = true }
@@ -59,9 +59,6 @@ polkadot-runtime-common = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
-=======
-pallet-verify-signature = { workspace = true }
->>>>>>> c69795d (Westend: Support Meta Transactions (#11469))
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
