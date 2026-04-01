@@ -155,36 +155,45 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 	/// Returns the authority id of the equivocator.
 	fn offender_id(&self) -> &T::BeefyId {
 		match self {
-			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
-				equivocation_proof.offender_id(),
-			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.id,
-			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.id,
+			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
+				equivocation_proof.offender_id()
+			},
+			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.id
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.id
+			},
 		}
 	}
 
 	/// Returns the round number at which the equivocation occurred.
 	fn round_number(&self) -> &BlockNumberFor<T> {
 		match self {
-			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
-				equivocation_proof.round_number(),
-			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.commitment.block_number,
-			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.commitment.block_number,
+			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
+				equivocation_proof.round_number()
+			},
+			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.commitment.block_number
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.commitment.block_number
+			},
 		}
 	}
 
 	/// Returns the set id at which the equivocation occurred.
 	fn set_id(&self) -> ValidatorSetId {
 		match self {
-			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
-				equivocation_proof.set_id(),
-			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
-				equivocation_proof.vote.commitment.validator_set_id,
-			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
-				equivocation_proof.vote.commitment.validator_set_id,
+			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
+				equivocation_proof.set_id()
+			},
+			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
+				equivocation_proof.vote.commitment.validator_set_id
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				equivocation_proof.vote.commitment.validator_set_id
+			},
 		}
 	}
 

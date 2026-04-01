@@ -230,6 +230,43 @@ pub struct CoreInfo {
 	pub number_of_cores: Compact<u16>,
 }
 
+impl core::hash::Hash for CoreInfo {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+		state.write_u8(self.selector.0);
+		state.write_u8(self.claim_queue_offset.0);
+		state.write_u16(self.number_of_cores.0);
+	}
+}
+
+impl CoreInfo {
+	/// Puts this into a [`CumulusDigestItem::CoreInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::CoreInfo(self.clone()).to_digest_item()
+	}
+}
+
+/// Information about a block that is part of a PoV bundle.
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+pub struct BundleInfo {
+	/// The index of the block in the bundle.
+	pub index: u8,
+	/// Is this the last block in the bundle from the point of view of the node?
+	///
+	/// It is possible that the runtime outputs the
+	/// [`CumulusDigestItem::UseFullCore`] to inform the node to use an entire for one block
+	/// only.
+	pub maybe_last: bool,
+}
+
+impl BundleInfo {
+	/// Puts this into a [`CumulusDigestItem::BundleInfo`] and then encodes it as a Substrate
+	/// [`DigestItem`].
+	pub fn to_digest_item(&self) -> DigestItem {
+		CumulusDigestItem::BundleInfo(self.clone()).to_digest_item()
+	}
+}
+
 /// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoreInfoExistsAtMaxOnce {
@@ -260,14 +297,30 @@ pub enum CumulusDigestItem {
 	/// block.
 	#[codec(index = 1)]
 	CoreInfo(CoreInfo),
+	/// A digest item providing information about the position of the block in the bundle.
+	#[codec(index = 2)]
+	BundleInfo(BundleInfo),
+	/// A digest item informing the node that this block should be put alone onto a core.
+	///
+	/// In other words, the core should not be shared with other blocks.
+	///
+	/// Under certain conditions (mainly runtime misconfigurations) the digest is still set when
+	/// there are muliple blocks per core. This is done to communicate to the collator that block
+	/// production for this core should be stopped.
+	#[codec(index = 3)]
+	UseFullCore,
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
+		let encoded = self.encode();
+
 		match self {
-			Self::RelayParent(_) => DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode()),
-			Self::CoreInfo(_) => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode()),
+			Self::RelayParent(_) | Self::UseFullCore => {
+				DigestItem::Consensus(CUMULUS_CONSENSUS_ID, encoded)
+			},
+			_ => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, encoded),
 		}
 	}
 
@@ -346,17 +399,52 @@ impl CumulusDigestItem {
 			_ => None,
 		})
 	}
+
+	/// Returns the [`BundleInfo`] from the given `digest`.
+	pub fn find_bundle_info(digest: &Digest) -> Option<BundleInfo> {
+		digest.convert_first(|d| match d {
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::BundleInfo(bundle_info)) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None;
+				};
+
+				Some(bundle_info)
+			},
+			_ => None,
+		})
+	}
+
+	/// Returns `true` if the given `digest` contains the [`Self::UseFullCore`] item.
+	pub fn contains_use_full_core(digest: &Digest) -> bool {
+		digest
+			.convert_first(|d| match d {
+				DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+					let Ok(CumulusDigestItem::UseFullCore) =
+						CumulusDigestItem::decode_all(&mut &val[..])
+					else {
+						return None;
+					};
+
+					Some(true)
+				},
+				_ => None,
+			})
+			.unwrap_or_default()
+	}
 }
 
 /// If there are multiple valid digests, this returns the value of the first one, although
 /// well-behaving runtimes should not produce headers with more than one.
 pub fn extract_relay_parent(digest: &Digest) -> Option<relay_chain::Hash> {
 	digest.convert_first(|d| match d {
-		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID =>
+		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
 			match CumulusDigestItem::decode(&mut &val[..]) {
 				Ok(CumulusDigestItem::RelayParent(hash)) => Some(hash),
 				_ => None,
-			},
+			}
+		},
 		_ => None,
 	})
 }
@@ -465,6 +553,33 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
+/// A relay chain storage key to be included in the storage proof.
+#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq)]
+pub enum RelayStorageKey {
+	/// Top-level relay chain storage key.
+	Top(Vec<u8>),
+	/// Child trie storage key.
+	Child {
+		/// Unprefixed storage key identifying the child trie root location.
+		/// Prefix `:child_storage:default:` is added when accessing storage.
+		/// Used to derive `ChildInfo` for reading child trie data.
+		/// Usage: let child_info = ChildInfo::new_default(&storage_key);
+		storage_key: Vec<u8>,
+		/// Key within the child trie.
+		key: Vec<u8>,
+	},
+}
+
+/// Request for proving relay chain storage data.
+///
+/// Contains a list of storage keys (either top-level or child trie keys)
+/// to be included in the relay chain state proof.
+#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Default)]
+pub struct RelayProofRequest {
+	/// Storage keys to include in the relay chain state proof.
+	pub keys: Vec<RelayStorageKey>,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	///
@@ -511,5 +626,16 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Returns the target number of blocks per relay chain slot.
 		fn target_block_rate() -> u32;
+	}
+
+	/// API for specifying which relay chain storage data to include in storage proofs.
+	///
+	/// This API allows parachains to request both top-level relay chain storage keys
+	/// and child trie storage keys to be included in the relay chain state proof.
+	pub trait KeyToIncludeInRelayProof {
+		/// Returns relay chain storage proof requests.
+		///
+		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
+		fn keys_to_prove() -> RelayProofRequest;
 	}
 }

@@ -1638,7 +1638,9 @@ impl NetworkBehaviour for Notifications {
 									let ban_duration = match st {
 										PeerState::PendingRequest { timer_deadline, .. }
 											if timer_deadline > now =>
-											cmp::max(timer_deadline - now, Duration::from_secs(5)),
+										{
+											cmp::max(timer_deadline - now, Duration::from_secs(5))
+										},
 										_ => Duration::from_secs(5),
 									};
 
@@ -2415,8 +2417,9 @@ mod tests {
 				(ConnectionState::Closing, ConnectionState::Closing) => true,
 				(ConnectionState::Opening, ConnectionState::Opening) => true,
 				(ConnectionState::OpeningThenClosing, ConnectionState::OpeningThenClosing) => true,
-				(ConnectionState::OpenDesiredByRemote, ConnectionState::OpenDesiredByRemote) =>
-					true,
+				(ConnectionState::OpenDesiredByRemote, ConnectionState::OpenDesiredByRemote) => {
+					true
+				},
 				(ConnectionState::Open(_), ConnectionState::Open(_)) => true,
 				_ => false,
 			}

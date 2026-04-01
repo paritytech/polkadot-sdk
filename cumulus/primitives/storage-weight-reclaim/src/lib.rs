@@ -187,8 +187,8 @@ where
 
 		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
 
-		let extrinsic_len = frame_system::AllExtrinsicsLen::<T>::get().unwrap_or(0);
-		let node_side_pov_size = post_dispatch_proof_size.saturating_add(extrinsic_len.into());
+		let block_size = frame_system::BlockSize::<T>::get().unwrap_or(0);
+		let node_side_pov_size = post_dispatch_proof_size.saturating_add(block_size.into());
 
 		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
 		// that in.
@@ -217,7 +217,7 @@ where
 			if missing_from_node > 0 {
 				log::debug!(
 					target: LOG_TARGET,
-					"Node-side PoV size higher than runtime proof size weight. node-side: {node_side_pov_size} extrinsic_len: {extrinsic_len} runtime: {block_weight_proof_size}, missing: {missing_from_node}. Setting to node-side proof size."
+					"Node-side PoV size higher than runtime proof size weight. node-side: {node_side_pov_size} block_size: {block_size} runtime: {block_weight_proof_size}, missing: {missing_from_node}. Setting to node-side proof size."
 				);
 				current.accrue(Weight::from_parts(0, missing_from_node), info.class);
 			}

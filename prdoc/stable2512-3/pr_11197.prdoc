@@ -1,0 +1,8 @@
+title: 'pallet-session: track consumer refs and release deposits for externally set keys'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Tracks whether session keys were set externally (via `SessionInterface`, e.g. from AH) or locally. Transitions between the two paths correctly manage the key deposit and consumer ref in both directions.
+crates:
+- name: pallet-session
+  bump: minor
