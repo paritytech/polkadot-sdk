@@ -2,9 +2,9 @@ title: Fix bags-list on_idle benchmark fragility across MaxAutoRebagPerBlock val
 doc:
 - audience: Runtime Dev
   description: |-
-    The benchmark failed depending on `MaxAutoRebagPerBlock` (e.g. it passes with 10 as configured in Westend, Polkadot and Kusama AH runtime but it failed with 5, as it was configured before, see [runtime PR](https://github.com/polkadot-fellows/runtimes/pull/1065)).
-
-    Fix by placing all regular nodes in the lowest bag and setting scores for all pending nodes. This makes the count deterministic (only `on_idle` moves nodes into higher bags) and exercises worst-case weight (every node triggers a full rebag).
+    The benchmark failed depending on `MaxAutoRebagPerBlock`.
+    Fix by placing all regular nodes in the lowest bag and setting scores for all pending nodes.
+    This makes the count deterministic (only `on_idle` moves nodes into higher bags) and exercises worst-case weight (every node triggers a full rebag).
 crates:
 - name: pallet-bags-list
   bump: none
