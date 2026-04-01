@@ -24,6 +24,7 @@ pub(crate) fn build_hop_pool(
 	database_path: Option<PathBuf>,
 ) -> sc_service::error::Result<Option<Arc<HopDataPool>>> {
 	if !node_extra_args.enable_hop {
+		log::info!(target: "hop", "HOP data pool is disabled (use --enable-hop to enable)");
 		return Ok(None);
 	}
 
@@ -38,12 +39,22 @@ pub(crate) fn build_hop_pool(
 			.join("hop"),
 	};
 
+	log::info!(
+		target: "hop",
+		"🔄 Initializing HOP data pool: max_size={}MiB, retention={} blocks, data_dir={}",
+		node_extra_args.hop_max_pool_size_mb,
+		node_extra_args.hop_retention_blocks,
+		data_dir.display(),
+	);
+
 	let pool = HopDataPool::new(
 		node_extra_args.hop_max_pool_size_mb * 1024 * 1024,
 		node_extra_args.hop_retention_blocks,
 		data_dir,
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+
+	log::info!(target: "hop", "✅ HOP data pool initialized, RPC methods will be registered");
 
 	Ok(Some(Arc::new(pool)))
 }
