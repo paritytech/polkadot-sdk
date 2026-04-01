@@ -403,12 +403,12 @@ impl Client {
 		loop_result
 	}
 
-	/// Run the background gap-filler loop, processing requests sequentially from the queue.
-	pub(crate) async fn run_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
-		log::info!(target: LOG_TARGET, "🔄 Gap filler task started");
+	/// Run the background subscription gap filler, processing requests sequentially.
+	pub(crate) async fn run_subscription_gap_filler(&self, mut rx: mpsc::Receiver<GapFillRequest>) {
+		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler started");
 
 		while let Some(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().await {
-			log::info!(target: LOG_TARGET, "🔄 Gap filler: processing #{from_inclusive} down to #{to_inclusive}");
+			log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}");
 			if let Err(err) = self
 				.sync_backward_range(BackwardSyncRange {
 					from: from_inclusive,
@@ -419,13 +419,15 @@ impl Client {
 				})
 				.await
 			{
-				log::error!(target: LOG_TARGET, "🔄 Gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
+				log::error!(target: LOG_TARGET, "🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}");
 			} else {
-				log::info!(target: LOG_TARGET, "🔄 Gap filler: done with #{from_inclusive}..#{to_inclusive}");
+				log::info!(target: LOG_TARGET, "🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}");
 			}
-			self.gap_filler().mark_done();
+			// Mark done unconditionally — mirrors how subscribe_new_blocks handles
+			// callback errors: log and move on.
+			self.subscription_gap_queue().mark_done();
 		}
 
-		log::info!(target: LOG_TARGET, "🔄 Gap filler task stopped");
+		log::info!(target: LOG_TARGET, "🔄 Subscription gap filler stopped");
 	}
 }

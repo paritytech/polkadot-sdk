@@ -22,7 +22,7 @@ use crate::{
 	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
 	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, GapFillRequest, GapFiller, connect},
+	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
 	example::TransactionBuilder,
 	subxt_client::{
 		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
@@ -346,7 +346,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_sync_resume_interrupted,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
-		test_gap_filler_backfills_queued_range,
+		test_subscription_gap_filler_backfills_queued_range,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -1735,11 +1735,11 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_gap_filler().await?;
+	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
 	Ok(client)
 }
 
-async fn create_sync_test_client_with_gap_filler()
+async fn create_sync_test_client_with_subscription_gap_queue()
 -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
@@ -1760,10 +1760,17 @@ async fn create_sync_test_client_with_gap_filler()
 	let receipt_provider =
 		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
 
-	let (gap_filler, gap_fill_rx) = GapFiller::new();
-	let client =
-		Client::new(api, rpc_client, rpc, block_provider, receipt_provider, true, gap_filler)
-			.await?;
+	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
+	let client = Client::new(
+		api,
+		rpc_client,
+		rpc,
+		block_provider,
+		receipt_provider,
+		true,
+		subscription_gap_queue,
+	)
+	.await?;
 	Ok((client, gap_fill_rx))
 }
 
@@ -2080,11 +2087,11 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Verify that the gap filler backfills blocks for a manually queued range.
-async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
+/// Verify that the subscription gap queue backfills blocks for a manually queued range.
+async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_gap_filler().await?;
+	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
@@ -2122,21 +2129,23 @@ async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 		"Block #{gap_block} should not be in DB before gap fill"
 	);
 
-	// Spawn the gap filler loop, then queue the fill request.
+	// Spawn the subscription gap filler, then queue the fill request.
 	let bg_client = sync_client.clone();
-	let gap_filler_handle =
-		tokio::spawn(async move { bg_client.run_gap_filler(gap_fill_rx).await });
+	let subscription_gap_queue_handle =
+		tokio::spawn(async move { bg_client.run_subscription_gap_filler(gap_fill_rx).await });
 
-	assert!(!sync_client.gap_filler().has_pending());
-	sync_client.gap_filler().detect_and_queue(new_finalized_number, head_after_sync);
-	assert!(sync_client.gap_filler().has_pending());
+	assert!(!sync_client.subscription_gap_queue().has_pending());
+	sync_client
+		.subscription_gap_queue()
+		.detect_and_queue(new_finalized_number, head_after_sync);
+	assert!(sync_client.subscription_gap_queue().has_pending());
 
 	// Wait for the pending request to be processed.
 	let timeout_secs = 10;
 	let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(timeout_secs);
-	while sync_client.gap_filler().has_pending() {
+	while sync_client.subscription_gap_queue().has_pending() {
 		if tokio::time::Instant::now() > deadline {
-			anyhow::bail!("Gap filler did not complete within {timeout_secs}s");
+			anyhow::bail!("Subscription gap queue did not complete within {timeout_secs}s");
 		}
 		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 	}
@@ -2152,7 +2161,7 @@ async fn test_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	);
 
 	// bg_client holds the channel sender, so abort instead of dropping.
-	gap_filler_handle.abort();
+	subscription_gap_queue_handle.abort();
 
 	Ok(())
 }

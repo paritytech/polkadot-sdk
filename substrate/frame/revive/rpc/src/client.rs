@@ -259,8 +259,8 @@ pub struct Client {
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
-	/// Channel for background gap-fill requests.
-	gap_filler: GapFiller,
+	/// Queue for backfilling blocks missed during subscription reconnects.
+	subscription_gap_queue: SubscriptionGapQueue,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -269,9 +269,9 @@ pub(crate) struct GapFillRequest {
 	pub to_inclusive: SubstrateBlockNumber,
 }
 
-/// Processes gap-fill requests.
+/// Queues gap-fill requests for blocks missed during subscription reconnects.
 #[derive(Clone)]
-pub(crate) struct GapFiller {
+pub(crate) struct SubscriptionGapQueue {
 	/// Sender half of the gap-fill queue.
 	tx: mpsc::Sender<GapFillRequest>,
 	/// Queued + in-flight gap fills. Channel length alone is insufficient
@@ -279,7 +279,7 @@ pub(crate) struct GapFiller {
 	pending: Arc<AtomicUsize>,
 }
 
-impl GapFiller {
+impl SubscriptionGapQueue {
 	pub(crate) fn new() -> (Self, mpsc::Receiver<GapFillRequest>) {
 		// Each reconnect produces one gap-fill request for the entire missed range,
 		// so 32 allows for 32 rapid disconnects before the consumer processes any.
@@ -300,12 +300,12 @@ impl GapFiller {
 		match self.tx.try_send(GapFillRequest { from_inclusive, to_inclusive }) {
 			Ok(_) => {
 				log::info!(target: LOG_TARGET,
-					"🔄 Queued gap fill: #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
+					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
 			},
 			Err(err) => {
 				self.pending.fetch_sub(1, Ordering::Release);
 				log::warn!(target: LOG_TARGET,
-					"🔄 Gap fill queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}");
+					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}");
 			},
 		}
 	}
@@ -316,9 +316,9 @@ impl GapFiller {
 			.pending
 			.fetch_update(Ordering::AcqRel, Ordering::Acquire, |v| v.checked_sub(1));
 		if res.is_err() {
-			debug_assert!(false, "gap filler pending counter underflowed");
+			debug_assert!(false, "subscription gap queue pending counter underflowed");
 			log::error!(target: LOG_TARGET,
-				"🔄 Gap filler pending counter underflow, delete the database and restart with --eth-pruning=archive to resync");
+				"🔄 Subscription gap queue pending counter underflow, delete the database and restart with --eth-pruning=archive to resync");
 		}
 	}
 
@@ -389,14 +389,14 @@ pub async fn connect(
 
 impl Client {
 	/// Create a new client instance.
-	pub async fn new(
+	pub(crate) async fn new(
 		api: OnlineClient<SrcChainConfig>,
 		rpc_client: RpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
 		is_archive: bool,
-		gap_filler: GapFiller,
+		subscription_gap_queue: SubscriptionGapQueue,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -436,7 +436,7 @@ impl Client {
 			log_subscription_tx: tokio::sync::broadcast::channel(1000).0,
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
-			gap_filler,
+			subscription_gap_queue,
 		};
 
 		Ok(client)
@@ -452,7 +452,7 @@ impl Client {
 	fn should_advance_head(&self) -> bool {
 		self.is_archive &&
 			self.backfill_complete.load(Ordering::Acquire) &&
-			!self.gap_filler.has_pending()
+			!self.subscription_gap_queue.has_pending()
 	}
 
 	/// Creates a block notifier instance.
@@ -477,8 +477,8 @@ impl Client {
 		&self.block_provider
 	}
 
-	pub(crate) fn gap_filler(&self) -> &GapFiller {
-		&self.gap_filler
+	pub(crate) fn subscription_gap_queue(&self) -> &SubscriptionGapQueue {
+		&self.subscription_gap_queue
 	}
 
 	/// The earliest block number where the ReviveApi is available.
@@ -536,7 +536,7 @@ impl Client {
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
 				if let Some(last) = last_finalized_seen {
-					self.gap_filler.detect_and_queue(block_number, last);
+					self.subscription_gap_queue.detect_and_queue(block_number, last);
 				}
 				// Update unconditionally — a callback failure doesn't mean the block was missed.
 				last_finalized_seen = Some(block_number);
