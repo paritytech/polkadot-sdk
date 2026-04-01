@@ -227,7 +227,7 @@ fn nominating_and_rewards_should_work() {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -279,7 +279,7 @@ fn nominating_and_rewards_should_work() {
 				staking_events_since_last_call(),
 				vec![
 					Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 0, next: None },
-					Event::Rewarded { stash: 11, dest: RewardDestination::Staked, amount: 500 },
+					Event::Rewarded { stash: 11, dest: RewardDestination::Staked, amount: 499 },
 					Event::Rewarded { stash: 1, dest: RewardDestination::Stash, amount: 750 },
 					Event::Rewarded {
 						stash: 3,
@@ -287,8 +287,8 @@ fn nominating_and_rewards_should_work() {
 						amount: 2500
 					},
 					Event::PayoutStarted { era_index: 2, validator_stash: 41, page: 0, next: None },
-					Event::Rewarded { stash: 41, dest: RewardDestination::Staked, amount: 2000 },
-					Event::Rewarded { stash: 1, dest: RewardDestination::Stash, amount: 1750 }
+					Event::Rewarded { stash: 41, dest: RewardDestination::Staked, amount: 1999 },
+					Event::Rewarded { stash: 1, dest: RewardDestination::Stash, amount: 1751 }
 				]
 			);
 		});

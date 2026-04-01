@@ -19,6 +19,7 @@ use crate::{
 	session_rotation::{Eras, Rotator},
 	tests::session_mock::{CurrentIndex, Timestamp},
 };
+use frame_support::traits::fungible::Inspect;
 
 use super::*;
 
@@ -72,7 +73,7 @@ fn forcing_no_forcing_default() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -95,7 +96,7 @@ fn forcing_force_always() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 0 },
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -112,9 +113,9 @@ fn forcing_force_always() {
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					// by now it is given to mock session, and is buffered
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					// and by now it is activated. Note how the validator payout is less, since the
 					// era duration is less. Note that we immediately plan the next era as well.
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 3 }
 				]
 			);
@@ -137,7 +138,7 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 15000 },
+					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 0 },
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -155,9 +156,9 @@ fn forcing_force_new() {
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					// by now it is given to mock session, and is buffered
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
 					// and by now it is activated. Note how the validator payout is less, since the
 					// era duration is less.
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -173,7 +174,7 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 13, active_era: 2, planned_era: 3 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 14, active_era: 2, planned_era: 3 },
-					Event::EraPaid { era_index: 2, validator_payout: 15000, remainder: 15000 },
+					Event::EraPaid { era_index: 2, validator_payout: 15000, remainder: 0 },
 					Event::SessionRotated { starting_session: 15, active_era: 3, planned_era: 3 }
 				]
 			);
@@ -265,8 +266,8 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&staking_events_since_last_call()[..],
 			&[
 				..,
-				Event::EraPaid { era_index: 80, validator_payout: 7500, remainder: 7500 },
 				// NO EraPruned event - pruning is now manual
+				Event::EraPaid { era_index: 80, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 243, active_era: 81, planned_era: 81 }
 			]
 		));
@@ -475,7 +476,7 @@ mod inflation {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -489,7 +490,7 @@ mod inflation {
 	fn max_staked_rewards_default_equal_100() {
 		ExtBuilder::default().build_and_execute(|| {
 			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert!(default_stakers_payout > 0);
+			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
 			<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
 
 			Session::roll_until_active_era(2);
@@ -500,7 +501,7 @@ mod inflation {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 7500 },
+					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);

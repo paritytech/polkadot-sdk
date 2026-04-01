@@ -814,6 +814,14 @@ impl<T: Config> Rotator<T> {
 
 		Eras::<T>::set_stakers_reward(ending_era.index, staker_rewards);
 
+		// Note: `remainder` is always zero with DAP-based inflation — treasury/buffer
+		// allocation is handled by DAP directly.
+		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
+			era_index: ending_era.index,
+			validator_payout: staker_rewards,
+			remainder: Zero::zero(),
+		});
+
 		// Update DisableLegacyMintingEra to prevent legacy minting.
 		if !staker_rewards.is_zero() {
 			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
