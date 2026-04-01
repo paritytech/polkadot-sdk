@@ -146,12 +146,12 @@ pub mod pallet {
 
 	impl CircuitBreakerLevel {
 		/// Whether this level allows minting (external → pUSD).
-		pub fn allows_minting(&self) -> bool {
+		pub const fn allows_minting(&self) -> bool {
 			matches!(self, CircuitBreakerLevel::AllEnabled)
 		}
 
 		/// Whether this level allows redemption (pUSD → external).
-		pub fn allows_redemption(&self) -> bool {
+		pub const fn allows_redemption(&self) -> bool {
 			!matches!(self, CircuitBreakerLevel::AllDisabled)
 		}
 	}
@@ -185,28 +185,29 @@ pub mod pallet {
 
 	impl PsmManagerLevel {
 		/// Whether this level allows modifying minting/redemption fees.
-		pub fn can_set_fees(&self) -> bool {
+		pub const fn can_set_fees(&self) -> bool {
 			matches!(self, PsmManagerLevel::Full)
 		}
 
 		/// Whether this level allows modifying the circuit breaker status.
 		/// Both Full and Emergency levels can set circuit breaker.
-		pub fn can_set_circuit_breaker(&self) -> bool {
+		pub const fn can_set_circuit_breaker(&self) -> bool {
 			true
 		}
 
 		/// Whether this level allows modifying the global PSM debt ratio.
-		pub fn can_set_max_psm_debt(&self) -> bool {
+		pub const fn can_set_max_psm_debt(&self) -> bool {
 			matches!(self, PsmManagerLevel::Full)
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
-		pub fn can_set_asset_ceiling(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full)
+		/// Both Full and Emergency levels can set asset ceilings.
+		pub const fn can_set_asset_ceiling(&self) -> bool {
+			true
 		}
 
 		/// Whether this level allows adding or removing external assets.
-		pub fn can_manage_assets(&self) -> bool {
+		pub const fn can_manage_assets(&self) -> bool {
 			matches!(self, PsmManagerLevel::Full)
 		}
 	}

@@ -936,20 +936,17 @@ mod governance {
 	}
 
 	#[test]
-	fn emergency_origin_cannot_set_asset_ceiling_weight() {
+	fn emergency_origin_can_set_asset_ceiling_weight() {
 		new_test_ext().execute_with(|| {
-			let old_ratio = AssetCeilingWeight::<Test>::get(USDC_ASSET_ID);
+			let new_ratio = Permill::from_percent(80);
 
-			assert_noop!(
-				Psm::set_asset_ceiling_weight(
-					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-					USDC_ASSET_ID,
-					Permill::from_percent(80)
-				),
-				Error::<Test>::InsufficientPrivilege
-			);
+			assert_ok!(Psm::set_asset_ceiling_weight(
+				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+				USDC_ASSET_ID,
+				new_ratio
+			));
 
-			assert_eq!(AssetCeilingWeight::<Test>::get(USDC_ASSET_ID), old_ratio);
+			assert_eq!(AssetCeilingWeight::<Test>::get(USDC_ASSET_ID), new_ratio);
 		});
 	}
 
