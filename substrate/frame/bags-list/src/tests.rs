@@ -1177,6 +1177,84 @@ mod on_idle {
 		});
 	}
 
+	/// Exercises the same setup as the `on_idle` benchmark with varying
+	/// `MaxAutoRebagPerBlock`.
+	#[test]
+	fn rebags_exactly_budget_nodes_regardless_of_budget_size() {
+		for budget in [1, 2, 3, 5, 7, 10, 15, 20] {
+			ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+				<Runtime as Config>::MaxAutoRebagPerBlock::set(budget);
+
+				let bag_thresh = <Runtime as Config>::BagThresholds::get();
+				let low = bag_thresh[0];
+				let mid = bag_thresh[1];
+				let high = bag_thresh[2];
+
+				let pending_count = budget / 3;
+				let regular_count = budget + 5;
+
+				// given: all regular nodes in the lowest bag
+				for i in 0..regular_count {
+					let node = 100 + i as u64;
+					StakingMock::set_score_of(&node, low - 1);
+					assert_ok!(List::<Runtime>::insert(node, low - 1));
+				}
+
+				for i in (0..regular_count).step_by(4) {
+					let node = 100 + i as u64;
+					let _ = List::<Runtime>::remove(&node);
+				}
+
+				BagsList::lock();
+				for i in 0..pending_count {
+					let node = 200 + i as u64;
+					let score = match i % 3 {
+						0 => mid,
+						1 => high,
+						_ => high + high,
+					};
+					StakingMock::set_score_of(&node, score);
+					assert_ok!(BagsList::on_insert(node, score));
+				}
+				BagsList::unlock();
+
+				for i in 0..regular_count {
+					let node = 100 + i as u64;
+					let new_score = match i % 3 {
+						0 => mid,
+						1 => high,
+						_ => high + high,
+					};
+					StakingMock::set_score_of(&node, new_score);
+				}
+
+				assert_eq!(PendingRebag::<Runtime>::count(), pending_count);
+				assert_eq!(List::<Runtime>::get_bags().len(), 1);
+
+				// when
+				run_to_block(1, Weight::MAX);
+
+				// then
+				assert_eq!(
+					PendingRebag::<Runtime>::count(),
+					0,
+					"budget={budget}: pending entries not fully processed"
+				);
+
+				let total_rebagged: usize = List::<Runtime>::get_bags()
+					.iter()
+					.filter(|(b, _)| *b > low)
+					.map(|(_, nodes)| nodes.len())
+					.sum();
+
+				assert_eq!(
+					total_rebagged, budget as usize,
+					"budget={budget}: expected exactly {budget} rebagged nodes, found {total_rebagged}"
+				);
+			});
+		}
+	}
+
 	#[test]
 	fn rebag_extrinsic_removes_from_pending() {
 		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
