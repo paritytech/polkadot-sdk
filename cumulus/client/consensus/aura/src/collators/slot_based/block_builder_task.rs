@@ -684,7 +684,8 @@ impl Core {
 	}
 
 	/// Returns the total number of cores.
-	pub(crate) fn _total_cores(&self) -> u16 {
+	#[cfg(test)]
+	pub(crate) fn total_cores(&self) -> u16 {
 		self.number_of_cores
 	}
 }
