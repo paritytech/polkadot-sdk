@@ -1189,6 +1189,37 @@ mod ceiling_redistribution {
 	}
 
 	#[test]
+	fn single_asset_weight_always_normalizes_to_full_ceiling() {
+		new_test_ext().execute_with(|| {
+			// Remove USDT so only USDC remains
+			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDT_ASSET_ID));
+
+			set_max_psm_debt_ratio(Permill::from_percent(50));
+			// PSM ceiling = 50% of 20M = 10M
+			let mint_amount = 1000 * PUSD_UNIT;
+
+			// Set USDC weight to 30% — with a single asset this normalizes to 100%
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(30));
+			let ceiling_at_30 = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			assert_eq!(ceiling_at_30, 10_000_000 * PUSD_UNIT);
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount));
+
+			// Change weight to 80% — still normalizes to 100%
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(80));
+			let ceiling_at_80 = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			assert_eq!(ceiling_at_80, 10_000_000 * PUSD_UNIT);
+
+			// Setting weight to 0% disables minting
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(0));
+			let ceiling_at_0 = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			assert_eq!(ceiling_at_0, 0);
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, mint_amount),
+				Error::<Test>::ExceedsMaxPsmDebt
+			);
+		});
+	}
+
 	#[test]
 	fn restoring_weight_restores_normal_ceilings() {
 		new_test_ext().execute_with(|| {
