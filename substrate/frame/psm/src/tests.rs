@@ -1070,7 +1070,7 @@ mod ceiling_redistribution {
 	use super::*;
 
 	#[test]
-	fn zero_ratio_redistributes_ceiling_to_others() {
+	fn zero_weight_redistributes_ceiling_to_others() {
 		new_test_ext().execute_with(|| {
 			// Setup: USDC 60%, USDT 40% of PSM ceiling
 			// PSM ceiling = 50% of 20M = 10M
@@ -1087,13 +1087,13 @@ mod ceiling_redistribution {
 			let usdt_normal_ceiling = crate::Pallet::<Test>::max_asset_debt(USDT_ASSET_ID);
 			assert_eq!(usdt_normal_ceiling, 4_000_000 * PUSD_UNIT);
 
-			// Disable USDC minting and set ratio to 0% (governance workflow)
+			// Disable USDC minting and set weight to 0% (governance workflow)
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(0));
 
 			// Now USDT should be able to use the full PSM ceiling
-			// total_ratio_sum = 0% + 40% = 40%
-			// effective_ratio = 40% / 40% = 100%
+			// total_weight_sum = 0% + 40% = 40%
+			// effective_weight = 40% / 40% = 100%
 			// effective_ceiling = 100% of 10M = 10M
 			fund_external_asset(USDT_ASSET_ID, BOB, 10_000_000 * PUSD_UNIT);
 
@@ -1138,14 +1138,14 @@ mod ceiling_redistribution {
 			));
 			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), 4_000_000 * PUSD_UNIT);
 
-			// Now disable USDC and set ratio to 0%
+			// Now disable USDC and set weight to 0%
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(0));
 
 			// USDT and ETH:USDC now split the full ceiling
-			// total_ratio_sum = 0% + 25% + 25% = 50%
-			// USDT effective_ratio = 25% / 50% = 50% -> 5M ceiling
-			// ETH:USDC effective_ratio = 25% / 50% = 50% -> 5M ceiling
+			// total_weight_sum = 0% + 25% + 25% = 50%
+			// USDT effective_weight = 25% / 50% = 50% -> 5M ceiling
+			// ETH:USDC effective_weight = 25% / 50% = 50% -> 5M ceiling
 
 			fund_external_asset(USDT_ASSET_ID, ALICE, 6_000_000 * PUSD_UNIT);
 
@@ -1165,14 +1165,14 @@ mod ceiling_redistribution {
 	}
 
 	#[test]
-	fn normal_ratios_use_proportional_ceilings() {
+	fn normal_weights_use_proportional_ceilings() {
 		new_test_ext().execute_with(|| {
 			// Setup: USDC 60%, USDT 40%
 			set_max_psm_debt_ratio(Permill::from_percent(50));
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
 
-			// Both assets have non-zero ratios - should use proportional ceilings
+			// Both assets have non-zero weights, should use proportional ceilings
 			// USDT ceiling = 40% of 10M = 4M
 
 			fund_external_asset(USDT_ASSET_ID, BOB, 5_000_000 * PUSD_UNIT);
@@ -1189,7 +1189,8 @@ mod ceiling_redistribution {
 	}
 
 	#[test]
-	fn restoring_ratio_restores_normal_ceilings() {
+	#[test]
+	fn restoring_weight_restores_normal_ceilings() {
 		new_test_ext().execute_with(|| {
 			// Setup: USDC 60%, USDT 40%
 			set_max_psm_debt_ratio(Permill::from_percent(50));
@@ -1198,12 +1199,12 @@ mod ceiling_redistribution {
 
 			fund_external_asset(USDT_ASSET_ID, BOB, 10_000_000 * PUSD_UNIT);
 
-			// Disable USDC and set ratio to 0% - USDT can use full ceiling
+			// Disable USDC and set weight to 0% - USDT can use full ceiling
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(0));
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(BOB), USDT_ASSET_ID, 5_000_000 * PUSD_UNIT));
 
-			// Re-enable USDC and restore ratio
+			// Re-enable USDC and restore weight
 			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllEnabled);
 			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
 

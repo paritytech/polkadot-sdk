@@ -333,7 +333,7 @@ pub mod pallet {
 		/// Max PSM debt as percentage of total maximum issuance.
 		pub max_psm_debt_of_total: Permill,
 		/// Per-asset configuration: asset_id -> (minting_fee, redemption_fee,
-		/// max_asset_debt_ratio). Keys also define the set of approved external assets.
+		/// ceiling_weight). Keys also define the set of approved external assets.
 		pub asset_configs: BTreeMap<T::AssetId, (Permill, Permill, Permill)>,
 		#[serde(skip)]
 		pub _marker: core::marker::PhantomData<T>,
@@ -350,9 +350,7 @@ pub mod pallet {
 			);
 			MaxPsmDebtOfTotal::<T>::put(self.max_psm_debt_of_total);
 			let stable_decimals = T::StableAsset::decimals();
-			for (asset_id, (minting_fee, redemption_fee, max_asset_debt_ratio)) in
-				&self.asset_configs
-			{
+			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &self.asset_configs {
 				assert!(
 					T::Fungibles::decimals(*asset_id) == stable_decimals,
 					"PSM genesis: asset {:?} decimals do not match stable asset decimals",
@@ -361,7 +359,7 @@ pub mod pallet {
 				ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 				MintingFee::<T>::insert(asset_id, minting_fee);
 				RedemptionFee::<T>::insert(asset_id, redemption_fee);
-				AssetCeilingWeight::<T>::insert(asset_id, max_asset_debt_ratio);
+				AssetCeilingWeight::<T>::insert(asset_id, ceiling_weight);
 			}
 			Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
 			Pallet::<T>::ensure_account_exists(&T::FeeDestination::get());
@@ -393,7 +391,7 @@ pub mod pallet {
 		RedemptionFeeUpdated { asset_id: T::AssetId, old_value: Permill, new_value: Permill },
 		/// Max PSM debt ratio updated by governance.
 		MaxPsmDebtOfTotalUpdated { old_value: Permill, new_value: Permill },
-		/// Per-asset debt ceiling ratio updated by governance.
+		/// Per-asset debt ceiling weight updated by governance.
 		AssetCeilingWeightUpdated { asset_id: T::AssetId, old_value: Permill, new_value: Permill },
 		/// Per-asset circuit breaker status updated.
 		AssetStatusUpdated { asset_id: T::AssetId, status: CircuitBreakerLevel },
@@ -758,7 +756,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the per-asset debt ceiling ratio.
+		/// Set the per-asset debt ceiling weight.
 		///
 		/// ## Dispatch Origin
 		///
@@ -766,13 +764,16 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// The per-asset ceiling is calculated as:
-		/// `max_asset_debt = ratio * MaxPsmDebtOfTotal * MaximumIssuance`
+		/// Ratios act as weights normalized against the sum of all asset weights:
+		/// `max_asset_debt = (ratio / sum_of_all_ratios) * MaxPsmDebtOfTotal * MaximumIssuance`
+		///
+		/// With a single asset, the weight always normalizes to 100% of the PSM
+		/// ceiling.
 		///
 		/// ## Parameters
 		///
 		/// - `asset_id`: The external stablecoin to configure
-		/// - `ratio`: Percentage of total PSM ceiling allocated to this asset
+		/// - `ratio`: Weight for this asset's share of the total PSM ceiling
 		///
 		/// ## Events
 		///
@@ -782,17 +783,17 @@ pub mod pallet {
 		pub fn set_asset_ceiling_weight(
 			origin: OriginFor<T>,
 			asset_id: T::AssetId,
-			ratio: Permill,
+			weight: Permill,
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level.can_set_asset_ceiling(), Error::<T>::InsufficientPrivilege);
 			ensure!(ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetNotApproved);
 			let old_value = AssetCeilingWeight::<T>::get(asset_id);
-			AssetCeilingWeight::<T>::insert(asset_id, ratio);
+			AssetCeilingWeight::<T>::insert(asset_id, weight);
 			Self::deposit_event(Event::AssetCeilingWeightUpdated {
 				asset_id,
 				old_value,
-				new_value: ratio,
+				new_value: weight,
 			});
 			Ok(())
 		}
@@ -894,28 +895,27 @@ pub mod pallet {
 		///
 		/// Assumes the caller has verified the asset is approved and `AllEnabled`.
 		///
-		/// Returns zero if the asset has no configured ratio or the ratio is zero.
+		/// Returns zero if the asset has no configured weight or the weight is zero.
 		///
-		/// Ratios act as weights that normalize to fill the PSM ceiling. When an
-		/// asset is disabled, governance should set its ratio to 0% so its ceiling
-		/// allocation is automatically redistributed to other assets.
+		/// Weights are normalized against the sum of all asset weights to fill the
+		/// PSM ceiling.
 		pub(crate) fn max_asset_debt(asset_id: T::AssetId) -> BalanceOf<T> {
-			let asset_ratio = AssetCeilingWeight::<T>::get(asset_id);
+			let asset_weight = AssetCeilingWeight::<T>::get(asset_id);
 
-			if asset_ratio.is_zero() {
+			if asset_weight.is_zero() {
 				return BalanceOf::<T>::zero();
 			}
 
-			let total_ratio_sum: u32 = AssetCeilingWeight::<T>::iter_values()
-				.map(|r| r.deconstruct())
+			let total_weight_sum: u32 = AssetCeilingWeight::<T>::iter_values()
+				.map(|w| w.deconstruct())
 				.fold(0u32, |acc, x| acc.saturating_add(x));
 
-			if total_ratio_sum == 0 {
+			if total_weight_sum == 0 {
 				return BalanceOf::<T>::zero();
 			}
 
 			let total_psm_ceiling = Self::max_psm_debt();
-			Perbill::from_rational(asset_ratio.deconstruct(), total_ratio_sum)
+			Perbill::from_rational(asset_weight.deconstruct(), total_weight_sum)
 				.mul_floor(total_psm_ceiling)
 		}
 
@@ -943,8 +943,8 @@ pub mod pallet {
 			}
 		}
 
-		#[cfg(feature = "try-runtime")]
-		fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		#[cfg(any(feature = "try-runtime", test))]
+		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
 
 			let stable_decimals = T::StableAsset::decimals();

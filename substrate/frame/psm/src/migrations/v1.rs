@@ -106,7 +106,7 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for UncheckedM
 		MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
 
 		let stable_decimals = T::StableAsset::decimals();
-		for (asset_id, (minting_fee, redemption_fee, max_asset_debt_ratio)) in &asset_configs {
+		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
 			assert!(
 				T::Fungibles::decimals(*asset_id) == stable_decimals,
 				"PSM migration: asset {:?} decimals do not match stable asset decimals",
@@ -115,7 +115,7 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for UncheckedM
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			MintingFee::<T>::insert(asset_id, minting_fee);
 			RedemptionFee::<T>::insert(asset_id, redemption_fee);
-			AssetCeilingWeight::<T>::insert(asset_id, max_asset_debt_ratio);
+			AssetCeilingWeight::<T>::insert(asset_id, ceiling_weight);
 		}
 
 		Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
