@@ -31,6 +31,7 @@ jobs:
   #
   build-linux-stable:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -93,6 +94,7 @@ jobs:
   #
   build-linux-stable-cumulus:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -133,6 +135,7 @@ jobs:
   #
   build-test-parachain:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -174,6 +177,7 @@ jobs:
   #
   build-test-collators:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -217,6 +221,7 @@ jobs:
   #
   build-malus:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -259,6 +264,7 @@ jobs:
   #
   build-linux-substrate:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -306,6 +312,7 @@ jobs:
   #
   build-templates-node:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -353,6 +360,7 @@ jobs:
   #
   prepare-bridges-zombienet-artifacts:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -383,6 +391,7 @@ jobs:
   #
   prepare-polkadot-zombienet-artifacts:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -413,6 +422,7 @@ jobs:
   #
   prepare-substrate-zombienet-artifacts:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -443,6 +453,7 @@ jobs:
   #
   prepare-cumulus-zombienet-artifacts:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -470,6 +481,7 @@ jobs:
 
   prepare-parachain-templates-zombienet-artifacts:
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
