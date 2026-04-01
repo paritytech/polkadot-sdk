@@ -202,12 +202,11 @@ where
 			),
 		)?;
 
-		let caller_h160 = env
+		let sender = env
 			.caller()
 			.account_id()
-			.map(<Runtime as pallet_revive::Config>::AddressMapper::to_address)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?;
-		let sender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&caller_h160);
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
+			.clone();
 
 		let path = call
 			.path
@@ -249,12 +248,11 @@ where
 			),
 		)?;
 
-		let caller_h160 = env
+		let sender = env
 			.caller()
 			.account_id()
-			.map(<Runtime as pallet_revive::Config>::AddressMapper::to_address)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?;
-		let sender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&caller_h160);
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
+			.clone();
 
 		let path = call
 			.path
@@ -289,8 +287,10 @@ where
 		call: &IAssetConversion::quoteExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Quote is read-only. Charge swap weight as a safe overestimate.
-		// TODO: Add proper benchmarks for quote operations.
+		// Quote is always a single-pair operation (the Solidity interface takes two assets,
+		// not a path). The actual cost is just reserve reads + arithmetic, but no dedicated
+		// benchmark exists yet. Charging the swap weight for path length 2 is a safe
+		// overestimate since swaps include transfer costs that quotes do not.
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
 				2,
@@ -322,8 +322,7 @@ where
 		call: &IAssetConversion::quoteTokensForExactTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Quote is read-only. Charge swap weight as a safe overestimate.
-		// TODO: Add proper benchmarks for quote operations.
+		// See comment in quote_exact_tokens_for_tokens for weight rationale.
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
 				2,
