@@ -2916,8 +2916,7 @@ mod tests {
 			})
 			.collect();
 
-		let results: Vec<SubmitResult> =
-			handles.into_iter().map(|h| h.join().unwrap()).collect();
+		let results: Vec<SubmitResult> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
 		// All submissions should succeed
 		for (i, result) in results.iter().enumerate() {
@@ -2972,11 +2971,7 @@ mod tests {
 			num_statements,
 			"All {num_statements} statements should appear in taken results"
 		);
-		assert_eq!(
-			taken.len(),
-			num_statements,
-			"No duplicate statements in taken results"
-		);
+		assert_eq!(taken.len(), num_statements, "No duplicate statements in taken results");
 
 		// Statements remain in the store even after being taken from recent
 		assert_eq!(store.statements().unwrap().len(), num_statements);

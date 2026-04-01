@@ -1484,7 +1484,7 @@ mod tests {
 						NonZeroU32::new(
 							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
 						)
-							.expect("burst capacity is nonzero"),
+						.expect("burst capacity is nonzero"),
 					),
 				},
 			);
@@ -2323,8 +2323,14 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_propagation_reaches_all_connected_peers() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver, peer_ids) =
-			build_handler_multi_peers(5);
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			_queue_receiver,
+			peer_ids,
+		) = build_handler_multi_peers(5);
 
 		// Insert 3 statements into recent_statements for propagation
 		let mut expected_hashes = Vec::new();
@@ -2343,8 +2349,7 @@ mod tests {
 
 		// Group notifications by peer
 		for peer_id in &peer_ids {
-			let peer_notifications: Vec<_> =
-				sent.iter().filter(|(p, _)| p == peer_id).collect();
+			let peer_notifications: Vec<_> = sent.iter().filter(|(p, _)| p == peer_id).collect();
 			assert!(
 				!peer_notifications.is_empty(),
 				"Peer {peer_id} should have received notifications"
@@ -2371,8 +2376,14 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_known_statement_filtering_per_peer() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver, peer_ids) =
-			build_handler_multi_peers(3);
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			_queue_receiver,
+			peer_ids,
+		) = build_handler_multi_peers(3);
 
 		let peer_a = peer_ids[0];
 		let peer_b = peer_ids[1];
@@ -2429,8 +2440,14 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_multiple_peers_send_same_statement_deduplication() {
-		let (mut handler, _statement_store, network, _notification_service, queue_receiver, peer_ids) =
-			build_handler_multi_peers(3);
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler_multi_peers(3);
 
 		let peer_a = peer_ids[0];
 		let peer_b = peer_ids[1];
@@ -2460,22 +2477,15 @@ mod tests {
 		assert!(peers_for_hash.contains(&peer_c), "peer_c should be tracked");
 
 		let reports = network.get_reports();
-		let any_stmt_reports: Vec<_> = reports
-			.iter()
-			.filter(|(_, rep)| *rep == rep::ANY_STATEMENT)
-			.collect();
+		let any_stmt_reports: Vec<_> =
+			reports.iter().filter(|(_, rep)| *rep == rep::ANY_STATEMENT).collect();
 		assert_eq!(
 			any_stmt_reports.len(),
 			3,
 			"All senders of an unknown statement get ANY_STATEMENT"
 		);
-		let dup_reports: Vec<_> = reports
-			.iter()
-			.filter(|(_, rep)| *rep == rep::DUPLICATE_STATEMENT)
-			.collect();
-		assert!(
-			dup_reports.is_empty(),
-			"No DUPLICATE_STATEMENT since each peer is a new sender"
-		);
+		let dup_reports: Vec<_> =
+			reports.iter().filter(|(_, rep)| *rep == rep::DUPLICATE_STATEMENT).collect();
+		assert!(dup_reports.is_empty(), "No DUPLICATE_STATEMENT since each peer is a new sender");
 	}
 }
