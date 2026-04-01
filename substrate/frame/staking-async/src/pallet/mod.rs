@@ -1152,8 +1152,11 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The era payout has been set; the first balance is the validator-payout; the second is
-		/// the remainder from the maximum amount of reward.
+		/// The era payout has been set; `validator_payout` is the staker reward budget
+		/// snapshotted from the DAP general pot.
+		///
+		/// Note: `remainder` is always zero with DAP-based inflation. Treasury/buffer
+		/// allocation is handled by DAP directly and is no longer reported here.
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
