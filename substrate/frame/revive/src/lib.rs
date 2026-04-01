@@ -32,6 +32,7 @@ mod impl_fungibles;
 mod limits;
 mod metering;
 mod primitives;
+mod state_overrides;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -1786,7 +1787,7 @@ impl<T: Config> Pallet<T> {
 		config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<U256, EthTransactError>
 	where
-		T::Nonce: Into<U256>,
+		T::Nonce: Into<U256> + TryFrom<U256>,
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "eth_estimate_gas: {tx:?}");
@@ -1834,10 +1835,11 @@ impl<T: Config> Pallet<T> {
 		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()].map(|gas_limit| {
 			let mut transaction = tx.clone();
 			transaction.gas = Some(gas_limit);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			let eth_transact_result = with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					config.with_perform_balance_checks(perform_balance_checks),
+					dry_run_config,
 				)))
 			})
 			.expect("Rollback shouldn't error out");
@@ -1902,10 +1904,11 @@ impl<T: Config> Pallet<T> {
 
 			let mut transaction = tx.clone();
 			transaction.gas = Some(midpoint);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			let dry_run_result = with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					config.with_perform_balance_checks(perform_balance_checks),
+					dry_run_config,
 				)))
 			})
 			.expect("Rollback shouldn't error out");
@@ -1933,16 +1936,20 @@ impl<T: Config> Pallet<T> {
 	/// - `tx`: The Ethereum transaction to simulate.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		mut dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
-		T::Nonce: Into<U256>,
+		T::Nonce: Into<U256> + TryFrom<U256>,
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
+
+		if let Some(overrides) = dry_run_config.state_overrides.take() {
+			state_overrides::apply_state_overrides::<T>(overrides)?;
+		}
 
 		let base_fee = Self::evm_base_fee();
 		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
@@ -1994,6 +2001,7 @@ impl<T: Config> Pallet<T> {
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
 		let base_weight = base_info.total_weight();
+		let perform_balance_checks = dry_run_config.perform_balance_checks;
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
 				.with_dry_run(dry_run_config);
@@ -2001,12 +2009,11 @@ impl<T: Config> Pallet<T> {
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
-			let fees =
-				if gas.is_some() && matches!(dry_run_config.perform_balance_checks, Some(true)) {
-					fees
-				} else {
-					Zero::zero()
-				};
+			let fees = if gas.is_some() && matches!(perform_balance_checks, Some(true)) {
+				fees
+			} else {
+				Zero::zero()
+			};
 			let balance = Self::evm_balance(from);
 			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
 				return Err(EthTransactError::Message(format!(

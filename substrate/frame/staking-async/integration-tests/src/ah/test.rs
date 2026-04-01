@@ -718,7 +718,9 @@ fn on_offence_current_era_instant_apply() {
 			let _ = staking_events_since_last_call();
 
 			// Record initial state for DAP verification
-			let dap_buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+			let dap_buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
+				AccountId,
+			>>::pot_account();
 			let initial_dap_balance = Balances::free_balance(&dap_buffer);
 			let initial_total_issuance = Balances::total_issuance();
 

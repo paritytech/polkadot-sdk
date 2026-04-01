@@ -88,6 +88,7 @@
 
   needs-wasm-binary: true
 
+<<<<<<< HEAD
 - job-name: "zombienet-cumulus-0016-block_bundling_basic"
   test-filter: "zombie_ci::block_bundling::basic::block_bundling_basic"
   runner-type: "large"
@@ -127,6 +128,18 @@
 
 - job-name: "zombienet-cumulus-0022-block_bundling_three_cores_glutton"
   test-filter: "zombie_ci::block_bundling::three_cores_glutton::block_bundling_three_cores_glutton"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0016-statement_store_basic_propagation"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_basic_propagation"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-cumulus-0017-statement_store_check_propagation_and_quota_invariants"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_check_propagation_and_quota_invariants"
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
