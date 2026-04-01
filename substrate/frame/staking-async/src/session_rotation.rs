@@ -81,11 +81,11 @@ use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{Perbill, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -362,11 +362,11 @@ impl<T: Config> Eras<T> {
 		};
 	}
 
-	pub(crate) fn set_validators_reward(era: EraIndex, amount: BalanceOf<T>) {
+	pub(crate) fn set_stakers_reward(era: EraIndex, amount: BalanceOf<T>) {
 		ErasValidatorReward::<T>::insert(era, amount);
 	}
 
-	pub(crate) fn get_validators_reward(era: EraIndex) -> Option<BalanceOf<T>> {
+	pub(crate) fn get_stakers_reward(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasValidatorReward::<T>::get(era)
 	}
 
@@ -743,6 +743,11 @@ impl<T: Config> Rotator<T> {
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
+		// Cleanup era pot accounts for eras that have expired.
+		if let Some(era_to_cleanup) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			reward::EraRewardManager::<T>::cleanup_era(era_to_cleanup);
+		}
+
 		// Mark ancient era for lazy pruning instead of immediately pruning it.
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(debug, "Marking era {:?} for lazy pruning", old_era);
@@ -796,64 +801,28 @@ impl<T: Config> Rotator<T> {
 		});
 	}
 
-	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
-		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
-		let uncapped_era_duration = new_era_start.saturating_sub(previous_era_start);
+	fn end_era(ending_era: &ActiveEraInfo, _new_era_start: u64) {
+		log!(debug, "snapshotting reward pots for era {:?}", ending_era.index);
 
-		// maybe cap the era duration to the maximum allowed by the runtime.
-		let cap = T::MaxEraDuration::get();
-		let era_duration = if cap == 0 {
-			// if the cap is zero (not set), we don't cap the era duration.
-			uncapped_era_duration
-		} else if uncapped_era_duration > cap {
-			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
+		// Snapshot general staker reward pot into era-specific pot.
+		// DAP has been dripping inflation into the general pot since the last era boundary.
+		let staker_rewards =
+			reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
-			// if the cap is set, and era duration exceeds the cap, we cap the era duration to the
-			// maximum allowed.
-			log!(
-				warn,
-				"capping era duration for era {:?} from {:?} to max allowed {:?}",
-				ending_era.index,
-				uncapped_era_duration,
-				cap
-			);
-			cap
-		} else {
-			uncapped_era_duration
-		};
+		if staker_rewards.is_zero() {
+			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
+		}
 
-		Self::end_era_compute_payout(ending_era, era_duration);
-	}
+		Eras::<T>::set_stakers_reward(ending_era.index, staker_rewards);
 
-	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64) {
-		let staked = ErasTotalStake::<T>::get(ending_era.index);
-		let issuance = asset::total_issuance::<T>();
-
-		log!(
-			debug,
-			"computing inflation for era {:?} with duration {:?}",
-			ending_era.index,
-			era_duration
-		);
-		let (validator_payout, remainder) =
-			T::EraPayout::era_payout(staked, issuance, era_duration);
-
-		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
-
-		// apply cap to validators payout and add difference to remainder.
-		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-		let remainder = total_payout.saturating_sub(validator_payout);
-
-		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
-			era_index: ending_era.index,
-			validator_payout,
-			remainder,
-		});
-
-		// Set ending era reward.
-		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
-		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
+		// Update DisableLegacyMintingEra to prevent legacy minting.
+		if !staker_rewards.is_zero() {
+			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
+				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
+					*maybe_era = Some(ending_era.index);
+				}
+			});
+		}
 	}
 
 	/// Plans a new era by kicking off the election process.
