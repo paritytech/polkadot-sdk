@@ -1194,7 +1194,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let oldest_reportable_offence_era = if T::SlashDeferDuration::get() == 0 {
 			// this implies that slashes are applied immediately, so we can accept any offence up to
 			// bonding duration old.
-			active_era.index.saturating_sub(T::BondingDuration::get())
+			// Align with the SlashDeferDuration > 0 branch: accept offences from at most
+			// BondingDuration - 1 distinct eras, ensuring the count fits within the
+			// OffenceQueueEras bound.
+			active_era.index.saturating_sub(T::BondingDuration::get().saturating_sub(2))
 		} else {
 			// slashes are deffered, so we only accept offences that are not older than the
 			// defferal duration.
@@ -1397,7 +1400,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 
 /// A simple sorted list implementation that does not require any additional pallets. Note, this
 /// does not provide validators in sorted order. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list`].
+/// a look at `pallet-bags-list`.
 pub struct UseValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	type Score = BalanceOf<T>;
@@ -1465,7 +1468,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
 /// does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
-/// a look at [`pallet-bags-list].
+/// a look at `pallet-bags-list`.
 pub struct UseNominatorsAndValidatorsMap<T>(core::marker::PhantomData<T>);
 impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsMap<T> {
 	type Error = ();
@@ -1742,12 +1745,16 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Eras::<T>::upsert_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
-			CurrentEra::<T>::put(era);
-		}
-
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
+		}
+	}
+
+	sp_staking::std_or_benchmarks_enabled! {
+		fn set_era(era: EraIndex) {
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start: None });
+			// Simulate prod behaviour where current era is always ahead of active era by 1.
+			CurrentEra::<T>::put(era.saturating_add(1));
 		}
 	}
 }
