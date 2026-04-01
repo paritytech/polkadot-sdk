@@ -208,7 +208,7 @@ fn backed_candidate_leads_to_advertisement() {
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -314,7 +314,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		// Receive an advertisement from C on an unconfirmed candidate.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -443,7 +443,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 		let candidate_hash = candidate.hash();
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -751,7 +751,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group,
 						para_id: local_para,
@@ -831,7 +831,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 		let candidate_hash = candidate.hash();
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -987,7 +987,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -1164,7 +1164,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		// Receive an advertisement from C.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -1321,7 +1321,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		// Receive a manifest about the same candidate from peer D. Contains different statements.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -1555,7 +1555,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 
 			let expected_manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: local_group_index,
 				para_id: local_para,
@@ -1774,7 +1774,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -1874,7 +1874,7 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 		// Receive an advertisement from C.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -2092,7 +2092,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2204,7 +2204,7 @@ fn manifest_rejected_with_unknown_relay_parent() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent: unknown_parent,
+			scheduling_parent: unknown_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2294,7 +2294,7 @@ fn manifest_rejected_when_not_a_validator() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2389,7 +2389,7 @@ fn manifest_rejected_when_group_does_not_match_para() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2492,7 +2492,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2664,7 +2664,7 @@ fn inactive_local_participates_in_grid() {
 
 		// Receive an advertisement from A.
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: group_idx,
 			para_id: para,

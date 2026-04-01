@@ -42,7 +42,8 @@ impl StorageApi {
 		// TODO: remove once subxt is updated
 		let contract_address: subxt::utils::H160 = contract_address.0.into();
 
-		let query = subxt_client::storage().revive().account_info_of(contract_address);
+		let query =
+			subxt_client::storage().revive().account_info_of(contract_address).unvalidated();
 		let Some(info) = self.0.fetch(&query).await? else {
 			return Err(ClientError::ContractNotFound);
 		};
