@@ -359,6 +359,12 @@ impl PeerData {
 					implicit_view,
 					leaf_claim_queues.keys(),
 				) {
+					gum::debug!(
+						target: LOG_TARGET,
+						?on_scheduling_parent,
+						"Peer advertised a collation for a relay parent that is out of our view",
+					);
+
 					return Err(InsertAdvertisementError::OutOfOurView);
 				}
 
@@ -368,6 +374,13 @@ impl PeerData {
 						.get(&on_scheduling_parent)
 						.map_or(false, |candidates| candidates.contains(&candidate_hash))
 					{
+						gum::debug!(
+							target: LOG_TARGET,
+							?on_scheduling_parent,
+							?candidate_hash,
+							"Peer has already advertised this collation",
+						);
+
 						return Err(InsertAdvertisementError::Duplicate);
 					}
 
@@ -383,8 +396,26 @@ impl PeerData {
 						.unwrap_or(0);
 
 					if candidates.len() > max_ads {
+						gum::debug!(
+							target: LOG_TARGET,
+							?on_scheduling_parent,
+							?candidate_hash,
+							current_ads = candidates.len(),
+							max_ads,
+							"Peer has advertised too many collations for this scheduling parent",
+						);
+
 						return Err(InsertAdvertisementError::PeerLimitReached);
 					}
+
+					gum::debug!(
+						target: LOG_TARGET,
+						?on_scheduling_parent,
+						?candidate_hash,
+						current_ads = candidates.len(),
+						max_ads,
+						"Tracking new advertisement from peer",
+					);
 
 					candidates.insert(candidate_hash);
 				} else {
@@ -1653,22 +1684,58 @@ where
 	Sender: CollatorProtocolSenderTrait,
 {
 	// Basic peer and protocol validation
-	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
+	let peer_data = state.peer_data.get_mut(&peer_id).ok_or_else(|| {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?prospective_candidate,
+			"Received advertisement from unknown peer",
+		);
+
+		AdvertisementError::UnknownPeer
+	})?;
 
 	// V1 protocol requires relay_parent to be an active leaf (no async backing support)
 	if peer_data.version == CollationVersion::V1 &&
 		!state.leaf_claim_queues.contains_key(&scheduling_parent)
 	{
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?prospective_candidate,
+			"V1 advertisement must use an active leaf as relay parent",
+		);
+
 		return Err(AdvertisementError::ProtocolMisuse);
 	}
 
 	// Ensure peer has declared as a collator
-	peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
+	peer_data.collating_para().ok_or_else(|| {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?prospective_candidate,
+			"Peer has not declared as collator",
+		);
 
-	let per_scheduling_parent = state
-		.per_scheduling_parent
-		.get(&scheduling_parent)
-		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
+		AdvertisementError::UndeclaredCollator
+	})?;
+
+	let per_scheduling_parent =
+		state.per_scheduling_parent.get(&scheduling_parent).ok_or_else(|| {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?scheduling_parent,
+				?prospective_candidate,
+				"Scheduling parent is unknown",
+			);
+
+			AdvertisementError::SchedulingParentUnknown
+		})?;
 
 	// Always insert advertisements that pass all the checks for spam protection.
 	let candidate_hash = prospective_candidate.map(|(hash, ..)| hash);
@@ -1680,7 +1747,18 @@ where
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
 		)
-		.map_err(AdvertisementError::Invalid)?;
+		.map_err(|error| {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?scheduling_parent,
+				?prospective_candidate,
+				?error,
+				"Failed to insert advertisement",
+			);
+
+			AdvertisementError::Invalid(error)
+		})?;
 
 	if hold_off_asset_hub_collation_if_needed(
 		state,
@@ -1691,6 +1769,14 @@ where
 		scheduling_parent, // For V1/V2, the relay parent is the same as the scheduling parent
 		None,              // V1/V2 don't have advertised descriptor version
 	) {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?prospective_candidate,
+			"Collation held off, not processing advertisement further",
+		);
+
 		return Ok(());
 	}
 
@@ -1802,7 +1888,16 @@ where
 	// Check if there's a free slot accounting for obsolete positions and capacity.
 	// This happens AFTER hold-off logic (for AssetHub) has run, so held-off advertisements
 	// can be queued even when capacity is temporarily full.
-	is_slot_available(&scheduling_parent, para_id, state)?;
+	is_slot_available(&scheduling_parent, para_id, state).inspect_err(|error| {
+		gum::debug!(
+			target: LOG_TARGET,
+			?peer_id,
+			?scheduling_parent,
+			?para_id,
+			?error,
+			"Slot is not available",
+		);
+	})?;
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
 		// Check if backing subsystem allows to second this candidate.
@@ -1813,6 +1908,16 @@ where
 				.await;
 
 		if !can_second {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?scheduling_parent,
+				?para_id,
+				?candidate_hash,
+				?parent_head_data_hash,
+				"Backing subsystem does not allow seconding this candidate",
+			);
+
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 	}
