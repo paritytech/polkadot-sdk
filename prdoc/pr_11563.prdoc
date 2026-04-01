@@ -4,6 +4,9 @@ doc:
   description: |-
     Introduce a market trait that will streamline the RFC-17 implementation 
     and will help to split the pallet-broker logic into independent parts.
+
+    The pupose of this trait is to be implemented by a pallet containing the
+    logic for RFC-17 market and be exposed as a configuration item in pallet-broker.
 crates:
 - name: pallet-broker
   bump: minor
