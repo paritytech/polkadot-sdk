@@ -56,6 +56,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-verify-signature = { workspace = true }
 <<<<<<< HEAD
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }

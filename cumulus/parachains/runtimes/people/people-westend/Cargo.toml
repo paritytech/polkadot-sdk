@@ -39,6 +39,7 @@ pallet-dap-satellite = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
+pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -47,6 +48,7 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-verify-signature = { workspace = true }
 <<<<<<< HEAD
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
