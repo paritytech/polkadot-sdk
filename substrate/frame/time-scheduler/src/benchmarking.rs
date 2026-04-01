@@ -513,9 +513,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_retry(
-		r: Linear<1, 255>,
-	) -> Result<(), BenchmarkError> {
+	fn set_retry() -> Result<(), BenchmarkError> {
 		let s = T::MaxScheduledPerBucket::get();
 		let bucket: BucketFor<T> = BUCKET.into();
 
@@ -527,13 +525,13 @@ mod benchmarks {
 		let strategy = RetryStrategy::Periodic(bucket_resolution);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, (bucket, index), r as u8, strategy);
+		_(RawOrigin::Root, (bucket, index), 255u8, strategy);
 
 		assert_eq!(
 			Retries::<T>::get((bucket, index)),
 			Some(RetryConfig {
-				total_retries: r as u8,
-				remaining: r as u8,
+				total_retries: 255u8,
+				remaining: 255u8,
 				strategy: RetryStrategy::Periodic(One::one()),
 			})
 		);
@@ -541,7 +539,7 @@ mod benchmarks {
 			Event::RetrySet {
 				task: address,
 				id: None,
-				retries: r as u8,
+				retries: 255u8,
 				strategy: RetryStrategy::Periodic(bucket_resolution),
 			}
 			.into(),
@@ -551,9 +549,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_retry_named(
-		r: Linear<1, 255>,
-	) -> Result<(), BenchmarkError> {
+	fn set_retry_named() -> Result<(), BenchmarkError> {
 		let s = T::MaxScheduledPerBucket::get();
 		let bucket: BucketFor<T> = BUCKET.into();
 
@@ -565,13 +561,13 @@ mod benchmarks {
 		let strategy = RetryStrategy::Periodic(bucket_resolution);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, name, r as u8, strategy);
+		_(RawOrigin::Root, name, 255u8, strategy);
 
 		assert_eq!(
 			Retries::<T>::get((bucket, index)),
 			Some(RetryConfig {
-				total_retries: r as u8,
-				remaining: r as u8,
+				total_retries: 255u8,
+				remaining: 255u8,
 				strategy: RetryStrategy::Periodic(One::one()),
 			})
 		);
@@ -579,7 +575,7 @@ mod benchmarks {
 			Event::RetrySet {
 				task: address,
 				id: Some(name),
-				retries: r as u8,
+				retries: 255u8,
 				strategy: RetryStrategy::Periodic(bucket_resolution),
 			}
 			.into(),

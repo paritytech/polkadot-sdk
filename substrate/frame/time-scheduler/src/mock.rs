@@ -235,10 +235,10 @@ impl WeightInfo for TestWeightInfo {
 	fn schedule_retry_exponential_backoff(_s: u32) -> Weight {
 		Weight::from_parts(100000, 0)
 	}
-	fn set_retry(_r: u32) -> Weight {
+	fn set_retry() -> Weight {
 		Weight::from_parts(50, 0)
 	}
-	fn set_retry_named(_r: u32) -> Weight {
+	fn set_retry_named() -> Weight {
 		Weight::from_parts(50, 0)
 	}
 	fn cancel_retry() -> Weight {

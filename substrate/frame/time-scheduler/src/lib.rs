@@ -620,7 +620,7 @@ pub mod pallet {
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
 		#[pallet::call_index(6)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_retry((*retries).into()))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
 			origin: OriginFor<T>,
 			task: TaskAddress<BucketFor<T>>,
@@ -656,7 +656,7 @@ pub mod pallet {
 		///
 		/// See [`Self::set_retry`] for strategy details.
 		#[pallet::call_index(7)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named((*retries).into()))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
 			origin: OriginFor<T>,
 			id: TaskName,
