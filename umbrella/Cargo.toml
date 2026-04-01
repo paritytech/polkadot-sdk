@@ -154,6 +154,7 @@ std = [
 	"pallet-state-trie-migration?/std",
 	"pallet-statement?/std",
 	"pallet-sudo?/std",
+	"pallet-time-scheduler?/std",
 	"pallet-timestamp?/std",
 	"pallet-tips?/std",
 	"pallet-transaction-payment-rpc-runtime-api?/std",
@@ -336,6 +337,7 @@ runtime-benchmarks = [
 	"pallet-staking?/runtime-benchmarks",
 	"pallet-state-trie-migration?/runtime-benchmarks",
 	"pallet-sudo?/runtime-benchmarks",
+	"pallet-time-scheduler?/runtime-benchmarks",
 	"pallet-timestamp?/runtime-benchmarks",
 	"pallet-tips?/runtime-benchmarks",
 	"pallet-transaction-payment?/runtime-benchmarks",
@@ -480,6 +482,7 @@ try-runtime = [
 	"pallet-state-trie-migration?/try-runtime",
 	"pallet-statement?/try-runtime",
 	"pallet-sudo?/try-runtime",
+	"pallet-time-scheduler?/try-runtime",
 	"pallet-timestamp?/try-runtime",
 	"pallet-tips?/try-runtime",
 	"pallet-transaction-payment?/try-runtime",
@@ -707,6 +710,7 @@ runtime-full = [
 	"pallet-state-trie-migration",
 	"pallet-statement",
 	"pallet-sudo",
+	"pallet-time-scheduler",
 	"pallet-timestamp",
 	"pallet-tips",
 	"pallet-transaction-payment",
@@ -1774,6 +1778,11 @@ path = "../substrate/frame/statement"
 default-features = false
 optional = true
 path = "../substrate/frame/sudo"
+
+[dependencies.pallet-time-scheduler]
+default-features = false
+optional = true
+path = "../substrate/frame/time-scheduler"
 
 [dependencies.pallet-timestamp]
 default-features = false

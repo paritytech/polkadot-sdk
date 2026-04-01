@@ -31,7 +31,6 @@ use sp_io::hashing::blake2_256;
 use crate::*;
 
 type SystemCall<T> = frame_system::Call<T>;
-type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
 const SEED: u32 = 0;
 const BUCKET: u32 = 2;
@@ -310,8 +309,6 @@ mod benchmarks {
 
 		fill_schedule::<T>(bucket, s)?;
 		assert_eq!(Agenda::<T>::get(bucket).len(), s as usize);
-		let schedule_origin =
-			T::ScheduleOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, (bucket, 0u32));
