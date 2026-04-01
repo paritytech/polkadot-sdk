@@ -135,6 +135,7 @@ jobs:
               - '!.github/**/*'
               - '!prdoc/**/*'
               - '!docs/**/*'
+              - '!scripts/release/**/*'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/reusable-preflight.yml'
