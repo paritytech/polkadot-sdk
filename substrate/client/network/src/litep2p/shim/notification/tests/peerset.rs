@@ -23,7 +23,10 @@ use crate::{
 			Direction, OpenResult, PeerState, Peerset, PeersetCommand, Reserved,
 		},
 	},
-	service::{metrics::NotificationMetrics, traits::{self, ValidationResult}},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{self, ValidationResult},
+	},
 	ProtocolName,
 };
 

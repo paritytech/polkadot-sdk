@@ -24,7 +24,10 @@ use crate::{
 		peerstore::Peerstore,
 		shim::notification::peerset::{OpenResult, Peerset, PeersetCommand},
 	},
-	service::{metrics::NotificationMetrics, traits::{Direction, PeerStore, ValidationResult}},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{Direction, PeerStore, ValidationResult},
+	},
 	ProtocolName,
 };
 
