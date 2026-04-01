@@ -693,15 +693,16 @@ impl<Block: BlockT> BlockchainDb<Block> {
 							DbExtrinsic::Full(ex) => {
 								body.push(ex);
 							},
-							DbExtrinsic::MultiRenew { header, .. } => {
+							DbExtrinsic::MultiRenew { extrinsic, .. } => {
 								// Multi-renewal extrinsic: header contains the full
 								// encoded extrinsic (no indexed data to join).
-								let ex =
-									Block::Extrinsic::decode(&mut &header[..]).map_err(|err| {
+								let ex = Block::Extrinsic::decode(&mut &extrinsic[..]).map_err(
+									|err| {
 										sp_blockchain::Error::Backend(format!(
 											"Error decoding multi-renew extrinsic: {err}"
 										))
-									})?;
+									},
+								)?;
 								body.push(ex);
 							},
 						}
@@ -2260,7 +2261,7 @@ fn apply_index_ops<Block: BlockT>(
 				for hash in hashes {
 					transaction.reference(columns::TRANSACTION, *hash);
 				}
-				DbExtrinsic::MultiRenew { hashes: hashes.clone(), header: encoded }
+				DbExtrinsic::MultiRenew { hashes: hashes.clone(), extrinsic: encoded }
 			}
 		} else {
 			match index_map.get(&(index as u32)) {
