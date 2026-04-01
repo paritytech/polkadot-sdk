@@ -2550,6 +2550,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_min_commission())]
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(new <= MaxCommission::<T>::get(), Error::<T>::CommissionTooHigh);
 			MinCommission::<T>::put(new);
 			Ok(())
 		}
