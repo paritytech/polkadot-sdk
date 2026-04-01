@@ -16,27 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate JSON-RPC interface v2.
-//!
-//! Specification [document](https://paritytech.github.io/json-rpc-interface-spec/).
+//! API trait for the bitswap RPC methods.
 
-#![warn(missing_docs)]
-#![deny(unused_crate_dependencies)]
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
-use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
-
-mod common;
-
-pub mod archive;
-pub mod bitswap;
-pub mod chain_head;
-pub mod chain_spec;
-pub mod transaction;
-
-/// Task executor that is being used by RPC subscriptions.
-pub type SubscriptionTaskExecutor = std::sync::Arc<dyn sp_core::traits::SpawnNamed>;
-
-/// Util function to encode a value as a hex string
-pub fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
-	format!("0x{:?}", HexDisplay::from(data))
+#[rpc(client, server)]
+pub trait BitswapApi {
+	/// Retrieve indexed transaction data by CID.
+	///
+	/// Accepts a CIDv1 (base32 multibase-encoded string), extracts the 32-byte hash
+	/// digest, looks up the indexed transaction, and returns hex-encoded data.
+	#[method(name = "bitswap_v1_get")]
+	fn bitswap_v1_get(&self, cid: String) -> RpcResult<String>;
 }
