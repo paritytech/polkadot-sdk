@@ -7,13 +7,14 @@ use anyhow::anyhow;
 use codec::Encode;
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info};
-use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
+use sc_statement_store::{
+	test_utils::get_keypair, DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS,
+};
 use sp_core::{blake2_256, Bytes, Pair};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params};
-use sc_statement_store::test_utils::get_keypair;
 
 use super::common::{spawn_network_with_injected_allowances, RPC_POOL_SIZE};
 
@@ -246,7 +247,8 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		(0..config.num_nodes).map(|i| format!("collator{i}")).collect();
 	let collator_names: Vec<&str> = collator_names.iter().map(|s| s.as_str()).collect();
 
-	let network = spawn_network_with_injected_allowances(&collator_names, config.num_clients).await?;
+	let network =
+		spawn_network_with_injected_allowances(&collator_names, config.num_clients).await?;
 
 	info!("Starting Latency benchmark");
 	info!("");
