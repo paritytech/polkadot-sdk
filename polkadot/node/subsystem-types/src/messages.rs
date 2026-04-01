@@ -204,8 +204,6 @@ pub enum CandidateValidationMessage {
 		candidate_receipt: CandidateReceipt,
 		/// The proof-of-validity
 		pov: Arc<PoV>,
-		/// Session's executor parameters
-		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
 		/// The sending side of the response channel

@@ -1273,7 +1273,6 @@ impl Initialized {
 					ParticipationRequest::new(
 						new_state.candidate_receipt().clone(),
 						session,
-						env.executor_params().clone(),
 						request_timer,
 					),
 					self.v3_ever_seen,

@@ -39,7 +39,7 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	self as util, request_node_features,
+	self as util, request_node_features, request_session_executor_params,
 	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
 };
 use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
@@ -217,6 +217,40 @@ where
 		.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".into())
 }
 
+/// Fetch the executor parameters for the candidate's session.
+///
+/// Uses the same session resolution strategy as [`fetch_bomb_limit`]: derive the session
+/// from the candidate descriptor (V2/V3) or fall back to `session_index_for_child` (V1).
+async fn fetch_executor_params<Sender>(
+	candidate_descriptor: &CandidateDescriptor,
+	v3_ever_seen: bool,
+	sender: &mut Sender,
+) -> Result<ExecutorParams, String>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let scheduling_parent =
+		candidate_descriptor.scheduling_parent_for_candidate_validation(v3_ever_seen);
+
+	let scheduling_session =
+		match candidate_descriptor.scheduling_session_for_candidate_validation(v3_ever_seen) {
+			Some(session) => session,
+			None => {
+				let Some(session) = get_session_index(sender, scheduling_parent).await else {
+					return Err("Cannot fetch session index from the runtime".into());
+				};
+				session
+			},
+		};
+
+	request_session_executor_params(scheduling_parent, scheduling_session, sender)
+		.await
+		.await
+		.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
+		.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
+		.ok_or_else(|| "Executor params not found for session".into())
+}
+
 /// Output of [`pre_validate_candidate`]: data needed by PVF execution and
 /// post-validation.
 struct PreValidationOutput {
@@ -360,12 +394,26 @@ where
 			validation_code,
 			candidate_receipt,
 			pov,
-			executor_params,
 			exec_kind,
 			response_sender,
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
+
+			// Fetch executor params for the candidate's session.
+			let executor_params = match fetch_executor_params(
+				&candidate_receipt.descriptor,
+				v3_ever_seen,
+				&mut sender,
+			)
+			.await
+			{
+				Ok(params) => params,
+				Err(err) => {
+					let _ = response_sender.send(Err(ValidationFailed(err)));
+					return;
+				},
+			};
 
 			// Phase 1: Pre-validation — cheap checks, fail fast before PVF.
 			let pre = match pre_validate_candidate(

@@ -74,7 +74,7 @@ async fn participate_with_commitments_hash<Context>(
 
 	let request_timer = participation.metrics.time_participation_pipeline();
 	let req =
-		ParticipationRequest::new(candidate_receipt, session, Default::default(), request_timer);
+		ParticipationRequest::new(candidate_receipt, session, request_timer);
 
 	participation
 		.queue_participation(ctx, ParticipationPriority::BestEffort, req, false)

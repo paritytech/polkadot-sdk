@@ -430,7 +430,6 @@ impl DisputeCoordinatorSubsystem {
 						ParticipationRequest::new(
 							vote_state.votes().candidate_receipt.clone(),
 							session,
-							env.executor_params().clone(),
 							request_timer,
 						),
 					));

@@ -80,7 +80,6 @@ impl Subsystem1 {
 				validation_code: dummy_validation_code(),
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
-				executor_params: Default::default(),
 				exec_kind: PvfExecKind::Backing(dummy_hash()),
 				response_sender: tx,
 			};
