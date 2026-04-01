@@ -14,9 +14,11 @@ The PSM pallet allows users to swap external stablecoins (e.g., USDC, USDT) for 
 ## Swap Lifecycle
 
 ### 1. Mint (External -> pUSD)
+
 ```rust
 mint(origin, asset_id, external_amount)
 ```
+
 - Deposits external stablecoin into the PSM account
 - Mints pUSD to the user (minus minting fee)
 - Fee is minted as pUSD and transferred to `FeeDestination`
@@ -24,9 +26,11 @@ mint(origin, asset_id, external_amount)
 - Requires `external_amount >= MinSwapAmount`
 
 ### 2. Redeem (pUSD -> External)
+
 ```rust
 redeem(origin, asset_id, pusd_amount)
 ```
+
 - Burns pUSD from the user equal to the external amount being redeemed
 - Transfers external stablecoin from PSM account to user
 - Redemption fee is transferred from the user as pUSD to `FeeDestination`
@@ -91,6 +95,7 @@ The `set_asset_status` extrinsic can be called by both `GeneralAdmin` and `Emerg
 ### Privilege Levels
 
 The `ManagerOrigin` returns a privilege level:
+
 - **Full** (via GeneralAdmin): Can modify all parameters
 - **Emergency** (via EmergencyAction): Can only modify circuit breaker status
 
@@ -183,6 +188,7 @@ Typical runtime helpers used in the configuration above:
 ## Testing
 
 Run tests with:
+
 ```bash
 SKIP_WASM_BUILD=1 cargo test -p pallet-psm
 ```
