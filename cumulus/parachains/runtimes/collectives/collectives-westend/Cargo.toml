@@ -56,6 +56,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }
+<<<<<<< HEAD
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 parachain-info = { workspace = true }
@@ -64,6 +65,9 @@ polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
+=======
+pallet-verify-signature = { workspace = true }
+>>>>>>> c69795d (Westend: Support Meta Transactions (#11469))
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -87,6 +91,28 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
+<<<<<<< HEAD
+=======
+# Cumulus
+cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-session-benchmarking = { workspace = true }
+cumulus-pallet-weight-reclaim = { workspace = true }
+cumulus-pallet-xcm = { workspace = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+cumulus-primitives-aura = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-meta-tx = { workspace = true }
+
+pallet-collator-selection = { workspace = true }
+pallet-collective-content = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
+
+>>>>>>> c69795d (Westend: Support Meta Transactions (#11469))
 [dev-dependencies]
 parachains-runtimes-test-utils = { default-features = true, workspace = true }
 sp-io = { features = ["std"], default-features = true, workspace = true }
@@ -116,6 +142,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship/runtime-benchmarks",
 	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
@@ -129,6 +156,7 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -162,6 +190,7 @@ try-runtime = [
 	"pallet-core-fellowship/try-runtime",
 	"pallet-dap-satellite/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-meta-tx/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
@@ -175,6 +204,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
@@ -211,6 +241,7 @@ std = [
 	"pallet-core-fellowship/std",
 	"pallet-dap-satellite/std",
 	"pallet-message-queue/std",
+	"pallet-meta-tx/std",
 	"pallet-multisig/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
@@ -225,6 +256,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"pallet-utility/std",
+	"pallet-verify-signature/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
