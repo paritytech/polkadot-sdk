@@ -204,16 +204,17 @@ where
 	Ok((scheduling_parent, scheduling_session))
 }
 
-/// Fetch session-scoped parameters needed for candidate validation.
-///
-/// Resolves the scheduling context once and fetches both the validation code
-/// bomb limit and executor parameters in sequence, avoiding duplicate session
-/// resolution for V1 descriptors.
+/// Session-scoped parameters needed for candidate validation.
 struct SessionParams {
 	executor_params: ExecutorParams,
 	validation_code_bomb_limit: u32,
 }
 
+/// Fetch session-scoped parameters needed for candidate validation.
+///
+/// Resolves the scheduling context once and fetches both the validation code
+/// bomb limit and executor parameters in sequence, avoiding duplicate session
+/// resolution for V1 descriptors.
 async fn fetch_session_params<Sender>(
 	candidate_descriptor: &CandidateDescriptor,
 	v3_ever_seen: bool,

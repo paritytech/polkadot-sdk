@@ -1,4 +1,4 @@
-title: ' Refactor: candidate-validation fetches executor_params itself'
+title: 'Refactor: candidate-validation fetches executor_params itself'
 doc:
 - audience: Runtime Dev
   description: |-
