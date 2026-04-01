@@ -179,7 +179,7 @@ pub mod pallet {
 		#[default]
 		Full,
 		/// Emergency access via EmergencyAction origin.
-		/// Can only modify circuit breaker status.
+		/// Can modify circuit breaker status and asset ceiling weights.
 		Emergency,
 	}
 
