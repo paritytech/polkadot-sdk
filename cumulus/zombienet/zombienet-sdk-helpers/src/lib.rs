@@ -581,6 +581,7 @@ pub async fn wait_for_runtime_upgrade(
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 
 	while let Some(Ok(block)) = finalized_blocks.next().await {
+		log::info!("block #: {} ({})", block.number(), block.hash());
 		if block
 			.header()
 			.digest
