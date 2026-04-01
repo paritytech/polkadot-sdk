@@ -172,8 +172,8 @@ impl metrics::Metrics for Metrics {
 						"How much time collations spend waiting to be fetched",
 					)
 					.buckets(vec![
-						0.001, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 0.75, 1.0, 2.0, 5.0,
-						10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 60.0,
+						0.25, 0.35, 0.5, 0.75, 1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0,
+						60.0,
 					]),
 				)?,
 				registry,
