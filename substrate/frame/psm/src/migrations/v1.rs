@@ -37,8 +37,11 @@ use alloc::collections::btree_map::BTreeMap;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 use frame_support::{
-	pallet_prelude::{Get, StorageVersion, Weight},
-	traits::{GetStorageVersion, UncheckedOnRuntimeUpgrade},
+	pallet_prelude::{Get, Weight},
+	traits::{
+		fungible::metadata::Inspect as FungibleMetadataInspect,
+		fungibles::metadata::Inspect as FungiblesMetadataInspect, UncheckedOnRuntimeUpgrade,
+	},
 };
 use sp_runtime::Permill;
 
@@ -81,22 +84,18 @@ pub trait InitialPsmConfig<T: Config> {
 /// 2. Sets approved external assets with `AllEnabled` status
 /// 3. Sets per-asset fee and ceiling-weight configuration
 /// 4. Ensures the PSM account exists
-///
-/// Only runs if the on-chain storage version is 0 (uninitialized).
-pub struct MigrateToV1<T, I>(core::marker::PhantomData<(T, I)>);
+pub type MigrateToV1<T, I> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	UncheckedMigrateToV1<T, I>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
-impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
+pub struct UncheckedMigrateToV1<T, I>(core::marker::PhantomData<(T, I)>);
+
+impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T, I> {
 	fn on_runtime_upgrade() -> Weight {
-		let on_chain_version = Pallet::<T>::on_chain_storage_version();
-		if on_chain_version != 0 {
-			log::info!(
-				target: LOG_TARGET,
-				"Skipping migration: on-chain version is {:?}, expected 0",
-				on_chain_version
-			);
-			return T::DbWeight::get().reads(1);
-		}
-
 		log::info!(
 			target: LOG_TARGET,
 			"Running MigrateToV1: initializing PSM pallet parameters"
@@ -106,7 +105,13 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for MigrateToV
 
 		MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
 
+		let stable_decimals = T::StableAsset::decimals();
 		for (asset_id, (minting_fee, redemption_fee, max_asset_debt_ratio)) in &asset_configs {
+			assert!(
+				T::Fungibles::decimals(*asset_id) == stable_decimals,
+				"PSM migration: asset {:?} decimals do not match stable asset decimals",
+				asset_id,
+			);
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			MintingFee::<T>::insert(asset_id, minting_fee);
 			RedemptionFee::<T>::insert(asset_id, redemption_fee);
@@ -116,30 +121,23 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for MigrateToV
 		Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
 		Pallet::<T>::ensure_account_exists(&T::FeeDestination::get());
 
-		StorageVersion::new(1).put::<Pallet<T>>();
-
 		log::info!(
 			target: LOG_TARGET,
 			"MigrateToV1 complete"
 		);
 
-		// 1 read + (MaxPsmDebtOfTotal + StorageVersion + 2 accounts) + 4 writes per asset
-		let writes = 4u64.saturating_add((asset_configs.len() as u64).saturating_mul(4));
-		T::DbWeight::get().reads_writes(1, writes)
+		// (MaxPsmDebtOfTotal + 2 accounts) + 4 writes per asset
+		let writes = 3u64.saturating_add((asset_configs.len() as u64).saturating_mul(4));
+		T::DbWeight::get().writes(writes)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		let on_chain_version = Pallet::<T>::on_chain_storage_version();
-		ensure!(on_chain_version == 0, "Expected storage version 0 before migration");
 		Ok(Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let on_chain_version = Pallet::<T>::on_chain_storage_version();
-		ensure!(on_chain_version == 1, "Expected storage version 1 after migration");
-
 		ensure!(
 			MaxPsmDebtOfTotal::<T>::get() == I::max_psm_debt_of_total(),
 			"MaxPsmDebtOfTotal mismatch after migration"
@@ -213,8 +211,6 @@ mod tests {
 	#[test]
 	fn migration_v0_to_v1_works() {
 		new_test_ext().execute_with(|| {
-			StorageVersion::new(0).put::<Pallet<Test>>();
-
 			MaxPsmDebtOfTotal::<Test>::kill();
 			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
 			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
@@ -225,7 +221,7 @@ mod tests {
 			AssetCeilingWeight::<Test>::remove(USDC_ASSET_ID);
 			AssetCeilingWeight::<Test>::remove(USDT_ASSET_ID);
 
-			let _weight = MigrateToV1::<Test, TestPsmConfig>::on_runtime_upgrade();
+			let _weight = UncheckedMigrateToV1::<Test, TestPsmConfig>::on_runtime_upgrade();
 
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
 
@@ -240,21 +236,6 @@ mod tests {
 				assert_eq!(RedemptionFee::<Test>::get(asset_id), redemption_fee);
 				assert_eq!(AssetCeilingWeight::<Test>::get(asset_id), ceiling_weight);
 			}
-
-			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 1);
-		});
-	}
-
-	#[test]
-	fn migration_skipped_if_already_v1() {
-		new_test_ext().execute_with(|| {
-			StorageVersion::new(1).put::<Pallet<Test>>();
-			let before = MaxPsmDebtOfTotal::<Test>::get();
-
-			let weight = MigrateToV1::<Test, TestPsmConfig>::on_runtime_upgrade();
-
-			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), before);
-			assert_eq!(weight, <Test as frame_system::Config>::DbWeight::get().reads(1));
 		});
 	}
 }
