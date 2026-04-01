@@ -33,7 +33,7 @@ use pallet_revive::precompiles::{
 		self,
 		sol_types::{Revert, SolCall},
 	},
-	AddressMapper, AddressMatcher, Error, Ext, Precompile, H160,
+	AddressMatcher, Error, Ext, Precompile, H160,
 };
 
 #[cfg(test)]
