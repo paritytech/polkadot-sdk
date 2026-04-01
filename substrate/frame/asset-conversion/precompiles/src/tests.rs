@@ -21,9 +21,10 @@ use crate::mock::{
 	Assets, NativeAndAssets, RuntimeOrigin, Test,
 };
 use alloy::primitives::U256;
-use frame_support::assert_ok;
-use frame_support::traits::fungibles::Inspect;
-use frame_support::traits::tokens::fungible::NativeOrWithId;
+use frame_support::{
+	assert_ok,
+	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
+};
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
@@ -45,12 +46,9 @@ fn setup_pool(provider: u64, native_amount: u64, asset_amount: u64) {
 	// Create asset.
 	assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 1));
 	// Mint extra assets to cover the asset account deposit.
-	assert_ok!(Assets::mint(
-		RuntimeOrigin::signed(provider),
-		asset_id,
-		provider,
-		asset_amount * 2,
-	));
+	assert_ok!(
+		Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, asset_amount * 2,)
+	);
 
 	// Create pool.
 	assert_ok!(AssetConversionPallet::create_pool(
@@ -80,10 +78,7 @@ fn bare_call(
 		RuntimeOrigin::signed(caller),
 		precompile_address(),
 		0u64.into(),
-		TransactionLimits::WeightAndDeposit {
-			weight_limit: Weight::MAX,
-			deposit_limit: u64::MAX,
-		},
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
 		data,
 		&ExecConfig::new_substrate_tx(),
 	)
@@ -101,13 +96,10 @@ fn swap_exact_tokens_for_tokens_works() {
 		// Give swapper some asset1 to swap.
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
 
-		let recipient_addr =
-			<Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
 
-		let swapper_asset1_before = <NativeAndAssets as Inspect<u64>>::balance(
-			NativeOrWithId::WithId(1),
-			&swapper,
-		);
+		let swapper_asset1_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &swapper);
 		let recipient_native_before =
 			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &recipient);
 
@@ -128,16 +120,13 @@ fn swap_exact_tokens_for_tokens_works() {
 		let return_data = result.result.expect("swap must succeed");
 		assert!(!return_data.did_revert(), "swap must not revert");
 
-		let amount_out = IAssetConversion::swapExactTokensForTokensCall::abi_decode_returns(
-			&return_data.data,
-		)
-		.expect("return data must decode");
+		let amount_out =
+			IAssetConversion::swapExactTokensForTokensCall::abi_decode_returns(&return_data.data)
+				.expect("return data must decode");
 		assert!(amount_out > U256::ZERO, "must receive some tokens");
 
-		let swapper_asset1_after = <NativeAndAssets as Inspect<u64>>::balance(
-			NativeOrWithId::WithId(1),
-			&swapper,
-		);
+		let swapper_asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &swapper);
 		assert_eq!(
 			swapper_asset1_before - swapper_asset1_after,
 			100,
@@ -177,10 +166,9 @@ fn quote_exact_tokens_for_tokens_works() {
 		let return_data = result.result.expect("quote must succeed");
 		assert!(!return_data.did_revert(), "quote must not revert");
 
-		let quoted = IAssetConversion::quoteExactTokensForTokensCall::abi_decode_returns(
-			&return_data.data,
-		)
-		.expect("return data must decode");
+		let quoted =
+			IAssetConversion::quoteExactTokensForTokensCall::abi_decode_returns(&return_data.data)
+				.expect("return data must decode");
 		assert!(quoted > U256::ZERO, "quoted amount must be positive");
 
 		// With 10000/10000 pool and 0.3% fee, swapping 100 asset1:
@@ -212,8 +200,7 @@ fn quote_matches_swap() {
 		)
 		.unwrap();
 
-		let swapper_addr =
-			<Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
+		let swapper_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
 
 		let swap_data = IAssetConversion::swapExactTokensForTokensCall {
 			path: vec![
@@ -246,8 +233,7 @@ fn swap_fails_with_insufficient_output() {
 		setup_pool(provider, 10_000, 10_000);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
 
-		let swapper_addr =
-			<Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
+		let swapper_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&swapper);
 
 		let data = IAssetConversion::swapExactTokensForTokensCall {
 			path: vec![
@@ -262,8 +248,8 @@ fn swap_fails_with_insufficient_output() {
 		.abi_encode();
 
 		let result = bare_call(swapper, data);
-		let failed = result.result.is_err()
-			|| result.result.as_ref().map_or(false, |v| v.did_revert());
+		let failed =
+			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
 		assert!(failed, "swap with excessive amountOutMin must fail");
 	});
 }
@@ -282,8 +268,8 @@ fn quote_fails_for_nonexistent_pool() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		let failed = result.result.is_err()
-			|| result.result.as_ref().map_or(false, |v| v.did_revert());
+		let failed =
+			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
 		assert!(failed, "quote for nonexistent pool must fail");
 	});
 }

@@ -97,8 +97,7 @@ impl pallet_assets::Config<Instance2> for Test {
 	type AssetIdParameter = u32;
 	type ReserveData = ();
 	type Currency = Balances;
-	type CreateOrigin =
-		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, u64>>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type AssetDeposit = ConstU64<0>;
 	type AssetAccountDeposit = ConstU64<0>;
@@ -145,8 +144,10 @@ impl pallet_asset_conversion::Config for Test {
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU64<100>;
 	type PoolSetupFeeAsset = Native;
-	type PoolSetupFeeTarget =
-		frame_support::traits::tokens::imbalance::ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
+	type PoolSetupFeeTarget = frame_support::traits::tokens::imbalance::ResolveAssetTo<
+		AssetConversionOrigin,
+		Self::Assets,
+	>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
 	type LPFee = ConstU32<3>; // 0.3%
