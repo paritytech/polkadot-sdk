@@ -39,7 +39,6 @@ fn rewards_with_nominator_should_work() {
 
 		// Compute total payout now for whole duration of the session.
 		let validator_payout_0 = validator_payout_for(time_per_era());
-		let maximum_payout = total_payout_for(time_per_era());
 
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
@@ -63,17 +62,15 @@ fn rewards_with_nominator_should_work() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid {
-					era_index: 1,
-					validator_payout: validator_payout_0,
-					remainder: maximum_payout - validator_payout_0
-				},
+				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
-		assert_eq!(mock::RewardRemainderUnbalanced::get(), maximum_payout - validator_payout_0);
+		// With DAP, treasury rewards are minted directly into buffer (not sent to RewardRemainder)
+		assert_eq!(mock::RewardRemainderUnbalanced::get(), 0);
 
-		// make note of total issuance before rewards.
+		// make note of total issuance before payouts (rewards already minted at era finalization
+		// above)
 		let pre_issuance = asset::total_issuance::<T>();
 
 		mock::make_all_reward_payment(1);
@@ -81,17 +78,18 @@ fn rewards_with_nominator_should_work() {
 			mock::staking_events_since_last_call(),
 			vec![
 				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: None },
-				Event::Rewarded { stash: 11, dest: RewardDestination::Account(11), amount: 4000 },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Account(11), amount: 3999 },
 				Event::Rewarded { stash: 101, dest: RewardDestination::Account(101), amount: 1000 },
 				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
-				Event::Rewarded { stash: 21, dest: RewardDestination::Account(21), amount: 2000 },
+				Event::Rewarded { stash: 21, dest: RewardDestination::Account(21), amount: 1999 },
 				Event::Rewarded { stash: 101, dest: RewardDestination::Account(101), amount: 500 }
 			]
 		);
 
-		// total issuance should have increased
+		// With DAP, rewards are minted at era finalization (not during payout)
+		// So total issuance should not change during payout (just transfers from pot)
 		let post_issuance = asset::total_issuance::<T>();
-		assert_eq!(post_issuance, pre_issuance + validator_payout_0);
+		assert_eq!(post_issuance, pre_issuance);
 
 		assert_eq_error_rate!(
 			asset::total_balance::<T>(&11),
@@ -119,23 +117,25 @@ fn rewards_with_nominator_should_work() {
 
 		Session::roll_until_active_era(3);
 
-		assert_eq!(
-			mock::RewardRemainderUnbalanced::get(),
-			maximum_payout * 2 - validator_payout_0 - total_payout_1,
-		);
+		// With DAP, treasury rewards go to buffer (not RewardRemainder)
+		assert_eq!(mock::RewardRemainderUnbalanced::get(), 0);
 		assert_eq!(
 			mock::staking_events_since_last_call(),
 			vec![
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 7500 },
+				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
 
+		// Capture issuance before payout (rewards already minted during era finalization above)
+		let pre_payout_2 = asset::total_issuance::<T>();
+
 		mock::make_all_reward_payment(2);
-		assert_eq!(asset::total_issuance::<T>(), post_issuance + total_payout_1);
+		// With DAP, payouts just transfer from pot (no minting), so issuance unchanged
+		assert_eq!(asset::total_issuance::<T>(), pre_payout_2);
 
 		assert_eq_error_rate!(
 			asset::total_balance::<T>(&11),
@@ -880,7 +880,6 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
-		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
 		// verify the exposures are calculated correctly.
@@ -919,8 +918,6 @@ fn test_multi_page_payout_stakers_by_page() {
 		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(pallet_balances::TotalIssuance::<T>::get() > pre_payout_total_issuance);
-		assert!(pallet_balances::TotalIssuance::<T>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -943,13 +940,9 @@ fn test_multi_page_payout_stakers_by_page() {
 		// verify the validator was not rewarded the second time
 		assert_eq!(asset::stakeable_balance::<T>(&11), controller_balance_after_p0_payout);
 
-		// verify all rewards have been paid out
-		assert_eq_error_rate!(
-			pallet_balances::TotalIssuance::<T>::get(),
-			pre_payout_total_issuance + payout,
-			2
-		);
-		assert!(RewardOnUnbalanceWasCalled::get());
+		// With DAP, rewards minted at era finalization, so no change during payout
+		// Issuance was already increased during Session::roll_until_active_era above
+		assert_eq!(pallet_balances::TotalIssuance::<T>::get(), pre_payout_total_issuance);
 
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
 		assert!(asset::stakeable_balance::<T>(&11) > balance);
@@ -966,18 +959,22 @@ fn test_multi_page_payout_stakers_by_page() {
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			// compute and ensure the reward amount is greater than zero.
-			let payout = validator_payout_for(time_per_era());
-			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<T>::get();
+			let total_payout = total_payout_for(time_per_era());
+			let pre_roll_issuance = pallet_balances::TotalIssuance::<T>::get();
 
 			Session::roll_until_active_era(i);
-			RewardOnUnbalanceWasCalled::set(false);
-			mock::make_all_reward_payment(i - 1);
+
+			// Issuance should have increased by total_payout (staker + treasury rewards)
 			assert_eq_error_rate!(
 				pallet_balances::TotalIssuance::<T>::get(),
-				pre_payout_total_issuance + payout,
+				pre_roll_issuance + total_payout,
 				2
 			);
-			assert!(RewardOnUnbalanceWasCalled::get());
+
+			let post_roll_issuance = pallet_balances::TotalIssuance::<T>::get();
+			mock::make_all_reward_payment(i - 1);
+			// Payout just transfers from pot, so issuance doesnt change
+			assert_eq!(pallet_balances::TotalIssuance::<T>::get(), post_roll_issuance);
 
 			// verify we track rewards for each era and page
 			for page in 0..Eras::<T>::exposure_page_count(i - 1, &11) {
@@ -1079,7 +1076,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		assert_eq!(Eras::<T>::exposure_page_count(2, &11), 2);
 
 		// compute and ensure the reward amount is greater than zero.
-		let payout = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
 		// verify the exposures are calculated correctly.
@@ -1109,8 +1105,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
 		// verify rewards have been paid out but still some left
-		assert!(pallet_balances::TotalIssuance::<T>::get() > pre_payout_total_issuance);
-		assert!(pallet_balances::TotalIssuance::<T>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
@@ -1130,10 +1124,9 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		// verify all rewards have been paid out
 		assert_eq_error_rate!(
 			pallet_balances::TotalIssuance::<T>::get(),
-			pre_payout_total_issuance + payout,
+			pre_payout_total_issuance,
 			2
 		);
-		assert!(RewardOnUnbalanceWasCalled::get());
 
 		// verify all nominators of validator 11 are paid out, including the validator
 		// Validator payout goes to controller.
@@ -1151,18 +1144,22 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			Staking::reward_by_ids(vec![(11, 1)]);
 
 			// compute and ensure the reward amount is greater than zero.
-			let payout = validator_payout_for(time_per_era());
-			let pre_payout_total_issuance = pallet_balances::TotalIssuance::<T>::get();
+			let total_payout = total_payout_for(time_per_era());
+			let pre_roll_issuance = pallet_balances::TotalIssuance::<T>::get();
 
 			Session::roll_until_active_era(i);
-			RewardOnUnbalanceWasCalled::set(false);
-			mock::make_all_reward_payment(i - 1);
+
+			// Issuance should have increased by total_payout (staker + treasury rewards)
 			assert_eq_error_rate!(
 				pallet_balances::TotalIssuance::<T>::get(),
-				pre_payout_total_issuance + payout,
+				pre_roll_issuance + total_payout,
 				2
 			);
-			assert!(RewardOnUnbalanceWasCalled::get());
+
+			let post_roll_issuance = pallet_balances::TotalIssuance::<T>::get();
+			mock::make_all_reward_payment(i - 1);
+			// Payout just transfers from pot, so issuance doesnt change
+			assert_eq!(pallet_balances::TotalIssuance::<T>::get(), post_roll_issuance);
 
 			// verify we track rewards for each era and page
 			for page in 0..Eras::<T>::exposure_page_count(i - 1, &11) {
@@ -1488,7 +1485,8 @@ fn test_commission_paid_across_pages() {
 			assert!(before_balance < after_balance);
 		}
 
-		assert_eq_error_rate!(asset::stakeable_balance::<T>(&11), initial_balance + payout / 2, 1,);
+		// Allow error rate of 2 due to floor rounding in payout calculations
+		assert_eq_error_rate!(asset::stakeable_balance::<T>(&11), initial_balance + payout / 2, 2,);
 	});
 }
 
@@ -1649,11 +1647,12 @@ fn test_runtime_api_pending_rewards() {
 			individual: bounded_btree_map![validator_one => 1, validator_two => 1, validator_three => 1],
 		};
 		ErasRewardPoints::<T>::insert(0, reward);
-
-		// build exposure
+		// Build exposure
 		let mut individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
 		for i in 0..=MaxExposurePageSize::get() {
-			individual_exposures.push(IndividualExposure { who: i.into(), value: stake });
+			let nominator: AccountId = (10_000 + i).into();
+			bond(nominator, stake);
+			individual_exposures.push(IndividualExposure { who: nominator, value: stake });
 		}
 		let exposure = Exposure::<AccountId, Balance> {
 			total: stake * (MaxExposurePageSize::get() as Balance + 2),

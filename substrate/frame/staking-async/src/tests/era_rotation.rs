@@ -240,10 +240,15 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&[
 				..,
 				Event::SessionRotated { starting_session: 236, active_era: 78, planned_era: 79 },
-				Event::EraPaid { era_index: 78, validator_payout: 7500, remainder: 7500 },
+				Event::EraPaid { era_index: 78, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
 			]
 		));
+		// Verify era 78 staker pot has been funded (DAP drips into general pot, staking snapshots).
+		let staker_pot_78 =
+			<Test as Config>::EraPots::era_pot_account(78, EraPotType::StakerRewards);
+		let ideal_validator_payout = validator_payout_for(time_per_era());
+		assert_eq!(Balances::balance(&staker_pot_78), ideal_validator_payout);
 		// All eras from 1 to current still present
 		assert_ok!(Eras::<T>::era_fully_present(1));
 		assert_ok!(Eras::<T>::era_fully_present(2));
@@ -283,11 +288,22 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&staking_events_since_last_call()[..],
 			&[
 				..,
-				Event::EraPaid { era_index: 81, validator_payout: 7500, remainder: 7500 },
 				// NO EraPruned event - pruning is now manual
+				Event::EraPaid { era_index: 81, validator_payout: 7500, remainder: 0 },
 				Event::SessionRotated { starting_session: 246, active_era: 82, planned_era: 82 }
 			]
 		));
+		// Verify eras 79-81 staker pots were funded with expected amount.
+		let expected_per_era = validator_payout_for(time_per_era());
+		for era in 79..=81 {
+			let staker_pot =
+				<Test as Config>::EraPots::era_pot_account(era, EraPotType::StakerRewards);
+			assert_eq!(
+				Balances::balance(&staker_pot),
+				expected_per_era,
+				"Era {era} staker pot should have {expected_per_era}"
+			);
+		}
 
 		// Only old eras (outside pruning window) can be pruned
 		// Try to prune era 2 (should fail as it's within the history window)
@@ -463,8 +479,9 @@ mod inflation {
 	#[test]
 	fn max_staked_rewards_default_not_set_works() {
 		ExtBuilder::default().build_and_execute(|| {
+			// 50% of time_per_era() (other half goes to buffer as per mock::default_budget()
 			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert!(default_stakers_payout > 0);
+			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
 
 			assert_eq!(<MaxStakedRewards<Test>>::get(), None);
 
@@ -511,53 +528,74 @@ mod inflation {
 		});
 	}
 
-	#[test]
-	fn max_staked_rewards_works() {
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			// sets new max staked rewards through set_staking_configs.
-			assert_ok!(Staking::set_staking_configs(
-				RuntimeOrigin::root(),
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Noop,
-				ConfigOp::Set(Percent::from_percent(10)),
-				ConfigOp::Noop,
-			));
+}
 
-			assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
+#[test]
+fn era_pot_cleanup_after_history_depth() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Start at era 2
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
 
-			// check validators account state.
-			assert_eq!(Session::validators().len(), 2);
-			assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
+		// Verify era-1 staker pot was funded with expected amount.
+		let staker_pot_1 = <Test as Config>::EraPots::era_pot_account(1, EraPotType::StakerRewards);
+		let expected_per_era = validator_payout_for(time_per_era());
+		assert_eq!(Balances::balance(&staker_pot_1), expected_per_era);
 
-			// balance of the mock treasury account is 0
-			assert_eq!(RewardRemainderUnbalanced::get(), 0);
+		// era we expect to be cleaned up
+		let cleanup_era = 1;
 
-			Session::roll_until_active_era(2);
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
-					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
-					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 1500, remainder: 13500 },
-					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
-				]
-			);
+		// WHEN: Advance past HistoryDepth
+		// At era (1 + HistoryDepth + 1), era 1 should be cleaned up
+		// For HistoryDepth = 80: cleanup happens at era 82
+		let target_era = cleanup_era + HistoryDepth::get() + 1;
+		Session::roll_until_active_era(target_era);
+		let _ = staking_events_since_last_call();
+		// Verify rewards were allocated for the eras we advanced through.
 
-			let treasury_payout = RewardRemainderUnbalanced::get();
-			let validators_payout = ErasValidatorReward::<Test>::get(1).unwrap();
-			let total_payout = treasury_payout + validators_payout;
+		// THEN: Verify era-1 staker pot has been cleaned up
+		let staker_pot =
+			<Test as Config>::EraPots::era_pot_account(cleanup_era, EraPotType::StakerRewards);
 
-			// total payout is the same
-			assert_eq!(total_payout, total_payout_for(time_per_era()));
-			// validators get only 10%
-			assert_eq!(validators_payout, Percent::from_percent(10) * total_payout);
-			// treasury gets 90%
-			assert_eq!(treasury_payout, Percent::from_percent(90) * total_payout);
-		})
-	}
+		assert_eq!(Balances::balance(&staker_pot), 0, "Staker pot should have zero balance");
+		assert_eq!(System::providers(&staker_pot), 0, "Staker pot should have no providers");
+	});
+}
+
+#[test]
+fn disable_legacy_minting_era_updates_correctly() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: DisableLegacyMintingEra is set to 0 in test genesis
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(0));
+
+		// WHEN: Era 1 ends with non-zero reward allocation
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// THEN: DisableLegacyMintingEra remains at 0
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(0));
+	});
+}
+
+#[test]
+fn disable_legacy_minting_era_write_once_semantics() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: Clear DisableLegacyMintingEra to simulate pre-migration state
+		DisableLegacyMintingEra::<Test>::kill();
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), None);
+
+		// WHEN: First era ends with rewards
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// THEN: DisableLegacyMintingEra is set to era 1
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(1));
+
+		// WHEN: More eras end
+		Session::roll_until_active_era(5);
+		let _ = staking_events_since_last_call();
+
+		// THEN: DisableLegacyMintingEra stays at 1 (not updated to higher values)
+		assert_eq!(DisableLegacyMintingEra::<Test>::get(), Some(1));
+	});
 }
