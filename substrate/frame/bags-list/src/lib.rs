@@ -511,8 +511,7 @@ pub mod pallet {
 					break;
 				}
 
-				let pending_value =
-					if PendingRebag::<T, I>::contains_key(account) { 1 } else { 0 };
+				let pending_value = if PendingRebag::<T, I>::contains_key(account) { 1 } else { 0 };
 
 				match Self::rebag_internal(account) {
 					Err(Error::<T, I>::Locked) => {
