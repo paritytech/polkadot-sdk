@@ -145,7 +145,7 @@ where
 
 		match input {
 			_ if env.is_delegate_call() => {
-				Err(Error::Revert("Cannot be called via delegate call".into()))
+				Err(Error::Revert(ERR_DELEGATE_CALL.into()))
 			},
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
 			IAssetConversionCalls::swapTokensForExactTokens(_)
@@ -171,6 +171,9 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_POOL_NOT_FOUND: &str = ERR_POOL_NOT_FOUND;
+const ERR_PATH_TOO_LONG: &str = ERR_PATH_TOO_LONG;
+const ERR_DELEGATE_CALL: &str = ERR_DELEGATE_CALL;
 
 impl<const ADDRESS: u16, Runtime, Converter> AssetConversion<ADDRESS, Runtime, Converter>
 where
@@ -186,7 +189,7 @@ where
 		let max = <Runtime as pallet_asset_conversion::Config>::MaxSwapPathLength::get();
 		if len > max {
 			return Err(Error::Revert(Revert {
-				reason: "Swap path exceeds MaxSwapPathLength".into(),
+				reason: ERR_PATH_TOO_LONG.into(),
 			}));
 		}
 		Ok(len)
@@ -324,7 +327,7 @@ where
 				call.includeFee,
 			)
 			.ok_or(Error::Revert(Revert {
-				reason: "Pool does not exist or has no liquidity".into(),
+				reason: ERR_POOL_NOT_FOUND.into(),
 			}))?;
 
 		Ok(IAssetConversion::quoteExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
@@ -355,7 +358,7 @@ where
 			call.includeFee,
 		)
 		.ok_or(Error::Revert(Revert {
-			reason: "Pool does not exist or has no liquidity".into(),
+			reason: ERR_POOL_NOT_FOUND.into(),
 		}))?;
 
 		Ok(IAssetConversion::quoteTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
