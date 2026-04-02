@@ -1,4 +1,4 @@
-title: Bags-list on_idle: per-item weight consumption via WeightMeter
+title: 'Bags-list on_idle: per-item weight consumption via WeightMeter'
 doc:
 - audience: Runtime Dev
   description: |-
