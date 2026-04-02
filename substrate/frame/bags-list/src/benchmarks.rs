@@ -356,8 +356,10 @@ benchmarks_instance_pallet! {
 
 		List::<T, I>::unsafe_clear();
 
-		let origin_bag_thresh = T::BagThresholds::get()[0];
-		let dest_bag_thresh = T::BagThresholds::get()[1];
+		let bag_thresh = T::BagThresholds::get();
+		assert!(bag_thresh.len() >= 2, "on_idle_rebag benchmark requires at least 2 bag thresholds");
+		let origin_bag_thresh = bag_thresh[0];
+		let dest_bag_thresh = bag_thresh[1];
 
 		// Seed 3 nodes in the origin bag so the target node is non-terminal (has prev + next).
 		let origin_head: T::AccountId = account("origin_head", 0, 0);
