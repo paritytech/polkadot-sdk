@@ -651,7 +651,8 @@ async fn run_client(
 		for &(count, size) in &messages_pattern {
 			for _ in 0..count {
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
-				let channel = blake2_256(sent_count.to_le_bytes().as_ref());
+				let channel_str = format!("{test_run_id}-{sent_count}");
+				let channel = blake2_256(channel_str.as_bytes());
 
 				let expiry_timestamp = (std::time::SystemTime::now()
 					.duration_since(std::time::UNIX_EPOCH)
