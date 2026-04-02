@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for `pallet-vesting-precompile`.
+//! Benchmarks for `pallet-vesting-precompiles`.
 //!
 //! Only the view functions (`vestingBalance`, `vestingBalanceOf`) are benchmarked here.
 //! The mutating calls (`vest`, `vestOther`) delegate to `pallet-vesting` dispatchables

@@ -165,7 +165,7 @@ std = [
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
 	"pallet-verify-signature?/std",
-	"pallet-vesting-precompile?/std",
+	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
 	"pallet-whitelist?/std",
 	"pallet-xcm-benchmarks?/std",
@@ -350,7 +350,7 @@ runtime-benchmarks = [
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
-	"pallet-vesting-precompile?/runtime-benchmarks",
+	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
 	"pallet-whitelist?/runtime-benchmarks",
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
@@ -497,7 +497,7 @@ try-runtime = [
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
-	"pallet-vesting-precompile?/try-runtime",
+	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
@@ -728,7 +728,7 @@ runtime-full = [
 	"pallet-utility",
 	"pallet-verify-signature",
 	"pallet-vesting",
-	"pallet-vesting-precompile",
+	"pallet-vesting-precompiles",
 	"pallet-whitelist",
 	"pallet-xcm",
 	"pallet-xcm-benchmarks",
@@ -1845,7 +1845,7 @@ default-features = false
 optional = true
 path = "../substrate/frame/vesting"
 
-[dependencies.pallet-vesting-precompile]
+[dependencies.pallet-vesting-precompiles]
 default-features = false
 optional = true
 path = "../substrate/frame/vesting/precompiles"

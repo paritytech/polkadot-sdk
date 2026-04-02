@@ -1097,7 +1097,7 @@ pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
-pallet-vesting-precompile = { path = "substrate/frame/vesting/precompiles", default-features = false }
+pallet-vesting-precompiles = { path = "substrate/frame/vesting/precompiles", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }

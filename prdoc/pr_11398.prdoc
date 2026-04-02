@@ -18,7 +18,7 @@ doc:
     - [ ] New vesting precompile tests pass (`vest`, `vestOther`, `vestingBalance`)
     - [ ] Existing pallet-revive tests unaffected
 crates:
-- name: pallet-vesting-precompile
+- name: pallet-vesting-precompiles
   bump: minor
 - name: pallet-revive
   bump: minor

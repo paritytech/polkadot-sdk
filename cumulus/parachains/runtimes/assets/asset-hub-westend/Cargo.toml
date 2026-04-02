@@ -76,7 +76,7 @@ pallet-uniques = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-verify-signature = { workspace = true }
 pallet-vesting = { workspace = true }
-pallet-vesting-precompile = { workspace = true }
+pallet-vesting-precompiles = { workspace = true }
 pallet-whitelist = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -218,7 +218,7 @@ runtime-benchmarks = [
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-verify-signature/runtime-benchmarks",
-	"pallet-vesting-precompile/runtime-benchmarks",
+	"pallet-vesting-precompiles/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
@@ -298,7 +298,7 @@ try-runtime = [
 	"pallet-uniques/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-verify-signature/try-runtime",
-	"pallet-vesting-precompile/try-runtime",
+	"pallet-vesting-precompiles/try-runtime",
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
@@ -388,7 +388,7 @@ std = [
 	"pallet-uniques/std",
 	"pallet-utility/std",
 	"pallet-verify-signature/std",
-	"pallet-vesting-precompile/std",
+	"pallet-vesting-precompiles/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",

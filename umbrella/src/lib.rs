@@ -788,8 +788,8 @@ pub use pallet_verify_signature;
 pub use pallet_vesting;
 
 /// Vesting precompile exposing pallet-vesting to EVM contracts via pallet-revive.
-#[cfg(feature = "pallet-vesting-precompile")]
-pub use pallet_vesting_precompile;
+#[cfg(feature = "pallet-vesting-precompiles")]
+pub use pallet_vesting_precompiles;
 
 /// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]

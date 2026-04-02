@@ -1766,7 +1766,7 @@ dependencies = [
  "pallet-utility",
  "pallet-verify-signature",
  "pallet-vesting",
- "pallet-vesting-precompile",
+ "pallet-vesting-precompiles",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
@@ -14774,7 +14774,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-vesting-precompile"
+name = "pallet-vesting-precompiles"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
@@ -17155,7 +17155,7 @@ dependencies = [
  "pallet-utility",
  "pallet-verify-signature",
  "pallet-vesting",
- "pallet-vesting-precompile",
+ "pallet-vesting-precompiles",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",

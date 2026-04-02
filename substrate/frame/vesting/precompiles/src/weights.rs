@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Default weights for `pallet-vesting-precompile`.
+//! Default weights for `pallet-vesting-precompiles`.
 //!
 //! THIS FILE SHOULD BE AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI.
 //! The values below are conservative placeholders until benchmarks are run.
@@ -53,7 +53,7 @@ impl WeightInfo for () {
 	}
 }
 
-/// Weights for `pallet-vesting-precompile` using the Substrate node and recommended hardware.
+/// Weights for `pallet-vesting-precompiles` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn vesting_balance() -> Weight {

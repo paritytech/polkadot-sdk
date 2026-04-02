@@ -93,7 +93,7 @@ use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_tx_pause::RuntimeCallNameOf;
-use pallet_vesting_precompile::Vesting as VestingPrecompile;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -1574,8 +1574,8 @@ impl pallet_revive::Config for Runtime {
 	type OnBurn = ();
 }
 
-impl pallet_vesting_precompile::pallet::Config for Runtime {
-	type WeightInfo = pallet_vesting_precompile::weights::SubstrateWeight<Runtime>;
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -2902,7 +2902,7 @@ mod runtime {
 	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
 
 	#[runtime::pallet_index(93)]
-	pub type VestingPrecompiles = pallet_vesting_precompile::pallet::Pallet<Runtime>;
+	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3182,7 +3182,7 @@ mod benches {
 		[pallet_mmr, Mmr]
 		[pallet_multi_asset_bounties, MultiAssetBounties]
 		[pallet_assets_precompiles, AssetsPrecompiles]
-		[pallet_vesting_precompile, VestingPrecompiles]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]

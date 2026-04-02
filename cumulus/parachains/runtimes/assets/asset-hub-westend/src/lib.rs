@@ -75,7 +75,7 @@ use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig,
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
-use pallet_vesting_precompile::Vesting as VestingPrecompile;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
@@ -1282,8 +1282,8 @@ impl pallet_revive::Config for Runtime {
 	type OnBurn = Dap;
 }
 
-impl pallet_vesting_precompile::pallet::Config for Runtime {
-	type WeightInfo = pallet_vesting_precompile::weights::SubstrateWeight<Runtime>;
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1480,7 +1480,7 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
-		VestingPrecompiles: pallet_vesting_precompile::pallet = 64,
+		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1855,7 +1855,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
-		[pallet_vesting_precompile, VestingPrecompiles]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
