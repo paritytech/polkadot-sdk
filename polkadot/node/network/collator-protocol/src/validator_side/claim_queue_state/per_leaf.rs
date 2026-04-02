@@ -602,28 +602,50 @@ mod test {
 			assert!(!state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_C1), CORE_0));
 		}
 
-		/// Tests the full pending → seconded lifecycle across two cores at a rotation boundary.
+		/// Tests the full pending → seconded lifecycle across two cores at a rotation boundary,
+		/// including a fork: both children of A must see claims made at A.
 		#[test]
 		fn rotation_full_seconding_lifecycle() {
 			let mut state = PerLeafClaimQueueState::new();
 
 			// 0 -> A(core0) -> B(core1, rotation)
-			let cq0 = VecDeque::from(vec![PARA_1]);
-			let cq1 = VecDeque::from(vec![PARA_2]);
+			//              \-> C(core1, rotation, fork)
+			let cq0 = VecDeque::from(vec![PARA_1, PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2, PARA_2]);
 
 			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
 			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+			state.add_leaf(&RELAY_PARENT_C, CORE_1, &cq1, Some(&RELAY_PARENT_A));
 
-			// Old core: claim pending at A, then second
+			assert_eq!(state.leaves.len(), 2);
+
+			// Claims at A on the old core are visible at both leaves
+			let free_b = state.free_slots(&RELAY_PARENT_B);
+			let free_c = state.free_slots(&RELAY_PARENT_C);
+			assert!(free_b.contains(&PARA_1));
+			assert!(free_c.contains(&PARA_1));
+
+			// Old core: claim two pending slots at A, then second both
 			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2), CORE_0));
 			assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A1, Some(CORE_0)));
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A2, Some(CORE_0)));
 
-			// New core: claim pending at B, then second
+			// New core at B: claim two pending slots, then second both
 			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B2), CORE_1));
 			assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_2, &CANDIDATE_B1, Some(CORE_1)));
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_2, &CANDIDATE_B2, Some(CORE_1)));
 
-			// Both cores exhausted — no free slots remain at the leaf
+			// New core at C: claim two pending slots, then second both
+			assert!(state.claim_pending_slot(&RELAY_PARENT_C, &PARA_2, Some(*CANDIDATE_C1), CORE_1));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_C, &PARA_2, Some(*CANDIDATE_C2), CORE_1));
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_C, &PARA_2, &CANDIDATE_C1, Some(CORE_1)));
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_C, &PARA_2, &CANDIDATE_C2, Some(CORE_1)));
+
+			// Both leaves fully exhausted
 			assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![]);
+			assert_eq!(state.free_slots(&RELAY_PARENT_C), vec![]);
 		}
 
 		/// Tests that `None` core_index in `mark_pending_slot_with_candidate` and
@@ -662,6 +684,17 @@ mod test {
 			assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_2, &CANDIDATE_B1, None));
 			let free = state.free_slots(&RELAY_PARENT_B);
 			assert!(!free.contains(&PARA_2), "core1 slot should be consumed");
+
+			// Releasing a claim that was made via None (v1) also works:
+			// CANDIDATE_A1 was marked via None — release it and the slot should be free again
+			assert!(state.release_claims_for_candidate(&CANDIDATE_A1));
+			let free = state.free_slots(&RELAY_PARENT_B);
+			assert!(free.contains(&PARA_1), "core0 slot should be free after release");
+
+			// CANDIDATE_B1 was seconded via None — release it and the slot should be free again
+			assert!(state.release_claims_for_candidate(&CANDIDATE_B1));
+			let free = state.free_slots(&RELAY_PARENT_B);
+			assert!(free.contains(&PARA_2), "core1 slot should be free after release");
 		}
 
 		/// Tests that `remove_pruned_ancestors` correctly handles leaves with multiple cores:
