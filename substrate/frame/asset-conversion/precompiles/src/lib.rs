@@ -27,6 +27,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use frame_support::traits::Get;
 use pallet_asset_conversion::weights::WeightInfo as _;
 use pallet_revive::precompiles::{
 	alloy::{
@@ -114,7 +115,7 @@ pub trait AddressToAssetKind {
 
 /// Asset conversion precompile exposing DEX swap and quote operations.
 ///
-/// `ADDRESS` is the `u16` that determines the precompile's fixed address.
+/// `ADDRESS` is the `u16` identifier embedded at bytes [16..18] of the precompile's H160 address.
 /// `Converter` maps EVM addresses to the runtime's `AssetKind`.
 pub struct AssetConversion<const ADDRESS: u16, Runtime, Converter> {
 	_phantom: PhantomData<(Runtime, Converter)>,
@@ -176,6 +177,18 @@ where
 	alloy::primitives::U256: TryInto<<Runtime as pallet_asset_conversion::Config>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as pallet_asset_conversion::Config>::Balance>,
 {
+	/// Validates that the path length does not exceed `MaxSwapPathLength` and returns it as u32.
+	fn validated_path_len(path: &[alloy::primitives::Address]) -> Result<u32, Error> {
+		let len = path.len() as u32;
+		let max = <Runtime as pallet_asset_conversion::Config>::MaxSwapPathLength::get();
+		if len > max {
+			return Err(Error::Revert(Revert {
+				reason: "Swap path exceeds MaxSwapPathLength".into(),
+			}));
+		}
+		Ok(len)
+	}
+
 	fn to_balance(
 		value: alloy::primitives::U256,
 	) -> Result<<Runtime as pallet_asset_conversion::Config>::Balance, Error> {
@@ -195,7 +208,7 @@ where
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let path_len = call.path.len() as u32;
+		let path_len = Self::validated_path_len(&call.path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
 				path_len,
@@ -217,8 +230,7 @@ where
 		let amount_in = Self::to_balance(call.amountIn)?;
 		let amount_out_min = Self::to_balance(call.amountOutMin)?;
 
-		let send_to_h160: H160 = call.sendTo.into_array().into();
-		let send_to = env.to_account_id(&send_to_h160);
+		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
 		use pallet_asset_conversion::Swap;
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
@@ -241,7 +253,7 @@ where
 		call: &IAssetConversion::swapTokensForExactTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let path_len = call.path.len() as u32;
+		let path_len = Self::validated_path_len(&call.path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
 				path_len,
@@ -263,8 +275,7 @@ where
 		let amount_out = Self::to_balance(call.amountOut)?;
 		let amount_in_max = Self::to_balance(call.amountInMax)?;
 
-		let send_to_h160: H160 = call.sendTo.into_array().into();
-		let send_to = env.to_account_id(&send_to_h160);
+		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
 		use pallet_asset_conversion::Swap;
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
