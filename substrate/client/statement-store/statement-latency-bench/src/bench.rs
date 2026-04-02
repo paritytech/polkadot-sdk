@@ -60,6 +60,8 @@ enum Scenario {
 	Event,
 	/// Near-limit capacity test pushing ~3.8M statements (95% of 4M max)
 	CapacityMax,
+	/// Soak peak: ~112.5K stmts per 15-min cron invocation (~450K stmts/hr)
+	SoakPeak,
 }
 
 struct ScenarioParams {
@@ -114,6 +116,14 @@ fn resolve_scenario(scenario: &Scenario) -> Option<ScenarioParams> {
 			interval_ms: 30_000,
 			receive_timeout_ms: 60_000,
 			statement_expiry_ms: 1_800_000,
+		}),
+		Scenario::SoakPeak => Some(ScenarioParams {
+			num_clients: 500,
+			messages_pattern: "24:192,1:384".to_string(),
+			num_rounds: 9,
+			interval_ms: 30_000,
+			receive_timeout_ms: 30_000,
+			statement_expiry_ms: 900_000,
 		}),
 	}
 }
