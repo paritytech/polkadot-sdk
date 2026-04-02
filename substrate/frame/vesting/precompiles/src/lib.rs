@@ -23,10 +23,12 @@ use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::{dispatch::GetDispatchInfo, traits::VestingSchedule};
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_revive::{
 	Config,
 	precompiles::{AddressMatcher, Error, Ext, H160, Precompile, RuntimeCosts, U256},
 };
+use pallet_vesting::VestingInfo;
 use sp_runtime::traits::StaticLookup;
 
 alloy_core::sol!("IVesting.sol");
@@ -141,6 +143,65 @@ where
 				pallet_vesting::Pallet::<T>::vest_other(origin, target_lookup).map_err(|e| {
 					Error::Revert(alloc::format!("vestOther failed: {:?}", e).into())
 				})?;
+				Ok(Vec::new())
+			},
+			IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+				target,
+				locked,
+				perBlock,
+				startingBlock,
+			}) => {
+				ensure_mutable::<T>(env)?;
+				let caller_account = caller_account_id(env, "vestedTransfer")?;
+
+				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
+				let target_lookup = T::Lookup::unlookup(target_account);
+
+				let locked: VestingBalance<T> = {
+					let balance: <T as Config>::Balance =
+						U256::from_big_endian(&locked.to_be_bytes::<32>())
+							.try_into()
+							.map_err(|_| {
+								Error::Revert("vestedTransfer: locked overflow".into())
+							})?;
+					<VestingBalance<T> as From<<T as Config>::Balance>>::from(balance)
+				};
+				let per_block: VestingBalance<T> = {
+					let balance: <T as Config>::Balance =
+						U256::from_big_endian(&perBlock.to_be_bytes::<32>())
+							.try_into()
+							.map_err(|_| {
+								Error::Revert("vestedTransfer: perBlock overflow".into())
+							})?;
+					<VestingBalance<T> as From<<T as Config>::Balance>>::from(balance)
+				};
+				let starting_block: BlockNumberFor<T> =
+					U256::from_big_endian(&startingBlock.to_be_bytes::<32>())
+						.try_into()
+						.map_err(|_| {
+							Error::Revert(
+								"vestedTransfer: startingBlock overflow".into(),
+							)
+						})?;
+
+				let schedule = VestingInfo::new(locked, per_block, starting_block);
+
+				let dispatch_weight = pallet_vesting::Call::<T>::vested_transfer {
+					target: target_lookup.clone(),
+					schedule,
+				}
+				.get_dispatch_info()
+				.call_weight;
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
+
+				let origin = frame_system::RawOrigin::Signed(caller_account).into();
+				pallet_vesting::Pallet::<T>::vested_transfer(origin, target_lookup, schedule)
+					.map_err(|e| {
+						Error::Revert(
+							alloc::format!("vestedTransfer failed: {:?}", e).into(),
+						)
+					})?;
 				Ok(Vec::new())
 			},
 			// View function to query the currently locked (unvested) balance for the caller.
