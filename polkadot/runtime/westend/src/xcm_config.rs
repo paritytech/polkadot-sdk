@@ -36,7 +36,10 @@ use sp_core::ConstU32;
 use westend_runtime_constants::{
 	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
-use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
+	LocalRuntimeCall,
+};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -287,6 +290,8 @@ pub type LocalPalletOriginToLocation = (
 	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
 	TreasurerToPlurality,
 );
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

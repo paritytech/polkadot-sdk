@@ -36,7 +36,7 @@ use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, shared,
 };
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, LocalRuntimeCall};
 use xcm_builder::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser, FixedRateOfFungible,
@@ -153,6 +153,8 @@ impl Config for XcmConfig {
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

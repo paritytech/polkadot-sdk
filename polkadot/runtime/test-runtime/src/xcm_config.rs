@@ -22,7 +22,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use polkadot_runtime_parachains::FeeTracker;
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, LocalRuntimeCall};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
 	SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
@@ -165,6 +165,8 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelClosingHandler = ();
 	type XcmRecorder = ();
 }
+
+impl LocalRuntimeCall for crate::RuntimeCall {}
 
 impl pallet_xcm::Config for crate::Runtime {
 	// The config types here are entirely configurable, since the only one that is sorely needed

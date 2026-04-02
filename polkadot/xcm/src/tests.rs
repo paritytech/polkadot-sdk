@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{double_encoded::DECODE_RECURSION_LIMIT_MSG, *};
+use crate::{
+	double_encoded::{LocalRuntimeCall, DECODE_RECURSION_LIMIT_MSG},
+	*,
+};
 use alloc::vec;
 use codec::MemTrackingInput;
 
@@ -24,6 +27,8 @@ enum TestCall {
 	Allocate { arg: Vec<u8> },
 	Xcm { xcm: Box<VersionedXcm<TestCall>> },
 }
+
+impl LocalRuntimeCall for TestCall {}
 
 impl TestCall {
 	fn new_xcm(xcm: VersionedXcm<Self>) -> Self {

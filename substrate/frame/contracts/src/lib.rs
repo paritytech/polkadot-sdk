@@ -244,6 +244,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Perbill;
+	use xcm::DoubleEncodedT;
 
 	/// The in-code storage version.
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
@@ -253,7 +254,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config(with_default)]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeCall: DoubleEncodedT> {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
 

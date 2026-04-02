@@ -50,7 +50,10 @@ use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::rococo::snowbridge::{
 	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 };
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	LocalRuntimeCall,
+};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -449,6 +452,8 @@ parameter_types! {
 	pub const DepositPerByte: Balance = crate::deposit(0, 1);
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

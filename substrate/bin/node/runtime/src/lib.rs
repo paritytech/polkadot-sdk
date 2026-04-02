@@ -32,7 +32,7 @@ use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
 
-use polkadot_sdk::*;
+use polkadot_sdk::{staging_xcm::LocalRuntimeCall, *};
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -1485,6 +1485,8 @@ parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_contracts::Config for Runtime {
 	type Time = Timestamp;

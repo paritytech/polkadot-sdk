@@ -29,7 +29,7 @@ use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage,
 };
-use xcm::prelude::*;
+use xcm::{prelude::*, LocalRuntimeCall};
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainConvertsVia, DescribeAllTerminal,
@@ -266,6 +266,8 @@ impl Convert<Footprint, u128> for ConvertDeposit {
 		(a.count * 2 + a.size) as u128
 	}
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

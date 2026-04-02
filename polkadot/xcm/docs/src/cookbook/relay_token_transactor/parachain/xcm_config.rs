@@ -22,7 +22,7 @@ use frame::{
 	runtime::prelude::*,
 	traits::{Disabled, Everything, Nothing},
 };
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, LocalRuntimeCall};
 use xcm_builder::{
 	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
@@ -150,6 +150,8 @@ impl xcm_executor::Config for XcmConfig {
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	// We turn off sending for these tests

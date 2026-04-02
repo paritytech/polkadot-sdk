@@ -37,7 +37,7 @@ use pallet_xcm::XcmPassthrough;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence};
 
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, LocalRuntimeCall};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
@@ -301,6 +301,8 @@ impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedL
 		a.matches(asset) && &o == origin
 	}
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

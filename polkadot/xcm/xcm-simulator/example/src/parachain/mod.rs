@@ -33,7 +33,7 @@ use sp_runtime::{
 	traits::{Get, IdentityLookup},
 	AccountId32,
 };
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, LocalRuntimeCall};
 use xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::mock_message_queue;
@@ -143,6 +143,8 @@ parameter_types! {
 }
 
 pub type TrustedLockers = TrustedLockerCase<RelayTokenForRelay>;
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

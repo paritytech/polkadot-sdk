@@ -62,7 +62,10 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
 use testnet_parachains_constants::westend::currency::deposit;
-use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
+	LocalRuntimeCall,
+};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -472,6 +475,8 @@ parameter_types! {
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

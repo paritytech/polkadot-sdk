@@ -36,7 +36,10 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
-use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
+	LocalRuntimeCall,
+};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -300,6 +303,8 @@ parameter_types! {
 	pub const DepositPerByte: Balance = crate::deposit(0, 1);
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

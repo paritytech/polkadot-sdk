@@ -66,6 +66,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, IdentityLookup},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
+use xcm::LocalRuntimeCall;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -82,6 +83,8 @@ frame_support::construct_runtime!(
 		Dummy: pallet_dummy
 	}
 );
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 macro_rules! assert_return_code {
 	( $x:expr , $y:expr $(,)? ) => {{

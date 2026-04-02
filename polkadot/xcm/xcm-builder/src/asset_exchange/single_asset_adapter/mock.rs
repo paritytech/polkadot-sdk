@@ -33,7 +33,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, IdentityLookup, MaybeEquivalence, TryConvert, TryConvertInto},
 	BuildStorage, Permill,
 };
-use xcm::prelude::*;
+use xcm::{prelude::*, LocalRuntimeCall};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 use crate::{FungibleAdapter, IsConcrete, MatchedConvertedConcreteId, StartsWith};
@@ -300,6 +300,8 @@ parameter_types! {
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId, NoNetwork>;
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	// We turn off sending for these tests

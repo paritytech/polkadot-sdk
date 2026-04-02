@@ -23,6 +23,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
 use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
+use xcm::LocalRuntimeCall;
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::ParaId;
 
@@ -275,6 +276,8 @@ pub(crate) type SovereignAccountOf = (
 	TreasuryToAccount,
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

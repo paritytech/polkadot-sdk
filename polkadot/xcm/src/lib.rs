@@ -45,7 +45,7 @@ pub mod latest {
 }
 
 mod double_encoded;
-pub use double_encoded::DoubleEncoded;
+pub use double_encoded::{DoubleEncoded, DoubleEncodedT, LocalRuntimeCall};
 
 mod utils;
 
@@ -331,8 +331,8 @@ versioned_type! {
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
-#[codec(decode_bound(RuntimeCall: 'static + Decode))]
-#[codec(decode_with_mem_tracking_bound(RuntimeCall: 'static + Decode))]
+#[codec(decode_bound(RuntimeCall: DoubleEncodedT))]
+#[codec(decode_with_mem_tracking_bound(RuntimeCall: DoubleEncodedT))]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
@@ -365,7 +365,7 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 	}
 }
 
-impl<C: 'static + Decode> VersionedXcm<C> {
+impl<C: DoubleEncodedT> VersionedXcm<C> {
 	// Decodes an XCM, checking the `MAX_XCM_SIZE`, `MAX_XCM_DECODE_DEPTH`, and also that all the
 	// input data is consumed.
 	//

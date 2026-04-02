@@ -17,7 +17,6 @@
 use crate::{MAX_XCM_DECODE_DEPTH, RECURSION_LIMIT};
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
-use core::any::TypeId;
 use sp_runtime::Saturating;
 
 pub(crate) const DECODE_MAX_DEPTH_MSG: &str =
@@ -92,11 +91,41 @@ impl<'a> codec::Input for NestedInput<'a> {
 	}
 }
 
+/// Trait representing an object that can be wrapped inside a `DoubleEncoded` struct.
+pub trait DoubleEncodedT: Sized {
+	/// Try to get the decoding function for the `DoubleEncodedT`.
+	///
+	/// Returns the decoding function, if the object implements `Decode` or `None` otherwise.
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>;
+}
+
+impl DoubleEncodedT for () {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		None::<fn(&mut I) -> Result<Self, codec::Error>>
+	}
+}
+
+/// Marker trait representing a local runtime call.
+///
+/// We automaticall implement `DoubleEncodedT` for any struct that implements `LocalRuntimeCall`
+pub trait LocalRuntimeCall: Decode {}
+
+impl<T> DoubleEncodedT for T
+where
+	T: LocalRuntimeCall,
+{
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
+
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.
 #[derive(Encode, DecodeWithMemTracking, scale_info::TypeInfo)]
 #[codec(encode_bound())]
-#[codec(decode_with_mem_tracking_bound(T: 'static + Decode))]
+#[codec(decode_with_mem_tracking_bound(T: DoubleEncodedT))]
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
@@ -108,15 +137,10 @@ pub struct DoubleEncoded<T> {
 
 impl<T> Decode for DoubleEncoded<T>
 where
-	T: 'static + Decode,
+	T: DoubleEncodedT,
 {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let mut obj = Self { encoded: Vec::<u8>::decode(input)?, decoded: None };
-
-		// We can't decode remote calls
-		if TypeId::of::<T>() == TypeId::of::<()>() {
-			return Ok(obj);
-		}
 
 		// If it's a local call, we also decode the inner double encoded object,
 		// in order to make sure that its heap memory is accounted for.
@@ -130,15 +154,19 @@ where
 			})
 			.unwrap_or(Err("Could not access nesting_count env variable".into()))?;
 
-			let mut nested_input = NestedInput {
-				downstream_input: Box::new(input),
-				encoded: &obj.encoded[..],
-				depth: 0,
-			};
-			obj.decoded = Some(T::decode(&mut nested_input)?);
-			// We need to also make sure that we consumed all the input data, but we can't use
-			// `decode_all()` initially, because it only accepts a byte slice as input.
-			<() as codec::DecodeAll>::decode_all(&mut nested_input.encoded)?;
+			{
+				// We can't decode remote calls
+				let Some(decode_fn) = T::try_get_decode_fn() else { return Ok(obj) };
+				let mut nested_input = NestedInput {
+					downstream_input: Box::new(input),
+					encoded: &obj.encoded[..],
+					depth: 0,
+				};
+				obj.decoded = Some(decode_fn(&mut nested_input)?);
+				// We need to also make sure that we consumed all the input data, but we can't use
+				// `decode_all()` initially, because it only accepts a byte slice as input.
+				<() as codec::DecodeAll>::decode_all(&mut nested_input.encoded)?;
+			}
 
 			let _ = nesting_count::with(|count| {
 				count.saturating_dec();

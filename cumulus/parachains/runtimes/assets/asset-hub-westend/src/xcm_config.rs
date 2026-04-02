@@ -50,7 +50,10 @@ use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
 	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	LocalRuntimeCall,
+};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -554,6 +557,8 @@ parameter_types! {
 	pub Collectives: Location = Location::new(1, [Parachain(COLLECTIVES_ID)]);
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

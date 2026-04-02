@@ -34,7 +34,7 @@ use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	AccountId32, BuildStorage,
 };
-use xcm::prelude::*;
+use xcm::{prelude::*, LocalRuntimeCall};
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
@@ -560,6 +560,8 @@ impl Contains<(Location, Vec<Asset>)> for XcmTeleportFiltered {
 		t.1.iter().any(|asset| asset == &filtered)
 	}
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
