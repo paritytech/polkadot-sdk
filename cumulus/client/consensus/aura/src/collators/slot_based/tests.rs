@@ -109,12 +109,10 @@ async fn offset_test_too_long() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result =
-		offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 200).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 200).await;
 	assert!(result.is_err());
 
-	let result =
-		offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 101).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 101).await;
 	assert!(result.is_err());
 }
 
@@ -787,7 +785,13 @@ fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) -> Rel
 	let mut digest = sp_runtime::generic::Digest::default();
 	digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(pre_digest));
 
-	RelayHeader { parent_hash, number, state_root: Default::default(), extrinsics_root: Default::default(), digest }
+	RelayHeader {
+		parent_hash,
+		number,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest,
+	}
 }
 
 /// Test the original bug scenario: relay block propagation exceeds `slot_offset`,
@@ -800,8 +804,7 @@ async fn wait_for_current_relay_block_waits_when_stale() {
 	let relay_slot_duration = Duration::from_secs(6);
 	let slot_offset = Duration::from_secs(1);
 
-	let now_ms =
-		super::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+	let now_ms = super::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
 	let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
 
 	// Slot 0 is always stale. A slot far in the future is always fresh.
@@ -899,5 +902,3 @@ async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
 
 	assert_eq!(result.map(|h| h.hash()), Some(header_hash));
 }
-
-

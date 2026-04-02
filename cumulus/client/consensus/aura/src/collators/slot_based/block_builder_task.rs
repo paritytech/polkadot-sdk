@@ -40,7 +40,7 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
 use polkadot_primitives::{
-	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
