@@ -108,7 +108,12 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	fn on_idle_rebag() -> Weight {
-		// TODO: regenerate via benchmarks
-		Weight::zero()
+		// Proof Size summary in bytes:
+		//  Measured:  `37539`
+		//  Estimated: `512390`
+		// Minimum execution time: 733_000_000 picoseconds.
+		Weight::from_parts(795_000_000, 512390)
+			.saturating_add(T::DbWeight::get().reads(235_u64))
+			.saturating_add(T::DbWeight::get().writes(14_u64))
 	}
 }
