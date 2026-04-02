@@ -1,4 +1,4 @@
-title: '[asset-hub-westend] Add revive-debug cargo feature for DebugEnabled'
+title: '[asset-hub-westend] Add revive_debug cfg for DebugEnabled'
 doc:
 - audience: Runtime Dev
   description: |-
@@ -8,15 +8,15 @@ doc:
     replicate parachain runtime behavior (e.g. no PoV deduplication). To get accurate debug
     tracing data, it needs to run on actual parachain runtimes.
 
-    This PR adds a `revive-debug` cargo feature to `asset-hub-westend-runtime` so debug mode
-    can be toggled at build time without code changes:
-
+    This PR uses a plain `cfg` flag so debug mode can be toggled at build
+    time without code changes.
+    Build with:
     ```bash
-    cargo build -p asset-hub-westend-runtime --features revive-debug
+    RUSTFLAGS="--cfg revive_debug" cargo build -p asset-hub-westend-runtime --release
     ```
 
-    Other runtimes can adopt the same pattern by adding `revive-debug = []` to their Cargo.toml
-    and using `ConstBool<{ cfg!(feature = "revive-debug") }>` for `DebugEnabled`.
+    Other runtimes can adopt the same pattern by using
+    `ConstBool<{ cfg!(revive_debug) }>` for `DebugEnabled`.
 crates:
 - name: asset-hub-westend-runtime
   bump: patch
