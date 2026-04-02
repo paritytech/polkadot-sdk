@@ -44,25 +44,6 @@ use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{sync::Arc, time::Duration};
-use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
-use sp_statement_store::{
-	Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
-};
-use std::{any::Any, str::FromStr, sync::Arc, time::Duration};
-use subxt::{
-	config::{
-		transaction_extensions::{
-			AnyOf, ChargeAssetTxPayment, ChargeTransactionPayment, CheckGenesis, CheckMetadataHash,
-			CheckMortality, CheckNonce, CheckSpecVersion, CheckTxVersion, TransactionExtension,
-			VerifySignatureDetails,
-		},
-		Config, DefaultExtrinsicParamsBuilder, ExtrinsicParams, ExtrinsicParamsEncoder,
-	},
-	ext::scale_value::{value, Value},
-	utils::Static,
-	OnlineClient, PolkadotConfig,
-};
-use subxt_signer::{sr25519::Keypair as SubxtKeypair, SecretUri};
 use tokio::{sync::Barrier, time::timeout};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -137,151 +118,6 @@ fn resolve_scenario(scenario: &Scenario) -> Option<ScenarioParams> {
 	}
 }
 
-pub struct VerifyMultiSignature<T: Config>(VerifySignatureDetails<T>);
-
-impl<T: Config> ExtrinsicParams<T> for VerifyMultiSignature<T> {
-	type Params = ();
-
-	fn new(
-		_client: &subxt::client::ClientState<T>,
-		_params: Self::Params,
-	) -> Result<Self, subxt::config::ExtrinsicParamsError> {
-		Ok(VerifyMultiSignature(VerifySignatureDetails::Disabled))
-	}
-}
-
-impl<T: Config> ExtrinsicParamsEncoder for VerifyMultiSignature<T> {
-	fn encode_value_to(&self, v: &mut Vec<u8>) {
-		self.0.encode_to(v);
-	}
-
-	fn inject_signature(&mut self, account: &dyn Any, signature: &dyn Any) {
-		let account = account
-			.downcast_ref::<T::AccountId>()
-			.expect("A T::AccountId should have been provided")
-			.clone();
-		let signature = signature
-			.downcast_ref::<T::Signature>()
-			.expect("A T::Signature should have been provided")
-			.clone();
-		self.0 = VerifySignatureDetails::Signed { signature, account };
-	}
-}
-
-impl<T: Config> TransactionExtension<T> for VerifyMultiSignature<T> {
-	type Decoded = Static<VerifySignatureDetails<T>>;
-
-	fn matches(identifier: &str, _type_id: u32, _types: &::scale_info::PortableRegistry) -> bool {
-		identifier == "VerifyMultiSignature" || identifier == "VerifySignature"
-	}
-}
-
-fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
-	let mut key = b":statement_allowance:".to_vec();
-	key.extend_from_slice(account_id.as_ref());
-	key
-}
-
-/// Check whether a type requires 0 bytes to encode (mirrors subxt's internal `is_type_empty`)
-///
-/// Empty types are automatically skipped by `AnyOf`, so our catch-all handlers must not claim
-/// them - otherwise they waste a slot that could be used for a non-empty unknown extension
-fn is_type_empty(type_id: u32, types: &::scale_info::PortableRegistry) -> bool {
-	use scale_info::TypeDef;
-	let Some(ty) = types.resolve(type_id) else {
-		return false;
-	};
-	match &ty.type_def {
-		TypeDef::Composite(c) => c.fields.iter().all(|f| is_type_empty(f.ty.id, types)),
-		TypeDef::Array(a) => a.len == 0 || is_type_empty(a.type_param.id, types),
-		TypeDef::Tuple(t) => t.fields.iter().all(|f| is_type_empty(f.id, types)),
-		_ => false,
-	}
-}
-
-macro_rules! define_skip_unknown_extensions {
-	($($name:ident),+ $(,)?) => { $(
-		pub struct $name;
-
-		impl<T: Config> ExtrinsicParams<T> for $name {
-			type Params = ();
-
-			fn new(
-				_client: &subxt::client::ClientState<T>,
-				_params: Self::Params,
-			) -> Result<Self, subxt::config::ExtrinsicParamsError> {
-				Ok($name)
-			}
-		}
-
-		impl ExtrinsicParamsEncoder for $name {
-			fn encode_value_to(&self, v: &mut Vec<u8>) {
-				v.push(0x00);
-			}
-		}
-
-		impl<T: Config> TransactionExtension<T> for $name {
-			type Decoded = Static<u8>;
-
-			fn matches(
-				_identifier: &str,
-				type_id: u32,
-				types: &::scale_info::PortableRegistry,
-			) -> bool {
-				!is_type_empty(type_id, types)
-			}
-		}
-	)+ };
-}
-
-define_skip_unknown_extensions!(
-	SkipUnknown1,
-	SkipUnknown2,
-	SkipUnknown3,
-	SkipUnknown4,
-	SkipUnknown5,
-	SkipUnknown6,
-	SkipUnknown7,
-	SkipUnknown8,
-);
-
-type BenchExtrinsicParams<T> = AnyOf<
-	T,
-	(
-		VerifyMultiSignature<T>,
-		CheckSpecVersion,
-		CheckTxVersion,
-		CheckNonce,
-		CheckGenesis<T>,
-		CheckMortality<T>,
-		ChargeAssetTxPayment<T>,
-		ChargeTransactionPayment,
-		CheckMetadataHash,
-		SkipUnknown1,
-		SkipUnknown2,
-		SkipUnknown3,
-		SkipUnknown4,
-		SkipUnknown5,
-		SkipUnknown6,
-		SkipUnknown7,
-		SkipUnknown8,
-	),
->;
-
-/// Custom subxt [`Config`] identical to [`PolkadotConfig`] but using [`BenchExtrinsicParams`].
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum BenchConfig {}
-
-impl Config for BenchConfig {
-	type AccountId = <PolkadotConfig as Config>::AccountId;
-	type Address = <PolkadotConfig as Config>::Address;
-	type Signature = <PolkadotConfig as Config>::Signature;
-	type Hasher = <PolkadotConfig as Config>::Hasher;
-	type Header = <PolkadotConfig as Config>::Header;
-	type ExtrinsicParams = BenchExtrinsicParams<Self>;
-	type AssetId = <PolkadotConfig as Config>::AssetId;
-}
-
 #[derive(Parser, Debug)]
 #[command(name = "statement-latency-bench")]
 #[command(about = "Distributed statement store latency benchmark", long_about = None)]
@@ -318,14 +154,6 @@ struct Args {
 	/// Statement expiry time in milliseconds (default: 10 minutes)
 	#[arg(long, default_value_t = 600_000)]
 	statement_expiry_ms: u64,
-	/// Sudo seed/SURI for setting statement allowances (e.g., "//Alice" or mnemonic phrase).
-	/// When provided, deterministic accounts are used and allowances are set on-chain.
-	#[arg(long)]
-	sudo_seed: Option<String>,
-
-	/// Number of accounts per allowance-setting transaction (default: 100).
-	#[arg(long, default_value = "100")]
-	allowance_batch_size: u32,
 
 	/// Predefined scenario profile (overrides num-clients, messages-pattern, etc.)
 	#[arg(long, value_enum, default_value = "custom")]
@@ -363,6 +191,7 @@ struct RoundStats {
 	received_count: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Stats {
 	min: f64,
 	avg: f64,
@@ -645,6 +474,8 @@ async fn run_client(
 		for &(count, size) in &messages_pattern {
 			for _ in 0..count {
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
+				// Include test_run_id so channels are unique per run and don't collide
+				// with leftover statements from previous runs (ChannelPriorityTooLow).
 				let channel_str = format!("{test_run_id}-{sent_count}");
 				let channel = blake2_256(channel_str.as_bytes());
 
@@ -851,9 +682,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
 	let rpc_clients = connect_to_endpoints(&args.rpc_endpoints).await?;
 
-	info!("Spawning {} client tasks... {}", args.num_clients, test_run_id);
-	let sync_start = std::time::Instant::now();
-	let barrier = Arc::new(Barrier::new(args.num_clients as usize));
+	let started_at = chrono_now_iso8601();
 
 	info!("Spawning {} client tasks... {}", eff_num_clients, test_run_id);
 	let benchmark_start = std::time::Instant::now();
