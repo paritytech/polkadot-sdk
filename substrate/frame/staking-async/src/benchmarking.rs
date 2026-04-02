@@ -59,6 +59,9 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	// TODO: this can be replaced with `testing_utils` version?
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
+
+	// Disable legacy minting so benchmarks always exercise the reward-pot path.
+	DisableLegacyMintingEra::<T>::put(0);
 	let mut points_total = 0;
 	let mut points_individual = Vec::new();
 
