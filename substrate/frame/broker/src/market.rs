@@ -28,10 +28,7 @@ use frame_support::{weights::WeightMeter, Parameter};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 
-use crate::{
-	AdaptedPrices, BalanceOf, Config, CoreIndex, PotentialRenewalId, RegionId, RelayBlockNumberOf,
-	SaleInfoRecordOf, Timeslice,
-};
+use crate::{AdaptedPrices, CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
 /// Trait representing generic coretime market logic.
 ///
@@ -45,7 +42,7 @@ use crate::{
 /// 2. [`Market::place_order`], [`Market::place_renewal_order`], and [`Market::adjust_bid`] — users
 ///    purchase or bid for coretime regions and renew existing ones.
 /// 3. [`Market::tick`] — called from `on_initialize` hook to execute time-dependent logic.
-pub trait Market<T: Config> {
+pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// Error type returned by market operations.
 	type Error: Into<DispatchError>;
 
@@ -61,7 +58,7 @@ pub trait Market<T: Config> {
 	type Configuration: Parameter;
 
 	/// Provides information about available core counts.
-	type CoreCountProvider: CoreCountProvider<T>;
+	type CoreCountProvider: CoreCountProvider;
 
 	/// Provides information about timeslice scheduling.
 	type TimesliceProvider: TimesliceProvider;
@@ -78,9 +75,9 @@ pub trait Market<T: Config> {
 	/// - `block_number`: Current relay chain block number.
 	/// - `init_data`: Market-specific initialization data.
 	fn start_sales(
-		block_number: RelayBlockNumberOf<T>,
+		block_number: RelayBlockNumber,
 		init_data: Self::InitData,
-	) -> Result<SalesStarted<T>, Self::Error>;
+	) -> Result<SalesStarted<Balance, RelayBlockNumber>, Self::Error>;
 
 	/// Place an order to purchase one coretime region.
 	///
@@ -92,10 +89,10 @@ pub trait Market<T: Config> {
 	/// - `who`: Account placing the order.
 	/// - `price_limit`: Maximum price the buyer is willing to pay.
 	fn place_order(
-		block_number: RelayBlockNumberOf<T>,
-		who: &T::AccountId,
-		price_limit: BalanceOf<T>,
-	) -> Result<OrderResult<T, Self::BidId>, Self::Error>;
+		block_number: RelayBlockNumber,
+		who: &AccountId,
+		price_limit: Balance,
+	) -> Result<OrderResult<Balance, Self::BidId>, Self::Error>;
 
 	/// Place an order to renew a coretime region.
 	///
@@ -107,10 +104,10 @@ pub trait Market<T: Config> {
 	/// - `who`: Account placing the order.
 	/// - `renewal`: Renewal identifier.
 	fn place_renewal_order(
-		block_number: RelayBlockNumberOf<T>,
-		who: &T::AccountId,
+		block_number: RelayBlockNumber,
+		who: &AccountId,
 		renewal: PotentialRenewalId,
-	) -> Result<RenewalOrderResult<T, Self::BidId>, Self::Error>;
+	) -> Result<RenewalOrderResult<Balance, Self::BidId>, Self::Error>;
 
 	/// Adjust the price of an existing bid.
 	///
@@ -124,11 +121,11 @@ pub trait Market<T: Config> {
 	/// - `new_price`: The new bid price. If `None` is provided, the bid will be withdrawn (if
 	///   allowed by the market rules).
 	fn adjust_bid(
-		block_number: RelayBlockNumberOf<T>,
+		block_number: RelayBlockNumber,
 		id: Self::BidId,
-		who: &T::AccountId,
-		new_price: Option<BalanceOf<T>>,
-	) -> Result<AdjustBidResult<T>, Self::Error>;
+		who: &AccountId,
+		new_price: Option<Balance>,
+	) -> Result<AdjustBidResult<Balance>, Self::Error>;
 
 	/// Execute time-based market logic.
 	///
@@ -137,11 +134,14 @@ pub trait Market<T: Config> {
 	/// ### Parameters
 	/// - `now`: Current relay chain block number.
 	/// - `weight_meter`: Used for advanced weight accounting.
-	fn tick(now: RelayBlockNumberOf<T>, weight_meter: &mut WeightMeter) -> Vec<TickAction<T>>;
+	fn tick(
+		now: RelayBlockNumber,
+		weight_meter: &mut WeightMeter,
+	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
 }
 
 /// Provides information about reserved and total core counts available for sale.
-pub trait CoreCountProvider<T: Config> {
+pub trait CoreCountProvider {
 	/// Number of cores reserved (e.g., for system workloads).
 	fn reserved_core_count() -> CoreIndex;
 	/// Total number of cores, including reserved ones.
@@ -162,35 +162,58 @@ pub trait TimesliceProvider {
 	fn latest_timeslice_ready_to_commit() -> Option<Timeslice>;
 }
 
+/// Information about the sale.
+pub struct MarketSaleInfo<RelayBlockNumber> {
+	/// The relay block number at which the sale will/did start.
+	pub sale_start: RelayBlockNumber,
+	/// The length in blocks of the Leadin Period (where the price is decreasing).
+	pub leadin_length: RelayBlockNumber,
+	/// The first timeslice of the Regions which are being sold in this sale.
+	pub region_begin: Timeslice,
+	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
+	/// after the last timeslice which the Regions control.)
+	pub region_end: Timeslice,
+	/// The number of cores we want to sell, ideally. Selling this amount would result in no
+	/// change to the price for the next sale.
+	pub ideal_cores_sold: CoreIndex,
+	/// Number of cores which are/have been offered for sale.
+	pub cores_offered: CoreIndex,
+	/// The index of the first core which is for sale. Core of Regions which are sold have
+	/// incrementing indices from this.
+	pub first_core: CoreIndex,
+	/// Number of cores which have been sold; never more than cores_offered.
+	pub cores_sold: CoreIndex,
+}
+
 /// Outcome of [`Market::start_sales`].
-pub struct SalesStarted<T: Config> {
+pub struct SalesStarted<Balance, RelayBlockNumber> {
 	/// An imaginary "previous" sale used only for bootstrapping the first real sale. Used by
 	/// `pallet-broker` to execute the logic that's normally executed on the sales boundary.
-	pub imaginary_old_sale: SaleInfoRecordOf<T>,
+	pub imaginary_old_sale: MarketSaleInfo<RelayBlockNumber>,
 	/// The first active sale.
-	pub new_sale: SaleInfoRecordOf<T>,
+	pub new_sale: MarketSaleInfo<RelayBlockNumber>,
 	/// Prices applicable to `new_sale`.
-	pub new_prices: AdaptedPrices<BalanceOf<T>>,
+	pub new_prices: AdaptedPrices<Balance>,
 	/// Initial auction price.
 	///
 	/// Used only for emitting event in `pallet-broker` and relevant only for pre-RFC-17
 	/// implementations.
-	pub start_price: BalanceOf<T>,
+	pub start_price: Balance,
 }
 
 /// Possible outcomes of [`Market::place_order`].
-pub enum OrderResult<T: Config, BidId> {
+pub enum OrderResult<Balance, BidId> {
 	/// A bid was placed.
 	BidPlaced {
 		/// Identifier of the bid.
 		id: BidId,
 		/// Amount to lock when placing the bid.
-		bid_price: BalanceOf<T>,
+		bid_price: Balance,
 	},
 	/// The region was purchased immediately.
 	Sold {
 		/// Price paid.
-		price: BalanceOf<T>,
+		price: Balance,
 		/// Purchased region identifier.
 		region_id: RegionId,
 		/// End of the purchased region.
@@ -199,22 +222,22 @@ pub enum OrderResult<T: Config, BidId> {
 }
 
 /// Possible outcomes of [`Market::place_renewal_order`].
-pub enum RenewalOrderResult<T: Config, BidId> {
+pub enum RenewalOrderResult<Balance, BidId> {
 	/// A renewal bid was placed.
 	BidPlaced {
 		/// Identifier of the bid.
 		id: BidId,
 		/// Amount to lock when placing the bid.
-		bid_price: BalanceOf<T>,
+		bid_price: Balance,
 	},
 	/// The region was renewed immediately.
 	Renewed {
 		/// Price paid for the renewal.
-		price: BalanceOf<T>,
+		price: Balance,
 		/// Price for the next renewal.
 		///
 		/// Valid only for the pre-RFC-17 market implementation.
-		next_renewal_price: BalanceOf<T>,
+		next_renewal_price: Balance,
 		/// Identifier of the renewed region.
 		region_id: RegionId,
 		/// End of the renewed region.
@@ -223,16 +246,16 @@ pub enum RenewalOrderResult<T: Config, BidId> {
 }
 
 /// Outcome of [`Market::adjust_bid`].
-pub enum AdjustBidResult<T: Config> {
+pub enum AdjustBidResult<Balance> {
 	/// Indicates that additional balance must be locked.
 	Lock {
 		/// The additional amount to lock.
-		amount: BalanceOf<T>,
+		amount: Balance,
 	},
 	/// Indicates that part or all of the bid should be refunded.
 	Refund {
 		/// The amount to refund.
-		amount: BalanceOf<T>,
+		amount: Balance,
 	},
 }
 
@@ -244,13 +267,13 @@ pub enum AdjustBidResult<T: Config> {
 /// These actions are **not** executed by the market itself as they don't fall into the scope of the
 /// market logic(e.g., transferring balances, updating region ownership). Instead, the market
 /// relies on `pallet-broker` to execute them.
-pub enum TickAction<T: Config> {
+pub enum TickAction<AccountId, Balance, RelayBlockNumber> {
 	/// Sell a region to an account.
 	SellRegion {
 		/// New owner.
-		owner: T::AccountId,
+		owner: AccountId,
 		/// Total price paid.
-		paid: BalanceOf<T>,
+		paid: Balance,
 		/// Region identifier.
 		region_id: RegionId,
 		/// End of the region.
@@ -259,16 +282,16 @@ pub enum TickAction<T: Config> {
 	/// Renew an existing region.
 	RenewRegion {
 		/// Current owner.
-		owner: T::AccountId,
+		owner: AccountId,
 		/// Renewal identifier.
 		renewal_id: PotentialRenewalId,
 	},
 	/// Refund previously locked balance.
 	Refund {
 		/// Amount to return.
-		amount: BalanceOf<T>,
+		amount: Balance,
 		/// Recipient.
-		who: T::AccountId,
+		who: AccountId,
 	},
 	/// Process the auto renewals which are stored in `pallet-broker`.
 	ProcessAutoRenewals {
@@ -282,13 +305,13 @@ pub enum TickAction<T: Config> {
 	/// This allows `pallet-broker` to handle sale boundary transitions.
 	SaleRotated {
 		/// Previously active sale.
-		old_sale: SaleInfoRecordOf<T>,
+		old_sale: MarketSaleInfo<RelayBlockNumber>,
 		/// Newly active sale.
-		new_sale: SaleInfoRecordOf<T>,
+		new_sale: MarketSaleInfo<RelayBlockNumber>,
 		/// Prices for the new sale.
-		new_prices: AdaptedPrices<BalanceOf<T>>,
+		new_prices: AdaptedPrices<Balance>,
 		/// Used only for emitting event in `pallet-broker` and relevant only for pre-RFC-17
 		/// implementations.
-		start_price: BalanceOf<T>,
+		start_price: Balance,
 	},
 }
