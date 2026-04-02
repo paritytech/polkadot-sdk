@@ -28,7 +28,7 @@ use frame_support::{
 	},
 };
 use sp_arithmetic::Permill;
-use sp_runtime::{DispatchError, TokenError};
+use sp_runtime::{BuildStorage, DispatchError, TokenError};
 
 fn events() -> Vec<Event<Test>> {
 	let result = System::events()
@@ -2490,4 +2490,76 @@ fn swap_credit_invalid_path() {
 				.unwrap_err();
 		assert_eq!(error, (expected_credit_in, Error::<Test>::InvalidPath.into()));
 	});
+}
+
+fn new_test_ext_with_genesis_pools(
+	pools: Vec<(NativeOrWithId<u32>, NativeOrWithId<u32>, u128, u128, u128)>,
+) -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(1, 10000), (2, 20000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	pallet_assets::GenesisConfig::<Test, Instance1> {
+		assets: vec![(1, 0, true, 1)],
+		accounts: vec![(1, 1, 10000), (1, 2, 10000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	crate::GenesisConfig::<Test> { pools }.assimilate_storage(&mut t).unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+#[test]
+fn genesis_pool_with_liquidity() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![(Native, WithId(1), 1, 1000, 2000)]).execute_with(|| {
+		assert_eq!(pools(), vec![(Native, WithId(1))]);
+		assert_eq!(pool_assets(), vec![0]);
+		// Provider's native balance decreased by pool contribution.
+		assert_eq!(balance(1, Native), 10000 - 1000);
+		// Provider's asset balance decreased by pool contribution.
+		assert_eq!(balance(1, WithId(1)), 10000 - 2000);
+		// Provider received LP tokens.
+		assert!(pool_balance(1, 0) > 0);
+		// No pool setup fee charged (balance is exactly 10000 - 1000).
+	});
+}
+
+#[test]
+fn genesis_pool_without_liquidity() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![(Native, WithId(1), 1, 0, 0)]).execute_with(|| {
+		assert_eq!(pools(), vec![(Native, WithId(1))]);
+		assert_eq!(pool_assets(), vec![0]);
+		assert_eq!(balance(1, Native), 10000);
+		assert_eq!(balance(1, WithId(1)), 10000);
+		assert_eq!(pool_balance(1, 0), 0);
+	});
+}
+
+#[test]
+#[should_panic(expected = "PoolExists")]
+fn genesis_duplicate_pool_panics() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![
+		(Native, WithId(1), 1, 1000, 2000),
+		(Native, WithId(1), 1, 1000, 2000),
+	]);
+}
+
+#[test]
+#[should_panic(expected = "InvalidAssetPair")]
+fn genesis_same_assets_panics() {
+	use NativeOrWithId::WithId;
+	new_test_ext_with_genesis_pools(vec![(WithId(1), WithId(1), 1, 1000, 2000)]);
 }

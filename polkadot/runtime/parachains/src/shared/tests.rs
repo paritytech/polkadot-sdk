@@ -26,50 +26,94 @@ use polkadot_primitives_test_helpers::validator_pubkeys;
 use sp_keyring::Sr25519Keyring;
 
 #[test]
-fn tracker_earliest_block_number() {
-	let mut tracker = AllowedRelayParentsTracker::default();
+fn minimum_relay_parent_number() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// No entries yet — returns None.
+		assert!(Pallet::<Test>::get_minimum_relay_parent_number().is_none());
 
-	// Test it on an empty tracker.
-	let now: u32 = 1;
-	let max_ancestry_len = 5;
-	assert_eq!(tracker.hypothetical_earliest_block_number(now, max_ancestry_len), now);
+		let session = 0;
 
-	// Push a single block into the tracker, suppose max capacity is 1.
-	let max_ancestry_len = 0;
-	tracker.update(Hash::zero(), Hash::zero(), Default::default(), 0, max_ancestry_len + 1);
-	assert_eq!(tracker.hypothetical_earliest_block_number(now, max_ancestry_len as _), now);
-
-	// Test a greater capacity.
-	let max_ancestry_len = 4;
-	let now = 4;
-	for i in 1..now {
-		tracker.update(
-			Hash::from([i as u8; 32]),
-			Hash::zero(),
+		// Add a relay parent at block 10. This is the first entry for session 0,
+		// so MinimumRelayParentNumber is set to 10.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(1),
 			Default::default(),
-			i,
-			max_ancestry_len + 1,
+			10,
+			5,
+			Default::default(),
+			session,
+			0,
 		);
-		assert_eq!(tracker.hypothetical_earliest_block_number(i + 1, max_ancestry_len as _), 0);
-	}
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(10));
 
-	// Capacity exceeded.
-	tracker.update(Hash::zero(), Hash::zero(), Default::default(), now, max_ancestry_len);
-	assert_eq!(tracker.hypothetical_earliest_block_number(now + 1, max_ancestry_len as _), 1);
+		// Add another relay parent at block 11. Minimum stays at 10.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(2),
+			Default::default(),
+			11,
+			5,
+			Default::default(),
+			session,
+			0,
+		);
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(10));
+
+		// New session 1 with max_relay_parent_session_age=1 (keep both sessions).
+		let session = 1;
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(3),
+			Default::default(),
+			20,
+			5,
+			Default::default(),
+			session,
+			1,
+		);
+		// Minimum is still 10 from session 0 (oldest session).
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(10));
+
+		// New session 2 with max_relay_parent_session_age=1. Session 0 gets pruned.
+		let session = 2;
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(4),
+			Default::default(),
+			30,
+			5,
+			Default::default(),
+			session,
+			1,
+		);
+		// Session 0 pruned, oldest is now session 1 with min block 20.
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(20));
+
+		// New session 3 with max_relay_parent_session_age=0. Sessions 1 and 2 get pruned.
+		let session = 3;
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(5),
+			Default::default(),
+			40,
+			5,
+			Default::default(),
+			session,
+			0,
+		);
+		// Only session 3 remains, min is 40.
+		assert_eq!(Pallet::<Test>::get_minimum_relay_parent_number(), Some(40));
+	});
 }
 
 #[test]
 fn tracker_claim_queue_transpose() {
-	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
+	let mut tracker = AllowedSchedulingParentsTracker::<Hash, u32>::default();
 
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(CoreIndex(0), vec![Id::from(0), Id::from(1), Id::from(2)].into());
 	claim_queue.insert(CoreIndex(1), vec![Id::from(0), Id::from(0), Id::from(100)].into());
 	claim_queue.insert(CoreIndex(2), vec![Id::from(1), Id::from(2), Id::from(100)].into());
 
-	tracker.update(Hash::zero(), Hash::zero(), claim_queue, 1u32, 4);
+	tracker.update(Hash::zero(), claim_queue, 1u32, 4);
 
-	let (info, _block_num) = tracker.acquire_info(Hash::zero(), None).unwrap();
+	let (info, _block_num) = tracker.acquire_info(Hash::zero()).unwrap();
 	assert_eq!(
 		info.claim_queue.get(&Id::from(0)).unwrap()[&0],
 		vec![CoreIndex(0), CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
@@ -108,57 +152,335 @@ fn tracker_claim_queue_transpose() {
 }
 
 #[test]
-fn tracker_acquire_info() {
-	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
+fn scheduling_tracker_acquire_info() {
+	let mut tracker = AllowedSchedulingParentsTracker::<Hash, u32>::default();
 	let max_ancestry_len = 2;
 
-	// (relay_parent, state_root) pairs.
-	let blocks = &[
-		(Hash::repeat_byte(0), Hash::repeat_byte(10)),
-		(Hash::repeat_byte(1), Hash::repeat_byte(11)),
-		(Hash::repeat_byte(2), Hash::repeat_byte(12)),
-	];
+	let blocks = &[Hash::repeat_byte(0), Hash::repeat_byte(1), Hash::repeat_byte(2)];
 
-	let (relay_parent, state_root) = blocks[0];
-	tracker.update(relay_parent, state_root, Default::default(), 0, max_ancestry_len + 1);
+	tracker.update(blocks[0], Default::default(), 0, max_ancestry_len + 1);
 	assert_matches!(
-		tracker.acquire_info(relay_parent, None),
-		Some((s, b)) if s.state_root == state_root && b == 0
+		tracker.acquire_info(blocks[0]),
+		Some((s, b)) if s.scheduling_parent == blocks[0] && b == 0
 	);
 
 	// Try to push a duplicate. Should be ignored.
-	tracker.update(
-		relay_parent,
-		Hash::repeat_byte(13),
-		Default::default(),
-		0,
-		max_ancestry_len + 1,
-	);
+	tracker.update(blocks[0], Default::default(), 0, max_ancestry_len + 1);
 	assert_eq!(tracker.buffer.len(), 1);
 	assert_matches!(
-		tracker.acquire_info(relay_parent, None),
-		Some((s, b)) if s.state_root == state_root && b == 0
+		tracker.acquire_info(blocks[0]),
+		Some((s, b)) if s.scheduling_parent == blocks[0] && b == 0
 	);
 
-	let (relay_parent, state_root) = blocks[1];
-	tracker.update(relay_parent, state_root, Default::default(), 1u32, max_ancestry_len + 1);
-	let (relay_parent, state_root) = blocks[2];
-	tracker.update(relay_parent, state_root, Default::default(), 2u32, max_ancestry_len + 1);
-	for (block_num, (rp, state_root)) in blocks.iter().enumerate().take(2) {
+	tracker.update(blocks[1], Default::default(), 1u32, max_ancestry_len + 1);
+	tracker.update(blocks[2], Default::default(), 2u32, max_ancestry_len + 1);
+	for (block_num, hash) in blocks.iter().enumerate() {
 		assert_matches!(
-			tracker.acquire_info(*rp, None),
-			Some((s, b)) if &s.state_root == state_root && b == block_num as u32
-		);
-
-		assert!(tracker.acquire_info(*rp, Some(2)).is_none());
-	}
-
-	for (block_num, (rp, state_root)) in blocks.iter().enumerate().skip(1) {
-		assert_matches!(
-			tracker.acquire_info(*rp, Some(block_num as u32 - 1)),
-			Some((s, b)) if &s.state_root == state_root && b == block_num as u32
+			tracker.acquire_info(*hash),
+			Some((s, b)) if s.scheduling_parent == *hash && b == block_num as u32
 		);
 	}
+}
+
+#[test]
+fn new_block_inserts_relay_parent_and_scheduling_parent() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let hash = Hash::repeat_byte(1);
+		let block_number = 5u32;
+		let session = 0u32;
+		let state_root = Hash::repeat_byte(0xBB);
+
+		Pallet::<Test>::new_block(
+			hash,
+			Default::default(),
+			block_number,
+			10,
+			state_root,
+			session,
+			0,
+		);
+
+		// Relay parent should be in the DoubleMap.
+		let info = Pallet::<Test>::get_relay_parent_info(session, hash)
+			.expect("relay parent should exist");
+		assert_eq!(info.number, block_number);
+		assert_eq!(info.state_root, state_root);
+
+		// Scheduling parent should be in the tracker.
+		let tracker = AllowedSchedulingParents::<Test>::get();
+		assert_eq!(tracker.buffer.len(), 1);
+		assert_eq!(tracker.buffer[0].scheduling_parent, hash);
+	});
+}
+
+#[test]
+fn new_block_prunes_old_sessions_relay_parents() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// At genesis, OldestRelayParentSession starts at 0.
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 0);
+
+		// Insert multiple entries per session in sessions 0, 1, 2.
+		for session in 0..3u32 {
+			for i in 0..3u32 {
+				let hash = Hash::repeat_byte((session * 10 + i) as u8);
+				Pallet::<Test>::new_block(
+					hash,
+					Default::default(),
+					session * 10 + i,
+					10,
+					Default::default(),
+					session,
+					2,
+				);
+			}
+		}
+
+		// With max_relay_parent_session_age=2 at session 2,
+		// oldest_allowed = 2 - 2 = 0. All sessions should still exist.
+		for i in 0..3u32 {
+			assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(i as u8)).is_some());
+			assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte((10 + i) as u8))
+				.is_some());
+			assert!(Pallet::<Test>::get_relay_parent_info(2, Hash::repeat_byte((20 + i) as u8))
+				.is_some());
+		}
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 0);
+
+		// Now move to session 3 with max_age=2. oldest_allowed = 3 - 2 = 1.
+		// All entries from session 0 should be pruned.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(30),
+			Default::default(),
+			30,
+			10,
+			Default::default(),
+			3,
+			2,
+		);
+		assert_eq!(AllowedRelayParents::<Test>::iter_prefix(0).count(), 0);
+		for i in 0..3u32 {
+			assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte((10 + i) as u8))
+				.is_some());
+			assert!(Pallet::<Test>::get_relay_parent_info(2, Hash::repeat_byte((20 + i) as u8))
+				.is_some());
+		}
+		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(30)).is_some());
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 1);
+
+		// Session 5 with max_age=2. oldest_allowed = 5 - 2 = 3.
+		// All entries from sessions 1 and 2 should be pruned.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(50),
+			Default::default(),
+			50,
+			10,
+			Default::default(),
+			5,
+			2,
+		);
+		assert_eq!(AllowedRelayParents::<Test>::iter_prefix(1).count(), 0);
+		assert_eq!(AllowedRelayParents::<Test>::iter_prefix(2).count(), 0);
+		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(30)).is_some());
+		assert!(Pallet::<Test>::get_relay_parent_info(5, Hash::repeat_byte(50)).is_some());
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 3);
+	});
+}
+
+#[test]
+fn new_block_max_age_zero_keeps_only_current_session() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// Insert into session 0.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(0),
+			Default::default(),
+			0,
+			10,
+			Default::default(),
+			0,
+			0,
+		);
+		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(0)).is_some());
+
+		// Move to session 1 with max_age=0. Session 0 should be pruned.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(1),
+			Default::default(),
+			10,
+			10,
+			Default::default(),
+			1,
+			0,
+		);
+		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(0)).is_none());
+		assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte(1)).is_some());
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 1);
+	});
+}
+
+#[test]
+fn new_block_increasing_max_age() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// Build up sessions 0..5 with max_age=1.
+		for session in 0..5u32 {
+			Pallet::<Test>::new_block(
+				Hash::repeat_byte(session as u8),
+				Default::default(),
+				session * 10,
+				10,
+				Default::default(),
+				session,
+				1,
+			);
+		}
+
+		// After session 4 with max_age=1, oldest_allowed = 3.
+		// Sessions 0, 1, 2 are pruned.
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 3);
+		assert!(Pallet::<Test>::get_relay_parent_info(2, Hash::repeat_byte(2)).is_none());
+		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(3)).is_some());
+
+		// Now increase max_age to 10. oldest_allowed = 4 - 10 = 0 (saturating).
+		// OldestRelayParentSession must NOT move backward to 0 — sessions 0, 1, 2
+		// are already gone.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(5),
+			Default::default(),
+			50,
+			10,
+			Default::default(),
+			4,
+			10,
+		);
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 3);
+
+		// Sessions 0, 1, 2 are still gone.
+		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(0)).is_none());
+		assert!(Pallet::<Test>::get_relay_parent_info(1, Hash::repeat_byte(1)).is_none());
+		assert!(Pallet::<Test>::get_relay_parent_info(2, Hash::repeat_byte(2)).is_none());
+
+		// But sessions 3 and 4 are still there.
+		assert!(Pallet::<Test>::get_relay_parent_info(3, Hash::repeat_byte(3)).is_some());
+		// The original session 4 entry (Hash::repeat_byte(4)) and the new one both survive.
+		assert!(Pallet::<Test>::get_relay_parent_info(4, Hash::repeat_byte(4)).is_some());
+		assert!(Pallet::<Test>::get_relay_parent_info(4, Hash::repeat_byte(5)).is_some());
+	});
+}
+
+#[test]
+fn new_block_decreasing_max_age_prunes_multiple_sessions() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// Build up sessions 0..5 with max_age=5 (no pruning at all).
+		for session in 0..5u32 {
+			Pallet::<Test>::new_block(
+				Hash::repeat_byte(session as u8),
+				Default::default(),
+				session * 10,
+				10,
+				Default::default(),
+				session,
+				5,
+			);
+		}
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 0);
+
+		// All sessions present.
+		for session in 0..5u32 {
+			assert!(Pallet::<Test>::get_relay_parent_info(
+				session,
+				Hash::repeat_byte(session as u8)
+			)
+			.is_some());
+		}
+
+		// Now decrease max_age to 1 at session 5. oldest_allowed = 5 - 1 = 4.
+		// Sessions 0, 1, 2, 3 should all be pruned in one go.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(5),
+			Default::default(),
+			50,
+			10,
+			Default::default(),
+			5,
+			1,
+		);
+		assert_eq!(OldestRelayParentSession::<Test>::get(), 4);
+
+		for session in 0..4u32 {
+			assert!(Pallet::<Test>::get_relay_parent_info(
+				session,
+				Hash::repeat_byte(session as u8)
+			)
+			.is_none());
+		}
+		assert!(Pallet::<Test>::get_relay_parent_info(4, Hash::repeat_byte(4)).is_some());
+		assert!(Pallet::<Test>::get_relay_parent_info(5, Hash::repeat_byte(5)).is_some());
+	});
+}
+
+#[test]
+fn cross_session_relay_parents_are_accessible() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// Insert relay parents across 3 sessions.
+		let hashes: Vec<Hash> = (0..3u8).map(|i| Hash::repeat_byte(i + 1)).collect();
+
+		Pallet::<Test>::new_block(hashes[0], Default::default(), 10, 10, Default::default(), 0, 5);
+		Pallet::<Test>::new_block(hashes[1], Default::default(), 20, 10, Default::default(), 1, 5);
+		Pallet::<Test>::new_block(hashes[2], Default::default(), 30, 10, Default::default(), 2, 5);
+
+		// All relay parents from all sessions should be accessible.
+		for (session, hash) in hashes.iter().enumerate() {
+			let info = Pallet::<Test>::get_relay_parent_info(session as u32, *hash)
+				.expect("relay parent should be accessible from older session");
+			assert_eq!(info.number, (session as u32 + 1) * 10);
+		}
+
+		// Wrong session returns None.
+		assert!(Pallet::<Test>::get_relay_parent_info(1, hashes[0]).is_none());
+		// Wrong hash returns None.
+		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(99)).is_none());
+	});
+}
+
+#[test]
+fn session_change_clears_scheduling_parents_but_not_relay_parents() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let config = HostConfiguration::default();
+
+		// Session 0: insert some relay parents.
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(1),
+			Default::default(),
+			1,
+			10,
+			Default::default(),
+			0,
+			5,
+		);
+		Pallet::<Test>::new_block(
+			Hash::repeat_byte(2),
+			Default::default(),
+			2,
+			10,
+			Default::default(),
+			0,
+			5,
+		);
+
+		let tracker = AllowedSchedulingParents::<Test>::get();
+		assert_eq!(tracker.buffer.len(), 2);
+
+		// Simulate session change — this clears the scheduling parents buffer.
+		let pubkeys = validator_pubkeys(&[Sr25519Keyring::Alice]);
+		ParasShared::initializer_on_new_session(1, [0; 32], &config, pubkeys);
+
+		// Scheduling parents buffer should be empty.
+		let tracker = AllowedSchedulingParents::<Test>::get();
+		assert!(tracker.buffer.is_empty());
+
+		// But relay parents from session 0 should still be in the DoubleMap.
+		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(1)).is_some());
+		assert!(Pallet::<Test>::get_relay_parent_info(0, Hash::repeat_byte(2)).is_some());
+	});
 }
 
 #[test]

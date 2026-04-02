@@ -38,9 +38,15 @@ use sp_weights::Weight;
 ///
 /// This extension does not influence any fields of `TransactionValidity` in case the
 /// transaction is valid.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
+
+impl<T: Config + Send + Sync> Default for CheckWeight<T> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
 
 impl<T: Config + Send + Sync> CheckWeight<T>
 where

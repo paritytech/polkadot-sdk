@@ -781,11 +781,11 @@ fn serialize_syscall_op<S>(idx: &u8, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: serde::Serializer,
 {
-	use crate::vm::pvm::env::list_syscalls;
-	let Some(syscall_name_bytes) = list_syscalls().get(*idx as usize) else {
-		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")));
+	use crate::vm::pvm::env::list_trace_ops;
+	let Some(name_bytes) = list_trace_ops().get(*idx as usize) else {
+		return Err(serde::ser::Error::custom(alloc::format!("Unknown trace op: {idx}")));
 	};
-	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
+	let name = core::str::from_utf8(name_bytes).unwrap_or_default();
 	serializer.serialize_str(name)
 }
 
@@ -804,14 +804,13 @@ fn deserialize_syscall_op<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
 	D: serde::Deserializer<'de>,
 {
-	use crate::vm::pvm::env::list_syscalls;
+	use crate::vm::pvm::env::list_trace_ops;
 	let s = String::deserialize(deserializer)?;
-	let syscalls = list_syscalls();
-	syscalls
-		.iter()
+	let ops = list_trace_ops();
+	ops.iter()
 		.position(|name| core::str::from_utf8(name).unwrap_or_default() == s)
 		.map(|i| i as u8)
-		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown syscall: {}", s)))
+		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown trace op: {}", s)))
 }
 
 /// A smart contract execution call trace.
