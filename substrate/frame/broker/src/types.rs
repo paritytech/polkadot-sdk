@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, RCBlockNumberOf,
-	TaskId, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, MarketSaleInfo,
+	RCBlockNumberOf, TaskId, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
@@ -35,6 +35,7 @@ pub type BidIdOf<T> = <MarketOf<T> as Market<T>>::BidId;
 pub type MarketInitDataOf<T> = <<T as Config>::MarketImpl as Market<T>>::InitData;
 pub type MarketConfigRecordOf<T> = <<T as Config>::MarketImpl as Market<T>>::Configuration;
 pub type MarketOf<T> = <T as Config>::MarketImpl;
+pub type MarketSaleInfoOf<T> = MarketSaleInfo<RelayBlockNumberOf<T>>;
 
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
 pub type Timeslice = u32;

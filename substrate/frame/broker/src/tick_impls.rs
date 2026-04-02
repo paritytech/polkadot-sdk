@@ -216,8 +216,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Begin selling for the next sale period.
 	pub(crate) fn rotate_sale(
-		old_sale: &SaleInfoRecordOf<T>,
-		new_sale: &SaleInfoRecordOf<T>,
+		old_sale: &MarketSaleInfoOf<T>,
+		new_sale: &MarketSaleInfoOf<T>,
 		new_prices: AdaptedPrices<BalanceOf<T>>,
 		start_price: BalanceOf<T>,
 		status: &StatusRecord,

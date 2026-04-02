@@ -17,9 +17,7 @@
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp;
-use frame_support::{
-	ensure, pallet_prelude::StorageValue, storage_alias, weights::WeightMeter, Parameter,
-};
+use frame_support::{ensure, storage_alias, weights::WeightMeter, Parameter};
 use frame_system::pallet_prelude::AccountIdFor;
 use scale_info::TypeInfo;
 use sp_arithmetic::FixedPointNumber;
@@ -102,6 +100,45 @@ pub trait TimesliceProvider {
 	fn latest_timeslice_ready_to_commit() -> Option<Timeslice>;
 }
 
+pub struct MarketSaleInfo<RelayBlockNumber> {
+	/// The relay block number at which the sale will/did start.
+	pub sale_start: RelayBlockNumber,
+	/// The length in blocks of the Leadin Period (where the price is decreasing).
+	pub leadin_length: RelayBlockNumber,
+	/// The first timeslice of the Regions which are being sold in this sale.
+	pub region_begin: Timeslice,
+	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
+	/// after the last timeslice which the Regions control.)
+	pub region_end: Timeslice,
+	/// The number of cores we want to sell, ideally. Selling this amount would result in no
+	/// change to the price for the next sale.
+	pub ideal_cores_sold: CoreIndex,
+	/// Number of cores which are/have been offered for sale.
+	pub cores_offered: CoreIndex,
+	/// The index of the first core which is for sale. Core of Regions which are sold have
+	/// incrementing indices from this.
+	pub first_core: CoreIndex,
+	/// Number of cores which have been sold; never more than cores_offered.
+	pub cores_sold: CoreIndex,
+}
+
+impl<RelayBlockNumber, Balance> From<SaleInfoRecord<Balance, RelayBlockNumber>>
+	for MarketSaleInfo<RelayBlockNumber>
+{
+	fn from(value: SaleInfoRecord<Balance, RelayBlockNumber>) -> Self {
+		Self {
+			sale_start: value.sale_start,
+			leadin_length: value.leadin_length,
+			region_begin: value.region_begin,
+			region_end: value.region_end,
+			ideal_cores_sold: value.ideal_cores_sold,
+			cores_offered: value.cores_offered,
+			first_core: value.first_core,
+			cores_sold: value.cores_sold,
+		}
+	}
+}
+
 pub enum OrderResult<T: Config, BidId> {
 	BidPlaced { id: BidId, bid_price: BalanceOf<T> },
 	Sold { price: BalanceOf<T>, region_id: RegionId, region_end: Timeslice },
@@ -154,8 +191,8 @@ pub enum TickAction<T: Config> {
 		owner: T::AccountId,
 	},
 	SaleRotated {
-		old_sale: SaleInfoRecordOf<T>,
-		new_sale: SaleInfoRecordOf<T>,
+		old_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
+		new_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
 		new_prices: AdaptedPrices<BalanceOf<T>>,
 		// TODO: Deprecate it as it doesn't fit into the general market impl but used when emitting
 		// an event.
@@ -164,8 +201,8 @@ pub enum TickAction<T: Config> {
 }
 
 pub struct SalesStarted<T: Config> {
-	pub imaginary_old_sale: SaleInfoRecordOf<T>,
-	pub new_sale: SaleInfoRecordOf<T>,
+	pub imaginary_old_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
+	pub new_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
 	pub new_prices: AdaptedPrices<BalanceOf<T>>,
 	// TODO: Deprecate it as it doesn't fit into the general market impl but used when emitting
 	// an event.
@@ -283,7 +320,12 @@ impl<T: Config> Market<T> for Pallet<T> {
 
 		let start_price = sell_price::<T>(block_number, &new_sale);
 
-		Ok(SalesStarted { imaginary_old_sale: old_sale, new_sale, new_prices, start_price })
+		Ok(SalesStarted {
+			imaginary_old_sale: old_sale.into(),
+			new_sale: new_sale.into(),
+			new_prices,
+			start_price,
+		})
 	}
 
 	fn place_order(
@@ -392,8 +434,8 @@ pub(crate) fn sale_rotated<T: Config, M: Market<T>>(
 
 	let start_price = sell_price::<T>(block_number, &new_sale);
 	actions.push(TickAction::SaleRotated {
-		old_sale: sale,
-		new_sale: new_sale.clone(),
+		old_sale: sale.into(),
+		new_sale: new_sale.clone().into(),
 		new_prices,
 		start_price,
 	});
