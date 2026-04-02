@@ -512,8 +512,8 @@ where
 			return Some((hash, number));
 		};
 
-		if let PeerSyncState::AncestorSearch { .. } = peer.state {
-			trace!(target: LOG_TARGET, "Peer {} is in the ancestor search state.", peer_id);
+		if !peer.state.is_available() {
+			trace!(target: LOG_TARGET, "Peer {peer_id} is in state {:?}, skipping.", peer.state);
 			return None;
 		}
 

@@ -91,9 +91,14 @@ impl Metrics {
 
 	/// Record the time a collation took before expiring.
 	/// Collations can expire in the following states: "advertised, fetched or backed"
-	pub fn on_collation_expired(&self, latency: f64, state: &'static str) {
+	/// The `fork` label indicates if the collation was built on a relay chain fork.
+	pub fn on_collation_expired(&self, latency: f64, state: &'static str, built_on_fork: bool) {
 		if let Some(metrics) = &self.0 {
-			metrics.collation_expired_total.with_label_values(&[state]).observe(latency);
+			let fork_label = if built_on_fork { "true" } else { "false" };
+			metrics
+				.collation_expired_total
+				.with_label_values(&[state, fork_label])
+				.observe(latency);
 		}
 	}
 }
@@ -216,7 +221,7 @@ impl metrics::Metrics for Metrics {
 						"How many collations expired (not backed or not included)",
 					)
 					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
-					&["state"],
+					&["state", "fork"],
 				)?,
 				registry,
 			)?,
@@ -377,20 +382,6 @@ impl CollationTracker {
 		// Disable the fetch timer, to prevent bogus observe on drop.
 		if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
 			fetch_latency_metric.stop_and_discard();
-		}
-
-		if let Some(entry) = self
-			.entries
-			.values()
-			.find(|entry| entry.relay_parent_number == stats.relay_parent_number)
-		{
-			gum::debug!(
-				target: crate::LOG_TARGET_STATS,
-				?stats.relay_parent_number,
-				?stats.relay_parent,
-				entry_relay_parent = ?entry.relay_parent,
-				"Collation built on a fork",
-			);
 		}
 
 		self.entries.insert(stats.head, stats);

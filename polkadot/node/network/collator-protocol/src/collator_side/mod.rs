@@ -1783,7 +1783,12 @@ async fn handle_our_view_change<Context>(
 
 			if let Some(block_number) = maybe_block_number {
 				let expired_collations = state.collation_tracker.drain_expired(block_number);
-				process_expired_collations(expired_collations, para_id, &state.metrics);
+				process_expired_collations(
+					expired_collations,
+					para_id,
+					&state.metrics,
+					implicit_view,
+				);
 			}
 
 			// Get all the collations built on top of the removed leaf.
@@ -1874,13 +1879,33 @@ fn process_expired_collations(
 	expired_collations: Vec<CollationStats>,
 	para_id: ParaId,
 	metrics: &Metrics,
+	implicit_view: &ImplicitView,
 ) {
+	// Find the best leaf (highest block number) to determine fork status.
+	let best_leaf = implicit_view
+		.leaves()
+		.filter_map(|leaf| implicit_view.block_number(leaf).map(|num| (leaf, num)))
+		.max_by_key(|(_, num)| *num)
+		.map(|(leaf, _)| *leaf);
+
 	for expired_collation in expired_collations {
 		let collation_state = expired_collation.expiry_state();
 		let age = expired_collation.expired().unwrap_or_default();
 		let candidate_hash = expired_collation.candidate_hash();
 		let pov_hash = expired_collation.pov_hash();
-		let relay_parent = expired_collation.relay_parent();
+		let (relay_parent, _) = expired_collation.relay_parent();
+
+		// Determine if the relay parent is on a fork by checking whether it's
+		// an ancestor of the current best leaf. This is done at expiry time
+		// (not at fetch time) so we have the most up-to-date view of the chain.
+		let built_on_fork = match best_leaf {
+			Some(best_leaf) => !implicit_view
+				.known_allowed_relay_parents_under(&best_leaf)
+				.map(|parents| parents.contains(&relay_parent))
+				.unwrap_or(false),
+			None => false,
+		};
+
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,
 			?age,
@@ -1890,6 +1915,7 @@ fn process_expired_collations(
 			head = ?expired_collation.head(),
 			?candidate_hash,
 			?pov_hash,
+			?built_on_fork,
 			"Collation expired",
 		);
 
@@ -1898,7 +1924,7 @@ fn process_expired_collations(
 		if let Some(latency) = expired_collation.backed() {
 			metrics.on_collation_backed(latency as f64);
 		}
-		metrics.on_collation_expired(age as f64, collation_state);
+		metrics.on_collation_expired(age as f64, collation_state, built_on_fork);
 	}
 }
 
