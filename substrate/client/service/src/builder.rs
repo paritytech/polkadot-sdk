@@ -43,13 +43,13 @@ use sc_executor::{
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, ProtocolId, SyncMode},
+	config::{FullNetworkConfiguration, IpfsConfig, ProtocolId, SyncMode},
 	multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
 		NotificationMetrics,
 	},
-	NetworkBackend, NetworkStateInfo,
+	IpfsIndexedTransactions, NetworkBackend, NetworkStateInfo,
 };
 use sc_network_common::role::{Role, Roles};
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -76,6 +76,7 @@ use sc_rpc::{
 };
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
+	bitswap::BitswapApiServer,
 	chain_head::ChainHeadApiServer,
 	chain_spec::ChainSpecApiServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
@@ -98,6 +99,10 @@ use std::{
 	sync::Arc,
 	time::{Duration, SystemTime},
 };
+
+/// Cap the maximum number of blocks advertized to IPFS to two weeks at 6-second block time.
+/// Block pruning depth will be used if it is shorter.
+const IPFS_MAX_BLOCKS: u32 = 201600;
 
 /// Full client type.
 pub type TFullClient<TBl, TRtApi, TExec> =
@@ -647,6 +652,7 @@ where
 			backend: backend.clone(),
 			rpc_builder: &*rpc_builder,
 			metrics: rpc_v2_metrics.clone(),
+			sync_oracle: sync_service.clone(),
 			tracing_execute_block: execute_block.clone(),
 		})
 	};
@@ -814,6 +820,8 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 	pub rpc_builder: &'a dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>,
 	/// Transaction metrics handle.
 	pub metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
+	/// Sync oracle for determining sync status.
+	pub sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	/// Optional [`TracingExecuteBlock`] handle.
 	///
 	/// Will be used by the `trace_block` RPC to execute the actual block.
@@ -836,6 +844,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 		backend,
 		rpc_builder,
 		metrics,
+		sync_oracle,
 		tracing_execute_block: execute_block,
 	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
 ) -> Result<RpcModule<()>, Error>
@@ -933,6 +942,9 @@ where
 	)
 	.into_rpc();
 
+	// Bitswap RPC-v2 (do not confuse with v1 from `bitswap_v1_get`).
+	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
+
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
 		transaction_pool,
@@ -956,6 +968,7 @@ where
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(bitswap_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;
@@ -1112,7 +1125,6 @@ where
 		role: config.role,
 		protocol_id,
 		fork_id,
-		ipfs_server: config.network.ipfs_server,
 		announce_block: config.announce_block,
 		net_config,
 		client,
@@ -1125,6 +1137,7 @@ where
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning: config.blocks_pruning,
 	})
 }
 
@@ -1140,8 +1153,6 @@ where
 	pub protocol_id: ProtocolId,
 	/// Fork ID.
 	pub fork_id: Option<&'a str>,
-	/// Enable serving block data over IPFS bitswap.
-	pub ipfs_server: bool,
 	/// Announce block automatically after they have been imported.
 	pub announce_block: bool,
 	/// Full network configuration.
@@ -1166,6 +1177,8 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Block pruning configuration.
+	pub blocks_pruning: BlocksPruning,
 }
 
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
@@ -1200,7 +1213,6 @@ where
 		role,
 		protocol_id,
 		fork_id,
-		ipfs_server,
 		announce_block,
 		mut net_config,
 		client,
@@ -1213,6 +1225,7 @@ where
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning,
 	} = params;
 
 	let genesis_hash = client.info().genesis_hash;
@@ -1228,11 +1241,21 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	let bitswap_config = ipfs_server.then(|| {
-		let (handler, config) = Net::bitswap_server(client.clone());
+	// Initialize IPFS server.
+	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
+		let (handler, bitswap_config) = Net::bitswap_server(client.clone());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
-		config
+		let ipfs_num_blocks = match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
+			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
+		};
+
+		IpfsConfig {
+			bitswap_config,
+			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
+		}
 	});
 
 	// Create transactions protocol and add it to the list of supported protocols of
@@ -1266,7 +1289,7 @@ where
 		fork_id: fork_id.map(ToOwned::to_owned),
 		metrics_registry: metrics_registry.cloned(),
 		block_announce_config,
-		bitswap_config,
+		ipfs_config,
 		notification_metrics: metrics,
 	};
 

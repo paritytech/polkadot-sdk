@@ -47,6 +47,7 @@ pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-indices = { workspace = true }
+pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-multi-asset-bounties = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -73,6 +74,7 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-uniques = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-verify-signature = { workspace = true }
 pallet-vesting = { workspace = true }
 pallet-vesting-precompile = { workspace = true }
 pallet-whitelist = { workspace = true }
@@ -192,6 +194,7 @@ runtime-benchmarks = [
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -214,6 +217,7 @@ runtime-benchmarks = [
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-vesting-precompile/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-whitelist/runtime-benchmarks",
@@ -270,6 +274,7 @@ try-runtime = [
 	"pallet-fast-unstake/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-meta-tx/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -292,6 +297,7 @@ try-runtime = [
 	"pallet-treasury/try-runtime",
 	"pallet-uniques/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"pallet-vesting-precompile/try-runtime",
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
@@ -354,6 +360,7 @@ std = [
 	"pallet-fast-unstake/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
+	"pallet-meta-tx/std",
 	"pallet-migrations/std",
 	"pallet-multi-asset-bounties/std",
 	"pallet-multisig/std",
@@ -380,6 +387,7 @@ std = [
 	"pallet-treasury/std",
 	"pallet-uniques/std",
 	"pallet-utility/std",
+	"pallet-verify-signature/std",
 	"pallet-vesting-precompile/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",

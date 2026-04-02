@@ -246,6 +246,17 @@ impl CollationManager {
 			else {
 				continue;
 			};
+			let session_index =
+				match recv_runtime(request_session_index_for_child(*leaf, sender).await)
+					.await
+					.map_err(Error::Runtime)
+				{
+					Ok(session_index) => session_index,
+					Err(err) => {
+						err.split()?.log();
+						continue;
+					},
+				};
 
 			// Includes the leaf
 			for (idx, ancestor) in allowed_ancestry.iter().enumerate() {
@@ -253,19 +264,7 @@ impl CollationManager {
 					continue;
 				}
 
-				let session_index =
-					match recv_runtime(request_session_index_for_child(*ancestor, sender).await)
-						.await
-						.map_err(Error::Runtime)
-					{
-						Ok(session_index) => session_index,
-						Err(err) => {
-							err.split()?.log();
-							continue;
-						},
-					};
-
-				let core = match self.get_our_core(sender, leaf, session_index).await {
+				let core = match self.get_our_core(sender, ancestor, session_index).await {
 					Ok(assignments) => assignments,
 					Err(err) => {
 						err.split()?.log();

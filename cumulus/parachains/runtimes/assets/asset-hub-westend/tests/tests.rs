@@ -2526,7 +2526,9 @@ mod dap {
 	#[test]
 	fn tx_fees_go_to_dap_buffer() {
 		let alice = AccountId::from(Sr25519Keyring::Alice);
-		let buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
+			AccountId,
+		>>::pot_account();
 		let ed = ExistentialDeposit::get();
 
 		ExtBuilder::<Runtime>::default()
@@ -2564,7 +2566,9 @@ mod dap {
 	fn dust_removal_goes_to_dap_buffer() {
 		let alice = AccountId::from(ALICE);
 		let bob = AccountId::from(BOB);
-		let buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
+			AccountId,
+		>>::pot_account();
 		let ed = ExistentialDeposit::get();
 		let dust = ed / 2;
 
