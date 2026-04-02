@@ -947,7 +947,16 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Success);
 		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
 
-		// Then
+		// Then: BountyPayoutProcessed should emit the net payout (parent value minus child
+		// value), not the full parent value.
+		let expected_payout = s.value - s.child_value;
+		expect_events(vec![BountiesEvent::BountyPayoutProcessed {
+			index: s.parent_bounty_id,
+			child_index: None,
+			asset_kind: s.asset_kind,
+			value: expected_payout,
+			beneficiary: s.beneficiary,
+		}]);
 		assert_eq!(
 			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
 			0
