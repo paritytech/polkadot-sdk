@@ -221,7 +221,7 @@ where
 			// chain slot. If propagation exceeded `slot_offset`, this
 			// blocks until a new-best notification arrives.
 			// See: https://github.com/paritytech/polkadot-sdk/pull/11453
-			let Some(relay_best_hash) = wait_for_current_relay_block(
+			let Some(relay_best_header) = wait_for_current_relay_block(
 				&relay_client,
 				&mut relay_chain_data_cache,
 				&mut best_notifications,
@@ -245,7 +245,7 @@ where
 
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
-				relay_best_hash,
+				relay_best_header,
 				relay_parent_offset,
 			)
 			.await
@@ -561,31 +561,42 @@ fn is_best_relay_block_current_at(
 /// propagation exceeds `slot_offset` at a slot boundary.
 ///
 /// Returns the best relay block hash, or `None` on error.
-async fn wait_for_current_relay_block<RelayClient>(
+pub(crate) async fn wait_for_current_relay_block<RelayClient>(
 	relay_client: &RelayClient,
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	best_notifications: &mut (impl Stream<Item = RelayHeader> + Unpin),
 	slot_offset: Duration,
 	relay_chain_slot_duration: Duration,
-) -> Option<RelayHash>
+) -> Option<RelayHeader>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	loop {
-		let relay_best_hash = relay_client.best_block_hash().await.ok()?;
-
-		let best_header = relay_chain_data_cache
+	let relay_best_hash = relay_client.best_block_hash().await.ok()?;
+	let mut first_best_header = Some(
+		relay_chain_data_cache
 			.get_mut_relay_chain_data(relay_best_hash)
 			.await
 			.ok()
-			.map(|d| &d.relay_parent_header)?;
+			.map(|d| d.relay_parent_header.clone())?,
+	);
 
-		let best_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(best_header)
+	loop {
+		// Drain buffered notifications.
+		while let Some(maybe_header) = best_notifications.next().now_or_never() {
+			first_best_header = Some(maybe_header?);
+		}
+
+		let best_header = match first_best_header.take() {
+			Some(h) => h,
+			None => best_notifications.next().await?, // Block until one arrives.
+		};
+
+		let best_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(&best_header)
 			.map(|d| d.slot())
 			.ok()?;
 
 		if is_best_relay_block_current(*best_slot, slot_offset, relay_chain_slot_duration) {
-			return Some(relay_best_hash);
+			return Some(best_header);
 		}
 
 		tracing::debug!(
@@ -595,7 +606,6 @@ where
 			?best_slot,
 			"Best relay block is stale, waiting for fresh one."
 		);
-		let _ = tokio::time::timeout(slot_offset, best_notifications.next()).await;
 	}
 }
 
@@ -610,21 +620,13 @@ where
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
 pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	relay_best_block: RelayHash,
+	mut relay_header: RelayHeader,
 	relay_parent_offset: u32,
 ) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(mut relay_header) = relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_best_block)
-		.await
-		.map(|d| d.relay_parent_header.clone())
-	else {
-		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(());
-	};
-
+	let relay_best_block = relay_header.hash();
 	if relay_parent_offset == 0 {
 		return Ok(Some(RelayParentData::new(relay_header)));
 	}
