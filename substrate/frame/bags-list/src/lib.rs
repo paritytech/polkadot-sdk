@@ -442,8 +442,13 @@ pub mod pallet {
 				return meter.consumed();
 			}
 
-			// Early exit: not enough weight for even one rebag.
-			if meter.try_consume(per_item).is_err() {
+			// Fixed overhead for storage ops outside the per-item loop:
+			// counter reads (ListNodes, PendingRebag), Lock read, cursor read
+			// (NextNodeAutoRebagged), cursor-update contains_key read, and cursor write.
+			let overhead = T::DbWeight::get().reads_writes(5, 1);
+
+			// Early exit: not enough weight for overhead + at least one rebag.
+			if meter.try_consume(overhead.saturating_add(per_item)).is_err() {
 				return meter.consumed();
 			}
 
