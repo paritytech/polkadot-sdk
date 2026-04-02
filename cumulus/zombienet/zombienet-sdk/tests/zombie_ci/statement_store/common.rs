@@ -177,7 +177,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	collators: &[&str],
 	participant_count: u32,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(collators.len() >= 2);
+	assert!(!collators.is_empty());
 	let images = zombienet_sdk::environment::get_images_from_env();
 
 	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
