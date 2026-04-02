@@ -28,9 +28,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	node_features, BlockNumber, CandidateDescriptorVersion, CollatorId, CollatorSignature,
-	CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2, OccupiedCore,
-	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features, BlockNumber, CandidateDescriptorV2, CandidateDescriptorVersion, CollatorId,
+	CollatorSignature, CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2,
+	OccupiedCore, PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt_v2, dummy_hash,
@@ -1463,7 +1463,6 @@ fn extract_core_index_from_statement_works() {
 		n_cores: test_state.availability_cores.len() as u32,
 		claim_queue: test_state.claim_queue.clone().into(),
 		validator_to_group: Arc::new(test_state.validator_to_group.clone()),
-		session_index: test_state.session(),
 		group_rotation_info: test_state.validator_groups.1.clone(),
 	};
 
