@@ -241,11 +241,10 @@ impl View {
 			.map(|mins| mins.allowed_relay_parents())
 	}
 
-	/// Returns all paths from the oldest block in storage to each leaf that passes through
-	/// `relay_parent`. The paths include all blocks from the oldest stored ancestor up to and
-	/// including the leaf, as long as `relay_parent` is somewhere on that path.
+	/// Returns all paths from each leaf's oldest allowed ancestor to the leaf, for every
+	/// leaf whose allowed ancestry contains `relay_parent`.
 	///
-	/// If `relay_parent` is not in the view, returns an empty `Vec`.
+	/// If `relay_parent` is not in any leaf's allowed ancestry, returns an empty `Vec`.
 	pub fn paths_via_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -255,56 +254,31 @@ impl View {
 			"Finding paths via relay parent"
 		);
 
-		if self.leaves.is_empty() {
-			// No leaves so the view should be empty. Don't return any paths.
-			return vec![];
-		};
-
 		if !self.block_info_storage.contains_key(relay_parent) {
-			// `relay_parent` is not in the view - don't return any paths
 			return vec![];
 		}
 
-		// Find all paths from each leaf to `relay_parent`.
 		let mut paths = Vec::new();
 		for (leaf, _) in &self.leaves {
-			let mut path = Vec::new();
-			let mut current_leaf = *leaf;
-			let mut visited = HashSet::new();
-			let mut path_contains_target = false;
+			let Some(allowed_rps) = self
+				.block_info_storage
+				.get(leaf)
+				.and_then(|info| info.maybe_allowed_relay_parents.as_ref())
+			else {
+				gum::warn!(
+					target: LOG_TARGET,
+					?leaf,
+					"Active leaf missing allowed relay parents",
+				);
+				continue;
+			};
 
-			// Start from the leaf and traverse all known blocks
-			loop {
-				if visited.contains(&current_leaf) {
-					// There is a cycle - abandon this path
-					break;
-				}
-
-				current_leaf = match self.block_info_storage.get(&current_leaf) {
-					Some(info) => {
-						// `current_leaf` is a known block - add it to the path and mark it as
-						// visited
-						path.push(current_leaf);
-						visited.insert(current_leaf);
-
-						// `current_leaf` is the target `relay_parent`. Mark the path so that it's
-						// included in the result
-						if current_leaf == *relay_parent {
-							path_contains_target = true;
-						}
-
-						// update `current_leaf` with the parent
-						info.parent_hash
-					},
-					None => {
-						// path is complete
-						if path_contains_target {
-							// we want the path ordered from oldest to newest so reverse it
-							paths.push(path.into_iter().rev().collect());
-						}
-						break;
-					},
-				};
+			// allowed_relay_parents_contiguous is in descending order: [leaf, parent, grandparent,
+			// ...] Check that relay_parent is in this leaf's allowed ancestry.
+			let contiguous = &allowed_rps.allowed_relay_parents_contiguous;
+			if contiguous.iter().any(|h| h == relay_parent) {
+				let path: Vec<Hash> = contiguous.iter().rev().copied().collect();
+				paths.push(path);
 			}
 		}
 
