@@ -42,6 +42,7 @@ pallet-collective-content = { workspace = true }
 pallet-core-fellowship = { workspace = true }
 pallet-dap-satellite = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-meta-tx = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -99,7 +100,6 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
 pallet-message-queue = { workspace = true }
-pallet-meta-tx = { workspace = true }
 
 pallet-collator-selection = { workspace = true }
 pallet-collective-content = { workspace = true }
