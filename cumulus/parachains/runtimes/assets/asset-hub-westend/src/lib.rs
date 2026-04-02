@@ -70,8 +70,8 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
-use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_asset_conversion_precompiles::AddressToAssetKind;
+use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
@@ -648,16 +648,13 @@ impl AddressToAssetKind for WestendAddressToAssetKind {
 			},
 			// Foreign assets: u32 index → look up xcm::v5::Location.
 			0x0220 => {
-				let location =
-					pallet_assets_precompiles::ForeignAssetIdExtractor::<
-						Runtime,
-						ForeignAssetsInstance,
-					>::asset_id_from_address(addr)?;
+				let location = pallet_assets_precompiles::ForeignAssetIdExtractor::<
+					Runtime,
+					ForeignAssetsInstance,
+				>::asset_id_from_address(addr)?;
 				Ok(location)
 			},
-			_ => Err(Error::Revert(Revert {
-				reason: "Unknown asset address prefix".into(),
-			})),
+			_ => Err(Error::Revert(Revert { reason: "Unknown asset address prefix".into() })),
 		}
 	}
 }
@@ -1322,7 +1319,11 @@ impl pallet_revive::Config for Runtime {
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
 		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,
-		pallet_asset_conversion_precompiles::AssetConversion<0x0420, Self, WestendAddressToAssetKind>,
+		pallet_asset_conversion_precompiles::AssetConversion<
+			0x0420,
+			Self,
+			WestendAddressToAssetKind,
+		>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
