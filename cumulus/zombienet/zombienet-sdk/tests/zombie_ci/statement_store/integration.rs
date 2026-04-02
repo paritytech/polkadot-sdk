@@ -307,16 +307,16 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 		// Try to receive the statement with a 1s timeout
 		match tokio::time::timeout(Duration::from_secs(1), subscription.next()).await {
 			Ok(Some(Ok(StatementEvent::NewStatements { statements: batch, .. })))
-			if !batch.is_empty() =>
-				{
-					assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
-					assert_eq!(batch[0], statement_bytes, "Statement content mismatch");
-					statement_received_at = Some(elapsed);
-					log::info!(
+				if !batch.is_empty() =>
+			{
+				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
+				assert_eq!(batch[0], statement_bytes, "Statement content mismatch");
+				statement_received_at = Some(elapsed);
+				log::info!(
 					">>> Statement received at {:.1}s after dave joined",
 					elapsed.as_secs_f64()
 				);
-				},
+			},
 			_ => {},
 		}
 	}
