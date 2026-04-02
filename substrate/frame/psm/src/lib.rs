@@ -256,7 +256,7 @@ pub mod pallet {
 		/// Account that receives pUSD fees from minting and redemption.
 		///
 		/// Must exist before any swap; initialized at genesis and migration
-		/// via [`Pallet::ensure_account_exists`].
+		/// via `Pallet::ensure_account_exists`.
 		type FeeDestination: Get<Self::AccountId>;
 
 		/// PalletId for deriving the PSM account.
@@ -302,28 +302,28 @@ pub mod pallet {
 
 	/// Fee for external → pUSD swaps (minting) per asset. Suggested value is 0.5%.
 	#[pallet::storage]
-	pub(crate) type MintingFee<T: Config> =
+	pub type MintingFee<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, Permill, ValueQuery, DefaultFee>;
 
 	/// Fee for pUSD → external swaps (redemption) per asset. Suggested value is 0.5%.
 	#[pallet::storage]
-	pub(crate) type RedemptionFee<T: Config> =
+	pub type RedemptionFee<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, Permill, ValueQuery, DefaultFee>;
 
 	/// Max PSM debt as percentage of MaximumIssuance (global ceiling).
 	#[pallet::storage]
-	pub(crate) type MaxPsmDebtOfTotal<T: Config> = StorageValue<_, Permill, ValueQuery>;
+	pub type MaxPsmDebtOfTotal<T: Config> = StorageValue<_, Permill, ValueQuery>;
 
 	/// Per-asset ceiling weight. Weights are normalized against the sum of all weights.
 	/// Zero means minting is disabled for this asset.
 	#[pallet::storage]
-	pub(crate) type AssetCeilingWeight<T: Config> =
+	pub type AssetCeilingWeight<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, Permill, ValueQuery>;
 
 	/// Set of approved external stablecoin asset IDs with their operational status.
 	/// Key existence indicates the asset is approved; the value is the circuit breaker level.
 	#[pallet::storage]
-	pub(crate) type ExternalAssets<T: Config> =
+	pub type ExternalAssets<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, T::AssetId, CircuitBreakerLevel, OptionQuery>;
 
 	/// Genesis configuration for the PSM pallet.
