@@ -148,7 +148,7 @@ jobs:
             --build-arg VCS_REF="${GITHUB_SHA}" \
             --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
             --build-arg IMAGE_NAME="polkadot" \
-            -t "docker.io/paritypr/polkadot:${{ steps.docker_tag.outputs.tag }}" \
+            -t "docker.io/paritypr/polkadot-debug:${{ steps.docker_tag.outputs.tag }}" \
             -f docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile \
             .
 
@@ -159,7 +159,7 @@ jobs:
             --build-arg VCS_REF="${GITHUB_SHA}" \
             --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
             --build-arg IMAGE_NAME="polkadot-parachain" \
-            -t "docker.io/paritypr/polkadot-parachain:${{ steps.docker_tag.outputs.tag }}" \
+            -t "docker.io/paritypr/polkadot-parachain-debug:${{ steps.docker_tag.outputs.tag }}" \
             -f docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile \
             .
 
