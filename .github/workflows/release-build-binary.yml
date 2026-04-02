@@ -1,4 +1,4 @@
-name: Binary and Docker image build
+name: Binary Build
 # This workflow can be used to build a binary like polkadot + workers, omninode or polkadot-parachain
 # from any revision with release or profuction profile to be later used for testing.
 # Also this workflow builds a Docker image for the binary and pushes it to dockerhub.io/paritypr registry
