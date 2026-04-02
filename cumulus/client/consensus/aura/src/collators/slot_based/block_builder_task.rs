@@ -51,7 +51,7 @@ use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Pair, H256};
+use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -188,52 +188,17 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		// Prevents a "stale parent" race condition that degrades block confidence.
-		//
-		// Block production is driven by two decoupled clocks:
-		//  I. Aura slot (wall clock): Triggers wake-ups and enforces a 1-second hard deadline
-		//     at the end of the slot to safely stop authoring.
-		//  II. Parachain slot: Derived from the imported relay parent, which determines if we
-		//     can build or not.
-		//
-		// Because network imports race against the local wall clock, a node running
-		// elastic scaling can easily desync.
-		//
-		// Timeline of the failure scenario (observed on yap-polkadot):
-		//
-		//  - T0: Aura 803 begins. The relay parent is still old (0xA). The node skips.
-		//
-		//  - T1 (soft failure): Aura 803 last block production opportunity. Relay parent 0xB
-		//    (para slot 803) is picked. However, aura 803 now has < 1000ms remaining. The 1s
-		//    deadline triggers, skipping the block.
-		//
-		//  - T2: Aura 804 begins. The node successfully builds 10 blocks on 0xB. As aura 804
-		//    ends, the 1s deadline triggers again, skipping the final 2 cores.
-		//
-		//  - T3 (critical failure): Aura 805 begins. The wall clock resets, the next aura slot
-		//    arrives in 6000ms. However, the network hasn't delivered a new relay parent yet.
-		//    Because the timer reset, the deadline check passes, and the node erroneously
-		//    builds a stale block on top of 0xB.
-		//
-		// To prevent T1, we rely on the 1-second hard deadline to skip block production.
-		//
-		// To prevent T3, we track the relay parent hash and whether we've already built and
-		// terminated on it. If the relay parent hasn't changed since our last terminated build,
-		// we skip production until the network delivers a new relay block.
-		//
-		// See: https://github.com/paritytech/polkadot-sdk/pull/11453
-		struct ParentTracker {
-			/// Hash of the relay block.
-			hash: Option<H256>,
-			/// True if the collator built a block for the current relay parent.
-			/// Needed so that T1 (first opportunity skip) doesn't wrongfully mark as terminated.
-			has_built: bool,
-			/// True if the slot timer determined there is no time left to build.
-			has_terminated: bool,
-		}
-
-		let mut parent_tracker =
-			ParentTracker { hash: None, has_built: false, has_terminated: false };
+		let mut best_notifications = match relay_client.new_best_notification_stream().await {
+			Ok(s) => s,
+			Err(err) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?err,
+					"Failed to initialize consensus: no relay chain best block notification stream"
+				);
+				return;
+			},
+		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
@@ -252,7 +217,19 @@ where
 				return;
 			};
 
-			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
+			// Wait for the best relay block to be from the current relay
+			// chain slot. If propagation exceeded `slot_offset`, this
+			// blocks until a new-best notification arrives.
+			// See: https://github.com/paritytech/polkadot-sdk/pull/11453
+			let Some(relay_best_hash) = wait_for_current_relay_block(
+				&relay_client,
+				&mut relay_chain_data_cache,
+				&mut best_notifications,
+				slot_offset,
+				relay_chain_slot_duration,
+			)
+			.await
+			else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue;
 			};
@@ -286,28 +263,6 @@ where
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
-
-			// Reset the state of the tracker in case of new blocks or re-orgs.
-			if parent_tracker.hash != Some(relay_parent) {
-				parent_tracker = ParentTracker {
-					hash: Some(relay_parent),
-					has_built: false,
-					has_terminated: false,
-				};
-			}
-
-			// The collator has terminated the building time, the `adjust_authoring_duration` has
-			// determined that there is no time left to build the block. This block must be skipped
-			// to avoid building blocks wrongfully when the import races with
-			// `wait_until_next_slot`.
-			if parent_tracker.has_terminated {
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?relay_parent,
-					"Skipping block production on terminated relay parent."
-				);
-				continue;
-			}
 
 			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -507,14 +462,6 @@ where
 					"Not building block due to insufficient authoring duration."
 				);
 
-				// In practice with 12 cores, it is possible that the wall clock (aura_slot) aligns
-				// perfectly with the parachain slot deduced from the relay block. For those cases,
-				// the first block production opportunity will be skipped immediately. This field
-				// ensures the block is marked as terminated only after building.
-				if parent_tracker.has_built {
-					parent_tracker.has_terminated = true;
-				}
-
 				continue;
 			};
 
@@ -537,9 +484,6 @@ where
 				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
 				continue;
 			};
-
-			// Mark the collator has built a block on this relay parent.
-			parent_tracker.has_built = true;
 
 			let new_block_hash = candidate.block.header().hash();
 
@@ -585,6 +529,74 @@ fn adjust_para_to_relay_parent_slot(
 		"Parachain slot adjusted to relay chain.",
 	);
 	Some(para_slot)
+}
+
+/// Returns `true` if the best relay chain block is from the current relay chain
+/// slot. Uses the wall clock adjusted by `slot_offset`.
+fn is_best_relay_block_current(
+	best_relay_slot: u64,
+	slot_offset: Duration,
+	relay_chain_slot_duration: Duration,
+) -> bool {
+	let now = super::slot_timer::duration_now().saturating_sub(slot_offset);
+	is_best_relay_block_current_at(best_relay_slot, now, relay_chain_slot_duration)
+}
+
+/// Pure logic for the relay block freshness check, taking the current time as
+/// a parameter for testability.
+fn is_best_relay_block_current_at(
+	best_relay_slot: u64,
+	now: Duration,
+	relay_chain_slot_duration: Duration,
+) -> bool {
+	let current_relay_slot = now.as_millis() as u64 / relay_chain_slot_duration.as_millis() as u64;
+	best_relay_slot >= current_relay_slot
+}
+
+/// Wait until the best relay chain block is from the current relay chain slot.
+///
+/// If the current best block is already current, returns its hash immediately.
+/// Otherwise waits for a new-best notification and re-checks. This ensures
+/// the collator doesn't build on a stale relay parent when relay block
+/// propagation exceeds `slot_offset` at a slot boundary.
+///
+/// Returns the best relay block hash, or `None` on error.
+async fn wait_for_current_relay_block<RelayClient>(
+	relay_client: &RelayClient,
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	best_notifications: &mut (impl Stream<Item = RelayHeader> + Unpin),
+	slot_offset: Duration,
+	relay_chain_slot_duration: Duration,
+) -> Option<RelayHash>
+where
+	RelayClient: RelayChainInterface + Clone + 'static,
+{
+	loop {
+		let relay_best_hash = relay_client.best_block_hash().await.ok()?;
+
+		let best_header = relay_chain_data_cache
+			.get_mut_relay_chain_data(relay_best_hash)
+			.await
+			.ok()
+			.map(|d| &d.relay_parent_header)?;
+
+		let best_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(best_header)
+			.map(|d| d.slot())
+			.ok()?;
+
+		if is_best_relay_block_current(*best_slot, slot_offset, relay_chain_slot_duration) {
+			return Some(relay_best_hash);
+		}
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			?relay_best_hash,
+			relay_best_num = %best_header.number(),
+			?best_slot,
+			"Best relay block is stale, waiting for fresh one."
+		);
+		let _ = tokio::time::timeout(slot_offset, best_notifications.next()).await;
+	}
 }
 
 /// Finds a relay chain parent block at a specified offset from the best block, collecting its
@@ -747,4 +759,92 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 		claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
 		number_of_cores: cores_at_offset.len() as u16,
 	}))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);
+
+	/// Simulate the wall clock at a specific point within a relay slot.
+	///
+	/// `relay_slot` is the current relay chain slot number, `ms_into_slot` is
+	/// how far into that slot we are (0..6000).
+	fn now_at(relay_slot: u64, ms_into_slot: u64) -> Duration {
+		Duration::from_millis(relay_slot * 6000 + ms_into_slot)
+	}
+
+	// ---------------------------------------------------------------
+	// Tests for `is_best_relay_block_current_at`
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn best_block_in_current_slot_is_current() {
+		// Wall clock in slot 804, best block from slot 804 → current.
+		assert!(is_best_relay_block_current_at(804, now_at(804, 500), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn best_block_in_previous_slot_is_stale() {
+		// Wall clock in slot 805, best block from slot 804 → stale.
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 500), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn the_bug_scenario_best_block_stale_at_slot_boundary() {
+		// THE BUG: wall clock just crossed into slot 805 (17ms in),
+		// but best relay block is still from slot 804. Stale.
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 17), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn best_block_current_after_new_relay_block_arrives() {
+		// New relay block (slot 805) arrives. Wall clock in slot 805.
+		assert!(is_best_relay_block_current_at(805, now_at(805, 500), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn best_block_from_future_slot_is_current() {
+		// Should not happen, but must not panic.
+		assert!(is_best_relay_block_current_at(810, now_at(805, 0), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn stale_at_exact_slot_boundary() {
+		// Exactly at the start of slot 805.
+		// Best from 804 → stale (804 < 805).
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 0), RELAY_SLOT_DURATION));
+		// Best from 805 → current.
+		assert!(is_best_relay_block_current_at(805, now_at(805, 0), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn current_at_end_of_slot() {
+		// 5999ms into slot 804 — still in slot 804.
+		// Best from 804 → current.
+		assert!(is_best_relay_block_current_at(804, now_at(804, 5999), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn no_wait_needed_during_normal_building() {
+		// During elastic scaling in slot 804: best is from 804,
+		// wall clock is mid-slot 804. No wait needed.
+		for ms in (0..6000).step_by(500) {
+			assert!(
+				is_best_relay_block_current_at(804, now_at(804, ms), RELAY_SLOT_DURATION),
+				"Should be current at {}ms into slot 804",
+				ms
+			);
+		}
+	}
+
+	#[test]
+	fn wait_needed_when_slot_advances() {
+		// Wall clock moves to slot 805, best still from 804.
+		// This is the race condition — must detect as stale.
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 0), RELAY_SLOT_DURATION));
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 17), RELAY_SLOT_DURATION));
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 500), RELAY_SLOT_DURATION));
+	}
 }
