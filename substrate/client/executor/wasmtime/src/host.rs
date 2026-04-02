@@ -131,18 +131,11 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		self.host_state_mut().panic_message = Some(message.to_owned());
 	}
 
-	fn fill_input_data(
-		&mut self,
-		ptr: Pointer<u8>,
-		size: WordSize,
-	) -> sp_wasm_interface::Result<()> {
-		let input_data = self
+	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
+		Ok(self
 			.host_state_mut()
 			.input_data
 			.take()
-			.expect("input data is not empty when calling a function in wasm; qed");
-		assert_eq!(input_data.len(), size as usize, "input data length mismatch");
-		self.write_memory(ptr, &input_data[..])?;
-		Ok(())
+			.expect("input data is not empty when calling a function in wasm; qed"))
 	}
 }
