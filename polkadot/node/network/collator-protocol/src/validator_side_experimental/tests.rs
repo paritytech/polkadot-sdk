@@ -119,6 +119,7 @@ fn dummy_candidate(
 			scheduling_parent: relay_parent,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+			core_index: core,
 		},
 	)
 }
@@ -153,6 +154,7 @@ fn dummy_candidate_v3(
 			scheduling_parent,
 			prospective_candidate,
 			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+			core_index: core,
 		},
 	)
 }
@@ -1951,6 +1953,7 @@ async fn test_advertisement_rejections() {
 		scheduling_parent: active_leaf,
 		prospective_candidate,
 		advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	assert_eq!(state.advertisements(), [adv].into());
@@ -2071,6 +2074,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2102,6 +2106,7 @@ async fn test_collation_fetch_failure() {
 				None
 			},
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2132,6 +2137,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2169,6 +2175,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2204,6 +2211,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2233,6 +2241,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate: None,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
@@ -2273,6 +2282,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2317,6 +2327,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2356,6 +2367,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2498,6 +2510,7 @@ async fn v1_descriptor_compatibility() {
 		scheduling_parent: active_leaf,
 		prospective_candidate,
 		advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 	};
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2661,6 +2674,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2701,6 +2715,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2915,6 +2930,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2955,6 +2971,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -3597,6 +3614,7 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
 		advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3666,6 +3684,7 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
 		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		core_index: CoreIndex(0),
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3722,6 +3741,7 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
 		advertised_descriptor_version: None,
+		core_index: CoreIndex(0),
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;

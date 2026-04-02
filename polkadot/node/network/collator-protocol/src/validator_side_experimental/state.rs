@@ -258,6 +258,18 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
+		let Some(core_index) =
+			self.collation_manager.core_index_for_scheduling_parent(&scheduling_parent)
+		else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				?peer_id,
+				"Received advertisement for scheduling parent not in our view",
+			);
+			return;
+		};
+
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
@@ -272,6 +284,7 @@ impl<B: Backend> State<B> {
 					scheduling_parent,
 					prospective_candidate: maybe_prospective_candidate,
 					advertised_descriptor_version,
+					core_index,
 				},
 			)
 			.await
@@ -456,6 +469,7 @@ impl<B: Backend> State<B> {
 
 		let candidate_hash = receipt.hash();
 		let para_id = receipt.descriptor.para_id();
+		let core_id = receipt.descriptor.core_index();
 
 		gum::debug!(
 			target: LOG_TARGET,
@@ -473,6 +487,7 @@ impl<B: Backend> State<B> {
 				&para_id,
 				&candidate_hash,
 				receipt.descriptor.para_head(),
+				core_id
 			)
 			.await;
 

@@ -281,7 +281,7 @@ impl CollationManager {
 					let claim_queue = claim_queues.remove(&core).unwrap_or_else(|| VecDeque::new());
 
 					let maybe_parent = allowed_ancestry.get(1);
-					self.claim_queue_state.add_leaf(leaf, &claim_queue, maybe_parent);
+					self.claim_queue_state.add_leaf(leaf, core, &claim_queue, maybe_parent);
 				}
 			}
 		}
@@ -299,6 +299,12 @@ impl CollationManager {
 
 	pub fn all_free_slots(&self) -> BTreeSet<ParaId> {
 		self.claim_queue_state.all_free_slots()
+	}
+
+	/// Returns the core index assigned to the validator group at `scheduling_parent`, or `None` if
+	/// the scheduling parent is not tracked.
+	pub fn core_index_for_scheduling_parent(&self, scheduling_parent: &Hash) -> Option<CoreIndex> {
+		self.per_scheduling_parent.get(scheduling_parent).map(|psp| psp.core_index)
 	}
 
 	pub async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
@@ -422,6 +428,7 @@ impl CollationManager {
 					&advertisement.scheduling_parent,
 					&para_id,
 					advertisement.candidate_hash(),
+					advertisement.core_index,
 				) {
 					gum::trace!(
 						target: LOG_TARGET,
@@ -537,7 +544,7 @@ impl CollationManager {
 					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
-				self.can_begin_seconding(sender, fetched_collation, true, reject_info).await
+				self.can_begin_seconding(sender, fetched_collation, true, reject_info, Some(advertisement.core_index)).await
 			},
 			Err(rep_change) => CanSecond::No(rep_change, reject_info),
 		}
@@ -597,12 +604,19 @@ impl CollationManager {
 		para_id: &ParaId,
 		candidate_hash: &CandidateHash,
 		output_head_hash: Hash,
+		core_index: Option<CoreIndex>,
 	) -> (Option<PeerId>, Vec<CanSecond>) {
 		let peer_id =
 			self.get_fetched_collation_peer_id(scheduling_parent, candidate_hash).copied();
 
+		// This can be simplified once CollatorProtocol V1 is retired.
+		let core_index = core_index
+			.or_else(|| {
+				self.per_scheduling_parent.get(scheduling_parent).map(|psp| psp.core_index)
+			});
+
 		self.claim_queue_state
-			.claim_seconded_slot(scheduling_parent, para_id, candidate_hash);
+			.claim_seconded_slot(scheduling_parent, para_id, candidate_hash, core_index);
 
 		// See if we've unblocked other collations here too.
 		let maybe_unblocked = self.blocked_from_seconding.remove(&BlockedCollationId {
@@ -623,7 +637,7 @@ impl CollationManager {
 				maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
 			};
 			let can_second =
-				self.can_begin_seconding(sender, fetched_collation, false, reject_info).await;
+				self.can_begin_seconding(sender, fetched_collation, false, reject_info, core_index).await;
 			unblocked_can_second.push(can_second)
 		}
 
@@ -770,10 +784,17 @@ impl CollationManager {
 		fetched_collation: FetchedCollation,
 		queue_blocked_collations: bool,
 		reject_info: SecondingRejectionInfo,
+		core_index: Option<CoreIndex>
 	) -> CanSecond {
 		let scheduling_parent = fetched_collation.scheduling_parent();
 		let candidate_hash = fetched_collation.candidate_receipt.hash();
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
+
+		// This can be simplified once CollatorProtocol V1 is retired.
+		let core_index = core_index
+			.or_else(|| {
+				self.per_scheduling_parent.get(&fetched_collation.candidate_receipt.descriptor.scheduling_parent()).map(|psp| psp.core_index)
+			});
 
 		let fetch_pvd_res = fetch_pvd(
 			sender,
@@ -791,6 +812,7 @@ impl CollationManager {
 					&scheduling_parent,
 					&para_id,
 					&candidate_hash,
+					core_index,
 				);
 				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
 			},
@@ -819,6 +841,7 @@ impl CollationManager {
 						&scheduling_parent,
 						&para_id,
 						&candidate_hash,
+						core_index,
 					);
 
 					CanSecond::BlockedOnParent(parent, reject_info)
@@ -1320,6 +1343,7 @@ mod tests {
 			peer_id,
 			prospective_candidate: None,
 			advertised_descriptor_version: None,
+			core_index: CoreIndex(0),
 		};
 
 		let peer_1 = PeerId::random();
@@ -1498,6 +1522,7 @@ mod tests {
 			peer_id: peer,
 			prospective_candidate: None,
 			advertised_descriptor_version: None,
+			core_index: CoreIndex(0),
 		};
 
 		let new_collation_manager_instance = || CollationManager {
