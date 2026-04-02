@@ -29,7 +29,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
+	traits::{EitherOfDiverse, Get, OnUnbalanced},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
