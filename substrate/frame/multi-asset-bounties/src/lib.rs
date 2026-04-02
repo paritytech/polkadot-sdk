@@ -96,7 +96,7 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
+	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert},
 	Debug, Permill,
 };
 
@@ -1551,7 +1551,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None => {
 				// Get total child bounties value, and subtract it from the parent
 				// value.
-				let children_value = ChildBountiesValuePerParent::<T, I>::take(parent_bounty_id);
+				let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
 				debug_assert!(children_value <= value);
 				let payout = value.saturating_sub(children_value);
 				payout
@@ -1571,7 +1571,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Bounties::<T, I>::remove(parent_bounty_id);
 				ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
-				debug_assert!(ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id).is_zero());
+				ChildBountiesValuePerParent::<T, I>::remove(parent_bounty_id);
 			},
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
