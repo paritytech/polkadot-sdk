@@ -522,35 +522,246 @@ mod test {
 		));
 	}
 
-	/// Tests that at a group rotation boundary, claims for the old core (Para 1) are preserved
-	/// alongside new claims for the new core (Para 2).
-	#[test]
-	fn rotation_preserves_old_core_claims() {
-		let mut state = PerLeafClaimQueueState::new();
+	mod multi_core {
+		use super::*;
+		use crate::validator_side::claim_queue_state::test::*;
 
-		// 0 -> a (core 0, para 1) -> b (rotation: core 1, para 2)
-		let cq_para1 = VecDeque::from(vec![PARA_1, PARA_1]);
-		let cq_para2 = VecDeque::from(vec![PARA_2, PARA_2]);
+		/// Tests that at a group rotation boundary, claims for the old core (Para 1) are preserved
+		/// alongside new claims for the new core (Para 2).
+		#[test]
+		fn rotation_preserves_old_core_claims() {
+			let mut state = PerLeafClaimQueueState::new();
 
-		state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq_para1, Some(&ROOT_RELAY_PARENT));
-		// At rotation, validator moves to core 1 / para 2
-		state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq_para2, Some(&RELAY_PARENT_A));
+			// 0 -> A(core 0, para 1) -> B(rotation: core 1, para 2)
+			let cq_para1 = VecDeque::from(vec![PARA_1, PARA_1]);
+			let cq_para2 = VecDeque::from(vec![PARA_2, PARA_2]);
 
-		// Leaf B should have free slots for both para 1 (core 0 state) and para 2 (core 1 state)
-		let free = state.free_slots(&RELAY_PARENT_B);
-		assert!(free.contains(&PARA_1), "Para 1 slot from old core should still be free");
-		assert!(free.contains(&PARA_2), "Para 2 slot from new core should be free");
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq_para1, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq_para2, Some(&RELAY_PARENT_A));
 
-		// Should be able to claim para 1 at relay parent A (old core assignment)
-		assert!(
-			state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0),
-			"Should be able to claim para 1 slot via old core"
-		);
+			// B should have free slots for both paras
+			let free = state.free_slots(&RELAY_PARENT_B);
+			assert!(free.contains(&PARA_1), "para 1 slot from old core should still be free");
+			assert!(free.contains(&PARA_2), "para 2 slot from new core should be free");
 
-		// Should be able to claim para 2 at relay parent B (new core assignment)
-		assert!(
-			state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1),
-			"Should be able to claim para 2 slot via new core"
-		);
+			// Claims succeed on each core independently
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
+		}
+
+		/// Tests that when forking from a non-leaf ancestor after a rotation, all cores' states
+		/// are carried into the fork — not just the state of the new leaf's core.
+		#[test]
+		fn fork_from_non_leaf_after_rotation_carries_all_cores() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0) -> B(core1, rotation) -> C(core1)
+			//                                     \-> D(core0, fork from B)
+			let cq0 = VecDeque::from(vec![PARA_1, PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2, PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+			state.add_leaf(&RELAY_PARENT_C, CORE_1, &cq1, Some(&RELAY_PARENT_B));
+			state.add_leaf(&RELAY_PARENT_D, CORE_0, &cq0, Some(&RELAY_PARENT_B));
+
+			assert_eq!(state.leaves.len(), 2);
+
+			// D should carry core1's state (forked at B) alongside its own core0 state
+			assert!(state.leaves[&RELAY_PARENT_D].contains_key(&CORE_0));
+			assert!(state.leaves[&RELAY_PARENT_D].contains_key(&CORE_1));
+
+			// Both paras should have free slots at D
+			let free = state.free_slots(&RELAY_PARENT_D);
+			assert!(free.contains(&PARA_1), "para 1 slot should be present in fork");
+			assert!(free.contains(&PARA_2), "para 2 slot (from core1 forked at B) should be present");
+		}
+
+		/// Tests that claiming on one core does not consume slots on another core.
+		#[test]
+		fn claims_are_core_isolated() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0) -> B(core1, rotation)
+			let cq0 = VecDeque::from(vec![PARA_1, PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2, PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+
+			// Exhaust both slots on core0
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2), CORE_0));
+			assert!(!state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3), CORE_0));
+
+			// core1 slots for para2 must be unaffected
+			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B2), CORE_1));
+
+			// Claiming on the wrong core returns false
+			assert!(!state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_C1), CORE_0));
+		}
+
+		/// Tests the full pending → seconded lifecycle across two cores at a rotation boundary.
+		#[test]
+		fn rotation_full_seconding_lifecycle() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0) -> B(core1, rotation)
+			let cq0 = VecDeque::from(vec![PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+
+			// Old core: claim pending at A, then second
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A1, Some(CORE_0)));
+
+			// New core: claim pending at B, then second
+			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_2, &CANDIDATE_B1, Some(CORE_1)));
+
+			// Both cores exhausted — no free slots remain at the leaf
+			assert_eq!(state.free_slots(&RELAY_PARENT_B), vec![]);
+		}
+
+		/// Tests that `None` core_index in `mark_pending_slot_with_candidate` and
+		/// `claim_seconded_slot` searches across all cores to find the matching slot
+		/// (v1 compatibility path where the core index is not known).
+		#[test]
+		fn none_core_index_considers_all_cores() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0) -> B(core1, rotation)
+			let cq0 = VecDeque::from(vec![PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+
+			// v1 claim: no candidate hash known yet
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, None, CORE_0));
+
+			// v1 mark: core not known — None must find and mark core0's pending claim
+			assert!(state.mark_pending_slot_with_candidate(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				&CANDIDATE_A1,
+				None,
+			));
+			// The slot is now marked — a second mark attempt on the same slot must fail
+			assert!(!state.mark_pending_slot_with_candidate(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				&CANDIDATE_A2,
+				None,
+			));
+
+			// None also works for seconding — hits core1 at B
+			assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_2, &CANDIDATE_B1, None));
+			let free = state.free_slots(&RELAY_PARENT_B);
+			assert!(!free.contains(&PARA_2), "core1 slot should be consumed");
+		}
+
+		/// Tests that `remove_pruned_ancestors` correctly handles leaves with multiple cores:
+		/// per-core states are pruned individually and a leaf is only removed when all its
+		/// cores become empty.
+		#[test]
+		fn remove_pruned_ancestors_multi_core() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0) -> B(core1, rotation) -> C(core1)
+			//  \-> D(core0)
+			let cq0 = VecDeque::from(vec![PARA_1, PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2, PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+			state.add_leaf(&RELAY_PARENT_C, CORE_1, &cq1, Some(&RELAY_PARENT_B));
+			state.add_leaf(&RELAY_PARENT_D, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+
+			// Prune A and B from C's history
+			let removed = HashSet::from([*RELAY_PARENT_A, *RELAY_PARENT_B]);
+			state.remove_pruned_ancestors(&removed);
+
+			// C and D survive
+			assert_eq!(state.leaves.len(), 2);
+
+			// CORE_0 only ever tracked A; removing A empties its block_state, so it is dropped.
+			// CORE_1 tracked B and C; after removing B, C remains.
+			assert!(!state.leaves[&RELAY_PARENT_C].contains_key(&CORE_0));
+			assert!(state.leaves[&RELAY_PARENT_C].contains_key(&CORE_1));
+
+			// D is on an independent fork (child of ROOT), unaffected
+			assert!(state.leaves[&RELAY_PARENT_D].contains_key(&CORE_0));
+		}
+
+		/// After a rotation, `add_leaf` is no longer called for the old core. Its future slots
+		/// (hash: None) are only reachable via the window-from-A — the last relay parent that was
+		/// actually added to the old core's block_state. Once that relay parent is pruned the
+		/// future slots become unreachable and the old core's state is correctly dropped.
+		#[test]
+		fn old_core_future_slots_only_reachable_via_pre_rotation_relay_parent() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0, cq=[P1,P1,P1]) -> B(core1, rotation) -> C(core1)
+			//
+			// The three-entry CQ for CORE_0 represents slots at A, B, C. After the rotation at B
+			// however, `add_leaf` is never called for CORE_0 again, so B and C are never resolved
+			// to real hashes in CORE_0's future_blocks. All three slots are therefore only
+			// accessible via the window starting at A.
+			let cq0 = VecDeque::from(vec![PARA_1, PARA_1, PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2, PARA_2, PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+			state.add_leaf(&RELAY_PARENT_C, CORE_1, &cq1, Some(&RELAY_PARENT_B));
+
+			// All three CORE_0 slots are claimable via scheduling_parent = A
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2), CORE_0));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3), CORE_0));
+
+			// Release them so we can test the scheduling_parent = B case with free slots
+			assert!(state.release_claims_for_candidate(&CANDIDATE_A1));
+			assert!(state.release_claims_for_candidate(&CANDIDATE_A2));
+			assert!(state.release_claims_for_candidate(&CANDIDATE_A3));
+
+			// B's hash was never resolved in CORE_0's future_blocks, so claiming via
+			// scheduling_parent = B fails even though there are free slots
+			assert!(!state.claim_pending_slot(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+
+			// Prune A: CORE_0's block_state becomes empty. The future slots (hash: None) are
+			// unreachable without A's window, so CORE_0 is correctly considered empty and dropped.
+			let removed = HashSet::from([*RELAY_PARENT_A]);
+			state.remove_pruned_ancestors(&removed);
+			assert!(!state.leaves[&RELAY_PARENT_C].contains_key(&CORE_0));
+		}
+
+		/// Tests that releasing a candidate's claim on one core does not affect another core.
+		#[test]
+		fn release_claims_are_core_isolated() {
+			let mut state = PerLeafClaimQueueState::new();
+
+			// 0 -> A(core0) -> B(core1, rotation)
+			let cq0 = VecDeque::from(vec![PARA_1]);
+			let cq1 = VecDeque::from(vec![PARA_2]);
+
+			state.add_leaf(&RELAY_PARENT_A, CORE_0, &cq0, Some(&ROOT_RELAY_PARENT));
+			state.add_leaf(&RELAY_PARENT_B, CORE_1, &cq1, Some(&RELAY_PARENT_A));
+
+			// Claim on both cores
+			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
+
+			// Release core0's candidate only
+			assert!(state.release_claims_for_candidate(&CANDIDATE_A1));
+
+			// core0 slot is free again, core1 slot is still claimed
+			let free = state.free_slots(&RELAY_PARENT_B);
+			assert!(free.contains(&PARA_1), "core0 slot should be free after release");
+			assert!(!free.contains(&PARA_2), "core1 slot should still be claimed");
+		}
 	}
 }
