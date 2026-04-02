@@ -742,13 +742,13 @@ mod tests {
 		assert!(view.paths_via_relay_parent(&CHAIN_B[0]).is_empty());
 		assert!(view.paths_via_relay_parent(&CHAIN_A[0]).is_empty());
 
-		// Blocks within the implicit view return the full path from the oldest stored block
-		// to the leaf, as long as it passes through the queried relay parent.
-		// Both queries return the same path [min_idx..leaf] since both blocks are on that path.
+		// Blocks within the implicit view return the full allowed ancestry path
+		// (oldest allowed ancestor to leaf), bounded by scheduling lookahead.
 		assert_eq!(
 			view.paths_via_relay_parent(&CHAIN_B[min_idx]),
 			vec![CHAIN_B[min_idx..].to_vec()]
 		);
+		// Same full path — relay_parent just needs to be somewhere on it.
 		assert_eq!(
 			view.paths_via_relay_parent(&CHAIN_B[min_idx + 1]),
 			vec![CHAIN_B[min_idx..].to_vec()]
@@ -1109,17 +1109,122 @@ mod tests {
 		let paths_to_genesis = view.paths_via_relay_parent(&GENESIS_HASH);
 		assert_eq!(paths_to_genesis, Vec::<Vec<Hash>>::new());
 
-		// CHAIN_A[1] is in the view, so we get a path
+		// CHAIN_A[1] is in the view, path is the full allowed ancestry
 		let path_to_leaf_in_a = view.paths_via_relay_parent(&CHAIN_A[1]);
 		let expected_path_to_leaf_in_a = vec![CHAIN_A.to_vec()];
 		assert_eq!(path_to_leaf_in_a, expected_path_to_leaf_in_a);
 
-		// CHAIN_B[4] is in the view (blocks 3,4,5 are included with lookahead 3)
+		// CHAIN_B[4] is in the view, path is the full allowed ancestry for this leaf
 		let path_to_leaf_in_b = view.paths_via_relay_parent(&CHAIN_B[4]);
 		let expected_path_to_leaf_in_b = vec![CHAIN_B[3..].to_vec()];
 		assert_eq!(path_to_leaf_in_b, expected_path_to_leaf_in_b);
 
 		// Unknown block returns empty paths
 		assert_eq!(view.paths_via_relay_parent(&Hash::repeat_byte(0x0A)), Vec::<Vec<Hash>>::new());
+	}
+
+	/// When a fork leaf at a lower height coexists with the main chain leaf,
+	/// `block_info_storage` retains old blocks. `paths_via_relay_parent` walks through all
+	/// of them, producing paths longer than `scheduling_lookahead`.
+	///
+	/// This causes `is_slot_available` in the collator protocol to compute `valid_len = 0` for
+	/// old-but-valid scheduling parents, unconditionally rejecting advertisements.
+	///
+	/// See: https://github.com/paritytech/polkadot-sdk/issues/11625
+	#[test]
+	fn max_ancesty_len_honored() {
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+		let mut view = View::default();
+
+		const SESSION: u32 = 2;
+		const SCHEDULING_LOOKAHEAD: u32 = 3;
+
+		// Step 1: Activate a "fork leaf" at CHAIN_B[2] (#3) with lookahead=3.
+		// This represents a fork leaf that stays active while the main chain advances.
+		// Fetches 2 ancestors: CHAIN_B[1] (#2), CHAIN_B[0] (#1).
+		// Storage after: {B0, B1, B2}
+		let fork_leaf = CHAIN_B[2];
+		futures::executor::block_on(activate_leaf_with_overseer_requests(
+			&mut view,
+			&mut ctx,
+			&mut ctx_handle,
+			fork_leaf,
+			SESSION,
+			SCHEDULING_LOOKAHEAD,
+			vec![CHAIN_B[1], CHAIN_B[0]], // ancestors in descending order
+			vec![SESSION; 2],
+			CHAIN_B,
+			&CHAIN_B[0..=2], // headers for B0, B1, B2
+		));
+
+		assert_eq!(view.leaves.len(), 1);
+
+		// Step 2: Activate the main chain leaf at CHAIN_B[5] (#6) with lookahead=3.
+		// Fetches 2 ancestors: CHAIN_B[4] (#5), CHAIN_B[3] (#4).
+		// B0, B1, B2 remain in storage because fork leaf's retain_minimum = #1.
+		// Storage after: {B0, B1, B2, B3, B4, B5}
+		let main_leaf = CHAIN_B[5];
+		futures::executor::block_on(activate_leaf_with_overseer_requests(
+			&mut view,
+			&mut ctx,
+			&mut ctx_handle,
+			main_leaf,
+			SESSION,
+			SCHEDULING_LOOKAHEAD,
+			vec![CHAIN_B[4], CHAIN_B[3]], // ancestors in descending order
+			vec![SESSION; 2],
+			CHAIN_B,
+			&CHAIN_B[3..=5], // only B3, B4, B5 need headers (B0-B2 already in storage)
+		));
+
+		assert_eq!(view.leaves.len(), 2);
+
+		// Verify all 6 blocks are in storage (old blocks retained by fork leaf).
+		for hash in &CHAIN_B[..6] {
+			assert!(
+				view.block_info_storage.contains_key(hash),
+				"Block {:?} should be in storage",
+				hash
+			);
+		}
+
+		// B0 is in the fork leaf's allowed ancestry {B0, B1, B2} but NOT in the
+		// main leaf's allowed ancestry {B3, B4, B5}. So paths_via_relay_parent(&B0)
+		// should only return a path via the fork leaf, not the main leaf.
+		let paths = view.paths_via_relay_parent(&CHAIN_B[0]);
+
+		// Expected: only 1 path — via the fork leaf [B0, B1, B2], length 3.
+		// The main leaf should NOT produce a path through B0 since B0 is outside
+		// its allowed ancestry.
+		assert_eq!(paths.len(), 1, "B0 should only be reachable via the fork leaf");
+
+		let path_via_fork = &paths[0];
+		assert_eq!(path_via_fork.last(), Some(&fork_leaf));
+		assert_eq!(path_via_fork.len(), 3);
+		assert_eq!(path_via_fork, &CHAIN_B[0..=2].to_vec());
+
+		// B3 is in the main leaf's allowed ancestry {B3, B4, B5} but NOT in the
+		// fork leaf's allowed ancestry {B0, B1, B2}. Should only return one path.
+		let paths = view.paths_via_relay_parent(&CHAIN_B[3]);
+		assert_eq!(paths.len(), 1, "B3 should only be reachable via the main leaf");
+		let path_via_main = &paths[0];
+		assert_eq!(path_via_main.last(), Some(&main_leaf));
+		assert_eq!(path_via_main.len(), 3);
+		assert_eq!(path_via_main, &CHAIN_B[3..=5].to_vec());
+
+		// All paths should be bounded by lookahead.
+		for hash in &CHAIN_B[..6] {
+			for path in view.paths_via_relay_parent(hash) {
+				assert!(
+					path.len() <= SCHEDULING_LOOKAHEAD as usize,
+					"Path through {:?} has length {} > lookahead {}",
+					hash,
+					path.len(),
+					SCHEDULING_LOOKAHEAD,
+				);
+			}
+		}
 	}
 }
