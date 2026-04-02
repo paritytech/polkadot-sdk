@@ -55,7 +55,7 @@ where
 	let balance = fund_amount.try_into().ok().expect("balance fits");
 	FungibleOf::<T>::set_balance(who, balance);
 
-	let per_block = locked / 20u32.into();
+	let per_block = (locked / 20u32.into()).max(1u32.into());
 	let starting_block = Zero::zero();
 	<pallet_vesting::Pallet<T> as VestingSchedule<T::AccountId>>::add_vesting_schedule(
 		who,

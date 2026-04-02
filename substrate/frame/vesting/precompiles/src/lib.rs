@@ -43,6 +43,16 @@ pub mod mock;
 #[cfg(all(test, feature = "runtime-benchmarks"))]
 mod tests;
 
+fn ensure_mutable<T: Config>(env: &impl Ext<T = T>) -> Result<(), Error> {
+	if env.is_read_only() {
+		return Err(pallet_revive::Error::<T>::StateChangeDenied.into());
+	}
+	if env.is_delegate_call() {
+		return Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into());
+	}
+	Ok(())
+}
+
 fn caller_account_id<T: Config>(
 	env: &impl Ext<T = T>,
 	context: &str,
@@ -96,13 +106,8 @@ where
 	) -> Result<Vec<u8>, Error> {
 		use IVesting::IVestingCalls;
 		match input {
-			IVestingCalls::vest(_) if env.is_read_only() => {
-				Err(pallet_revive::Error::<T>::StateChangeDenied.into())
-			},
-			IVestingCalls::vest(_) if env.is_delegate_call() => {
-				Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into())
-			},
 			IVestingCalls::vest(IVesting::vestCall {}) => {
+				ensure_mutable::<T>(env)?;
 				// Derive the beneficiary from the immediate caller (not the tx origin).
 				let account_id = caller_account_id(env, "vest")?;
 
@@ -118,13 +123,8 @@ where
 					.map_err(|e| Error::Revert(alloc::format!("vest failed: {:?}", e).into()))?;
 				Ok(Vec::new())
 			},
-			IVestingCalls::vestOther(_) if env.is_read_only() => {
-				Err(pallet_revive::Error::<T>::StateChangeDenied.into())
-			},
-			IVestingCalls::vestOther(_) if env.is_delegate_call() => {
-				Err(pallet_revive::Error::<T>::PrecompileDelegateDenied.into())
-			},
 			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
+				ensure_mutable::<T>(env)?;
 				let caller_account = caller_account_id(env, "vestOther")?;
 
 				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
