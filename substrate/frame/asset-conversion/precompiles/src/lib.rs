@@ -144,6 +144,9 @@ where
 		use IAssetConversion::IAssetConversionCalls;
 
 		match input {
+			_ if env.is_delegate_call() => {
+				Err(Error::Revert("Cannot be called via delegate call".into()))
+			},
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
 			IAssetConversionCalls::swapTokensForExactTokens(_)
 				if env.is_read_only() =>
