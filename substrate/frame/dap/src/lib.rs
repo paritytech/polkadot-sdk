@@ -52,10 +52,7 @@ use frame_support::{
 
 pub use pallet::*;
 
-/// The [`PalletId`] of the DAP buffer account on AssetHub.
-///
-/// Must match [`pallet_dap_satellite::DAP_BUFFER_PALLET_ID`].
-pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
+pub use sp_dap::DAP_BUFFER_PALLET_ID;
 
 const LOG_TARGET: &str = "runtime::dap";
 

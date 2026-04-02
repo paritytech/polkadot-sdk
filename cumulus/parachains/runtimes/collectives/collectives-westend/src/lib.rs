@@ -95,7 +95,7 @@ use parachains_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use testnet_parachains_constants::westend::{
-	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
+	account::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
 };
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
@@ -690,20 +690,6 @@ impl pallet_asset_rate::Config for Runtime {
 	type AssetKind = VersionedLocatableAsset;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
-}
-
-parameter_types! {
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
-	pub DapBufferLocation: InteriorLocation = {
-		use sp_runtime::traits::AccountIdConversion;
-		Junction::AccountId32 {
-			network: None,
-			id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
-		}
-		.into()
-	};
-	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
-	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
 impl pallet_dap_satellite::Config for Runtime {

@@ -21,28 +21,12 @@
 //! central DAP via XCM.
 
 use alloc::vec;
-use core::{fmt, marker::PhantomData};
+use core::marker::PhantomData;
 use frame_support::traits::Get;
 use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
-/// Error variants for the [`SendToDapViaTeleport`] implementation of
-/// [`pallet_dap_satellite::SendToDap`].
-#[derive(Debug)]
-pub enum SendToDapError {
-	/// The asset transactor rejected the outgoing check-out.
-	AssetCheckOutFailed,
-	/// Failed to reanchor assets for the destination chain.
-	ReanchorFailed,
-	/// The XCM router failed to dispatch the message.
-	SendXcmFailed,
-}
-
-impl fmt::Display for SendToDapError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		fmt::Debug::fmt(self, f)
-	}
-}
+const LOG_TARGET: &str = "xcm::dap";
 
 /// XCM adapter that implements [`pallet_dap_satellite::SendToDap`] by teleporting native tokens
 /// to the central DAP buffer account on a destination chain.
@@ -52,7 +36,8 @@ impl fmt::Display for SendToDapError {
 /// - `AssetTransactor`: Implements [`xcm_executor::traits::TransactAsset`]. Used to check out the
 ///   asset before sending.
 /// - `XcmRouter`: Implements [`SendXcm`]. Used to dispatch the XCM message.
-/// - `Dest`: Implements [`Get<Location>`]. The location of the destination chain with the central DAP.
+/// - `Dest`: Implements [`Get<Location>`]. The location of the destination chain with the central
+///   DAP.
 /// - `NativeAsset`: Implements [`Get<Location>`]. The location of the native token being sent.
 /// - `BufferLocation`: Implements [`Get<InteriorLocation>`]. The interior location of the central
 ///   DAP buffer account on `Dest`.
@@ -71,19 +56,19 @@ where
 	BufferLocation: Get<InteriorLocation>,
 	Balance: Into<u128> + Copy,
 {
-	type Error = SendToDapError;
-
-	fn send(amount: Balance) -> Result<(), SendToDapError> {
+	fn send(amount: Balance) -> Result<(), ()> {
 		let dest = Dest::get();
 		let asset = Asset { id: AssetId(NativeAsset::get()), fun: Fungible(amount.into()) };
 		let check_context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
 
-		AssetTransactor::can_check_out(&dest, &asset, &check_context)
-			.map_err(|_| SendToDapError::AssetCheckOutFailed)?;
+		AssetTransactor::can_check_out(&dest, &asset, &check_context).map_err(|error| {
+			tracing::warn!(target: LOG_TARGET, ?error, "DAP satellite: asset check-out failed");
+		})?;
 
-		let assets_for_dest = Assets::from(asset.clone())
-			.reanchored(&dest, &Here.into())
-			.map_err(|_| SendToDapError::ReanchorFailed)?;
+		let assets_for_dest =
+			Assets::from(asset.clone()).reanchored(&dest, &Here.into()).map_err(|error| {
+				tracing::warn!(target: LOG_TARGET, ?error, "DAP satellite: reanchor failed");
+			})?;
 
 		let beneficiary: Location = BufferLocation::get().into_location();
 		let message = Xcm(vec![
@@ -92,7 +77,9 @@ where
 			DepositAsset { assets: Wild(AllCounted(1)), beneficiary },
 		]);
 
-		send_xcm::<XcmRouter>(dest.clone(), message).map_err(|_| SendToDapError::SendXcmFailed)?;
+		send_xcm::<XcmRouter>(dest.clone(), message).map_err(|error| {
+			tracing::warn!(target: LOG_TARGET, ?error, "DAP satellite: send_xcm failed");
+		})?;
 
 		AssetTransactor::check_out(&dest, &asset, &check_context);
 		Ok(())

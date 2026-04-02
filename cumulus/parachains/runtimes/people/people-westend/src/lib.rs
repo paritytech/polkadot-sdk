@@ -68,7 +68,9 @@ pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
@@ -409,7 +411,6 @@ parameter_types! {
 	pub const SessionLength: BlockNumber = 6 * HOURS;
 	// StakingAdmin pluralistic body.
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
 }
 
 /// We allow Root and the `StakingAdmin` to execute privileged collator selection operations.
@@ -599,19 +600,6 @@ impl pallet_migrations::Config for Runtime {
 	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
 	type MaxServiceWeight = MbmServiceWeight;
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
-}
-
-parameter_types! {
-	pub DapBufferLocation: InteriorLocation = {
-		use sp_runtime::traits::AccountIdConversion;
-		Junction::AccountId32 {
-			network: None,
-			id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
-		}
-		.into()
-	};
-	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
-	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
 impl pallet_dap_satellite::Config for Runtime {

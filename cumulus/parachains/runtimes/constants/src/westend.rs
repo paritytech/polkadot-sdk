@@ -196,6 +196,11 @@ pub mod xcm_version {
 	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 }
 
+/// DAP satellite-related constants, shared across all Westend system parachain runtimes.
+pub mod dap {
+	pub use westend_runtime_constants::system_parachain::dap::*;
+}
+
 pub mod locations {
 	use frame_support::parameter_types;
 	pub use westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};

@@ -77,7 +77,9 @@ use sp_session::OpaqueGeneratedSessionKeys;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
@@ -621,20 +623,6 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
-	pub DapBufferLocation: InteriorLocation = {
-		use sp_runtime::traits::AccountIdConversion;
-		Junction::AccountId32 {
-			network: None,
-			id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
-		}
-		.into()
-	};
-	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
-	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
 impl pallet_dap_satellite::Config for Runtime {

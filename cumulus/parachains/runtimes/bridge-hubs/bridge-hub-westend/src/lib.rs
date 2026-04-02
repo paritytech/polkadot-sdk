@@ -101,7 +101,9 @@ use parachains_common::{
 };
 use snowbridge_core::{AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use xcm::{Version as XcmVersion, VersionedLocation};
 
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
@@ -562,20 +564,6 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
-}
-
-parameter_types! {
-	pub const DapSatellitePalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/satl");
-	pub DapBufferLocation: InteriorLocation = {
-		use sp_runtime::traits::AccountIdConversion;
-		Junction::AccountId32 {
-			network: None,
-			id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
-		}
-		.into()
-	};
-	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
-	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
 impl pallet_dap_satellite::Config for Runtime {

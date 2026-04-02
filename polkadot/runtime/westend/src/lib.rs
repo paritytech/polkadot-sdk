@@ -132,7 +132,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 use westend_runtime_constants::{
 	currency::*,
 	fee::*,
-	system_parachain::{coretime::TIMESLICE_PERIOD, ASSET_HUB_ID, BROKER_ID},
+	system_parachain::{coretime::TIMESLICE_PERIOD, dap::*, ASSET_HUB_ID, BROKER_ID},
 	time::*,
 };
 
@@ -1746,17 +1746,6 @@ impl pallet_root_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = StakingAhClient;
 	type ReportOffence = Offences;
-}
-
-parameter_types! {
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
-	pub DapBufferLocation: InteriorLocation = Junction::AccountId32 {
-		network: None,
-		id: pallet_dap_satellite::DAP_BUFFER_PALLET_ID.into_account_truncating(),
-	}
-	.into();
-	pub const DapSatelliteTransferPeriod: BlockNumber = MINUTES;
-	pub const DapSatelliteMinTransferAmount: Balance = 10 * UNITS;
 }
 
 impl pallet_dap_satellite::Config for Runtime {

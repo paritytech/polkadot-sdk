@@ -41,7 +41,7 @@
 //!
 //! ## Total Issuance
 //!
-//! Satellite funds are burnt upon sending (reducing `total_issuance` there) and the same
+//! Satellite funds are burnt upon sending (reducing `total_issuance` here) and the same
 //! funds are minted in the central DAP when the sent message is received.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -65,10 +65,7 @@ use sp_runtime::{Percent, Saturating};
 
 pub use pallet::*;
 
-/// The [`PalletId`] of the central DAP account.
-///
-/// Must match [`pallet_dap::DAP_BUFFER_PALLET_ID`].
-pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
+pub use sp_dap::DAP_BUFFER_PALLET_ID;
 
 /// Trait for dispatching the transfer to the central DAP.
 ///
@@ -76,14 +73,10 @@ pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
 /// Implementations should construct and dispatch the appropriate message for `amount`
 /// tokens. On error, the pallet restores the burned tokens via `mint_into`.
 pub trait SendToDap<Balance> {
-	/// The error type returned when sending fails. Must implement [`core::fmt::Debug`] so the
-	/// pallet can log the failure reason.
-	type Error: core::fmt::Debug;
-
 	/// Send `amount` (already burned from the satellite account) to the central DAP.
 	///
-	/// Returns `Ok(())` if the message was successfully sent, `Err(Self::Error)` otherwise.
-	fn send(amount: Balance) -> Result<(), Self::Error>;
+	/// Returns `Ok(())` if the message was successfully sent, `Err(())` otherwise.
+	fn send(amount: Balance) -> Result<(), ()>;
 }
 
 const LOG_TARGET: &str = "runtime::dap-satellite";
@@ -100,7 +93,7 @@ pub mod pallet {
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
-		frame_support::traits::StorageVersion::new(0);
+		frame_support::traits::StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -244,13 +237,7 @@ pub mod pallet {
 				DoSendError::BurnFailed
 			})?;
 
-			T::SendToDap::send(amount).map_err(|e| {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to send funds (amount of {:?}) to DAP: {:?}",
-					amount,
-					e,
-				);
+			T::SendToDap::send(amount).map_err(|()| {
 				let _ = T::Currency::mint_into(&source, amount).inspect_err(|e| {
 					frame_support::defensive!(
 						"Failed to restore burned funds after send failure: {:?}",

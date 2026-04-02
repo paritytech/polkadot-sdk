@@ -74,8 +74,6 @@ thread_local! {
 pub struct MockSendToDap;
 
 impl pallet_dap_satellite::SendToDap<u64> for MockSendToDap {
-	type Error = ();
-
 	fn send(amount: u64) -> Result<(), ()> {
 		if SEND_FAIL.with(|f| *f.borrow()) {
 			return Err(());
