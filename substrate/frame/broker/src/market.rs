@@ -57,8 +57,8 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// Can be set in the [`Market::configure`].
 	type Configuration: Parameter;
 
-	/// Provides information about available core counts.
-	type CoreCountProvider: CoreCountProvider;
+	/// Provides information about available cores.
+	type CoreRangeProvider: CoreRangeProvider;
 
 	/// Provides information about timeslice scheduling.
 	type TimesliceProvider: TimesliceProvider;
@@ -140,15 +140,21 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
 }
 
-/// Provides information about reserved and total core counts available for sale.
-pub trait CoreCountProvider {
-	/// Number of cores reserved (e.g., for system workloads).
-	fn reserved_core_count() -> CoreIndex;
-	/// Total number of cores, including reserved ones.
+/// Provides information about the range of cores that can be sold on a market.
+pub trait CoreRangeProvider {
+	/// Returns the range of core indices that can be sold on a market.
 	///
-	/// Returns `None` if the count is unknown(e.g. [`CoreCountProvider`] implementer is not
-	/// initialized).
-	fn core_count() -> Option<CoreIndex>;
+	/// Returns `Err` if the range is unknown (e.g., the [`CoreRangeProvider`]
+	/// implementer is not initialized).
+	fn core_range() -> Result<SoldCoresRange, ()>;
+}
+
+/// A range of cores available for sale on a coretime market.
+pub struct SoldCoresRange {
+	/// Minimum core index (inclusive).
+	pub from: CoreIndex,
+	/// Maximum core index (exclusive).
+	pub to: CoreIndex,
 }
 
 /// Provides timeslice-related information to the market implementation.
