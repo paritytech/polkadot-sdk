@@ -23,7 +23,7 @@ use polkadot_node_subsystem::{
 use polkadot_primitives::{BlockNumber, Hash};
 
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap},
 	iter,
 };
 
@@ -93,7 +93,6 @@ struct BlockInfo {
 	// implicit views so we can continue to send relevant messages to them
 	// until they catch up.
 	maybe_allowed_relay_parents: Option<AllowedRelayParents>,
-	parent_hash: Hash,
 }
 
 /// Information about a relay-chain block, to be used when calling this module from prospective
@@ -337,7 +336,6 @@ impl View {
 			};
 			block_info_entry.insert(BlockInfo {
 				block_number: header.number,
-				parent_hash: header.parent_hash,
 				// Populate leaf node with Some:
 				maybe_allowed_relay_parents: allowed_relay_parents.take(),
 			});
