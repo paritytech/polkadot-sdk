@@ -128,36 +128,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(15))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
-	/// Storage: `VoterList::CounterForListNodes` (r:1 w:1)
-	/// Proof: `VoterList::CounterForListNodes` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::CounterForPendingRebag` (r:1 w:1)
-	/// Proof: `VoterList::CounterForPendingRebag` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::Lock` (r:1 w:0)
-	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::NextNodeAutoRebagged` (r:1 w:1)
-	/// Proof: `VoterList::NextNodeAutoRebagged` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::PendingRebag` (r:12 w:10)
-	/// Proof: `VoterList::PendingRebag` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::ListBags` (r:200 w:4)
-	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::ListNodes` (r:12 w:11)
-	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Bonded` (r:10 w:0)
-	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Ledger` (r:10 w:0)
-	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(753), added: 3228, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Nominators` (r:10 w:0)
-	/// Proof: `Staking::Nominators` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Validators` (r:10 w:0)
-	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-	fn on_idle() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `38890`
-		//  Estimated: `512390`
-		// Minimum execution time: 1_487_947_000 picoseconds.
-		Weight::from_parts(1_542_108_000, 0)
-			.saturating_add(Weight::from_parts(0, 512390))
-			.saturating_add(T::DbWeight::get().reads(268))
-			.saturating_add(T::DbWeight::get().writes(28))
+	fn on_idle_rebag() -> Weight {
+		// TODO: regenerate via benchmarks
+		Weight::zero()
 	}
 }

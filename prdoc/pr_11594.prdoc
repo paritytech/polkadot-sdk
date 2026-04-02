@@ -1,12 +1,18 @@
-title: Fix bags-list on_idle benchmark fragility across MaxAutoRebagPerBlock values
+title: Bags-list on_idle: per-item weight consumption via WeightMeter
 doc:
 - audience: Runtime Dev
   description: |-
-    The benchmark failed depending on `MaxAutoRebagPerBlock`.
-    Fix by placing all regular nodes in the lowest bag and setting scores for all pending nodes.
-    This makes the count deterministic (only `on_idle` moves nodes into higher bags) and exercises worst-case weight (every node triggers a full rebag).
+    Replaces the bulk `on_idle` benchmark with a per-item `on_idle_rebag` benchmark that
+    measures the worst-case cost of a single rebag. `on_idle` now consumes weight per
+    iteration via `WeightMeter` instead of reserving a single bulk weight upfront.
+    This decouples the benchmark from `MaxAutoRebagPerBlock` — changing the config no
+    longer requires re-running benchmarks.
 crates:
 - name: pallet-bags-list
-  bump: none
+  bump: major
 - name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: westend-runtime
   bump: patch
