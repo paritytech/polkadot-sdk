@@ -89,24 +89,6 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
-# Cumulus
-cumulus-pallet-aura-ext = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-session-benchmarking = { workspace = true }
-cumulus-pallet-weight-reclaim = { workspace = true }
-cumulus-pallet-xcm = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-cumulus-primitives-aura = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
-pallet-message-queue = { workspace = true }
-
-pallet-collator-selection = { workspace = true }
-pallet-collective-content = { workspace = true }
-parachain-info = { workspace = true }
-parachains-common = { workspace = true }
-testnet-parachains-constants = { features = ["westend"], workspace = true }
-
 [dev-dependencies]
 parachains-runtimes-test-utils = { default-features = true, workspace = true }
 sp-io = { features = ["std"], default-features = true, workspace = true }
