@@ -166,9 +166,10 @@ impl RpcMetrics {
 		let micros = now.elapsed().as_micros();
 		log::debug!(
 			target: "rpc_metrics",
-			"[{transport_label}] {} call took {} μs",
+			"[{transport_label}] {} call took {} μs, params={}",
 			req.method_name(),
 			micros,
+			req.params().as_str().unwrap_or(""),
 		);
 		self.calls_time
 			.with_label_values(&[
