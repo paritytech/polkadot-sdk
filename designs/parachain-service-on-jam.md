@@ -253,12 +253,23 @@ From the service's perspective, Refine either succeeds or fails:
 enum ParachainWorkResult {
     Ok {
         /// New head data produced by the parachain block.
-        head_data: HeadData,
+        head_data: Vec<u8>,
+        /// Upward messages emitted through host functions during Refine.
+        /// Accumulate replays these in order after decoding the result blob.
+        events: Vec<UpwardMessage>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
-    /// The may PVF calls `report_error(data)` to provide an opaque error payload
-    /// (max 1024 bytes) before returning.
+    ///
+    /// The PVF may call `report_error(data)` to provide an opaque error payload
+    /// (max 1024 bytes) before failing the execution.
     Err(BoundedVec<u8, 1024>),
+}
+
+enum UpwardMessage {
+    RequestCodeUpgrade(ValidationCodeHash),
+    TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
+    SetAuthorizerQueue { core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode },
+    SetValidatorKeys(Vec<ValidatorKey>),
 }
 ```
 
@@ -273,9 +284,9 @@ to **48 KiB** by the Gray Paper.
   with the authorizer trace in the per-parachain error log (see §3.1). This can be used for
   example to slash a collator who claimed an authorizer slot that was not theirs.
 
-Accumulate stores the error payload and authorizer trace per `ParaId`, tagged with the JAM
-block number when they were recorded. The entry is deleted when a successful candidate with
-an anchor timeslot above that block number is included for the same parachain.
+Accumulate stores the error payload and authorizer trace per `ParaId`, tagged with the
+lookup-anchor timeslot when they were recorded. The entry is deleted when a successful
+candidate with a later lookup-anchor timeslot is included for the same parachain.
 
 ---
 
@@ -308,6 +319,10 @@ writes its outputs (head data, code upgrades, transfers) through host functions.
 not return a value directly — the `ParachainWorkResult` is assembled by the Parachain
 Service's Refine wrapper from the accumulated host-function side effects.
 
+If the PVF exits abnormally (panic, trap, or other failed execution), Refine treats this as
+`Err` and records the opaque error payload previously supplied through `report_error(data)` if
+one was provided.
+
 ### 4.3 Host Functions & PVM Imports
 
 On JAM, PVFs execute inside a child PVM instance spawned by the Parachain Service's Refine
@@ -315,7 +330,7 @@ function. **Hashing**, **trie operations**, and **signature verification** are e
 move into PVM guest code — transpilation to native code should bring acceptable performance,
 though benchmarks are needed to confirm exact numbers.
 
-#### Data access (forwarded from JAM's fetch interface)
+#### Data access
 
 These forward the full JAM fetch functionality to the PVF:
 
@@ -345,8 +360,8 @@ These produce effects carried in the work result and applied by Accumulate:
 | `transfer_out(dest, amount, memo)` | `()` | Transfer balance to another JAM service (AssetHub only) |
 | `set_authorizer_queue(core, queue, mode)` | `()` | Update the authorizer queue for a core (Coretime Chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. |
 | `set_validator_keys(keys)` | `()` | Set the next epoch's validator key set (AssetHub only) |
-| `consume_transfers_up_to(index)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. |
-| `report_error(data)` | `()` | Provide an opaque error payload (max 1024 bytes) before returning `Err`. Stored per-parachain by Accumulate (see §3.1). |
+| `consume_transfers_up_to(index)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (AssetHub only) |
+| `report_error(data)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
 
 Host functions that are tailored to a special parachain will lead to abortion if called by not authorized parachains.
 
@@ -379,17 +394,14 @@ pallet (`polkadot/runtime/parachains/src/inclusion/mod.rs`):
      `pending_authorizer_queues` for deferred application once the current 80-slot queue ends.
    - `set_validator_keys` — calls JAM `designate` to set upcoming validator keys.
 3. **Incoming transfer processing**: Any `OnTransfer` calls received from other JAM services
-   are appended to `incoming_transfers`. Asset Hub consumes them later via
-   `consume_transfers_up_to(index)`.
+   are appended to `incoming_transfers` **after all work reports in the block have been
+   processed**. Asset Hub consumes them later via `consume_transfers_up_to(index)`.
 
 The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
 tracking code upgrades, applying queued authorizer updates, and managing incoming transfers.
-
-### 5.2 Gas Budget
-
-The Accumulate gas budget per work result is tight (~10ms). Services that need to make progress
-across multiple invocations should use JAM's `checkpoint` mechanism so that partial work can be
-committed safely and continued in a later accumulation without restarting from scratch.
+Because selected work-reports are not replayed automatically, the service should checkpoint
+after finishing each work-report so that progress survives any later out-of-gas or panic during
+the same accumulation invocation.
 
 ### 5.3 Code Upgrade Lifecycle
 
@@ -402,7 +414,7 @@ Phase 1: Request
   in its candidate commitments.
       │
       ▼
-Phase 2: Rquest Preimage
+Phase 2: Request Preimage
   Accumulate calls solicit(new_code_hash, code_len).
   Sets pending_upgrade with a deadline (current timeslot + UPGRADE_TIMEOUT).
   The parachain now pays for TWO PVF codes in the preimage store.
@@ -449,7 +461,7 @@ Phase 5: Activation or Rejection
   solicitation.
 - **Timeout protection**: The deadline prevents parachains from indefinitely occupying
   preimage store space with unused code. `UPGRADE_TIMEOUT` should be long enough for
-  collators to update their software (e.g. 24-48 hours).
+  the requested preimage to be submitted to JAM after solicitation (e.g. 24-48 hours).
 - **No active polling needed**: The service does not need a background polling mechanism for
   pending upgrades. Upgrade state is checked when a candidate for that parachain is accumulated,
   and the always-accumulate control path can additionally clear timed-out upgrades as part of
@@ -662,27 +674,24 @@ The following questions are not yet resolved and require further design work or 
    The Parachain Service provides an **authorizer** — service-specific code that JAM calls
    to validate work packages before Refine. The authorizer verifies that the submitting
    parachain holds valid coretime for the requested core. The exact interface between the
-   Coretime Chain and the Parachain Service's authorizer state needs to be specified.
+   Coretime Chain and the Parachain Service's authorizer state is the deferred/immediate
+   queue update interface described in §6.
 
 2. **Accumulate gas budget**: Is ~10ms sufficient for all the Accumulate logic (head update,
    message processing, code upgrades)? The current relay chain performs more work on inclusion
    than this budget allows. Mitigation strategies (batching, deferral) need to be specified.
 
-3. **Dispute integration**: JAM's judgment mechanism operates at the work-report level, not the
-   individual-candidate level. How does the Parachain Service's per-para dispute semantics map
-   onto JAM's per-work-report judgment? What happens if one candidate in a multi-candidate work
-   report is disputed?
-
-4. **`UPGRADE_TIMEOUT` value**: The code upgrade lifecycle (§5.3) requires a timeout after
+3. **`UPGRADE_TIMEOUT` value**: The code upgrade lifecycle (§5.3) requires a timeout after
    which an unused upgrade is rejected. The appropriate value depends on the expected
    collator update cadence and preimage store cost model. Candidates: 24-48 hours.
 
-5. **Parachain registration & governance**: Today, parachains are registered via on-chain
-   governance (Polkadot OpenGov). In JAM, what is the registration mechanism for the Parachain
-   Service? Is it a `ServiceCreation` operation, or does the Parachain Service maintain its own
-   internal governance?
+4. **Parachain registration & governance**: Registration should remain chain-managed rather than
+   become internal Parachain Service governance. Concretely, Asset Hub / the Coretime-management
+   chain should handle registration much as Polkadot does today: the registering account places
+   the required deposit, governance or policy checks run there, and the managing chain then calls
+   a `register_parachain` host function on the Parachain Service.
 
-6. **Finality guarantees during the judgment window**: Polkadot parachains currently offer
+5. **Finality guarantees during the judgment window**: Polkadot parachains currently offer
    ~1-minute finality. JAM's 1-hour judgment window means finality of parachain blocks is
    technically delayed. How do parachains and ecosystem tooling communicate this changed
    finality model?
