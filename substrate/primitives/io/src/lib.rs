@@ -120,8 +120,8 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassFatPointerAndWrite, PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead,
-		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
+		PassFatPointerAndWrite, PassMaybeFatPointerAndRead, PassPointerAndRead,
+		PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -3876,12 +3876,15 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 }
 
 /// Input data handling functions
-#[runtime_interface]
+#[runtime_interface(wasm_only)]
 pub trait Input {
 	/// Read input data into the provided buffer.
-	fn read(_buffer: PassFatPointerAndWriteInputData<&mut [u8]>) {
-		// The body has been deliberately left empty. The logic is handled by a specific marshalling
-		// strategy (see [`PassFatPointerAndWriteInputData`]).
+	fn read(&mut self, buffer: PassFatPointerAndWrite<&mut [u8]>) {
+		let data = self
+			.take_input_data()
+			.expect("input data is not empty on code entry and is only taken once; qed");
+		assert_eq!(data.len(), buffer.len());
+		buffer.copy_from_slice(&data[..]);
 	}
 }
 
