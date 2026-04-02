@@ -259,13 +259,12 @@ fn vested_transfer_succeeds() {
 		let locked: VestingBalance<Test> = 10_000;
 		CurrencyOf::<Test>::make_free_balance_be(&ALICE, locked * 10);
 
-		let input =
-			IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-				target: target_alloy(),
-				locked: alloy_core::primitives::U256::from(locked),
-				perBlock: alloy_core::primitives::U256::from(500u64),
-				startingBlock: alloy_core::primitives::U256::from(0u64),
-			});
+		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+			target: target_alloy(),
+			locked: alloy_core::primitives::U256::from(locked),
+			perBlock: alloy_core::primitives::U256::from(500u64),
+			startingBlock: alloy_core::primitives::U256::from(0u64),
+		});
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert!(result.data.is_empty());
@@ -283,13 +282,12 @@ fn vested_transfer_reverts_below_min() {
 		CurrencyOf::<Test>::make_free_balance_be(&ALICE, 100_000);
 
 		// MinVestedTransfer is 512; try with 100 which is below the minimum.
-		let input =
-			IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-				target: target_alloy(),
-				locked: alloy_core::primitives::U256::from(100u64),
-				perBlock: alloy_core::primitives::U256::from(10u64),
-				startingBlock: alloy_core::primitives::U256::from(0u64),
-			});
+		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+			target: target_alloy(),
+			locked: alloy_core::primitives::U256::from(100u64),
+			perBlock: alloy_core::primitives::U256::from(10u64),
+			startingBlock: alloy_core::primitives::U256::from(0u64),
+		});
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(result.did_revert(), "expected revert for amount below MinVestedTransfer");
 	});
@@ -299,13 +297,12 @@ fn vested_transfer_reverts_below_min() {
 fn vested_transfer_reverts_insufficient_balance() {
 	new_test_ext().execute_with(|| {
 		// ALICE has no funds.
-		let input =
-			IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-				target: target_alloy(),
-				locked: alloy_core::primitives::U256::from(10_000u64),
-				perBlock: alloy_core::primitives::U256::from(500u64),
-				startingBlock: alloy_core::primitives::U256::from(0u64),
-			});
+		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+			target: target_alloy(),
+			locked: alloy_core::primitives::U256::from(10_000u64),
+			perBlock: alloy_core::primitives::U256::from(500u64),
+			startingBlock: alloy_core::primitives::U256::from(0u64),
+		});
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(result.did_revert(), "expected revert when caller has insufficient balance");
 	});

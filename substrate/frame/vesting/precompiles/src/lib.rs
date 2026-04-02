@@ -161,28 +161,20 @@ where
 					let balance: <T as Config>::Balance =
 						U256::from_big_endian(&locked.to_be_bytes::<32>())
 							.try_into()
-							.map_err(|_| {
-								Error::Revert("vestedTransfer: locked overflow".into())
-							})?;
+							.map_err(|_| Error::Revert("vestedTransfer: locked overflow".into()))?;
 					<VestingBalance<T> as From<<T as Config>::Balance>>::from(balance)
 				};
 				let per_block: VestingBalance<T> = {
 					let balance: <T as Config>::Balance =
-						U256::from_big_endian(&perBlock.to_be_bytes::<32>())
-							.try_into()
-							.map_err(|_| {
-								Error::Revert("vestedTransfer: perBlock overflow".into())
-							})?;
+						U256::from_big_endian(&perBlock.to_be_bytes::<32>()).try_into().map_err(
+							|_| Error::Revert("vestedTransfer: perBlock overflow".into()),
+						)?;
 					<VestingBalance<T> as From<<T as Config>::Balance>>::from(balance)
 				};
 				let starting_block: BlockNumberFor<T> =
-					U256::from_big_endian(&startingBlock.to_be_bytes::<32>())
-						.try_into()
-						.map_err(|_| {
-							Error::Revert(
-								"vestedTransfer: startingBlock overflow".into(),
-							)
-						})?;
+					U256::from_big_endian(&startingBlock.to_be_bytes::<32>()).try_into().map_err(
+						|_| Error::Revert("vestedTransfer: startingBlock overflow".into()),
+					)?;
 
 				let schedule = VestingInfo::new(locked, per_block, starting_block);
 
@@ -198,9 +190,7 @@ where
 				let origin = frame_system::RawOrigin::Signed(caller_account).into();
 				pallet_vesting::Pallet::<T>::vested_transfer(origin, target_lookup, schedule)
 					.map_err(|e| {
-						Error::Revert(
-							alloc::format!("vestedTransfer failed: {:?}", e).into(),
-						)
+						Error::Revert(alloc::format!("vestedTransfer failed: {:?}", e).into())
 					})?;
 				Ok(Vec::new())
 			},
