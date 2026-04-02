@@ -1432,6 +1432,7 @@ dependencies = [
  "pallet-ah-ops",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
+ "pallet-asset-conversion-precompiles",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
  "pallet-asset-rewards",

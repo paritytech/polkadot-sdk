@@ -71,6 +71,7 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
+use pallet_asset_conversion_precompiles::AddressToAssetKind;
 use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
@@ -599,6 +600,66 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
 	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
+}
+
+/// Maps ERC20 precompile addresses to `xcm::v5::Location` for the asset-conversion precompile.
+///
+/// Address layout: `[id:4][0:12][prefix:2][0:2]` where prefix identifies the asset type:
+/// - `0x0120` → trust-backed asset, id is the pallet_assets asset ID
+/// - `0x0220` → foreign asset, id is the foreign asset index (looked up via
+///   pallet_assets_precompiles)
+/// - All zeros → native token (WND), represented as `Location::parent()`
+pub struct WestendAddressToAssetKind;
+
+impl AddressToAssetKind for WestendAddressToAssetKind {
+	type AssetKind = xcm::v5::Location;
+
+	fn address_to_asset_kind(
+		address: &sp_core::H160,
+	) -> Result<xcm::v5::Location, pallet_revive::precompiles::Error> {
+		use pallet_assets_precompiles::AssetIdExtractor;
+		use pallet_revive::precompiles::{alloy::sol_types::Revert, Error};
+		use xcm::v5::{Junction::*, Location};
+
+		let addr = &address.0;
+
+		// Check if the address is all zeros → native token.
+		if addr == &[0u8; 20] {
+			return Ok(xcm_config::WestendLocation::get());
+		}
+
+		// Extract the 2-byte prefix at bytes [16..18].
+		let prefix = u16::from_be_bytes([addr[16], addr[17]]);
+
+		match prefix {
+			// Trust-backed assets: inline u32 asset ID → Location.
+			0x0120 => {
+				let asset_id =
+					pallet_assets_precompiles::InlineAssetIdExtractor::asset_id_from_address(addr)?;
+				Ok(Location::new(
+					0,
+					[
+						PalletInstance(
+							<Assets as frame_support::traits::PalletInfoAccess>::index() as u8,
+						),
+						GeneralIndex(asset_id.into()),
+					],
+				))
+			},
+			// Foreign assets: u32 index → look up xcm::v5::Location.
+			0x0220 => {
+				let location =
+					pallet_assets_precompiles::ForeignAssetIdExtractor::<
+						Runtime,
+						ForeignAssetsInstance,
+					>::asset_id_from_address(addr)?;
+				Ok(location)
+			},
+			_ => Err(Error::Revert(Revert {
+				reason: "Unknown asset address prefix".into(),
+			})),
+		}
+	}
 }
 
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
@@ -1261,6 +1322,7 @@ impl pallet_revive::Config for Runtime {
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
 		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,
+		pallet_asset_conversion_precompiles::AssetConversion<0x0420, Self, WestendAddressToAssetKind>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
