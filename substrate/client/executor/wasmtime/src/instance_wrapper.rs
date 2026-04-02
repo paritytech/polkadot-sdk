@@ -174,16 +174,18 @@ impl InstanceWrapper {
 		let (max_memory_bytes, max_pages) = match heap_alloc_strategy {
 			HeapAllocStrategy::Static { extra_pages } => {
 				let total_pages = initial_pages.saturating_add(extra_pages);
-				((total_pages as usize).saturating_mul(WASM_PAGE_SIZE), Some(total_pages))
+				(Some((total_pages as usize).saturating_mul(WASM_PAGE_SIZE)), Some(total_pages))
 			},
-			HeapAllocStrategy::Dynamic { maximum_pages: Some(max) } => {
-				((max as usize).saturating_mul(WASM_PAGE_SIZE), Some(max))
+			HeapAllocStrategy::Dynamic { maximum_pages } => {
+				(maximum_pages.map(|m| (m as usize).saturating_mul(WASM_PAGE_SIZE)), maximum_pages)
 			},
-			HeapAllocStrategy::Dynamic { maximum_pages: None } => (u32::MAX as usize, None),
 		};
 
-		let limits = wasmtime::StoreLimitsBuilder::new().memory_size(max_memory_bytes).build();
-		(limits, max_pages)
+		let mut builder = wasmtime::StoreLimitsBuilder::new();
+		if let Some(max) = max_memory_bytes {
+			builder = builder.memory_size(max);
+		}
+		(builder.build(), max_pages)
 	}
 
 	/// Resolves a substrate entrypoint by the given name.
