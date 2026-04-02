@@ -124,6 +124,11 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		.saturating_mul(1000u32.into());
 	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
 
+	// Create and fund the era reward pot so payout_stakers can transfer from it.
+	let era_pot =
+		crate::reward::EraRewardManager::<T>::create(planned_era, EraPotType::StakerRewards);
+	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
+
 	Ok((v_stash, nominators, planned_era))
 }
 
