@@ -614,9 +614,10 @@ where
 				target: LOG_TARGET,
 				?parent_hash,
 				?included_header_hash,
-				"Cannot build next block due to unincluded segment constraints"
+				"Cannot build next block due to unincluded segment constraints, skipping entire bundle. Will continue at the next slot."
 			);
-			break;
+
+			return Ok(None);
 		}
 
 		// Create schedule for this block to determine timing decisions
