@@ -64,7 +64,6 @@ async fn offset_test_zero_offset() {
 #[tokio::test]
 async fn offset_test_two_offset() {
 	let (headers, best_header) = create_header_chain();
-	let best_hash = best_header.hash();
 
 	let client = TestRelayClient::new(headers);
 
@@ -84,7 +83,6 @@ async fn offset_test_two_offset() {
 #[tokio::test]
 async fn offset_test_five_offset() {
 	let (headers, best_header) = create_header_chain();
-	let best_hash = best_header.hash();
 
 	let client = TestRelayClient::new(headers);
 
