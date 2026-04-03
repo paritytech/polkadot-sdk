@@ -2528,6 +2528,55 @@ fn fund_and_award_child_bounty_without_curator_works() {
 }
 
 #[test]
+fn multi_asset_bounty_accounts_differ_from_legacy_bounty_accounts() {
+	ExtBuilder::default().build_and_execute(|| {
+		use sp_runtime::traits::AccountIdConversion;
+
+		let bounty_id: BountyIndex = 0;
+
+		// Old derivation (what pallet-bounties uses with &str)
+		let old_bounty_account: u128 =
+			BountyPalletId::get().into_sub_account_truncating(("bt", bounty_id));
+		// New derivation (what multi-asset-bounties uses with [u8; 3])
+		let new_bounty_account: u128 = BountyPalletId::get()
+			.into_sub_account_truncating((BountyAccountPrefix::get(), bounty_id));
+
+		assert_ne!(
+			old_bounty_account, new_bounty_account,
+			"multi-asset bounty account must differ from legacy bounty account"
+		);
+
+		let parent_bounty_id: BountyIndex = 0;
+		let child_bounty_id: BountyIndex = 0;
+
+		// Old derivation (what pallet-child-bounties uses with &str)
+		let old_child_account: u128 = BountyPalletId::get().into_sub_account_truncating((
+			"cb",
+			parent_bounty_id,
+			child_bounty_id,
+		));
+		// New derivation (what multi-asset-bounties uses with [u8; 3])
+		let new_child_account: u128 = BountyPalletId::get().into_sub_account_truncating((
+			ChildBountyAccountPrefix::get(),
+			parent_bounty_id,
+			child_bounty_id,
+		));
+
+		assert_ne!(
+			old_child_account, new_child_account,
+			"multi-asset child bounty account must differ from legacy child bounty account"
+		);
+
+		// Also verify bounty and child-bounty accounts are distinct from each other
+		// when using the same indices
+		assert_ne!(
+			new_bounty_account, new_child_account,
+			"bounty and child-bounty accounts must differ even with the same indices"
+		);
+	});
+}
+
+#[test]
 fn integrity_test() {
 	ExtBuilder::default().build_and_execute(|| {
 		Bounties::integrity_test();
