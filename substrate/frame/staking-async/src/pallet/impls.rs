@@ -409,9 +409,8 @@ impl<T: Config> Pallet<T> {
 
 		// Use the overview's own-stake (not the page's, which is zeroed on pages > 0)
 		// so the calculator sees the full validator self-stake for reward computation.
-		let overview_own = ErasStakersOverview::<T>::get(era, &stash)
-			.map(|o| o.own)
-			.unwrap_or_default();
+		let overview_own =
+			ErasStakersOverview::<T>::get(era, &stash).map(|o| o.own).unwrap_or_default();
 
 		let reward_split = T::StakerRewardCalculator::calculate_staker_reward(
 			validator_total_payout,

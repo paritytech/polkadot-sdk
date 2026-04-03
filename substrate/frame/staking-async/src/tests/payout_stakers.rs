@@ -1507,8 +1507,7 @@ fn test_commission_paid_across_pages() {
 			balance + (0..200).map(|i| balance + i as Balance).sum::<Balance>();
 		let commission_reward = Perbill::from_percent(commission).mul_floor(payout);
 		let leftover = payout.saturating_sub(commission_reward);
-		let own_stake_reward =
-			Perbill::from_rational(balance, total_exposure).mul_floor(leftover);
+		let own_stake_reward = Perbill::from_rational(balance, total_exposure).mul_floor(leftover);
 		let expected_total = commission_reward + own_stake_reward;
 		let actual_total = asset::stakeable_balance::<T>(&11) - initial_balance;
 		// Allow error of 1 per page due to floor rounding across 4 pages.

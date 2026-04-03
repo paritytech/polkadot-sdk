@@ -479,7 +479,8 @@ mod inflation {
 	#[test]
 	fn dap_budget_allocation_determines_staker_rewards() {
 		ExtBuilder::default().build_and_execute(|| {
-			// 50% of time_per_era() goes to stakers (other half to buffer per mock::default_budget())
+			// 50% of time_per_era() goes to stakers (other half to buffer per
+			// mock::default_budget())
 			let default_stakers_payout = validator_payout_for(time_per_era());
 			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
 
