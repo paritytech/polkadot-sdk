@@ -171,9 +171,9 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-const ERR_POOL_NOT_FOUND: &str = ERR_POOL_NOT_FOUND;
-const ERR_PATH_TOO_LONG: &str = ERR_PATH_TOO_LONG;
-const ERR_DELEGATE_CALL: &str = ERR_DELEGATE_CALL;
+const ERR_POOL_NOT_FOUND: &str = "Pool does not exist or has no liquidity";
+const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
+const ERR_DELEGATE_CALL: &str = "Cannot be called via delegate call";
 
 impl<const ADDRESS: u16, Runtime, Converter> AssetConversion<ADDRESS, Runtime, Converter>
 where
