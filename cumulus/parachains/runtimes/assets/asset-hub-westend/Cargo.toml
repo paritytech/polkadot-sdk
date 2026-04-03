@@ -32,13 +32,13 @@ frame-try-runtime = { optional = true, workspace = true }
 pallet-ah-ops = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
+pallet-asset-conversion-precompiles = { workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
 pallet-assets-precompiles = { workspace = true }
-pallet-asset-conversion-precompiles = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-bags-list = { workspace = true }
@@ -178,12 +178,12 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-ah-ops/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
+	"pallet-asset-conversion-precompiles/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-rewards/runtime-benchmarks",
 	"pallet-assets-freezer/runtime-benchmarks",
-	"pallet-asset-conversion-precompiles/runtime-benchmarks",
 	"pallet-assets-precompiles/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -257,12 +257,12 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-ah-ops/try-runtime",
 	"pallet-asset-conversion-ops/try-runtime",
+	"pallet-asset-conversion-precompiles/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-asset-rewards/try-runtime",
 	"pallet-assets-freezer/try-runtime",
-	"pallet-asset-conversion-precompiles/try-runtime",
 	"pallet-assets-precompiles/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
@@ -344,12 +344,12 @@ std = [
 	"log/std",
 	"pallet-ah-ops/std",
 	"pallet-asset-conversion-ops/std",
+	"pallet-asset-conversion-precompiles/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
 	"pallet-asset-rate/std",
 	"pallet-asset-rewards/std",
 	"pallet-assets-freezer/std",
-	"pallet-asset-conversion-precompiles/std",
 	"pallet-assets-precompiles/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
