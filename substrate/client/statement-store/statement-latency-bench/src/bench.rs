@@ -287,21 +287,17 @@ fn generate_report(
 	let total_received: u64 = all_round_stats.iter().map(|s| s.received_count as u64).sum();
 
 	// Calculate total bytes sent based on message pattern sizes.
-	let bytes_per_client: u64 =
-		messages_pattern.iter().map(|(count, size)| (*count as u64) * (*size as u64)).sum();
+	let bytes_per_client: u64 = messages_pattern
+		.iter()
+		.map(|(count, size)| (*count as u64) * (*size as u64))
+		.sum();
 	let total_bytes_sent = bytes_per_client * num_clients as u64 * num_rounds as u64;
 
 	let success_rate = if total_sent > 0 { total_received as f64 / total_sent as f64 } else { 0.0 };
-	let throughput_stmts = if total_duration_secs > 0.0 {
-		total_sent as f64 / total_duration_secs
-	} else {
-		0.0
-	};
-	let throughput_bytes = if total_duration_secs > 0.0 {
-		total_bytes_sent as f64 / total_duration_secs
-	} else {
-		0.0
-	};
+	let throughput_stmts =
+		if total_duration_secs > 0.0 { total_sent as f64 / total_duration_secs } else { 0.0 };
+	let throughput_bytes =
+		if total_duration_secs > 0.0 { total_bytes_sent as f64 / total_duration_secs } else { 0.0 };
 
 	// Aggregate per-round stats across all clients
 	let mut round_reports = Vec::new();
@@ -316,10 +312,8 @@ fn generate_report(
 		let round_received: u64 = round_data.iter().map(|s| s.received_count as u64).sum();
 
 		// Round throughput: total statements sent in this round / max full latency across clients.
-		let max_full_latency = round_data
-			.iter()
-			.map(|s| s.full_latency_secs)
-			.fold(0.0_f64, f64::max);
+		let max_full_latency =
+			round_data.iter().map(|s| s.full_latency_secs).fold(0.0_f64, f64::max);
 
 		let round_throughput =
 			if max_full_latency > 0.0 { round_sent as f64 / max_full_latency } else { 0.0 };
@@ -375,10 +369,9 @@ fn check_thresholds(
 	if let Some(min_sr) = min_success_rate {
 		if report.success_rate < min_sr {
 			report.passed = false;
-			report.failures.push(format!(
-				"success rate {:.4} below min {:.4}",
-				report.success_rate, min_sr
-			));
+			report
+				.failures
+				.push(format!("success rate {:.4} below min {:.4}", report.success_rate, min_sr));
 		}
 	}
 
@@ -667,10 +660,12 @@ async fn main() -> Result<(), anyhow::Error> {
 		.map_or(args.messages_pattern.clone(), |p| p.messages_pattern.clone());
 	let eff_num_rounds = scenario_params.as_ref().map_or(args.num_rounds, |p| p.num_rounds);
 	let eff_interval_ms = scenario_params.as_ref().map_or(args.interval_ms, |p| p.interval_ms);
-	let eff_receive_timeout_ms =
-		scenario_params.as_ref().map_or(args.receive_timeout_ms, |p| p.receive_timeout_ms);
-	let eff_statement_expiry_ms =
-		scenario_params.as_ref().map_or(args.statement_expiry_ms, |p| p.statement_expiry_ms);
+	let eff_receive_timeout_ms = scenario_params
+		.as_ref()
+		.map_or(args.receive_timeout_ms, |p| p.receive_timeout_ms);
+	let eff_statement_expiry_ms = scenario_params
+		.as_ref()
+		.map_or(args.statement_expiry_ms, |p| p.statement_expiry_ms);
 
 	let messages_pattern = parse_messages_pattern(&eff_messages_pattern_str)?;
 
