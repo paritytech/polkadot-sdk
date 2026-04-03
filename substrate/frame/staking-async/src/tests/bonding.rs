@@ -1692,7 +1692,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
-					ConfigOp::Remove,
 					ConfigOp::Noop,
 				));
 
@@ -1711,7 +1710,6 @@ mod staking_bounds_chill_other {
 					RuntimeOrigin::root(),
 					ConfigOp::Set(1_500),
 					ConfigOp::Set(2_000),
-					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1739,7 +1737,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1762,7 +1759,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1782,7 +1778,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(2_000),
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
-					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Noop,
@@ -1808,7 +1803,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1831,7 +1825,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
-					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1852,7 +1845,6 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
 					ConfigOp::Set(Percent::from_percent(75)),
-					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 				));
@@ -1902,7 +1894,6 @@ mod staking_bounds_chill_other {
 				ConfigOp::Set(max),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
 
@@ -1972,7 +1963,6 @@ mod staking_bounds_chill_other {
 				ConfigOp::Noop,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,

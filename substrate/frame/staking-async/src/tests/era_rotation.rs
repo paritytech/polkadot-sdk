@@ -477,13 +477,11 @@ mod inflation {
 	use super::*;
 
 	#[test]
-	fn max_staked_rewards_default_not_set_works() {
+	fn dap_budget_allocation_determines_staker_rewards() {
 		ExtBuilder::default().build_and_execute(|| {
-			// 50% of time_per_era() (other half goes to buffer as per mock::default_budget()
+			// 50% of time_per_era() goes to stakers (other half to buffer per mock::default_budget())
 			let default_stakers_payout = validator_payout_for(time_per_era());
 			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
-
-			assert_eq!(<MaxStakedRewards<Test>>::get(), None);
 
 			Session::roll_until_active_era(2);
 
@@ -498,34 +496,8 @@ mod inflation {
 				]
 			);
 
-			// the final stakers reward is the same as the reward before applied the cap.
 			assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
 		})
-	}
-
-	#[test]
-	fn max_staked_rewards_default_equal_100() {
-		ExtBuilder::default().build_and_execute(|| {
-			let default_stakers_payout = validator_payout_for(time_per_era());
-			assert_eq!(default_stakers_payout, Balance::from(time_per_era()) / 2);
-			<MaxStakedRewards<Test>>::set(Some(Percent::from_parts(100)));
-
-			Session::roll_until_active_era(2);
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
-					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
-					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
-					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
-				]
-			);
-
-			// the final stakers reward is the same as the reward before applied the cap.
-			assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
-		});
 	}
 }
 
