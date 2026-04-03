@@ -49,6 +49,13 @@ construct_runtime!(
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 100;
+	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+}
+
+frame_support::ord_parameter_types! {
+	pub const AssetConversionOrigin: u64 = AccountIdConversion::<u64>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -63,39 +70,15 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config<Instance1> for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = u64;
-	type RemoveItemsLimit = ConstU32<1000>;
-	type AssetId = u32;
-	type AssetIdParameter = u32;
-	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
-	type AssetDeposit = ConstU64<1>;
-	type AssetAccountDeposit = ConstU64<10>;
-	type MetadataDepositBase = ConstU64<1>;
-	type MetadataDepositPerByte = ConstU64<1>;
-	type ApprovalDeposit = ConstU64<1>;
-	type StringLimit = ConstU32<50>;
-	type Holder = ();
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type CallbackHandle = ();
-	pallet_assets::runtime_benchmarks_enabled! {
-		type BenchmarkHelper = ();
-	}
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config<Instance2> for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = u64;
-	type RemoveItemsLimit = ConstU32<1000>;
-	type AssetId = u32;
-	type AssetIdParameter = u32;
-	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
@@ -104,25 +87,6 @@ impl pallet_assets::Config<Instance2> for Test {
 	type MetadataDepositBase = ConstU64<0>;
 	type MetadataDepositPerByte = ConstU64<0>;
 	type ApprovalDeposit = ConstU64<0>;
-	type StringLimit = ConstU32<50>;
-	type Holder = ();
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type CallbackHandle = ();
-	pallet_assets::runtime_benchmarks_enabled! {
-		type BenchmarkHelper = ();
-	}
-}
-
-parameter_types! {
-	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
-	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
-}
-
-frame_support::ord_parameter_types! {
-	pub const AssetConversionOrigin: u64 = AccountIdConversion::<u64>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u64>;
