@@ -95,10 +95,20 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 /// will be imported.
 fn register_ignored_nodes_cleanup<C, Block>(client: Arc<C>)
 where
-	C: PreCommitActions<Block>,
+	C: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
 	Block: BlockT,
 {
+	let client_for_closure = client.clone();
 	let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
+		// The old finalized block is the parent of the first block in the tree route,
+		// or the parent of the finalized block if the tree route is empty.
+		let old_finalized_hash = notification
+			.tree_route
+			.first()
+			.and_then(|hash| client_for_closure.header(*hash).ok().flatten())
+			.map(|h| *h.parent_hash())
+			.unwrap_or_else(|| *notification.header.parent_hash());
+
 		notification
 			.stale_blocks
 			.iter()
@@ -115,15 +125,7 @@ where
 					.copied()
 					.map(|hash| (ignored_nodes_key(hash), None)),
 			)
-			// Include the old last finalized block as well.
-			.chain(
-				notification
-					.tree_route
-					.first()
-					.copied()
-					.into_iter()
-					.map(|hash| (ignored_nodes_key(hash), None)),
-			)
+			.chain(std::iter::once((ignored_nodes_key(old_finalized_hash), None)))
 			.collect()
 	};
 
@@ -145,7 +147,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	/// collation task. If the node is not running as a collator, just dropping the handle is fine.
 	pub fn new(inner: BI, client: Arc<Client>) -> (Self, SlotBasedBlockImportHandle<Block>)
 	where
-		Client: PreCommitActions<Block>,
+		Client: PreCommitActions<Block> + HeaderBackend<Block> + 'static,
 	{
 		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
 
