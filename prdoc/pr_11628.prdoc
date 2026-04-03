@@ -1,0 +1,16 @@
+title: 'fix: slot-based collator shuts down immediately after init'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix a regression introduced by #11381, where we wrapped the slot-based collator launch in an async task that first calls `wait_for_aura`, then spawns the actual long-running collator tasks via `slot_based::run()`. The wrapper was spawned with `spawn_essential_handle()`.
+
+    Essential tasks shut down the node when they complete.  The init wrapper completes immediately after spawning, the TaskManager sees an essential task exit, and the node shuts down.
+
+    This only affects parachain collators started with `--authoring=slot-based`.
+
+    Fix: use `spawn_handle()` for the short-lived init wrapper. The child tasks inside `slot_based::run()` remain correctly marked as essential.
+
+    An easy way to reproduce (same setup used by staking-miner nightly test - which in fact started to fail after #11381 got merged e.g. [here](https://github.com/paritytech/polkadot-staking-miner/actions/runs/23928039324/job/69807526676) ): spawn a Zombienet network with a 2-validator relay chain  and a single slot-based parachain collator. The collator process starts but shuts down immediately.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
