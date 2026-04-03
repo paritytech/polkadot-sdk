@@ -160,12 +160,12 @@ jobs:
     if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
 
     outputs:
-      changes_substrate: ${{ steps.set_changes.outputs.dependencies == 'true' && steps.set_changes.outputs.substrate_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
-      changes_cumulus: ${{ steps.set_changes.outputs.dependencies == 'true' && steps.set_changes.outputs.cumulus_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
-      changes_polkadot: ${{ steps.set_changes.outputs.dependencies == 'true' && steps.set_changes.outputs.polkadot_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
-      changes_bridges: ${{ steps.set_changes.outputs.dependencies == 'true' && steps.set_changes.outputs.bridges_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
-      changes_templates: ${{ steps.set_changes.outputs.dependencies == 'true' && steps.set_changes.outputs.templates_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
-      changes_zombienet: ${{ steps.set_changes.outputs.dependencies == 'true' && steps.set_changes.outputs.zombienet_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_substrate: ${{ steps.set_changes.outputs.dependencies == 'true' || steps.set_changes.outputs.substrate_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_cumulus: ${{ steps.set_changes.outputs.dependencies == 'true' || steps.set_changes.outputs.cumulus_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_polkadot: ${{ steps.set_changes.outputs.dependencies == 'true' || steps.set_changes.outputs.polkadot_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_bridges: ${{ steps.set_changes.outputs.dependencies == 'true' || steps.set_changes.outputs.bridges_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_templates: ${{ steps.set_changes.outputs.dependencies == 'true' || steps.set_changes.outputs.templates_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
+      changes_zombienet: ${{ steps.set_changes.outputs.dependencies == 'true' || steps.set_changes.outputs.zombienet_any_changed == 'true' || steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
 
       CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 

@@ -109,19 +109,6 @@ jobs:
 
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
-      - name: Validate resume preconditions
-        if: inputs.resume_from != 'full'
-        shell: bash
-        env:
-          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
-          RESUME_FROM: ${{ inputs.resume_from }}
-        run: |
-          if ! git ls-remote --heads origin "$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
-            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
-            exit 1
-          fi
-          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
-
       - name: Checkout stable branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -146,6 +133,19 @@ jobs:
           git config --global user.name "ParityReleases"
           git config --global user.email "release-team@parity.io"
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+
+      - name: Validate resume preconditions
+        if: inputs.resume_from != 'full'
+        shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
+        run: |
+          if ! git branch -r --list "origin/$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
+            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
+            exit 1
+          fi
+          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
 
       - name: Create or switch to release branch
         shell: bash
@@ -175,7 +175,7 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.12 --locked -q
+          cargo install parity-publish@0.10.13 --locked -q
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'

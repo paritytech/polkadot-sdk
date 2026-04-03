@@ -75,6 +75,7 @@ use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig,
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
@@ -1261,6 +1262,7 @@ impl pallet_revive::Config for Runtime {
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
 		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,
+		VestingPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
@@ -1278,6 +1280,10 @@ impl pallet_revive::Config for Runtime {
 	type DebugEnabled = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
+}
+
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1474,6 +1480,7 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
+		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1848,6 +1855,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
