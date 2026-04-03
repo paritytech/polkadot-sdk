@@ -988,20 +988,20 @@ impl Cores {
 	}
 }
 
-/// The three block production modes based on total block rate.
+/// Slot handover adjustment strategy based on total block rate.
 ///
-/// These modes exist because without transaction streaming, the next author
-/// must sequentially import all blocks before building their own. Each mode
+/// These adjustments exist because without transaction streaming, the next author
+/// must sequentially import all blocks before building their own. Each variant
 /// uses a different strategy to provide import buffer time.
 // TODO: Once transaction streaming is implemented, this can be removed.
 #[derive(Debug, Clone, Copy)]
-enum BlockProductionMode {
-	/// 0-1 blocks per slot - no special handling needed.
+enum SlotHandoverAdjustment {
+	/// 0-1 blocks per slot - no adjustment needed.
 	/// The next author has plenty of time to import.
-	Normal,
+	None,
 
-	/// 2-3 blocks per slot (~2-3s block time) - reduce authoring time.
-	Legacy {
+	/// 2-3 blocks per slot (~2-3s block time) - shorten authoring time.
+	Shorten {
 		/// Time adjustment factor of last block authoring time.
 		time_factor: f32,
 	},
@@ -1010,22 +1010,22 @@ enum BlockProductionMode {
 	///
 	/// Block time is too fast for time reduction alone, so we skip
 	/// producing the last block in each parachain slot entirely.
-	Bundling,
+	Skip,
 }
 
-impl BlockProductionMode {
-	/// Determine the appropriate mode based on total blocks per relay slot.
+impl SlotHandoverAdjustment {
+	/// Determine the appropriate adjustment based on total blocks per relay slot.
 	fn from_total_blocks(total_blocks: u32) -> Self {
 		match total_blocks {
-			0..=1 => Self::Normal,
-			2..=3 => Self::Legacy { time_factor: 0.5 },
-			_ => Self::Bundling,
+			0..=1 => Self::None,
+			2..=3 => Self::Shorten { time_factor: 0.5 },
+			_ => Self::Skip,
 		}
 	}
 
-	/// Whether this mode skips the last block (vs adjusting time).
+	/// Whether this adjustment skips the last block (vs adjusting time).
 	fn skips_last_block(&self) -> bool {
-		matches!(self, Self::Bundling)
+		matches!(self, Self::Skip)
 	}
 }
 
@@ -1035,7 +1035,7 @@ impl BlockProductionMode {
 /// about when to skip blocks, how long to spend authoring, and when to sleep.
 #[derive(Debug, Clone, Copy)]
 struct BlockProductionSchedule {
-	mode: BlockProductionMode,
+	mode: SlotHandoverAdjustment,
 	block_index: u32,
 	blocks_per_core: u32,
 	is_last_core_in_parachain_slot: bool,
@@ -1049,7 +1049,7 @@ impl BlockProductionSchedule {
 		is_last_core_in_parachain_slot: bool,
 	) -> Self {
 		Self {
-			mode: BlockProductionMode::from_total_blocks(total_blocks),
+			mode: SlotHandoverAdjustment::from_total_blocks(total_blocks),
 			block_index,
 			blocks_per_core,
 			is_last_core_in_parachain_slot,
@@ -1142,45 +1142,45 @@ mod block_production_schedule_tests {
 
 		#[test]
 		fn mode_selection_from_total_blocks() {
-			// 0-1 blocks = Normal
+			// 0-1 blocks = None
 			assert!(matches!(
-				BlockProductionMode::from_total_blocks(0),
-				BlockProductionMode::Normal
+				SlotHandoverAdjustment::from_total_blocks(0),
+				SlotHandoverAdjustment::None
 			));
 			assert!(matches!(
-				BlockProductionMode::from_total_blocks(1),
-				BlockProductionMode::Normal
-			));
-
-			// 2-3 blocks = Medium with half time
-			assert!(matches!(
-				BlockProductionMode::from_total_blocks(2),
-				BlockProductionMode::Legacy { time_factor: 0.5 }
-			));
-			assert!(matches!(
-				BlockProductionMode::from_total_blocks(3),
-				BlockProductionMode::Legacy { time_factor: 0.5 }
+				SlotHandoverAdjustment::from_total_blocks(1),
+				SlotHandoverAdjustment::None
 			));
 
-			// >3 blocks = Fast
+			// 2-3 blocks = Shorten with half time
 			assert!(matches!(
-				BlockProductionMode::from_total_blocks(4),
-				BlockProductionMode::Bundling
+				SlotHandoverAdjustment::from_total_blocks(2),
+				SlotHandoverAdjustment::Shorten { time_factor: 0.5 }
 			));
 			assert!(matches!(
-				BlockProductionMode::from_total_blocks(12),
-				BlockProductionMode::Bundling
+				SlotHandoverAdjustment::from_total_blocks(3),
+				SlotHandoverAdjustment::Shorten { time_factor: 0.5 }
+			));
+
+			// >3 blocks = Skip
+			assert!(matches!(
+				SlotHandoverAdjustment::from_total_blocks(4),
+				SlotHandoverAdjustment::Skip
+			));
+			assert!(matches!(
+				SlotHandoverAdjustment::from_total_blocks(12),
+				SlotHandoverAdjustment::Skip
 			));
 		}
 
 		#[test]
 		fn mode_behavior_flags() {
-			assert!(!BlockProductionMode::Normal.skips_last_block());
+			assert!(!SlotHandoverAdjustment::None.skips_last_block());
 
-			let medium = BlockProductionMode::Legacy { time_factor: 0.5 };
-			assert!(!medium.skips_last_block());
+			let shorten = SlotHandoverAdjustment::Shorten { time_factor: 0.5 };
+			assert!(!shorten.skips_last_block());
 
-			assert!(BlockProductionMode::Bundling.skips_last_block());
+			assert!(SlotHandoverAdjustment::Skip.skips_last_block());
 		}
 	}
 
