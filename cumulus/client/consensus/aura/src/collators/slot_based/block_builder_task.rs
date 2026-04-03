@@ -1092,8 +1092,8 @@ impl BlockProductionSchedule {
 	/// Compute the authoring duration given available time.
 	fn authoring_duration(&self, time_left: Duration, block_time: Duration) -> Duration {
 		let adjusted = match &self.mode {
-			BlockProductionMode::Legacy { time_factor }
-				if self.is_effective_last_block() && self.blocks_per_core == 1 =>
+			SlotHandoverAdjustment::Shorten { time_factor }
+				if self.is_last_core_in_parachain_slot =>
 			{
 				time_left.mul_f32(*time_factor)
 			},
