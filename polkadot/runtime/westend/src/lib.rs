@@ -173,7 +173,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_023_000,
+	spec_version: 1_022_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -2466,11 +2466,11 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::max_relay_parent_session_age::<Runtime>()
 		}
 
-		fn allowed_relay_parent_info(
+		fn ancestor_relay_parent_info(
 			session_index: SessionIndex,
 			relay_parent: Hash,
 		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
-			parachains_staging_runtime_api_impl::allowed_relay_parent_info::<Runtime>(session_index, relay_parent)
+			parachains_staging_runtime_api_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 	}
 

@@ -19,23 +19,42 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	EthRpcClient,
+	BlockInfoProvider, ChainMetadata, DebugRpcClient, EthRpcClient, ReceiptExtractor,
+	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
+	client::{Client, connect},
 	example::TransactionBuilder,
 	subxt_client::{
 		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
 	},
 };
+use alloy_network::EthereumWallet;
+use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
+use alloy_provider::{Provider, ProviderBuilder};
+use alloy_rpc_types::{
+	TransactionRequest,
+	state::{AccountOverride, StateOverride},
+};
+use alloy_signer_local::PrivateKeySigner;
 use anyhow::anyhow;
 use clap::Parser;
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use jsonrpsee::{
+	core::ClientError,
+	ws_client::{WsClient, WsClientBuilder},
+};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, H256,
-		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
+		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
+		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
+		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
+		Trace, TransactionInfo, TransactionUnsigned, U256,
 	},
+	precompiles::alloy::sol_types::{SolCall, SolConstructor},
 };
+use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
+use sp_runtime::BoundedVec;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
 	OnlineClient,
@@ -43,6 +62,7 @@ use subxt::{
 	ext::subxt_rpcs::rpc_params,
 	tx::{SubmittableTransaction, TxStatus},
 };
+use subxt_signer::eth::Keypair;
 
 const LOG_TARGET: &str = "eth-rpc-tests";
 
@@ -87,6 +107,7 @@ impl SharedResources {
 			"--node-rpc-url=ws://localhost:45789",
 			"--no-prometheus",
 			"-linfo,eth-rpc=debug",
+			"--eth-pruning=256",
 		]);
 
 		let _rpc_handle = thread::spawn(move || {
@@ -108,6 +129,22 @@ impl SharedResources {
 
 	fn node_rpc_url() -> &'static str {
 		"ws://localhost:45789"
+	}
+
+	/// Creates an alloy HTTP provider connected to the test eth-rpc server, configured with the
+	/// default dev account (alith) wallet for signing transactions.
+	///
+	/// Using alloy's provider in tests ensures that our JSON-RPC types (especially state
+	/// overrides, transaction requests, and call responses) are wire-compatible with the models
+	/// used by the wider Ethereum ecosystem. If alloy can successfully serialize a request and
+	/// deserialize our response, external tooling built on alloy will work with our RPC.
+	fn provider() -> impl Provider {
+		let secret_key = subxt_signer::eth::dev::alith().secret_key();
+		let signer = PrivateKeySigner::from_bytes(&secret_key.into()).expect("valid dev key");
+		let wallet = EthereumWallet::from(signer);
+		ProviderBuilder::new()
+			.wallet(wallet)
+			.connect_http("http://localhost:45788".parse().unwrap())
 	}
 }
 
@@ -314,9 +351,51 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
 		test_block_hash_for_tag_with_block_tags_works,
+		test_earliest_block_tag,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
+		test_subscribe_new_heads,
+		test_subscribe_new_heads_multiple_blocks,
+		test_subscribe_logs,
+		test_subscribe_logs_with_address_filter,
+		test_subscribe_logs_with_topic_filter,
+		test_subscribe_logs_address_filter_excludes_non_matching,
+		test_subscribe_logs_with_multiple_addresses_filter,
+		test_subscribe_logs_no_event_transaction_ignored,
+		test_subscribe_with_invalid_params_rejected,
+		test_estimate_gas_of_contract_with_consume_all_gas,
+		test_gas_estimation_for_contract_requiring_binary_search,
+		test_gas_estimation_with_no_funds_no_gas_specified,
+		test_gas_estimation_with_no_funds_and_with_gas_specified,
+		test_block_sync_fresh,
+		test_block_sync_resume_interrupted,
+		test_block_sync_detects_corruption,
+		test_block_sync_picks_up_new_blocks,
+		test_state_override_balance,
+		test_state_override_code_empty_to_evm,
+		test_state_override_code_empty_to_pvm,
+		test_state_override_code_eoa_to_evm,
+		test_state_override_code_eoa_to_pvm,
+		test_state_override_code_evm_to_evm,
+		test_state_override_code_evm_to_pvm,
+		test_state_override_code_pvm_to_evm,
+		test_state_override_storage_state_diff,
+		test_state_override_storage_full_replacement,
+		test_state_override_storage_full_clears_unspecified,
+		test_state_override_storage_diff_preserves_unspecified,
+		test_state_override_storage_multiple_slots,
+		test_state_override_storage_full_empty_map_clears_all,
+		test_state_override_storage_diff_zero_value,
+		test_state_override_nonce,
+		test_state_override_code_and_storage_combined,
+		test_state_override_balance_on_from_account,
+		test_state_override_multiple_accounts,
+		test_state_override_combined_balance_and_code,
+		test_state_override_does_not_persist,
+		test_state_override_empty_set,
+		test_state_override_storage_on_eoa_fails,
+		test_state_override_balance_zero,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -699,10 +778,98 @@ async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	];
 
 	for tag in tags {
-		let balance = client.get_balance(account.address(), tag.clone().into()).await?;
+		let balance = client.get_balance(account.address(), tag.into()).await?;
 
 		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
 	}
+
+	Ok(())
+}
+
+/// Validate that all RPC methods accept the `earliest` block tag and return correct data.
+async fn test_earliest_block_tag() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let tx = GenericTransaction {
+		from: Some(account.address()),
+		to: Some(account.address()),
+		..Default::default()
+	};
+
+	// eth_getBlockByNumber
+	let block = client
+		.get_block_by_number(BlockTag::Earliest.into(), false)
+		.await?
+		.expect("earliest block should exist");
+	assert_eq!(block.number, U256::zero(), "earliest block number should be 0");
+
+	// eth_getBalance
+	let balance = client.get_balance(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(balance > U256::zero(), "dev account should have a non-zero balance at genesis");
+
+	// eth_getTransactionCount
+	let nonce = client
+		.get_transaction_count(account.address(), BlockTag::Earliest.into())
+		.await?;
+	assert_eq!(nonce, U256::zero(), "nonce at genesis should be 0");
+
+	// eth_getCode
+	let code = client.get_code(account.address(), BlockTag::Earliest.into()).await?;
+	assert!(code.is_empty(), "EOA should have no code");
+
+	// eth_getStorageAt
+	let storage = client
+		.get_storage_at(account.address(), U256::zero(), BlockTag::Earliest.into())
+		.await?;
+	assert!(storage.0.iter().all(|&b| b == 0), "EOA should have zero storage");
+
+	// eth_getBlockTransactionCountByNumber
+	let tx_count = client
+		.get_block_transaction_count_by_number(Some(BlockTag::Earliest.into()))
+		.await?;
+	assert_eq!(tx_count, Some(U256::zero()), "genesis block should have no transactions");
+
+	// eth_getTransactionByBlockNumberAndIndex
+	let tx_by_index = client
+		.get_transaction_by_block_number_and_index(BlockTag::Earliest.into(), U256::zero())
+		.await?;
+	assert!(tx_by_index.is_none(), "genesis block should have no transactions");
+
+	// eth_call
+	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into()), None).await?;
+	assert!(call_result.is_empty(), "calling an EOA should return empty bytes");
+
+	// eth_estimateGas
+	let gas = client.estimate_gas(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	assert!(gas > U256::zero(), "gas estimate should be non-zero");
+
+	// eth_feeHistory
+	let fee = client.fee_history(U256::from(1), BlockTag::Earliest.into(), None).await?;
+	assert_eq!(fee.oldest_block, U256::zero(), "feeHistory oldest_block should be 0");
+	assert!(!fee.base_fee_per_gas.is_empty(), "feeHistory should include base fee");
+
+	// eth_getLogs
+	let filter = Filter {
+		from_block: Some(BlockTag::Earliest.into()),
+		to_block: Some(BlockTag::Earliest.into()),
+		..Default::default()
+	};
+	let logs = client.get_logs(Some(filter)).await?;
+	assert_eq!(logs, FilterResults::default(), "genesis block should have no logs");
+
+	// debug_traceBlockByNumber
+	let traces =
+		DebugRpcClient::trace_block_by_number(&*client, BlockTag::Earliest.into(), None).await?;
+	assert!(traces.is_empty(), "genesis block should have no traces");
+
+	// debug_traceCall
+	let trace =
+		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
+	assert!(
+		matches!(trace, Trace::Call(_) | Trace::Execution(_)),
+		"traceCall should return a trace"
+	);
 
 	Ok(())
 }
@@ -837,6 +1004,605 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// Verify that subscribing to `newHeads` delivers a block header matching the
+/// corresponding block fetched via `eth_getBlockByNumber` after a transaction
+/// triggers a new block.
+async fn test_subscribe_new_heads() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let value = U256::from(1_000_000_000_000u128);
+
+	let mut sub = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, None).await?;
+
+	// Act
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for newHeads notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let header = match notification {
+		SubscriptionItem::BlockHeader(header) => header,
+		other => panic!("Expected BlockHeader, got: {other:?}"),
+	};
+
+	let block = client
+		.get_block_by_number(BlockNumberOrTag::U256(header.number), false)
+		.await?
+		.expect("Block should exist");
+
+	// Assert
+	assert!(header.number > U256::zero(), "Block number should be > 0");
+	assert_ne!(header.hash, H256::zero(), "Block hash should not be zero");
+	assert_ne!(header.parent_hash, H256::zero(), "Parent hash should not be zero");
+
+	let expected_header = BlockHeader::from(block);
+	assert_eq!(
+		header, expected_header,
+		"Subscription header should match the block header from RPC"
+	);
+
+	drop(sub);
+
+	Ok(())
+}
+
+/// Verify that subscribing to `logs` delivers a log matching the corresponding
+/// log fetched via `eth_getLogs` after a contract emits an event.
+async fn test_subscribe_logs() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, None).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	let call_receipt = tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	let filter = Filter { block_hash: Some(call_receipt.block_hash), ..Default::default() };
+	let rpc_logs = client.get_logs(Some(filter)).await?;
+	let rpc_logs: Vec<Log> = match rpc_logs {
+		FilterResults::Logs(logs) => logs,
+		other => panic!("Expected Logs from eth_getLogs, got: {other:?}"),
+	};
+
+	// Assert
+	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	assert_eq!(log.address, contract_address, "Log address should be the contract address");
+	assert!(!log.topics.is_empty(), "Log should have at least one topic");
+	assert_eq!(log.topics[0], event_signature, "First topic should be the event signature hash");
+	assert_eq!(
+		log.block_hash, call_receipt.block_hash,
+		"Log block hash should match receipt block hash"
+	);
+	assert_eq!(
+		log.transaction_hash, call_receipt.transaction_hash,
+		"Log tx hash should match receipt tx hash"
+	);
+	assert!(rpc_logs.contains(&log), "Subscription log should match eth_getLogs result");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that subscribing to `logs` with an address filter only delivers logs
+/// emitted from the specified contract address.
+async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let options = SubscriptionOptions::LogsOptions {
+		address: Some(BoundedOneOrMany::One(contract_address)),
+		topics: None,
+	};
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	assert_eq!(log.address, contract_address, "Log address should match the filter address");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that subscribing to `logs` with a topic filter delivers logs whose
+/// first topic matches the computed event signature hash.
+async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	let options = SubscriptionOptions::LogsOptions {
+		address: None,
+		topics: Some(
+			BoundedVec::try_from(vec![Some(BoundedOneOrMany::One(event_signature))])
+				.expect("Single topic filter is within bounds"),
+		),
+	};
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	assert_eq!(
+		log.topics[0], event_signature,
+		"First topic should match the computed event signature"
+	);
+	assert_eq!(log.address, contract_address, "Log should come from the deployed contract");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that sending two sequential transactions yields two `newHeads`
+/// notifications whose block numbers are increasing and whose parent hashes
+/// chain correctly (the second header's `parent_hash` equals the first
+/// header's `hash`).
+async fn test_subscribe_new_heads_multiple_blocks() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let value = U256::from(1_000_000_000_000u128);
+
+	let mut sub = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, None).await?;
+
+	// Act
+	let tx1 = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
+	tx1.wait_for_receipt().await?;
+
+	let tx2 = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
+	tx2.wait_for_receipt().await?;
+
+	let header1 = match tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for first newHeads notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error")
+	{
+		SubscriptionItem::BlockHeader(h) => h,
+		other => panic!("Expected BlockHeader, got: {other:?}"),
+	};
+
+	let header2 = match tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for second newHeads notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error")
+	{
+		SubscriptionItem::BlockHeader(h) => h,
+		other => panic!("Expected BlockHeader, got: {other:?}"),
+	};
+
+	// Assert
+	assert!(
+		header2.number > header1.number,
+		"Second block number ({}) should be greater than first ({})",
+		header2.number,
+		header1.number,
+	);
+	assert_eq!(
+		header2.parent_hash, header1.hash,
+		"Second header's parent_hash should equal first header's hash"
+	);
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that a `logs` subscription with an address filter does NOT deliver
+/// logs emitted by a different contract. Two `SimpleReceiver` contracts are
+/// deployed. The subscription is filtered to contract A's address. An event
+/// is triggered on contract B first, then on contract A. The first
+/// notification received must be from contract A, proving B's log was
+/// correctly filtered out.
+async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+
+	let nonce_a = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx_a = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt_a = tx_a.wait_for_receipt().await?;
+	let contract_a = create1(&account.address(), nonce_a.try_into().unwrap());
+	assert_eq!(Some(contract_a), receipt_a.contract_address);
+
+	let nonce_b = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx_b = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt_b = tx_b.wait_for_receipt().await?;
+	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
+	assert_eq!(Some(contract_b), receipt_b.contract_address);
+	assert_ne!(contract_a, contract_b, "The two contracts must have different addresses");
+
+	let options = SubscriptionOptions::LogsOptions {
+		address: Some(BoundedOneOrMany::One(contract_a)),
+		topics: None,
+	};
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx_b_call = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_b)
+		.send()
+		.await?;
+	tx_b_call.wait_for_receipt().await?;
+
+	let tx_a_call = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_a)
+		.send()
+		.await?;
+	tx_a_call.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	assert_eq!(log.address, contract_a, "Log must come from contract A, not contract B");
+	assert_ne!(log.address, contract_b, "Log should NOT come from contract B");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that a `logs` subscription with a multiple-address filter (OR
+/// semantics) delivers logs from both specified contracts. Two
+/// `SimpleReceiver` contracts are deployed and the subscription filter
+/// includes both addresses. An event is triggered on each contract and
+/// both logs must be received.
+async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+
+	let nonce_a = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx_a = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt_a = tx_a.wait_for_receipt().await?;
+	let contract_a = create1(&account.address(), nonce_a.try_into().unwrap());
+	assert_eq!(Some(contract_a), receipt_a.contract_address);
+
+	let nonce_b = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx_b = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt_b = tx_b.wait_for_receipt().await?;
+	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
+	assert_eq!(Some(contract_b), receipt_b.contract_address);
+
+	let options = SubscriptionOptions::LogsOptions {
+		address: Some(BoundedOneOrMany::Many(
+			BoundedVec::try_from(vec![contract_a, contract_b])
+				.expect("Two addresses is within bounds"),
+		)),
+		topics: None,
+	};
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx_a_call = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_a)
+		.send()
+		.await?;
+	tx_a_call.wait_for_receipt().await?;
+
+	let tx_b_call = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_b)
+		.send()
+		.await?;
+	tx_b_call.wait_for_receipt().await?;
+
+	let log1 = match tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for first log notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error")
+	{
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	let log2 = match tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for second log notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error")
+	{
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	let mut received_addresses = vec![log1.address, log2.address];
+	received_addresses.sort();
+	let mut expected_addresses = vec![contract_a, contract_b];
+	expected_addresses.sort();
+	assert_eq!(received_addresses, expected_addresses, "Should receive one log from each contract");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that a plain ETH transfer between EOAs (which emits no events)
+/// does not produce a log subscription notification. The subscription must
+/// only deliver the log triggered by the subsequent contract call.
+async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, None).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let plain_tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
+	plain_tx.wait_for_receipt().await?;
+
+	let contract_tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	contract_tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for log notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	assert_eq!(
+		log.address, contract_address,
+		"First log notification must come from the contract call, not the plain transfer"
+	);
+	assert_eq!(
+		log.transaction_hash,
+		contract_tx.hash(),
+		"Log transaction hash must match the contract call, not the plain transfer"
+	);
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that calling `eth_subscribe("newHeads")` with `LogsOptions`
+/// returns an error, since `newHeads` does not accept filter options.
+async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+
+	let options = SubscriptionOptions::LogsOptions {
+		address: Some(BoundedOneOrMany::One(Account::default().address())),
+		topics: None,
+	};
+
+	// Act
+	let result = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, Some(options)).await;
+
+	// Assert
+	assert!(result.is_err(), "newHeads with LogsOptions should be rejected");
+
+	Ok(())
+}
+
+async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractWithConsumeAllGas",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
+	let transaction = GenericTransaction {
+		from: Some(account.address()),
+		input: test_function_selector.into(),
+		to: Some(contract_address),
+		chain_id: Some(client.chain_id().await?),
+		nonce: Some(
+			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
+		),
+		r#type: Some(0u8.into()),
+		..Default::default()
+	};
+	let dry_run_result = client.estimate_gas(transaction, None).await;
+
+	// Assert
+	dry_run_result.expect("Dry run of this transaction must succeed");
+
+	Ok(())
+}
+
+async fn test_gas_estimation_for_contract_requiring_binary_search() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractRequiringBinarySearchForGasEstimation",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let main_function_selector = [0xdf, 0xfe, 0xad, 0xd0];
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(contract_address)
+		.input(main_function_selector.to_vec())
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	// Assert
+	assert!(receipt.is_success());
+
+	Ok(())
+}
+
 /// Test that deploys and calls the Fibonacci contract via Substrate APIs works
 async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
@@ -951,6 +1717,1370 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
+
+	Ok(())
+}
+
+async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractWithConsumeAllGas",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::from(Keypair::from_seed([0xFF; 16].as_slice()).unwrap());
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
+	let transaction = GenericTransaction {
+		from: Some(account.address()),
+		input: test_function_selector.into(),
+		to: Some(contract_address),
+		chain_id: Some(client.chain_id().await?),
+		nonce: Some(
+			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
+		),
+		r#type: Some(0u8.into()),
+		..Default::default()
+	};
+	let dry_run_result = client.estimate_gas(transaction, None).await;
+
+	// Assert
+	dry_run_result.expect("Expected this dry run to succeed");
+
+	Ok(())
+}
+
+/// Submit `count` EVM transfer transactions and wait for inclusion.
+async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
+	let ws_client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let transactions = prepare_evm_transactions(
+		ws_client.clone(),
+		Account::default(),
+		ethan.address(),
+		U256::from(1_000_000_000_000u128),
+		count,
+	)
+	.await?;
+	let submitted = submit_evm_transactions(transactions).await?;
+	submitted[0].2.wait_for_receipt().await?;
+	Ok(())
+}
+
+/// Create a [`Client`] for block-sync testing.
+///
+/// Connects to the same dev-node that [`SharedResources`] started, but uses its own
+/// in-memory SQLite database so that sync labels written by the test do not interfere
+/// with the eth-rpc server's internal database (and vice versa).
+async fn create_sync_test_client() -> anyhow::Result<Client> {
+	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
+
+	let node_url = SharedResources::node_rpc_url();
+	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
+	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
+	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
+	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
+
+	let pool = SqlitePoolOptions::new()
+		.max_connections(1)
+		.idle_timeout(None)
+		.max_lifetime(None)
+		.connect_with(SqliteConnectOptions::new().in_memory(true))
+		.await?;
+
+	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let receipt_provider =
+		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
+
+	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider, true).await?;
+	Ok(client)
+}
+
+/// Fresh sync: labels, hash mappings, and re-sync idempotency.
+async fn test_block_sync_fresh() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit a transaction so the chain has at least one block with EVM data to sync.
+	submit_evm_transfers(1).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Fresh DB — sync_state table should be empty.
+	for label in [SyncLabel::Tail, SyncLabel::Head] {
+		assert!(
+			client.receipt_provider().get_sync_label(label).await?.is_none(),
+			"sync_state[{label}] should be absent on fresh DB"
+		);
+	}
+	for label in [ChainMetadata::Genesis, ChainMetadata::FirstEvmBlock] {
+		assert!(
+			client.receipt_provider().get_sync_label(label).await?.is_none(),
+			"sync_state[{label}] should be absent on fresh DB"
+		);
+	}
+
+	// Capture finalized before sync — Head will be set to this snapshot.
+	let finalized_before_sync = client.latest_finalized_block().await.number();
+
+	// Run the full backward sync.
+	client.sync_backward().await?;
+
+	// Genesis label must match the chain.
+	let genesis = client
+		.receipt_provider()
+		.get_sync_label(ChainMetadata::Genesis)
+		.await?
+		.expect("Genesis label should be set after sync");
+	assert_eq!(
+		genesis,
+		SyncCheckpoint::new(0, client.api().genesis_hash()),
+		"Stored genesis should match chain genesis"
+	);
+
+	// Head should be exactly the finalized block at sync start.
+	let sync_head = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should be set after sync");
+	assert_eq!(
+		sync_head.block_number, finalized_before_sync,
+		"Head should equal finalized at sync start"
+	);
+
+	// Tail should be genesis (block 0) — on the dev node all blocks have EVM hashes.
+	let sync_tail = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Tail)
+		.await?
+		.expect("Tail should be set after sync");
+	assert_eq!(sync_tail, genesis, "Tail should be genesis");
+
+	// On the dev node all blocks (including genesis) have EVM hashes
+	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
+	assert!(evm_first.is_none(), "FirstEvmBlock should not be set when all blocks are EVM");
+	assert_eq!(client.receipt_provider().first_evm_block(), None);
+
+	// Block hash mappings should be queryable after sync.
+	let finalized = client.latest_finalized_block().await;
+	let substrate_hash = finalized.hash();
+	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
+	assert!(
+		ethereum_hash.is_some(),
+		"Finalized block #{} should have an ethereum hash mapping after sync",
+		finalized.number(),
+	);
+	assert_eq!(
+		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
+		Some(substrate_hash),
+		"Reverse mapping should resolve back to the substrate hash"
+	);
+
+	// Re-syncing should complete without errors (exercises the resume path).
+	client.sync_backward().await?;
+	let sync_head_after = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should exist after re-sync");
+	assert!(
+		sync_head_after.block_number >= sync_head.block_number,
+		"Head should not regress after re-sync"
+	);
+
+	Ok(())
+}
+
+async fn test_gas_estimation_with_no_funds_and_with_gas_specified() -> anyhow::Result<()> {
+	// Arrange
+	let code = pallet_revive_fixtures::compile_module_with_type(
+		"ContractWithConsumeAllGas",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?
+	.0;
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::from(Keypair::from_seed([0xFF; 16].as_slice()).unwrap());
+
+	let receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = receipt
+		.contract_address
+		.expect("Expected the transaction to publish a contract");
+
+	// Act
+	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
+	let transaction = GenericTransaction {
+		from: Some(account.address()),
+		input: test_function_selector.into(),
+		to: Some(contract_address),
+		chain_id: Some(client.chain_id().await?),
+		nonce: Some(
+			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
+		),
+		r#type: Some(0u8.into()),
+		gas: Some(U256::from(100_000_000u64)),
+		..Default::default()
+	};
+	let dry_run_result = client.estimate_gas(transaction, None).await;
+
+	// Assert
+	assert!(matches!(
+		dry_run_result, Err(ClientError::Call(error_object))
+		if error_object.message().contains("insufficient funds for gas")
+	));
+
+	Ok(())
+}
+
+/// Simulate an interrupted sync by manually setting both Head and Tail
+/// to create a top gap and a bottom gap, then verify that `resume_sync` fills both.
+async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit transactions so the chain has enough blocks for the 1/3 and 2/3 split.
+	submit_evm_transfers(6).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so the DB has all blocks and labels.
+	client.sync_backward().await?;
+
+	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
+	let chain_len = client.latest_finalized_block().await.number();
+
+	let tail_num = chain_len / 3;
+	let tail_block = client
+		.block_provider()
+		.block_by_number(tail_num)
+		.await?
+		.expect("Tail block should exist");
+
+	let head_num = chain_len * 2 / 3;
+	let head_block = client
+		.block_provider()
+		.block_by_number(head_num)
+		.await?
+		.expect("Head block should exist");
+
+	// Overwrite both labels to simulate an interrupted sync with a partial range.
+	let interrupted_tail = SyncCheckpoint::new(tail_block.number(), tail_block.hash());
+	let interrupted_head = SyncCheckpoint::new(head_block.number(), head_block.hash());
+
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Tail, interrupted_tail)
+		.await?;
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Head, interrupted_head)
+		.await?;
+
+	// Capture finalized before resume — Head will be set to this snapshot.
+	let finalized_before_resume = client.latest_finalized_block().await.number();
+
+	// Resume sync — fills top gap and bottom gap.
+	client.sync_backward().await?;
+
+	// After resume, Head should be at the finalized block that was current at resume start.
+	let new_head = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Head)
+		.await?
+		.expect("Head should exist after resume");
+	assert_eq!(
+		new_head.block_number, finalized_before_resume,
+		"Head should equal finalized at resume start",
+	);
+
+	// Tail should reach genesis (bottom gap fully filled).
+	let new_tail = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Tail)
+		.await?
+		.expect("Tail should exist after resume");
+	assert_eq!(
+		new_tail.block_number, 0,
+		"Tail should be 0 after resume fills the bottom gap, got #{}",
+		new_tail.block_number,
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Resume interrupted OK: simulated partial range #{}..#{}, \
+		 after resume tail=#{}, head=#{}",
+		interrupted_tail.block_number,
+		interrupted_head.block_number,
+		new_tail.block_number,
+		new_head.block_number,
+	);
+
+	Ok(())
+}
+
+/// Corrupted sync labels should be detected on resume:
+/// - Fake Genesis hash → `ChainMismatch`
+/// - Fake Head hash → `SyncBoundaryMismatch`
+async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
+	use crate::{block_sync::SyncCheckpoint, client::ClientError};
+
+	// Submit transactions so the chain has enough blocks for the boundary test.
+	submit_evm_transfers(2).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so all labels are stored.
+	client.sync_backward().await?;
+
+	// --- ChainMismatch: overwrite Genesis with a fake hash ---
+	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
+	client
+		.receipt_provider()
+		.set_sync_label(ChainMetadata::Genesis, fake_genesis)
+		.await?;
+
+	let err = client.sync_backward().await.unwrap_err();
+	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
+
+	// Restore the real genesis so we can test the next corruption.
+	let real_genesis = SyncCheckpoint::new(0, client.api().genesis_hash());
+	client
+		.receipt_provider()
+		.set_sync_label(ChainMetadata::Genesis, real_genesis)
+		.await?;
+
+	// --- SyncBoundaryMismatch: corrupted Head hash ---
+	let chain_len = client.latest_finalized_block().await.number();
+	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Head, corrupted_upper)
+		.await?;
+
+	let err = client.sync_backward().await.unwrap_err();
+	assert!(
+		matches!(err, ClientError::SyncBoundaryMismatch),
+		"Expected SyncBoundaryMismatch, got: {err:?}"
+	);
+
+	Ok(())
+}
+
+/// Syncing a second client after new transactions have been submitted
+/// should include the newer blocks.
+async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
+	// First sync: snapshot the current chain state.
+	let client1 = create_sync_test_client().await?;
+	let finalized1 = client1.latest_finalized_block().await.number();
+
+	client1.sync_backward().await?;
+
+	// Submit a transaction to produce at least one new block.
+	submit_evm_transfers(1).await?;
+
+	// Second sync: new client with fresh DB should see the new blocks.
+	let client2 = create_sync_test_client().await?;
+	let finalized2 = client2.latest_finalized_block().await;
+
+	client2.sync_backward().await?;
+	assert!(
+		finalized2.number() > finalized1,
+		"Second finalized #{} should be higher than first #{finalized1}",
+		finalized2.number(),
+	);
+
+	// The new block should have an ethereum hash mapping in client2's DB.
+	assert!(
+		client2.receipt_provider().get_ethereum_hash(&finalized2.hash()).await.is_some(),
+		"New finalized block #{} should be synced in client2",
+		finalized2.number(),
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
+		finalized2.number(),
+		client2.receipt_provider().first_evm_block().unwrap_or(0),
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding the balance of an unfunded EOA allows an `eth_call` that transfers
+/// value from it to succeed. Without the override the call would fail due to insufficient funds.
+async fn test_state_override_balance() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let sender = AlloyAddress::from([0xAA; 20]);
+	let recipient = AlloyAddress::from([0xBB; 20]);
+
+	let tx = TransactionRequest::default()
+		.from(sender)
+		.to(recipient)
+		.value(AlloyU256::from(1_000u64));
+
+	let overrides = StateOverride::from_iter([(
+		sender,
+		AccountOverride::default().with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(result.is_ok(), "eth_call with balance override should succeed: {result:?}");
+
+	Ok(())
+}
+
+/// Verifies that injecting EVM bytecode onto an untouched address (no prior state) via a code
+/// override allows calling functions on that address as if it were a deployed contract.
+async fn test_state_override_code_empty_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xCC; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 42 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 42u64,
+		"echo(42) should return 42 via EVM code override on empty address"
+	);
+
+	Ok(())
+}
+
+/// Deploys a contract via the alloy provider and returns the deployed address.
+///
+/// Uses the provider's configured wallet (alith) to sign and send a deployment transaction,
+/// then computes the contract address from the deployer's address and nonce. Constructor
+/// arguments, if any, should be ABI-encoded and passed via `constructor_args`.
+async fn deploy_contract(
+	provider: &(impl Provider + 'static),
+	fixture_name: &str,
+	fixture_type: pallet_revive_fixtures::FixtureType,
+	constructor_args: &[u8],
+) -> anyhow::Result<AlloyAddress> {
+	let (bytecode, _) =
+		pallet_revive_fixtures::compile_module_with_type(fixture_name, fixture_type)?;
+	let input: Vec<u8> = bytecode.into_iter().chain(constructor_args.iter().copied()).collect();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let nonce = provider.get_transaction_count(from).await?;
+	let deploy_tx = TransactionRequest::default()
+		.from(from)
+		.input(AlloyBytes::from(input).into())
+		.create();
+	provider.send_transaction(deploy_tx).await?.get_receipt().await?;
+	Ok(from.create(nonce))
+}
+
+/// Verifies that replacing an existing EVM contract's code with different EVM code via override
+/// causes the overridden code to execute instead of the original.
+async fn test_state_override_code_evm_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 99 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 99u64,
+		"echo(99) should return 99 via EVM code override on EVM contract"
+	);
+
+	Ok(())
+}
+
+/// Verifies that injecting PVM bytecode onto an untouched address (no prior state) via a code
+/// override allows calling Solidity ABI functions on it.
+async fn test_state_override_code_empty_to_pvm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xC1; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 42 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 42u64,
+		"echo(42) should return 42 via PVM code override on empty address"
+	);
+
+	Ok(())
+}
+
+/// Verifies that injecting EVM bytecode onto a funded EOA (has balance, no code) via a code
+/// override promotes it to a contract and allows calling functions on it.
+async fn test_state_override_code_eoa_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let eoa = AlloyAddress::from([0xC2; 20]);
+
+	// Fund the EOA to make it a real EOA (not just an empty address)
+	let fund_tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.value(AlloyU256::from(1_000_000_000_000u128));
+	provider.send_transaction(fund_tx).await?.get_receipt().await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 55 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		eoa,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 55u64,
+		"echo(55) should return 55 via EVM code override on funded EOA"
+	);
+
+	Ok(())
+}
+
+/// Verifies that injecting PVM bytecode onto a funded EOA (has balance, no code) via a code
+/// override promotes it to a contract and allows calling Solidity ABI functions on it.
+async fn test_state_override_code_eoa_to_pvm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let eoa = AlloyAddress::from([0xC3; 20]);
+
+	// Fund the EOA to make it a real EOA (not just an empty address)
+	let fund_tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.value(AlloyU256::from(1_000_000_000_000u128));
+	provider.send_transaction(fund_tx).await?.get_receipt().await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 55 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eoa)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		eoa,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 55u64,
+		"echo(55) should return 55 via PVM code override on funded EOA"
+	);
+
+	Ok(())
+}
+
+/// Verifies that replacing an existing EVM contract's code with PVM bytecode via override causes
+/// the PVM code to execute at that address.
+async fn test_state_override_code_evm_to_pvm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 88 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 88u64,
+		"echo(88) should return 88 via PVM code override on EVM contract"
+	);
+
+	Ok(())
+}
+
+/// Verifies that replacing an existing PVM contract's code with EVM bytecode via override
+/// causes the EVM code to execute at that address.
+async fn test_state_override_code_pvm_to_evm() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Resolc, &[])
+			.await?;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 77 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 77u64,
+		"echo(77) should return 77 via EVM code override on PVM contract"
+	);
+
+	Ok(())
+}
+
+/// Verifies that patching a single storage slot via `stateDiff` changes the value returned by
+/// a contract's getter while leaving unrelated storage intact.
+async fn test_state_override_storage_state_diff() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	let call_data = Counter::numberCall {}.abi_encode();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		counter_address,
+		AccountOverride::default()
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&999u64.to_be_bytes()))]),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 999,
+		"number() should return the overridden value 999, not the original 3"
+	);
+
+	Ok(())
+}
+
+/// Verifies that a full storage replacement via `state` writes specified slots and that the
+/// getter returns the replaced value.
+async fn test_state_override_storage_full_replacement() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	let call_data = Counter::numberCall {}.abi_encode();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		counter_address,
+		AccountOverride::default()
+			.with_state([(B256::ZERO, B256::left_padding_from(&123u64.to_be_bytes()))]),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(returned_value, 123, "number() should return 123 from the full storage replacement");
+
+	Ok(())
+}
+
+/// Verifies that a full storage replacement via `state` zeroes out slots not included in the
+/// override. Deploys `TwoSlots(10, 20)`, then overrides with `state` containing only slot 0.
+/// Slot 0 should reflect the override, slot 1 should be zero.
+async fn test_state_override_storage_full_clears_unspecified() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	let slot_0 = B256::ZERO;
+
+	// Override with `state` containing only slot 0 = 42.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_state([(slot_0, B256::left_padding_from(&42u64.to_be_bytes()))]),
+	)]);
+
+	// Act — read first() via eth_call with override
+	let first_data = TwoSlots::firstCall {}.abi_encode();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
+
+	// Act — read second() via eth_call with same override
+	let second_data = TwoSlots::secondCall {}.abi_encode();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
+
+	// Assert
+	assert_eq!(first_value, 42, "first() should return the overridden value 42");
+	assert_eq!(
+		second_value, 0,
+		"second() should be zero because full state replacement cleared unspecified slots"
+	);
+
+	Ok(())
+}
+
+/// Verifies that `stateDiff` only patches the specified slots and leaves unspecified slots
+/// untouched. Deploys `TwoSlots(10, 20)`, then overrides slot 0 via `stateDiff`. Slot 0
+/// should reflect the override, slot 1 should retain its original value of 20.
+async fn test_state_override_storage_diff_preserves_unspecified() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	let slot_0 = B256::ZERO;
+
+	// Override only slot 0 via stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_state_diff([(slot_0, B256::left_padding_from(&99u64.to_be_bytes()))]),
+	)]);
+
+	// Act — read first() with override
+	let first_data = TwoSlots::firstCall {}.abi_encode();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
+
+	// Act — read second() with same override
+	let second_data = TwoSlots::secondCall {}.abi_encode();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
+
+	// Assert
+	assert_eq!(first_value, 99, "first() should return the overridden value 99");
+	assert_eq!(
+		second_value, 20,
+		"second() should retain its original value 20 since stateDiff didn't touch it"
+	);
+
+	Ok(())
+}
+
+/// Verifies that multiple storage slots can be overridden in a single `stateDiff`. Deploys
+/// `TwoSlots(10, 20)`, then overrides both slots via `stateDiff` to different values.
+async fn test_state_override_storage_multiple_slots() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	let slot_0 = B256::ZERO;
+	let slot_1 = B256::left_padding_from(&1u64.to_be_bytes());
+
+	// Override both slots in one stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_state_diff([
+			(slot_0, B256::left_padding_from(&111u64.to_be_bytes())),
+			(slot_1, B256::left_padding_from(&222u64.to_be_bytes())),
+		]),
+	)]);
+
+	// Act — read first()
+	let first_data = TwoSlots::firstCall {}.abi_encode();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
+
+	// Act — read second()
+	let second_data = TwoSlots::secondCall {}.abi_encode();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
+
+	// Assert
+	assert_eq!(first_value, 111, "first() should return the overridden value 111");
+	assert_eq!(second_value, 222, "second() should return the overridden value 222");
+
+	Ok(())
+}
+
+/// Verifies that passing `state: {}` (an empty map) clears all storage. Deploys
+/// `TwoSlots(10, 20)`, overrides with an empty `state` map, and asserts both slots are zero.
+async fn test_state_override_storage_full_empty_map_clears_all() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	// Override with empty `state` map — should clear everything.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_state(std::iter::empty()),
+	)]);
+
+	// Act — read first()
+	let first_data = TwoSlots::firstCall {}.abi_encode();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
+
+	// Act — read second()
+	let second_data = TwoSlots::secondCall {}.abi_encode();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
+
+	// Assert
+	assert_eq!(first_value, 0, "first() should be zero after empty state override");
+	assert_eq!(second_value, 0, "second() should be zero after empty state override");
+
+	Ok(())
+}
+
+/// Verifies that setting a storage slot to zero via `stateDiff` results in the getter returning
+/// zero. Deploys `TwoSlots(10, 20)`, overrides slot 0 to zero, and asserts `first()` returns 0
+/// while `second()` retains its original value.
+async fn test_state_override_storage_diff_zero_value() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let constructor_args = TwoSlots::constructorCall { _first: 10, _second: 20 }.abi_encode();
+	let target = deploy_contract(
+		&provider,
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::Solc,
+		&constructor_args,
+	)
+	.await?;
+
+	// Override slot 0 to zero via stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_state_diff([(B256::ZERO, B256::ZERO)]),
+	)]);
+
+	// Act — read first()
+	let first_data = TwoSlots::firstCall {}.abi_encode();
+	let first_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let first_result = provider.call(first_tx.clone()).overrides(overrides.clone()).await?;
+	let first_value = TwoSlots::firstCall::abi_decode_returns(&first_result)?;
+
+	// Act — read second()
+	let second_data = TwoSlots::secondCall {}.abi_encode();
+	let second_tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(second_data).into());
+	let second_result = provider.call(second_tx.clone()).overrides(overrides).await?;
+	let second_value = TwoSlots::secondCall::abi_decode_returns(&second_result)?;
+
+	// Assert
+	assert_eq!(first_value, 0, "first() should return zero after stateDiff to zero");
+	assert_eq!(second_value, 20, "second() should retain its original value 20");
+
+	Ok(())
+}
+
+/// Verifies that overriding the nonce of the `from` account works correctly. The overridden
+/// nonce should be used when the transaction doesn't specify one (auto-filled from state).
+/// This also validates that the nonce override survives the `prepare_dry_run` nonce bump.
+async fn test_state_override_nonce() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let recipient = AlloyAddress::from([0xBB; 20]);
+
+	// A simple transfer call — we don't care about the result, only that the overridden nonce
+	// is accepted and doesn't cause a failure.
+	let tx = TransactionRequest::default().from(from).to(recipient).nonce(42);
+
+	let overrides = StateOverride::from_iter([(
+		from,
+		AccountOverride::default()
+			.with_nonce(42)
+			.with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(result.is_ok(), "eth_call with matching nonce override should succeed: {result:?}");
+
+	Ok(())
+}
+
+/// Verifies that overriding both code and storage on the same account in a single override
+/// works correctly. The code override promotes the address to a contract, enabling the
+/// subsequent storage override to write slots. This tests the ordering guarantee in
+/// `apply_single_account_override` (code before storage).
+async fn test_state_override_code_and_storage_combined() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xC4; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TwoSlots",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	// Override: inject TwoSlots runtime code AND set slot 0 = 77 via stateDiff.
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_code(AlloyBytes::from(code))
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&77u64.to_be_bytes()))]),
+	)]);
+
+	// Act — read first() which reads slot 0
+	let first_data = TwoSlots::firstCall {}.abi_encode();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(first_data).into());
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = TwoSlots::firstCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 77,
+		"first() should return 77 from storage override on code-injected address"
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding the balance of the `from` account (the transaction sender) works
+/// correctly and is not clobbered by `prepare_dry_run`. A sender with zero on-chain balance
+/// but an overridden balance should be able to make a value-transferring call.
+async fn test_state_override_balance_on_from_account() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let sender = AlloyAddress::from([0xD1; 20]);
+	let recipient = AlloyAddress::from([0xD2; 20]);
+
+	// sender has no on-chain balance — the override provides it.
+	let tx = TransactionRequest::default()
+		.from(sender)
+		.to(recipient)
+		.value(AlloyU256::from(500u64));
+
+	let overrides = StateOverride::from_iter([(
+		sender,
+		AccountOverride::default().with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(
+		result.is_ok(),
+		"balance override on from account should survive prepare_dry_run: {result:?}"
+	);
+
+	Ok(())
+}
+
+/// Verifies that overriding state of two different accounts in a single `eth_call` works.
+/// Both a sender (needing balance) and a target (needing code) are overridden simultaneously.
+async fn test_state_override_multiple_accounts() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let sender = AlloyAddress::from([0xDD; 20]);
+	let target = AlloyAddress::from([0xEE; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 7 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(sender)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([
+		(
+			sender,
+			AccountOverride::default().with_balance(AlloyU256::from(1_000_000_000_000_000_000u128)),
+		),
+		(target, AccountOverride::default().with_code(AlloyBytes::from(code))),
+	]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 7u64,
+		"echo(7) should work with sender balance + target code overridden"
+	);
+
+	Ok(())
+}
+
+/// Verifies that applying both a balance and code override to the same account works.
+async fn test_state_override_combined_balance_and_code() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xFF; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 7 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default()
+			.with_balance(AlloyU256::from(1_000_000u64))
+			.with_code(AlloyBytes::from(code)),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await?;
+
+	// Assert
+	let returned_value = Callee::echoCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 7u64,
+		"echo(7) should work with combined balance + code override on same account"
+	);
+
+	Ok(())
+}
+
+/// Verifies that state overrides are ephemeral: a call with overrides sees the overridden state,
+/// but a subsequent call without overrides sees the original on-chain state.
+async fn test_state_override_does_not_persist() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	let call_data = Counter::numberCall {}.abi_encode();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		counter_address,
+		AccountOverride::default()
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&999u64.to_be_bytes()))]),
+	)]);
+
+	// Act — call with override
+	let overridden_result = provider.call(tx.clone()).overrides(overrides).await?;
+	let overridden_value = Counter::numberCall::abi_decode_returns(&overridden_result)?;
+
+	// Act — call without override
+	let normal_result = provider.call(tx.clone()).await?;
+	let normal_value = Counter::numberCall::abi_decode_returns(&normal_result)?;
+
+	// Assert
+	assert_eq!(overridden_value, 999, "overridden call should return 999");
+	assert_eq!(normal_value, 3, "subsequent call without override should return original value 3");
+
+	Ok(())
+}
+
+/// Verifies that an empty state override set behaves identically to passing no overrides.
+async fn test_state_override_empty_set() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let counter_address =
+		deploy_contract(&provider, "Counter", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	let call_data = Counter::numberCall {}.abi_encode();
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(counter_address)
+		.input(AlloyBytes::from(call_data).into());
+
+	let empty_overrides = StateOverride::default();
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(empty_overrides).await?;
+
+	// Assert
+	let returned_value = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		returned_value, 3,
+		"empty override set should return the original constructor value 3"
+	);
+
+	Ok(())
+}
+
+/// Verifies that attempting to override storage on an EOA (without a code override) fails,
+/// since EOAs have no contract storage trie.
+async fn test_state_override_storage_on_eoa_fails() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let eoa = AlloyAddress::from([0x11; 20]);
+
+	let from = AlloyAddress::from(Account::default().address().0);
+	let tx = TransactionRequest::default().from(from).to(eoa);
+
+	let overrides = StateOverride::from_iter([(
+		eoa,
+		AccountOverride::default()
+			.with_state_diff([(B256::ZERO, B256::left_padding_from(&42u64.to_be_bytes()))]),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(result.is_err(), "storage override on EOA without code should fail: {result:?}");
+
+	Ok(())
+}
+
+/// Verifies that overriding balance to zero on a funded account prevents value transfers.
+async fn test_state_override_balance_zero() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let ethan_alloy = AlloyAddress::from(ethan.address().0);
+	let recipient = AlloyAddress::from([0xBB; 20]);
+
+	let tx = TransactionRequest::default()
+		.from(ethan_alloy)
+		.to(recipient)
+		.value(AlloyU256::from(1u64));
+
+	let overrides = StateOverride::from_iter([(
+		ethan_alloy,
+		AccountOverride::default().with_balance(AlloyU256::ZERO),
+	)]);
+
+	// Act
+	let result = provider.call(tx.clone()).overrides(overrides).await;
+
+	// Assert
+	assert!(
+		result.is_err(),
+		"call transferring value with balance overridden to zero should fail: {result:?}"
+	);
 
 	Ok(())
 }
