@@ -887,7 +887,6 @@ mod benchmarks {
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Noop,
-			ConfigOp::Noop,
 		)?;
 
 		let caller = whitelisted_caller();

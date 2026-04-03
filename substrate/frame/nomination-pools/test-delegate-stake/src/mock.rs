@@ -369,7 +369,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
-			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
 		));
 
