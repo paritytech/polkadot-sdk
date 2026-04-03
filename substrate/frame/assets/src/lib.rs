@@ -1993,14 +1993,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					calculated_sufficients += 1;
 				}
 
-				if account.balance < details.min_balance {
-					ensure!(
-						matches!(
+				let total_balance = account.balance.saturating_add(held);
+				if total_balance < details.min_balance {
+					if !matches!(
+						account.reason,
+						ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
+					) {
+						log::warn!(
+							"Account {who:?} for asset {asset_id:?} has total balance below min_balance but no deposit. Balance: {:?}, Held: {:?}, Min balance: {:?}, Reason: {:?}",
+							account.balance,
+							held,
+							details.min_balance,
 							account.reason,
-							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
-						),
-						"Account below min_balance must have a deposit"
-					);
+						);
+					}
 				}
 			}
 
