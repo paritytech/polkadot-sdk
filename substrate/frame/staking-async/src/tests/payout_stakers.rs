@@ -912,31 +912,52 @@ fn test_multi_page_payout_stakers_by_page() {
 
 		let controller_balance_after_p0_payout = asset::stakeable_balance::<T>(&11);
 
-		// verify rewards have been paid out but still some left
-
 		// verify the validator has been rewarded
 		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
+
+		// Verify validator reward for page 0: with 0% commission, the validator's total
+		// reward is proportional to their own stake. This is prorated across pages by
+		// each page's stake fraction.
+		let era_reward = Eras::<T>::get_stakers_reward(2).unwrap();
+		let validator_total_reward =
+			Perbill::from_rational(1000 as Balance, total_exposure).mul_floor(era_reward);
+		let page_0_total = actual_exposure_0.page_total();
+		let page_0_part = Perbill::from_rational(page_0_total, total_exposure);
+		let expected_page_0_reward = page_0_part.mul_floor(validator_total_reward);
+		let actual_validator_reward =
+			controller_balance_after_p0_payout - controller_balance_before_p0_payout;
+		assert_eq!(
+			actual_validator_reward, expected_page_0_reward,
+			"Validator page 0 reward: got {} expected {}",
+			actual_validator_reward, expected_page_0_reward,
+		);
 
 		// Payout the second and last page of nominators
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 1));
 
-		// verify `Rewarded` events are being executed for the second page.
+		// verify `Rewarded` events for second page (validator is also rewarded on each page).
 		let events = staking_events_since_last_call();
 		assert!(matches!(
 			events.as_slice(),
 			&[
 				Event::PayoutStarted { era_index: 2, validator_stash: 11, page: 1, next: None },
+				Event::Rewarded { stash: 11, dest: RewardDestination::Stash, amount: _ },
 				Event::Rewarded { stash: 1065, dest: RewardDestination::Stash, amount: _ },
 				Event::Rewarded { stash: 1066, dest: RewardDestination::Stash, amount: _ },
 				..
 			]
 		));
 
-		// verify the validator was not rewarded the second time
-		assert_eq!(asset::stakeable_balance::<T>(&11), controller_balance_after_p0_payout);
+		// Validator is rewarded on every page (prorated by page stake).
+		let controller_balance_after_p1_payout = asset::stakeable_balance::<T>(&11);
+		assert!(controller_balance_after_p1_payout > controller_balance_after_p0_payout);
+
+		// Total validator reward across both pages should equal the full own-stake reward.
+		let total_validator_paid =
+			controller_balance_after_p1_payout - controller_balance_before_p0_payout;
+		assert_eq_error_rate!(total_validator_paid, validator_total_reward, 1);
 
 		// With DAP, rewards minted at era finalization, so no change during payout
-		// Issuance was already increased during Session::roll_until_active_era above
 		assert_eq!(pallet_balances::TotalIssuance::<T>::get(), pre_payout_total_issuance);
 
 		// Top 64 nominators of validator 11 automatically paid out, including the validator
@@ -1113,8 +1134,8 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			Error::<T>::AlreadyClaimed.with_weight(err_weight)
 		);
 
-		// verify the validator was not rewarded the second time
-		assert_eq!(asset::stakeable_balance::<T>(&11), controller_balance_after_p0_payout);
+		// Validator is rewarded on every page (prorated by page stake).
+		assert!(asset::stakeable_balance::<T>(&11) > controller_balance_after_p0_payout);
 
 		// verify all rewards have been paid out
 		assert_eq_error_rate!(
@@ -1434,10 +1455,10 @@ fn payout_stakers_handles_basic_errors() {
 #[test]
 fn test_commission_paid_across_pages() {
 	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		let balance = 1;
+		let balance = 10_000;
 		let commission = 50;
 
-		// Create a validator:
+		// Create a validator with significant self-stake to make own-stake reward visible.
 		bond_validator(11, balance);
 		assert_ok!(Staking::validate(
 			RuntimeOrigin::signed(11),
@@ -1480,8 +1501,19 @@ fn test_commission_paid_across_pages() {
 			assert!(before_balance < after_balance);
 		}
 
-		// Allow error rate of 2 due to floor rounding in payout calculations
-		assert_eq_error_rate!(asset::stakeable_balance::<T>(&11), initial_balance + payout / 2, 2,);
+		// The validator should receive:
+		// - 50% commission on the total era reward (payout)
+		// - proportional own-stake share of the remaining 50%
+		let total_exposure: Balance =
+			balance + (0..200).map(|i| balance + i as Balance).sum::<Balance>();
+		let commission_reward = Perbill::from_percent(commission).mul_floor(payout);
+		let leftover = payout.saturating_sub(commission_reward);
+		let own_stake_reward =
+			Perbill::from_rational(balance, total_exposure).mul_floor(leftover);
+		let expected_total = commission_reward + own_stake_reward;
+		let actual_total = asset::stakeable_balance::<T>(&11) - initial_balance;
+		// Allow error of 1 per page due to floor rounding across 4 pages.
+		assert_eq_error_rate!(actual_total, expected_total, 4);
 	});
 }
 
