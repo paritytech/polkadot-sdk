@@ -175,12 +175,9 @@ impl ReceiptExtractor {
 		let events = ext.events().await?;
 		let block_number: U256 = substrate_block.number().into();
 
-		let success = !events.has::<EthExtrinsicRevert>().inspect_err(|err| {
-			log::debug!(
-				target: LOG_TARGET,
-				"Failed to lookup for EthExtrinsicRevert event in block {block_number}: {err:?}"
-			);
-		})?;
+		let success = !events
+			.iter()
+			.any(|ev| ev.ok().and_then(|e| e.as_event::<EthExtrinsicRevert>().ok()?).is_some());
 
 		let transaction_hash = H256(keccak_256(&call.payload));
 
