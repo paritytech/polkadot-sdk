@@ -479,7 +479,8 @@ async fn run_client(
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
 				// Include test_run_id so channels are unique per run and don't collide
 				// with leftover statements from previous runs (ChannelPriorityTooLow).
-				// Even rounds reuse channels (replacements), odd rounds get unique channels (inserts)
+				// Even rounds reuse channels (replacements), odd rounds get unique channels
+				// (inserts)
 				let channel_str = if round % 2 == 0 {
 					format!("{test_run_id}-{sent_count}")
 				} else {
