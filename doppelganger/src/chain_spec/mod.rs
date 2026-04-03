@@ -31,7 +31,6 @@ pub mod coretime;
 pub mod glutton;
 pub mod penpal;
 pub mod people;
-pub mod rococo_parachain;
 //pub mod yet_another_parachain;
 
 /// Extracts the normalized chain id and parachain id from the input chain id.
@@ -58,7 +57,6 @@ impl LoadSpec for ChainSpecLoader {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
 		Ok(match id {
 			// - Default-like
-			"staging" => Box::new(rococo_parachain::staging_rococo_parachain_local_config()),
 			"tick" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/tick.json")[..],
 			)?),
@@ -200,11 +198,8 @@ impl LoadSpec for ChainSpecLoader {
 					.expect("invalid value")
 					.load_config()?,
 
-			// -- Fallback (generic chainspec)
-			"" => {
-				log::warn!("No ChainSpec.id specified, so using default one, based on rococo-parachain runtime");
-				Box::new(rococo_parachain::rococo_parachain_local_config())
-			},
+			// -- Fallback
+			"" => return Err("No ChainSpec.id specified".into()),
 
 			// -- Loading a specific spec from disk
 			path => Box::new(GenericChainSpec::from_json_file(path.into())?),
@@ -290,56 +285,3 @@ impl RuntimeResolverT for RuntimeResolver {
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
-	use serde::{Deserialize, Serialize};
-
-	#[derive(
-		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
-	)]
-	#[serde(deny_unknown_fields)]
-	pub struct Extensions1 {
-		pub attribute1: String,
-		pub attribute2: u32,
-	}
-
-	#[derive(
-		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
-	)]
-	#[serde(deny_unknown_fields)]
-	pub struct Extensions2 {
-		pub attribute_x: String,
-		pub attribute_y: String,
-		pub attribute_z: u32,
-	}
-
-	pub type DummyChainSpec<E> = sc_service::GenericChainSpec<E>;
-
-	pub fn create_default_with_extensions<E: Extension>(
-		id: &str,
-		extension: E,
-	) -> DummyChainSpec<E> {
-		DummyChainSpec::builder(
-			rococo_parachain_runtime::WASM_BINARY
-				.expect("WASM binary was not built, please build it!"),
-			extension,
-		)
-		.with_name("Dummy local testnet")
-		.with_id(id)
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
-		.build()
-	}
-
-	#[test]
-	fn test_legacy_runtime_for_different_chain_specs() {
-		let chain_spec =
-			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
-		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = crate::chain_spec::rococo_parachain::rococo_parachain_local_config();
-		assert_eq!(LegacyRuntime::Omni, LegacyRuntime::from_id(chain_spec.id()));
-	}
-}
