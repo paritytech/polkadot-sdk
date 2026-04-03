@@ -1689,8 +1689,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_single_peer() {
-		let (mut handler, statement_store, _network, notification_service, _, _) =
-			build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		// Using 100KB ensures ~10 statements per 1MB batch, requiring ~20 bursts
@@ -1772,8 +1771,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
-		let (mut handler, statement_store, _network, notification_service, _, _) =
-			build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		let num_statements = 200;
@@ -1968,8 +1966,7 @@ mod tests {
 		//
 		// With the fix, both use max_statement_payload_size(), so the filter will reject
 		// statements that wouldn't fit in find_sendable_chunk.
-		let (mut handler, statement_store, _network, notification_service, _, _) =
-			build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		let payload_limit = max_statement_payload_size();
 
@@ -2393,5 +2390,4 @@ mod tests {
 		all_hashes.sort();
 		assert_eq!(sorted_peer_c, all_hashes, "peer_c should get all 5 statements");
 	}
-
 }
