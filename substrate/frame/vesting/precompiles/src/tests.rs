@@ -269,10 +269,11 @@ fn vested_transfer_succeeds() {
 		assert!(!result.did_revert());
 		assert!(result.data.is_empty());
 
-		// Verify the schedule was created.
+		// Verify the schedule was created with the correct locked amount.
+		// At block 1 with per_block=500, one block vested: 10_000 - 500 = 9_500.
 		let balance =
 			<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
-		assert!(balance.is_some(), "target should have a vesting schedule");
+		assert_eq!(balance, Some(9_500), "locked amount should match the schedule");
 	});
 }
 
