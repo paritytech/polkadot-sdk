@@ -922,16 +922,17 @@ pub mod pallet {
 							}
 							// Continue to change bounty status below...
 						},
-						Some(sender) if sender == *curator => {
-							if let Some(curator_deposit) =
-								CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
-							{
-								// This is the curator, willingly giving up their role. Free their
-								// deposit.
-								T::Consideration::drop(curator_deposit, curator)?;
-							}
-							// Continue to change bounty status below...
-						},
+					Some(sender) if sender == *curator => {
+						if let Some(curator_deposit) =
+							CuratorDeposit::<T, I>::get(parent_bounty_id, child_bounty_id)
+						{
+							// This is the curator, willingly giving up their role. Free their
+							// deposit.
+							T::Consideration::drop(curator_deposit, curator)?;
+							CuratorDeposit::<T, I>::remove(parent_bounty_id, child_bounty_id);
+						}
+						// Continue to change bounty status below...
+					},
 						Some(sender) => {
 							let parent_curator = parent_curator.ok_or(BadOrigin)?;
 							ensure!(
