@@ -524,7 +524,6 @@ mod test {
 
 	mod multi_core {
 		use super::*;
-		use crate::validator_side::claim_queue_state::test::*;
 
 		/// Helper: sets up the common rotation topology used by most tests:
 		///   0 -> A(core0, para1) -> B(core1, para2, rotation)

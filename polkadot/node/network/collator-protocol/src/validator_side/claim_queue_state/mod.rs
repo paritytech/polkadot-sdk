@@ -19,7 +19,7 @@
 
 use std::collections::HashSet;
 
-use polkadot_primitives::{CandidateHash, CoreIndex, Hash, Id as ParaId};
+use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 
 mod basic;
 mod per_leaf;
@@ -112,6 +112,8 @@ mod test {
 	use super::*;
 
 	use std::sync::LazyLock;
+
+	use polkadot_primitives::CoreIndex;
 
 	pub const PARA_1: ParaId = ParaId::new(1);
 	pub const PARA_2: ParaId = ParaId::new(2);
