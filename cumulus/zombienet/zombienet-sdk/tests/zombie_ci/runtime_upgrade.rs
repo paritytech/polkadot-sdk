@@ -24,6 +24,13 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	let wasm_upgrade = WASM_RUNTIME_UPGRADE.expect("Wasm runtime not built");
+	log::info!(
+		"WASM_BINARY_BLOATY (upgrade) size: {} bytes ({:.2} KB)",
+		wasm_upgrade.len(),
+		wasm_upgrade.len() as f64 / 1024.0
+	);
+
 	log::info!("Spawning network");
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
@@ -37,16 +44,72 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	log::info!("Performing runtime upgrade");
 
-	let call = create_runtime_upgrade_call(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build"));
-	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
-		.await?;
+	let call = create_runtime_upgrade_call(wasm_upgrade);
+	let finalized_hash =
+		submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
+			.await?;
+
+	// Inspect the block events to check if the sudo inner dispatch succeeded
+	log::info!("Inspecting events in finalized block {finalized_hash:?}");
+	let block = charlie_client.blocks().at(finalized_hash).await?;
+	log::info!("Extrinsic included in block #{}", block.number());
+
+	let events = block.events().await?;
+	let mut found_validation_function_stored = false;
+	for event in events.iter() {
+		let event = event?;
+		let pallet = event.pallet_name();
+		let variant = event.variant_name();
+		if pallet == "Sudo" || pallet == "ParachainSystem" || pallet == "System" {
+			log::info!("Event: {pallet}::{variant}");
+		}
+		if pallet == "Sudo" && variant == "Sudid" {
+			// The Sudid event contains the dispatch result of the inner call.
+			// field_bytes contains the SCALE-encoded DispatchResult.
+			let bytes = event.field_bytes();
+			// DispatchResult::Ok is encoded as 0x00, Err starts with 0x01
+			if bytes.first() == Some(&0x00) {
+				log::info!("Sudid: inner dispatch SUCCEEDED");
+			} else {
+				log::error!("Sudid: inner dispatch FAILED, bytes={bytes:?}");
+			}
+		}
+		if pallet == "ParachainSystem" && variant == "ValidationFunctionStored" {
+			log::info!("ValidationFunctionStored event found - schedule_code_upgrade succeeded!");
+			found_validation_function_stored = true;
+		}
+	}
+
+	if !found_validation_function_stored {
+		log::error!(
+			"ValidationFunctionStored event NOT found! The runtime upgrade was NOT scheduled. \
+			 Check collator logs for runtime::parachain-system and runtime::sudo targets."
+		);
+	}
 
 	let dave = network.get_node("dave")?;
 	let dave_client: OnlineClient<PolkadotConfig> = dave.wait_client().await?;
 	let expected_spec_version = current_spec_version + 1;
 
 	log::info!("Waiting for parachain runtime upgrade to version {}", expected_spec_version);
-	wait_for_runtime_upgrade(&dave_client).await?;
+
+	let upgrade_result = tokio::time::timeout(
+		std::time::Duration::from_secs(300),
+		wait_for_runtime_upgrade(&dave_client),
+	)
+	.await;
+
+	match upgrade_result {
+		Ok(Ok(hash)) => log::info!("Runtime upgrade detected at block {hash:?}"),
+		Ok(Err(e)) => return Err(anyhow!("wait_for_runtime_upgrade error: {e}")),
+		Err(_) => {
+			return Err(anyhow!(
+				"TIMEOUT: Runtime upgrade not detected within 300s. \
+				 ValidationFunctionStored found={found_validation_function_stored}. \
+				 Check collator logs for runtime::parachain-system and runtime::sudo targets."
+			))
+		},
+	}
 
 	let spec_version_from_charlie =
 		dave_client.backend().current_runtime_version().await?.spec_version;
@@ -83,9 +146,15 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name("charlie")
 						.validator(true)
-						.with_args(vec![("-lparachain=debug").into()])
+						.with_args(vec![
+							"-lparachain=debug,runtime=debug".into(),
+						])
 				})
-				.with_collator(|n| n.with_name("dave").validator(false))
+				.with_collator(|n| {
+					n.with_name("dave")
+						.validator(false)
+						.with_args(vec!["-lruntime=debug".into()])
+				})
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

@@ -289,6 +289,12 @@ pub mod pallet {
 		/// total size is less than the threshold (see [`ump_constants::THRESHOLD_FACTOR`]).
 		/// Also does the sending for HRMP messages it takes from `OutboundXcmpMessageSource`.
 		fn on_finalize(_: BlockNumberFor<T>) {
+			let had_validation_code = <DidSetValidationCode<T>>::get();
+			log::info!(
+				target: LOG_TARGET,
+				"on_finalize: DidSetValidationCode was {}, killing it now",
+				had_validation_code,
+			);
 			<DidSetValidationCode<T>>::kill();
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
@@ -517,12 +523,22 @@ pub mod pallet {
 			// To prevent removing `NewValidationCode` that was set by another `on_initialize`
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
-			if !<DidSetValidationCode<T>>::get() {
+			let did_set = <DidSetValidationCode<T>>::get();
+			if !did_set {
+				log::info!(
+					target: LOG_TARGET,
+					"on_initialize: DidSetValidationCode=false, killing NewValidationCode",
+				);
 				// NOTE: Killing here is required to at least include the trie nodes down to the key
 				// in the proof. Because this value will be read in `validate_block` and thus,
 				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
+			} else {
+				log::info!(
+					target: LOG_TARGET,
+					"on_initialize: DidSetValidationCode=true, preserving NewValidationCode",
+				);
 			}
 
 			// The parent hash was unknown during block finalization. Update it here.
@@ -1584,6 +1600,11 @@ impl<T: Config> Pallet<T> {
 	/// monitors for updates. Calling this function notifies polkadot that a new
 	/// upgrade has been scheduled.
 	fn notify_polkadot_of_pending_upgrade(code: &[u8]) {
+		log::info!(
+			target: LOG_TARGET,
+			"notify_polkadot_of_pending_upgrade: writing NewValidationCode (len={}) and DidSetValidationCode=true",
+			code.len(),
+		);
 		NewValidationCode::<T>::put(code);
 		<DidSetValidationCode<T>>::put(true);
 	}
@@ -1597,26 +1618,61 @@ impl<T: Config> Pallet<T> {
 
 	/// The implementation of the runtime upgrade functionality for parachains.
 	pub fn schedule_code_upgrade(validation_function: Vec<u8>) -> DispatchResult {
-		// Ensure that `ValidationData` exists. We do not care about the validation data per se,
-		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
-		// inherent.
-		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable);
-		ensure!(<UpgradeRestrictionSignal<T>>::get().is_none(), Error::<T>::ProhibitedByPolkadot);
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: called with code_len={}",
+			validation_function.len(),
+		);
 
-		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);
-		let cfg = HostConfiguration::<T>::get().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
+		let validation_data_exists = <ValidationData<T>>::exists();
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: ValidationData exists={}",
+			validation_data_exists,
+		);
+		ensure!(validation_data_exists, Error::<T>::ValidationDataNotAvailable);
+
+		let upgrade_restriction = <UpgradeRestrictionSignal<T>>::get();
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: UpgradeRestrictionSignal={:?}",
+			upgrade_restriction,
+		);
+		ensure!(upgrade_restriction.is_none(), Error::<T>::ProhibitedByPolkadot);
+
+		let pending_exists = <PendingValidationCode<T>>::exists();
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: PendingValidationCode exists={}",
+			pending_exists,
+		);
+		ensure!(!pending_exists, Error::<T>::OverlappingUpgrades);
+
+		let cfg = HostConfiguration::<T>::get();
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: HostConfiguration present={}, max_code_size={:?}",
+			cfg.is_some(),
+			cfg.as_ref().map(|c| c.max_code_size),
+		);
+		let cfg = cfg.ok_or(Error::<T>::HostConfigurationNotAvailable)?;
+
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: code_len={} vs max_code_size={}",
+			validation_function.len(),
+			cfg.max_code_size,
+		);
 		ensure!(validation_function.len() <= cfg.max_code_size as usize, Error::<T>::TooBig);
 
-		// When a code upgrade is scheduled, it has to be applied in two
-		// places, synchronized: both polkadot and the individual parachain
-		// have to upgrade on the same relay chain block.
-		//
-		// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationCode`
-		// storage keeps track locally for the parachain upgrade, which will
-		// be applied later: when the relay-chain communicates go-ahead signal to us.
 		Self::notify_polkadot_of_pending_upgrade(&validation_function);
 		<PendingValidationCode<T>>::put(validation_function);
 		Self::deposit_event(Event::ValidationFunctionStored);
+
+		log::info!(
+			target: LOG_TARGET,
+			"schedule_code_upgrade: SUCCESS - upgrade scheduled",
+		);
 
 		Ok(())
 	}
@@ -1629,12 +1685,19 @@ impl<T: Config> Pallet<T> {
 	/// This is expected to be used by the
 	/// [`CollectCollationInfo`](cumulus_primitives_core::CollectCollationInfo) runtime api.
 	pub fn collect_collation_info(header: &HeaderFor<T>) -> CollationInfo {
+		let new_validation_code = NewValidationCode::<T>::get();
+		log::info!(
+			target: LOG_TARGET,
+			"collect_collation_info: NewValidationCode present={}, len={:?}",
+			new_validation_code.is_some(),
+			new_validation_code.as_ref().map(|c| c.len()),
+		);
 		CollationInfo {
 			hrmp_watermark: HrmpWatermark::<T>::get(),
 			horizontal_messages: HrmpOutboundMessages::<T>::get(),
 			upward_messages: UpwardMessages::<T>::get(),
 			processed_downward_messages: ProcessedDownwardMessages::<T>::get(),
-			new_validation_code: NewValidationCode::<T>::get().map(Into::into),
+			new_validation_code: new_validation_code.map(Into::into),
 			// Check if there is a custom header that will also be returned by the validation phase.
 			// If so, we need to also return it here.
 			head_data: CustomValidationHeadData::<T>::get()

@@ -722,8 +722,28 @@ pub mod pallet {
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			Self::can_set_code(&code, true).into_result()?;
-			T::OnSetCode::set_code(code)?;
+			log::info!(
+				target: LOG_TARGET,
+				"set_code called, code_len={}",
+				code.len(),
+			);
+			let can_set = Self::can_set_code(&code, true);
+			match &can_set {
+				CanSetCodeResult::Ok =>
+					log::info!(target: LOG_TARGET, "can_set_code: passed"),
+				CanSetCodeResult::MultiBlockMigrationsOngoing =>
+					log::error!(target: LOG_TARGET, "can_set_code: FAILED - MultiBlockMigrationsOngoing"),
+				CanSetCodeResult::InvalidVersion(_) =>
+					log::error!(target: LOG_TARGET, "can_set_code: FAILED - InvalidVersion (check earlier logs)"),
+			}
+			can_set.into_result()?;
+			let on_set_result = T::OnSetCode::set_code(code);
+			log::info!(
+				target: LOG_TARGET,
+				"OnSetCode::set_code result: {:?}",
+				on_set_result,
+			);
+			on_set_result?;
 			// consume the rest of the block to prevent further transactions
 			Ok(Some(T::BlockWeights::get().max_block).into())
 		}
@@ -2409,17 +2429,43 @@ impl<T: Config> Pallet<T> {
 	///
 	/// - `check_version`: Should the runtime version be checked?
 	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
+		log::info!(
+			target: LOG_TARGET,
+			"can_set_code: code_len={}, check_version={}",
+			code.len(),
+			check_version,
+		);
 		if T::MultiBlockMigrator::ongoing() {
+			log::warn!(target: LOG_TARGET, "can_set_code: REJECTED - MultiBlockMigrationsOngoing");
 			return CanSetCodeResult::MultiBlockMigrationsOngoing;
 		}
 
 		if check_version {
 			let current_version = T::Version::get();
-			let Some(new_version) = sp_io::misc::runtime_version(code)
+			let version_raw = sp_io::misc::runtime_version(code);
+			log::info!(
+				target: LOG_TARGET,
+				"can_set_code: runtime_version returned {} bytes",
+				version_raw.as_ref().map_or(0, |v| v.len()),
+			);
+			let Some(new_version) = version_raw
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
 			else {
+				log::error!(
+					target: LOG_TARGET,
+					"can_set_code: REJECTED - FailedToExtractRuntimeVersion",
+				);
 				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion);
 			};
+
+			log::info!(
+				target: LOG_TARGET,
+				"can_set_code: current_spec={} v{}, new_spec={} v{}",
+				current_version.spec_name,
+				current_version.spec_version,
+				new_version.spec_name,
+				new_version.spec_version,
+			);
 
 			cfg_if::cfg_if! {
 				if #[cfg(all(feature = "runtime-benchmarks", not(test)))] {
@@ -2427,16 +2473,24 @@ impl<T: Config> Pallet<T> {
 					core::hint::black_box((new_version, current_version));
 				} else {
 					if new_version.spec_name != current_version.spec_name {
+						log::error!(target: LOG_TARGET, "can_set_code: REJECTED - InvalidSpecName");
 						return CanSetCodeResult::InvalidVersion(Error::<T>::InvalidSpecName)
 					}
 
 					if new_version.spec_version <= current_version.spec_version {
+						log::error!(
+							target: LOG_TARGET,
+							"can_set_code: REJECTED - SpecVersionNeedsToIncrease (current={}, new={})",
+							current_version.spec_version,
+							new_version.spec_version,
+						);
 						return CanSetCodeResult::InvalidVersion(Error::<T>::SpecVersionNeedsToIncrease)
 					}
 				}
 			}
 		}
 
+		log::info!(target: LOG_TARGET, "can_set_code: OK - all checks passed");
 		CanSetCodeResult::Ok
 	}
 

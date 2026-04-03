@@ -126,6 +126,8 @@ use sp_runtime::{traits::StaticLookup, DispatchResult};
 
 use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
 
+const LOG_TARGET: &str = "runtime::sudo";
+
 mod extension;
 #[cfg(test)]
 mod mock;
@@ -228,6 +230,20 @@ pub mod pallet {
 			let _ = weight; // We don't check the weight witness since it is a root call.
 
 			let res = call.dispatch_bypass_filter(RawOrigin::Root.into());
+			match &res {
+				Ok(post_info) => log::info!(
+					target: LOG_TARGET,
+					"sudo_unchecked_weight dispatch succeeded, actual_weight={:?}, pays_fee={:?}",
+					post_info.actual_weight,
+					post_info.pays_fee,
+				),
+				Err(err) => log::error!(
+					target: LOG_TARGET,
+					"sudo_unchecked_weight dispatch FAILED: error={:?}, post_info={:?}",
+					err.error,
+					err.post_info,
+				),
+			}
 			Self::deposit_event(Event::Sudid { sudo_result: res.map(|_| ()).map_err(|e| e.error) });
 
 			// Sudo user does not pay a fee.
