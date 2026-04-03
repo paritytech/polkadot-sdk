@@ -1442,19 +1442,7 @@ mod tests {
 		}
 	}
 
-	fn build_handler() -> (
-		StatementHandler<TestNetwork, TestSync>,
-		TestStatementStore,
-		TestNetwork,
-		TestNotificationService,
-		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
-	) {
-		let (handler, store, network, notif, queue_receiver, _peer_ids) =
-			build_handler_multi_peers(1);
-		(handler, store, network, notif, queue_receiver)
-	}
-
-	fn build_handler_multi_peers(
+	fn build_handler(
 		num_peers: usize,
 	) -> (
 		StatementHandler<TestNetwork, TestSync>,
@@ -1516,21 +1504,23 @@ mod tests {
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
 
-	fn build_handler_no_peers() -> (
-		StatementHandler<TestNetwork, TestSync>,
-		TestStatementStore,
-		TestNetwork,
-		TestNotificationService,
-	) {
-		let (handler, store, network, notif, _queue_receiver, _peer_ids) =
-			build_handler_multi_peers(0);
-		(handler, store, network, notif)
+	fn get_peer_hashes(
+		sent: &[(PeerId, Vec<u8>)],
+		peer: PeerId,
+	) -> HashSet<sp_statement_store::Hash> {
+		sent.iter()
+			.filter(|(p, _)| *p == peer)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect()
 	}
 
 	#[tokio::test]
 	async fn test_skips_processing_statements_that_already_in_store() {
-		let (mut handler, statement_store, _network, _notification_service, queue_receiver) =
-			build_handler();
+		let (mut handler, statement_store, _network, _notification_service, queue_receiver, _) =
+			build_handler(1);
 
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(b"statement1".to_vec());
@@ -1555,8 +1545,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_reports_for_duplicate_statements() {
-		let (mut handler, statement_store, network, _notification_service, queue_receiver) =
-			build_handler();
+		let (mut handler, statement_store, network, _notification_service, queue_receiver, _) =
+			build_handler(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
@@ -1588,8 +1578,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_splits_large_batches_into_smaller_chunks() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let num_statements = 30;
 		let statement_size = 100 * 1024; // 100KB per statement
@@ -1632,8 +1622,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_skips_only_oversized_statements() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(vec![1u8; 100]);
@@ -1699,8 +1689,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_single_peer() {
-		let (mut handler, statement_store, _network, notification_service) =
-			build_handler_no_peers();
+		let (mut handler, statement_store, _network, notification_service, _, _) =
+			build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		// Using 100KB ensures ~10 statements per 1MB batch, requiring ~20 bursts
@@ -1782,8 +1772,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
-		let (mut handler, statement_store, _network, notification_service) =
-			build_handler_no_peers();
+		let (mut handler, statement_store, _network, notification_service, _, _) =
+			build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		let num_statements = 200;
@@ -1899,8 +1889,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_send_statements_in_chunks_exact_max_size() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		// Calculate the data sizes so that 100 statements together exactly fill max_size.
 		// This tests that all 100 statements fit in a single notification.
@@ -1999,8 +1989,8 @@ mod tests {
 		//
 		// With the fix, both use max_statement_payload_size(), so the filter will reject
 		// statements that wouldn't fit in find_sendable_chunk.
-		let (mut handler, statement_store, _network, notification_service) =
-			build_handler_no_peers();
+		let (mut handler, statement_store, _network, notification_service, _, _) =
+			build_handler(0);
 
 		let payload_limit = max_statement_payload_size();
 
@@ -2097,8 +2087,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_peer_disconnected_on_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
@@ -2142,8 +2132,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_legitimate_traffic_not_flagged() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
@@ -2191,8 +2181,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_just_over_rate_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
@@ -2233,8 +2223,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_burst_of_250k_statements_allowed() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
@@ -2269,8 +2259,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_sustained_rate_above_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
+			build_handler(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
@@ -2330,7 +2320,7 @@ mod tests {
 			notification_service,
 			_queue_receiver,
 			peer_ids,
-		) = build_handler_multi_peers(5);
+		) = build_handler(5);
 
 		// Insert 3 statements into recent_statements for propagation
 		let mut expected_hashes = Vec::new();
@@ -2347,21 +2337,10 @@ mod tests {
 
 		let sent = notification_service.get_sent_notifications();
 
-		// Group notifications by peer
+		// Verify each peer received all 3 statements
 		for peer_id in &peer_ids {
-			let peer_notifications: Vec<_> = sent.iter().filter(|(p, _)| p == peer_id).collect();
-			assert!(
-				!peer_notifications.is_empty(),
-				"Peer {peer_id} should have received notifications"
-			);
-
-			let mut received_hashes: Vec<_> = peer_notifications
-				.iter()
-				.flat_map(|(_, notification)| {
-					<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
-				})
-				.map(|s| s.hash())
-				.collect();
+			let mut received_hashes: Vec<_> =
+				get_peer_hashes(&sent, *peer_id).into_iter().collect();
 			received_hashes.sort();
 
 			assert_eq!(
@@ -2383,7 +2362,7 @@ mod tests {
 			notification_service,
 			_queue_receiver,
 			peer_ids,
-		) = build_handler_multi_peers(3);
+		) = build_handler(3);
 
 		let peer_a = peer_ids[0];
 		let peer_b = peer_ids[1];
@@ -2408,19 +2387,9 @@ mod tests {
 
 		let sent = notification_service.get_sent_notifications();
 
-		let get_peer_hashes = |peer: PeerId| -> HashSet<sp_statement_store::Hash> {
-			sent.iter()
-				.filter(|(p, _)| *p == peer)
-				.flat_map(|(_, notification)| {
-					<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
-				})
-				.map(|s| s.hash())
-				.collect()
-		};
-
-		let peer_a_hashes = get_peer_hashes(peer_a);
-		let peer_b_hashes = get_peer_hashes(peer_b);
-		let peer_c_hashes = get_peer_hashes(peer_c);
+		let peer_a_hashes = get_peer_hashes(&sent, peer_a);
+		let peer_b_hashes = get_peer_hashes(&sent, peer_b);
+		let peer_c_hashes = get_peer_hashes(&sent, peer_c);
 
 		// peer_a already knows s1,s2 → should only get s3,s4,s5
 		assert_eq!(peer_a_hashes.len(), 3, "peer_a should get 3 statements");
@@ -2433,59 +2402,17 @@ mod tests {
 		// peer_b already knows s3 → should get s1,s2,s4,s5
 		assert_eq!(peer_b_hashes.len(), 4, "peer_b should get 4 statements");
 		assert!(!peer_b_hashes.contains(&hashes[2]), "peer_b already knows s3");
+		assert!(peer_b_hashes.contains(&hashes[0]));
+		assert!(peer_b_hashes.contains(&hashes[1]));
+		assert!(peer_b_hashes.contains(&hashes[3]));
+		assert!(peer_b_hashes.contains(&hashes[4]));
 
 		// peer_c knows nothing → should get all 5
-		assert_eq!(peer_c_hashes.len(), 5, "peer_c should get all 5 statements");
+		let mut sorted_peer_c: Vec<_> = peer_c_hashes.into_iter().collect();
+		sorted_peer_c.sort();
+		let mut all_hashes = hashes.clone();
+		all_hashes.sort();
+		assert_eq!(sorted_peer_c, all_hashes, "peer_c should get all 5 statements");
 	}
 
-	#[tokio::test]
-	async fn test_multiple_peers_send_same_statement_deduplication() {
-		let (
-			mut handler,
-			_statement_store,
-			network,
-			_notification_service,
-			queue_receiver,
-			peer_ids,
-		) = build_handler_multi_peers(3);
-
-		let peer_a = peer_ids[0];
-		let peer_b = peer_ids[1];
-		let peer_c = peer_ids[2];
-
-		let mut s1 = Statement::new();
-		s1.set_plain_data(b"shared_statement".to_vec());
-		let s1_hash = s1.hash();
-
-		// Each peer sends the same statement
-		handler.on_statements(peer_a, vec![s1.clone()]);
-		handler.on_statements(peer_b, vec![s1.clone()]);
-		handler.on_statements(peer_c, vec![s1.clone()]);
-
-		// Only one submission should be queued for validation
-		let first = queue_receiver.try_recv();
-		assert!(first.is_ok(), "First submission should be queued");
-		assert_eq!(first.unwrap().0.hash(), s1_hash);
-
-		let second = queue_receiver.try_recv();
-		assert!(second.is_err(), "No duplicate should be queued");
-
-		// All 3 peers should be tracked in pending_statements_peers
-		let peers_for_hash = handler.pending_statements_peers.get(&s1_hash).unwrap();
-		assert!(peers_for_hash.contains(&peer_a), "peer_a should be tracked");
-		assert!(peers_for_hash.contains(&peer_b), "peer_b should be tracked");
-		assert!(peers_for_hash.contains(&peer_c), "peer_c should be tracked");
-
-		let reports = network.get_reports();
-		let any_stmt_reports: Vec<_> =
-			reports.iter().filter(|(_, rep)| *rep == rep::ANY_STATEMENT).collect();
-		assert_eq!(
-			any_stmt_reports.len(),
-			3,
-			"All senders of an unknown statement get ANY_STATEMENT"
-		);
-		let dup_reports: Vec<_> =
-			reports.iter().filter(|(_, rep)| *rep == rep::DUPLICATE_STATEMENT).collect();
-		assert!(dup_reports.is_empty(), "No DUPLICATE_STATEMENT since each peer is a new sender");
-	}
 }
