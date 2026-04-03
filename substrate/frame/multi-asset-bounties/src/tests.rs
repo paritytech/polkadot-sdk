@@ -947,7 +947,16 @@ fn check_status_works() {
 		set_status(payment_id, PaymentStatus::Success);
 		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
 
-		// Then
+		// Then: BountyPayoutProcessed should emit the net payout (parent value minus child
+		// value), not the full parent value.
+		let expected_payout = s.value - s.child_value;
+		expect_events(vec![BountiesEvent::BountyPayoutProcessed {
+			index: s.parent_bounty_id,
+			child_index: None,
+			asset_kind: s.asset_kind,
+			value: expected_payout,
+			beneficiary: s.beneficiary,
+		}]);
 		assert_eq!(
 			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
 			0
@@ -2602,6 +2611,55 @@ fn unprivileged_caller_cannot_unassign_active_child_curator_when_parent_not_acti
 			Balances::reserved_balance(&s.child_curator),
 			0,
 			"curator deposit hold must be released after voluntary unassign"
+		);
+	});
+}
+
+#[test]
+fn multi_asset_bounty_accounts_differ_from_legacy_bounty_accounts() {
+	ExtBuilder::default().build_and_execute(|| {
+		use sp_runtime::traits::AccountIdConversion;
+
+		let bounty_id: BountyIndex = 0;
+
+		// Old derivation (what pallet-bounties uses with &str)
+		let old_bounty_account: u128 =
+			BountyPalletId::get().into_sub_account_truncating(("bt", bounty_id));
+		// New derivation (what multi-asset-bounties uses with [u8; 3])
+		let new_bounty_account: u128 = BountyPalletId::get()
+			.into_sub_account_truncating((BountyAccountPrefix::get(), bounty_id));
+
+		assert_ne!(
+			old_bounty_account, new_bounty_account,
+			"multi-asset bounty account must differ from legacy bounty account"
+		);
+
+		let parent_bounty_id: BountyIndex = 0;
+		let child_bounty_id: BountyIndex = 0;
+
+		// Old derivation (what pallet-child-bounties uses with &str)
+		let old_child_account: u128 = BountyPalletId::get().into_sub_account_truncating((
+			"cb",
+			parent_bounty_id,
+			child_bounty_id,
+		));
+		// New derivation (what multi-asset-bounties uses with [u8; 3])
+		let new_child_account: u128 = BountyPalletId::get().into_sub_account_truncating((
+			ChildBountyAccountPrefix::get(),
+			parent_bounty_id,
+			child_bounty_id,
+		));
+
+		assert_ne!(
+			old_child_account, new_child_account,
+			"multi-asset child bounty account must differ from legacy child bounty account"
+		);
+
+		// Also verify bounty and child-bounty accounts are distinct from each other
+		// when using the same indices
+		assert_ne!(
+			new_bounty_account, new_child_account,
+			"bounty and child-bounty accounts must differ even with the same indices"
 		);
 	});
 }
