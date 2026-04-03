@@ -743,13 +743,9 @@ impl<T: Config> Rotator<T> {
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
-		// Cleanup era pot accounts for eras that have expired.
-		if let Some(era_to_cleanup) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
-			reward::EraRewardManager::<T>::cleanup_era(era_to_cleanup);
-		}
-
-		// Mark ancient era for lazy pruning instead of immediately pruning it.
+		// Cleanup era pot accounts and mark for lazy pruning.
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			reward::EraRewardManager::<T>::cleanup_era(old_era);
 			log!(debug, "Marking era {:?} for lazy pruning", old_era);
 			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
 		}
