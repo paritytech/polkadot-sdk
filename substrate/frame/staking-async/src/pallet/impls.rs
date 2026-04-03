@@ -407,16 +407,22 @@ impl<T: Config> Pallet<T> {
 
 		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
 
-		// Use the StakerRewardCalculator trait to calculate reward distribution.
+		// Use the overview's own-stake (not the page's, which is zeroed on pages > 0)
+		// so the calculator sees the full validator self-stake for reward computation.
+		let overview_own = ErasStakersOverview::<T>::get(era, &stash)
+			.map(|o| o.own)
+			.unwrap_or_default();
+
 		let reward_split = T::StakerRewardCalculator::calculate_staker_reward(
 			validator_total_payout,
 			validator_commission,
-			exposure.own(),
+			overview_own,
 			exposure.total(),
 		);
 
+		// Prorate the validator's reward (commission + own-stake share) across pages
+		// proportional to each page's stake relative to total.
 		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
-		// validator commission is paid out in fraction across pages proportional to the page stake.
 		let validator_staker_payout_for_page =
 			page_stake_part.mul_floor(reward_split.validator_payout);
 

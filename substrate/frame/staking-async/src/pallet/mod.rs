@@ -2572,6 +2572,10 @@ pub mod pallet {
 		/// backing a validator to receive the reward. The nominators are not sorted across pages
 		/// and so it should not be assumed the highest staker would be on the topmost page and vice
 		/// versa. If rewards are not claimed in [`Config::HistoryDepth`] eras, they are lost.
+		///
+		/// The validator's own reward (commission + own-stake share) is prorated across pages
+		/// proportional to each page's stake. The full validator reward is the sum across all
+		/// pages.
 		#[pallet::call_index(26)]
 		#[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(T::MaxExposurePageSize::get()))]
 		pub fn payout_stakers_by_page(
