@@ -60,8 +60,8 @@ enum Scenario {
 	Event,
 	/// Near-limit capacity test pushing ~3.8M statements (95% of 4M max)
 	CapacityMax,
-	/// Soak peak: ~112.5K stmts per 15-min cron invocation (~450K stmts/hr)
-	SoakPeak,
+	/// Event-peak stress: ~512K stmts per 15-min invocation (~2M stmts/hr)
+	Stress,
 }
 
 struct ScenarioParams {
@@ -117,10 +117,10 @@ fn resolve_scenario(scenario: &Scenario) -> Option<ScenarioParams> {
 			receive_timeout_ms: 60_000,
 			statement_expiry_ms: 1_800_000,
 		}),
-		Scenario::SoakPeak => Some(ScenarioParams {
+		Scenario::Stress => Some(ScenarioParams {
 			num_clients: 500,
-			messages_pattern: "24:192,1:384".to_string(),
-			num_rounds: 9,
+			messages_pattern: "100:192,20:400,8:512".to_string(),
+			num_rounds: 8,
 			interval_ms: 30_000,
 			receive_timeout_ms: 30_000,
 			statement_expiry_ms: 900_000,
@@ -486,7 +486,12 @@ async fn run_client(
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
 				// Include test_run_id so channels are unique per run and don't collide
 				// with leftover statements from previous runs (ChannelPriorityTooLow).
-				let channel_str = format!("{test_run_id}-{sent_count}");
+				// Even rounds reuse channels (replacements), odd rounds get unique channels (inserts)
+				let channel_str = if round % 2 == 0 {
+					format!("{test_run_id}-{sent_count}")
+				} else {
+					format!("{test_run_id}-{round}-{sent_count}")
+				};
 				let channel = blake2_256(channel_str.as_bytes());
 
 				let expiry_timestamp = (std::time::SystemTime::now()
@@ -589,7 +594,12 @@ async fn run_client(
 					interval.as_millis()
 				);
 			}
-			barrier.wait().await;
+			let barrier_timeout = Duration::from_millis(interval_ms + receive_timeout_ms);
+			if timeout(barrier_timeout, barrier.wait()).await.is_err() {
+				return Err(anyhow!(
+					"Client {client_id}: Barrier timeout after round {round} — some client(s) likely failed"
+				));
+			}
 		}
 	}
 
@@ -849,13 +859,30 @@ async fn collect_results(
 	handles: Vec<tokio::task::JoinHandle<Result<Vec<RoundStats>, anyhow::Error>>>,
 ) -> Result<Vec<RoundStats>, anyhow::Error> {
 	let mut all_stats = Vec::new();
+	let mut errors: Vec<String> = Vec::new();
 
 	for (i, handle) in handles.into_iter().enumerate() {
 		match handle.await {
 			Ok(Ok(client_stats)) => all_stats.extend(client_stats),
-			Ok(Err(e)) => return Err(e.context(format!("Client {i} failed"))),
-			Err(e) => return Err(anyhow!("Client {i} task panicked: {e}")),
+			Ok(Err(e)) => {
+				let msg = format!("Client {i}: {e:#}");
+				warn!("{msg}");
+				errors.push(msg);
+			},
+			Err(e) => {
+				let msg = format!("Client {i} task panicked: {e}");
+				warn!("{msg}");
+				errors.push(msg);
+			},
 		}
+	}
+
+	if !errors.is_empty() {
+		// Sort barrier timeouts to the end so root-cause errors appear first
+		errors.sort_by_key(|e| if e.contains("Barrier timeout") { 1 } else { 0 });
+		let summary = errors.iter().take(10).cloned().collect::<Vec<_>>().join("\n  ");
+		let total = errors.len();
+		return Err(anyhow!("{total} client(s) failed. First errors:\n  {summary}"));
 	}
 
 	Ok(all_stats)
