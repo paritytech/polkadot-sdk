@@ -144,9 +144,7 @@ where
 		use IAssetConversion::IAssetConversionCalls;
 
 		match input {
-			_ if env.is_delegate_call() => {
-				Err(Error::Revert(ERR_DELEGATE_CALL.into()))
-			},
+			_ if env.is_delegate_call() => Err(Error::Revert(ERR_DELEGATE_CALL.into())),
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
 			IAssetConversionCalls::swapTokensForExactTokens(_)
 				if env.is_read_only() =>
@@ -188,9 +186,7 @@ where
 		let len = path.len() as u32;
 		let max = <Runtime as pallet_asset_conversion::Config>::MaxSwapPathLength::get();
 		if len > max {
-			return Err(Error::Revert(Revert {
-				reason: ERR_PATH_TOO_LONG.into(),
-			}));
+			return Err(Error::Revert(Revert { reason: ERR_PATH_TOO_LONG.into() }));
 		}
 		Ok(len)
 	}
