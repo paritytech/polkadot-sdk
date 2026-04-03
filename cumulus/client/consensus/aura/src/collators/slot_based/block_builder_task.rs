@@ -1014,7 +1014,8 @@ enum SlotHandoverAdjustment {
 }
 
 impl SlotHandoverAdjustment {
-	/// Determine the appropriate adjustment based on total blocks per relay slot and blocks per core.
+	/// Determine the appropriate adjustment based on total blocks per relay slot and blocks per
+	/// core.
 	fn from_total_blocks(total_blocks: u32, blocks_per_core: u32) -> Self {
 		match total_blocks {
 			0..=1 => Self::None,
@@ -1057,7 +1058,7 @@ impl BlockProductionSchedule {
 	}
 
 	/// Whether this is the actual last block index in the core.
-	fn is_actual_last_block(&self) -> bool {
+	fn is_last_block_in_core(&self) -> bool {
 		self.block_index + 1 == self.blocks_per_core
 	}
 
@@ -1072,7 +1073,7 @@ impl BlockProductionSchedule {
 	/// to give the next author time to import all previous blocks.
 	fn should_skip_production(&self) -> bool {
 		self.mode.skips_last_block() &&
-			self.is_actual_last_block() &&
+			self.is_last_block_in_core() &&
 			self.is_last_core_in_parachain_slot
 	}
 
@@ -1086,7 +1087,7 @@ impl BlockProductionSchedule {
 	/// 1. In Bundling mode on the last core, we skip the actual last block
 	/// 2. Even when not skipping, avoiding sleep on the last two blocks speeds things up
 	fn is_effective_last_block(&self) -> bool {
-		self.is_actual_last_block() || self.is_second_to_last()
+		self.is_last_block_in_core() || self.is_second_to_last()
 	}
 
 	/// Compute the authoring duration given available time.
@@ -1221,7 +1222,7 @@ mod block_production_schedule_tests {
 			// block_index 2 is second-to-last (2+2 == 4), always effective last
 			let schedule = BlockProductionSchedule::new(2, 4, 12, true);
 			assert!(schedule.is_effective_last_block());
-			assert!(!schedule.is_actual_last_block());
+			assert!(!schedule.is_last_block_in_core());
 			assert!(schedule.is_second_to_last());
 
 			// Same config but not last core - second-to-last is STILL effective last
