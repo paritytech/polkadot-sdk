@@ -425,6 +425,10 @@ impl<T: Config> Pallet<T> {
 		let validator_staker_payout_for_page =
 			page_stake_part.mul_floor(reward_split.validator_payout);
 
+		// Pay validator incentive bonus from the separate incentive pot.
+		let _validator_incentive_paid =
+			Self::pay_validator_incentive_for_page(era, &stash, page_stake_part);
+
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
 			validator_stash: stash.clone(),
@@ -652,6 +656,118 @@ impl<T: Config> Pallet<T> {
 			}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
+	}
+
+	/// Calculate the validator incentive amount for a single page.
+	fn calculate_validator_incentive_for_page(
+		era: EraIndex,
+		stash: &T::AccountId,
+		page_stake_part: Perbill,
+	) -> Option<BalanceOf<T>> {
+		let era_incentive_budget = Eras::<T>::get_validator_incentive_allocation(era);
+		if era_incentive_budget.is_zero() {
+			return None;
+		}
+
+		let (validator_weight, total_weight) = match (
+			ErasValidatorIncentive::<T>::get(era, stash),
+			ErasTotalValidatorWeight::<T>::get(era),
+		) {
+			(Some(w), t) => (w, t),
+			_ => return None,
+		};
+
+		if total_weight.is_zero() {
+			log!(warn, "Total validator weight is zero but pot allocation exists for era {}", era);
+			Self::deposit_event(Event::<T>::Unexpected(
+				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+			));
+			return None;
+		}
+
+		if validator_weight.is_zero() {
+			return None;
+		}
+
+		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
+		let validator_total_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
+
+		if validator_incentive_for_page.is_zero() {
+			return None;
+		}
+
+		Some(validator_incentive_for_page)
+	}
+
+	/// Transfer validator incentive from era pot to the validator's payout account.
+	///
+	/// This is a direct liquid transfer. Future PRs may introduce vesting via a trait.
+	fn transfer_validator_incentive(
+		era: EraIndex,
+		stash: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> BalanceOf<T> {
+		use frame_support::traits::{fungible::Mutate as FunMutate, tokens::Preservation};
+
+		let (dest, payout_account) = match Self::payee(Stash(stash.clone())) {
+			Some(d) if !matches!(d, RewardDestination::None) => {
+				match Self::payout_account_for_dest(stash, &d) {
+					Some(account) => (d, account),
+					None => {
+						defensive!("Unable to determine payout account for destination");
+						return Zero::zero();
+					},
+				}
+			},
+			_ => {
+				defensive!("Validator missing payee");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorMissingPayee { era },
+				));
+				return Zero::zero();
+			},
+		};
+
+		let incentive_pot =
+			T::EraPots::era_pot_account(era, crate::EraPotType::ValidatorSelfStake);
+
+		match T::Currency::transfer(
+			&incentive_pot,
+			&payout_account,
+			amount,
+			Preservation::Expendable,
+		) {
+			Ok(_) => {
+				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
+					era,
+					validator_stash: stash.clone(),
+					dest,
+					amount,
+				});
+				amount
+			},
+			Err(e) => {
+				log!(warn, "Failed to transfer liquid incentive: {:?}", e);
+				defensive!("Validator incentive liquid transfer failed");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+				));
+				Zero::zero()
+			},
+		}
+	}
+
+	/// Calculate and pay validator incentive for a single page.
+	fn pay_validator_incentive_for_page(
+		era: EraIndex,
+		stash: &T::AccountId,
+		page_stake_part: Perbill,
+	) -> BalanceOf<T> {
+		match Self::calculate_validator_incentive_for_page(era, stash, page_stake_part) {
+			Some(amt) => Self::transfer_validator_incentive(era, stash, amt),
+			None => Zero::zero(),
+		}
 	}
 
 	/// Chill a stash account.

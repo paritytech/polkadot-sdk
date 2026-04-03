@@ -29,8 +29,14 @@ use frame_support::{
 		Defensive, OnUnbalanced,
 	},
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::{AtLeast32BitUnsigned, Zero}, Perbill};
 use sp_staking::EraIndex;
+
+/// Allocation breakdown returned by [`EraRewardManager::snapshot_era_rewards`].
+pub(crate) struct EraRewardAllocation<Balance> {
+	pub staker_rewards: Balance,
+	pub validator_incentive: Balance,
+}
 
 /// Manager for era reward pot lifecycle.
 pub struct EraRewardManager<T: Config>(core::marker::PhantomData<T>);
@@ -43,18 +49,27 @@ impl<T: Config> EraRewardManager<T> {
 		pot_account
 	}
 
-	/// Snapshots the general staker reward pot into an era-specific pot.
+	/// Snapshots the general reward pots into era-specific pots.
 	///
-	/// DAP drips inflation continuously into the general pot. At era boundary,
-	/// this transfers the accumulated balance (minus ED) into an era pot.
-	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> BalanceOf<T> {
+	/// DAP drips inflation continuously into the general pots. At era boundary,
+	/// this transfers the accumulated balances (minus ED) into era pots.
+	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> EraRewardAllocation<BalanceOf<T>> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
+		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 
-		let general_staker_pot = T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_staker_pot =
+			T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_incentive_pot =
+			T::GeneralPots::general_pot_account(GeneralPotType::ValidatorIncentive);
 
-		// Leave ED in the general pot to keep it alive.
+		// Leave ED in the general pots to keep them alive.
 		let staker_balance = T::Currency::reducible_balance(
 			&general_staker_pot,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+		let incentive_balance = T::Currency::reducible_balance(
+			&general_incentive_pot,
 			Preservation::Preserve,
 			Fortitude::Polite,
 		);
@@ -77,12 +92,34 @@ impl<T: Config> EraRewardManager<T> {
 			Zero::zero()
 		};
 
+		let actual_incentive = if !incentive_balance.is_zero() {
+			match T::Currency::transfer(
+				&general_incentive_pot,
+				&incentive_era_pot,
+				incentive_balance,
+				Preservation::Preserve,
+			) {
+				Ok(_) => incentive_balance,
+				Err(e) => {
+					log!(error, "Era {:?}: validator incentive transfer failed: {:?}", era, e);
+					defensive!("Failed to transfer validator incentive to era pot");
+					Zero::zero()
+				},
+			}
+		} else {
+			Zero::zero()
+		};
+
 		log::info!(
 			target: LOG_TARGET,
-			"Era {era}: snapshotted staker_rewards={actual_staker:?}"
+			"Era {era}: snapshotted staker_rewards={actual_staker:?}, \
+			 validator_incentive={actual_incentive:?}"
 		);
 
-		actual_staker
+		EraRewardAllocation {
+			staker_rewards: actual_staker,
+			validator_incentive: actual_incentive,
+		}
 	}
 
 	/// Destroys an era pot by withdrawing unclaimed rewards and removing the provider.
@@ -127,9 +164,10 @@ impl<T: Config> EraRewardManager<T> {
 		frame_system::Pallet::<T>::providers(&pot) > 0
 	}
 
-	/// Cleans up pot accounts for a given era.
+	/// Cleans up all pot accounts for a given era.
 	pub(crate) fn cleanup_era(era: EraIndex) {
 		Self::destroy(era, EraPotType::StakerRewards);
+		Self::destroy(era, EraPotType::ValidatorSelfStake);
 	}
 }
 
@@ -144,8 +182,12 @@ impl<T: Config> sp_staking::StakerRewardCalculator<BalanceOf<T>>
 where
 	BalanceOf<T>: Into<u128> + From<u128>,
 {
-	fn calculate_validator_incentive_weight(_self_stake: BalanceOf<T>) -> BalanceOf<T> {
-		Zero::zero()
+	fn calculate_validator_incentive_weight(self_stake: BalanceOf<T>) -> BalanceOf<T> {
+		let optimum = OptimumSelfStake::<T>::get();
+		let cap = HardCapSelfStake::<T>::get();
+		let slope_factor = SelfStakeSlopeFactor::<T>::get();
+
+		incentive_weight::<BalanceOf<T>>(self_stake, optimum, cap, slope_factor)
 	}
 
 	fn calculate_staker_reward(
@@ -162,5 +204,145 @@ where
 		let nominator_payout = leftover.saturating_sub(validator_staking_payout);
 
 		sp_staking::StakerRewardResult { validator_payout, nominator_payout }
+	}
+}
+
+/// Piecewise sqrt-based incentive weight function.
+///
+/// - Below optimum: `w(s) = √s`
+/// - Between optimum and cap: `w(s) = √(T + k² × (s - T))`
+/// - Above cap: plateau at `w(cap)`
+fn incentive_weight<Balance>(
+	self_stake: Balance,
+	optimum: Balance,
+	cap: Balance,
+	slope_factor: Perbill,
+) -> Balance
+where
+	Balance: AtLeast32BitUnsigned + Copy + Into<u128> + From<u128>,
+{
+	if self_stake.is_zero() {
+		return Balance::zero();
+	}
+
+	if optimum.is_zero() && cap.is_zero() {
+		return Balance::zero();
+	}
+
+	let self_stake_u128: u128 = self_stake.into();
+	let optimum_u128: u128 = optimum.into();
+	let cap_u128: u128 = cap.into();
+
+	let weight_u128 = if self_stake <= optimum {
+		sp_arithmetic::helpers_128bit::sqrt(self_stake_u128)
+	} else if self_stake <= cap {
+		let k_squared = slope_factor.square();
+		let excess = self_stake_u128.saturating_sub(optimum_u128);
+		let arg = optimum_u128.saturating_add(k_squared.mul_floor(excess));
+		sp_arithmetic::helpers_128bit::sqrt(arg)
+	} else {
+		let k_squared = slope_factor.square();
+		let excess = cap_u128.saturating_sub(optimum_u128);
+		let arg = optimum_u128.saturating_add(k_squared.mul_floor(excess));
+		sp_arithmetic::helpers_128bit::sqrt(arg)
+	};
+
+	Balance::from(weight_u128)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::Perbill;
+
+	type Balance = u128;
+
+	fn calculate_weight(
+		self_stake: Balance,
+		optimum: Balance,
+		cap: Balance,
+		slope_factor: Perbill,
+	) -> Balance {
+		incentive_weight(self_stake, optimum, cap, slope_factor)
+	}
+
+	#[test]
+	fn weight_zero_self_stake() {
+		assert_eq!(
+			calculate_weight(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			0
+		);
+	}
+
+	#[test]
+	fn weight_config_not_set() {
+		assert_eq!(
+			calculate_weight(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)),
+			0
+		);
+	}
+
+	#[test]
+	fn weight_below_optimum() {
+		// √10_000 = 100
+		assert_eq!(
+			calculate_weight(10_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			100
+		);
+	}
+
+	#[test]
+	fn weight_at_optimum() {
+		// √100_000 ≈ 316
+		assert_eq!(
+			calculate_weight(100_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			316
+		);
+	}
+
+	#[test]
+	fn weight_between_optimum_and_cap() {
+		// √(100k + 0.25 × 200k) = √150k ≈ 387
+		assert_eq!(
+			calculate_weight(300_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			387
+		);
+	}
+
+	#[test]
+	fn weight_at_cap() {
+		// √(100k + 0.25 × 400k) = √200k ≈ 447
+		assert_eq!(
+			calculate_weight(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			447
+		);
+	}
+
+	#[test]
+	fn weight_plateau_above_cap() {
+		let at_cap =
+			calculate_weight(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+		let above =
+			calculate_weight(1_000_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+		assert_eq!(at_cap, above);
+	}
+
+	#[test]
+	fn weight_monotonically_increasing_below_cap() {
+		let slope = Perbill::from_rational(1u32, 2u32);
+		let w1 = calculate_weight(50_000, 100_000, 500_000, slope);
+		let w2 = calculate_weight(100_000, 100_000, 500_000, slope);
+		let w3 = calculate_weight(200_000, 100_000, 500_000, slope);
+		let w4 = calculate_weight(400_000, 100_000, 500_000, slope);
+		assert!(w1 < w2 && w2 < w3 && w3 < w4);
+	}
+
+	#[test]
+	fn weight_different_slope_factors() {
+		let self_stake = 300_000;
+		let w_025 = calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 4u32));
+		let w_050 = calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+		let w_075 = calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
+		assert!(w_025 < w_050 && w_050 < w_075);
 	}
 }

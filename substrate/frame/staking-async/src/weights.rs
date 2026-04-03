@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
 	fn set_max_commission() -> Weight;
+	fn set_validator_self_stake_incentive_config() -> Weight;
 	fn restore_ledger() -> Weight;
 	fn migrate_currency() -> Weight;
 	fn apply_slash(n: u32, ) -> Weight;
@@ -771,6 +772,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(12_000_000, 1489)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_validator_self_stake_incentive_config() -> Weight {
+		// TODO(ank4n): Run benchmarks
+		T::DbWeight::get().reads_writes(2, 3)
 	}
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
@@ -1755,6 +1760,9 @@ impl WeightInfo for () {
 		Weight::from_parts(12_000_000, 1489)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_validator_self_stake_incentive_config() -> Weight {
+		RocksDbWeight::get().reads_writes(2, 3)
 	}
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)

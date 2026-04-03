@@ -88,6 +88,7 @@ use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+	StakerRewardCalculator,
 };
 
 /// A handler for all era-based storage items.
@@ -368,6 +369,20 @@ impl<T: Config> Eras<T> {
 
 	pub(crate) fn get_stakers_reward(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasValidatorReward::<T>::get(era)
+	}
+
+	pub(crate) fn set_validator_incentive_allocation(era: EraIndex, amount: BalanceOf<T>) {
+		ErasValidatorIncentiveAllocation::<T>::insert(era, amount);
+	}
+
+	pub(crate) fn get_validator_incentive_allocation(era: EraIndex) -> BalanceOf<T> {
+		ErasValidatorIncentiveAllocation::<T>::get(era)
+	}
+
+	pub(crate) fn add_total_validator_weight(era: EraIndex, weight: BalanceOf<T>) {
+		<ErasTotalValidatorWeight<T>>::mutate(era, |total_weight| {
+			*total_weight += weight;
+		});
 	}
 
 	/// Update the total exposure for all the elected validators in the era.
@@ -814,13 +829,13 @@ impl<T: Config> Rotator<T> {
 		let era_duration = if cap == 0 || era_duration <= cap {
 			era_duration
 		} else {
-			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
+			Pallet::<T>::deposit_event(Event::Unexpected(
+				UnexpectedKind::EraDurationBoundExceeded,
+			));
 			log!(
 				warn,
 				"capping era duration for era {:?} from {:?} to max {:?}",
-				ending_era.index,
-				era_duration,
-				cap
+				ending_era.index, era_duration, cap
 			);
 			cap
 		};
@@ -831,7 +846,8 @@ impl<T: Config> Rotator<T> {
 			T::EraPayout::era_payout(staked, issuance, era_duration);
 
 		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		let max_staked_rewards =
+			MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
 
 		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
 		let remainder = total_payout.saturating_sub(validator_payout);
@@ -846,23 +862,28 @@ impl<T: Config> Rotator<T> {
 		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 	}
 
-	/// DAP end-era: snapshot from general reward pot into era-specific pot.
+	/// DAP end-era: snapshot from general reward pots into era-specific pots.
 	fn end_era_dap(ending_era: &ActiveEraInfo) {
-		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+		let allocation =
+			reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
-		if staker_rewards.is_zero() {
+		if allocation.staker_rewards.is_zero() {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
 		}
 
-		Eras::<T>::set_stakers_reward(ending_era.index, staker_rewards);
+		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
+		Eras::<T>::set_validator_incentive_allocation(
+			ending_era.index,
+			allocation.validator_incentive,
+		);
 
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
-			validator_payout: staker_rewards,
+			validator_payout: allocation.staker_rewards,
 			remainder: Zero::zero(),
 		});
 
-		if !staker_rewards.is_zero() {
+		if !allocation.staker_rewards.is_zero() {
 			DisableMintingGuard::<T>::mutate(|maybe_era| {
 				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
 					*maybe_era = Some(ending_era.index);
@@ -1107,6 +1128,8 @@ impl<T: Config> EraElectionPlanner<T> {
 		let mut elected_stashes_page = Vec::with_capacity(exposures.len());
 		let mut total_backers = 0u32;
 
+		let mut total_validator_weight_page: BalanceOf<T> = Zero::zero();
+
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			log!(
 				trace,
@@ -1122,6 +1145,20 @@ impl<T: Config> EraElectionPlanner<T> {
 			total_backers += exposure.others.len() as u32;
 			// set or update staker exposure for this era.
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
+
+			// Calculate incentive weight from own-stake.
+			let own = ErasStakersOverview::<T>::get(new_planned_era, &stash)
+				.map(|o| o.own)
+				.unwrap_or_default();
+			if !own.is_zero() &&
+				!ErasValidatorIncentive::<T>::contains_key(new_planned_era, &stash)
+			{
+				let weight =
+					T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
+				total_validator_weight_page =
+					total_validator_weight_page.saturating_add(weight);
+				ErasValidatorIncentive::<T>::insert(new_planned_era, &stash, weight);
+			}
 		});
 
 		let elected_stashes: BoundedVec<_, MaxWinnersPerPageOf<T::ElectionProvider>> =
@@ -1131,6 +1168,9 @@ impl<T: Config> EraElectionPlanner<T> {
 
 		// adds to total stake in this era.
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
+
+		// adds to total validator self-stake weight for incentive distribution.
+		Eras::<T>::add_total_validator_weight(new_planned_era, total_validator_weight_page);
 
 		// collect or update the pref of all winners.
 		// TODO: rather inefficient, we can do this once at the last page across all entries in

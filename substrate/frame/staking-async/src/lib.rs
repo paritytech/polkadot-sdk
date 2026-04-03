@@ -567,11 +567,13 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	}
 }
 
-/// Identifies the era pot account for staker rewards.
+/// Identifies different types of era pot accounts for reward distribution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub enum EraPotType {
 	/// Pot for staker rewards (nominators + validators).
 	StakerRewards,
+	/// Pot for validator self-stake incentive.
+	ValidatorSelfStake,
 }
 
 /// Trait for generating era pot account IDs.
@@ -605,6 +607,7 @@ where
 	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
 		let pot_type_offset = match pot_type {
 			EraPotType::StakerRewards => 0,
+			EraPotType::ValidatorSelfStake => 1,
 		};
 		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
 	}
@@ -618,6 +621,8 @@ where
 pub enum GeneralPotType {
 	/// General pot for staker rewards.
 	StakerRewards,
+	/// General pot for validator self-stake incentive.
+	ValidatorIncentive,
 }
 
 /// Trait that provides general (non-era-specific) pot accounts.
@@ -644,6 +649,7 @@ where
 	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
 		match pot_type {
 			GeneralPotType::StakerRewards => AccountId::from(200_000u64),
+			GeneralPotType::ValidatorIncentive => AccountId::from(200_001u64),
 		}
 	}
 }
@@ -663,6 +669,25 @@ where
 
 	fn pot_account() -> AccountId {
 		G::general_pot_account(GeneralPotType::StakerRewards)
+	}
+}
+
+/// Budget recipient for validator self-stake incentive.
+///
+/// Exposes the general validator incentive pot so DAP can drip inflation into it.
+pub struct ValidatorIncentiveRecipient<G>(core::marker::PhantomData<G>);
+
+impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId>
+	for ValidatorIncentiveRecipient<G>
+where
+	G: GeneralPotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		G::general_pot_account(GeneralPotType::ValidatorIncentive)
 	}
 }
 
