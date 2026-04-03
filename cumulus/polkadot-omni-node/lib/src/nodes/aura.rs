@@ -666,9 +666,16 @@ where
 			max_pov_percentage: node_extra_args.max_pov_percentage,
 		};
 
-		// We have a separate function only to be able to use `docify::export` on this piece of
-		// code.
-		Self::launch_slot_based_collator(params);
+		let wait_client = client.clone();
+		let fut = async move {
+			wait_for_aura::<Block, RuntimeApi, AuraId>(wait_client).await;
+			// We have a separate function only to be able to use `docify::export` on this
+			// piece of code.
+			Self::launch_slot_based_collator(params);
+		};
+		task_manager
+			.spawn_essential_handle()
+			.spawn("slot-based-collator-init", None, fut);
 
 		Ok(())
 	}
