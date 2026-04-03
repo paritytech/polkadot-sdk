@@ -603,11 +603,17 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
+/// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
+const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
+const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
+const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;
+
 /// Maps ERC20 precompile addresses to `xcm::v5::Location` for the asset-conversion precompile.
 ///
 /// Address layout: `[id:4][0:12][prefix:2][0:2]` where prefix identifies the asset type:
-/// - `0x0120` → trust-backed asset, id is the pallet_assets asset ID
-/// - `0x0220` → foreign asset, id is the foreign asset index (looked up via
+/// - `TRUST_BACKED_ASSETS_PRECOMPILE` → trust-backed asset, id is the pallet_assets asset ID
+/// - `FOREIGN_ASSETS_PRECOMPILE` → foreign asset, id is the foreign asset index (looked up via
 ///   pallet_assets_precompiles)
 /// - All zeros → native token (WND), represented as `Location::parent()`
 pub struct WestendAddressToAssetKind;
@@ -634,7 +640,7 @@ impl AddressToAssetKind for WestendAddressToAssetKind {
 
 		match prefix {
 			// Trust-backed assets: inline u32 asset ID → Location.
-			0x0120 => {
+			TRUST_BACKED_ASSETS_PRECOMPILE => {
 				let asset_id =
 					pallet_assets_precompiles::InlineAssetIdExtractor::asset_id_from_address(addr)?;
 				Ok(Location::new(
@@ -648,7 +654,7 @@ impl AddressToAssetKind for WestendAddressToAssetKind {
 				))
 			},
 			// Foreign assets: u32 index → look up xcm::v5::Location.
-			0x0220 => {
+			FOREIGN_ASSETS_PRECOMPILE => {
 				let location = pallet_assets_precompiles::ForeignAssetIdExtractor::<
 					Runtime,
 					ForeignAssetsInstance,
@@ -1316,12 +1322,16 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles = (
-		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
-		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
-		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>, TrustBackedAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>, PoolAssetsInstance>,
+		ERC20<
+			Self,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Self, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
 		XcmPrecompile<Self>,
 		pallet_asset_conversion_precompiles::AssetConversion<
-			0x0420,
+			{ ASSET_CONVERSION_PRECOMPILE },
 			Self,
 			WestendAddressToAssetKind,
 		>,
