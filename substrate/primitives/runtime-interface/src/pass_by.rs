@@ -234,15 +234,15 @@ where
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer).
 /// `u64::MAX` is used to represent `None`.
-pub struct PassMaybeFatPointerAndRead<T>(PhantomData<T>);
+pub struct PassOptionalFatPointerAndRead<T>(PhantomData<T>);
 
-impl<T> RIType for PassMaybeFatPointerAndRead<T> {
+impl<T> RIType for PassOptionalFatPointerAndRead<T> {
 	type FFIType = u64;
 	type Inner = T;
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a> FromFFIValue<'a> for PassMaybeFatPointerAndRead<Option<&'a [u8]>> {
+impl<'a> FromFFIValue<'a> for PassOptionalFatPointerAndRead<Option<&'a [u8]>> {
 	type Owned = Option<Vec<u8>>;
 
 	fn from_ffi_value(
@@ -263,7 +263,7 @@ impl<'a> FromFFIValue<'a> for PassMaybeFatPointerAndRead<Option<&'a [u8]>> {
 }
 
 #[cfg(substrate_runtime)]
-impl<T> IntoFFIValue for PassMaybeFatPointerAndRead<Option<T>>
+impl<T> IntoFFIValue for PassOptionalFatPointerAndRead<Option<T>>
 where
 	T: AsRef<[u8]>,
 {

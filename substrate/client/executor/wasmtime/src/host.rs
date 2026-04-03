@@ -42,11 +42,11 @@ pub struct HostState {
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	pub fn new(allocator: FreeingBumpHeapAllocator, input_data: impl AsRef<[u8]>) -> Self {
+	pub fn new(allocator: FreeingBumpHeapAllocator, input_data: impl Into<Vec<u8>>) -> Self {
 		HostState {
 			allocator: Some(allocator),
 			panic_message: None,
-			input_data: Some(input_data.as_ref().to_vec()),
+			input_data: Some(input_data.into()),
 		}
 	}
 
