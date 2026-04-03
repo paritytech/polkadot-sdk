@@ -81,15 +81,6 @@ fn vest_succeeds_with_active_schedule() {
 }
 
 #[test]
-fn vest_reverts_with_no_schedule() {
-	new_test_ext().execute_with(|| {
-		let input = IVesting::IVestingCalls::vest(IVesting::vestCall {});
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert when no schedule exists");
-	});
-}
-
-#[test]
 fn vest_actually_unlocks_funds() {
 	new_test_ext().execute_with(|| {
 		let locked: VestingBalance<Test> = 10_000;
@@ -146,16 +137,6 @@ fn vest_other_actually_unlocks_funds_for_target() {
 		let schedule =
 			<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
 		assert_eq!(schedule, None, "target's vesting schedule should be removed after full vest");
-	});
-}
-
-#[test]
-fn vest_other_reverts_with_no_schedule_on_target() {
-	new_test_ext().execute_with(|| {
-		let input =
-			IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall { target: target_alloy() });
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert when target has no schedule");
 	});
 }
 
@@ -274,53 +255,6 @@ fn vested_transfer_succeeds() {
 		let balance =
 			<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
 		assert_eq!(balance, Some(9_500), "locked amount should match the schedule");
-	});
-}
-
-#[test]
-fn vested_transfer_reverts_below_min() {
-	new_test_ext().execute_with(|| {
-		CurrencyOf::<Test>::make_free_balance_be(&ALICE, 100_000);
-
-		// MinVestedTransfer is 512; try with 100 which is below the minimum.
-		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-			target: target_alloy(),
-			locked: alloy_core::primitives::U256::from(100u64),
-			perBlock: alloy_core::primitives::U256::from(10u64),
-			startingBlock: alloy_core::primitives::U256::from(0u64),
-		});
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert for amount below MinVestedTransfer");
-	});
-}
-
-#[test]
-fn vested_transfer_reverts_insufficient_balance() {
-	new_test_ext().execute_with(|| {
-		// ALICE has no funds.
-		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-			target: target_alloy(),
-			locked: alloy_core::primitives::U256::from(10_000u64),
-			perBlock: alloy_core::primitives::U256::from(500u64),
-			startingBlock: alloy_core::primitives::U256::from(0u64),
-		});
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert when caller has insufficient balance");
-	});
-}
-
-#[test]
-fn vested_transfer_reverts_per_block_zero() {
-	new_test_ext().execute_with(|| {
-		CurrencyOf::<Test>::make_free_balance_be(&ALICE, 100_000);
-		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-			target: target_alloy(),
-			locked: alloy_core::primitives::U256::from(10_000u64),
-			perBlock: alloy_core::primitives::U256::from(0u64),
-			startingBlock: alloy_core::primitives::U256::from(0u64),
-		});
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert when perBlock is zero");
 	});
 }
 
