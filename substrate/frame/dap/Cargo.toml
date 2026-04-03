@@ -23,6 +23,7 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-dap = { workspace = true }
 sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -42,6 +43,7 @@ std = [
 	"sp-dap/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -49,6 +51,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
