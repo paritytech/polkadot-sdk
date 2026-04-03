@@ -113,11 +113,6 @@ impl ClaimQueueState {
 	/// - The `future_blocks` will contain all the claims in the window of the `target_relay_parent`
 	/// - All other claims are dropped
 	pub(super) fn fork(&self, target_relay_parent: &Hash) -> Option<Self> {
-		// don't fork from the last block!
-		if self.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
-			return None;
-		}
-
 		let (window, maybe_target_index) = Self::get_window_and_start_idx(
 			self.block_state.iter(),
 			self.future_blocks.iter(),
@@ -745,9 +740,17 @@ mod test {
 			HashMap::from_iter(expected_candidates_per_rp[0..3].iter().cloned())
 		);
 
-		// Fork at `RELAY_PARENT_D`
-		// Should not be able to fork from the last block
-		assert!(state.fork(&RELAY_PARENT_D).is_none());
+		// Fork at `RELAY_PARENT_D` (the tip)
+		let mut fork = state.fork(&RELAY_PARENT_D).unwrap();
+		assert_eq!(fork.block_state.make_contiguous(), &expected_block_state[..4]);
+		assert_eq!(
+			fork.future_blocks,
+			VecDeque::from(expected_future_blocks.to_vec())
+		);
+		assert_eq!(
+			fork.candidates_per_rp,
+			HashMap::from(expected_candidates_per_rp.clone())
+		);
 
 		// Forking from an unknown relay parent also shouldn't work
 		assert!(state.fork(&RELAY_PARENT_E).is_none());
