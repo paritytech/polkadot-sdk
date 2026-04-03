@@ -1848,30 +1848,9 @@ mod tests {
 
 		// Verify all peers received all statements
 		let sent = notification_service.get_sent_notifications();
-		let mut peer1_hashes: Vec<_> = sent
-			.iter()
-			.filter(|(peer, _)| *peer == peer1)
-			.flat_map(|(_, notification)| {
-				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
-			})
-			.map(|s| s.hash())
-			.collect();
-		let mut peer2_hashes: Vec<_> = sent
-			.iter()
-			.filter(|(peer, _)| *peer == peer2)
-			.flat_map(|(_, notification)| {
-				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
-			})
-			.map(|s| s.hash())
-			.collect();
-		let mut peer3_hashes: Vec<_> = sent
-			.iter()
-			.filter(|(peer, _)| *peer == peer3)
-			.flat_map(|(_, notification)| {
-				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
-			})
-			.map(|s| s.hash())
-			.collect();
+		let mut peer1_hashes: Vec<_> = get_peer_hashes(&sent, peer1).into_iter().collect();
+		let mut peer2_hashes: Vec<_> = get_peer_hashes(&sent, peer2).into_iter().collect();
+		let mut peer3_hashes: Vec<_> = get_peer_hashes(&sent, peer3).into_iter().collect();
 
 		peer1_hashes.sort();
 		peer2_hashes.sort();
