@@ -531,7 +531,7 @@ impl AssetsInHolding {
 	///
 	/// This uses `unsafe_clone()` on the imbalance accounting trait objects,
 	/// which may not maintain proper accounting invariants. Only use in tests.
-	#[cfg(test)]
+	#[cfg(feature = "std")]
 	pub fn unsafe_clone_for_tests(&self) -> Self {
 		Self {
 			fungible: self
