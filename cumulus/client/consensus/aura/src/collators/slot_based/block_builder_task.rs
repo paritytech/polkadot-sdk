@@ -1014,11 +1014,11 @@ enum SlotHandoverAdjustment {
 }
 
 impl SlotHandoverAdjustment {
-	/// Determine the appropriate adjustment based on total blocks per relay slot.
-	fn from_total_blocks(total_blocks: u32) -> Self {
+	/// Determine the appropriate adjustment based on total blocks per relay slot and blocks per core.
+	fn from_total_blocks(total_blocks: u32, blocks_per_core: u32) -> Self {
 		match total_blocks {
 			0..=1 => Self::None,
-			2..=3 => Self::Shorten { time_factor: 0.5 },
+			2..=3 if blocks_per_core == 1 => Self::Shorten { time_factor: 0.5 },
 			_ => Self::Skip,
 		}
 	}
@@ -1049,7 +1049,7 @@ impl BlockProductionSchedule {
 		is_last_core_in_parachain_slot: bool,
 	) -> Self {
 		Self {
-			mode: SlotHandoverAdjustment::from_total_blocks(total_blocks),
+			mode: SlotHandoverAdjustment::from_total_blocks(total_blocks, blocks_per_core),
 			block_index,
 			blocks_per_core,
 			is_last_core_in_parachain_slot,
@@ -1144,31 +1144,36 @@ mod block_production_schedule_tests {
 		fn mode_selection_from_total_blocks() {
 			// 0-1 blocks = None
 			assert!(matches!(
-				SlotHandoverAdjustment::from_total_blocks(0),
+				SlotHandoverAdjustment::from_total_blocks(0, 1),
 				SlotHandoverAdjustment::None
 			));
 			assert!(matches!(
-				SlotHandoverAdjustment::from_total_blocks(1),
+				SlotHandoverAdjustment::from_total_blocks(1, 1),
 				SlotHandoverAdjustment::None
 			));
 
 			// 2-3 blocks = Shorten with half time
 			assert!(matches!(
-				SlotHandoverAdjustment::from_total_blocks(2),
+				SlotHandoverAdjustment::from_total_blocks(2, 1),
 				SlotHandoverAdjustment::Shorten { time_factor: 0.5 }
 			));
 			assert!(matches!(
-				SlotHandoverAdjustment::from_total_blocks(3),
+				SlotHandoverAdjustment::from_total_blocks(3, 1),
 				SlotHandoverAdjustment::Shorten { time_factor: 0.5 }
+			));
+
+			assert!(matches!(
+				SlotHandoverAdjustment::from_total_blocks(3, 2),
+				SlotHandoverAdjustment::Skip
 			));
 
 			// >3 blocks = Skip
 			assert!(matches!(
-				SlotHandoverAdjustment::from_total_blocks(4),
+				SlotHandoverAdjustment::from_total_blocks(4, 2),
 				SlotHandoverAdjustment::Skip
 			));
 			assert!(matches!(
-				SlotHandoverAdjustment::from_total_blocks(12),
+				SlotHandoverAdjustment::from_total_blocks(12, 4),
 				SlotHandoverAdjustment::Skip
 			));
 		}
@@ -1186,13 +1191,6 @@ mod block_production_schedule_tests {
 
 	mod schedule_tests {
 		use super::*;
-
-		// fn new(
-		// 	block_index: u32,
-		// 	blocks_per_core: u32,
-		// 	total_blocks: u32,
-		// 	is_last_core_in_parachain_slot: bool,
-		// )
 
 		#[test]
 		fn skip_production_only_in_fast_mode_last_core_last_block() {
