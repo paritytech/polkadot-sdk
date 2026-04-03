@@ -313,13 +313,12 @@ fn vested_transfer_reverts_insufficient_balance() {
 fn vested_transfer_reverts_per_block_zero() {
 	new_test_ext().execute_with(|| {
 		CurrencyOf::<Test>::make_free_balance_be(&ALICE, 100_000);
-		let input =
-			IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
-				target: target_alloy(),
-				locked: alloy_core::primitives::U256::from(10_000u64),
-				perBlock: alloy_core::primitives::U256::from(0u64),
-				startingBlock: alloy_core::primitives::U256::from(0u64),
-			});
+		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+			target: target_alloy(),
+			locked: alloy_core::primitives::U256::from(10_000u64),
+			perBlock: alloy_core::primitives::U256::from(0u64),
+			startingBlock: alloy_core::primitives::U256::from(0u64),
+		});
 		let result = bare_call(&input).build_and_unwrap_result();
 		assert!(result.did_revert(), "expected revert when perBlock is zero");
 	});
