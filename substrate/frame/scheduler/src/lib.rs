@@ -883,7 +883,8 @@ impl<T: Config> Pallet<T> {
 										weight.saturating_accrue(T::DbWeight::get().reads(1));
 										log::info!("Migrated call by hash, hash: {:?}", h);
 
-										// Convert to versioned bounded call; drop entry if call is unavailable.
+										// Convert to versioned bounded call; drop entry if call is
+										// unavailable.
 										match Self::convert_to_versioned_bounded_call(bounded) {
 											Some(b) => b,
 											None => return None,
