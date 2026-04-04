@@ -3,7 +3,7 @@
 
 use crate::utils::initialize_network;
 use anyhow::anyhow;
-use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
+use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
 	create_runtime_upgrade_call, submit_extrinsic_and_wait_for_finalization_success,
 	wait_for_runtime_upgrade,
