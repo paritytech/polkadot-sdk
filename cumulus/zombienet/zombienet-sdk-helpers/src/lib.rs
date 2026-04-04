@@ -38,8 +38,7 @@ fn format_dispatch_error(err: &sp_runtime::DispatchError, metadata: &Metadata) -
 	match err {
 		sp_runtime::DispatchError::Module(module_err) => {
 			let pallet = metadata.pallet_by_index(module_err.index);
-			let pallet_name =
-				pallet.as_ref().map(|p| p.name()).unwrap_or("UnknownPallet");
+			let pallet_name = pallet.as_ref().map(|p| p.name()).unwrap_or("UnknownPallet");
 			let error_name = pallet
 				.and_then(|p| p.error_variant_by_index(module_err.error[0]))
 				.map(|v| v.name.as_str())
@@ -614,13 +613,15 @@ pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
 		find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
 
 	match sudid_results.first() {
-		Some(Ok(())) =>
-			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}"),
-		Some(Err(e)) =>
+		Some(Ok(())) => {
+			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}")
+		},
+		Some(Err(e)) => {
 			return Err(anyhow!(
 				"Sudo runtime upgrade inner dispatch failed in block {block_hash:?}: {}",
 				format_dispatch_error(e, &client.metadata()),
-			)),
+			))
+		},
 		None => return Err(anyhow!("Sudid event not found in block {block_hash:?}")),
 	}
 
