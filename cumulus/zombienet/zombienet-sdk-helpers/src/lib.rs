@@ -593,14 +593,15 @@ pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
 		find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
 
 	match sudid_results.first() {
-		Some(Ok(())) =>
-			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}"),
-		Some(Err(e)) =>
+		Some(Ok(())) => {
+			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}")
+		},
+		Some(Err(e)) => {
 			return Err(anyhow!(
 				"Sudo runtime upgrade inner dispatch failed in block {block_hash:?}: {e:?}"
-			)),
-		None =>
-			return Err(anyhow!("Sudid event not found in block {block_hash:?}")),
+			))
+		},
+		None => return Err(anyhow!("Sudid event not found in block {block_hash:?}")),
 	}
 
 	Ok(block_hash)
