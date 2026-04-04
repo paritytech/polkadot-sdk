@@ -8,6 +8,7 @@ use cumulus_zombienet_sdk_helpers::{
 	create_runtime_upgrade_call, submit_extrinsic_and_wait_for_finalization_success,
 	wait_for_runtime_upgrade,
 };
+use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -136,6 +137,15 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
+				// The test runtime WASM binary may exceed the default max_code_size
+				// (3 MiB) in non-compact (dev/debug) builds. Increase the limit.
+				.with_genesis_overrides(json!({
+					"configuration": {
+						"config": {
+							"max_code_size": 5 * 1024 * 1024
+						}
+					}
+				}))
 				.with_validator(|node| node.with_name("alice"))
 				.with_validator(|node| node.with_name("bob"))
 		})
