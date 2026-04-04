@@ -348,7 +348,7 @@ impl PeerData {
 		on_scheduling_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		per_scheduling_parent: &PerSchedulingParent,
+		_per_scheduling_parent: &PerSchedulingParent,
 		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
@@ -373,13 +373,39 @@ impl PeerData {
 
 					let candidates = state.advertisements.entry(on_scheduling_parent).or_default();
 
-					// Spam protection: limit based on scheduling_lookahead (= claim queue length)
-					// Get lookahead from any leaf's claim queue length for our core
+					// Spam protection: limit advertisements per peer per scheduling parent.
+					// The limit is based on the scheduling lookahead, which is equal to the
+					// claim queue length.
+					//
+					// However, for elastic scaling, a para may occupy multiple cores
+					// and the collator can ligitimately send one advertisement per core.
+					// Therefore, we need to take into account how many cores the para
+					// occupies in the claim queue.
+					//
+					// For the happy path this is not a problem in practice:
+					//  - (I) collator is connected to all validators of the backing group
+					//  - (II) collator builds one collation every 500ms (12cores), then advertises
+					//    it.
+					//  If the lookhead constant is 5, then by the time the 7th collation arrives
+					//  the first one is already fetched / seconded.
+					//
+					// However, lets consider the validator is not connected to the collator.
+					// The collator then builds the 10 collations, advertises them to the
+					// partially connected backing group. When the validator connects:
+					//  - validator sends a ViewChange update to the collator
+					//  - collator readvertises 10 collations
+					//
+					// This effectively bumps the limit from lookahead (5) to lookahead * cores
+					// (60 for 12 cores).
 					let max_ads = leaf_claim_queues
 						.values()
 						.next()
-						.and_then(|cq| cq.get(&per_scheduling_parent.current_core))
-						.map(|v| v.len())
+						.map(|cq| {
+							cq.values()
+								.flat_map(|entries| entries.iter())
+								.filter(|id| **id == state.para_id)
+								.count()
+						})
 						.unwrap_or(0);
 
 					if candidates.len() > max_ads {

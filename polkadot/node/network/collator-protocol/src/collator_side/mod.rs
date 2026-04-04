@@ -91,6 +91,14 @@ const MAX_UNSHARED_UPLOAD_TIME: Duration = Duration::from_millis(150);
 /// A timeout for resetting validators' interests in collations.
 const RESET_INTEREST_TIMEOUT: Duration = Duration::from_secs(6);
 
+/// Interval at which we re-advertise collations that have not been fetched or backed.
+///
+/// With elastic scaling, a single unfetched collation at the root of a linear para chain
+/// can prevent all subsequent blocks (across multiple collators) from being backed.
+/// Re-advertising gives the backing group another chance to fetch and back the collation
+/// before the relay parent goes out of scope.
+const RE_ADVERTISEMENT_INTERVAL: Duration = Duration::from_secs(3);
+
 /// Ensure that collator updates its connection requests to validators
 /// this long after the most recent leaf.
 ///
@@ -222,6 +230,12 @@ impl ValidatorGroup {
 					.set(validator_index, true);
 			}
 		}
+	}
+
+	/// Resets the advertised state for a specific candidate, so it can be re-advertised
+	/// to all validators.
+	fn reset_advertised_to_for_candidate(&mut self, candidate_hash: &CandidateHash) {
+		self.advertised_to.remove(candidate_hash);
 	}
 
 	/// Resets the advertised state for the given peer. Should be called when peer disconnects
@@ -401,6 +415,9 @@ struct State {
 
 	/// Should we be connected to backers ?
 	connect_to_backers: bool,
+
+	/// Periodic timer for re-advertising stale collations that were not fetched or not backed.
+	readvertisement_timeout: Fuse<futures_timer::Delay>,
 }
 
 impl State {
@@ -429,6 +446,7 @@ impl State {
 			reputation,
 			collation_tracker: Default::default(),
 			connect_to_backers: false,
+			readvertisement_timeout: futures_timer::Delay::new(RE_ADVERTISEMENT_INTERVAL).fuse(),
 		}
 	}
 }
@@ -957,6 +975,96 @@ async fn advertise_collation<Context>(
 		));
 
 		metrics.on_advertisement_made();
+	}
+}
+
+/// Re-advertise collations that have been advertised but not yet backed.
+///
+/// This catches two failure modes in elastic scaling:
+/// 1. **Advertised but never fetched**: A backing group didn't fetch the collation (transient
+///    `is_slot_available` rejection, connection gap, etc.). Without re-advertisement, the collation
+///    sits dead until the RP expires.
+/// 2. **Fetched but never backed**: The collation was fetched by one validator but the backing
+///    group didn't reach quorum. Re-advertising may prompt additional validators to fetch.
+///
+/// A single unfetched/unbacked collation at the root of a linear para chain can cascade to
+/// prevent all subsequent blocks (across multiple collators) from being backed. Early
+/// re-advertisement limits this cascade.
+#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
+async fn readvertise_stale_collations<Context>(ctx: &mut Context, state: &mut State) {
+	// Collect (scheduling_parent, candidate_hash, core_index) for collations that need
+	// re-advertising: advertised or requested (fetched) but not yet backed.
+	let stale: Vec<(Hash, CandidateHash, CoreIndex)> = state
+		.per_scheduling_parent
+		.iter()
+		.flat_map(|(scheduling_parent, per_sp)| {
+			per_sp.collations.iter().filter_map(|(candidate_hash, collation_data)| {
+				match collation_data.collation().status {
+					CollationStatus::Created => None,
+					CollationStatus::Advertised | CollationStatus::Requested => {
+						// Check if this collation has been backed already.
+						let head = collation_data.collation().receipt.descriptor.para_head();
+						if state.collation_tracker.is_backed(&head) {
+							None
+						} else {
+							Some((
+								*scheduling_parent,
+								*candidate_hash,
+								*collation_data.core_index(),
+							))
+						}
+					},
+				}
+			})
+		})
+		.collect();
+
+	if stale.is_empty() {
+		return;
+	}
+
+	gum::debug!(
+		target: LOG_TARGET,
+		?stale,
+		"Re-advertising stale collations",
+	);
+
+	// Clear advertised_to bits for stale collations so they can be re-sent.
+	for (scheduling_parent, candidate_hash, core_index) in &stale {
+		if let Some(per_sp) = state.per_scheduling_parent.get_mut(scheduling_parent) {
+			if let Some(validator_group) = per_sp.validator_group.get_mut(core_index) {
+				validator_group.reset_advertised_to_for_candidate(candidate_hash);
+			}
+		}
+	}
+
+	// Collect scheduling parents that have stale collations.
+	let stale_scheduling_parents: HashSet<Hash> = stale.iter().map(|(sp, _, _)| *sp).collect();
+
+	// Re-advertise to all connected peers that have these scheduling parents in their view.
+	let interested_peers: Vec<(PeerId, CollationVersion)> = state
+		.peer_data
+		.iter()
+		.filter(|(_, data)| stale_scheduling_parents.iter().any(|sp| data.view.contains(sp)))
+		.map(|(peer_id, data)| (*peer_id, data.version))
+		.collect();
+
+	for (peer_id, peer_version) in interested_peers {
+		for scheduling_parent in &stale_scheduling_parents {
+			if let Some(per_sp) = state.per_scheduling_parent.get_mut(scheduling_parent) {
+				advertise_collation(
+					ctx,
+					*scheduling_parent,
+					per_sp,
+					&peer_id,
+					peer_version,
+					&state.peer_ids,
+					&mut state.advertisement_timeouts,
+					&state.metrics,
+				)
+				.await;
+			}
+		}
 	}
 }
 
@@ -2155,6 +2263,11 @@ async fn run_inner<Context>(
 					timeout = ?RECONNECT_AFTER_LEAF_TIMEOUT,
 					"Peer-set updated due to a timeout"
 				);
+			},
+			_ = &mut state.readvertisement_timeout => {
+				readvertise_stale_collations(&mut ctx, &mut state).await;
+				state.readvertisement_timeout =
+					futures_timer::Delay::new(RE_ADVERTISEMENT_INTERVAL).fuse();
 			},
 			in_req = recv_req_v2 => {
 				let request = in_req.map(VersionedCollationRequest::from);

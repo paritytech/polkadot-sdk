@@ -373,6 +373,11 @@ impl CollationTracker {
 			.collect::<Vec<_>>()
 	}
 
+	/// Returns true if the collation identified by `para_head` has been backed.
+	pub fn is_backed(&self, para_head: &Hash) -> bool {
+		self.entries.get(para_head).map_or(false, |stats| stats.backed().is_some())
+	}
+
 	/// Track a collation for a given period of time (TTL). TTL depends
 	/// on the collation state.
 	/// Collation is evicted after it expires.

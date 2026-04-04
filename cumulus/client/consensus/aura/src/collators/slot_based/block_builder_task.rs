@@ -188,6 +188,42 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
+		// Prevents a "stale parent" race condition that degrades block confidence.
+		//
+		// Block production is driven by two decoupled clocks:
+		//  I. Aura slot (wall clock): Triggers wake-ups and enforces a 1-second hard deadline at
+		//     the end of the slot to safely stop authoring.
+		//  II. Parachain slot: Derived from the imported relay parent, which determins if we can
+		//     build or not.
+		//
+		// Because network imports race against the local wall clock, a node running
+		// elastic scaling can easily desync.
+		//
+		// Timeline of the failure scenario (observed on yap-polkadot):
+		//
+		//  - T0: Aura 803 begins. The relay parent is still old (0xA). The node skips.
+		//
+		//  - T1 (soft failure): Aura 803 last block production opportunity. Relay parent 0xB (para
+		//    slot 803) is picked. However, aura 803 now has < 1000ms remaining. The 1s deadline
+		//    triggers, skipping the block.
+		//
+		//  - T2: Aura 804 begins. The node successfully builds 10 blocks on 0xB. As aura 804 ends,
+		//    the 1s deadline triggers again, skipping the final 2 cores.
+		//
+		//  - T3 (critical failure): Aura 805 begins. The wall clock resets, the next aura slot
+		//    arrives in 6000ms. However, the network hasn't delivered a new relay parent yet.
+		//    Because the timer reset, the deadline check passes, and the node erroneously builds a
+		//    stale block on top of 0xB.
+		//
+		// To prevent T1, we rely on the 1-second hard deadline to skip block production.
+		//
+		// To prevent T3, we track the `last_slot_number` and the `last_rp_built_number`. If the
+		// aura wall clock advances to a new slot, but the relay parent number hasn't increased
+		// since our last successful build, we intentionally skip production until the network
+		// delivers the new state.
+		let mut last_rp_built_number = 0;
+		let mut last_slot_number = 0.into();
+
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
 			keystore.clone(),
@@ -200,7 +236,7 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			if slot_timer.wait_until_next_slot().await.is_err() {
+			let Ok(aura_slot) = slot_timer.wait_until_next_slot().await else {
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
@@ -239,6 +275,24 @@ where
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
+			let relay_parent_number: u32 = (*relay_parent_header.number()).into();
+
+			// Wall slot is guaranteed to be monotonically increasing.
+			// If the wall slot changes, and the relay parent number is smaller than the last built
+			// relay parent, it means we are in a new slot but a new relay parent has not been
+			// updated on yet (races with import).
+			if aura_slot > last_slot_number && relay_parent_number <= last_rp_built_number {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					relay_parent_num = relay_parent_number,
+					last_rp_built_number,
+					?aura_slot,
+					?last_slot_number,
+					"Skipping block production on same relay parent as last built block."
+				);
+				continue;
+			}
 
 			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -437,7 +491,6 @@ where
 					slot = ?para_slot.slot,
 					"Not building block due to insufficient authoring duration."
 				);
-
 				continue;
 			};
 
@@ -460,6 +513,9 @@ where
 				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
 				continue;
 			};
+
+			last_rp_built_number = relay_parent_number;
+			last_slot_number = aura_slot;
 
 			let new_block_hash = candidate.block.header().hash();
 
