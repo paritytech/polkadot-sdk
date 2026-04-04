@@ -19,6 +19,7 @@ use zombienet_sdk::subxt::{
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
+	metadata::Metadata,
 	tx::{signer::Signer, DynamicPayload, TxStatus},
 	utils::H256,
 	OnlineClient, PolkadotConfig,
@@ -29,6 +30,26 @@ use zombienet_sdk::subxt::{
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
+/// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
+///
+/// For module errors this resolves the pallet index and error index to their names
+/// (e.g. `ParachainSystem::TooBig`) instead of showing raw bytes.
+fn format_dispatch_error(err: &sp_runtime::DispatchError, metadata: &Metadata) -> String {
+	match err {
+		sp_runtime::DispatchError::Module(module_err) => {
+			let pallet = metadata.pallet_by_index(module_err.index);
+			let pallet_name =
+				pallet.as_ref().map(|p| p.name()).unwrap_or("UnknownPallet");
+			let error_name = pallet
+				.and_then(|p| p.error_variant_by_index(module_err.error[0]))
+				.map(|v| v.name.as_str())
+				.unwrap_or("UnknownError");
+			format!("{pallet_name}::{error_name}")
+		},
+		other => format!("{other:?}"),
+	}
+}
+
 fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
@@ -593,14 +614,13 @@ pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
 		find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
 
 	match sudid_results.first() {
-		Some(Ok(())) => {
-			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}")
-		},
-		Some(Err(e)) => {
+		Some(Ok(())) =>
+			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}"),
+		Some(Err(e)) =>
 			return Err(anyhow!(
-				"Sudo runtime upgrade inner dispatch failed in block {block_hash:?}: {e:?}"
-			))
-		},
+				"Sudo runtime upgrade inner dispatch failed in block {block_hash:?}: {}",
+				format_dispatch_error(e, &client.metadata()),
+			)),
 		None => return Err(anyhow!("Sudid event not found in block {block_hash:?}")),
 	}
 
