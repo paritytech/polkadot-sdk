@@ -925,6 +925,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let bounded_versioned_call = T::Preimages::bound(versioned_call)
 			.expect("Failed to bound versioned call for scheduler");
 
+		// Drop the original preimage now that we've stored a new versioned one.
+		T::Preimages::drop(&call);
+
 		let ok = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
@@ -962,6 +965,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let versioned_call = sp_runtime::VersionedCall::new(inner_call, current_version);
 		let bounded_versioned_call = T::Preimages::bound(versioned_call)
 			.expect("Failed to bound versioned call for scheduler");
+
+		// Drop the original preimage now that we've stored a new versioned one.
+		T::Preimages::drop(&call);
 
 		let result = T::Scheduler::schedule(
 			DispatchTime::At(when),

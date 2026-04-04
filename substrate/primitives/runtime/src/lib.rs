@@ -1181,7 +1181,7 @@ impl<Call> VersionedCall<Call> {
 
 	/// Get a reference to the inner call without version validation
 	///
-	/// # Safety
+	/// # Note
 	/// This should only be used for inspection purposes, not execution
 	pub fn call_ref(&self) -> &Call {
 		&self.call
@@ -1223,7 +1223,7 @@ impl<Call: MaxEncodedLen> MaxEncodedLen for VersionedCall<Call> {
 }
 
 #[cfg(test)]
-mod testss {
+mod versioned_call_tests {
 	use super::*;
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]

@@ -883,8 +883,11 @@ impl<T: Config> Pallet<T> {
 										weight.saturating_accrue(T::DbWeight::get().reads(1));
 										log::info!("Migrated call by hash, hash: {:?}", h);
 
-										// Convert to versioned bounded call
-										Self::convert_to_versioned_bounded_call(bounded)
+										// Convert to versioned bounded call; drop entry if call is unavailable.
+										match Self::convert_to_versioned_bounded_call(bounded) {
+											Some(b) => b,
+											None => return None,
+										}
 									},
 									MaybeHashed::Value(v) => {
 										// Create bounded call with VersionedCall wrapper
@@ -1034,7 +1037,7 @@ impl<T: Config> Pallet<T> {
 
 	fn create_versioned_call(call: <T as Config>::RuntimeCall) -> BoundedCallOf<T> {
 		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
-		let versioned_call = VersionedCall::new(call.clone(), current_version);
+		let versioned_call = VersionedCall::new(call, current_version);
 		T::Preimages::bound(versioned_call).expect("Failed to bound versioned call")
 	}
 
@@ -1224,33 +1227,33 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Convert a legacy bounded call to a versioned bounded call
+	/// Convert a legacy bounded call to a versioned bounded call.
+	///
+	/// Returns `None` if the call cannot be fetched from the preimage store, in which case
+	/// the caller should drop the scheduled entry rather than storing a replacement.
 	fn convert_to_versioned_bounded_call(
 		bounded: Bounded<<T as pallet::Config>::RuntimeCall, T::Hashing>,
-	) -> BoundedCallOf<T> {
+	) -> Option<BoundedCallOf<T>> {
 		// Get current transaction version
 		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
 
 		// Fetch the actual call
 		match T::Preimages::peek::<<T as pallet::Config>::RuntimeCall>(&bounded) {
 			Ok((call, _)) => {
-				let versioned_call = VersionedCall::new(call.clone(), current_version);
-				T::Preimages::bound(versioned_call).unwrap_or_else(|e| {
-					log::error!("Failed to bound versioned call: {:?}", e);
-					let dummy_call = VersionedCall::new(call.clone(), current_version);
-					T::Preimages::bound(dummy_call).unwrap_or_else(|_| {
-						panic!(
-							"Failed to create bounded call even with dummy data during migration"
-						);
-					})
-				})
+				let versioned_call = VersionedCall::new(call, current_version);
+				let new_bounded = T::Preimages::bound(versioned_call)
+					.expect("Failed to bound versioned call during migration");
+				// Drop the old preimage now that we've created a versioned replacement.
+				T::Preimages::drop(&bounded);
+				Some(new_bounded)
 			},
 			Err(e) => {
-				log::error!("Could not fetch call from preimage during migration: {:?}", e);
-				let dummy_call = system::Call::<T>::remark { remark: vec![] }.into();
-				let versioned_call = VersionedCall::new(dummy_call, current_version);
-				T::Preimages::bound(versioned_call)
-					.expect("Failed to create fallback bounded call during migration")
+				log::error!(
+					"Dropping scheduled entry: could not fetch call from preimage during migration: {:?}",
+					e
+				);
+				T::Preimages::drop(&bounded);
+				None
 			},
 		}
 	}
@@ -1415,24 +1418,8 @@ impl<T: Config> Pallet<T> {
 		// Validate the transaction version and extract the call
 		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
 
-		match versioned_call.validate_version(current_version) {
-			Ok(()) => {
-				// Get the actual call from the versioned wrapper
-				let call = match versioned_call.clone().into_inner(current_version) {
-					Ok(call) => call,
-					Err(_) => {
-						// This shouldn't happen if validate_version succeeded, but handle it
-						Self::deposit_event(Event::CallVersionMismatch {
-							task: (when, agenda_index),
-							id: task.maybe_id,
-							stored_version: versioned_call.version(),
-							current_version,
-						});
-						T::Preimages::drop(&task.call);
-						return Err((Unavailable, Some(task)));
-					},
-				};
-
+		match versioned_call.into_inner(current_version) {
+			Ok(call) => {
 				// Proceed with execution
 				match Self::execute_dispatch(weight, task.origin.clone(), call) {
 					Err(()) if is_first => {

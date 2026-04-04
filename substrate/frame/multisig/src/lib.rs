@@ -207,7 +207,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -508,25 +508,15 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let signatories =
-				Self::ensure_sorted_and_insert(other_signatories.clone(), who.clone())?;
-			let id = Self::multi_account_id(&signatories, threshold);
-
-			// Try to fetch the stored versioned call
-			let maybe_versioned_call = Calls::<T>::get(&id, call_hash);
-
-			let call_or_hash = if let Some(versioned_call) = maybe_versioned_call {
-				CallOrHash::Call(versioned_call)
-			} else {
-				CallOrHash::Hash(call_hash)
-			};
-
+			// This extrinsic only registers approval — it never executes the call.
+			// Always pass the hash so that version validation is never triggered here;
+			// version checks belong at execution time in `as_multi`.
 			Self::operate(
 				who,
 				threshold,
 				other_signatories,
 				maybe_timepoint,
-				call_or_hash,
+				CallOrHash::Hash(call_hash),
 				max_weight,
 			)
 		}
@@ -725,16 +715,16 @@ impl<T: Config> Pallet<T> {
 
 		let id = Self::multi_account_id(&signatories, threshold);
 
-		// Extract call hash and length, wrapping in VersionedCall if it's a Call
-		let (call_hash, call_len, maybe_versioned_call) = match call_or_hash {
+		// Extract call hash and length, wrapping in VersionedCall if it's a Call.
+		let (call_hash, call_len, maybe_call_data) = match call_or_hash {
 			CallOrHash::Call(versioned_call) => {
 				// Validate the version before proceeding
 				let call = Self::validate_and_extract_call(&versioned_call)?;
 
-				// Hash the actual call, not the versioned wrapper
-				let call_hash = blake2_256(&call.encode());
-				let call_len = versioned_call.encode().len();
-				(call_hash, call_len, Some(versioned_call))
+				let call_encoded = call.encode();
+				let call_hash = blake2_256(&call_encoded);
+				let call_len = call_encoded.len();
+				(call_hash, call_len, Some((call, versioned_call)))
 			},
 			CallOrHash::Hash(h) => (h, 0, None),
 		};
@@ -755,9 +745,18 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// Try to fetch and execute the call if we have threshold
-			if let Some(versioned_call) = maybe_versioned_call.filter(|_| approvals >= threshold) {
-				// Validate version before execution
-				let call = Self::validate_and_extract_call(&versioned_call)?;
+			if let Some((call, _versioned_call)) =
+				maybe_call_data.filter(|_| approvals >= threshold)
+			{
+				// If a versioned call was stored by an earlier `as_multi` submission,
+				// validate ITS transaction_version against the current runtime. A version
+				// mismatch means the runtime was upgraded since the call was stored and its
+				// semantics may have changed — reject execution. If no call was stored (all
+				// prior approvals were hash-only via `approve_as_multi`), skip this check;
+				// the submitter's call is inherently at the current version.
+				if let Some(stored) = Calls::<T>::get(&id, call_hash) {
+					Self::validate_and_extract_call(&stored)?;
+				}
 
 				// Verify weight
 				ensure!(
@@ -837,7 +836,7 @@ impl<T: Config> Pallet<T> {
 			);
 
 			// Store the versioned call if provided
-			if let Some(versioned_call) = maybe_versioned_call {
+			if let Some((_call, versioned_call)) = maybe_call_data {
 				Calls::<T>::insert(&id, call_hash, versioned_call);
 			}
 
