@@ -23,6 +23,10 @@ fn main() {
 		.import_memory()
 		.build();
 
+	// Force compaction for runtime upgrade binaries so that WASM_BINARY is compact even in
+	// debug builds. Without this the bloaty binary may exceed `max_code_size` (3 MiB).
+	std::env::set_var("WASM_BUILD_TYPE", "release");
+
 	WasmBuilder::init_with_defaults()
 		.enable_feature("increment-spec-version")
 		.set_file_name("wasm_binary_spec_version_incremented.rs")

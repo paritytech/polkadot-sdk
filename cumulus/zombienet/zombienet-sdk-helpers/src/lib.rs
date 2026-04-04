@@ -569,6 +569,43 @@ pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
 	)
 }
 
+/// Submit a runtime upgrade via sudo and verify it was scheduled.
+///
+/// This submits a `Sudo::sudo_unchecked_weight(System::set_code(wasm))` extrinsic,
+/// waits for finalization, then checks the `Sudid` event to verify the inner dispatch
+/// succeeded. Returns the hash of the finalized block containing the upgrade extrinsic.
+pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
+	wasm: &[u8],
+	signer: &S,
+) -> Result<H256, anyhow::Error> {
+	log::info!("Submitting sudo runtime upgrade, wasm size: {} bytes", wasm.len());
+	let call = create_runtime_upgrade_call(wasm);
+	let block_hash =
+		submit_extrinsic_and_wait_for_finalization_success(client, &call, signer).await?;
+
+	// Verify the inner sudo dispatch succeeded by checking the Sudid event.
+	// sudo_unchecked_weight always returns Ok at the extrinsic level, even if the
+	// inner call fails — the actual result is only in the Sudid event.
+	let block = client.blocks().at(block_hash).await?;
+	let events = block.events().await?;
+	let sudid_results: Vec<Result<(), sp_runtime::DispatchError>> =
+		find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
+
+	match sudid_results.first() {
+		Some(Ok(())) =>
+			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}"),
+		Some(Err(e)) =>
+			return Err(anyhow!(
+				"Sudo runtime upgrade inner dispatch failed in block {block_hash:?}: {e:?}"
+			)),
+		None =>
+			return Err(anyhow!("Sudid event not found in block {block_hash:?}")),
+	}
+
+	Ok(block_hash)
+}
+
 /// Wait until a runtime upgrade has happened.
 ///
 /// This checks all finalized blocks until it finds a block that sets the
