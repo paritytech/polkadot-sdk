@@ -17,15 +17,15 @@
 
 //! Primitives for the Dynamic Allocation Pool (DAP).
 //!
-//! Shared between `pallet-dap` (on AssetHub) and `pallet-dap-satellite` (on satellite chains)
-//! to ensure both pallets agree on the DAP buffer account derivation.
+//! Shared between `pallet-dap` and `pallet-dap-satellite` to ensure
+//! both pallets agree on the DAP buffer account derivation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::PalletId;
 
-/// The [`PalletId`] used to derive the DAP buffer account on AssetHub.
-///
-/// Both `pallet-dap` and `pallet-dap-satellite` use this to derive the same account address,
-/// ensuring satellite chains can correctly target the buffer when sending via XCM teleport.
+/// The [`PalletId`] used to derive the central DAP buffer account.
 pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
+
+/// The [`PalletId`] used to derive the DAP satellite account on satellite chains.
+pub const DAP_SATELLITE_PALLET_ID: PalletId = PalletId(*b"dap/satl");

@@ -696,8 +696,7 @@ impl pallet_dap_satellite::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
 	type SendToDap = xcm_builder::SendToDapViaTeleport<
-		xcm_config::FungibleTransactor,
-		xcm_config::XcmRouter,
+		xcm_config::XcmConfig,
 		xcm_config::AssetHub,
 		xcm_config::WndLocation,
 		DapBufferLocation,

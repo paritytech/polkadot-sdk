@@ -54,8 +54,7 @@ mod tests;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Preserve},
+		fungible::{Balanced, Credit, Inspect, Unbalanced},
 		Imbalance, OnUnbalanced,
 	},
 	weights::WeightMeter,
@@ -69,14 +68,14 @@ pub use sp_dap::DAP_BUFFER_PALLET_ID;
 
 /// Trait for dispatching the transfer to the central DAP.
 ///
-/// The pallet burns tokens from the satellite account before calling [`SendToDap::send`].
-/// Implementations should construct and dispatch the appropriate message for `amount`
-/// tokens. On error, the pallet restores the burned tokens via `mint_into`.
-pub trait SendToDap<Balance> {
-	/// Send `amount` (already burned from the satellite account) to the central DAP.
+/// Implementations are expected to perform the (withdrawal, send) steps atomically:
+/// on failure, any withdrawn funds must be restored.
+pub trait SendToDap<AccountId, Balance> {
+	/// Transfer `amount` from `source` to the central DAP.
 	///
-	/// Returns `Ok(())` if the message was successfully sent, `Err(())` otherwise.
-	fn send(amount: Balance) -> Result<(), ()>;
+	/// Returns `Ok(())` on success, `Err(())` otherwise.
+	/// Implementations are responsible for logging the failure reason internally.
+	fn send_native(source: AccountId, amount: Balance) -> Result<(), ()>;
 }
 
 const LOG_TARGET: &str = "runtime::dap-satellite";
@@ -102,10 +101,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The currency type.
-		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
-			+ Unbalanced<Self::AccountId>
-			+ Balanced<Self::AccountId>;
+		type Currency: Inspect<Self::AccountId> + Unbalanced<Self::AccountId> + Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the satellite account.
 		type PalletId: Get<PalletId>;
@@ -113,7 +109,7 @@ pub mod pallet {
 		/// The implementation responsible for sending accumulated funds to the central DAP.
 		/// Message construction and dispatch logic lives here, keeping this pallet free of
 		/// message-related dependencies.
-		type SendToDap: super::SendToDap<BalanceOf<Self>>;
+		type SendToDap: super::SendToDap<Self::AccountId, BalanceOf<Self>>;
 
 		/// Minimum number of blocks between successive transfers to the central DAP.
 		/// Acts as a rate limiter to avoid sending too many messages.
@@ -181,18 +177,18 @@ pub mod pallet {
 			LastTransferBlock::<T>::put(block);
 
 			// Attempt the transfer to the central DAP.
-			match Self::do_send_to_central_dap(available_funds) {
+			let source = Self::satellite_account();
+			match T::SendToDap::send_native(source, available_funds) {
 				Ok(()) => {
 					Self::deposit_event(Event::SendSucceeded { amount: available_funds });
 				},
-				Err(e) => {
+				Err(()) => {
 					// A warning is sufficient since the transfer will be retried later.
 					log::warn!(
 						target: LOG_TARGET,
-						"DAP satellite transfer of {:?} failed at block {:?}: {:?}",
+						"DAP satellite transfer of {:?} failed at block {:?}",
 						available_funds,
 						block,
-						e
 					);
 					Self::deposit_event(Event::SendFailed { amount: available_funds });
 				},
@@ -202,52 +198,12 @@ pub mod pallet {
 		}
 	}
 
-	/// Internal error variants for [`Pallet::do_send_to_central_dap`].
-	#[derive(Debug)]
-	enum DoSendError {
-		/// Failed to burn tokens from the satellite account before sending.
-		BurnFailed,
-		/// The [`Config::SendToDap`] implementation failed to send the message.
-		SendFailed,
-	}
-
 	impl<T: Config> Pallet<T> {
 		/// Get the satellite account derived from the pallet ID.
 		///
 		/// This account accumulates funds locally before they are sent to the central DAP.
 		pub fn satellite_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
-		}
-
-		/// Burns `amount` from the satellite account then delegates to [`Config::SendToDap`].
-		///
-		/// On failure, any burned funds are restored via `mint_into` so the satellite balance
-		/// remains unchanged and the next scheduled attempt can retry.
-		/// The caller is responsible for updating `LastTransferBlock` irrespective of the outcome.
-		fn do_send_to_central_dap(amount: BalanceOf<T>) -> Result<(), DoSendError> {
-			let source = Self::satellite_account();
-
-			T::Currency::burn_from(&source, amount, Preserve, Exact, Polite).map_err(|e| {
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to burn {:?} tokens from DAP satellite account: {:?}",
-					amount,
-					e,
-				);
-				DoSendError::BurnFailed
-			})?;
-
-			T::SendToDap::send(amount).map_err(|()| {
-				let _ = T::Currency::mint_into(&source, amount).inspect_err(|e| {
-					frame_support::defensive!(
-						"Failed to restore burned funds after send failure: {:?}",
-						e
-					);
-				});
-				DoSendError::SendFailed
-			})?;
-
-			Ok(())
 		}
 	}
 }

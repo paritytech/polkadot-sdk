@@ -21,17 +21,10 @@ use crate::{self as pallet_dap_satellite, Config};
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::traits::AccountIdConversion,
-	traits::{
-		fungible::{Balanced, Dust, Inspect, Mutate, Unbalanced},
-		tokens::{
-			DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
-		},
-	},
 	weights::constants::RocksDbWeight,
 	PalletId,
 };
-use pallet_balances::{NegativeImbalance, PositiveImbalance};
-use sp_runtime::{BuildStorage, DispatchError};
+use sp_runtime::BuildStorage;
 use std::cell::RefCell;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -60,21 +53,19 @@ impl pallet_balances::Config for Test {
 }
 
 thread_local! {
-	/// Counts successful `MockSendToDap::send` calls.
+	/// Counts successful `MockSendToDap::send_native` calls.
 	pub static SEND_COUNT: RefCell<u32> = RefCell::new(0);
-	/// Set to `true` to make `MockSendToDap::send` return an error.
+	/// Set to `true` to make `MockSendToDap::send_native` return an error.
 	pub static SEND_FAIL: RefCell<bool> = RefCell::new(false);
-	/// Records the amount from the most recent successful `MockSendToDap::send` call.
+	/// Records the amount from the most recent successful `MockSendToDap::send_native` call.
 	pub static LAST_SENT_AMOUNT: RefCell<Option<u64>> = RefCell::new(None);
-	/// Set to `true` to make `MockCurrency::burn_from` return an error.
-	pub static BURN_FAIL: RefCell<bool> = RefCell::new(false);
 }
 
 /// Mock implementation of [`pallet_dap_satellite::SendToDap`].
 pub struct MockSendToDap;
 
-impl pallet_dap_satellite::SendToDap<u64> for MockSendToDap {
-	fn send(amount: u64) -> Result<(), ()> {
+impl pallet_dap_satellite::SendToDap<u64, u64> for MockSendToDap {
+	fn send_native(_source: u64, amount: u64) -> Result<(), ()> {
 		if SEND_FAIL.with(|f| *f.borrow()) {
 			return Err(());
 		}
@@ -84,77 +75,8 @@ impl pallet_dap_satellite::SendToDap<u64> for MockSendToDap {
 	}
 }
 
-/// A thin wrapper around [`Balances`] that allows `burn_from` to be made to fail on demand via
-/// the [`BURN_FAIL`] thread-local, without requiring any test hooks in the pallet's own code.
-///
-/// All operations delegate to [`Balances`]; only `burn_from` is intercepted.
-/// See the [`Balanced`] impl below for why `DustRemoval` and other test modules need no changes.
-pub struct MockCurrency;
-
-impl Inspect<u64> for MockCurrency {
-	type Balance = u64;
-
-	fn total_issuance() -> u64 {
-		<Balances as Inspect<u64>>::total_issuance()
-	}
-	fn minimum_balance() -> u64 {
-		<Balances as Inspect<u64>>::minimum_balance()
-	}
-	fn total_balance(who: &u64) -> u64 {
-		<Balances as Inspect<u64>>::total_balance(who)
-	}
-	fn balance(who: &u64) -> u64 {
-		<Balances as Inspect<u64>>::balance(who)
-	}
-	fn reducible_balance(who: &u64, preservation: Preservation, force: Fortitude) -> u64 {
-		<Balances as Inspect<u64>>::reducible_balance(who, preservation, force)
-	}
-	fn can_deposit(who: &u64, amount: u64, provenance: Provenance) -> DepositConsequence {
-		<Balances as Inspect<u64>>::can_deposit(who, amount, provenance)
-	}
-	fn can_withdraw(who: &u64, amount: u64) -> WithdrawConsequence<u64> {
-		<Balances as Inspect<u64>>::can_withdraw(who, amount)
-	}
-}
-
-impl Unbalanced<u64> for MockCurrency {
-	fn handle_dust(dust: Dust<u64, Self>) {
-		<Balances as Unbalanced<u64>>::handle_raw_dust(dust.0)
-	}
-	fn write_balance(who: &u64, amount: u64) -> Result<Option<u64>, DispatchError> {
-		<Balances as Unbalanced<u64>>::write_balance(who, amount)
-	}
-	fn set_total_issuance(amount: u64) {
-		<Balances as Unbalanced<u64>>::set_total_issuance(amount)
-	}
-}
-
-impl Mutate<u64> for MockCurrency {
-	fn burn_from(
-		who: &u64,
-		amount: u64,
-		preservation: Preservation,
-		precision: Precision,
-		force: Fortitude,
-	) -> Result<u64, DispatchError> {
-		if BURN_FAIL.with(|f| *f.borrow()) {
-			return Err(DispatchError::Other("MockCurrency: burn_from failed"));
-		}
-		<Balances as Mutate<u64>>::burn_from(who, amount, preservation, precision, force)
-	}
-}
-
-/// By mirroring `pallet_balances::Pallet<Test>`'s own `OnDrop{Debt,Credit}` types,
-/// `Credit<u64, MockCurrency>` and `Credit<u64, Balances>` expand to the same concrete type.
-/// This means `DustRemoval = DapSatellite` and all existing `<Balances as Balanced<_>>` calls
-/// in other test modules continue to work without modification.
-impl Balanced<u64> for MockCurrency {
-	type OnDropDebt = PositiveImbalance<Test>;
-	type OnDropCredit = NegativeImbalance<Test>;
-}
-
 parameter_types! {
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+	pub const DapSatellitePalletId: PalletId = sp_dap::DAP_SATELLITE_PALLET_ID;
 	pub const ExistentialDeposit: u64 = 10;
 	/// The transfer period in blocks.
 	pub const TransferPeriod: u64 = 5;
@@ -163,7 +85,7 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type Currency = MockCurrency;
+	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
 	type SendToDap = MockSendToDap;
 	type TransferPeriod = TransferPeriod;

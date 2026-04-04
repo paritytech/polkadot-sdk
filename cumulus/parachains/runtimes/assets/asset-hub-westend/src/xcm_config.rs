@@ -38,6 +38,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
+use sp_dap::DAP_SATELLITE_PALLET_ID;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
@@ -311,6 +312,22 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
+/// DAP satellite accounts on sibling system parachains. These accounts accumulate native
+/// tokens locally before forwarding them to the central DAP buffer account.
+pub struct SiblingDapSatelliteAccounts;
+impl Contains<Location> for SiblingDapSatelliteAccounts {
+	fn contains(location: &Location) -> bool {
+		let satellite_account: [u8; 32] =
+			DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		match location.unpack() {
+			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) =>
+				AllSiblingSystemParachains::contains(&Location::new(1, [Parachain(*id)])) &&
+					*account_id == satellite_account,
+			_ => false,
+		}
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -333,6 +350,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						FellowshipEntities,
 						AmbassadorEntities,
 						SecretaryEntities,
+						SiblingDapSatelliteAccounts,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
