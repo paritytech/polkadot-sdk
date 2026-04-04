@@ -407,6 +407,12 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
+impl MaxEncodedLen for RuntimeCall {
+	fn max_encoded_len() -> usize {
+		16 * 1024
+	}
+}
+
 parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);

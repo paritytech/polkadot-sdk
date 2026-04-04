@@ -24,6 +24,8 @@ use frame_support::{
 pub mod v5 {
 	use super::*;
 	use crate::Pallet;
+	use alloc::vec::Vec;
+	#[cfg(feature = "try-runtime")]
 	use codec::Encode;
 	use frame_support::{pallet_prelude::*, storage_alias};
 	use sp_runtime::VersionedCall;

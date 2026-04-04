@@ -381,9 +381,13 @@ mod test {
 			let mut x = Agenda::<Test>::iter().map(|x| (x.0, x.1.into_inner())).collect::<Vec<_>>();
 			x.sort_by_key(|x| x.0);
 
-			let bound_large_call = Preimage::bound(large_call).unwrap();
+			let current_version =
+				<frame_system::Pallet<Test>>::runtime_version().transaction_version;
+			let bound_large_call =
+				Preimage::bound(VersionedCall::new(large_call, current_version)).unwrap();
 			assert!(bound_large_call.lookup_needed());
-			let bound_small_call = Preimage::bound(small_call).unwrap();
+			let bound_small_call =
+				Preimage::bound(VersionedCall::new(small_call, current_version)).unwrap();
 			assert!(!bound_small_call.lookup_needed());
 
 			let expected = vec![
@@ -508,7 +512,9 @@ mod test {
 			StorageVersion::new(4).put::<Scheduler>();
 
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-			let bounded_call = Preimage::bound(call).unwrap();
+			let current_version =
+				<frame_system::Pallet<Test>>::runtime_version().transaction_version;
+			let bounded_call = Preimage::bound(VersionedCall::new(call, current_version)).unwrap();
 			let some = Some(ScheduledOf::<Test> {
 				maybe_id: None,
 				priority: 1,
