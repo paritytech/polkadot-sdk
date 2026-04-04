@@ -31,14 +31,12 @@ pub struct MigrateToVersionedCall<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> OnRuntimeUpgrade for MigrateToVersionedCall<T> {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
-		use frame_support::storage::migration::get_storage_value;
-
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		// Check current storage version
 		let current_version = StorageVersion::get::<Pallet<T>>();
 		log::info!(
 			target: TARGET,
-			"Pre-upgrade check: current storage version = {}",
+			"Pre-upgrade check: current storage version = {:?}",
 			current_version
 		);
 
@@ -50,7 +48,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToVersionedCall<T> {
 			call_indices_count
 		);
 
-		Ok(call_indices_count.encode())
+		Ok((call_indices_count as u32).encode())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
@@ -90,16 +88,16 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToVersionedCall<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), frame::try_runtime::TryRuntimeError> {
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 
 		let previous_call_indices_count: usize =
-			Decode::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed");
+			u32::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed") as usize;
 
 		// Verify storage version was updated
 		let current_version = StorageVersion::get::<Pallet<T>>();
 		ensure!(
-			current_version == Pallet::<T>::in_code_storage_version(),
+			current_version == Pallet::<T>::on_chain_storage_version(),
 			"Storage version not updated correctly"
 		);
 

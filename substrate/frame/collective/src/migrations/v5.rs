@@ -24,7 +24,7 @@ use frame_support::{
 pub mod v5 {
 	use super::*;
 	use crate::Pallet;
-	use codec::{Decode, Encode};
+	use codec::Encode;
 	use frame_support::{pallet_prelude::*, storage_alias};
 	use sp_runtime::VersionedCall;
 
@@ -105,9 +105,9 @@ pub mod v5 {
 			use codec::Decode;
 
 			// Decode as u32 instead of usize
-			let old_count = u32::decode(&mut &state[..]).map_err(|e| {
-				sp_runtime::TryRuntimeError::Other(format!("Failed to decode old count: {:?}", e))
-			})? as usize;
+			let old_count = u32::decode(&mut &state[..])
+				.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode old count"))?
+				as usize;
 
 			let new_count = crate::ProposalOf::<T, I>::iter_keys().count();
 
