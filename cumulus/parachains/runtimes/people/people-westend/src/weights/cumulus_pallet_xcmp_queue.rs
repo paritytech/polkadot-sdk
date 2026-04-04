@@ -53,6 +53,7 @@ impl<T: frame_system::Config> cumulus_pallet_xcmp_queue::WeightInfo for WeightIn
 	/// Storage: `XcmpQueue::QueueConfig` (r:1 w:1)
 	/// Proof: `XcmpQueue::QueueConfig` (`max_values`: Some(1), `max_size`: Some(12), added: 507, mode: `MaxEncodedLen`)
 	fn set_config_with_u32() -> Weight {
+		// TODO: fresh
 		// Proof Size summary in bytes:
 		//  Measured:  `76`
 		//  Estimated: `1497`
