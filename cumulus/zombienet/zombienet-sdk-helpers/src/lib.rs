@@ -29,7 +29,6 @@ use zombienet_sdk::subxt::{
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
-/// Find an event in subxt `Events` and attempt to decode the fields of the event.
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
 ///
 /// For module errors this resolves the pallet index and error index to their names
@@ -49,6 +48,7 @@ fn format_dispatch_error(err: &sp_runtime::DispatchError, metadata: &Metadata) -
 	}
 }
 
+/// Find an event in subxt `Events` and attempt to decode the fields of the event.
 fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
