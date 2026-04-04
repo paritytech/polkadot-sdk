@@ -131,6 +131,7 @@ impl CandidateBuilder {
 				self.relay_parent,
 				CoreIndex(0),
 				1,
+				1,
 				persisted_validation_data.hash(),
 				Hash::repeat_byte(1),
 				Hash::repeat_byte(42),
