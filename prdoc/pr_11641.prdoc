@@ -10,7 +10,5 @@ doc:
 crates:
 - name: cumulus-zombienet-sdk-helpers
   bump: minor
-- name: cumulus-test-runtime
-  bump: patch
 - name: cumulus-zombienet-sdk-tests
   bump: none
