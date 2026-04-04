@@ -1,0 +1,16 @@
+title: 'Use compressed runtimes & log errors in parachain runtime upgrades'
+doc:
+- audience: Node Dev
+  description: |-
+    Add `submit_sudo_runtime_upgrade` helper to `cumulus-zombienet-sdk-helpers`
+    that submits a sudo runtime upgrade, waits for finalization, and verifies
+    the inner dispatch succeeded via the `Sudid` event. Zombienet upgrade tests
+    now use this helper and consume the compact (`WASM_BINARY`) runtime instead
+    of `WASM_BINARY_BLOATY`, avoiding `max_code_size` overflows in debug builds.
+crates:
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
+- name: cumulus-test-runtime
+  bump: patch
+- name: cumulus-zombienet-sdk-tests
+  bump: none
