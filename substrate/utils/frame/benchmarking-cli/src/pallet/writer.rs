@@ -303,11 +303,12 @@ fn get_benchmark_data(
 		additional_trie_layers,
 	);
 
-	let proof_size_per_components = storage_per_prefix
+	let proof_size_per_components: Vec<_> = storage_per_prefix
 		.iter()
 		.map(|(prefix, results)| {
-			let proof_size = analysis_function(results, BenchmarkSelector::ProofSize, &benchmark)
-				.expect("analysis function should return proof sizes for valid inputs");
+			let proof_size = analysis_function(results, BenchmarkSelector::ProofSize)
+				.context(format!("benchmark '{pallet}::{benchmark}'"))
+				.map_err(|e| sc_cli::Error::Application(e.into()))?;
 			let slope = proof_size
 				.slopes
 				.into_iter()
@@ -315,9 +316,9 @@ fn get_benchmark_data(
 				.zip(extract_errors(&proof_size.errors))
 				.map(|((slope, name), error)| ComponentSlope { name: name.clone(), slope, error })
 				.collect::<Vec<_>>();
-			(prefix.clone(), slope, proof_size.base)
+			Ok((prefix.clone(), slope, proof_size.base))
 		})
-		.collect::<Vec<_>>();
+		.collect::<Result<_, sc_cli::Error>>()?;
 
 	let mut base_calculated_proof_size = 0;
 	// Sum up the proof sizes per component
