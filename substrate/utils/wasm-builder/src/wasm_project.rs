@@ -340,8 +340,14 @@ fn maybe_compact_and_compress_wasm(
 
 	build_helper::warning!(
 		"Compaction result: compact={}, compressed={}, bloaty_size={}",
-		compact_blob_path.as_ref().map(|p| format!("{}", p.wasm_binary_path().display())).unwrap_or("None".into()),
-		compact_compressed_blob_path.as_ref().map(|p| format!("{}", p.wasm_binary_path().display())).unwrap_or("None".into()),
+		compact_blob_path
+			.as_ref()
+			.map(|p| format!("{}", p.wasm_binary_path().display()))
+			.unwrap_or("None".into()),
+		compact_compressed_blob_path
+			.as_ref()
+			.map(|p| format!("{}", p.wasm_binary_path().display()))
+			.unwrap_or("None".into()),
 		fs::metadata(bloaty_blob_binary.bloaty_path()).map(|m| m.len()).unwrap_or(0),
 	);
 
