@@ -10,9 +10,13 @@ doc:
 crates:
 - name: asset-hub-westend-runtime
   bump: major
+  validate: false
 - name: collectives-westend-runtime
   bump: major
+  validate: false
 - name: coretime-westend-runtime
   bump: major
+  validate: false
 - name: people-westend-runtime
   bump: major
+  validate: false
