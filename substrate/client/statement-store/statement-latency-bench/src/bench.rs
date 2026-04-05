@@ -50,7 +50,7 @@ use tokio::{sync::Barrier, time::timeout};
 #[command(name = "statement-latency-bench")]
 #[command(about = "Distributed statement store latency benchmark", long_about = None)]
 struct Args {
-	/// Comma-separated list of RPC WebSocket endpoints (e.g., ws://node1:9944,ws://node2:9944)
+	/// Comma-separated list of RPC WebSocket endpoints (e.g., `ws://node1:9944,ws://node2:9944`)
 	#[arg(long, value_delimiter = ',', required = true)]
 	rpc_endpoints: Vec<String>,
 
