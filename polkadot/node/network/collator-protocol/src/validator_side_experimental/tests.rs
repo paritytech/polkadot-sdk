@@ -3485,6 +3485,13 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 		},
 	);
 
+	let slot_duration = sp_consensus_slots::SlotDuration::from_millis(
+		polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	);
+	let current_slot =
+		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	test_state.slot_overrides.insert(get_hash(11), current_slot);
+
 	test_state.activate_leaf(&mut state, 11).await;
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V3).await;
