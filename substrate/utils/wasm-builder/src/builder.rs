@@ -373,17 +373,8 @@ fn build_project(
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {
 		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
 	} else {
-		build_helper::warning!("No compact/compressed blob available, WASM_BINARY will use bloaty");
 		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
 	};
-
-	let wasm_binary_size = std::fs::metadata(std::path::Path::new(&wasm_binary)).map(|m| m.len()).unwrap_or(0);
-	build_helper::warning!(
-		"Generated WASM_BINARY path: {} (size: {} bytes), file: {}",
-		wasm_binary,
-		wasm_binary_size,
-		file_name.display(),
-	);
 
 	crate::write_file_if_changed(
 		file_name,

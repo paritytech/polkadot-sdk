@@ -1,6 +1,5 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
-// Force recompilation to pick up compressed WASM binaries.
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,7 +18,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-// Make the WASM binary available.
+// Make the WASM binaries available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 

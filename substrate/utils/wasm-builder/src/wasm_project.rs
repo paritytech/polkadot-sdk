@@ -290,17 +290,6 @@ fn maybe_compact_and_compress_wasm(
 	let compact_or_compressed_exists = compact_path.exists() || compressed_path.exists();
 	let should_regenerate = bloaty_changed || (needs_compact && !compact_or_compressed_exists);
 
-	build_helper::warning!(
-		"Compaction decision: blob_profile={:?}, needs_compact={}, bloaty_changed={}, \
-		 compact_exists={}, compressed_exists={}, should_regenerate={}",
-		build_config.blob_build_profile,
-		needs_compact,
-		bloaty_changed,
-		compact_path.exists(),
-		compressed_path.exists(),
-		should_regenerate,
-	);
-
 	if !should_regenerate {
 		let final_blob = if compressed_path.exists() {
 			Some(WasmBinary(compressed_path))
@@ -337,19 +326,6 @@ fn maybe_compact_and_compress_wasm(
 	if check_for_runtime_version_section {
 		ensure_runtime_version_wasm_section_exists(bloaty_blob_binary.bloaty_path());
 	}
-
-	build_helper::warning!(
-		"Compaction result: compact={}, compressed={}, bloaty_size={}",
-		compact_blob_path
-			.as_ref()
-			.map(|p| format!("{}", p.wasm_binary_path().display()))
-			.unwrap_or("None".into()),
-		compact_compressed_blob_path
-			.as_ref()
-			.map(|p| format!("{}", p.wasm_binary_path().display()))
-			.unwrap_or("None".into()),
-		fs::metadata(bloaty_blob_binary.bloaty_path()).map(|m| m.len()).unwrap_or(0),
-	);
 
 	let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
 
