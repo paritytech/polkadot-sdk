@@ -47,6 +47,7 @@ sp-state-machine = { workspace = true }
 default = ["std"]
 std = [
 	"anyhow",
+	"anyhow?/std",
 	"codec/std",
 	"frame-support-procedural/std",
 	"frame-support/std",
@@ -65,7 +66,6 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-storage/std",
-	"anyhow?/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
