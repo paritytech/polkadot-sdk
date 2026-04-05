@@ -38,7 +38,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use sp_dap::DAP_SATELLITE_PALLET_ID;
+use sp_dap::{DAP_BUFFER_PALLET_ID, DAP_SATELLITE_PALLET_ID};
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
@@ -58,7 +58,8 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
+	DapBufferAssetTransactor, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
+	HashedDescription, IsConcrete,
 	LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
 	NetworkExportTableItem, NoChecking, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -91,6 +92,7 @@ parameter_types! {
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	/// Asset Hub has mint authority since the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
+	pub DapBufferAccount: AccountId = DAP_BUFFER_PALLET_ID.into_account_truncating();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -109,8 +111,8 @@ pub type LocationToAccountId = (
 	ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>,
 );
 
-/// Means for transacting the native currency on this chain.
-pub type FungibleTransactor = FungibleAdapter<
+/// Inner adapter for the native currency; handles teleport tracking via the checking account.
+type NativeFungibleAdapter = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -121,6 +123,17 @@ pub type FungibleTransactor = FungibleAdapter<
 	AccountId,
 	// Teleports tracking
 	TeleportTracking,
+>;
+
+/// Means for transacting the native currency on this chain, wrapping [`NativeFungibleAdapter`]
+/// to additionally deactivate funds deposited into the DAP buffer account.
+pub type FungibleTransactor = DapBufferAssetTransactor<
+	NativeFungibleAdapter,
+	Balances,
+	IsConcrete<WestendLocation>,
+	LocationToAccountId,
+	AccountId,
+	DapBufferAccount,
 >;
 
 /// `AssetId`/`Balance` converter for `TrustBackedAssets`.
