@@ -373,8 +373,15 @@ fn build_project(
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {
 		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
 	} else {
+		build_helper::warning!("No compact/compressed blob available, WASM_BINARY will use bloaty");
 		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
 	};
+
+	build_helper::warning!(
+		"Generated WASM_BINARY path: {}, file: {}",
+		wasm_binary,
+		file_name.display(),
+	);
 
 	crate::write_file_if_changed(
 		file_name,
