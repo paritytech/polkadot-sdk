@@ -479,6 +479,7 @@ members = [
 	"substrate/frame/utility",
 	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
+	"substrate/frame/vesting/precompiles",
 	"substrate/frame/whitelist",
 	"substrate/primitives/api",
 	"substrate/primitives/api/proc-macro",
@@ -635,8 +636,13 @@ aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
 alloy-consensus = { version = "1.0.41", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
+alloy-network = { version = "1.8.3", default-features = false }
 alloy-primitives = { version = "1.2.1", default-features = false }
+alloy-provider = { version = "1.8.3", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
+alloy-rpc-types = { version = "1.8.3", default-features = false }
+alloy-signer = { version = "1.8.3", default-features = false }
+alloy-signer-local = { version = "1.8.3", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
@@ -1091,6 +1097,7 @@ pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
+pallet-vesting-precompiles = { path = "substrate/frame/vesting/precompiles", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
@@ -1400,7 +1407,7 @@ ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
-static_init = { version = "1.0.3" }
+static_init = { version = "1.0.4" }
 strum = { version = "0.26.3", default-features = false }
 subkey = { path = "substrate/bin/utils/subkey", default-features = false }
 substrate-bip39 = { path = "substrate/utils/substrate-bip39", default-features = false }
@@ -1492,9 +1499,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.8" }
-zombienet-orchestrator = { version = "0.4.8" }
-zombienet-sdk = { version = "0.4.8" }
+zombienet-configuration = { version = "0.4.9" }
+zombienet-orchestrator = { version = "0.4.9" }
+zombienet-sdk = { version = "0.4.9" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
