@@ -1150,13 +1150,16 @@ fn second_multiple_candidates_per_relay_parent() {
 
 		let pair = CollatorPair::generate().0;
 
-		let head_a = Hash::from_low_u64_be(130);
+		// head_a must NOT be an ancestor of head_b, otherwise non-deterministic
+		// activation order can leave head_a without allowed_relay_parents.
+		// head_b's ancestors are 0x81, 0x82, ... so we pick a disjoint chain.
+		let head_a = Hash::from_low_u64_be(5);
 		let head_a_num: u32 = 0;
 
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 2;
 
-		// Activated leaf is `a` and `b`.The collation will be based on `b`.
+		// Activated leaf is `a` and `b`. The collation will be based on `b`.
 		update_view(
 			&mut virtual_overseer,
 			&mut test_state,
