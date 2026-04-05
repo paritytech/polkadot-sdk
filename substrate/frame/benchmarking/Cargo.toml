@@ -65,6 +65,7 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-storage/std",
+	"anyhow?/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
