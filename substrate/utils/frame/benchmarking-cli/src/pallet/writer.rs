@@ -23,6 +23,7 @@ use std::{
 	path::PathBuf,
 };
 
+use anyhow::Context;
 use inflector::Inflector;
 use itertools::Itertools;
 use serde::Serialize;
@@ -142,10 +143,10 @@ fn map_results(
 	pov_analysis_choice: &AnalysisChoice,
 	worst_case_map_values: u32,
 	additional_trie_layers: u8,
-) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, std::io::Error> {
+) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, sc_cli::Error> {
 	// Skip if batches is empty.
 	if batches.is_empty() {
-		return Err(io_error("empty batches"));
+		return Err(io_error("empty batches").into());
 	}
 
 	let mut all_benchmarks = HashMap::<_, Vec<BenchmarkData>>::new();
@@ -168,7 +169,7 @@ fn map_results(
 			pov_analysis_choice,
 			worst_case_map_values,
 			additional_trie_layers,
-		);
+		)?;
 		let pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
@@ -198,7 +199,7 @@ fn get_benchmark_data(
 	pov_analysis_choice: &AnalysisChoice,
 	worst_case_map_values: u32,
 	additional_trie_layers: u8,
-) -> BenchmarkData {
+) -> Result<BenchmarkData, sc_cli::Error> {
 	// Analyze benchmarks to get the linear regression.
 	let analysis_function = match analysis_choice {
 		AnalysisChoice::MinSquares => Analysis::min_squares_iqr,
@@ -213,16 +214,19 @@ fn get_benchmark_data(
 	let pallet = String::from_utf8(batch.pallet.clone()).unwrap();
 	let benchmark = String::from_utf8(batch.benchmark.clone()).unwrap();
 
-	let extrinsic_time =
-		analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime, &benchmark)
-			.expect("analysis function should return an extrinsic time for valid inputs");
-	let reads = analysis_function(&batch.db_results, BenchmarkSelector::Reads, &benchmark)
-		.expect("analysis function should return the number of reads for valid inputs");
-	let writes = analysis_function(&batch.db_results, BenchmarkSelector::Writes, &benchmark)
-		.expect("analysis function should return the number of writes for valid inputs");
+	let extrinsic_time = analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
+		.context(format!("benchmark '{pallet}::{benchmark}'"))
+		.map_err(|e| sc_cli::Error::Application(e.into()))?;
+	let reads = analysis_function(&batch.db_results, BenchmarkSelector::Reads)
+		.context(format!("benchmark '{pallet}::{benchmark}'"))
+		.map_err(|e| sc_cli::Error::Application(e.into()))?;
+	let writes = analysis_function(&batch.db_results, BenchmarkSelector::Writes)
+		.context(format!("benchmark '{pallet}::{benchmark}'"))
+		.map_err(|e| sc_cli::Error::Application(e.into()))?;
 	let recorded_proof_size =
-		pov_analysis_function(&batch.db_results, BenchmarkSelector::ProofSize, &benchmark)
-			.expect("analysis function should return proof sizes for valid inputs");
+		pov_analysis_function(&batch.db_results, BenchmarkSelector::ProofSize)
+			.context(format!("benchmark '{pallet}::{benchmark}'"))
+			.map_err(|e| sc_cli::Error::Application(e.into()))?;
 
 	// Analysis data may include components that are not used, this filters out anything whose value
 	// is zero.
@@ -358,7 +362,7 @@ fn get_benchmark_data(
 		.map(|c| c.clone())
 		.unwrap_or_default();
 
-	BenchmarkData {
+	Ok(BenchmarkData {
 		name: benchmark,
 		components,
 		base_weight: extrinsic_time.base,
@@ -374,7 +378,7 @@ fn get_benchmark_data(
 		component_ranges,
 		comments,
 		min_execution_time: extrinsic_time.minimum,
-	}
+	})
 }
 
 /// Create weight file from benchmark data and Handlebars template.

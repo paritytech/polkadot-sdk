@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 Inflector = { workspace = true }
+anyhow = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 chrono = { workspace = true }
 clap = { features = ["derive"], workspace = true }
