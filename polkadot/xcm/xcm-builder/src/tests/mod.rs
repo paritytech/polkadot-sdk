@@ -29,6 +29,7 @@ use mock::*;
 mod aliases;
 mod assets;
 mod barriers;
+mod dap;
 mod basic;
 mod bridging;
 mod expecting;
