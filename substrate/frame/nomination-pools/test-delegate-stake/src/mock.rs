@@ -91,6 +91,19 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
+}
+
+/// A simple EraPayout implementation for testing that returns fixed values.
+pub struct TestEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		EraPayout::get()
+	}
 }
 
 /// A mock RcClientInterface for tests that don't need actual session/validator set management.
@@ -112,8 +125,8 @@ impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = ();
-	type DisableMinting = ConstBool<true>;
+	type EraPayout = TestEraPayout;
+	type DisableMinting = ConstBool<false>;
 	type BondingDuration = BondingDuration;
 	type GeneralPots = pallet_staking_async::SequentialTest;
 	type EraPots = pallet_staking_async::SequentialTest;

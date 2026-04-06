@@ -267,6 +267,7 @@ parameter_types! {
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	// alias for 16, which is the max nominations per nominator in the runtime.
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
 }
 
@@ -277,7 +278,7 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-	type RewardRemainder = ();
+	type RewardRemainder = Dap;
 	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
@@ -298,7 +299,7 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
-	type MaxEraDuration = ();
+	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = ConstBool<true>;
 	type UnclaimedRewardHandler = Dap;
 	type GeneralPots = pallet_staking_async::Seed<StakingPotsPalletId>;

@@ -114,6 +114,20 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+parameter_types! {
+	pub static RewardRemainderUnbalanced: u128 = 0;
+}
+pub struct RewardRemainderMock;
+impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
+	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
+		use frame_support::traits::tokens::imbalance::Imbalance;
+		RewardRemainderUnbalanced::mutate(|v| {
+			*v += amount.peek();
+		});
+		drop(amount);
+	}
+}
+
 pub(crate) const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
@@ -399,7 +413,6 @@ ord_parameter_types! {
 }
 
 parameter_types! {
-	pub static RewardRemainderUnbalanced: u128 = 0;
 	pub static UseLegacyEraPayout: bool = false;
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
 	pub static MaxEraDuration: u64 = 0;
@@ -415,17 +428,6 @@ impl frame_support::traits::Time for MockTime {
 	type Moment = u64;
 	fn now() -> u64 {
 		session_mock::Timestamp::get()
-	}
-}
-
-pub struct RewardRemainderMock;
-impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
-		use frame_support::traits::tokens::imbalance::Imbalance;
-		RewardRemainderUnbalanced::mutate(|v| {
-			*v += amount.peek();
-		});
-		drop(amount);
 	}
 }
 

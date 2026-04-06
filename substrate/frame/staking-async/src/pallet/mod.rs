@@ -471,7 +471,6 @@ pub mod pallet {
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxEraDuration = ();
-
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
@@ -848,7 +847,7 @@ pub mod pallet {
 	/// Maximum staked rewards, i.e. the percentage of the era inflation that
 	/// is used for stake rewards.
 	///
-	/// /// Only used in legacy minting mode (`DisableMinting = false`).
+	/// Only used in legacy minting mode (`DisableMinting = false`).
 	#[pallet::storage]
 	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
@@ -1416,10 +1415,6 @@ pub mod pallet {
 		TooManyValidators,
 		/// Commission is too low. Must be at least `MinCommission`.
 		CommissionTooLow,
-		/// Commission is higher than the allowed maximum `MaxCommission`.
-		CommissionTooHigh,
-		/// Era has no reward pot but legacy minting is disabled.
-		LegacyMintingDisabled,
 		/// Some bound is not met.
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
@@ -1448,6 +1443,10 @@ pub mod pallet {
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
 		CancelledSlash,
+		/// Commission is higher than the allowed maximum `MaxCommission`.
+		CommissionTooHigh,
+		/// Era has no reward pot but legacy minting is disabled.
+		LegacyMintingDisabled,
 	}
 
 	impl<T: Config> Pallet<T> {
