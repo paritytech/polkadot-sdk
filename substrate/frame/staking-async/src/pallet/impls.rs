@@ -1961,7 +1961,40 @@ impl<T: Config> Pallet<T> {
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::check_slash_health()?;
+		Self::check_reward_mode_consistency()?;
 
+		Ok(())
+	}
+
+	/// Checks consistency of the reward mode configuration and storage.
+	///
+	/// In non-minting mode (`DisableMinting = true`):
+	/// - All eras >= `DisableMintingGuard` within `HistoryDepth` should have reward pots.
+	fn check_reward_mode_consistency() -> Result<(), TryRuntimeError> {
+		if T::DisableMinting::get() {
+			if let Some(guard_era) = DisableMintingGuard::<T>::get() {
+				let active_era = crate::session_rotation::Rotator::<T>::active_era();
+				let history_depth = T::HistoryDepth::get();
+				let oldest = active_era.saturating_sub(history_depth);
+				for era in oldest..active_era {
+					if era >= guard_era {
+						ensure!(
+							crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era),
+							"Era pot missing for guarded era. Rewards cannot be paid."
+						);
+					}
+				}
+			} else {
+				// TODO: convert to `ensure!` once deployed and the first era has been
+				// snapshotted. Before deployment this is expected (guard is set on first
+				// successful DAP snapshot in end_era_dap).
+				log!(
+					warn,
+					"DisableMinting=true but DisableMintingGuard is not set. \
+					 Expected only before the first era boundary after migration."
+				);
+			}
+		}
 		Ok(())
 	}
 
