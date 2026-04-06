@@ -467,7 +467,11 @@ impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
-	type BudgetRecipients = (Dap, StakerRewardRecipient<SequentialTest>);
+	type BudgetRecipients = (
+		Dap,
+		StakerRewardRecipient<SequentialTest>,
+		ValidatorIncentiveRecipient<SequentialTest>,
+	);
 	type Time = MockTime;
 	type IssuanceCadence = TestIssuanceCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
@@ -484,6 +488,14 @@ impl IssuanceCurve<Balance> for OneTokenPerMillisecond {
 
 pub(crate) fn staker_reward_key() -> sp_staking::budget::BudgetKey {
 	<StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
+	<ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub fn general_incentive_pot() -> AccountId {
+	SequentialTest::general_pot_account(GeneralPotType::ValidatorIncentive)
 }
 
 pub(crate) fn buffer_key() -> sp_staking::budget::BudgetKey {
@@ -808,6 +820,11 @@ impl ExtBuilder {
 					ed,
 				)
 				.expect("mint general staker pot");
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+					&general_incentive_pot(),
+					ed,
+				)
+				.expect("mint general incentive pot");
 				let dap_buffer =
 					<pallet_dap::Pallet<Test> as BudgetRecipient<AccountId>>::pot_account();
 				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(

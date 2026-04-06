@@ -48,6 +48,7 @@ mod nominators_no_slashing;
 mod payout_stakers;
 mod slashing;
 mod try_state;
+mod validator_incentive;
 
 #[test]
 fn basic_setup_session_queuing_should_work() {
