@@ -447,6 +447,10 @@ pub use pallet_core_fellowship;
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;
 
+/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
+#[cfg(feature = "pallet-dap-satellite")]
+pub use pallet_dap_satellite;
+
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
 pub use pallet_delegated_staking;
@@ -782,6 +786,10 @@ pub use pallet_verify_signature;
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
+
+/// Vesting precompile exposing pallet-vesting to EVM contracts via pallet-revive.
+#[cfg(feature = "pallet-vesting-precompiles")]
+pub use pallet_vesting_precompiles;
 
 /// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]

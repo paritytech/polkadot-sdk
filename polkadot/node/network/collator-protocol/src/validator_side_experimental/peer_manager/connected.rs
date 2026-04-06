@@ -18,7 +18,7 @@ use crate::validator_side_experimental::{
 	common::{PeerInfo, PeerState, Score},
 	peer_manager::{DeclarationOutcome, ReputationUpdate, ReputationUpdateKind, TryAcceptOutcome},
 };
-use polkadot_node_network_protocol::PeerId;
+use polkadot_node_network_protocol::{peer_set::CollationVersion, PeerId};
 use polkadot_primitives::Id as ParaId;
 use std::{
 	cmp::Ordering,
@@ -206,6 +206,12 @@ impl ConnectedPeers {
 
 	fn contains(&self, peer_id: &PeerId) -> bool {
 		self.peer_info.contains_key(peer_id)
+	}
+
+	/// Get the negotiated collation version.
+	/// Returns None if the peer is not connected.
+	pub fn get_version(&self, peer_id: &PeerId) -> Option<CollationVersion> {
+		self.peer_info.get(peer_id).map(|peer_info| peer_info.version)
 	}
 }
 

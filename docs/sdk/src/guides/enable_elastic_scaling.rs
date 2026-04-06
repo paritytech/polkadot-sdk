@@ -111,8 +111,8 @@
 //!
 //!     /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 //!     /// into the relay chain.
-//!     const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) *
-//! BLOCK_PROCESSING_VELOCITY + 1;
+//!     const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) *
+//! BLOCK_PROCESSING_VELOCITY;
 //!
 //!     /// Relay chain slot duration, in milliseconds.
 //!     const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
@@ -133,9 +133,13 @@
 //! ```ignore
 //! impl pallet_aura::Config for Runtime {
 //!     // ...
+//!     type AllowMultipleBlocksPerSlot = ConstBool<true>;
 //!     type SlotDuration = ConstU64<SLOT_DURATION>;
 //! }
 //! ```
+//!
+//! `AllowMultipleBlocksPerSlot` must be set to `true` for elastic scaling, as multiple parachain
+//! blocks are authored within the same slot.
 //!
 //! The slot duration determines the length of each author's turn and is decoupled from the block
 //! production interval. During their slot, authors are allowed to produce multiple blocks. **The
