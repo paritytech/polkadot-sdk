@@ -3066,7 +3066,6 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 	// the relay parent session check.
 	async fn mock_v3_pre_checks(
 		ctx_handle: &mut TestSubsystemContextHandle<AllMessages>,
-		_scheduling_parent: Hash,
 		session: SessionIndex,
 	) {
 		// Scheduling session check: SessionIndexForChild at scheduling_parent.
@@ -3108,7 +3107,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 		);
 
 		let test_fut = async move {
-			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			mock_v3_pre_checks(&mut ctx_handle, 1).await;
 			// AncestorRelayParentInfo: relay parent NOT found.
 			assert_matches!(
 				ctx_handle.recv().await,
@@ -3161,7 +3160,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 		);
 
 		let test_fut = async move {
-			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			mock_v3_pre_checks(&mut ctx_handle, 1).await;
 			// AncestorRelayParentInfo: not supported → skipped.
 			assert_matches!(
 				ctx_handle.recv().await,
@@ -3223,7 +3222,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 		);
 
 		let test_fut = async move {
-			mock_v3_pre_checks(&mut ctx_handle, scheduling_parent, 1).await;
+			mock_v3_pre_checks(&mut ctx_handle, 1).await;
 			// AncestorRelayParentInfo: found.
 			assert_matches!(
 				ctx_handle.recv().await,
