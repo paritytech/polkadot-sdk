@@ -814,13 +814,13 @@ impl<T: Config> Rotator<T> {
 		let era_duration = if cap == 0 || era_duration <= cap {
 			era_duration
 		} else {
-			Pallet::<T>::deposit_event(Event::Unexpected(
-				UnexpectedKind::EraDurationBoundExceeded,
-			));
+			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
 			log!(
 				warn,
 				"capping era duration for era {:?} from {:?} to max {:?}",
-				ending_era.index, era_duration, cap
+				ending_era.index,
+				era_duration,
+				cap
 			);
 			cap
 		};
@@ -831,8 +831,7 @@ impl<T: Config> Rotator<T> {
 			T::EraPayout::era_payout(staked, issuance, era_duration);
 
 		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards =
-			MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
 
 		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
 		let remainder = total_payout.saturating_sub(validator_payout);
@@ -849,8 +848,7 @@ impl<T: Config> Rotator<T> {
 
 	/// DAP end-era: snapshot from general reward pot into era-specific pot.
 	fn end_era_dap(ending_era: &ActiveEraInfo) {
-		let staker_rewards =
-			reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
 		if staker_rewards.is_zero() {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);

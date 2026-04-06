@@ -20,9 +20,9 @@
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
 	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
-	LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;

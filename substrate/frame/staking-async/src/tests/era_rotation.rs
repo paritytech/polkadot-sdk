@@ -500,7 +500,6 @@ mod inflation {
 			assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
 		})
 	}
-
 }
 
 #[test]
