@@ -7,6 +7,7 @@ description = "Simple runtime used by the testing parachain(s)"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
+publish = false
 
 [lints]
 workspace = true

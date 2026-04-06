@@ -7,6 +7,7 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
+publish = false
 
 [dependencies]
 array-bytes = { workspace = true }
