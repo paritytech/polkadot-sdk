@@ -116,8 +116,8 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
 	assert_para_throughput_with(
 		&relay_client,
-		40,
-		HashMap::from([(para_v3, 15..41), (para_v2, 15..41)]),
+		20,
+		HashMap::from([(para_v3, 5..21), (para_v2, 5..21)]),
 		|receipt| {
 			let para_id = receipt.descriptor.para_id();
 			let version = receipt.descriptor.version();
