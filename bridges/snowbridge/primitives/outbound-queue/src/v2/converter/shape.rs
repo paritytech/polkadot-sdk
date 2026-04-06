@@ -11,18 +11,38 @@ use super::syntax::{
 	ena_asset_matches_snowbridge_shape, parse_optional_ena_pna, parse_remote_fee_section,
 };
 
+/// Top-level instructions that mutate or assert on the Origin register, other than the allowed
+/// single [`Instruction::AliasOrigin`] in the v2 export slot.
+fn disallowed_snowbridge_v2_top_level_origin_instruction<Call>(inst: &Instruction<Call>) -> bool {
+	matches!(
+		inst,
+		Instruction::ClearOrigin |
+			Instruction::DescendOrigin(_) |
+			Instruction::UniversalOrigin(_) |
+			Instruction::ExpectOrigin(_) |
+			Instruction::UnpaidExecution { .. } |
+			Instruction::ExecuteWithOrigin { .. }
+	)
+}
+
 /// Returns `Ok(())` if `instructions` follows the Snowbridge v2 outbound syntax documented on
 /// [`super::convert::XcmConverter::convert`].
 ///
 /// This mirrors the converter’s instruction order and core checks (fees, reserves, origin,
 /// beneficiary, optional `Transact` (or `ClearError` when `Transact` was replaced for export
-/// simulation), `SetTopic`, no trailing instructions). PNA token registration
-/// against [`snowbridge_core::TokenIdOf`] / asset-id mapping is still enforced only in
-/// [`super::convert::XcmConverter::convert`].
+/// simulation), `SetTopic`, no trailing instructions). At top level, only [`AliasOrigin`] may
+/// affect the Origin register (no [`Instruction::DescendOrigin`], [`Instruction::ClearOrigin`],
+/// etc.).
 pub fn snowbridge_v2_outbound_xcm_shape<Call>(
 	instructions: &[Instruction<Call>],
 	ethereum_network: NetworkId,
 ) -> Result<(), ProcessMessageError> {
+	for inst in instructions.iter() {
+		if disallowed_snowbridge_v2_top_level_origin_instruction(inst) {
+			return Err(ProcessMessageError::BadFormat);
+		}
+	}
+
 	let mut i = 0;
 
 	let (consumed, _) =
