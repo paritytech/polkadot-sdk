@@ -127,7 +127,7 @@
 
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
   test-filter: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
