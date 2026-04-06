@@ -414,8 +414,7 @@ fn multiple_validators_share_incentive_pot_correctly() {
 
 		let alice_expected =
 			Perbill::from_rational(alice_weight, total_weight).mul_floor(pot_snapshot);
-		let bob_expected =
-			Perbill::from_rational(bob_weight, total_weight).mul_floor(pot_snapshot);
+		let bob_expected = Perbill::from_rational(bob_weight, total_weight).mul_floor(pot_snapshot);
 
 		// WHEN: both validators claim.
 		make_all_reward_payment(2);
@@ -446,8 +445,7 @@ fn validator_incentive_prorated_across_pages() {
 		let validator_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		let total_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 		let pot = ErasValidatorIncentiveBudget::<Test>::get(2);
-		let expected_total =
-			Perbill::from_rational(validator_weight, total_weight).mul_floor(pot);
+		let expected_total = Perbill::from_rational(validator_weight, total_weight).mul_floor(pot);
 
 		// WHEN: all pages paid out.
 		make_all_reward_payment(2);
@@ -459,7 +457,9 @@ fn validator_incentive_prorated_across_pages() {
 			.filter_map(|e| match e {
 				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
 					if *validator_stash == alice =>
-					Some(*amount),
+				{
+					Some(*amount)
+				},
 				_ => None,
 			})
 			.sum();
