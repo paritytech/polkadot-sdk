@@ -40,7 +40,7 @@ use std::{
 		atomic::{AtomicU32, Ordering},
 	},
 };
-use subxt::{OnlineClient, blocks::ExtrinsicDetails};
+use subxt::{OnlineClient, blocks::ExtrinsicDetails, events::StaticEvent};
 
 type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
@@ -162,6 +162,63 @@ impl ReceiptExtractor {
 		(val != u32::MAX).then_some(val)
 	}
 
+	/// Extract revert status and logs from block events in a single pass.
+	///
+	/// Events are stored sequentially without size markers, so a single
+	/// undecodable event (e.g. from a runtime upgrade that shifted variant
+	/// indices) corrupts the offset for all subsequent events. We log and
+	/// skip decode errors to avoid losing the entire receipt.
+	fn extract_revert_status_and_logs(
+		events: &subxt::blocks::ExtrinsicEvents<SrcChainConfig>,
+		block_number: U256,
+		transaction_hash: H256,
+		transaction_index: usize,
+		eth_block_hash: H256,
+	) -> (bool, Vec<Log>) {
+		let mut success = true;
+		let mut logs = Vec::new();
+
+		for event_details in events.iter().filter_map(|ev| {
+			ev.inspect_err(|err| {
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to decode event in block {block_number}: {err:?}"
+				);
+			})
+			.ok()
+		}) {
+			// Both EthExtrinsicRevert and ContractEmitted belong to pallet Revive.
+			if event_details.pallet_name() != ContractEmitted::PALLET {
+				continue;
+			}
+
+			if event_details.variant_name() == EthExtrinsicRevert::EVENT {
+				success = false;
+			} else if event_details.variant_name() == ContractEmitted::EVENT {
+				if let Some(event) = event_details.as_event::<ContractEmitted>().ok().flatten() {
+					logs.push(Log {
+						address: event.contract,
+						topics: event.topics,
+						data: Some(event.data.into()),
+						block_number,
+						transaction_hash,
+						transaction_index: transaction_index.into(),
+						block_hash: eth_block_hash,
+						log_index: event_details.index().into(),
+						..Default::default()
+					});
+				} else {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to decode ContractEmitted event in block {block_number}, log dropped from receipt"
+					);
+				}
+			}
+		}
+
+		(success, logs)
+	}
+
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
@@ -172,14 +229,16 @@ impl ReceiptExtractor {
 		receipt_gas_info: ReceiptGasInfo,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let events = ext.events().await?;
 		let block_number: U256 = substrate_block.number().into();
-
-		let success = !events
-			.iter()
-			.any(|ev| ev.ok().and_then(|e| e.as_event::<EthExtrinsicRevert>().ok()?).is_some());
-
 		let transaction_hash = H256(keccak_256(&call.payload));
+
+		let (success, logs) = Self::extract_revert_status_and_logs(
+			&ext.events().await?,
+			block_number,
+			transaction_hash,
+			transaction_index,
+			eth_block_hash,
+		);
 
 		let signed_tx =
 			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
@@ -193,27 +252,6 @@ impl ReceiptExtractor {
 			receipt_gas_info.effective_gas_price,
 			Some(from),
 		);
-
-		// get logs from ContractEmitted event
-		let logs = events
-			.iter()
-			.filter_map(|event_details| {
-				let event_details = event_details.ok()?;
-				let event = event_details.as_event::<ContractEmitted>().ok()??;
-
-				Some(Log {
-					address: event.contract,
-					topics: event.topics,
-					data: Some(event.data.into()),
-					block_number,
-					transaction_hash,
-					transaction_index: transaction_index.into(),
-					block_hash: eth_block_hash,
-					log_index: event_details.index().into(),
-					..Default::default()
-				})
-			})
-			.collect();
 
 		let contract_address = if tx_info.to.is_none() {
 			Some(create1(
