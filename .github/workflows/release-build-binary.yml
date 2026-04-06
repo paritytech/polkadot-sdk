@@ -29,9 +29,6 @@ on:
         description: "Features to enable when building the binary (must be a list of comma-separated features)"
 
 jobs:
-
-  preflight:
-    uses: ./.github/workflows/reusable-preflight.yml
   setup:
     # GitHub Actions allows using 'env' in a container context.
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
@@ -99,8 +96,8 @@ jobs:
           path: /artifacts/**
 
   build-docker-image:
-    needs: [preflight, build-binary]
-    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
+    needs: [build-binary]
+    runs-on: parity-default
     timeout-minutes: 60
     steps:
       - name: Checkout
