@@ -227,7 +227,7 @@ impl ShouldExecute for EthereumExportSimulationBarrier {
 		if snowbridge_v2_instructions_contain_alias_origin(instructions) {
 			snowbridge_v2_outbound_xcm_shape(instructions, EthereumNetwork::get())
 		} else {
-			Ok(())
+			Err(ProcessMessageError::Unsupported)
 		}
 	}
 }
