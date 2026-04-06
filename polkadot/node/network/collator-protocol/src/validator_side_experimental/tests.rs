@@ -3800,6 +3800,211 @@ async fn core_assignment_uses_ancestor_not_leaf() {
 	assert!(db.witnessed_slash().is_none());
 }
 
+// Regression test for https://github.com/paritytech/polkadot-sdk/issues/11556
+// Ensure that after a core rotation, candidates for both the old core's para (at the pre-rotation
+// leaf) and the new core's para (at the post-rotation leaf) are accepted.
+#[tokio::test]
+async fn core_rotation_accepts_candidates_for_both_cores() {
+	let mut test_state = TestState::default();
+
+	// With group_rotation_frequency=1, session_start=0, group=0, cores=3 the
+	// core_for_group formula: idx = (group + cores - rotations % cores) % cores gives:
+	//   block 8: now=9,  rotations=9,  9%3=0 → core = (0+3-0)%3 = 0
+	//   block 9: now=10, rotations=10, 10%3=1 → core = (0+3-1)%3 = 2
+	//   block 10: now=11, rotations=11, 11%3=2 → core = (0+3-2)%3 = 1
+	// So leaf 9 is on core 2 and leaf 10 is on core 1.
+	let core_at_9 = CoreIndex(2);
+	let core_at_10 = CoreIndex(1);
+
+	let para_a: ParaId = 100.into();
+	let para_b: ParaId = 600.into();
+
+	test_state
+		.session_info
+		.get_mut(&1)
+		.unwrap()
+		.group_rotation_info
+		.group_rotation_frequency = 1;
+
+	// Set up claim queues (length 3, matching scheduling_lookahead) so that:
+	//   - At leaf 9 (core 2): CQ[2] = [para_a, para_a, para_a]
+	//   - At leaf 10 (core 1): CQ[1] = [para_b, para_b, para_b]
+	test_state.rp_info.clear();
+
+	test_state.rp_info.insert(
+		get_hash(8),
+		RelayParentInfo {
+			number: 8,
+			parent: get_parent_hash(8),
+			session_index: 1,
+			claim_queue: BTreeMap::from([
+				(CoreIndex(0), vec![para_a, para_a, para_a]),
+				(CoreIndex(1), vec![para_b, para_b, para_b]),
+				(CoreIndex(2), vec![para_a, para_a, para_a]),
+			]),
+			assigned_core: CoreIndex(0),
+		},
+	);
+
+	test_state.rp_info.insert(
+		get_hash(9),
+		RelayParentInfo {
+			number: 9,
+			parent: get_parent_hash(9),
+			session_index: 1,
+			claim_queue: BTreeMap::from([
+				(CoreIndex(0), vec![para_a, para_a, para_a]),
+				(CoreIndex(1), vec![para_b, para_b, para_b]),
+				(CoreIndex(2), vec![para_a, para_a, para_a]),
+			]),
+			assigned_core: core_at_9,
+		},
+	);
+
+	test_state.rp_info.insert(
+		get_hash(10),
+		RelayParentInfo {
+			number: 10,
+			parent: get_parent_hash(10),
+			session_index: 1,
+			claim_queue: BTreeMap::from([
+				(CoreIndex(0), vec![para_a, para_a, para_a]),
+				(CoreIndex(1), vec![para_b, para_b, para_b]),
+				(CoreIndex(2), vec![para_a, para_a, para_a]),
+			]),
+			assigned_core: core_at_10,
+		},
+	);
+
+	// Start at leaf 9 (core 2, CQ = [para_a])
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, get_hash(9)).await;
+	let mut sender = test_state.sender.clone();
+
+	// Connect peer_a and declare for para_a (available on core 2 at leaf 9)
+	let peer_a = peer_id(1);
+	state.handle_peer_connected(&mut sender, peer_a, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_a, para_a).await;
+	test_state.assert_no_messages().await;
+
+	// Advertise a candidate for para_a at scheduling_parent=9 (core 2)
+	let (ccr_a, adv_a) = dummy_candidate(
+		get_hash(9),
+		para_a,
+		peer_a,
+		core_at_9,
+		1,
+		dummy_pvd().hash(),
+	);
+
+	test_state.handle_advertisement(&mut state, adv_a).await;
+	assert_eq!(state.advertisements(), [adv_a].into());
+
+	// Activate leaf 10 (rotation to core 1, CQ = [para_b])
+	test_state.activate_leaf(&mut state, 10).await;
+
+	// Now para_b (600) becomes part of the assignments. Connect peer_b and declare for para_b.
+	let peer_b = peer_id(2);
+	state.handle_peer_connected(&mut sender, peer_b, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_b, para_b).await;
+	test_state.assert_no_messages().await;
+
+	// Advertise a candidate for para_b at scheduling_parent=10 (core 1)
+	let (ccr_b, adv_b) = dummy_candidate(
+		get_hash(10),
+		para_b,
+		peer_b,
+		core_at_10,
+		1,
+		dummy_pvd().hash(),
+	);
+
+	test_state.handle_advertisement(&mut state, adv_b).await;
+	assert_eq!(state.advertisements(), [adv_a, adv_b].into());
+
+	// Launch fetch requests - both should be fetched
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_requests([adv_a, adv_b].into()).await;
+
+	// Fetch and second both collations
+	test_state
+		.handle_fetched_collation(
+			&mut state,
+			adv_a,
+			ccr_a.to_plain(),
+			None,
+			adv_a.scheduling_parent,
+		)
+		.await;
+	test_state
+		.second_collation(&mut state, peer_a, CollationVersion::V2, ccr_a, get_hash(9))
+		.await;
+
+	test_state
+		.handle_fetched_collation(
+			&mut state,
+			adv_b,
+			ccr_b.to_plain(),
+			None,
+			adv_b.scheduling_parent,
+		)
+		.await;
+	test_state
+		.second_collation(&mut state, peer_b, CollationVersion::V2, ccr_b, get_hash(10))
+		.await;
+
+	test_state.assert_no_messages().await;
+
+	// After rotation (leaf 10 active), advertise another candidate for para_a at the old
+	// scheduling_parent=9 (core 2) from the same peer. This should still be accepted because
+	// the old core's claim queue slots were not overwritten by the rotation.
+	let pvd_a2 = PersistedValidationData {
+		parent_head: HeadData(vec![1, 2, 3]),
+		..dummy_pvd()
+	};
+	let ccr_a2 = {
+		let mut ccr = dummy_committed_candidate_receipt_v2(get_hash(9));
+		ccr.descriptor.set_para_id(para_a);
+		ccr.descriptor.set_persisted_validation_data_hash(pvd_a2.hash());
+		ccr.descriptor.set_core_index(core_at_9);
+		ccr.descriptor.set_session_index(1);
+		ccr
+	};
+	let receipt_a2 = ccr_a2.to_plain();
+	let adv_a2 = Advertisement {
+		peer_id: peer_a,
+		para_id: para_a,
+		scheduling_parent: get_hash(9),
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: receipt_a2.hash(),
+			parent_head_data_hash: pvd_a2.parent_head.hash(),
+		}),
+		advertised_descriptor_version: None,
+		core_index: core_at_9,
+	};
+
+	test_state.handle_advertisement(&mut state, adv_a2).await;
+	assert_eq!(state.advertisements(), [adv_a2].into());
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv_a2).await;
+
+	test_state
+		.handle_fetched_collation(
+			&mut state,
+			adv_a2,
+			receipt_a2,
+			Some(pvd_a2),
+			adv_a2.scheduling_parent,
+		)
+		.await;
+	test_state
+		.second_collation(&mut state, peer_a, CollationVersion::V2, ccr_a2, get_hash(9))
+		.await;
+
+	test_state.assert_no_messages().await;
+}
+
 // Launching new collations:
 // - multiple candidates per relay parent (including from implicit view and which occupy future
 //   claims, including which will make claims across different leaves)
