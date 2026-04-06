@@ -90,7 +90,9 @@ mod benchmarks {
 					Box::new(proposal.clone()),
 					MAX_BYTES,
 				)?;
-				let hash = T::Hashing::hash_of(&proposal);
+				let hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+					proposal.clone(),
+				));
 				// Vote on the proposal to increase state relevant for `set_members`.
 				// Not voting for last old member because they proposed and not voting for the first
 				// member to keep the proposal from passing.
@@ -157,7 +159,8 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(caller), Box::new(proposal.clone()), bytes_in_storage);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash =
+			T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(proposal.clone()));
 		// Note that execution fails due to mis-matched origin
 		assert_last_event::<T, I>(Event::MemberExecuted { proposal_hash, result: Ok(()) }.into());
 		Ok(())
@@ -200,7 +203,8 @@ mod benchmarks {
 			bytes_in_storage,
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash =
+			T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(proposal.clone()));
 		// Note that execution fails due to mis-matched origin
 		assert_last_event::<T, I>(Event::Executed { proposal_hash, result: Ok(()) }.into());
 		Ok(())
@@ -261,7 +265,8 @@ mod benchmarks {
 
 		// New proposal is recorded
 		assert_eq!(Proposals::<T, I>::get().len(), p as usize);
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash =
+			T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(proposal.clone()));
 		assert_last_event::<T, I>(
 			Event::Proposed { account: caller, proposal_index: p - 1, proposal_hash, threshold }
 				.into(),
@@ -309,7 +314,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		let index = p - 1;
@@ -395,7 +402,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		let index = p - 1;
@@ -483,7 +492,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		// Caller switches vote to nay on their own proposal, allowing them to be the deciding
@@ -578,7 +589,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		let index = p - 1;
@@ -666,7 +679,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		// The prime member votes aye, so abstentions default to aye.
@@ -742,7 +757,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -801,7 +818,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -865,7 +884,9 @@ mod benchmarks {
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
-			last_hash = T::Hashing::hash_of(&proposal);
+			last_hash = T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(
+				proposal.clone(),
+			));
 		}
 
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());

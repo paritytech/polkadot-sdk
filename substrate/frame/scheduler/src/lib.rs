@@ -473,7 +473,7 @@ pub mod pallet {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 
 			// Create versioned call first, then bound it
-			let bounded_call = Self::create_versioned_call(*call);
+			let bounded_call = Self::create_versioned_call(*call)?;
 
 			Self::do_schedule(
 				DispatchTime::At(when),
@@ -511,7 +511,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let bounded_call = Self::create_versioned_call(*call);
+			let bounded_call = Self::create_versioned_call(*call)?;
 			Self::do_schedule_named(
 				id,
 				DispatchTime::At(when),
@@ -545,7 +545,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let bounded_call = Self::create_versioned_call(*call);
+			let bounded_call = Self::create_versioned_call(*call)?;
 			Self::do_schedule(
 				DispatchTime::After(after),
 				maybe_periodic,
@@ -569,7 +569,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let bounded_call = Self::create_versioned_call(*call);
+			let bounded_call = Self::create_versioned_call(*call)?;
 			Self::do_schedule_named(
 				id,
 				DispatchTime::After(after),
@@ -731,8 +731,8 @@ impl<T: Config> Pallet<T> {
 								weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 							}
 
-							// Create VersionedCall and bound it
-							let bounded_call = Self::create_versioned_call(schedule.call);
+							// Create VersionedCall and bound it; drop if call is too large.
+							let bounded_call = Self::create_versioned_call(schedule.call).ok()?;
 
 							Some(Scheduled {
 								maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
@@ -795,7 +795,7 @@ impl<T: Config> Pallet<T> {
 							}
 
 							// Create bounded call with VersionedCall wrapper
-							let bounded_call = Self::create_versioned_call(schedule.call);
+							let bounded_call = Self::create_versioned_call(schedule.call).ok()?;
 
 							Some(Scheduled {
 								maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
@@ -891,8 +891,12 @@ impl<T: Config> Pallet<T> {
 										}
 									},
 									MaybeHashed::Value(v) => {
-										// Create bounded call with VersionedCall wrapper
-										Self::create_versioned_call(v)
+										// Create bounded call with VersionedCall wrapper; drop if
+										// the call is too large to be stored inline.
+										match Self::create_versioned_call(v) {
+											Ok(b) => b,
+											Err(_) => return None,
+										}
 									},
 								};
 
@@ -1036,10 +1040,12 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn create_versioned_call(call: <T as Config>::RuntimeCall) -> BoundedCallOf<T> {
+	fn create_versioned_call(
+		call: <T as Config>::RuntimeCall,
+	) -> Result<BoundedCallOf<T>, DispatchError> {
 		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
 		let versioned_call = VersionedCall::new(call, current_version);
-		T::Preimages::bound(versioned_call).expect("Failed to bound versioned call")
+		T::Preimages::bound(versioned_call).map_err(|_| DispatchError::Exhausted)
 	}
 
 	fn do_schedule(
@@ -1242,8 +1248,15 @@ impl<T: Config> Pallet<T> {
 		match T::Preimages::peek::<<T as pallet::Config>::RuntimeCall>(&bounded) {
 			Ok((call, _)) => {
 				let versioned_call = VersionedCall::new(call, current_version);
-				let new_bounded = T::Preimages::bound(versioned_call)
-					.expect("Failed to bound versioned call during migration");
+				let new_bounded =
+					match T::Preimages::bound(versioned_call) {
+						Ok(b) => b,
+						Err(_) => {
+							log::error!("Dropping scheduled entry: call is too large to store after migration");
+							T::Preimages::drop(&bounded);
+							return None;
+						},
+					};
 				// Drop the old preimage now that we've created a versioned replacement.
 				T::Preimages::drop(&bounded);
 				Some(new_bounded)
@@ -1623,7 +1636,7 @@ impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 		call: CallOrHashOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		let call = call.as_value().ok_or(DispatchError::CannotLookup)?;
-		let bounded_call = Self::create_versioned_call(call.clone());
+		let bounded_call = Self::create_versioned_call(call.clone())?;
 		Self::do_schedule(when, maybe_periodic, priority, origin, bounded_call)
 	}
 
@@ -1661,7 +1674,7 @@ impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 	) -> Result<Self::Address, ()> {
 		let call = call.as_value().ok_or(())?;
 		let name = blake2_256(&id[..]);
-		let bounded_call = Self::create_versioned_call(call.clone());
+		let bounded_call = Self::create_versioned_call(call.clone()).map_err(|_| ())?;
 		Self::do_schedule_named(name, when, maybe_periodic, priority, origin, bounded_call)
 			.map_err(|_| ())
 	}
