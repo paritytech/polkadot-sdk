@@ -11,7 +11,7 @@ crates:
   - name: sc-executor-common
     bump: major
   - name: sc-executor-polkavm
-    bump: major
+    bump: minor
   - name: sc-executor-wasmtime
     bump: patch
   - name: pallet-revive
