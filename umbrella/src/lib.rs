@@ -252,6 +252,10 @@ pub use frame_metadata_hash_extension;
 #[cfg(feature = "frame-remote-externalities")]
 pub use frame_remote_externalities;
 
+/// Polkadot Omni Benchmarking CLI.
+#[cfg(feature = "frame-omni-bencher")]
+pub use frame_omni_bencher;
+
 /// Support code for the runtime.
 #[cfg(feature = "frame-support")]
 pub use frame_support;
