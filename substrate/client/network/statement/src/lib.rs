@@ -1213,12 +1213,13 @@ where
 			self.record_initial_sync_completion(pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
-		let mut hashes = self.statement_store.statement_hashes();
-		// Pre-filter hashes the peer already knows to avoid fetching those statements
-		// from the store at all. The topic affinity filter cannot be applied here because
-		// it requires the decoded statement (checked later in process_initial_sync_burst).
-		if let Some(peer_data) = self.peers.get(&peer) {
-			hashes.retain(|h| !peer_data.known_statements.contains(h));
+		let hashes = self.statement_store.statement_hashes();
+		// Clear known statements so that all statements are redelivered when
+		// explicit affinity changes, this is necessary because light nodes change
+		// their affinity without disconnecting, and we want them to receive all matching
+		// statements, so they can deliver them to their active subscriptions.
+		if let Some(peer_data) = self.peers.get_mut(&peer) {
+			peer_data.known_statements.clear();
 		}
 		if !hashes.is_empty() {
 			self.pending_initial_syncs
@@ -3136,14 +3137,10 @@ mod tests {
 			sent_hashes_bb.contains(&hash_bb),
 			"stmt_bb should now be sent after affinity changed to topic_bb"
 		);
-		// stmt_aa and stmt_no_topic are already known — should NOT be re-sent.
+		// Known statements are redelivered on affinity change.
 		assert!(
-			!sent_hashes_bb.contains(&hash_aa),
-			"stmt_aa should NOT be re-sent (already known)"
-		);
-		assert!(
-			!sent_hashes_bb.contains(&hash_no_topic),
-			"stmt_no_topic should NOT be re-sent (already known)"
+			sent_hashes_bb.contains(&hash_no_topic),
+			"stmt_no_topic should be re-sent (known_statements cleared on affinity change)"
 		);
 	}
 
@@ -3275,7 +3272,11 @@ mod tests {
 			sent_hashes.contains(&hash_bb),
 			"stmt_bb should now be sent after affinity expanded to include topic_bb"
 		);
-		assert!(!sent_hashes.contains(&hash_aa), "stmt_aa should NOT be re-sent (already known)");
+		// stmt_aa is also redelivered on affinity change.
+		assert!(
+			sent_hashes.contains(&hash_aa),
+			"stmt_aa should be re-sent (known_statements cleared on affinity change)"
+		);
 	}
 
 	#[test]
@@ -3571,11 +3572,18 @@ mod tests {
 		handler.schedule_initial_sync_for_peer(peer_id);
 
 		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		// all hashes are included for redelivery.
 		assert!(
-			!pending.hashes.contains(&hash1),
-			"Known hash should be pre-filtered from initial sync"
+			pending.hashes.contains(&hash1),
+			"Previously known hash should be included after affinity change"
 		);
 		assert!(pending.hashes.contains(&hash2), "Unknown hash should be included in initial sync");
+		// known_statements should have been cleared.
+		let peer_data = handler.peers.get(&peer_id).unwrap();
+		assert!(
+			!peer_data.known_statements.contains(&hash1),
+			"known_statements should be cleared after schedule_initial_sync_for_peer"
+		);
 	}
 
 	#[tokio::test]
