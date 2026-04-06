@@ -134,7 +134,7 @@ struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, ()>);
 
 impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn read_memory_into(
-		&self,
+		&mut self,
 		address: Pointer<u8>,
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<()> {
@@ -289,7 +289,8 @@ where
 	};
 
 	let module =
-		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
+		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())
+			.map_err(|_| WasmError::InvalidModule)?;
 
 	let mut linker = polkavm::Linker::new();
 
