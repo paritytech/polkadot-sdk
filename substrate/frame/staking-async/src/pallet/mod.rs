@@ -1635,6 +1635,20 @@ pub mod pallet {
 				"MaxPruningItems must be at least 100 for efficient pruning, got: {}",
 				T::MaxPruningItems::get()
 			);
+
+			// If minting is disabled, EraPayout must be a noop to prevent double-minting.
+			if T::DisableMinting::get() {
+				let (v, r) = T::EraPayout::era_payout(
+					BalanceOf::<T>::from(1u64),
+					BalanceOf::<T>::from(1u64),
+					1000u64,
+				);
+				assert!(
+					v.is_zero() && r.is_zero(),
+					"DisableMinting is true but EraPayout returns non-zero. \
+					 Set EraPayout = () when DisableMinting = true."
+				);
+			}
 		}
 
 		#[cfg(feature = "try-runtime")]
