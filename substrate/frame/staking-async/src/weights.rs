@@ -1762,6 +1762,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn set_validator_self_stake_incentive_config() -> Weight {
+		// TODO(ank4n): run bench
 		RocksDbWeight::get().reads_writes(2, 3)
 	}
 	/// Storage: `System::Account` (r:1 w:0)
