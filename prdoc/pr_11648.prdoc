@@ -1,7 +1,17 @@
 title: Handle core rotations in `PerLeafClaimQueue`
 doc:
 - audience: Node Dev
-  description: Fixes https://github.com/paritytech/polkadot-sdk/issues/11556
+  description: |-
+    We only keep the assignment for our core at the particular block (not all cores), but the group
+    is selected based on the scheduling parent. So on a group rotation, the leaf will already be
+    "rotated" - thus storing the assignment of the next core, e.g. [B,B,B]. So we would reject an
+    assignment for para A (old core), while we actually should accept it. The group-core assignment
+    that matters is that of the scheduling parent, not where we will be assigned when the assignment
+    is intended to get backed on chain.
+
+    This PR fixes that by tracking the claim queue for each relevant core in `PerLeafClaimQueueState`.
+
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/11556
 crates:
 - name: polkadot-collator-protocol
   bump: patch
