@@ -389,3 +389,167 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 		});
 	});
 }
+
+// ===== Pot distribution and proration =====
+
+#[test]
+fn multiple_validators_share_incentive_pot_correctly() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let bob = 21; // validator
+
+		// GIVEN: two validators with equal reward points, incentive budget enabled.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let pot_snapshot = ErasValidatorIncentiveBudget::<Test>::get(2);
+		assert!(pot_snapshot > 0);
+
+		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+		let total_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+
+		let alice_expected =
+			Perbill::from_rational(alice_weight, total_weight).mul_floor(pot_snapshot);
+		let bob_expected =
+			Perbill::from_rational(bob_weight, total_weight).mul_floor(pot_snapshot);
+
+		// WHEN: both validators claim.
+		make_all_reward_payment(2);
+
+		// THEN: pot is depleted (within rounding dust).
+		let pot_account =
+			<Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
+		let remaining = Balances::free_balance(&pot_account);
+		let total_claimed = pot_snapshot - remaining;
+		let expected_total = alice_expected + bob_expected;
+		assert!(total_claimed <= expected_total);
+		assert!(expected_total - total_claimed < 5, "Rounding dust too large");
+	});
+}
+
+#[test]
+fn validator_incentive_prorated_across_pages() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		// GIVEN: incentive enabled.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let validator_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		let total_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+		let pot = ErasValidatorIncentiveBudget::<Test>::get(2);
+		let expected_total =
+			Perbill::from_rational(validator_weight, total_weight).mul_floor(pot);
+
+		// WHEN: all pages paid out.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: sum of per-page incentive events equals expected total (within rounding).
+		let total_paid: Balance = events
+			.iter()
+			.filter_map(|e| match e {
+				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+					if *validator_stash == alice =>
+					Some(*amount),
+				_ => None,
+			})
+			.sum();
+		assert!(total_paid <= expected_total);
+		assert!(expected_total - total_paid < 5, "Rounding dust too large");
+	});
+}
+
+// ===== Edge cases =====
+
+#[test]
+fn chilled_validator_can_still_claim_past_era() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		// GIVEN: alice earns weight in era 2.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+		assert!(ErasValidatorIncentiveWeight::<Test>::get(2, alice).is_some());
+
+		// WHEN: alice chills before claiming.
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+		assert!(!Validators::<Test>::contains_key(&alice));
+
+		// THEN: payout for era 2 still works.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+		assert!(
+			incentive_paid_for(alice, &events).is_some(),
+			"Chilled validator should still receive incentive for past era"
+		);
+	});
+}
+
+#[test]
+fn payee_change_before_payout_uses_new_destination() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let old_account = 888;
+		let new_account = 999;
+
+		// GIVEN: payee set to old_account during era 2.
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(old_account)
+		));
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: payee changes to new_account before payout.
+		assert_ok!(Staking::set_payee(
+			RuntimeOrigin::signed(alice),
+			RewardDestination::Account(new_account)
+		));
+		let old_before = asset::total_balance::<Test>(&old_account);
+		let new_before = asset::total_balance::<Test>(&new_account);
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: incentive goes to new_account (payee at payout time).
+		let (incentive, dest) = incentive_paid_details(alice, &events).expect("incentive");
+		assert_eq!(dest, RewardDestination::Account(new_account));
+		assert_eq!(asset::total_balance::<Test>(&old_account), old_before);
+		assert!(asset::total_balance::<Test>(&new_account) - new_before >= incentive);
+	});
+}
+
+#[test]
+fn all_validators_zero_points_no_incentive_paid() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: incentive enabled but no reward points assigned.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// WHEN: payout attempted.
+		make_all_reward_payment(1);
+		let events = staking_events_since_last_call();
+
+		// THEN: no incentive events at all.
+		assert!(
+			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
+			"No incentive when no validators earned reward points"
+		);
+	});
+}
