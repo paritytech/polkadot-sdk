@@ -65,7 +65,9 @@ fn incentive_paid_details(
 	events.iter().find_map(|e| match e {
 		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
 			if *validator_stash == stash =>
-			Some((*amount, *dest)),
+		{
+			Some((*amount, *dest))
+		},
 		_ => None,
 	})
 }
@@ -332,7 +334,8 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			let page1 = bounded_vec![(
 				alice,
 				Exposure {
-					total: 1250, own: 1000,
+					total: 1250,
+					own: 1000,
 					others: vec![IndividualExposure { who: 101, value: 250 }]
 				},
 			)];
@@ -343,7 +346,8 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			let page2 = bounded_vec![(
 				alice,
 				Exposure {
-					total: 250, own: 0,
+					total: 250,
+					own: 0,
 					others: vec![IndividualExposure { who: 102, value: 250 }]
 				},
 			)];
@@ -361,7 +365,8 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			let page1 = bounded_vec![(
 				alice,
 				Exposure {
-					total: 250, own: 0,
+					total: 250,
+					own: 0,
 					others: vec![IndividualExposure { who: 101, value: 250 }]
 				},
 			)];
@@ -371,7 +376,8 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			let page2 = bounded_vec![(
 				alice,
 				Exposure {
-					total: 1250, own: 1000,
+					total: 1250,
+					own: 1000,
 					others: vec![IndividualExposure { who: 102, value: 250 }]
 				},
 			)];

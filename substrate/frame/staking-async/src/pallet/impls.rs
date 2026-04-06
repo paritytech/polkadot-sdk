@@ -38,10 +38,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::Mutate as FunMutate,
-		tokens::Preservation,
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
+		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
+		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -578,7 +576,6 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(BalanceOf<T>, RewardDestination<T::AccountId>)> {
-
 		if amount.is_zero() {
 			return None;
 		}
@@ -759,8 +756,6 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 	}
-
-
 
 	/// Chill a stash account.
 	pub(crate) fn chill_stash(stash: &T::AccountId) {

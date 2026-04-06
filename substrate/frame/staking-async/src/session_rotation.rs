@@ -870,10 +870,7 @@ impl<T: Config> Rotator<T> {
 		}
 
 		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
-		Eras::<T>::set_validator_incentive_budget(
-			ending_era.index,
-			allocation.validator_incentive,
-		);
+		Eras::<T>::set_validator_incentive_budget(ending_era.index, allocation.validator_incentive);
 
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
@@ -1148,7 +1145,8 @@ impl<T: Config> EraElectionPlanner<T> {
 			let own = ErasStakersOverview::<T>::get(new_planned_era, &stash)
 				.map(|o| o.own)
 				.unwrap_or_default();
-			if !own.is_zero() && !ErasValidatorIncentiveWeight::<T>::contains_key(new_planned_era, &stash)
+			if !own.is_zero() &&
+				!ErasValidatorIncentiveWeight::<T>::contains_key(new_planned_era, &stash)
 			{
 				let weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
 				total_validator_weight_page = total_validator_weight_page.saturating_add(weight);
