@@ -26,7 +26,7 @@ use std::{
 macro_rules! bash(
 	( frame-omni-bencher $($a:tt)* ) => {{
 		let bin_path = cargo_bin("frame-omni-bencher");
-		// We use run_fun! but we don't expect it to ALWAYS succeed in tests 
+		// We use run_fun! but we don't expect it to ALWAYS succeed in tests
 		// if the runtime is not compatible with benchmarks.
 		// However, for generate-readme, it works well as it captures the string.
 		cmd_lib::run_fun!(
@@ -36,6 +36,7 @@ macro_rules! bash(
 );
 
 #[docify::export_content]
+#[rustfmt::skip]
 fn cmd_help() -> String {
 	bash!(
 		frame-omni-bencher --help
@@ -43,6 +44,7 @@ fn cmd_help() -> String {
 }
 
 #[docify::export_content]
+#[rustfmt::skip]
 fn cmd_benchmark_pallet(runtime_path: &str) -> String {
 	bash!(
 		frame-omni-bencher v1 benchmark pallet --runtime $runtime_path --pallet "pallet_balances" --extrinsic "*"
@@ -50,9 +52,12 @@ fn cmd_benchmark_pallet(runtime_path: &str) -> String {
 }
 
 #[docify::export_content]
+#[rustfmt::skip]
 fn cmd_benchmark_pallet_with_output(runtime_path: &str) -> String {
 	bash!(
-		frame-omni-bencher v1 benchmark pallet --runtime $runtime_path --pallet "pallet_balances" --extrinsic "*" --output ./weights/ --header ./HEADER.rs --template ./template.hbs
+		frame-omni-bencher v1 benchmark pallet --runtime $runtime_path
+			--pallet "pallet_balances" --extrinsic "*"
+			--output ./weights/ --header ./HEADER.rs --template ./template.hbs
 	)
 }
 
@@ -81,7 +86,15 @@ fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 
 	// Invoke `benchmark overhead` with all options to make sure that they are valid.
 	let status = std::process::Command::new(cargo_bin("frame-omni-bencher"))
-		.args(["v1", "benchmark", "overhead", "--runtime", runtime_path.to_str().unwrap(), "--genesis-builder", "none"])
+		.args([
+			"v1",
+			"benchmark",
+			"overhead",
+			"--runtime",
+			runtime_path.to_str().unwrap(),
+			"--genesis-builder",
+			"none",
+		])
 		.arg("-d")
 		.arg(base_path)
 		.arg("--weight-path")

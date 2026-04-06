@@ -38,5 +38,12 @@ substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
 
 [features]
+default = ["std"]
+std = [
+	"cumulus-primitives-proof-size-hostfunction/std",
+	"sp-runtime/std",
+	"sp-statement-store/std",
+]
 # `cargo build --feature=generate-readme` updates the `README.md` file.
-generate-readme = []
+generate-readme = ["std"]
+runtime-benchmarks = []
