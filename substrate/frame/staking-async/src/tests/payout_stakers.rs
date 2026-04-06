@@ -960,7 +960,19 @@ fn test_multi_page_payout_stakers_by_page() {
 		// With DAP, rewards minted at era finalization, so no change during payout
 		assert_eq!(pallet_balances::TotalIssuance::<T>::get(), pre_payout_total_issuance);
 
-		// Top 64 nominators of validator 11 automatically paid out, including the validator
+		// Verify total nominator rewards: sum of all nominator balance increases should
+		// equal the nominator payout (within rounding tolerance).
+		let total_nominator_reward: Balance = (0..100)
+			.map(|i| {
+				let nom_id = 1000 + i;
+				let initial = balance + i as Balance;
+				asset::stakeable_balance::<T>(&nom_id).saturating_sub(initial)
+			})
+			.sum();
+		let expected_nominator_total = era_reward.saturating_sub(validator_total_reward);
+		// Allow 1 per nominator rounding tolerance.
+		assert_eq_error_rate!(total_nominator_reward, expected_nominator_total, 100);
+
 		assert!(asset::stakeable_balance::<T>(&11) > balance);
 		for i in 0..100 {
 			assert!(asset::stakeable_balance::<T>(&(1000 + i)) > balance + i as Balance);
