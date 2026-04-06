@@ -371,7 +371,7 @@ jobs:
 
           git add -A
           if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: restore clean manifests after publish for $RELEASE_NAME"
+            commit_with_message "Restore clean manifests after crates publish for $RELEASE_NAME"
             echo "Clean manifests committed"
           else
             echo "No changes to restore"
