@@ -86,8 +86,8 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning ErasValidatorIncentive storage
-		ErasValidatorIncentive,
+		/// Pruning ErasValidatorIncentiveWeight storage
+		ErasValidatorIncentiveWeight,
 		/// Pruning single-entry storages
 		SingleEntryCleanups,
 		/// Pruning ValidatorSlashInEra storage
@@ -553,17 +553,17 @@ pub mod pallet {
 
 	/// The total validator incentive budget for the given era, snapshotted at era end.
 	#[pallet::storage]
-	pub type ErasValidatorIncentiveAllocation<T: Config> =
+	pub type ErasValidatorIncentiveBudget<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// The total validator self-stake weight for the era.
 	#[pallet::storage]
-	pub type ErasTotalValidatorWeight<T: Config> =
+	pub type ErasSumValidatorIncentiveWeight<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Individual validator self-stake weight per era.
 	#[pallet::storage]
-	pub type ErasValidatorIncentive<T: Config> = StorageDoubleMap<
+	pub type ErasValidatorIncentiveWeight<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
@@ -1373,13 +1373,6 @@ pub mod pallet {
 			active_era: EraIndex,
 			planned_era: EraIndex,
 		},
-		/// The validator has been paid their self-stake incentive bonus.
-		ValidatorIncentivePaid {
-			era: EraIndex,
-			validator_stash: T::AccountId,
-			dest: RewardDestination<T::AccountId>,
-			amount: BalanceOf<T>,
-		},
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
@@ -1392,6 +1385,13 @@ pub mod pallet {
 		/// An old era with the given index was pruned.
 		EraPruned {
 			index: EraIndex,
+		},
+		/// The validator has been paid their self-stake incentive bonus.
+		ValidatorIncentivePaid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
 		},
 	}
 
@@ -1601,11 +1601,11 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ErasValidatorIncentive);
+					EraPruningState::<T>::insert(era, PruningStep::ErasValidatorIncentiveWeight);
 					T::WeightInfo::prune_era_reward_points()
 				},
-				PruningStep::ErasValidatorIncentive => {
-					let result = ErasValidatorIncentive::<T>::clear_prefix(era, items_limit, None);
+				PruningStep::ErasValidatorIncentiveWeight => {
+					let result = ErasValidatorIncentiveWeight::<T>::clear_prefix(era, items_limit, None);
 					if result.maybe_cursor.is_none() {
 						EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					}
@@ -1614,8 +1614,8 @@ pub mod pallet {
 				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
 					ErasNominatorsSlashable::<T>::remove(era);
-					ErasValidatorIncentiveAllocation::<T>::remove(era);
-					ErasTotalValidatorWeight::<T>::remove(era);
+					ErasValidatorIncentiveBudget::<T>::remove(era);
+					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},

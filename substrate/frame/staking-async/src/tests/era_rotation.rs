@@ -333,7 +333,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			ClaimedRewards,
 			ErasValidatorReward,
 			ErasRewardPoints,
-			ErasValidatorIncentive,
+			ErasValidatorIncentiveWeight,
 			SingleEntryCleanups,
 			ValidatorSlashInEra,
 		];
@@ -418,8 +418,8 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						"{expected_step:?} should be empty after completing step"
 					);
 				},
-				ErasValidatorIncentive => assert_eq!(
-					crate::ErasValidatorIncentive::<T>::iter_prefix_values(1).count(),
+				ErasValidatorIncentiveWeight => assert_eq!(
+					crate::ErasValidatorIncentiveWeight::<T>::iter_prefix_values(1).count(),
 					0,
 					"{expected_step:?} should be empty after completing step"
 				),
@@ -428,10 +428,17 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						!crate::ErasTotalStake::<T>::contains_key(1),
 						"{expected_step:?} should be empty after completing step"
 					);
-					// Also verify ErasNominatorsSlashable is cleaned (piggybacks on this step)
 					assert!(
 						!crate::ErasNominatorsSlashable::<T>::contains_key(1),
 						"ErasNominatorsSlashable should be empty after completing SingleEntryCleanups step"
+					);
+					assert!(
+						!crate::ErasValidatorIncentiveBudget::<T>::contains_key(1),
+						"ErasValidatorIncentiveBudget should be empty after completing SingleEntryCleanups step"
+					);
+					assert!(
+						!crate::ErasSumValidatorIncentiveWeight::<T>::contains_key(1),
+						"ErasSumValidatorIncentiveWeight should be empty after completing SingleEntryCleanups step"
 					);
 				},
 				ValidatorSlashInEra => assert_eq!(

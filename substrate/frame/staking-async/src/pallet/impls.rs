@@ -38,6 +38,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
+		fungible::Mutate as FunMutate,
+		tokens::Preservation,
 		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		OnUnbalanced,
 	},
@@ -426,8 +428,12 @@ impl<T: Config> Pallet<T> {
 			page_stake_part.mul_floor(reward_split.validator_payout);
 
 		// Pay validator incentive bonus from the separate incentive pot.
-		let _validator_incentive_paid =
-			Self::pay_validator_incentive_for_page(era, &stash, page_stake_part);
+		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
+		if let Some(incentive) =
+			Self::calculate_validator_incentive_for_page(era, &stash, page_stake_part)
+		{
+			Self::transfer_validator_incentive(era, &stash, incentive);
+		}
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -572,7 +578,6 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(BalanceOf<T>, RewardDestination<T::AccountId>)> {
-		use frame_support::traits::{fungible::Mutate as FunMutate, tokens::Preservation};
 
 		if amount.is_zero() {
 			return None;
@@ -664,14 +669,14 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		page_stake_part: Perbill,
 	) -> Option<BalanceOf<T>> {
-		let era_incentive_budget = Eras::<T>::get_validator_incentive_allocation(era);
+		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
 		if era_incentive_budget.is_zero() {
 			return None;
 		}
 
 		let (validator_weight, total_weight) = match (
-			ErasValidatorIncentive::<T>::get(era, stash),
-			ErasTotalValidatorWeight::<T>::get(era),
+			ErasValidatorIncentiveWeight::<T>::get(era, stash),
+			ErasSumValidatorIncentiveWeight::<T>::get(era),
 		) {
 			(Some(w), t) => (w, t),
 			_ => return None,
@@ -708,8 +713,6 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> BalanceOf<T> {
-		use frame_support::traits::{fungible::Mutate as FunMutate, tokens::Preservation};
-
 		let (dest, payout_account) = match Self::payee(Stash(stash.clone())) {
 			Some(d) if !matches!(d, RewardDestination::None) => {
 				match Self::payout_account_for_dest(stash, &d) {
@@ -757,17 +760,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Calculate and pay validator incentive for a single page.
-	fn pay_validator_incentive_for_page(
-		era: EraIndex,
-		stash: &T::AccountId,
-		page_stake_part: Perbill,
-	) -> BalanceOf<T> {
-		match Self::calculate_validator_incentive_for_page(era, stash, page_stake_part) {
-			Some(amt) => Self::transfer_validator_incentive(era, stash, amt),
-			None => Zero::zero(),
-		}
-	}
+
 
 	/// Chill a stash account.
 	pub(crate) fn chill_stash(stash: &T::AccountId) {
