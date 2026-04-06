@@ -816,12 +816,8 @@ fn batch_works_with_council_origin() {
 		let proposal = RuntimeCall::Utility(UtilityCall::batch {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
-		// The collective pallet wraps proposals in VersionedCall before storing, so the
-		// length bound and hash must reflect the versioned encoding (4 extra bytes for u32
-		// version).
 		let current_tx_version = System::runtime_version().transaction_version;
 		let versioned = sp_runtime::VersionedCall::new(proposal.clone(), current_tx_version);
-		// VersionedCall prepends a u32 (4 bytes) to the encoded call.
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32) + 4;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&versioned);
@@ -859,12 +855,8 @@ fn force_batch_works_with_council_origin() {
 		let proposal = RuntimeCall::Utility(UtilityCall::force_batch {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
-		// The collective pallet wraps proposals in VersionedCall before storing, so the
-		// length bound and hash must reflect the versioned encoding (4 extra bytes for u32
-		// version).
 		let current_tx_version = System::runtime_version().transaction_version;
 		let versioned = sp_runtime::VersionedCall::new(proposal.clone(), current_tx_version);
-		// VersionedCall prepends a u32 (4 bytes) to the encoded call.
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32) + 4;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&versioned);

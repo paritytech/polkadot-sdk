@@ -508,9 +508,6 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			// This extrinsic only registers approval — it never executes the call.
-			// Always pass the hash so that version validation is never triggered here;
-			// version checks belong at execution time in `as_multi`.
 			Self::operate(
 				who,
 				threshold,
@@ -748,12 +745,6 @@ impl<T: Config> Pallet<T> {
 			if let Some((call, _versioned_call)) =
 				maybe_call_data.filter(|_| approvals >= threshold)
 			{
-				// If a versioned call was stored by an earlier `as_multi` submission,
-				// validate ITS transaction_version against the current runtime. A version
-				// mismatch means the runtime was upgraded since the call was stored and its
-				// semantics may have changed — reject execution. If no call was stored (all
-				// prior approvals were hash-only via `approve_as_multi`), skip this check;
-				// the submitter's call is inherently at the current version.
 				if let Some(stored) = Calls::<T>::get(&id, call_hash) {
 					Self::validate_and_extract_call(&stored)?;
 				}
