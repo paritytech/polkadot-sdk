@@ -271,10 +271,8 @@ impl xcm_executor::Config for EthereumXcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = Everything;
 	type IsTeleporter = ();
-	type Aliasers = AliasOriginRootUsingFilter<
-		AssetHubLocation,
-		EverythingBut<Equals<AssetHubLocation>>,
-	>;
+	type Aliasers =
+		AliasOriginRootUsingFilter<AssetHubLocation, EverythingBut<Equals<AssetHubLocation>>>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = EthereumExportSimulationBarrier;
 	type Weigher = WeightInfoBounds<
@@ -549,7 +547,7 @@ impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
 			(1, [Parachain(para_id), PalletInstance(index)]) => {
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX;
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
 			},
 			_ => false,
 		}
