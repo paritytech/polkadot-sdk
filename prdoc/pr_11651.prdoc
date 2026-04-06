@@ -11,5 +11,7 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: major
-- name: sp-staking
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-ahm-test
   bump: patch
