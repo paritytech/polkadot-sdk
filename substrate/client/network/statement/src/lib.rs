@@ -1213,12 +1213,11 @@ where
 			self.record_initial_sync_completion(pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
-		let mut hashes = self.statement_store.statement_hashes();
-		// Pre-filter hashes the peer already knows to avoid fetching those statements
-		// from the store at all. The topic affinity filter cannot be applied here because
-		// it requires the decoded statement (checked later in process_initial_sync_burst).
-		if let Some(peer_data) = self.peers.get(&peer) {
-			hashes.retain(|h| !peer_data.known_statements.contains(h));
+		let hashes = self.statement_store.statement_hashes();
+		// Clear known statements so that all statements are redelivered when
+		// explicit affinity changes.
+		if let Some(peer_data) = self.peers.get_mut(&peer) {
+			peer_data.known_statements.clear();
 		}
 		if !hashes.is_empty() {
 			self.pending_initial_syncs
