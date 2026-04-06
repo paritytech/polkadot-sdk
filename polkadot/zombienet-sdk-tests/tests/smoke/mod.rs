@@ -8,6 +8,9 @@ mod coretime_revenue;
 mod coretime_smoke;
 
 #[cfg(feature = "zombie-ci")]
+mod downgrade_validators;
+
+#[cfg(feature = "zombie-ci")]
 mod deregister_register_validator;
 
 #[cfg(feature = "zombie-ci")]

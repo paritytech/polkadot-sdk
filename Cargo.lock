@@ -1965,7 +1965,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "regex",
@@ -5175,8 +5175,8 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "tokio",
- "zombienet-configuration",
- "zombienet-sdk",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-sdk 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5202,9 +5202,9 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-statement-store",
  "tokio",
- "zombienet-configuration",
- "zombienet-orchestrator",
- "zombienet-sdk",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-orchestrator 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-sdk 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -17386,8 +17386,8 @@ dependencies = [
  "subxt 0.44.2",
  "tokio",
  "tokio-util",
- "zombienet-orchestrator",
- "zombienet-sdk",
+ "zombienet-orchestrator 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-sdk 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
 ]
 
 [[package]]
@@ -18057,7 +18057,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -21434,8 +21434,8 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber 0.3.19",
- "zombienet-configuration",
- "zombienet-sdk",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-sdk 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -25532,9 +25532,9 @@ dependencies = [
  "subxt 0.44.2",
  "subxt-signer 0.44.2",
  "tokio",
- "zombienet-configuration",
- "zombienet-orchestrator",
- "zombienet-sdk",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-orchestrator 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-sdk 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -26232,7 +26232,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "tokio",
- "zombienet-sdk",
+ "zombienet-sdk 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -29377,7 +29377,27 @@ dependencies = [
  "toml",
  "tracing",
  "url",
- "zombienet-support",
+ "zombienet-support 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "zombienet-configuration"
+version = "0.4.7"
+source = "git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with#8da9c64615e052d851309aaa7edb3daa9c33d855"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "multiaddr 0.18.1",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.65",
+ "tokio",
+ "toml",
+ "tracing",
+ "url",
+ "zombienet-support 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
 ]
 
 [[package]]
@@ -29410,10 +29430,45 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
- "zombienet-configuration",
- "zombienet-prom-metrics-parser",
- "zombienet-provider",
- "zombienet-support",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-prom-metrics-parser 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-provider 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-support 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "zombienet-orchestrator"
+version = "0.4.7"
+source = "git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with#8da9c64615e052d851309aaa7edb3daa9c33d855"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "erased-serde",
+ "fancy-regex",
+ "futures",
+ "glob-match",
+ "hex",
+ "libp2p",
+ "libsecp256k1",
+ "multiaddr 0.18.1",
+ "rand 0.8.5",
+ "regex",
+ "reqwest",
+ "sc-chain-spec 46.0.0",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sp-core 38.1.0",
+ "subxt 0.44.2",
+ "subxt-signer 0.44.2",
+ "thiserror 1.0.65",
+ "tokio",
+ "tracing",
+ "uuid",
+ "zombienet-configuration 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-prom-metrics-parser 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-provider 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-support 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
 ]
 
 [[package]]
@@ -29421,6 +29476,16 @@ name = "zombienet-prom-metrics-parser"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2843a4ddfc71d88eee1e994b5eb33a5e935d4e636ca29f0b699ca5d50823b37b"
+dependencies = [
+ "pest",
+ "pest_derive",
+ "thiserror 1.0.65",
+]
+
+[[package]]
+name = "zombienet-prom-metrics-parser"
+version = "0.4.7"
+source = "git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with#8da9c64615e052d851309aaa7edb3daa9c33d855"
 dependencies = [
  "pest",
  "pest_derive",
@@ -29455,8 +29520,39 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "zombienet-configuration",
- "zombienet-support",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-support 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "zombienet-provider"
+version = "0.4.7"
+source = "git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with#8da9c64615e052d851309aaa7edb3daa9c33d855"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "erased-serde",
+ "flate2",
+ "futures",
+ "hex",
+ "k8s-openapi",
+ "kube",
+ "nix 0.29.0",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.10.9",
+ "tar",
+ "thiserror 1.0.65",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "url",
+ "uuid",
+ "zombienet-configuration 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-support 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
 ]
 
 [[package]]
@@ -29471,10 +29567,27 @@ dependencies = [
  "subxt 0.44.2",
  "subxt-signer 0.44.2",
  "tokio",
- "zombienet-configuration",
- "zombienet-orchestrator",
- "zombienet-provider",
- "zombienet-support",
+ "zombienet-configuration 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-orchestrator 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-provider 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zombienet-support 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "zombienet-sdk"
+version = "0.4.7"
+source = "git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with#8da9c64615e052d851309aaa7edb3daa9c33d855"
+dependencies = [
+ "async-trait",
+ "futures",
+ "lazy_static",
+ "subxt 0.44.2",
+ "subxt-signer 0.44.2",
+ "tokio",
+ "zombienet-configuration 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-orchestrator 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-provider 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
+ "zombienet-support 0.4.7 (git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with)",
 ]
 
 [[package]]
@@ -29482,6 +29595,26 @@ name = "zombienet-support"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83d3aedfad0b6b9e853b82db1b02276c77af50690cfc5692d764ba8c08925558"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "lazy_static",
+ "nix 0.29.0",
+ "rand 0.8.5",
+ "regex",
+ "reqwest",
+ "serde_json",
+ "thiserror 1.0.65",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "zombienet-support"
+version = "0.4.7"
+source = "git+https://github.com/paritytech/zombienet-sdk?branch=tsv-restart-with#8da9c64615e052d851309aaa7edb3daa9c33d855"
 dependencies = [
  "anyhow",
  "async-trait",
