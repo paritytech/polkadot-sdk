@@ -829,13 +829,13 @@ impl<T: Config> Rotator<T> {
 		let era_duration = if cap == 0 || era_duration <= cap {
 			era_duration
 		} else {
-			Pallet::<T>::deposit_event(Event::Unexpected(
-				UnexpectedKind::EraDurationBoundExceeded,
-			));
+			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
 			log!(
 				warn,
 				"capping era duration for era {:?} from {:?} to max {:?}",
-				ending_era.index, era_duration, cap
+				ending_era.index,
+				era_duration,
+				cap
 			);
 			cap
 		};
@@ -846,8 +846,7 @@ impl<T: Config> Rotator<T> {
 			T::EraPayout::era_payout(staked, issuance, era_duration);
 
 		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards =
-			MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
 
 		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
 		let remainder = total_payout.saturating_sub(validator_payout);
@@ -864,8 +863,7 @@ impl<T: Config> Rotator<T> {
 
 	/// DAP end-era: snapshot from general reward pots into era-specific pots.
 	fn end_era_dap(ending_era: &ActiveEraInfo) {
-		let allocation =
-			reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+		let allocation = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
 		if allocation.staker_rewards.is_zero() {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
@@ -1150,13 +1148,10 @@ impl<T: Config> EraElectionPlanner<T> {
 			let own = ErasStakersOverview::<T>::get(new_planned_era, &stash)
 				.map(|o| o.own)
 				.unwrap_or_default();
-			if !own.is_zero() &&
-				!ErasValidatorIncentive::<T>::contains_key(new_planned_era, &stash)
+			if !own.is_zero() && !ErasValidatorIncentive::<T>::contains_key(new_planned_era, &stash)
 			{
-				let weight =
-					T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
-				total_validator_weight_page =
-					total_validator_weight_page.saturating_add(weight);
+				let weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
+				total_validator_weight_page = total_validator_weight_page.saturating_add(weight);
 				ErasValidatorIncentive::<T>::insert(new_planned_era, &stash, weight);
 			}
 		});

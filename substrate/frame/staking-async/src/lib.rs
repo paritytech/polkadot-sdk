@@ -677,8 +677,7 @@ where
 /// Exposes the general validator incentive pot so DAP can drip inflation into it.
 pub struct ValidatorIncentiveRecipient<G>(core::marker::PhantomData<G>);
 
-impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId>
-	for ValidatorIncentiveRecipient<G>
+impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<G>
 where
 	G: GeneralPotAccountProvider<AccountId>,
 {

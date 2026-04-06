@@ -340,10 +340,7 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
 
 			// Weight must not be overwritten by page 2 (own=0).
-			assert_eq!(
-				ErasValidatorIncentive::<Test>::get(planned_era, alice).unwrap(),
-				weight
-			);
+			assert_eq!(ErasValidatorIncentive::<Test>::get(planned_era, alice).unwrap(), weight);
 			assert_eq!(ErasTotalValidatorWeight::<Test>::get(planned_era), total);
 		});
 

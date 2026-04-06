@@ -1605,8 +1605,7 @@ pub mod pallet {
 					T::WeightInfo::prune_era_reward_points()
 				},
 				PruningStep::ErasValidatorIncentive => {
-					let result =
-						ErasValidatorIncentive::<T>::clear_prefix(era, items_limit, None);
+					let result = ErasValidatorIncentive::<T>::clear_prefix(era, items_limit, None);
 					if result.maybe_cursor.is_none() {
 						EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					}

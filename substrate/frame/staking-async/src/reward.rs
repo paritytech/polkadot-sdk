@@ -29,7 +29,10 @@ use frame_support::{
 		Defensive, OnUnbalanced,
 	},
 };
-use sp_runtime::{traits::{AtLeast32BitUnsigned, Zero}, Perbill};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Zero},
+	Perbill,
+};
 use sp_staking::EraIndex;
 
 /// Allocation breakdown returned by [`EraRewardManager::snapshot_era_rewards`].
@@ -57,8 +60,7 @@ impl<T: Config> EraRewardManager<T> {
 		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
 		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
 
-		let general_staker_pot =
-			T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_staker_pot = T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
 		let general_incentive_pot =
 			T::GeneralPots::general_pot_account(GeneralPotType::ValidatorIncentive);
 
@@ -116,10 +118,7 @@ impl<T: Config> EraRewardManager<T> {
 			 validator_incentive={actual_incentive:?}"
 		);
 
-		EraRewardAllocation {
-			staker_rewards: actual_staker,
-			validator_incentive: actual_incentive,
-		}
+		EraRewardAllocation { staker_rewards: actual_staker, validator_incentive: actual_incentive }
 	}
 
 	/// Destroys an era pot by withdrawing unclaimed rewards and removing the provider.
@@ -268,18 +267,12 @@ mod tests {
 
 	#[test]
 	fn weight_zero_self_stake() {
-		assert_eq!(
-			calculate_weight(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
-			0
-		);
+		assert_eq!(calculate_weight(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)), 0);
 	}
 
 	#[test]
 	fn weight_config_not_set() {
-		assert_eq!(
-			calculate_weight(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)),
-			0
-		);
+		assert_eq!(calculate_weight(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)), 0);
 	}
 
 	#[test]
@@ -340,9 +333,12 @@ mod tests {
 	#[test]
 	fn weight_different_slope_factors() {
 		let self_stake = 300_000;
-		let w_025 = calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 4u32));
-		let w_050 = calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
-		let w_075 = calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
+		let w_025 =
+			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 4u32));
+		let w_050 =
+			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+		let w_075 =
+			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
 		assert!(w_025 < w_050 && w_050 < w_075);
 	}
 }

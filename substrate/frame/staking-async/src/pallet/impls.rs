@@ -729,8 +729,7 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let incentive_pot =
-			T::EraPots::era_pot_account(era, crate::EraPotType::ValidatorSelfStake);
+		let incentive_pot = T::EraPots::era_pot_account(era, crate::EraPotType::ValidatorSelfStake);
 
 		match T::Currency::transfer(
 			&incentive_pot,
