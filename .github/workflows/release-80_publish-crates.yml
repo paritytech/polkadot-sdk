@@ -167,6 +167,7 @@ jobs:
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
 
+<<<<<<< HEAD
       - name: Install Rust 1.93
         shell: bash
         run: |
@@ -185,6 +186,12 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
           cargo install parity-publish@0.10.12 --locked -q
+=======
+      - name: Install parity-publish
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          cargo install parity-publish@0.10.14 --locked -q
+>>>>>>> 387a7e21 ([Release|CI/CD] Add `parity-publish restore` step to simplify post crates release activity (#11652))
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
@@ -325,6 +332,26 @@ jobs:
             parity-publish apply -p $PARALLEL_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
+
+      - name: Restore clean manifests after publish
+        if: inputs.resume_from != 'push'
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          echo "Restoring clean manifests with version bumps only..."
+          parity-publish restore
+
+          git add -A
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "Restore clean manifests after crates publish for $RELEASE_NAME"
+            echo "Clean manifests committed"
+          else
+            echo "No changes to restore"
+          fi
+
 
       - name: Generate token for paritytech/polkadot-sdk
         id: generate_write_token

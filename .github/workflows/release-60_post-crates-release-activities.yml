@@ -178,6 +178,7 @@ jobs:
 
           reorder_prdocs "$VERSION"
 
+<<<<<<< HEAD
       - name: Replace path dependencies
         run: |
           echo "Running replace-all-path-deps.sh..."
@@ -253,6 +254,8 @@ jobs:
           echo "Checking for git dependencies..."
           python3 .github/scripts/deny-git-deps.py .
 
+=======
+>>>>>>> 387a7e21 ([Release|CI/CD] Add `parity-publish restore` step to simplify post crates release activity (#11652))
       - name: Check git status before commit
         run: |
           echo "=== Git status ==="
