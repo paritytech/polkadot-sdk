@@ -5,7 +5,9 @@
 //! [`ShouldExecute`](xcm_executor::traits::ShouldExecute)).
 
 use frame_support::{ensure, traits::ProcessMessageError};
+use snowbridge_core::AgentIdOf;
 use xcm::prelude::*;
+use xcm_executor::traits::ConvertLocation;
 
 use super::syntax::{
 	ena_asset_matches_snowbridge_shape, parse_optional_ena_pna, parse_remote_fee_section,
@@ -30,9 +32,10 @@ fn disallowed_snowbridge_v2_top_level_origin_instruction<Call>(inst: &Instructio
 ///
 /// This mirrors the converter’s instruction order and core checks (fees, reserves, origin,
 /// beneficiary, optional `Transact` (or `ClearError` when `Transact` was replaced for export
-/// simulation), `SetTopic`, no trailing instructions). At top level, only [`AliasOrigin`] may
-/// affect the Origin register (no [`Instruction::DescendOrigin`], [`Instruction::ClearOrigin`],
-/// etc.).
+/// simulation), `SetTopic`, no trailing instructions). The [`AliasOrigin`] target must be
+/// convertible with [`AgentIdOf::convert_location`], same as
+/// [`super::convert::XcmConverter::convert`]. At top level, only [`AliasOrigin`] may affect the
+/// Origin register (no [`Instruction::DescendOrigin`], [`Instruction::ClearOrigin`], etc.).
 pub fn snowbridge_v2_outbound_xcm_shape<Call>(
 	instructions: &[Instruction<Call>],
 	ethereum_network: NetworkId,
@@ -52,11 +55,11 @@ pub fn snowbridge_v2_outbound_xcm_shape<Call>(
 	let (next_i, enas, pnas) = parse_optional_ena_pna(instructions, i);
 	i = next_i;
 
-	let _origin_location = match instructions.get(i) {
+	let origin_location = match instructions.get(i) {
 		Some(Instruction::AliasOrigin(origin)) => origin,
 		_ => return Err(ProcessMessageError::BadFormat),
 	};
-	// `AgentIdOf::convert_location` is enforced in [`super::convert::XcmConverter::convert`].
+	ensure!(AgentIdOf::convert_location(origin_location).is_some(), ProcessMessageError::BadFormat);
 	i += 1;
 
 	let (_deposit_filter, _beneficiary) = match instructions.get(i) {
