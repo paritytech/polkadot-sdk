@@ -159,8 +159,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(caller), Box::new(proposal.clone()), bytes_in_storage);
 
-		let proposal_hash =
-			T::Hashing::hash_of(&Collective::<T, I>::create_versioned_proposal(proposal.clone()));
+		let proposal_hash = T::Hashing::hash_of(&proposal);
 		// Note that execution fails due to mis-matched origin
 		assert_last_event::<T, I>(Event::MemberExecuted { proposal_hash, result: Ok(()) }.into());
 		Ok(())
@@ -172,7 +171,7 @@ mod benchmarks {
 		b: Linear<2, MAX_BYTES>,
 		m: Linear<1, { T::MaxMembers::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -217,7 +216,7 @@ mod benchmarks {
 		m: Linear<2, { T::MaxMembers::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -279,7 +278,7 @@ mod benchmarks {
 	fn vote(m: Linear<5, { T::MaxMembers::get() }>) -> Result<(), BenchmarkError> {
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -367,7 +366,7 @@ mod benchmarks {
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let bytes = 100;
-		let bytes_in_storage = bytes + size_of::<u32>() as u32;
+		let bytes_in_storage = bytes + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -459,7 +458,7 @@ mod benchmarks {
 		m: Linear<4, { T::MaxMembers::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -556,7 +555,7 @@ mod benchmarks {
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let bytes = 100;
-		let bytes_in_storage = bytes + size_of::<u32>() as u32;
+		let bytes_in_storage = bytes + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -646,7 +645,7 @@ mod benchmarks {
 		m: Linear<4, { T::MaxMembers::get() }>,
 		p: Linear<1, { T::MaxProposals::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -724,7 +723,7 @@ mod benchmarks {
 	fn disapprove_proposal(p: Linear<1, { T::MaxProposals::get() }>) -> Result<(), BenchmarkError> {
 		let m = 3;
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -784,7 +783,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let m = 3;
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
@@ -852,7 +851,7 @@ mod benchmarks {
 		let m = 3;
 		let p = T::MaxProposals::get();
 		let b = MAX_BYTES;
-		let bytes_in_storage = b + size_of::<u32>() as u32;
+		let bytes_in_storage = b + 2 * size_of::<u32>() as u32;
 
 		// Construct `members`.
 		let mut members = vec![];
