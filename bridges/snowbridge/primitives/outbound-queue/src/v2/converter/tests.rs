@@ -1,15 +1,18 @@
 use super::*;
+use xcm::prelude::SendError as XcmSendError;
+use xcm::prelude::*;
 use crate::{
-	v2::{convert::XcmConverterError, Command, Message},
+	v2::{convert::XcmConverterError, Command, Message, SendMessage},
 	SendError, SendMessageFeeProvider,
 };
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
-use snowbridge_core::{AgentIdOf, TokenIdOf};
+use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
 use sp_core::H256;
+use sp_runtime::traits::MaybeConvert;
 use sp_std::default::Default;
-use xcm::{latest::WESTEND_GENESIS_HASH, prelude::SendError as XcmSendError};
-use xcm_executor::traits::ConvertLocation;
+use xcm::latest::WESTEND_GENESIS_HASH;
+use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 parameter_types! {
 	const MaxMessageSize: u32 = u32::MAX;
@@ -310,7 +313,7 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
-	assert_eq!(result, Err(XcmSendError::NotApplicable));
+	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
 
 #[test]
@@ -337,7 +340,7 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
-	assert_eq!(result, Err(XcmSendError::NotApplicable));
+	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
 
 #[test]

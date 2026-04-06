@@ -95,14 +95,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
-	// Storage: `Benchmark::Override` (r:0 w:0)
-	// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	pub fn reserve_asset_deposited() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
-		Weight::from_parts(18_446_744_073_709_551_000, 0)
+		// Minimum execution time: 1_550_000 picoseconds.
+		// Fungible benchmark overrides to `Weight::MAX` when `TrustedReserve` is unset; that
+		// saturated `WeightInfoBounds` totals. Aligned with `asset-hub-westend` until re-bench.
+		Weight::from_parts(1_655_000, 0)
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)

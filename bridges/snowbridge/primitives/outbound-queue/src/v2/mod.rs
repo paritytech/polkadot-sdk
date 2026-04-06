@@ -7,6 +7,7 @@ pub mod message;
 
 pub use converter::*;
 pub use delivery_receipt::*;
+pub use exporter::*;
 pub use message::*;
 
 use codec::{Decode, Encode};

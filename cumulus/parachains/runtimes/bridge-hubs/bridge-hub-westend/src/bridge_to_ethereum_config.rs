@@ -17,14 +17,28 @@
 use crate::{
 	bridge_common_config::BridgeReward,
 	xcm_config,
-	xcm_config::{RelayNetwork, RootLocation, TreasuryAccount, UniversalLocation, XcmConfig},
-	Balances, BridgeRelayers, EthereumBeaconClient, EthereumInboundQueue, EthereumInboundQueueV2,
-	EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem, EthereumSystemV2, MessageQueue,
-	Runtime, RuntimeEvent, TransactionByteFee,
+	xcm_config::{
+		MaxAssetsIntoHolding, MaxInstructions, RelayNetwork, RootLocation, TreasuryAccount,
+		UniversalLocation, XcmConfig, XcmOriginToTransactDispatchOrigin,
+	},
+	AllPalletsWithSystem, Balances, BridgeRelayers, EthereumBeaconClient, EthereumInboundQueue,
+	EthereumInboundQueueV2, EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem,
+	EthereumSystemV2, MessageQueue, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	TransactionByteFee,
 };
+use alloc::boxed::Box;
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use bridge_hub_common::AggregateMessageOrigin;
-use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
+use frame_support::{
+	ensure, parameter_types,
+	traits::{
+		tokens::imbalance::{
+			ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
+		},
+		Contains, Everything, Nothing, ProcessMessageError,
+	},
+	weights::{ConstantMultiplier, Weight},
+};
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
@@ -36,7 +50,10 @@ use snowbridge_inbound_queue_primitives::v2::{
 };
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
-	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
+	v2::{
+		snowbridge_v2_outbound_xcm_shape, ConstantGasMeter as ConstantGasMeterV2,
+		EthereumBlobExporter as EthereumBlobExporterV2, ExecuteBeforeSnowbridgeV2BlobExport,
+	},
 };
 use sp_core::H160;
 use sp_runtime::{
@@ -46,14 +63,27 @@ use sp_runtime::{
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
+	locations::AssetHubLocation,
 	snowbridge::{
 		AssetHubParaId, EthereumLocation, EthereumNetwork, FRONTEND_PALLET_INDEX,
 		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
 	},
 };
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
-use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
-use xcm_executor::XcmExecutor;
+use xcm::{
+	latest::{Error as XcmError, Fungibility},
+	prelude::{
+		Assets, GlobalConsensus, Instruction, InteriorLocation, Location, NetworkId, PalletInstance,
+		Parachain, SendError, SendResult, SendXcm, Xcm, XcmHash,
+	},
+};
+use xcm_builder::{
+	AliasOriginRootUsingFilter, FrameTransactionalProcessor, WeightInfoBounds,
+};
+use xcm_executor::{
+	traits::{ExportXcm, Properties, ShouldExecute, TransactAsset, WaiveDeliveryFees},
+	XcmExecutor,
+};
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
@@ -72,6 +102,254 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	EthereumOutboundQueueV2,
 	EthereumSystemV2,
 	AssetHubParaId,
+>;
+
+/// Minimal [`ImbalanceAccounting`] for [`AssetsInHolding`](xcm_executor::AssetsInHolding) credits
+/// used only by [`EthereumExecutionAllowAllTransactor`] (no real balances).
+struct SimulationFungibleCredit(u128);
+
+impl UnsafeConstructorDestructor<u128> for SimulationFungibleCredit {
+	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+		Box::new(Self(self.0))
+	}
+	fn forget_imbalance(&mut self) -> u128 {
+		let amt = self.0;
+		self.0 = 0;
+		amt
+	}
+}
+
+impl UnsafeManualAccounting<u128> for SimulationFungibleCredit {
+	fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+		self.0 = self.0.saturating_add(other.forget_imbalance());
+	}
+}
+
+impl ImbalanceAccounting<u128> for SimulationFungibleCredit {
+	fn amount(&self) -> u128 {
+		self.0
+	}
+	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+		let taken = self.0.min(amount);
+		self.0 -= taken;
+		Box::new(Self(taken))
+	}
+}
+
+fn simulation_asset_to_holding(asset: xcm::latest::Asset) -> xcm_executor::AssetsInHolding {
+	let mut holding = xcm_executor::AssetsInHolding::new();
+	match asset.fun {
+		Fungibility::Fungible(amount) => {
+			holding.fungible.insert(asset.id, Box::new(SimulationFungibleCredit(amount)));
+		},
+		Fungibility::NonFungible(instance) => {
+			holding.non_fungible.insert((asset.id, instance));
+		},
+	}
+	holding
+}
+
+/// Snowbridge v2 Ethereum destinations use an `AccountKey20` junction for the beneficiary address.
+/// Match that here so invalid shapes fail [`TransactAsset::deposit_asset`] and simulated XCM ends
+/// with assets still in holding (then [`EthereumXcmConfig::AssetTrap`] records them).
+fn ethereum_simulation_deposit_beneficiary_valid(who: &Location) -> bool {
+	matches!(who.last(), Some(xcm::latest::Junction::AccountKey20 { .. }))
+}
+
+/// Permissive asset transactor for simulating Ethereum-target XCM on Bridge Hub (no real balances).
+pub struct EthereumExecutionAllowAllTransactor;
+impl TransactAsset for EthereumExecutionAllowAllTransactor {
+	fn withdraw_asset(
+		what: &xcm::latest::Asset,
+		_who: &Location,
+		_context: Option<&xcm::latest::XcmContext>,
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
+		Ok(simulation_asset_to_holding(what.clone()))
+	}
+
+	fn deposit_asset(
+		what: xcm_executor::AssetsInHolding,
+		who: &Location,
+		_context: Option<&xcm::latest::XcmContext>,
+	) -> Result<(), (xcm_executor::AssetsInHolding, XcmError)> {
+		if !ethereum_simulation_deposit_beneficiary_valid(who) {
+			return Err((
+				what,
+				XcmError::FailedToTransactAsset(
+					"Ethereum DepositAsset beneficiary must end with AccountKey20",
+				),
+			));
+		}
+		drop(what);
+		Ok(())
+	}
+
+	fn mint_asset(
+		what: &xcm::latest::Asset,
+		_context: &xcm::latest::XcmContext,
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
+		Ok(simulation_asset_to_holding(what.clone()))
+	}
+
+	fn internal_transfer_asset(
+		what: &xcm::latest::Asset,
+		_from: &Location,
+		_to: &Location,
+		_context: &xcm::latest::XcmContext,
+	) -> Result<xcm::latest::Asset, XcmError> {
+		Ok(what.clone())
+	}
+}
+
+/// Accepts `SendXcm` during Ethereum export **simulation** without enqueueing real XCMP/UMP
+/// messages (avoids side effects while allowing `InitiateTransfer` / `send` to complete).
+pub struct EthereumSimulationSuccessSender;
+impl SendXcm for EthereumSimulationSuccessSender {
+	type Ticket = ();
+
+	fn validate(
+		_dest: &mut Option<Location>,
+		_msg: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		Ok(((), Assets::new()))
+	}
+
+	fn deliver(_: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok([0u8; 32])
+	}
+}
+
+/// Satisfies nested `ExportMessage` during simulation without enqueueing a real outbound Ethereum
+/// blob (the outer
+/// [`ExecuteBeforeSnowbridgeV2BlobExport`](snowbridge_outbound_queue_primitives::v2::ExecuteBeforeSnowbridgeV2BlobExport)
+/// still calls the real exporter after).
+pub struct EthereumSimulationSuccessExporter;
+impl ExportXcm for EthereumSimulationSuccessExporter {
+	type Ticket = ();
+
+	fn validate(
+		_network: NetworkId,
+		_channel: u32,
+		_universal_source: &mut Option<InteriorLocation>,
+		_destination: &mut Option<InteriorLocation>,
+		_message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		Ok(((), Assets::new()))
+	}
+
+	fn deliver(_: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok([0u8; 32])
+	}
+}
+
+/// [`ShouldExecute`] barrier for [`EthereumXcmExecutor`] when [`ExecuteBeforeSnowbridgeV2BlobExport`]
+/// simulates the **inner** Ethereum `ExportMessage` blob. That blob does not use `UnpaidExecution`;
+/// fee-free simulation is provided separately by [`EthereumExecutionFreeTrader`] and
+/// [`WaiveDeliveryFees`] on [`EthereumXcmConfig`].
+///
+/// Snowbridge v2 outbound blobs are recognized by an [`AliasOrigin`] instruction (same as
+/// [`snowbridge_outbound_queue_primitives::v2::EthereumBlobExporter`]). Those programs must match
+/// [`snowbridge_v2_outbound_xcm_shape`]. Legacy Snowbridge v1 exports (e.g. `ReserveAssetDeposited`
+/// + `BuyExecution` + `DepositAsset` from `transfer_assets`) contain no `AliasOrigin`; they skip the
+/// strict shape here while the v1 [`snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter`]
+/// still validates on enqueue.
+pub struct EthereumExportSimulationBarrier;
+impl ShouldExecute for EthereumExportSimulationBarrier {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		ensure!(Everything::contains(origin), ProcessMessageError::Unsupported);
+		let is_snowbridge_v2_blob = instructions
+			.iter()
+			.any(|i| matches!(i, Instruction::AliasOrigin(_)));
+		if is_snowbridge_v2_blob {
+			snowbridge_v2_outbound_xcm_shape(instructions, EthereumNetwork::get())
+		} else {
+			Ok(())
+		}
+	}
+}
+
+/// Buys execution weight without touching real fee balances (paired with [`WaiveDeliveryFees`]).
+#[derive(Clone)]
+pub struct EthereumExecutionFreeTrader;
+impl xcm_executor::traits::WeightTrader for EthereumExecutionFreeTrader {
+	fn new() -> Self {
+		Self
+	}
+
+	fn buy_weight(
+		&mut self,
+		_weight: Weight,
+		_payment: xcm_executor::AssetsInHolding,
+		_context: &xcm::latest::XcmContext,
+	) -> Result<xcm_executor::AssetsInHolding, (xcm_executor::AssetsInHolding, XcmError)> {
+		Ok(xcm_executor::AssetsInHolding::new())
+	}
+}
+
+/// XCM executor config used only to **simulate** Snowbridge Ethereum outbound messages on Bridge Hub
+/// (v2 and legacy v1 blob shapes).
+///
+/// [`EthereumExecutionAllowAllTransactor`] does not move real assets; [`DepositAsset`] succeeds
+/// only when the beneficiary [`Location`] ends with
+/// [`AccountKey20`](xcm::latest::Junction::AccountKey20), matching Ethereum destinations.
+/// [`MessageExporter`](EthereumSimulationSuccessExporter) stubs nested `ExportMessage` so execution
+/// can reach `Outcome::Complete` without a second real enqueue.
+///
+/// `Aliasers` allows `AliasOrigin` only from the Asset Hub root [`Location`] (sibling parachain
+/// from Bridge Hub), matching Snowbridge v2 `preserve_origin` traffic. The alias target is not
+/// further restricted (see [`Everything`] filter) so re-anchored user locations still pass.
+pub struct EthereumXcmConfig;
+impl xcm_executor::Config for EthereumXcmConfig {
+	type RuntimeCall = RuntimeCall;
+	type XcmSender = EthereumSimulationSuccessSender;
+	type XcmEventEmitter = PolkadotXcm;
+	type AssetTransactor = EthereumExecutionAllowAllTransactor;
+	type OriginConverter = XcmOriginToTransactDispatchOrigin;
+	type IsReserve = Everything;
+	type IsTeleporter = ();
+	type Aliasers = AliasOriginRootUsingFilter<AssetHubLocation, Everything>;
+	type UniversalLocation = UniversalLocation;
+	type Barrier = EthereumExportSimulationBarrier;
+	type Weigher = WeightInfoBounds<
+		crate::weights::xcm::BridgeHubWestendXcmWeight<RuntimeCall>,
+		RuntimeCall,
+		MaxInstructions,
+	>;
+	type Trader = EthereumExecutionFreeTrader;
+	type ResponseHandler = PolkadotXcm;
+	type AssetTrap = PolkadotXcm;
+	type AssetLocker = ();
+	type AssetExchanger = ();
+	type SubscriptionService = PolkadotXcm;
+	type PalletInstancesInfo = AllPalletsWithSystem;
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type FeeManager = WaiveDeliveryFees;
+	type MessageExporter = EthereumSimulationSuccessExporter;
+	type UniversalAliases = Nothing;
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = PolkadotXcm;
+}
+
+/// [`XcmExecutor`](xcm_executor::XcmExecutor) for [`EthereumXcmConfig`].
+pub type EthereumXcmExecutor = XcmExecutor<EthereumXcmConfig>;
+
+pub type SnowbridgeExporterV2WithXcmExecution = ExecuteBeforeSnowbridgeV2BlobExport<
+	SnowbridgeExporterV2,
+	EthereumXcmExecutor,
+	UniversalLocation,
+	EthereumNetwork,
+	AssetHubParaId,
+	RuntimeCall,
 >;
 
 // Ethereum Bridge
@@ -309,7 +587,7 @@ impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
 			(1, [Parachain(para_id), PalletInstance(index)]) => {
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX;
 			},
 			_ => false,
 		}
@@ -447,6 +725,38 @@ pub mod benchmark_helpers {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use xcm::{
+		latest::ExecuteXcm,
+		prelude::{AccountKey20, Asset, AssetId, Fungible, WithdrawAsset, Xcm},
+	};
+	use xcm_config::FungibleTransactor;
+	use xcm_executor::traits::TransactAsset;
+
+	use super::{EthereumExecutionAllowAllTransactor, EthereumXcmExecutor, RuntimeCall, Weight};
+
+	#[test]
+	fn ethereum_simulation_transactor_accepts_account_key20_withdraw() {
+		let eth = Asset {
+			id: AssetId(Location::new(0, [AccountKey20 { network: None, key: [1u8; 20] }])),
+			fun: Fungible(1u128),
+		};
+		let origin = Location::here();
+		let ctx = xcm::latest::XcmContext::with_message_id([0u8; 32]);
+		assert!(
+			EthereumExecutionAllowAllTransactor::withdraw_asset(&eth, &origin, Some(&ctx)).is_ok()
+		);
+		assert!(FungibleTransactor::withdraw_asset(&eth, &origin, Some(&ctx)).is_err());
+	}
+
+	#[test]
+	fn ethereum_xcm_executor_prepare_succeeds_for_ethereum_shaped_withdraw() {
+		let eth = Asset {
+			id: AssetId(Location::new(0, [AccountKey20 { network: None, key: [2u8; 20] }])),
+			fun: Fungible(1u128),
+		};
+		let msg: Xcm<RuntimeCall> = Xcm(vec![WithdrawAsset(eth.into())]);
+		assert!(EthereumXcmExecutor::prepare(msg, Weight::MAX).is_ok());
+	}
 
 	#[test]
 	fn bridge_hub_inbound_queue_pallet_index_is_correct() {
