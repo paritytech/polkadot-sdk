@@ -184,5 +184,10 @@ jobs:
         env:
           INPUT_BINARY: ${{ inputs.binary }}
         run: |
-          docker images | grep "${INPUT_BINARY}"
-          docker push --all-tags "docker.io/paritypr/${INPUT_BINARY}"
+          if [ "$INPUT_BINARY" = "polkadot" ] || [ "$INPUT_BINARY" = "polkadot-parachain" ]; then
+            IMAGE_NAME="${INPUT_BINARY}-debug"
+          else
+            IMAGE_NAME="${INPUT_BINARY}"
+          fi
+          docker images | grep "${IMAGE_NAME}"
+          docker push --all-tags "docker.io/paritypr/${IMAGE_NAME}"
