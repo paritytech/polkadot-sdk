@@ -315,12 +315,12 @@ fn nudge_count_tracks_valid_nudges() {
 /// In production, the pipeline is:
 ///
 /// 1. **Node gossip service** collects signed nudges from peers into `NudgeStore`
-/// 2. **Node inherent provider** (`create_inherent_data`) selects a subset from the store
-///    and packs them into `sp_inherents::InherentData` via `sp_price_oracle::INHERENT_IDENTIFIER`
+/// 2. **Node inherent provider** (`create_inherent_data`) selects a subset from the store and packs
+///    them into `sp_inherents::InherentData` via `sp_price_oracle::INHERENT_IDENTIFIER`
 /// 3. **Runtime `create_inherent`** deserializes the `InherentData` into `Call::submit_nudges`
 /// 4. **Runtime `check_inherent`** validates signatures and freshness (import-time rejection)
-/// 5. **Runtime `submit_nudges`** executes: verifies sigs, filters stale/duplicate/invalid,
-///    counts ups vs downs, applies epsilon to update `CurrentPrice`
+/// 5. **Runtime `submit_nudges`** executes: verifies sigs, filters stale/duplicate/invalid, counts
+///    ups vs downs, applies epsilon to update `CurrentPrice`
 ///
 /// These tests cover steps 3–5 by constructing `InherentData` directly and running it through
 /// `create_inherent` → dispatch. This catches mismatches between what the node side produces
@@ -328,8 +328,7 @@ fn nudge_count_tracks_valid_nudges() {
 /// two nudges from the same validator, which would have caused the runtime to count them twice).
 mod inherent_pipeline {
 	use super::*;
-	use frame_support::pallet_prelude::ProvideInherent;
-	use frame_support::traits::UnfilteredDispatchable;
+	use frame_support::{pallet_prelude::ProvideInherent, traits::UnfilteredDispatchable};
 
 	fn build_inherent_data(nudges: Vec<SignedNudge>) -> InherentData {
 		let mut data = InherentData::new();

@@ -168,6 +168,9 @@ sp_api::decl_runtime_apis! {
 
 		/// Get the current set of BABE authorities (used for signature verification).
 		fn authorities() -> Vec<AuthorityId>;
+
+		/// Get the minimum number of nudges required to update the price.
+		fn minimum_nudges_required() -> u32;
 	}
 }
 

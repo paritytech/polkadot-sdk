@@ -471,5 +471,9 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> Vec<sp_consensus_babe::AuthorityId> {
 			unimplemented!()
 		}
+
+		fn minimum_nudges_required() -> u32 {
+			unimplemented!()
+		}
 	}
 }

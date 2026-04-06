@@ -3,8 +3,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
-use frame_support::traits::Time;
+use frame_support::{pallet_prelude::*, traits::Time};
 use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;
@@ -242,6 +241,14 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn current_price() -> FixedU128 {
 			CurrentPrice::<T>::get()
+		}
+
+		pub fn nudge_validity() -> u64 {
+			T::NudgeValidity::get()
+		}
+
+		pub fn minimum_nudges_required() -> u32 {
+			T::MinNudges::get()
 		}
 	}
 }
