@@ -865,6 +865,7 @@ mod benchmarks {
 		assert!(!MaxValidatorsCount::<T>::exists());
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
+		assert!(!MaxStakedRewards::<T>::exists());
 		assert!(!AreNominatorsSlashable::<T>::exists());
 	}
 

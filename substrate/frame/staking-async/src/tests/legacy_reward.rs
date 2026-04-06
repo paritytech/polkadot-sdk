@@ -5,7 +5,6 @@
 //! `DisableMinting = false`.
 
 use super::*;
-use crate::mock::*;
 use frame_support::assert_ok;
 
 #[test]
