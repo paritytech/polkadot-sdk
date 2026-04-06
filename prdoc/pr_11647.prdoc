@@ -10,7 +10,6 @@ doc:
     Adds a test verifying `LastValidatorEra` transitions from `active_era` to `active_era + 1`
     once the next era's election results are stored.
 
-    Fixes https://github.com/paritytech/polkadot-sdk/issues/11646 (item 1).
 crates:
 - name: pallet-staking-async
   bump: patch
