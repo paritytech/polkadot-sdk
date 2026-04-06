@@ -40,7 +40,11 @@ use std::{
 		atomic::{AtomicU32, Ordering},
 	},
 };
-use subxt::{OnlineClient, blocks::ExtrinsicDetails, events::StaticEvent};
+use subxt::{OnlineClient, events::StaticEvent};
+
+type ExtrinsicEvents = subxt::blocks::ExtrinsicEvents<SrcChainConfig>;
+type ExtrinsicDetails =
+	subxt::blocks::ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>;
 
 type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
@@ -169,7 +173,7 @@ impl ReceiptExtractor {
 	/// indices) corrupts the offset for all subsequent events. We log and
 	/// skip decode errors to avoid losing the entire receipt.
 	fn extract_revert_status_and_logs(
-		events: &subxt::blocks::ExtrinsicEvents<SrcChainConfig>,
+		events: &ExtrinsicEvents,
 		block_number: U256,
 		transaction_hash: H256,
 		transaction_index: usize,
@@ -178,11 +182,11 @@ impl ReceiptExtractor {
 		let mut success = true;
 		let mut logs = Vec::new();
 
-		for event_details in events.iter().filter_map(|ev| {
+		for event_details in events.iter().enumerate().filter_map(|(idx, ev)| {
 			ev.inspect_err(|err| {
-				log::warn!(
+				log::debug!(
 					target: LOG_TARGET,
-					"Failed to decode event in block {block_number}: {err:?}"
+					"Failed to decode event {idx} in block {block_number} (tx {transaction_hash:?}): {err:?}"
 				);
 			})
 			.ok()
@@ -210,7 +214,8 @@ impl ReceiptExtractor {
 				} else {
 					log::warn!(
 						target: LOG_TARGET,
-						"Failed to decode ContractEmitted event in block {block_number}, log dropped from receipt"
+						"Failed to decode ContractEmitted event {} in block {block_number} (tx {transaction_hash:?}), log dropped from receipt",
+						event_details.index()
 					);
 				}
 			}
@@ -224,7 +229,7 @@ impl ReceiptExtractor {
 		&self,
 		substrate_block: &SubstrateBlock,
 		eth_block_hash: H256,
-		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
+		ext: ExtrinsicDetails,
 		call: EthTransact,
 		receipt_gas_info: ReceiptGasInfo,
 		transaction_index: usize,
@@ -323,14 +328,7 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<
-		impl Iterator<
-			Item = (
-				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
-				EthTransact,
-				ReceiptGasInfo,
-				usize,
-			),
-		>,
+		impl Iterator<Item = (ExtrinsicDetails, EthTransact, ReceiptGasInfo, usize)>,
 		ClientError,
 	> {
 		// Filter extrinsics from pallet_revive
