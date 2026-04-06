@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "pallet-revive-eth-rpc"
 version = "0.1.0"
 authors.workspace = true

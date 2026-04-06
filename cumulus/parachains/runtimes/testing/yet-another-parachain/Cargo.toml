@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "yet-another-parachain-runtime"
 version = "0.6.0"
 authors.workspace = true
@@ -7,7 +8,6 @@ description = "Simple runtime used by the testing parachain(s)"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-publish = false
 
 [lints]
 workspace = true

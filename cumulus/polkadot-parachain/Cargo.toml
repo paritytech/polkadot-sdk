@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "polkadot-parachain-bin"
 version = "4.0.0"
 authors.workspace = true
