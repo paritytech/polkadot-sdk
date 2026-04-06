@@ -29,7 +29,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, Get, OnUnbalanced},
+	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
@@ -120,7 +120,6 @@ parameter_types! {
 pub struct RewardRemainderMock;
 impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
-		use frame_support::traits::tokens::imbalance::Imbalance;
 		RewardRemainderUnbalanced::mutate(|v| {
 			*v += amount.peek();
 		});
@@ -415,7 +414,7 @@ ord_parameter_types! {
 parameter_types! {
 	pub static UseLegacyEraPayout: bool = false;
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
-	pub static MaxEraDuration: u64 = 0;
+	pub static MaxEraDuration: u64 = time_per_era() * 7;
 	pub const MaxPruningItems: u32 = 100;
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 	pub const TestIssuanceCadence: u64 = 0; // drip every block
