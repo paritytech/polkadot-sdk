@@ -1,0 +1,7 @@
+title: Handle core rotations in `PerLeafClaimQueue`
+doc:
+- audience: Node Dev
+  description: Fixes https://github.com/paritytech/polkadot-sdk/issues/11556
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
