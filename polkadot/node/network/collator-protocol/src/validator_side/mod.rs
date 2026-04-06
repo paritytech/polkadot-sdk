@@ -359,12 +359,6 @@ impl PeerData {
 					implicit_view,
 					leaf_claim_queues.keys(),
 				) {
-					gum::debug!(
-						target: LOG_TARGET,
-						?on_scheduling_parent,
-						"Peer advertised a collation for a relay parent that is out of our view",
-					);
-
 					return Err(InsertAdvertisementError::OutOfOurView);
 				}
 
@@ -374,13 +368,6 @@ impl PeerData {
 						.get(&on_scheduling_parent)
 						.map_or(false, |candidates| candidates.contains(&candidate_hash))
 					{
-						gum::debug!(
-							target: LOG_TARGET,
-							?on_scheduling_parent,
-							?candidate_hash,
-							"Peer has already advertised this collation",
-						);
-
 						return Err(InsertAdvertisementError::Duplicate);
 					}
 
@@ -396,15 +383,6 @@ impl PeerData {
 						.unwrap_or(0);
 
 					if candidates.len() > max_ads {
-						gum::debug!(
-							target: LOG_TARGET,
-							?on_scheduling_parent,
-							?candidate_hash,
-							current_ads = candidates.len(),
-							max_ads,
-							"Peer has advertised too many collations for this scheduling parent",
-						);
-
 						return Err(InsertAdvertisementError::PeerLimitReached);
 					}
 
@@ -1684,17 +1662,7 @@ where
 	Sender: CollatorProtocolSenderTrait,
 {
 	// Basic peer and protocol validation
-	let peer_data = state.peer_data.get_mut(&peer_id).ok_or_else(|| {
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?scheduling_parent,
-			?prospective_candidate,
-			"Received advertisement from unknown peer",
-		);
-
-		AdvertisementError::UnknownPeer
-	})?;
+	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
 	// V1 protocol requires relay_parent to be an active leaf (no async backing support)
 	if peer_data.version == CollationVersion::V1 &&
@@ -1712,30 +1680,12 @@ where
 	}
 
 	// Ensure peer has declared as a collator
-	peer_data.collating_para().ok_or_else(|| {
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?scheduling_parent,
-			?prospective_candidate,
-			"Peer has not declared as collator",
-		);
+	peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 
-		AdvertisementError::UndeclaredCollator
-	})?;
-
-	let per_scheduling_parent =
-		state.per_scheduling_parent.get(&scheduling_parent).ok_or_else(|| {
-			gum::debug!(
-				target: LOG_TARGET,
-				?peer_id,
-				?scheduling_parent,
-				?prospective_candidate,
-				"Scheduling parent is unknown",
-			);
-
-			AdvertisementError::SchedulingParentUnknown
-		})?;
+	let per_scheduling_parent = state
+		.per_scheduling_parent
+		.get(&scheduling_parent)
+		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
 	// Always insert advertisements that pass all the checks for spam protection.
 	let candidate_hash = prospective_candidate.map(|(hash, ..)| hash);
