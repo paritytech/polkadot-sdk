@@ -4,13 +4,15 @@
 use codec::Encode;
 use log::info;
 use sp_core::Bytes;
-use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
+use sp_statement_store::{InvalidReason, RejectionReason, StatementAllowance, SubmitResult, Topic};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 
 use super::common::{
-	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	assert_no_more_statements, assert_statements_match, expect_one_statement,
+	expect_statements_unordered, spawn_network_sudo, spawn_network_with_injected_allowances,
+	submit_statement, subscribe_topic,
 };
 
 /// Verifies basic statement propagation and data integrity across two nodes
@@ -114,8 +116,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	info!("All 8 concurrent submissions accepted");
 
 	// Verify content identity: every node must receive exactly the 8 submitted statements
-	let mut expected_encoded: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
-	expected_encoded.sort();
+	let expected_encoded: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
 
 	for (name, sub) in [
 		("alice", &mut alice_sub),
@@ -123,12 +124,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		let received = expect_statements_unordered(sub, 8, 60).await?;
-		assert_eq!(received.len(), 8, "Expected 8 statements on {}", name);
-		let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
-		received_bytes.sort();
-		assert_eq!(received_bytes, expected_encoded, "Statement content mismatch on {}", name);
-		info!("{} received all 8 statements with correct content", name);
+		assert_statements_match(sub, &expected_encoded, 60, name).await?;
 	}
 
 	for (name, sub) in [
@@ -195,6 +191,207 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	] {
 		let received = expect_statements_unordered(sub, 1, 30).await?;
 		info!("{}: eviction statements propagated ({} received)", name, received.len());
+	}
+
+	Ok(())
+}
+
+/// Verifies responsiveness and consistency under concurrent submissions with mass expiration
+///
+/// 1. Already-expired statements are rejected concurrently across all nodes
+/// 2. Mixed short-expiry and long-expiry statements are submitted concurrently and propagate
+/// 3. After enforce_limits cleans up expired statements, all nodes agree on store contents
+/// 4. A concurrent burst after mass expiration propagates correctly to all nodes
+///
+/// Test uses sudo-based allowances
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	// Setup: 16 keypairs with generous allowances
+	let entries: Vec<(u32, StatementAllowance)> = (0..16u32)
+		.map(|i| (i, StatementAllowance { max_count: 100, max_size: 1_000_000 }))
+		.collect();
+	let items = create_allowance_items(&entries);
+
+	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let charlie = network.get_node("charlie")?;
+	let dave = network.get_node("dave")?;
+
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+	let charlie_rpc = charlie.rpc().await?;
+	let dave_rpc = dave.rpc().await?;
+
+	let now_secs = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("Time went backwards")
+		.as_secs() as u32;
+
+	// Already-expired statement rejection
+	let topic_a: Topic = [30u8; 32].into();
+	let rpcs = [&alice_rpc, &bob_rpc, &charlie_rpc, &dave_rpc];
+
+	for idx in 0u32..4 {
+		let keypair = get_keypair(idx);
+		let stmt =
+			create_test_statement(&keypair, &[topic_a], None, vec![idx as u8], now_secs - 120, idx);
+		let result = submit_statement(rpcs[idx as usize], &stmt).await?;
+		assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
+	}
+
+	// Mixed-expiry concurrent submission
+	// Subscribe BEFORE submitting so we capture propagation events
+	let mut alice_sub = subscribe_topic(&alice_rpc, topic_a).await?;
+	let mut bob_sub = subscribe_topic(&bob_rpc, topic_a).await?;
+	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic_a).await?;
+	let mut dave_sub = subscribe_topic(&dave_rpc, topic_a).await?;
+
+	// Ephemeral statements: expire in ~35 seconds
+	let ephemeral_expiry = now_secs + 35;
+	let ephemeral_stmts: Vec<_> = (0u32..4)
+		.map(|idx| {
+			let keypair = get_keypair(idx);
+			create_test_statement(
+				&keypair,
+				&[topic_a],
+				None,
+				vec![100 + idx as u8],
+				ephemeral_expiry,
+				1000 + idx,
+			)
+		})
+		.collect();
+
+	// Persistent statements: never expire
+	let persistent_stmts: Vec<_> = (4u32..8)
+		.map(|idx| {
+			let keypair = get_keypair(idx);
+			create_test_statement(
+				&keypair,
+				&[topic_a],
+				None,
+				vec![200 + idx as u8],
+				u32::MAX,
+				2000 + idx,
+			)
+		})
+		.collect();
+
+	// Submit all 8 concurrently, distributed across nodes
+	let all_stmts: Vec<_> =
+		ephemeral_stmts.iter().chain(persistent_stmts.iter()).cloned().collect();
+	let nodes = [&alice, &bob, &charlie, &dave];
+	let mut handles = Vec::new();
+	for (i, stmt) in all_stmts.iter().enumerate() {
+		let target = nodes[i % nodes.len()];
+		let rpc = target.rpc().await?;
+		let stmt = stmt.clone();
+		handles.push(tokio::spawn(async move {
+			let result = submit_statement(&rpc, &stmt).await?;
+			assert_eq!(result, SubmitResult::New);
+			Ok::<_, anyhow::Error>(())
+		}));
+	}
+	for handle in handles {
+		handle.await??;
+	}
+	// Verify all 8 statements propagate
+	let expected_encoded: Vec<Vec<u8>> = all_stmts.iter().map(|s| s.encode()).collect();
+
+	for (name, sub) in [
+		("alice", &mut alice_sub),
+		("bob", &mut bob_sub),
+		("charlie", &mut charlie_sub),
+		("dave", &mut dave_sub),
+	] {
+		assert_statements_match(sub, &expected_encoded, 60, name).await?;
+	}
+
+	let elapsed_since_start = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("Time went backwards")
+		.as_secs() as u32 -
+		now_secs;
+	// (expiry time passed) + (up to 2 × 31s cycles) + buffer
+	let wait_secs = 35u32.saturating_sub(elapsed_since_start) as u64 + 65;
+	tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+
+	// Re-submission of expired statements
+	for (idx, stmt) in ephemeral_stmts.iter().enumerate() {
+		let result = submit_statement(&alice_rpc, stmt).await?;
+		assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
+	}
+
+	// Fresh subscriptions verify store contents
+	let mut alice_fresh = subscribe_topic(&alice_rpc, topic_a).await?;
+	let mut bob_fresh = subscribe_topic(&bob_rpc, topic_a).await?;
+	let mut charlie_fresh = subscribe_topic(&charlie_rpc, topic_a).await?;
+	let mut dave_fresh = subscribe_topic(&dave_rpc, topic_a).await?;
+
+	let persistent_encoded: Vec<Vec<u8>> = persistent_stmts.iter().map(|s| s.encode()).collect();
+
+	for (name, sub) in [
+		("alice", &mut alice_fresh),
+		("bob", &mut bob_fresh),
+		("charlie", &mut charlie_fresh),
+		("dave", &mut dave_fresh),
+	] {
+		assert_statements_match(sub, &persistent_encoded, 30, name).await?;
+	}
+
+	// Post-expiration concurrent burst: verify the store remains responsive
+	// after mass cleanup by submitting 8 new statements concurrently on a
+	// fresh topic and confirming all propagate to every node
+	let burst_topic: Topic = [31u8; 32].into();
+	let mut alice_burst = subscribe_topic(&alice_rpc, burst_topic).await?;
+	let mut bob_burst = subscribe_topic(&bob_rpc, burst_topic).await?;
+	let mut charlie_burst = subscribe_topic(&charlie_rpc, burst_topic).await?;
+	let mut dave_burst = subscribe_topic(&dave_rpc, burst_topic).await?;
+
+	let burst_stmts: Vec<_> = (8u32..16)
+		.map(|idx| {
+			let keypair = get_keypair(idx);
+			create_test_statement(
+				&keypair,
+				&[burst_topic],
+				None,
+				vec![idx as u8],
+				u32::MAX,
+				6000 + idx,
+			)
+		})
+		.collect();
+
+	let mut handles = Vec::new();
+	for (i, stmt) in burst_stmts.iter().enumerate() {
+		let target = nodes[i % nodes.len()];
+		let rpc = target.rpc().await?;
+		let stmt = stmt.clone();
+		handles.push(tokio::spawn(async move {
+			let result = submit_statement(&rpc, &stmt).await?;
+			assert_eq!(result, SubmitResult::New);
+			Ok::<_, anyhow::Error>(())
+		}));
+	}
+	for handle in handles {
+		handle.await??;
+	}
+
+	let burst_expected: Vec<Vec<u8>> = burst_stmts.iter().map(|s| s.encode()).collect();
+
+	for (name, sub) in [
+		("alice", &mut alice_burst),
+		("bob", &mut bob_burst),
+		("charlie", &mut charlie_burst),
+		("dave", &mut dave_burst),
+	] {
+		assert_statements_match(sub, &burst_expected, 60, name).await?;
 	}
 
 	Ok(())
