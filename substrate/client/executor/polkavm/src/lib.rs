@@ -289,8 +289,7 @@ where
 	};
 
 	let module =
-		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())
-			.map_err(|_| WasmError::InvalidModule)?;
+		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
 
 	let mut linker = polkavm::Linker::new();
 
