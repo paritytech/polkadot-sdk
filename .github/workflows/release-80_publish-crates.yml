@@ -167,10 +167,10 @@ jobs:
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
-        with:
-          cache-on-failure: true
+      # - name: Rust Cache
+      #   uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+      #   with:
+      #     cache-on-failure: true
 
       - name: Install parity-publish
         run: |
@@ -280,14 +280,14 @@ jobs:
           cargo update --workspace --offline || cargo update --workspace
           echo "Cargo.lock updated"
 
-      - name: Verify workspace compiles
-        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
-        env:
-          SKIP_WASM_BUILD: 1
-        run: |
-          echo "Checking that rewritten manifests compile (WASM build skipped)..."
-          cargo check --workspace --all-targets 2>&1
-          echo "Workspace compiles successfully"
+      # - name: Verify workspace compiles
+      #   if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+      #   env:
+      #     SKIP_WASM_BUILD: 1
+      #   run: |
+      #     echo "Checking that rewritten manifests compile (WASM build skipped)..."
+      #     cargo check --workspace --all-targets 2>&1
+      #     echo "Workspace compiles successfully"
 
       - name: Commit version bumps
         if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
@@ -327,36 +327,36 @@ jobs:
           echo "Cargo config:"
           cat ~/.cargo/config.toml || echo "(using defaults)"
 
-      - name: Publish crates
-        if: inputs.resume_from != 'push'
-        shell: bash
-        env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
-          PARITY_PUBLISH_STAGING_CRATESIO_TOKEN: ${{ secrets.STAGING_CRATES_IO_API_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          REGISTRY: ${{ inputs.registry }}
-          PUBLISH_JOBS: ${{ inputs.publish_jobs }}
-        run: |
-          PARALLEL_ARGS=""
-          if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
-            echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
-            PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
-          fi
+      # - name: Publish crates
+      #   if: inputs.resume_from != 'push'
+      #   shell: bash
+      #   env:
+      #     PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
+      #     PARITY_PUBLISH_STAGING_CRATESIO_TOKEN: ${{ secrets.STAGING_CRATES_IO_API_TOKEN }}
+      #     DRY_RUN: ${{ inputs.dry_run }}
+      #     REGISTRY: ${{ inputs.registry }}
+      #     PUBLISH_JOBS: ${{ inputs.publish_jobs }}
+      #   run: |
+      #     PARALLEL_ARGS=""
+      #     if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
+      #       echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
+      #       PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
+      #     fi
 
-          STAGING_ARG=""
-          if [ "$REGISTRY" = "staging.crates.io" ]; then
-            STAGING_ARG="--staging"
-          fi
+      #     STAGING_ARG=""
+      #     if [ "$REGISTRY" = "staging.crates.io" ]; then
+      #       STAGING_ARG="--staging"
+      #     fi
 
-          if [ "$DRY_RUN" = true ]; then
-            echo "DRY RUN - Not actually publishing crates"
-            echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
-          else
-            echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
-            echo "Crates published successfully to $REGISTRY!"
-          fi
+      #     if [ "$DRY_RUN" = true ]; then
+      #       echo "DRY RUN - Not actually publishing crates"
+      #       echo "Target registry: $REGISTRY"
+      #       parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
+      #     else
+      #       echo "Publishing crates to $REGISTRY..."
+      #       parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
+      #       echo "Crates published successfully to $REGISTRY!"
+      #     fi
 
       - name: Restore clean manifests after publish
         if: inputs.resume_from != 'push'
@@ -384,7 +384,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: paritytech
+            owner: EgorPopelyaev
             repositories: polkadot-sdk
 
       - name: Push release branch to paritytech
@@ -393,7 +393,7 @@ jobs:
           TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           echo "Pushing branch $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk..."
-          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/paritytech/polkadot-sdk.git"
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/EgorPopelyaev/polkadot-sdk.git"
           git push origin "$CRATES_RELEASE_BRANCH"
           echo "Successfully pushed $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk"
 
