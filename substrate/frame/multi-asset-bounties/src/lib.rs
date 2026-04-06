@@ -916,36 +916,40 @@ pub mod pallet {
 					);
 				},
 				BountyStatus::Active { ref curator, .. } => {
-					let maybe_curator_deposit =
-						CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id);
 					// The child-/bounty is active.
 					match maybe_sender {
 						// If the `RejectOrigin` is calling this function, burn the curator deposit.
 						None => {
-							if let Some(curator_deposit) = maybe_curator_deposit {
+							if let Some(curator_deposit) =
+								CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
+							{
 								T::Consideration::burn(curator_deposit, curator);
 							}
 							// Continue to change bounty status below...
 						},
 						Some(sender) if sender == *curator => {
-							if let Some(curator_deposit) = maybe_curator_deposit {
+							if let Some(curator_deposit) =
+								CuratorDeposit::<T, I>::get(parent_bounty_id, child_bounty_id)
+							{
 								// This is the curator, willingly giving up their role. Free their
 								// deposit.
 								T::Consideration::drop(curator_deposit, curator)?;
+								CuratorDeposit::<T, I>::remove(parent_bounty_id, child_bounty_id);
 							}
 							// Continue to change bounty status below...
 						},
 						Some(sender) => {
-							if let Some(parent_curator) = parent_curator {
-								// If the parent curator is unassigning a child curator, that is not
-								// itself, burn the child curator deposit.
-								if sender == parent_curator && *curator != parent_curator {
-									if let Some(curator_deposit) = maybe_curator_deposit {
-										T::Consideration::burn(curator_deposit, curator);
-									}
-								} else {
-									return Err(BadOrigin.into());
-								}
+							let parent_curator = parent_curator.ok_or(BadOrigin)?;
+							ensure!(
+								sender == parent_curator && *curator != parent_curator,
+								BadOrigin
+							);
+							// Parent curator is unassigning the child curator. Burn the curator
+							// deposit.
+							if let Some(curator_deposit) =
+								CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
+							{
+								T::Consideration::burn(curator_deposit, curator);
 							}
 						},
 					}
