@@ -440,6 +440,7 @@ impl<T: Config> Pallet<T> {
 					&stash,
 					validator_staker_payout_for_page,
 					&exposure,
+					overview_own,
 					reward_split.nominator_payout,
 				)
 			} else {
@@ -455,6 +456,7 @@ impl<T: Config> Pallet<T> {
 					&stash,
 					validator_staker_payout_for_page,
 					&exposure,
+					overview_own,
 					reward_split.nominator_payout,
 				)
 			};
@@ -470,6 +472,7 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		validator_payout: BalanceOf<T>,
 		exposure: &crate::PagedExposure<T::AccountId, BalanceOf<T>>,
+		overview_own: BalanceOf<T>,
 		total_nominator_payout: BalanceOf<T>,
 	) -> u32 {
 		let mut nominator_payout_count: u32 = 0;
@@ -479,7 +482,7 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::Rewarded { stash: stash.clone(), dest, amount });
 		}
 
-		let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
+		let total_nominator_stake = exposure.total().saturating_sub(overview_own);
 		for nominator in exposure.others().iter() {
 			let nominator_exposure_part =
 				Perbill::from_rational(nominator.value, total_nominator_stake);
@@ -506,6 +509,7 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		validator_payout: BalanceOf<T>,
 		exposure: &crate::PagedExposure<T::AccountId, BalanceOf<T>>,
+		overview_own: BalanceOf<T>,
 		total_nominator_payout: BalanceOf<T>,
 	) -> u32 {
 		let mut nominator_payout_count: u32 = 0;
@@ -520,7 +524,7 @@ impl<T: Config> Pallet<T> {
 			total_imbalance.subsume(imbalance);
 		}
 
-		let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
+		let total_nominator_stake = exposure.total().saturating_sub(overview_own);
 		for nominator in exposure.others().iter() {
 			let nominator_exposure_part =
 				Perbill::from_rational(nominator.value, total_nominator_stake);
