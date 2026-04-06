@@ -1463,6 +1463,7 @@ fn extract_core_index_from_statement_works() {
 		n_cores: test_state.availability_cores.len() as u32,
 		claim_queue: test_state.claim_queue.clone().into(),
 		validator_to_group: Arc::new(test_state.validator_to_group.clone()),
+		session_index: test_state.session(),
 		group_rotation_info: test_state.validator_groups.1.clone(),
 	};
 

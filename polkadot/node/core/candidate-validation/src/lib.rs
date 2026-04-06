@@ -64,6 +64,8 @@ use codec::Encode;
 
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 
+use schnellru::{ByLength, LruMap};
+
 use std::{
 	collections::HashSet,
 	path::PathBuf,
@@ -171,78 +173,63 @@ where
 	}
 }
 
-/// Resolve the scheduling parent and session for a candidate.
-///
-/// NOTE: This method uses the scheduling parent to resolve the session. Fetching state for the
-/// scheduling or relay parent of a candidate is not sound in disputes! This is necessary as of now
-/// though, as the provided runtime API does not allow fetching for older sessions. For the time
-/// being, we at least use the scheduling parent as this is more likely to still be around than the
-/// relay parent.
-async fn resolve_scheduling_context<Sender>(
-	candidate_descriptor: &CandidateDescriptor,
-	v3_ever_seen: bool,
-	sender: &mut Sender,
-) -> Result<(Hash, SessionIndex), String>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let scheduling_parent =
-		candidate_descriptor.scheduling_parent_for_candidate_validation(v3_ever_seen);
-
-	let scheduling_session =
-		match candidate_descriptor.scheduling_session_for_candidate_validation(v3_ever_seen) {
-			Some(session) => session,
-			None => {
-				// NOTE: This is depending on scheduling parent state to still be around!
-				let Some(session) = get_session_index(sender, scheduling_parent).await else {
-					return Err("Cannot fetch session index from the runtime".into());
-				};
-				session
-			},
-		};
-
-	Ok((scheduling_parent, scheduling_session))
-}
-
 /// Session-scoped parameters needed for candidate validation.
+#[derive(Clone)]
 struct SessionParams {
 	executor_params: ExecutorParams,
 	validation_code_bomb_limit: u32,
 }
 
-/// Fetch session-scoped parameters needed for candidate validation.
+/// Fetch session-scoped parameters for a candidate.
 ///
-/// Resolves the scheduling context once and fetches both the validation code
-/// bomb limit and executor parameters in sequence, avoiding duplicate session
-/// resolution for V1 descriptors.
+/// Results are cached per session.
 async fn fetch_session_params<Sender>(
+	recent_leaf: Hash,
+	session_index: SessionIndex,
 	candidate_descriptor: &CandidateDescriptor,
 	v3_ever_seen: bool,
+	executor_params_cache: &mut LruMap<SessionIndex, ExecutorParams>,
+	bomb_limit_cache: &mut LruMap<SessionIndex, u32>,
 	sender: &mut Sender,
 ) -> Result<SessionParams, String>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let (scheduling_parent, scheduling_session) =
-		resolve_scheduling_context(candidate_descriptor, v3_ever_seen, sender).await?;
+	// Executor params: execution context session, fetched at a recent leaf.
+	let executor_params = match executor_params_cache.get(&session_index) {
+		Some(cached) => cached.clone(),
+		None => {
+			let params = request_session_executor_params(recent_leaf, session_index, sender)
+				.await
+				.await
+				.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
+				.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
+				.ok_or_else(|| "Executor params not found for session".to_string())?;
+			let _ = executor_params_cache.insert(session_index, params.clone());
+			params
+		},
+	};
 
-	let executor_params =
-		request_session_executor_params(scheduling_parent, scheduling_session, sender)
-			.await
-			.await
-			.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
-			.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
-			.ok_or_else(|| "Executor params not found for session".to_string())?;
+	// Bomb limit: scheduling session (may differ from execution session for V3+).
+	// For V1, scheduling == execution session.
+	let scheduling_session = candidate_descriptor
+		.scheduling_session_for_candidate_validation(v3_ever_seen)
+		.unwrap_or(session_index);
 
-	// Returns a default value if the runtime API is not available for this session,
-	// but errors on unexpected runtime API failures.
-	let validation_code_bomb_limit = util::runtime::fetch_validation_code_bomb_limit(
-		scheduling_parent,
-		scheduling_session,
-		sender,
-	)
-	.await
-	.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())?;
+	let validation_code_bomb_limit = match bomb_limit_cache.get(&scheduling_session) {
+		Some(cached) => *cached,
+		None => {
+			let limit = util::runtime::fetch_validation_code_bomb_limit(
+				recent_leaf,
+				scheduling_session,
+				sender,
+			)
+			.await
+			.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())?;
+			let _ = bomb_limit_cache.insert(scheduling_session, limit);
+			limit
+		},
+	};
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit })
 }
@@ -363,6 +350,7 @@ fn handle_validation_message<S, V>(
 	metrics: Metrics,
 	v3_ever_seen: bool,
 	msg: CandidateValidationMessage,
+	session_params: Option<SessionParams>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>>
 where
 	S: SubsystemSender<RuntimeApiMessage>,
@@ -380,9 +368,9 @@ where
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
 
-			// Phase 1: Pre-validation — cheap checks first, then session param fetch.
+			// Phase 1: Pre-validation — cheap checks first.
 			// Basic checks (PoV hash, code hash, PoV size) are pure and don't need
-			// runtime calls, so they run before we fetch session params.
+			// runtime calls.
 			if let Err(e) = perform_basic_checks(
 				&candidate_receipt.descriptor,
 				validation_data.max_pov_size,
@@ -393,18 +381,15 @@ where
 				return;
 			}
 
-			// Fetch session-scoped params (executor_params + bomb limit) in one
-			// session resolution.
-			let session_params = match fetch_session_params(
-				&candidate_receipt.descriptor,
-				v3_ever_seen,
-				&mut sender,
-			)
-			.await
-			{
-				Ok(params) => params,
-				Err(err) => {
-					let _ = response_sender.send(Err(ValidationFailed(err)));
+			// Session params were resolved by the run loop (cached, fetched at a
+			// recent leaf). If resolution failed (e.g. no active leaf yet), the
+			// task cannot proceed.
+			let session_params = match session_params {
+				Some(params) => params,
+				None => {
+					let _ = response_sender.send(Err(ValidationFailed(
+						"Session params unavailable (no active leaf?)".to_string(),
+					)));
 					return;
 				},
 			};
@@ -554,7 +539,48 @@ async fn run<Context>(
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 						Ok(FromOrchestra::Communication { msg }) => {
-							let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), state.v3_ever_seen, msg);
+								let session_params = match &msg {
+								CandidateValidationMessage::ValidateFromExhaustive {
+									session_index,
+									candidate_receipt,
+									..
+								} => {
+									if let Some(recent_leaf) = state.last_active_leaf {
+										match fetch_session_params(
+											recent_leaf,
+											*session_index,
+											&candidate_receipt.descriptor,
+											state.v3_ever_seen,
+											&mut state.executor_params_cache,
+											&mut state.bomb_limit_cache,
+											ctx.sender(),
+										)
+										.await
+										{
+											Ok(params) => Some(params),
+											Err(err) => {
+												gum::warn!(
+													target: LOG_TARGET,
+													?err,
+													"Failed to fetch session params",
+												);
+												None
+											},
+										}
+									} else {
+										None
+									}
+								},
+								_ => None,
+							};
+							let task = handle_validation_message(
+								ctx.sender().clone(),
+								validation_host.clone(),
+								metrics.clone(),
+								state.v3_ever_seen,
+								msg,
+								session_params,
+							);
 							tasks.push(task);
 							if tasks.len() >= TASK_LIMIT {
 								break
@@ -589,24 +615,40 @@ async fn run<Context>(
 	}
 }
 
+/// Number of sessions to cache. Covers the dispute window with margin.
+const SESSION_CACHE_SIZE: u32 = 8;
+
 /// Top-level subsystem state, owning session tracking, V3 transition detection,
 /// and PVF preparation bookkeeping.
 struct State {
 	/// Current session index, tracked across active leaf updates.
 	session_index: Option<SessionIndex>,
+	/// Most recent active leaf.
+	last_active_leaf: Option<Hash>,
 	/// Monotonic flag: set to `true` once any activated leaf has the V3 candidate
 	/// descriptor node feature enabled. Once set, never unset.
 	/// Used to determine whether approval/dispute validation should trust
 	/// `version()` (V3-capable) or fall back to `version_old_rules()`.
 	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
 	v3_ever_seen: bool,
+	/// Per-session cache for executor parameters.
+	executor_params_cache: LruMap<SessionIndex, ExecutorParams>,
+	/// Per-session cache for validation code bomb limits.
+	bomb_limit_cache: LruMap<SessionIndex, u32>,
 	/// PVF preparation state (proactive pre-compilation for next session).
 	pvf_prep: PvfPrepState,
 }
 
 impl Default for State {
 	fn default() -> Self {
-		Self { session_index: None, v3_ever_seen: false, pvf_prep: PvfPrepState::default() }
+		Self {
+			session_index: None,
+			last_active_leaf: None,
+			v3_ever_seen: false,
+			executor_params_cache: LruMap::new(ByLength::new(SESSION_CACHE_SIZE)),
+			bomb_limit_cache: LruMap::new(ByLength::new(SESSION_CACHE_SIZE)),
+			pvf_prep: PvfPrepState::default(),
+		}
 	}
 }
 
@@ -669,6 +711,7 @@ async fn handle_active_leaves_update<Sender>(
 	update_active_leaves_validation_backend(sender, validation_host, update.clone()).await;
 
 	let Some(activated) = update.activated else { return };
+	state.last_active_leaf = Some(activated.hash);
 	let maybe_session_index = get_session_index(sender, activated.hash).await;
 
 	// Detect session change

@@ -236,6 +236,9 @@ struct PerSchedulingParentState {
 	claim_queue: ClaimQueueSnapshot,
 	/// The validator index -> group mapping at this scheduling parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
+	/// Session index for this scheduling parent. Passed to candidate-validation so it
+	/// can fetch session-scoped params without a runtime call for V1 descriptors.
+	session_index: SessionIndex,
 	/// The associated group rotation information.
 	group_rotation_info: GroupRotationInfo,
 }
@@ -721,6 +724,7 @@ async fn request_candidate_validation(
 	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
+	session_index: SessionIndex,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
@@ -733,6 +737,7 @@ async fn request_candidate_validation(
 			validation_code,
 			candidate_receipt,
 			pov,
+			session_index,
 			exec_kind: if is_system {
 				PvfExecKind::BackingSystemParas(scheduling_parent)
 			} else {
@@ -765,6 +770,7 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	/// the key for `per_scheduling_parent` lookup when sending results back.
 	/// For V1/V2, this equals the candidate's relay_parent.
 	scheduling_parent: Hash,
+	session_index: SessionIndex,
 	node_features: NodeFeatures,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
@@ -784,6 +790,7 @@ async fn validate_and_make_available(
 		mut tx_command,
 		candidate,
 		scheduling_parent,
+		session_index,
 		node_features,
 		persisted_validation_data,
 		pov,
@@ -845,6 +852,7 @@ async fn validate_and_make_available(
 			validation_code,
 			candidate.clone(),
 			pov.clone(),
+			session_index,
 		)
 		.await?
 	};
@@ -1242,6 +1250,7 @@ async fn construct_per_scheduling_parent_state<Context>(
 		n_cores: validator_groups.len() as u32,
 		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group,
+		session_index,
 		group_rotation_info,
 	}))
 }
@@ -1838,6 +1847,7 @@ async fn kick_off_validation_work<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			scheduling_parent,
+			session_index: sp_state.session_index,
 			node_features: sp_state.node_features.clone(),
 			persisted_validation_data,
 			pov,
@@ -2013,6 +2023,7 @@ async fn validate_and_second<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			scheduling_parent,
+			session_index: sp_state.session_index,
 			node_features: sp_state.node_features.clone(),
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
