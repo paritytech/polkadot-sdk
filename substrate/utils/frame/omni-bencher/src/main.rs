@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod command;
+use frame_omni_bencher::Command;
 
 // Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
 #[cfg(target_os = "linux")]
@@ -28,7 +28,7 @@ use tracing_subscriber::EnvFilter;
 fn main() -> Result<()> {
 	setup_logger();
 
-	command::Command::parse().run()
+	Command::parse().run()
 }
 
 /// Setup logging with `info` as default level. Can be set via `RUST_LOG` env.

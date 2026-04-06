@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+docify = { workspace = true }
 frame-benchmarking-cli = { workspace = true }
 polkadot-jemalloc-shim = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
@@ -27,7 +28,15 @@ polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+cmd_lib = { workspace = true }
 cumulus-test-runtime = { workspace = true }
+kitchensink-runtime = { workspace = true, features = ["runtime-benchmarks"] }
+pretty_assertions = { workspace = true }
 sc-chain-spec = { workspace = true }
 sp-genesis-builder = { workspace = true, default-features = true }
+substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
+
+[features]
+# `cargo build --feature=generate-readme` updates the `README.md` file.
+generate-readme = []

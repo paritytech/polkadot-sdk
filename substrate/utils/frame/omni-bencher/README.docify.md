@@ -28,11 +28,7 @@ cargo install --path substrate/utils/frame/omni-bencher --profile=production
 
 Verify the installation and explore the available commands:
 
-```rust,ignore
-bash!(
-	frame-omni-bencher --help
-)
-```
+<!-- docify::embed!("tests/benchmark_works.rs", cmd_help) -->
 
 ## Usage
 
@@ -46,11 +42,7 @@ cargo build -r -p westend-runtime --features runtime-benchmarks
 
 To benchmark a specific pallet (e.g., `pallet_balances`):
 
-```rust,ignore
-bash!(
-	frame-omni-bencher v1 benchmark pallet --runtime $runtime_path --pallet "pallet_balances" --extrinsic "*"
-)
-```
+<!-- docify::embed!("tests/benchmark_works.rs", cmd_benchmark_pallet) -->
 
 The `--steps`, `--repeat`, `--heap-pages`, and `--wasm-execution` arguments have sane defaults and do not need to be passed explicitly.
 
@@ -58,11 +50,7 @@ The `--steps`, `--repeat`, `--heap-pages`, and `--wasm-execution` arguments have
 
 To render Rust weight files from benchmark results, specify an output path. You can also provide a custom header and a Handlebars template (defaults are used if omitted):
 
-```rust,ignore
-bash!(
-	frame-omni-bencher v1 benchmark pallet --runtime $runtime_path --pallet "pallet_balances" --extrinsic "*" --output ./weights/ --header ./HEADER.rs --template ./template.hbs
-)
-```
+<!-- docify::embed!("tests/benchmark_works.rs", cmd_benchmark_pallet_with_output) -->
 
 This uses the same flags as the node-integrated benchmarking CLI. If the output is a directory, a separate file is generated for each pallet/instance.
 

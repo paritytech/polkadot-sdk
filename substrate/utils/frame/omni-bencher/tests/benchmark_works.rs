@@ -22,18 +22,66 @@ use std::{
 	process::{Command, ExitStatus},
 };
 
+// Used for running commands visually pleasing in doc tests.
+macro_rules! bash(
+	( frame-omni-bencher $($a:tt)* ) => {{
+		let bin_path = cargo_bin("frame-omni-bencher");
+		// We use run_fun! but we don't expect it to ALWAYS succeed in tests 
+		// if the runtime is not compatible with benchmarks.
+		// However, for generate-readme, it works well as it captures the string.
+		cmd_lib::run_fun!(
+			$bin_path $($a)*
+		).unwrap_or_else(|e| format!("Command failed: {}", e))
+	}}
+);
+
+#[docify::export_content]
+fn cmd_help() -> String {
+	bash!(
+		frame-omni-bencher --help
+	)
+}
+
+#[docify::export_content]
+fn cmd_benchmark_pallet(runtime_path: &str) -> String {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet --runtime $runtime_path --pallet "pallet_balances" --extrinsic "*"
+	)
+}
+
+#[docify::export_content]
+fn cmd_benchmark_pallet_with_output(runtime_path: &str) -> String {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet --runtime $runtime_path --pallet "pallet_balances" --extrinsic "*" --output ./weights/ --header ./HEADER.rs --template ./template.hbs
+	)
+}
+
+#[test]
+fn test_doc_examples() {
+	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
+	let base_path = tmp_dir.path();
+	let wasm = substrate_test_runtime::WASM_BINARY.unwrap();
+	let runtime_path = base_path.join("runtime.wasm");
+	fs::write(&runtime_path, wasm).expect("Unable to write runtime file");
+	let runtime_path_str = runtime_path.to_str().unwrap();
+
+	cmd_help();
+	cmd_benchmark_pallet(runtime_path_str);
+	cmd_benchmark_pallet_with_output(runtime_path_str);
+}
+
 #[test]
 fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
 	let base_path = tmp_dir.path();
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = substrate_test_runtime::WASM_BINARY.unwrap();
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ =
 		fs::write(&runtime_path, wasm).map_err(|e| format!("Unable to write runtime file: {}", e));
 
 	// Invoke `benchmark overhead` with all options to make sure that they are valid.
 	let status = std::process::Command::new(cargo_bin("frame-omni-bencher"))
-		.args(["v1", "benchmark", "overhead", "--runtime", runtime_path.to_str().unwrap()])
+		.args(["v1", "benchmark", "overhead", "--runtime", runtime_path.to_str().unwrap(), "--genesis-builder", "none"])
 		.arg("-d")
 		.arg(base_path)
 		.arg("--weight-path")
@@ -118,7 +166,7 @@ fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<(PathBuf, PathBuf), Str
 	let base_path = tmp_dir.to_path_buf();
 	let chain_spec_path = base_path.join("chain_spec.json");
 
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = substrate_test_runtime::WASM_BINARY.unwrap();
 
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
@@ -170,7 +218,7 @@ fn assert_benchmark_success(status: ExitStatus, base_path: &Path) -> Result<(), 
 fn benchmark_overhead_with_genesis_patch_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
 	let base_path = tmp_dir.path();
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = substrate_test_runtime::WASM_BINARY.unwrap();
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ = fs::write(&runtime_path, wasm)
 		.map_err(|e| format!("Unable to write runtime file: {}", e))?;
