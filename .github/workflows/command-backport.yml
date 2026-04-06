@@ -54,7 +54,7 @@ jobs:
 
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         with:
           app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
@@ -75,7 +75,7 @@ jobs:
 
 
       - name: Create backport pull requests
-        uses: korthout/backport-action@01619ebc9a6e3f6820274221b9956b3e7365000a # v4.1.0
+        uses: korthout/backport-action@3c06f323a58619da1e8522229ebc8d5de2633e46 # v4.3.0
         id: backport
         with:
           target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}

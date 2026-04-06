@@ -375,7 +375,7 @@ jobs:
 
       - name: Generate token for paritytech/polkadot-sdk
         id: generate_write_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
