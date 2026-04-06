@@ -691,6 +691,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 									relay_parent,
 									core_idx,
 									self.target_session,
+									self.target_session, // scheduling_session_index
 									persisted_validation_data_hash,
 									pov_hash,
 									Default::default(),
