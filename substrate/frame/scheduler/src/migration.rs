@@ -389,6 +389,9 @@ mod test {
 			let bound_small_call =
 				Preimage::bound(VersionedCall::new(small_call, current_version)).unwrap();
 			assert!(!bound_small_call.lookup_needed());
+			let bound_hashed_call_versioned =
+				Preimage::bound(VersionedCall::new(hashed_call, current_version)).unwrap();
+			assert!(bound_hashed_call_versioned.lookup_needed());
 
 			let expected = vec![
 				(
@@ -414,7 +417,7 @@ mod test {
 						Some(ScheduledOf::<Test> {
 							maybe_id: Some(blake2_256(&[255u8; 320])),
 							priority: 123,
-							call: Bounded::from_legacy_hash(bound_hashed_call.hash()),
+							call: bound_hashed_call_versioned.clone(),
 							maybe_periodic: Some((8u64, 10)),
 							origin: signed(0),
 							_phantom: PhantomData::<u64>::default(),
@@ -445,7 +448,7 @@ mod test {
 						Some(ScheduledOf::<Test> {
 							maybe_id: Some(blake2_256(&[254u8; 320])),
 							priority: 123,
-							call: Bounded::from_legacy_hash(bound_hashed_call.hash()),
+							call: bound_hashed_call_versioned.clone(),
 							maybe_periodic: Some((8u64, 10)),
 							origin: signed(1),
 							_phantom: PhantomData::<u64>::default(),

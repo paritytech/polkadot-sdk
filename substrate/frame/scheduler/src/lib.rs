@@ -1248,25 +1248,21 @@ impl<T: Config> Pallet<T> {
 		match T::Preimages::peek::<<T as pallet::Config>::RuntimeCall>(&bounded) {
 			Ok((call, _)) => {
 				let versioned_call = VersionedCall::new(call, current_version);
-				let new_bounded =
-					match T::Preimages::bound(versioned_call) {
-						Ok(b) => b,
-						Err(_) => {
-							log::error!("Dropping scheduled entry: call is too large to store after migration");
-							T::Preimages::drop(&bounded);
-							return None;
-						},
-					};
-				// Drop the old preimage now that we've created a versioned replacement.
-				T::Preimages::drop(&bounded);
-				Some(new_bounded)
+				match T::Preimages::bound(versioned_call) {
+					Ok(new_bounded) => Some(new_bounded),
+					Err(_) => {
+						log::error!(
+							"Dropping scheduled entry: call is too large to store after migration"
+						);
+						None
+					},
+				}
 			},
 			Err(e) => {
 				log::error!(
 					"Dropping scheduled entry: could not fetch call from preimage during migration: {:?}",
 					e
 				);
-				T::Preimages::drop(&bounded);
 				None
 			},
 		}
