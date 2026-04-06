@@ -12,7 +12,7 @@ doc:
       executor_params threading through `Action::LaunchApproval`, `RetryApprovalInfo`,
       `ParticipationRequest`, `BackgroundValidationParams`, and `PerSessionCache`.
 
-    This is in favor of this [comment](https://github.com/paritytech/polkadot-sdk/pull/11566#discussion_r3015664660)
+    This PR is a follow up of this [comment](https://github.com/paritytech/polkadot-sdk/pull/11566#discussion_r3015664660)
 crates:
 - name: polkadot-node-core-approval-voting
   bump: none
@@ -25,4 +25,4 @@ crates:
 - name: polkadot-overseer
   bump: none
 - name: polkadot-node-subsystem-types
-  bump: none
+  bump: major
