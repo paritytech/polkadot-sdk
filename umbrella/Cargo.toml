@@ -1,6 +1,5 @@
 [package]
 name = "polkadot-sdk"
-version = "0.1.0"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
@@ -45,6 +44,7 @@ std = [
 	"frame-election-provider-support?/std",
 	"frame-executive?/std",
 	"frame-metadata-hash-extension?/std",
+	"frame-omni-bencher?/std",
 	"frame-support-procedural?/std",
 	"frame-support?/std",
 	"frame-system-benchmarking?/std",
@@ -183,7 +183,6 @@ std = [
 	"polkadot-runtime-metrics?/std",
 	"polkadot-runtime-parachains?/std",
 	"polkadot-sdk-frame?/std",
-	"frame-omni-bencher?/std",
 	"sc-executor?/std",
 	"slot-range-helper?/std",
 	"sp-api-proc-macro?/std",
@@ -253,10 +252,10 @@ runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov?/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support?/runtime-benchmarks",
+	"frame-omni-bencher?/runtime-benchmarks",
 	"frame-support?/runtime-benchmarks",
 	"frame-system-benchmarking?/runtime-benchmarks",
 	"frame-system?/runtime-benchmarks",
-	"frame-omni-bencher?/runtime-benchmarks",
 	"pallet-alliance?/runtime-benchmarks",
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment?/runtime-benchmarks",
@@ -890,8 +889,8 @@ node = [
 	"emulated-integration-tests-common",
 	"fork-tree",
 	"frame-benchmarking-cli",
-	"frame-remote-externalities",
 	"frame-omni-bencher",
+	"frame-remote-externalities",
 	"frame-support-procedural-tools",
 	"generate-bags",
 	"mmr-gadget",
@@ -2323,15 +2322,15 @@ default-features = false
 optional = true
 path = "../substrate/utils/frame/benchmarking-cli"
 
-[dependencies.frame-remote-externalities]
-default-features = false
-optional = true
-path = "../substrate/utils/frame/remote-externalities"
-
 [dependencies.frame-omni-bencher]
 default-features = false
 optional = true
 path = "../substrate/utils/frame/omni-bencher"
+
+[dependencies.frame-remote-externalities]
+default-features = false
+optional = true
+path = "../substrate/utils/frame/remote-externalities"
 
 [dependencies.frame-support-procedural-tools]
 default-features = false

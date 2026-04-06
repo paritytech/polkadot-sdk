@@ -46,4 +46,8 @@ std = [
 ]
 # `cargo build --feature=generate-readme` updates the `README.md` file.
 generate-readme = ["std"]
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"kitchensink-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
