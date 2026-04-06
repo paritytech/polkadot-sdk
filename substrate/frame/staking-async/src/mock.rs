@@ -399,7 +399,10 @@ ord_parameter_types! {
 }
 
 parameter_types! {
+	pub static RewardRemainderUnbalanced: u128 = 0;
+	pub static UseLegacyEraPayout: bool = false;
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
+	pub static MaxEraDuration: u64 = 0;
 	pub const MaxPruningItems: u32 = 100;
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 	pub const TestIssuanceCadence: u64 = 0; // drip every block
@@ -412,6 +415,46 @@ impl frame_support::traits::Time for MockTime {
 	type Moment = u64;
 	fn now() -> u64 {
 		session_mock::Timestamp::get()
+	}
+}
+
+pub struct RewardRemainderMock;
+impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
+	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
+		use frame_support::traits::tokens::imbalance::Imbalance;
+		RewardRemainderUnbalanced::mutate(|v| {
+			*v += amount.peek();
+		});
+		drop(amount);
+	}
+}
+
+/// Switchable EraPayout: returns (0,0) in DAP mode, real values in legacy mode.
+pub struct TestEraPayout;
+impl EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		if !UseLegacyEraPayout::get() {
+			// DAP mode: return (0, 0)
+			(0, 0)
+		} else {
+			// Legacy mode: same as old OneTokenPerMillisecond + RemainderRatio
+			let total = era_duration_millis as Balance;
+			let remainder = RemainderRatio::get() * total;
+			let stakers = total - remainder;
+			(stakers, remainder)
+		}
+	}
+}
+
+/// DisableMinting follows UseLegacyEraPayout: when legacy is on, minting is NOT disabled.
+pub struct DisableMintingMode;
+impl Get<bool> for DisableMintingMode {
+	fn get() -> bool {
+		!UseLegacyEraPayout::get()
 	}
 }
 
@@ -469,9 +512,13 @@ impl Config for Test {
 	type ElectionProvider = TestElectionProvider;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type HistoryDepth = HistoryDepth;
+	type RewardRemainder = RewardRemainderMock;
 	type Slash = Dap;
 	type UnclaimedRewardHandler = Dap;
 	type Reward = MockReward;
+	type EraPayout = TestEraPayout;
+	type MaxEraDuration = MaxEraDuration;
+	type DisableMinting = DisableMintingMode;
 	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
 	type BondingDuration = BondingDuration;
@@ -574,6 +621,11 @@ impl ExtBuilder {
 	}
 	pub fn election_delay(self, delay: BlockNumber) -> Self {
 		ElectionDelay::set(delay);
+		self
+	}
+	/// Switch to legacy reward mode (EraPayout-based minting instead of DAP pots).
+	pub(crate) fn legacy_reward_mode(self) -> Self {
+		UseLegacyEraPayout::set(true);
 		self
 	}
 	pub(crate) fn nominate(mut self, nominate: bool) -> Self {
@@ -743,24 +795,27 @@ impl ExtBuilder {
 
 		ext.execute_with(|| {
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
-			// Disable legacy minting from era 0 in tests to catch missing era pots early.
-			crate::DisableLegacyMintingEra::<Test>::put(0);
-			// Set budget allocation: 50% stakers, 50% buffer (must sum to 100%).
-			pallet_dap::BudgetAllocation::<Test>::put(default_budget());
-			// Initialize DAP's LastIssuanceTimestamp.
-			pallet_dap::LastIssuanceTimestamp::<Test>::put(INIT_TIMESTAMP);
-			// Fund general pot accounts with ED so they stay alive across era snapshots.
-			let ed = ExistentialDeposit::get();
-			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
-				&general_staker_pot(),
-				ed,
-			)
-			.expect("mint general staker pot");
-			// Fund DAP buffer account with ED.
-			let dap_buffer =
-				<pallet_dap::Pallet<Test> as BudgetRecipient<AccountId>>::pot_account();
-			<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&dap_buffer, ed)
+
+			if !UseLegacyEraPayout::get() {
+				// DAP mode: set up budget, fund pots, enable minting guard.
+				crate::DisableMintingGuard::<Test>::put(0);
+				pallet_dap::BudgetAllocation::<Test>::put(default_budget());
+				pallet_dap::LastIssuanceTimestamp::<Test>::put(INIT_TIMESTAMP);
+				let ed = ExistentialDeposit::get();
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+					&general_staker_pot(),
+					ed,
+				)
+				.expect("mint general staker pot");
+				let dap_buffer =
+					<pallet_dap::Pallet<Test> as BudgetRecipient<AccountId>>::pot_account();
+				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+					&dap_buffer,
+					ed,
+				)
 				.expect("mint dap buffer");
+			}
+			// Legacy mode: no DAP setup needed. EraPayout computes inflation, staking mints.
 			session_mock::Session::roll_until_active_era(1);
 			if self.flush_events {
 				let _ = staking_events_since_last_call();

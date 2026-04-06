@@ -263,6 +263,7 @@ fn pool_chill_e2e() {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop, // max_staked_rewards
 			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
 		));
 

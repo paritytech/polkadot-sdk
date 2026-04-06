@@ -23,7 +23,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, ConstU8, Nothing, VariantCountOf},
+	traits::{ConstBool, ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -112,6 +112,8 @@ impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type EraPayout = ();
+	type DisableMinting = ConstBool<true>;
 	type BondingDuration = BondingDuration;
 	type GeneralPots = pallet_staking_async::SequentialTest;
 	type EraPots = pallet_staking_async::SequentialTest;
@@ -369,6 +371,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop, // max_staked_rewards
 			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
 		));
 

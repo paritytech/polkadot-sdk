@@ -61,7 +61,7 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	clear_validators_and_nominators::<T>();
 
 	// Disable legacy minting so benchmarks always exercise the reward-pot path.
-	DisableLegacyMintingEra::<T>::put(0);
+	DisableMintingGuard::<T>::put(0);
 	let mut points_total = 0;
 	let mut points_individual = Vec::new();
 
@@ -830,6 +830,7 @@ mod benchmarks {
 			ConfigOp::Set(u32::MAX),
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
+			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(false),
 		);
 
@@ -839,6 +840,7 @@ mod benchmarks {
 		assert_eq!(MaxValidatorsCount::<T>::get(), Some(u32::MAX));
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
+		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
 	}
 
@@ -847,6 +849,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_staking_configs(
 			RawOrigin::Root,
+			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -886,6 +889,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
 

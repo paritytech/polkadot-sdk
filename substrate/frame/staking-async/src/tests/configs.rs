@@ -29,6 +29,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Set(Percent::from_percent(95)),
 			ConfigOp::Set(false),
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
@@ -37,11 +38,13 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(95)));
 		assert_eq!(AreNominatorsSlashable::<Test>::get(), false);
 
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -61,6 +64,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
 		assert_eq!(MinValidatorBond::<Test>::get(), 0);
@@ -68,6 +72,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxValidatorsCount::<Test>::get(), None);
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
+		assert_eq!(MaxStakedRewards::<Test>::get(), None);
 		// AreNominatorsSlashable defaults to true when removed
 		assert_eq!(AreNominatorsSlashable::<Test>::get(), true);
 	});

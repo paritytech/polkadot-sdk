@@ -81,11 +81,11 @@ use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Saturating};
+use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -797,12 +797,60 @@ impl<T: Config> Rotator<T> {
 		});
 	}
 
-	fn end_era(ending_era: &ActiveEraInfo, _new_era_start: u64) {
-		log!(debug, "snapshotting reward pots for era {:?}", ending_era.index);
+	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
+		if T::DisableMinting::get() {
+			Self::end_era_dap(ending_era);
+		} else {
+			Self::end_era_legacy(ending_era, new_era_start);
+		}
+	}
 
-		// Snapshot general staker reward pot into era-specific pot.
-		// DAP has been dripping inflation into the general pot since the last era boundary.
-		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+	/// Legacy end-era: compute inflation via `EraPayout`, mint, send remainder.
+	fn end_era_legacy(ending_era: &ActiveEraInfo, new_era_start: u64) {
+		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
+		let era_duration = new_era_start.saturating_sub(previous_era_start);
+
+		let cap = T::MaxEraDuration::get();
+		let era_duration = if cap == 0 || era_duration <= cap {
+			era_duration
+		} else {
+			Pallet::<T>::deposit_event(Event::Unexpected(
+				UnexpectedKind::EraDurationBoundExceeded,
+			));
+			log!(
+				warn,
+				"capping era duration for era {:?} from {:?} to max {:?}",
+				ending_era.index, era_duration, cap
+			);
+			cap
+		};
+
+		let staked = ErasTotalStake::<T>::get(ending_era.index);
+		let issuance = asset::total_issuance::<T>();
+		let (validator_payout, remainder) =
+			T::EraPayout::era_payout(staked, issuance, era_duration);
+
+		let total_payout = validator_payout.saturating_add(remainder);
+		let max_staked_rewards =
+			MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+
+		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
+		let remainder = total_payout.saturating_sub(validator_payout);
+
+		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
+			era_index: ending_era.index,
+			validator_payout,
+			remainder,
+		});
+
+		Eras::<T>::set_stakers_reward(ending_era.index, validator_payout);
+		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
+	}
+
+	/// DAP end-era: snapshot from general reward pot into era-specific pot.
+	fn end_era_dap(ending_era: &ActiveEraInfo) {
+		let staker_rewards =
+			reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
 		if staker_rewards.is_zero() {
 			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
@@ -810,17 +858,14 @@ impl<T: Config> Rotator<T> {
 
 		Eras::<T>::set_stakers_reward(ending_era.index, staker_rewards);
 
-		// Note: `remainder` is always zero with DAP-based inflation — treasury/buffer
-		// allocation is handled by DAP directly.
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
 			validator_payout: staker_rewards,
 			remainder: Zero::zero(),
 		});
 
-		// Update DisableLegacyMintingEra to prevent legacy minting.
 		if !staker_rewards.is_zero() {
-			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
+			DisableMintingGuard::<T>::mutate(|maybe_era| {
 				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
 					*maybe_era = Some(ending_era.index);
 				}

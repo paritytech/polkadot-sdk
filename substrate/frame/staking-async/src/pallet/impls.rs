@@ -444,7 +444,7 @@ impl<T: Config> Pallet<T> {
 				)
 			} else {
 				// LEGACY: Only used for old eras finalised before reward provider impl.
-				if let Some(disable_era) = DisableLegacyMintingEra::<T>::get() {
+				if let Some(disable_era) = DisableMintingGuard::<T>::get() {
 					if era >= disable_era {
 						defensive!("Era has no reward pot but legacy minting is disabled!");
 						return Err(Error::<T>::LegacyMintingDisabled.into());

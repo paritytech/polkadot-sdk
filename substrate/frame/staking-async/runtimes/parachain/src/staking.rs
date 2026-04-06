@@ -432,8 +432,12 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
+	type RewardRemainder = ();
 	type Slash = Dap;
 	type Reward = ();
+	type EraPayout = ();
+	type MaxEraDuration = ();
+	type DisableMinting = ConstBool<true>;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;

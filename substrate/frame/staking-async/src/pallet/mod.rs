@@ -19,7 +19,8 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
+	LedgerIntegrityState,
 	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
 	RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
@@ -186,13 +187,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
 
+		/// Receives the treasury remainder in legacy minting mode (`DisableMinting = false`).
+		/// Unused in non-minting mode.
+		#[pallet::no_default_bounds]
+		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
 		/// Handler for the unbalanced reduction when slashing a staker.
 		#[pallet::no_default_bounds]
 		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
-		/// Handler for the unbalanced increment when rewarding a staker.
-		/// NOTE: in most cases, the implementation of `OnUnbalanced` should modify the total
-		/// issuance.
+		/// Receives minted reward imbalances in legacy minting mode (`DisableMinting = false`).
+		/// Unused in non-minting mode where payouts are transfers from era pots.
 		#[pallet::no_default_bounds]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
@@ -249,21 +254,48 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Handler for unclaimed era rewards.
+		/// Era payout computation for legacy minting mode (`DisableMinting = false`).
 		///
-		/// When era pots are cleaned up past history depth, remaining funds are withdrawn
-		/// and passed to this handler. Typically wired to DAP.
+		/// Computes `(staker_payout, remainder)` from total staked, total issuance, and
+		/// era duration. Not called in non-minting mode — can be set to `()`.
+		#[pallet::no_default]
+		type EraPayout: EraPayout<BalanceOf<Self>>;
+
+		/// Maximum allowed era duration in milliseconds.
+		///
+		/// Caps the effective era duration to prevent runaway inflation in legacy mode.
+		/// Set to 0 to disable capping. Unused in non-minting mode.
+		#[pallet::constant]
+		type MaxEraDuration: Get<u64>;
+
+		/// When `true`, staking does not mint. It expects an external source to fund
+		/// the general reward pot. At era boundary, rewards are snapshotted from
+		/// the pot. `EraPayout` is not called.
+		///
+		/// When `false`, staking uses the legacy path: `EraPayout` computes inflation,
+		/// tokens are minted on-the-fly during payout.
+		///
+		/// **Irreversible**: once set to `true`, must never be switched back. Eras
+		/// created in non-minting mode have funded reward pots — switching to legacy
+		/// would orphan those pots and cause double-minting.
+		#[pallet::constant]
+		type DisableMinting: Get<bool>;
+
+		/// Handler for unclaimed era rewards (non-minting mode only).
+		///
+		/// When era pots are cleaned up past `HistoryDepth`, remaining funds are
+		/// withdrawn and passed to this handler.
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
-		/// Provider for general (non-era) reward pot accounts.
+		/// Provider for general (non-era) reward pot accounts (non-minting mode only).
 		///
-		/// DAP drips inflation into these pots. At era boundaries, staking snapshots
-		/// and transfers the balances to era-specific pots.
+		/// An external source funds these pots. At era boundaries, staking snapshots
+		/// the accumulated balance into era-specific pots.
 		#[pallet::no_default]
 		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
 
-		/// Provider for generating era pot account IDs.
+		/// Provider for generating era pot account IDs (non-minting mode only).
 		#[pallet::no_default]
 		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
 
@@ -412,10 +444,13 @@ pub mod pallet {
 			type CurrencyToVote = ();
 			type NominationsQuota = crate::FixedNominationsQuota<16>;
 			type HistoryDepth = ConstU32<84>;
+			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
 			type UnclaimedRewardHandler = ();
 			type StakerRewardCalculator = ();
+			type MaxEraDuration = ();
+			type DisableMinting = ConstBool<false>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -474,11 +509,15 @@ pub mod pallet {
 		}
 	}
 
-	/// The era from which legacy minting (mint-on-payout) is permanently disabled.
+	/// Safety guard: the era from which legacy minting is permanently disabled on the
+	/// payout side. **Irreversible** — once set, should never be cleared.
 	///
-	/// Once set, all eras >= this value must use reward pot transfers instead of minting.
+	/// Separate from [`Config::DisableMinting`] which controls the `end_era` path.
+	/// This storage guards against minting during payout for eras that were created
+	/// in DAP mode. Set automatically by `end_era_dap` on first successful pot snapshot.
+	/// In legacy mode (Kusama), this is never set and the guard is inactive.
 	#[pallet::storage]
-	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
+	pub type DisableMintingGuard<T: Config> = StorageValue<_, EraIndex>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -777,6 +816,11 @@ pub mod pallet {
 	/// Eras that haven't finished yet or has been removed doesn't have reward.
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards. Only used in legacy minting mode (`DisableMinting = false`).
+	#[pallet::storage]
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
@@ -1140,11 +1184,11 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The era payout has been set; `validator_payout` is the staker reward budget
-		/// snapshotted from the DAP general pot.
+		/// The era payout has been set.
 		///
-		/// Note: `remainder` is always zero with DAP-based inflation. Treasury/buffer
-		/// allocation is handled by DAP directly and is no longer reported here.
+		/// In non-minting mode, `validator_payout` is the staker reward budget
+		/// snapshotted from the general pot, and `remainder` is always zero.
+		/// In legacy minting mode, both fields reflect the `EraPayout` computation.
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
@@ -2392,6 +2436,7 @@ pub mod pallet {
 			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
+			max_staked_rewards: ConfigOp<Percent>,
 			are_nominators_slashable: ConfigOp<bool>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -2412,6 +2457,7 @@ pub mod pallet {
 			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
+			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
 			Ok(())
 		}
