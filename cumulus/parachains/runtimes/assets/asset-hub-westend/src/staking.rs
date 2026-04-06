@@ -279,20 +279,13 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
 	type Slash = Dap;
-	type UnclaimedRewardHandler = Dap;
 	type Reward = ();
-	type EraPayout = ();
-	type MaxEraDuration = ();
-	type DisableMinting = ConstBool<true>;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type GeneralPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type EraPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type StakerRewardCalculator =
-		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -305,6 +298,13 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
+	type MaxEraDuration = ();
+	type DisableMinting = ConstBool<true>;
+	type UnclaimedRewardHandler = Dap;
+	type GeneralPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type EraPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }

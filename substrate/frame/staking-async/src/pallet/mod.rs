@@ -187,8 +187,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
 
-		/// Receives the treasury remainder in legacy minting mode (`DisableMinting = false`).
-		/// Unused in non-minting mode.
+		/// Tokens have been minted and are unused for validator-reward.
+		///
+		/// Only used in legacy minting mode (`DisableMinting = false`).
 		#[pallet::no_default_bounds]
 		type RewardRemainder: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
@@ -196,8 +197,11 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
-		/// Receives minted reward imbalances in legacy minting mode (`DisableMinting = false`).
-		/// Unused in non-minting mode where payouts are transfers from era pots.
+		/// Handler for the unbalanced increment when rewarding a staker.
+		/// NOTE: in most cases, the implementation of `OnUnbalanced` should modify the total
+		/// issuance.
+		///
+		/// Only used in legacy minting mode (`DisableMinting = false`).
 		#[pallet::no_default_bounds]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
@@ -254,19 +258,13 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Era payout computation for legacy minting mode (`DisableMinting = false`).
+		/// The payout for validators and the system for the current era.
+		/// See [Era payout](./index.html#era-payout).
 		///
-		/// Computes `(staker_payout, remainder)` from total staked, total issuance, and
-		/// era duration. Not called in non-minting mode — can be set to `()`.
+		/// Only used in legacy minting mode (`DisableMinting = false`).
+		/// Should be set to () in non-minting mode.
 		#[pallet::no_default]
 		type EraPayout: EraPayout<BalanceOf<Self>>;
-
-		/// Maximum allowed era duration in milliseconds.
-		///
-		/// Caps the effective era duration to prevent runaway inflation in legacy mode.
-		/// Set to 0 to disable capping. Unused in non-minting mode.
-		#[pallet::constant]
-		type MaxEraDuration: Get<u64>;
 
 		/// When `true`, staking does not mint. It expects an external source to fund
 		/// the general reward pot. At era boundary, rewards are snapshotted from
@@ -386,6 +384,19 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
+		/// Maximum allowed era duration in milliseconds.
+		///
+		/// This provides a defensive upper bound to cap the effective era duration, preventing
+		/// excessively long eras from causing runaway inflation (e.g., due to bugs). If the actual
+		/// era duration exceeds this value, it will be clamped to this maximum.
+		///
+		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
+		/// this can be set to 604,800,000 ms (7 days).
+		///
+		/// Only used in legacy minting mode (`DisableMinting = false`).
+		#[pallet::constant]
+		type MaxEraDuration: Get<u64>;
+
 		/// Maximum number of storage items that can be pruned in a single call.
 		///
 		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
@@ -449,7 +460,6 @@ pub mod pallet {
 			type Reward = ();
 			type UnclaimedRewardHandler = ();
 			type StakerRewardCalculator = ();
-			type MaxEraDuration = ();
 			type DisableMinting = ConstBool<false>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
@@ -460,6 +470,8 @@ pub mod pallet {
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
+			type MaxEraDuration = ();
+
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
@@ -817,11 +829,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
-	/// Maximum staked rewards, i.e. the percentage of the era inflation that
-	/// is used for stake rewards. Only used in legacy minting mode (`DisableMinting = false`).
-	#[pallet::storage]
-	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
-
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
@@ -837,6 +844,13 @@ pub mod pallet {
 	/// Mode of era forcing.
 	#[pallet::storage]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
+
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
+	///
+	/// /// Only used in legacy minting mode (`DisableMinting = false`).
+	#[pallet::storage]
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
 
 	/// The percentage of the slash that is distributed to reporters.
 	///
