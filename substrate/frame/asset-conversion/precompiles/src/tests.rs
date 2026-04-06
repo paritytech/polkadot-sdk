@@ -347,3 +347,145 @@ fn quote_fails_for_nonexistent_pool() {
 		assert!(failed, "quote for nonexistent pool must fail");
 	});
 }
+
+// --- Location-based variant tests ---
+
+use codec::Encode;
+
+/// SCALE-encode a NativeOrWithId asset kind.
+fn encode_native() -> Vec<u8> {
+	NativeOrWithId::<u32>::Native.encode()
+}
+
+fn encode_asset1() -> Vec<u8> {
+	NativeOrWithId::<u32>::WithId(1).encode()
+}
+
+#[test]
+fn swap_exact_tokens_by_location_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+
+		setup_pool(provider, 10_000, 10_000);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, swapper, 1_000));
+
+		let swapper_asset1_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &swapper);
+
+		let data = IAssetConversion::swapExactTokensForTokensByLocationCall {
+			path: vec![encode_asset1().into(), encode_native().into()],
+			amountIn: U256::from(100),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let return_data = result.result.expect("swap must succeed");
+		assert!(!return_data.did_revert(), "swap must not revert");
+
+		let amount_out =
+			IAssetConversion::swapExactTokensForTokensByLocationCall::abi_decode_returns(
+				&return_data.data,
+			)
+			.expect("return data must decode");
+		assert!(amount_out > U256::ZERO, "must receive some tokens");
+
+		let swapper_asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &swapper);
+		assert_eq!(swapper_asset1_before - swapper_asset1_after, 100);
+	});
+}
+
+#[test]
+fn quote_by_location_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		let data = IAssetConversion::quoteExactTokensForTokensByLocationCall {
+			asset1: encode_asset1().into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		let return_data = result.result.expect("quote must succeed");
+		assert!(!return_data.did_revert(), "quote must not revert");
+
+		let quoted = IAssetConversion::quoteExactTokensForTokensByLocationCall::abi_decode_returns(
+			&return_data.data,
+		)
+		.expect("return data must decode");
+
+		// Same pool, same amount — should match the address-based quote.
+		assert_eq!(quoted, U256::from(98));
+	});
+}
+
+#[test]
+fn location_quote_matches_address_quote() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		// Address-based quote.
+		let addr_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: addr(asset1()),
+			asset2: addr(NATIVE),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		let addr_result = bare_call(provider, addr_data);
+		let addr_quoted = IAssetConversion::quoteExactTokensForTokensCall::abi_decode_returns(
+			&addr_result.result.unwrap().data,
+		)
+		.unwrap();
+
+		// Location-based quote.
+		let loc_data = IAssetConversion::quoteExactTokensForTokensByLocationCall {
+			asset1: encode_asset1().into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		let loc_result = bare_call(provider, loc_data);
+		let loc_quoted =
+			IAssetConversion::quoteExactTokensForTokensByLocationCall::abi_decode_returns(
+				&loc_result.result.unwrap().data,
+			)
+			.unwrap();
+
+		assert_eq!(addr_quoted, loc_quoted, "address and location quotes must match");
+	});
+}
+
+#[test]
+fn location_quote_fails_with_invalid_encoding() {
+	new_test_ext().execute_with(|| {
+		let caller = 1u64;
+
+		setup_pool(caller, 10_000, 10_000);
+
+		let data = IAssetConversion::quoteExactTokensForTokensByLocationCall {
+			asset1: alloy::primitives::Bytes::from(vec![0xff, 0xff, 0xff]),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let result = bare_call(caller, data);
+		let failed =
+			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
+		assert!(failed, "quote with invalid SCALE encoding must fail");
+	});
+}
