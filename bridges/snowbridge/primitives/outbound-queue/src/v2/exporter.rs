@@ -3,21 +3,21 @@
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
-	traits::{Contains, Get, ProcessMessageError},
+	traits::{Contains, Get},
 	weights::Weight,
 };
 use snowbridge_core::{operating_mode::ExportPausedQuery, ParaId, TokenId};
 use sp_runtime::traits::MaybeConvert;
-use sp_std::{ops::ControlFlow, prelude::*, vec::Vec};
+use sp_std::{prelude::*, vec::Vec};
 use xcm::{
 	latest::{ExecuteXcm, InstructionError, Outcome, PreparedMessage},
 	prelude::{
-		AliasOrigin, Asset, Assets, Here, Instruction, InteriorLocation, Junctions, Location,
+		Asset, Assets, Here, Instruction, InteriorLocation, Junctions, Location,
 		NetworkId, Parachain, SendError, SendResult, SendXcm, Xcm, XcmHash,
 	},
 	VersionedLocation, VersionedXcm,
 };
-use xcm_builder::{CreateMatcher, ExporterFor, InspectMessageQueues, MatchXcm};
+use xcm_builder::{ExporterFor, InspectMessageQueues};
 use xcm_executor::traits::ExportXcm;
 
 use crate::v2::{converter::XcmConverter, message::SendMessage};
@@ -92,23 +92,23 @@ where
 	Ok(local_sub)
 }
 
-/// Returns `true` if `xcm` contains an [`AliasOrigin`] instruction (same linear scan as
-/// [`XcmForSnowbridgeV2`]). Snowbridge v2 outbound blobs include `AliasOrigin`; legacy v1 blobs do
-/// not, so the router can fall through to the v1 [`crate::v1::EthereumBlobExporter`].
+/// Returns `true` if the top-level instruction list contains an [`AliasOrigin`] instruction.
+///
+/// Snowbridge v2 outbound export blobs include `AliasOrigin`; legacy v1 blobs do not. Used for the
+/// v1/v2 routing predicate (same as [`EthereumBlobExporter`] and Bridge Hub export simulation).
+pub fn snowbridge_v2_instructions_contain_alias_origin<Call>(
+	instructions: &[Instruction<Call>],
+) -> bool {
+	instructions.iter().any(|i| matches!(i, Instruction::AliasOrigin(_)))
+}
+
+/// Like [`snowbridge_v2_instructions_contain_alias_origin`] for an [`Xcm`] program.
 ///
 /// [`ExecuteBeforeSnowbridgeV2BlobExport`] uses this before running export simulation so the inner
 /// [`EthereumBlobExporter`] only sees v2-shaped messages (the inner exporter no longer repeats this
 /// check).
 pub fn snowbridge_v2_export_blob_contains_alias_origin(xcm: &Xcm<()>) -> bool {
-	let mut instructions = xcm.clone().0;
-	let result = instructions.matcher().match_next_inst_while(
-		|_| true,
-		|inst| match inst {
-			AliasOrigin(..) => Err(ProcessMessageError::Yield),
-			_ => Ok(ControlFlow::Continue(())),
-		},
-	);
-	result.is_err()
+	snowbridge_v2_instructions_contain_alias_origin(xcm.inner())
 }
 
 /// Used to process ExportMessages where the destination is Ethereum. It takes an ExportMessage
