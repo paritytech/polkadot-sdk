@@ -34,7 +34,7 @@ use frame_support::{
 		tokens::imbalance::{
 			ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
 		},
-		Contains, Everything, Nothing, ProcessMessageError,
+		Contains, Equals, Everything, EverythingBut, Nothing, ProcessMessageError,
 	},
 	weights::{ConstantMultiplier, Weight},
 };
@@ -259,9 +259,9 @@ impl xcm_executor::traits::WeightTrader for EthereumExecutionFreeTrader {
 /// [`MessageExporter`](EthereumSimulationSuccessExporter) stubs nested `ExportMessage` so execution
 /// can reach `Outcome::Complete` without a second real enqueue.
 ///
-/// `Aliasers` allows `AliasOrigin` only from the Asset Hub root [`Location`] (sibling parachain
-/// from Bridge Hub), matching Snowbridge v2 `preserve_origin` traffic. The alias target is not
-/// further restricted (see [`Everything`] filter) so re-anchored user locations still pass.
+/// `Aliasers` allows `AliasOrigin` only when the current origin is the Asset Hub root
+/// ([`AssetHubLocation`]), matching Snowbridge v2 `preserve_origin` traffic. The alias target must
+/// be any [`Location`] except that same Asset Hub root (see [`EverythingBut`] + [`Equals`]).
 pub struct EthereumXcmConfig;
 impl xcm_executor::Config for EthereumXcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -271,7 +271,10 @@ impl xcm_executor::Config for EthereumXcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = Everything;
 	type IsTeleporter = ();
-	type Aliasers = AliasOriginRootUsingFilter<AssetHubLocation, Everything>;
+	type Aliasers = AliasOriginRootUsingFilter<
+		AssetHubLocation,
+		EverythingBut<Equals<AssetHubLocation>>,
+	>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = EthereumExportSimulationBarrier;
 	type Weigher = WeightInfoBounds<
