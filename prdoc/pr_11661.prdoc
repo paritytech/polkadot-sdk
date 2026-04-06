@@ -1,0 +1,40 @@
+title: 'Improve frame-omni-bencher docs '
+doc:
+- audience: Node Dev
+  description: |-
+    This PR refactors the `frame-omni-bencher` documentation and testing infrastructure to align with `polkadot-sdk` standards, following the pattern established in `staging-chain-spec-builder`. The primary goal is to ensure that all CLI usage examples are backed by functional integration tests and that the `README.md` is automatically generated to stay in sync with the codebase.
+
+    Closes to #6392
+
+    ## Integration
+
+    Downstream users of the `frame-omni-bencher` CLI will not experience any breaking changes. However, developers contributing to this crate should note:
+    - The `README.md` is now an automated artifact generated from `README.docify.md`.
+    - To update documentation, modify `README.docify.md` and run:
+
+    `  cargo build -p frame-omni-bencher --features generate-readme
+    `
+
+    All CLI examples in the README are now pulled from `tests/benchmark_works.rs` via `docify`. Ensure any command changes are reflected in the test suite.
+
+    ## Review Notes
+
+    The refactoring involved several architectural changes:
+
+    1. **Library-Binary Hybrid**: The crate has been converted to include a library component ([lib.rs](file:///Users/kanas/Desktop/Parity/polkadot-sdk/substrate/utils/frame/omni-bencher/src/lib.rs)). This allows `docify` to access and export content from the crate's integration tests.
+    2. **Docify Integration**:
+       - Created `README.docify.md` as the source template.
+       - Used `docify::export_content` in `tests/benchmark_works.rs` to mark CLI examples.
+       - Used a non-panicking `bash!` macro (via `cmd_lib`) to ensure that documentation can be generated even in environments where the full benchmarking API might not be supported by the test runtime (while still validating the command structure).
+    3. **Internalized Documentation**: Removed duplicated documentation from the `Command` struct in `command.rs`. The `README.md` is now included directly into `lib.rs` using `include_str!`, making it the primary module-level documentation.
+    4. **Test Runtime**: Switched from ad-hoc runtime paths to using the preferred `substrate-test-runtime` for all internal integration and documentation tests.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [x] My PR follows the [labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process) of this project.
+    * [x] I have made corresponding changes to the documentation.
+    * [x] I have added tests that prove my fix is effective or that my feature works.
+crates:
+- name: frame-omni-bencher
+  bump: patch
