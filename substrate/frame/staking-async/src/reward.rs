@@ -341,4 +341,32 @@ mod tests {
 			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
 		assert!(w_025 < w_050 && w_050 < w_075);
 	}
+
+	#[test]
+	fn weight_slope_factor_zero_plateaus_at_optimum() {
+		// k=0 → immediate plateau at optimum (no growth beyond T).
+		let at_optimum = calculate_weight(100_000, 100_000, 500_000, Perbill::zero());
+		let above_optimum = calculate_weight(300_000, 100_000, 500_000, Perbill::zero());
+		assert_eq!(at_optimum, above_optimum);
+	}
+
+	#[test]
+	fn weight_slope_factor_one_no_discouragement() {
+		// k=1 → no discouragement above T (same curve as below T).
+		let at_optimum = calculate_weight(100_000, 100_000, 500_000, Perbill::one());
+		let at_cap = calculate_weight(500_000, 100_000, 500_000, Perbill::one());
+		// √100_000 ≈ 316, √500_000 ≈ 707
+		assert_eq!(at_optimum, 316);
+		assert_eq!(at_cap, 707);
+	}
+
+	#[test]
+	fn weight_optimum_equals_cap() {
+		// When T == C, the middle segment vanishes — plateau immediately at T.
+		let slope = Perbill::from_rational(1u32, 2u32);
+		let at_boundary = calculate_weight(100_000, 100_000, 100_000, slope);
+		let above = calculate_weight(200_000, 100_000, 100_000, slope);
+		assert_eq!(at_boundary, above);
+		assert_eq!(at_boundary, 316); // √100_000
+	}
 }
