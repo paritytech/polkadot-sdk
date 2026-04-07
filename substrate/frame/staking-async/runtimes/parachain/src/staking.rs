@@ -486,19 +486,27 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// export validator session at end of session 4 within an era.
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
-	type Balance = Balance;
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
+	type Currency = Balances;
+	type KeyDeposit = ConstU128<{ 10_000 * UNITS }>;
 	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = pallet_timestamp::Pallet<Runtime>;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -535,12 +543,14 @@ pub struct KeysMessageToXcm;
 impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
 		let encoded_call = match msg {
-			rc_client::KeysMessage::SetKeys { stash, keys } =>
+			rc_client::KeysMessage::SetKeys { stash, keys } => {
 				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
-					.encode(),
-			rc_client::KeysMessage::PurgeKeys { stash } =>
+					.encode()
+			},
+			rc_client::KeysMessage::PurgeKeys { stash } => {
 				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
-					.encode(),
+					.encode()
+			},
 		};
 		rc_client::build_transact_xcm(encoded_call)
 	}

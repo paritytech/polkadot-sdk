@@ -19,7 +19,9 @@ codec = { workspace = true }
 hex = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
 
 frame-support = { workspace = true }
 sp-core = { workspace = true }
@@ -32,7 +34,6 @@ ssz_rs = { workspace = true }
 ssz_rs_derive = { workspace = true }
 
 milagro-bls = { workspace = true }
-snowbridge-ethereum = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
@@ -48,7 +49,6 @@ std = [
 	"rlp/std",
 	"scale-info/std",
 	"serde",
-	"snowbridge-ethereum/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
