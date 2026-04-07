@@ -100,6 +100,7 @@ pub trait WeightInfo {
 	fn prune_era_reward_points() -> Weight;
 	fn prune_era_single_entry_cleanups() -> Weight;
 	fn prune_era_validator_slash_in_era(v: u32, ) -> Weight;
+	fn prune_era_validator_incentive_weight(v: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -1089,6 +1090,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 7).saturating_mul(v.into()))
 	}
+	fn prune_era_validator_incentive_weight(v: u32, ) -> Weight {
+		// TODO(ank4n): Run bench
+		Self::prune_era_validator_slash_in_era(v)
+	}
 }
 
 // For backwards compatibility and tests.
@@ -2076,5 +2081,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 7).saturating_mul(v.into()))
+	}
+	fn prune_era_validator_incentive_weight(v: u32, ) -> Weight {
+		Self::prune_era_validator_slash_in_era(v)
 	}
 }

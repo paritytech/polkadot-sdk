@@ -1638,7 +1638,9 @@ pub mod pallet {
 						// Final step — remove pruning state.
 						EraPruningState::<T>::remove(era);
 					}
-					T::WeightInfo::prune_era_stakers_paged(result.backend as u32)
+					T::WeightInfo::prune_era_validator_incentive_weight(
+						result.backend as u32,
+					)
 				},
 			};
 
@@ -2998,6 +3000,7 @@ pub mod pallet {
 				.max(T::WeightInfo::prune_era_reward_points())
 				.max(T::WeightInfo::prune_era_single_entry_cleanups())
 				.max(T::WeightInfo::prune_era_validator_slash_in_era(v))
+			.max(T::WeightInfo::prune_era_validator_incentive_weight(v))
 		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;

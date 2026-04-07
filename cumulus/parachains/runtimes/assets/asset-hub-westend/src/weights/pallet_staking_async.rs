@@ -740,7 +740,11 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	}
 	fn set_validator_self_stake_incentive_config() -> Weight {
 		// TODO(ank4n) run bench
-		T::DbWeight::get().reads_writes(2, 3)
+		Weight::default()
+	}
+	fn prune_era_validator_incentive_weight(v: u32) -> Weight {
+		// TODO(ank4n) run bench
+		Weight::default()
 	}
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)

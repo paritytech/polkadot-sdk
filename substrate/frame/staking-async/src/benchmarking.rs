@@ -1294,6 +1294,18 @@ mod benchmarks {
 		// `ErasNominatorsSlashable`
 		ErasNominatorsSlashable::<T>::insert(era, true);
 
+		// `ErasValidatorIncentiveWeight` + `ErasSumValidatorIncentiveWeight` +
+		// `ErasValidatorIncentiveBudget`
+		let mut total_weight = BalanceOf::<T>::zero();
+		for i in 0..validators {
+			let validator = account::<T::AccountId>("validator", i, SEED);
+			let weight = BalanceOf::<T>::from(100u64);
+			ErasValidatorIncentiveWeight::<T>::insert(era, validator, weight);
+			total_weight += weight;
+		}
+		ErasSumValidatorIncentiveWeight::<T>::insert(era, total_weight);
+		ErasValidatorIncentiveBudget::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
+
 		era
 	}
 
@@ -1486,6 +1498,26 @@ mod benchmarks {
 		}
 
 		validate_pruning_weight::<T>(&result, "ValidatorSlashInEra", v);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn prune_era_validator_incentive_weight(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasValidatorIncentiveWeight);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasValidatorIncentiveWeight", v);
 
 		Ok(())
 	}
