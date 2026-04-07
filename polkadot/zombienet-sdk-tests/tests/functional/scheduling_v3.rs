@@ -2,9 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Test that V3 candidate descriptors with scheduling_parent work correctly.
+//!
+//! Each test runs a mixed fleet of collators: a V3-capable collator (para 2700) alongside a
+//! V2 collator (para 2500), verifying both descriptor versions
+//! are backed and finalized by the same validator set.
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput_with, assign_cores,
+};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
 use rstest::rstest;
 use serde_json::json;
@@ -20,7 +26,7 @@ use crate::utils::{assert_candidates_version, assert_validator_backed_candidates
 #[case::zero_offset("async-backing-v3")]
 #[case::with_rpo("async-backing-v3-rpo")]
 #[tokio::test(flavor = "multi_thread")]
-async fn scheduling_v3_collator_with_v3_validators(
+async fn scheduling_v2_and_v3_collator_with_v3_validators(
 	#[case] para_chain: &str,
 ) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -65,6 +71,7 @@ async fn scheduling_v3_collator_with_v3_validators(
 				})
 			})
 		})
+		// Para 2700: V3-capable collator.
 		.with_parachain(|p| {
 			p.with_id(2700)
 				.with_default_command("test-parachain")
@@ -76,6 +83,18 @@ async fn scheduling_v3_collator_with_v3_validators(
 				])
 				.with_collator(|n| n.with_name("collator-2700"))
 		})
+		// Para 2500: V2 collator.
+		.with_parachain(|p| {
+			p.with_id(2500)
+				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_chain("async-backing")
+				.with_default_args(vec![
+					("-lparachain=debug,aura=debug,cumulus-collator=debug").into(),
+					"--authoring=slot-based".into(),
+				])
+				.with_collator(|n| n.with_name("collator-2500"))
+		})
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -86,26 +105,59 @@ async fn scheduling_v3_collator_with_v3_validators(
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2700")?;
+	let para_v3_node = network.get_node("collator-2700")?;
+	let para_v2_node = network.get_node("collator-2500")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	// With async backing, expect ~1 candidate per 2 relay blocks → ~10 in 20 blocks.
-	assert_candidates_version(
+	let para_v3 = ParaId::from(2700);
+	let para_v2 = ParaId::from(2500);
+
+	// Verify both V3 and V2 candidates are backed in the same relay chain block window.
+	assert_para_throughput_with(
 		&relay_client,
-		CandidateDescriptorVersion::V3,
-		HashMap::from([(ParaId::from(2700), 15..21)]),
 		20,
+		HashMap::from([(para_v3, 5..21), (para_v2, 5..21)]),
+		|receipt| {
+			let para_id = receipt.descriptor.para_id();
+			let version = receipt.descriptor.version();
+			log::info!(
+				"Para {} candidate backed: version={:?}, relay_parent={:?}, \
+				 session_index={:?}, scheduling_parent={:?}",
+				para_id,
+				version,
+				receipt.descriptor.relay_parent(),
+				receipt.descriptor.session_index(),
+				receipt.descriptor.scheduling_parent(),
+			);
+
+			if para_id == para_v3 && version != CandidateDescriptorVersion::V3 {
+				return Err(anyhow!("Para {} expected V3 candidate, got {:?}", para_id, version,));
+			}
+			if para_id == para_v2 && version != CandidateDescriptorVersion::V2 {
+				return Err(anyhow!("Para {} expected V2 candidate, got {:?}", para_id, version,));
+			}
+
+			Ok(true)
+		},
 	)
 	.await?;
 
-	assert_validator_backed_candidates(relay_node, 30).await?;
-	for i in 3..=5 {
+	relay_node
+		.wait_metric_with_timeout(
+			"polkadot_parachain_candidate_disputes_total",
+			|v| v == 0.0,
+			30u64,
+		)
+		.await?;
+
+	for i in 0..6 {
 		let node = network.get_node(format!("validator-{i}"))?;
 		assert_validator_backed_candidates(node, 30).await?;
 	}
 
-	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_v3_node.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_v2_node.wait_client().await?, 5).await?;
 
 	log::info!("V3 scheduling test ({para_chain}) finished successfully");
 	Ok(())
